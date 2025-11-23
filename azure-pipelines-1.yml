@@ -8,7 +8,7 @@ trigger:
 
 variables:
   # Azure Resource Manager connection created during pipeline creation
-  azureSubscription: '3743219c-064b-4c38-bb67-971b60d113c2'
+  azureSubscription: '940c4eae-af3f-45f3-aa26-6bda27a78872'
 
   # Web app name
   webAppName: 'vatcscc'
@@ -42,9 +42,12 @@ stages:
       workingDirectory: $(rootFolder)
       displayName: 'Use PHP version $(phpVersion)'
 
-    - script: composer install --no-interaction --prefer-dist --optimize-autoloader
-      workingDirectory: $(rootFolder)
-      displayName: 'Composer install'
+    - script: |
+        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+        php composer-setup.php --install-dir=$(rootFolder) --filename=composer
+        php -r "unlink('composer-setup.php');"
+        composer --version
+      displayName: 'Install Composer manually'
 
     - task: ArchiveFiles@2
       displayName: 'Archive files'
