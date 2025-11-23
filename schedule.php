@@ -1,0 +1,223 @@
+<?php
+
+    include("sessions/handler.php");
+    // Session Start (S)
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+        ob_start();
+    }
+    // Session Start (E)
+    
+    include("load/config.php");
+    include("load/connect.php");
+
+    // Check Perms
+    $perm = false;
+    if (!defined('DEV')) {
+        if (isset($_SESSION['VATSIM_CID'])) {
+
+            // Getting CID Value
+            $cid = strip_tags($_SESSION['VATSIM_CID']);
+    
+            $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
+    
+            if ($p_check) {
+                $perm = true;
+            }
+    
+        }
+    } else {
+        $perm = true;
+        $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
+    }
+
+    if ($perm == true) {
+        // Do nothing
+    } else {
+        http_response_code(403);
+        exit();
+    }
+
+    $q = $conn_sqli->query("SELECT cid, first_name, last_name FROM users ORDER BY first_name ASC");
+    $users = [];
+
+    while ($user = mysqli_fetch_array($q)) {
+        $users[] = ["cid" => $user['cid'], "first_name" => $user['first_name'], "last_name" => $user['last_name']];
+    }
+
+?>
+
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <!-- Import CSS -->
+    <?php
+        include("load/header.php");
+    ?>
+
+    <script>
+        function tooltips() {
+            $('[data-toggle="tooltip"]').tooltip('dispose');
+
+            $(function () {
+                $('[data-toggle="tooltip"]').tooltip()
+            }); 
+        }
+    </script>
+</head>
+
+<body>
+
+<?php
+include('load/nav.php');
+?>
+
+    <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 250px" data-jarallax data-speed="0.3" style="pointer-events: all;">
+        <div class="container-fluid pt-2 pb-5 py-lg-6">
+            <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
+        </div>       
+    </section>
+
+
+    <div class="container-fluid mt-5 mb-5">
+        <center>
+            <table class="table table-sm w-75">
+                <tbody id="assigned"></tbody>
+                <tbody id="unassigned"></tbody>
+            </table>
+
+            <hr>
+
+            <h5>System Personnel     <button class="btn btn-sm btn-outline-success" data-toggle="modal" data-target="#addpersonnelModal"><i class="fas fa-plus"></i> Add</button></h5>
+            <table class="table w-75">
+                <tbody id="personnel"></tbody>
+            </table>
+
+        </center>
+    </div>
+
+    
+<?php include('load/footer.php'); ?>
+
+<!-- Edit Personnel Modal -->
+<div class="modal fade" id="editassignedModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Assigned Personnel</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post" id="editassigned">
+
+                <div class="modal-body">
+
+                    <input type="hidden" name="id" id="id">
+
+                    <b class="text-danger">P</b>lan Personnel:
+                    <select class="form-control" name="p_cid" id="p_cid" required>
+                        <option value='0'>No Personnel Assigned</option>
+                        <?php 
+                            foreach($users as &$user) {
+                                echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
+                            }
+                        ?>
+                    </select>
+
+                    <b class="text-danger">E</b>xecute Personnel:
+                    <select class="form-control" name="e_cid" id="e_cid" required>
+                        <option value='0'>No Personnel Assigned</option>
+                        <?php 
+                            foreach($users as &$user) {
+                                echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
+                            }
+                        ?>
+                    </select>
+
+                    <b class="text-danger">R</b>eview Personnel:
+                    <select class="form-control" name="t_cid" id="t_cid" required>
+                        <option value='0'>No Personnel Assigned</option>
+                        <?php 
+                            foreach($users as &$user) {
+                                echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
+                            }
+                        ?>
+                    </select>
+
+                    <b class="text-danger">T</b>rain Personnel:
+                    <select class="form-control" name="r_cid" id="r_cid" required>
+                        <option value='0'>No Personnel Assigned</option>
+                        <?php 
+                            foreach($users as &$user) {
+                                echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
+                            }
+                        ?>
+                    </select>
+
+                    <b class="text-danger">I</b>mprove Personnel:
+                    <select class="form-control" name="i_cid" id="i_cid" required>
+                        <option value='0'>No Personnel Assigned</option>
+                        <?php 
+                            foreach($users as &$user) {
+                                echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
+                            }
+                        ?>
+                    </select>
+
+                </div>
+                <div class="modal-footer">
+                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                </div>
+        </div>
+
+        </form>
+
+    </div>
+</div>
+
+
+<!-- Add Personnel Modal -->
+<div class="modal fade" id="addpersonnelModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Personnel</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post" id="addpersonnel">
+
+                <div class="modal-body">
+
+                    VATSIM CID:
+                    <input type="text" name="cid" class="form-control" id="cid" maxlength="8"><hr>
+
+                    First Name:
+                    <input type="text" name="first_name" class="form-control" id="first_name">
+
+                    Last Name:
+                    <input type="text" name="last_name" class="form-control" id="last_name">
+
+                </div>
+                <div class="modal-footer">
+                    <input type="submit" class="btn btn-sm btn-success" value="Add">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                </div>
+        </div>
+
+        </form>
+
+    </div>
+</div>
+
+<!-- Insert schedule.js Script -->
+<script src="assets/js/schedule.js"></script>
+
+</html>
