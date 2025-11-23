@@ -1,0 +1,43 @@
+name: Build and deploy PHP app to Azure Web App - vatcscc
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AZURE_WEBAPP_NAME: 'vatcscc'                 # same as your ADO pipeline
+  AZURE_WEBAPP_PACKAGE_PATH: '.'              # deploy repo root
+  PHP_VERSION: '8.2'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    # Use PHP 8.2 (similar to your update-alternatives step)
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ env.PHP_VERSION }}
+        tools: composer
+        coverage: none
+
+    # Only run Composer if a composer.json actually exists
+    - name: Install PHP dependencies (Composer)
+      if: hashFiles('**/composer.json') != ''
+      run: |
+        composer install --no-interaction --prefer-dist --no-dev
+
+    # Deploy to Azure Web App
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        # or add this if you're targeting a *slot*:
+        # slot-name: 'perti-2025'
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
