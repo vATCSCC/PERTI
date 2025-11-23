@@ -1,0 +1,65 @@
+<?php
+
+// Session Start (S)
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+    ob_start();
+  }
+// Session Start (E)
+
+include("../../../load/config.php");
+include("../../../load/connect.php");
+
+$domain = strip_tags(SITE_DOMAIN);
+
+// Check Perms
+$perm = false;
+if (!defined('DEV')) {
+    if (isset($_SESSION['VATSIM_CID'])) {
+
+        // Getting CID Value
+        $cid = strip_tags($_SESSION['VATSIM_CID']);
+
+        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
+
+        if ($p_check) {
+            $perm = true;
+        }
+
+    }
+} else {
+    $perm = true;
+    $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
+}
+
+// Check Perms (S)
+if ($perm == true) {
+    // Do Nothing
+} else {
+    http_response_code(403);
+    exit();
+}
+// (E)
+
+$id = strip_tags($_POST['id']);
+
+$airport = strip_tags($_POST['airport']);
+$arr = strip_tags($_POST['arr']);
+$dep = strip_tags($_POST['dep']);
+$vmc_aar = strip_tags($_POST['vmc_aar']);
+$lvmc_aar = strip_tags($_POST['lvmc_aar']);
+$imc_aar = strip_tags($_POST['imc_aar']);
+$limc_aar = strip_tags($_POST['limc_aar']);
+$vmc_adr = strip_tags($_POST['vmc_adr']);
+$imc_adr = strip_tags($_POST['imc_adr']);
+
+// Insert Data into Database
+$query = $conn_sqli->query("UPDATE config_data SET airport='$airport', arr='$arr', dep='$dep', vmc_aar='$vmc_aar', lvmc_aar='$lvmc_aar', imc_aar='$imc_aar', limc_aar='$limc_aar', vmc_adr='$vmc_adr', imc_adr='$imc_adr' WHERE id=$id");
+
+if ($query) {
+    http_response_code('200');
+} else {
+    http_response_code('500');
+}
+
+?>
