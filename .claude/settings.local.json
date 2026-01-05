@@ -14,7 +14,15 @@
       "Bash(gh run list:*)",
       "Bash(mv:*)",
       "Bash(git pull:*)",
-      "Bash(powershell.exe -Command \"gh run list --limit 3 --repo vATCSCC/PERTI\")"
+      "Bash(powershell.exe -Command \"gh run list --limit 3 --repo vATCSCC/PERTI\")",
+      "Bash(where.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(gh --version:*)",
+      "Bash(php scripts/merge_sua_data.php:*)",
+      "Bash(node scripts/merge_sua_data.js:*)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive\\\\Documents\")",
+      "Bash(findstr:*)",
+      "Bash(php -r:*)"
     ]
   }
 }
