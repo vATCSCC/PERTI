@@ -1,4 +1,4 @@
-var pathname = $(location).attr('href');
+﻿var pathname = $(location).attr('href');
 var uri = pathname.split('?');
 var p_id = uri[1];
 
@@ -674,7 +674,7 @@ function deleteForecast(id) {
 $("#addterminalinit").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_inits/post';
+    var url = 'api/mgt/terminal_inits/post';
 
     $.ajax({
         type:   'POST',
@@ -721,7 +721,7 @@ $('#editterminalinitModal').on('show.bs.modal', function(event) {
 $("#editterminalinit").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_inits/update';
+    var url = 'api/mgt/terminal_inits/update';
 
     $.ajax({
         type:   'POST',
@@ -756,7 +756,7 @@ $("#editterminalinit").submit(function(e) {
 function deleteTerminalInit(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_inits/delete',
+        url:    'api/mgt/terminal_inits/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -785,7 +785,7 @@ function deleteTerminalInit(id) {
 function createTermTime(init_id, time) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_inits/times/post',
+        url:    'api/mgt/terminal_inits/times/post',
         data:   {init_id: init_id, time: time},
         success:function(data) {
             Swal.fire({
@@ -814,7 +814,7 @@ function createTermTime(init_id, time) {
 function changeTermTime(id, prob) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_inits/times/update',
+        url:    'api/mgt/terminal_inits/times/update',
         data:   {id: id, probability: prob},
         success:function(data) {
             Swal.fire({
@@ -843,7 +843,7 @@ function changeTermTime(id, prob) {
 function deleteTermTime(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_inits/times/delete',
+        url:    'api/mgt/terminal_inits/times/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -872,7 +872,7 @@ function deleteTermTime(id) {
 $("#addtermstaffing").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_staffing/post';
+    var url = 'api/mgt/terminal_staffing/post';
 
     $.ajax({
         type:   'POST',
@@ -921,7 +921,7 @@ $('#edittermstaffingModal').on('show.bs.modal', function(event) {
 $("#edittermstaffing").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_staffing/update';
+    var url = 'api/mgt/terminal_staffing/update';
 
     $.ajax({
         type:   'POST',
@@ -956,7 +956,7 @@ $("#edittermstaffing").submit(function(e) {
 function deleteTermStaffing(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_staffing/delete',
+        url:    'api/mgt/terminal_staffing/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -1135,7 +1135,7 @@ $('#addtermplanningModal').on('show.bs.modal', function(event) {
 $("#addtermplanning").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_planning/post';
+    var url = 'api/mgt/terminal_planning/post';
 
     tinymce.triggerSave();
 
@@ -1184,7 +1184,7 @@ $('#edittermplanningModal').on('show.bs.modal', function(event) {
 $("#edittermplanning").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_planning/update';
+    var url = 'api/mgt/terminal_planning/update';
 
     tinymce.triggerSave();
 
@@ -1221,7 +1221,7 @@ $("#edittermplanning").submit(function(e) {
 function deleteTermPlanning(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_planning/delete',
+        url:    'api/mgt/terminal_planning/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -1260,7 +1260,7 @@ $('#addtermconstraintModal').on('show.bs.modal', function(event) {
 $("#addtermconstraint").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_constraints/post';
+    var url = 'api/mgt/terminal_constraints/post';
     
     $.ajax({
         type:   'POST',
@@ -1316,7 +1316,7 @@ $('#edittermconstraintModal').on('show.bs.modal', function(event) {
 $("#edittermconstraint").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/term_constraints/update';
+    var url = 'api/mgt/terminal_constraints/update';
 
     $.ajax({
         type:   'POST',
@@ -1351,7 +1351,7 @@ $("#edittermconstraint").submit(function(e) {
 function deleteTermConstraint(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_constraints/delete',
+        url:    'api/mgt/terminal_constraints/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -1381,7 +1381,7 @@ function deleteTermConstraint(id) {
 $("#addenrouteinit").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_inits/post';
+    var url = 'api/mgt/enroute_initializations/post';
 
     $.ajax({
         type:   'POST',
@@ -1428,7 +1428,7 @@ $('#editenrouteinitModal').on('show.bs.modal', function(event) {
 $("#editenrouteinit").submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_inits/update';
+    var url = 'api/mgt/enroute_initializations/update';
 
     $.ajax({
         type:   'POST',
@@ -1463,7 +1463,7 @@ $("#editenrouteinit").submit(function(e) {
 function deleteEnrouteInit(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/enroute_inits/delete',
+        url:    'api/mgt/enroute_initializations/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -1492,7 +1492,7 @@ function deleteEnrouteInit(id) {
 function createEnrouteTime(init_id, time) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/enroute_inits/times/post',
+        url:    'api/mgt/enroute_initializations/times/post',
         data:   {init_id: init_id, time: time},
         success:function(data) {
             Swal.fire({
@@ -1521,7 +1521,7 @@ function createEnrouteTime(init_id, time) {
 function changeEnrouteTime(id, prob) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/enroute_inits/times/update',
+        url:    'api/mgt/enroute_initializations/times/update',
         data:   {id: id, probability: prob},
         success:function(data) {
             Swal.fire({
@@ -1550,7 +1550,7 @@ function changeEnrouteTime(id, prob) {
 function deleteEnrouteTime(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/enroute_inits/times/delete',
+        url:    'api/mgt/enroute_initializations/times/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -2064,7 +2064,7 @@ function deleteGroupFlight(id) {
 function termInitDeleteAjax(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/term_inits/times/delete',
+        url:    'api/mgt/terminal_inits/times/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -2139,7 +2139,7 @@ function termInitStateDialog(options) {
             // Create new at chosen state via existing post endpoint, extended to accept probability
             $.ajax({
                 type:   'POST',
-                url:    'api/mgt/term_inits/times/post',
+                url:    'api/mgt/terminal_inits/times/post',
                 data:   {init_id: init_id, time: time, probability: value},
                 success:function(data) {
                     Swal.fire({
@@ -2166,7 +2166,7 @@ function termInitStateDialog(options) {
             // Update existing state via modified update endpoint (absolute probability)
             $.ajax({
                 type:   'POST',
-                url:    'api/mgt/term_inits/times/update',
+                url:    'api/mgt/terminal_inits/times/update',
                 data:   {id: id, probability: value},
                 success:function(data) {
                     Swal.fire({
@@ -2211,7 +2211,7 @@ function deleteTermTime(id) {
 function enrouteInitDeleteAjax(id) {
     $.ajax({
         type:   'POST',
-        url:    'api/mgt/enroute_inits/times/delete',
+        url:    'api/mgt/enroute_initializations/times/delete',
         data:   {id: id},
         success:function(data) {
             Swal.fire({
@@ -2283,7 +2283,7 @@ function enrouteInitStateDialog(options) {
         if (mode === 'create') {
             $.ajax({
                 type:   'POST',
-                url:    'api/mgt/enroute_inits/times/post',
+                url:    'api/mgt/enroute_initializations/times/post',
                 data:   {init_id: init_id, time: time, probability: value},
                 success:function(data) {
                     Swal.fire({
@@ -2309,7 +2309,7 @@ function enrouteInitStateDialog(options) {
         } else if (mode === 'update' && id) {
             $.ajax({
                 type:   'POST',
-                url:    'api/mgt/enroute_inits/times/update',
+                url:    'api/mgt/enroute_initializations/times/update',
                 data:   {id: id, probability: value},
                 success:function(data) {
                     Swal.fire({
@@ -3393,9 +3393,9 @@ function pertiUpdateMessage() {
     lines.push('<@&1268395359714021396> please react with your availability to NOM for this event.');
     lines.push('<@&1268395210665361478> please react with your availability to shadow this event.');
     lines.push('');
-    lines.push('🟢 = Available');
-    lines.push('🟡 = Partially available/unsure');
-    lines.push('🔴 = Unavailable');
+    lines.push('ðŸŸ¢ = Available');
+    lines.push('ðŸŸ¡ = Partially available/unsure');
+    lines.push('ðŸ”´ = Unavailable');
     lines.push('---------------------------------------------------------');
 
     $('#pertiMessage').val(lines.join('\n'));

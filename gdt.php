@@ -1156,7 +1156,7 @@ include("load/connect.php");
 <!-- ============================================================================ -->
 <!-- GDP Section (Ground Delay Program) - FSM User Guide Chapter 15-17 -->
 <!-- ============================================================================ -->
-<?php include 'includes/gdp_section.php'; ?>
+<?php include 'load/gdp_section.php'; ?>
 
 <!-- ECR (EDCT Change Request) Modal - FSM User Guide Chapter 14 -->
 <div class="modal fade" id="ecr_modal" tabindex="-1" role="dialog" aria-labelledby="ecr_modal_label" aria-hidden="true">
