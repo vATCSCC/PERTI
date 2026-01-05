@@ -60,6 +60,10 @@ if (!$sua_type || !$name || !$start_utc || !$end_utc) {
     exit;
 }
 
+// Convert datetime-local format (YYYY-MM-DDTHH:MM) to SQL Server format (YYYY-MM-DD HH:MM:SS)
+$start_utc = str_replace('T', ' ', $start_utc) . ':00';
+$end_utc = str_replace('T', ' ', $end_utc) . ':00';
+
 // Insert query
 $sql = "INSERT INTO sua_activations (sua_id, sua_type, tfr_subtype, name, artcc, start_utc, end_utc, lower_alt, upper_alt, remarks, created_by, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SCHEDULED')";
@@ -81,8 +85,11 @@ $params = [
 $stmt = sqlsrv_query($conn_adl, $sql, $params);
 
 if ($stmt === false) {
+    $errors = sqlsrv_errors();
+    $errorMsg = $errors ? $errors[0]['message'] : 'Unknown database error';
+    error_log("SUA activation failed: " . $errorMsg);
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Failed to create activation']);
+    echo json_encode(['status' => 'error', 'message' => 'Failed to create activation: ' . $errorMsg]);
     exit;
 }
 

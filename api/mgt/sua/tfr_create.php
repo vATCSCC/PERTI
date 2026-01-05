@@ -60,6 +60,10 @@ if (!$name || !$start_utc || !$end_utc) {
     exit;
 }
 
+// Convert datetime-local format (YYYY-MM-DDTHH:MM) to SQL Server format (YYYY-MM-DD HH:MM:SS)
+$start_utc = str_replace('T', ' ', $start_utc) . ':00';
+$end_utc = str_replace('T', ' ', $end_utc) . ':00';
+
 // Validate geometry if provided (should be valid JSON)
 if ($geometry) {
     $decoded = json_decode($geometry);
@@ -91,8 +95,11 @@ $params = [
 $stmt = sqlsrv_query($conn_adl, $sql, $params);
 
 if ($stmt === false) {
+    $errors = sqlsrv_errors();
+    $errorMsg = $errors ? $errors[0]['message'] : 'Unknown database error';
+    error_log("TFR creation failed: " . $errorMsg);
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Failed to create TFR']);
+    echo json_encode(['status' => 'error', 'message' => 'Failed to create TFR: ' . $errorMsg]);
     exit;
 }
 
