@@ -67,13 +67,18 @@
             position: sticky;
             top: 0;
             background: #343a40;
+            color: #fff;
             z-index: 10;
         }
         .filter-row {
-            background: #f8f9fa;
+            background: #e9ecef;
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 15px;
+            color: #212529;
+        }
+        .filter-row label {
+            color: #212529;
         }
         .activation-btn {
             cursor: pointer;
@@ -81,7 +86,29 @@
         .activation-btn:hover {
             opacity: 0.8;
         }
+        /* Ensure modal form labels are readable */
+        .modal-body label {
+            color: #212529;
+            font-weight: 500;
+        }
+        .modal-body .form-control {
+            color: #495057;
+        }
+        /* Improve table readability */
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+        /* SUA Map container */
+        #sua-map {
+            height: 400px;
+            width: 100%;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
     </style>
+
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 </head>
 
 <body>
@@ -154,6 +181,16 @@
             <div class="card-header bg-secondary text-light">
                 <strong>SUA Browser</strong>
                 <span class="badge badge-light ml-2" id="sua_count">0</span>
+                <div class="float-right">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-light active" id="viewMapBtn" onclick="toggleView('map')">
+                            <i class="fas fa-map"></i> Map
+                        </button>
+                        <button type="button" class="btn btn-outline-light" id="viewTableBtn" onclick="toggleView('table')">
+                            <i class="fas fa-table"></i> Table
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="card-body">
                 <!-- Filters -->
@@ -190,8 +227,23 @@
                     </div>
                 </div>
 
+                <!-- SUA Map -->
+                <div id="sua-map-container" class="mb-3">
+                    <div id="sua-map"></div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <span class="badge" style="background-color: #ff0000; color: #fff;">P</span> Prohibited
+                            <span class="badge" style="background-color: #ff6600; color: #fff;">R</span> Restricted
+                            <span class="badge" style="background-color: #9900ff; color: #fff;">W</span> Warning
+                            <span class="badge" style="background-color: #ff00ff; color: #fff;">A</span> Alert
+                            <span class="badge" style="background-color: #0066ff; color: #fff;">MOA</span> Military Operations Area
+                            <span class="badge" style="background-color: #00cc00; color: #fff;">NSA</span> National Security Area
+                        </small>
+                    </div>
+                </div>
+
                 <!-- SUA Table -->
-                <div class="sua-browser">
+                <div class="sua-browser" id="sua-table-container" style="display: none;">
                     <table class="table table-sm table-striped table-bordered">
                         <thead class="table-dark text-light">
                             <tr>
@@ -297,9 +349,9 @@
 <div class="modal fade" id="tfrModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-warning">
+            <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Create Temporary Flight Restriction</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close text-dark" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -405,9 +457,9 @@
 <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-warning">
+            <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title"><i class="fas fa-edit"></i> Edit Activation</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close text-dark" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -476,6 +528,9 @@
 </div>
 
 <?php include('load/footer.php'); ?>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script src="assets/js/sua.js"></script>
 
