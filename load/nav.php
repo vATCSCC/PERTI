@@ -83,7 +83,13 @@ $filepath = "";
                     GDT
                 </a>
             </li>
-            
+
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./advisory-builder">
+                    Advisories
+                </a>
+            </li>
+
             <li class="nav-item">
                 <a class="nav-link" href="<?= $filepath; ?>./jatoc">
                     JATOC
@@ -95,14 +101,6 @@ $filepath = "";
                     Demand
                 </a>
             </li>
-
-            <!--Reroutes button
-            <li class="nav-item">
-                <a class="nav-link" href="<?= $filepath; ?>./reroutes">
-                    Reroutes
-                </a>
-            </li>
-            -->
             
             <li class="nav-item">
                 <a class="nav-link" href="<?= $filepath; ?>./splits">
