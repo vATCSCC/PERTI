@@ -16,7 +16,7 @@ header('Access-Control-Allow-Origin: *');
 header('Cache-Control: max-age=300'); // Cache for 5 minutes
 
 // Use the ATCSCC SUA.geojson file
-$sua_file = __DIR__ . '/../../assets/geojson/SUA.geojson';
+$sua_file = __DIR__ . '/../../../assets/geojson/SUA.geojson';
 
 if (!file_exists($sua_file)) {
     echo json_encode([
