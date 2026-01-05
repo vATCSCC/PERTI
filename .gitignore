@@ -1,8 +1,16 @@
 .htaccess
 load/config.php
 
+# Bundled tools (download fresh instead)
+composer
+
 # Log and lock files
 *.log
 *.lock
 scripts/*.log
 scripts/*.lock
+
+# Swap/temp files
+*.swp
+*.swo
+*~

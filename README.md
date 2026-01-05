@@ -33,7 +33,7 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 |------|-----|-------------|
 | **Plan** | `/plan.php` | Traffic management planning worksheets |
 | **Schedule** | `/schedule.php` | Staff scheduling |
-| **Data Sheet** | `/data.php` or `/sheet.php` | Operational data sheets |
+| **Data Sheet** | `/sheet.php` | Operational data sheets (`/data.php` redirects here) |
 | **Review** | `/review.php` | Plan review and comments |
 
 ---

@@ -36,7 +36,7 @@ This index is based on the `wwwroot.zip` snapshot provided in this chat, and is 
   - `$conn` (MySQL)
   - `$conn_adl` (Azure SQL / sqlsrv)
 - `load/header.php`, `load/nav.php`, `load/footer.php` — shared layout and script/style includes.
-- `includes/gdp_section.php` — GDP/GDT section component (reusable)
+- `load/gdp_section.php` — GDP/GDT section component (reusable)
 - `.htaccess` — rewrite rule for extensionless `/api/...` requests to resolve `.php` endpoints.
 
 ## Quick navigation
@@ -193,24 +193,26 @@ This project uses Azure SQL (via `sqlsrv_*` and `$conn_adl`) for live flight sta
 Top-level PHP pages in `/wwwroot` and which `assets/js/*` files they load.
 
 - `configs.php`
-- `data.php` — scripts: `assets/js/sheet.js`
+- `data.php` — **DEPRECATED**: redirects to `sheet.php`
 - `gdt.php` — scripts: `assets/js/gdt.js`
 - `index.php`
 - `jatoc.php` — scripts: `assets/js/jatoc.js`
 - `logout.php`
 - `nod.php` — scripts: `assets/js/nod.js`
 - `plan.php` — scripts: `assets/js/plan.js`, `assets/js/initiative_timeline.js` **(NEW v12)**
-- `plan_bu.php` — scripts: `assets/js/plan.js`
 - `privacy.php`
 - `reroutes.php` — scripts: `assets/js/reroute.js`
 - `reroutes_index.php`
 - `review.php` — scripts: `assets/js/review.js`
 - `route.php` — scripts: `assets/js/awys.js`, `assets/js/leaflet.textpath.js`, `assets/js/procs_enhanced.js`, `assets/js/route-maplibre.js`, `assets/js/route.js`
-- `route_bu.php` — scripts: `assets/js/awys.js`, `assets/js/leaflet.textpath.js`, `assets/js/route_bu.js`
 - `schedule.php` — scripts: `assets/js/schedule.js`
 - `sheet.php` — scripts: `assets/js/sheet.js`
 - `splits.php` — scripts: `assets/js/splits.js`
 - `tmi.php` — scripts: `assets/js/gdp.js`, `assets/js/gdt.js`, `assets/js/tmi.js`
+
+**Deprecated files (moved to `deprecated/` folder):**
+- `plan_bu.php` — legacy backup of plan.php
+- `route_bu.php` — legacy backup of route.php (uses Leaflet instead of MapLibre)
 
 Notes:
 - `reroutes_index.php` contains **inline** JS (no dedicated `assets/js/*` module).
@@ -331,10 +333,10 @@ Notes:
 - Size: ~7,930 lines
 - Calls APIs: Same as route.js, optimized for MapLibre GL
 
-#### `route_bu.js`
-- Loaded by: `route_bu.php`
+#### `route_bu.js` *(DEPRECATED - moved to deprecated/)*
+- Was loaded by: `route_bu.php`
 - Size: ~5,796 lines
-- Calls APIs: Similar to route.js
+- Note: Legacy backup, replaced by route.js with MapLibre
 
 #### `schedule.js`
 - Loaded by: `schedule.php`
@@ -342,7 +344,7 @@ Notes:
 - Calls APIs: `api/data/schedule.php`, `api/mgt/schedule/*`
 
 #### `sheet.js`
-- Loaded by: `sheet.php, data.php`
+- Loaded by: `sheet.php`
 - Size: ~244 lines
 - Calls APIs: `api/data/sheet/*`
 
@@ -552,32 +554,34 @@ Notes:
 
 CRUD endpoints for all plan/config/review data. Structure: `api/mgt/{entity}/{action}.php`
 
-Entities: `comments`, `config_data`, `configs`, `dcc`, `enroute_constraints`, `enroute_inits`, `enroute_planning`, `enroute_staffing`, `event_data`, `forecast`, `goals`, `group_flights`, `historical`, `personnel`, `perti`, `schedule`, `scores`, `term_constraints`, `term_inits`, `term_planning`, `term_staffing`, `tmi/ground_stops`, `tmi/reroutes`
+Entities: `comments`, `config_data`, `configs`, `dcc`, `enroute_constraints`, `enroute_initializations`, `enroute_planning`, `enroute_staffing`, `event_data`, `forecast`, `goals`, `group_flights`, `historical`, `personnel`, `perti`, `schedule`, `scores`, `terminal_constraints`, `terminal_inits`, `terminal_planning`, `terminal_staffing`, `tmi/ground_stops`, `tmi/reroutes`
 
 Actions: `post.php`, `update.php`, `delete.php` (and specialized ones like `fill.php`, `activate.php`, `bulk.php`)
 
 ## 7) Database migrations and schema artifacts
 
-Located in `database/migrations/`:
+Located in `database/migrations/` (renumbered sequentially):
 
 | Migration | Description |
 |-----------|-------------|
 | `001_create_reroute_tables.sql` | Reroute tables (MySQL) |
-| `001_create_reroute_tables_sqlserver.sql` | Reroute tables (Azure SQL) |
-| `002_adl_history_stored_procedure.sql` | ADL history SP |
-| `003_gdp_tables.sql` | GDP tables |
-| `003_gdp_tables_PATCH.sql` | GDP patch |
-| `004_public_routes.sql` | Public routes table |
-| `004_splits_areas_color.sql` | Splits color column |
-| `005_jatoc_tables.sql` | JATOC core tables |
-| `005b_add_incident_numbers.sql` | JATOC incident numbers |
-| `005c_jatoc_reports_table.sql` | JATOC reports |
-| `006_nod_advisories.sql` | NOD advisories (alternate) |
-| `006_dcc_advisories.sql` | DCC advisories (primary) |
-| `007_add_plan_end_datetime.sql` | Plan end date/time columns |
-| `007_initiative_timeline.sql` | Initiative timeline tables (MySQL) **(NEW v12)** |
-| `008_initiative_timeline_alter.sql` | Initiative timeline alterations (Azure SQL) **(NEW v12)** |
-| `008_initiative_timeline_alter_mysql.sql` | Initiative timeline alterations (MySQL) **(NEW v12)** |
+| `002_create_reroute_tables_sqlserver.sql` | Reroute tables (Azure SQL) |
+| `003_adl_history_stored_procedure.sql` | ADL history SP |
+| `004_gdp_tables.sql` | GDP tables |
+| `005_gdp_tables_patch.sql` | GDP patch |
+| `006_public_routes.sql` | Public routes table |
+| `007_splits_areas_color.sql` | Splits color column |
+| `008_jatoc_tables.sql` | JATOC core tables |
+| `009_add_incident_numbers.sql` | JATOC incident numbers |
+| `010_jatoc_reports_table.sql` | JATOC reports |
+| `011_dcc_advisories.sql` | DCC advisories (primary) |
+| `012_nod_advisories.sql` | NOD advisories (alternate) |
+| `013_add_plan_end_datetime.sql` | Plan end date/time columns |
+| `014_initiative_timeline.sql` | Initiative timeline tables (MySQL) |
+| `015_initiative_timeline_alter.sql` | Initiative timeline alterations (Azure SQL) |
+| `016_initiative_timeline_alter_mysql.sql` | Initiative timeline alterations (MySQL) |
+| `017_add_position_columns.sql` | Add position columns |
+| `018_vatsim_adl_hourly_rates.sql` | ADL hourly rates |
 
 ## 8) Reference data and GeoJSON
 
