@@ -136,6 +136,52 @@ function getLayerGroup(feature) {
     return LAYER_GROUPS[colorName] || 'OTHER';
 }
 
+// Types that have dedicated layer checkboxes
+const LAYER_CHECKBOX_TYPES = [
+    'PROHIBITED', 'RESTRICTED', 'WARNING', 'ALERT', 'NSA',
+    'MOA', 'ATCAA', 'ALTRV', 'USN', 'OPAREA', 'AW',
+    'AR', 'TFR', 'DZ', 'SS'
+];
+
+// Types that map to DC_AREA checkbox
+const DC_AREA_TYPES = ['ADIZ', 'FRZ', 'SFRA', '120', '180'];
+
+// Get the filter key for a feature (matches checkbox values)
+function getFeatureFilterType(feature) {
+    var props = feature.properties || feature;
+    var suaType = props.sua_type || props.colorName || props.suaType || '';
+
+    // Direct match to checkbox types
+    if (LAYER_CHECKBOX_TYPES.indexOf(suaType) !== -1) {
+        return suaType;
+    }
+
+    // Map short codes to full type names
+    var typeMap = {
+        'P': 'PROHIBITED',
+        'R': 'RESTRICTED',
+        'W': 'WARNING',
+        'A': 'ALERT'
+    };
+    if (typeMap[suaType]) {
+        return typeMap[suaType];
+    }
+
+    // DC Area types map to DC_AREA checkbox
+    if (DC_AREA_TYPES.indexOf(suaType) !== -1) {
+        return 'DC_AREA';
+    }
+
+    // Check group for DC_AREA
+    var group = props.sua_group || LAYER_GROUPS[suaType];
+    if (group === 'DC_AREA') {
+        return 'DC_AREA';
+    }
+
+    // Everything else is OTHER
+    return 'OTHER';
+}
+
 // Get currently enabled layer types from checkboxes
 function getEnabledLayers() {
     var enabled = [];
@@ -157,16 +203,16 @@ function applyLayerFilters() {
 
     var enabledLayers = getEnabledLayers();
 
-    // Filter area features
+    // Filter area features based on individual type checkboxes
     var filteredAreas = allFeatures.areas.filter(function(f) {
-        var group = getLayerGroup(f);
-        return enabledLayers.indexOf(group) !== -1;
+        var filterType = getFeatureFilterType(f);
+        return enabledLayers.indexOf(filterType) !== -1;
     });
 
-    // Filter route features
+    // Filter route features based on individual type checkboxes
     var filteredRoutes = allFeatures.routes.filter(function(f) {
-        var group = getLayerGroup(f);
-        return enabledLayers.indexOf(group) !== -1;
+        var filterType = getFeatureFilterType(f);
+        return enabledLayers.indexOf(filterType) !== -1;
     });
 
     // Update sources
