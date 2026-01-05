@@ -76,6 +76,8 @@ const TYPE_COLORS = {
 var suaMap = null;
 var currentView = 'map';
 var popup = null;
+var mapLoaded = false;
+var layersInitialized = false;
 
 // Tooltip helper
 function tooltips() {
@@ -159,8 +161,8 @@ function loadSuaBrowser() {
         $('#sua_browser_table').html('<tr><td colspan="7" class="text-center text-danger">Failed to load SUAs</td></tr>');
     });
 
-    // Also update the map if it's initialized
-    if (suaMap) {
+    // Also update the map if it's initialized and loaded
+    if (suaMap && mapLoaded) {
         loadSuaMapData();
     }
 }
@@ -265,9 +267,9 @@ function generateCircularGeometry(lat, lon, radiusNM) {
 
 // Convert LineString to Polygon if it's a closed shape
 function convertToPolygon(feature) {
-    if (feature.geometry.type === 'LineString') {
+    if (feature.geometry && feature.geometry.type === 'LineString') {
         var coords = feature.geometry.coordinates;
-        if (coords.length >= 3) {
+        if (coords && coords.length >= 3) {
             // Check if it's closed (first and last points are same or very close)
             var first = coords[0];
             var last = coords[coords.length - 1];
@@ -296,11 +298,11 @@ function convertToPolygon(feature) {
 // Get color for a feature
 function getFeatureColor(props) {
     // Use color from data if available
-    if (props.color) {
+    if (props && props.color) {
         return props.color;
     }
     // Fall back to type-based color
-    var suaType = props.suaType || props.colorName || 'OTHER';
+    var suaType = (props && (props.suaType || props.colorName)) || 'OTHER';
     return TYPE_COLORS[suaType] || TYPE_COLORS['OTHER'];
 }
 
@@ -347,62 +349,18 @@ function initSuaMap() {
         maxWidth: '300px'
     });
 
-    // Load SUAs when map is ready
+    // Set up event handlers ONCE when map loads
     suaMap.on('load', function() {
-        loadSuaMapData();
-    });
-}
+        console.log('Map loaded');
+        mapLoaded = true;
 
-// Load SUA data with geometry for the map
-function loadSuaMapData() {
-    var search = $('#suaSearch').val();
-    var type = $('#suaTypeFilter').val();
-    var artcc = $('#suaArtccFilter').val();
-
-    var params = [];
-    if (search) params.push('search=' + encodeURIComponent(search));
-    if (type) params.push('type=' + type);
-    if (artcc) params.push('artcc=' + artcc);
-    params.push('include_geometry=true'); // Request geometry for map
-
-    var url = 'api/data/sua/sua_geojson.php';
-    if (params.length > 0) {
-        url += '?' + params.join('&');
-    }
-
-    $.getJSON(url).done(function(geojson) {
-        if (!suaMap || !geojson || !geojson.features) return;
-
-        // Convert LineStrings to Polygons and add colors
-        var processedFeatures = geojson.features.map(function(feature, index) {
-            var converted = convertToPolygon(feature);
-            // Add a unique ID for interaction
-            converted.properties._id = index;
-            // Ensure color is set
-            converted.properties._color = getFeatureColor(converted.properties);
-            return converted;
-        });
-
-        var processedGeojson = {
-            type: 'FeatureCollection',
-            features: processedFeatures
-        };
-
-        // Remove existing layers and source if they exist
-        if (suaMap.getLayer('sua-fill')) {
-            suaMap.removeLayer('sua-fill');
-        }
-        if (suaMap.getLayer('sua-line')) {
-            suaMap.removeLayer('sua-line');
-        }
-        if (suaMap.getSource('sua-data')) {
-            suaMap.removeSource('sua-data');
-        }
-
-        // Add the source
+        // Add empty source
         suaMap.addSource('sua-data', {
             type: 'geojson',
-            data: processedGeojson
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
         });
 
         // Add fill layer for polygons
@@ -412,7 +370,7 @@ function loadSuaMapData() {
             source: 'sua-data',
             filter: ['==', '$type', 'Polygon'],
             paint: {
-                'fill-color': ['get', '_color'],
+                'fill-color': ['coalesce', ['get', '_color'], '#999999'],
                 'fill-opacity': 0.25
             }
         });
@@ -423,24 +381,21 @@ function loadSuaMapData() {
             type: 'line',
             source: 'sua-data',
             paint: {
-                'line-color': ['get', '_color'],
+                'line-color': ['coalesce', ['get', '_color'], '#999999'],
                 'line-width': 2,
                 'line-opacity': 0.9
             }
         });
 
-        // Update count
-        $('#sua_count').text(processedFeatures.length);
-
-        // Add click interaction
+        // Add click handlers (only once)
         suaMap.on('click', 'sua-fill', function(e) {
-            if (e.features.length > 0) {
+            if (e.features && e.features.length > 0) {
                 showFeaturePopup(e.features[0], e.lngLat);
             }
         });
 
         suaMap.on('click', 'sua-line', function(e) {
-            if (e.features.length > 0) {
+            if (e.features && e.features.length > 0) {
                 showFeaturePopup(e.features[0], e.lngLat);
             }
         });
@@ -459,14 +414,82 @@ function loadSuaMapData() {
             suaMap.getCanvas().style.cursor = '';
         });
 
-    }).fail(function() {
-        console.error('Failed to load SUA map data');
+        layersInitialized = true;
+
+        // Now load the actual data
+        loadSuaMapData();
+    });
+}
+
+// Load SUA data with geometry for the map
+function loadSuaMapData() {
+    if (!suaMap || !mapLoaded || !layersInitialized) {
+        console.log('Map not ready yet');
+        return;
+    }
+
+    var search = $('#suaSearch').val();
+    var type = $('#suaTypeFilter').val();
+    var artcc = $('#suaArtccFilter').val();
+
+    var params = [];
+    if (search) params.push('search=' + encodeURIComponent(search));
+    if (type) params.push('type=' + type);
+    if (artcc) params.push('artcc=' + artcc);
+
+    var url = 'api/data/sua/sua_geojson.php';
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+
+    console.log('Loading SUA data from:', url);
+
+    $.getJSON(url).done(function(geojson) {
+        console.log('Received GeoJSON with', geojson.features ? geojson.features.length : 0, 'features');
+
+        if (!geojson || !geojson.features) {
+            console.error('Invalid GeoJSON data');
+            return;
+        }
+
+        // Convert LineStrings to Polygons and add colors
+        var processedFeatures = geojson.features.map(function(feature, index) {
+            var converted = convertToPolygon(feature);
+            // Add a unique ID for interaction
+            if (!converted.properties) converted.properties = {};
+            converted.properties._id = index;
+            // Ensure color is set
+            converted.properties._color = getFeatureColor(converted.properties);
+            return converted;
+        });
+
+        var processedGeojson = {
+            type: 'FeatureCollection',
+            features: processedFeatures
+        };
+
+        console.log('Processed', processedFeatures.length, 'features');
+
+        // Update the source data
+        var source = suaMap.getSource('sua-data');
+        if (source) {
+            source.setData(processedGeojson);
+            console.log('Updated map source');
+        } else {
+            console.error('Source sua-data not found');
+        }
+
+        // Update count
+        $('#sua_count').text(processedFeatures.length);
+
+    }).fail(function(xhr, status, error) {
+        console.error('Failed to load SUA map data:', status, error);
     });
 }
 
 // Show popup for a feature
 function showFeaturePopup(feature, lngLat) {
-    var props = feature.properties;
+    var props = feature.properties || {};
     var typeName = TYPE_NAMES[props.suaType] || props.suaType || props.colorName || 'Unknown';
     var altDisplay = (props.lowerLimit || '-') + ' - ' + (props.upperLimit || '-');
     var color = props._color || getFeatureColor(props);
