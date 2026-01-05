@@ -259,39 +259,97 @@
                     <div id="sua-map"></div>
                     <!-- Layer Controls -->
                     <div class="mt-2 p-2 bg-light border rounded">
-                        <div class="d-flex flex-wrap align-items-center">
-                            <strong class="mr-2 text-dark">Layers:</strong>
-                            <div class="btn-group btn-group-sm mr-2 mb-1" role="group">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong class="text-dark">Map Layers</strong>
+                            <div class="btn-group btn-group-sm" role="group">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllLayers(true)">All On</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllLayers(false)">All Off</button>
                             </div>
-                            <div class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input layer-toggle" id="layer-REGULATORY" value="REGULATORY" checked>
-                                <label class="custom-control-label" for="layer-REGULATORY"><span class="badge" style="background-color: #ff0000; color: #fff;">Regulatory</span></label>
+                        </div>
+                        <!-- Regulatory Airspace -->
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1"><strong>Regulatory</strong></small>
+                            <div class="d-flex flex-wrap">
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-PROHIBITED" value="PROHIBITED" checked>
+                                    <label class="custom-control-label" for="layer-PROHIBITED"><span class="badge" style="background-color: #FF00FF; color: #fff;">P</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-RESTRICTED" value="RESTRICTED" checked>
+                                    <label class="custom-control-label" for="layer-RESTRICTED"><span class="badge" style="background-color: #0004B0; color: #fff;">R</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-WARNING" value="WARNING" checked>
+                                    <label class="custom-control-label" for="layer-WARNING"><span class="badge" style="background-color: #3D6003; color: #fff;">W</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-ALERT" value="ALERT" checked>
+                                    <label class="custom-control-label" for="layer-ALERT"><span class="badge" style="background-color: #199696; color: #fff;">A</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-NSA" value="NSA" checked>
+                                    <label class="custom-control-label" for="layer-NSA"><span class="badge" style="background-color: #00FF00; color: #000;">NSA</span></label>
+                                </div>
                             </div>
-                            <div class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input layer-toggle" id="layer-MILITARY" value="MILITARY" checked>
-                                <label class="custom-control-label" for="layer-MILITARY"><span class="badge" style="background-color: #0000ff; color: #fff;">Military</span></label>
+                        </div>
+                        <!-- Military -->
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1"><strong>Military</strong></small>
+                            <div class="d-flex flex-wrap">
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-MOA" value="MOA" checked>
+                                    <label class="custom-control-label" for="layer-MOA"><span class="badge" style="background-color: #087DD4; color: #fff;">MOA</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-ATCAA" value="ATCAA" checked>
+                                    <label class="custom-control-label" for="layer-ATCAA"><span class="badge" style="background-color: #4169E1; color: #fff;">ATCAA</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-ALTRV" value="ALTRV" checked>
+                                    <label class="custom-control-label" for="layer-ALTRV"><span class="badge" style="background-color: #E1E101; color: #000;">ALTRV</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-USN" value="USN" checked>
+                                    <label class="custom-control-label" for="layer-USN"><span class="badge" style="background-color: #6C2B00; color: #fff;">USN</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-OPAREA" value="OPAREA" checked>
+                                    <label class="custom-control-label" for="layer-OPAREA"><span class="badge" style="background-color: #8B4513; color: #fff;">OPAREA</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-AW" value="AW" checked>
+                                    <label class="custom-control-label" for="layer-AW"><span class="badge" style="background-color: #0045FF; color: #fff;">AWACS</span></label>
+                                </div>
                             </div>
-                            <div class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input layer-toggle" id="layer-ROUTES" value="ROUTES" checked>
-                                <label class="custom-control-label" for="layer-ROUTES"><span class="badge" style="background-color: #00aa00; color: #fff;">Routes</span></label>
-                            </div>
-                            <div class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input layer-toggle" id="layer-SPECIAL" value="SPECIAL" checked>
-                                <label class="custom-control-label" for="layer-SPECIAL"><span class="badge" style="background-color: #ff00ff; color: #fff;">Special</span></label>
-                            </div>
-                            <div class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input layer-toggle" id="layer-DC_AREA" value="DC_AREA" checked>
-                                <label class="custom-control-label" for="layer-DC_AREA"><span class="badge" style="background-color: #ff8800; color: #fff;">DC NCR</span></label>
-                            </div>
-                            <div class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input layer-toggle" id="layer-AWACS" value="AWACS" checked>
-                                <label class="custom-control-label" for="layer-AWACS"><span class="badge" style="background-color: #00ffff; color: #000;">AWACS</span></label>
-                            </div>
-                            <div class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input layer-toggle" id="layer-OTHER" value="OTHER" checked>
-                                <label class="custom-control-label" for="layer-OTHER"><span class="badge badge-secondary">Other</span></label>
+                        </div>
+                        <!-- Routes & Special -->
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1"><strong>Routes & Special</strong></small>
+                            <div class="d-flex flex-wrap">
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-AR" value="AR" checked>
+                                    <label class="custom-control-label" for="layer-AR"><span class="badge" style="background-color: #164856; color: #fff;">AR</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-TFR" value="TFR" checked>
+                                    <label class="custom-control-label" for="layer-TFR"><span class="badge" style="background-color: #EF4AC0; color: #fff;">TFR</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-DZ" value="DZ" checked>
+                                    <label class="custom-control-label" for="layer-DZ"><span class="badge" style="background-color: #FF6347; color: #fff;">DZ</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-SS" value="SS" checked>
+                                    <label class="custom-control-label" for="layer-SS"><span class="badge" style="background-color: #9932CC; color: #fff;">SS</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-DC_AREA" value="DC_AREA" checked>
+                                    <label class="custom-control-label" for="layer-DC_AREA"><span class="badge" style="background-color: #ff8800; color: #fff;">DC NCR</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input layer-toggle" id="layer-OTHER" value="OTHER" checked>
+                                    <label class="custom-control-label" for="layer-OTHER"><span class="badge badge-secondary">Other</span></label>
+                                </div>
                             </div>
                         </div>
                     </div>
