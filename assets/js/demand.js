@@ -295,20 +295,19 @@ function updateTierOptions() {
  * Show prompt to select an airport
  */
 function showSelectAirportPrompt() {
-    if (DEMAND_STATE.chart) {
-        DEMAND_STATE.chart.clear();
-        DEMAND_STATE.chart.setOption({
-            title: {
-                text: 'Select an airport to view demand',
-                left: 'center',
-                top: 'middle',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 18
-                }
-            }
-        });
-    }
+    // Show empty state, hide chart
+    $('#demand_empty_state').show();
+    $('#demand_chart').hide();
+
+    // Reset info bar
+    $('#demand_selected_airport').text('----');
+    $('#demand_airport_name').text('Select an airport');
+
+    // Reset stats
+    $('#demand_arr_total, #demand_arr_active, #demand_arr_scheduled, #demand_arr_proposed').text('0');
+    $('#demand_dep_total, #demand_dep_active, #demand_dep_scheduled, #demand_dep_proposed').text('0');
+    $('#demand_flight_count').text('0 flights');
+
     $('#demand_last_update').text('--');
 }
 
@@ -321,6 +320,16 @@ function loadDemandData() {
         showSelectAirportPrompt();
         return;
     }
+
+    // Update info bar with selected airport
+    const $selectedOption = $('#demand_airport option:selected');
+    const airportName = $selectedOption.data('name') || '';
+    $('#demand_selected_airport').text(airport);
+    $('#demand_airport_name').text(airportName);
+
+    // Hide empty state, show chart
+    $('#demand_empty_state').hide();
+    $('#demand_chart').show();
 
     // Calculate time range
     const now = new Date();
@@ -343,6 +352,7 @@ function loadDemandData() {
             if (response.success) {
                 DEMAND_STATE.lastUpdate = new Date();
                 renderChart(response);
+                updateInfoBarStats(response);
                 updateLastUpdateDisplay(response.last_adl_update);
             } else {
                 console.error('API error:', response.error);
@@ -463,6 +473,50 @@ function renderChart(data) {
 }
 
 /**
+ * Update info bar stats with response data
+ */
+function updateInfoBarStats(data) {
+    const arrivals = data.data.arrivals || [];
+    const departures = data.data.departures || [];
+
+    // Calculate arrival totals
+    let arrTotal = 0, arrActive = 0, arrScheduled = 0, arrProposed = 0;
+    arrivals.forEach(d => {
+        const b = d.breakdown || {};
+        arrActive += b.active || 0;
+        arrScheduled += b.scheduled || 0;
+        arrProposed += b.proposed || 0;
+        arrTotal += d.total || 0;
+    });
+
+    // Calculate departure totals
+    let depTotal = 0, depActive = 0, depScheduled = 0, depProposed = 0;
+    departures.forEach(d => {
+        const b = d.breakdown || {};
+        depActive += b.active || 0;
+        depScheduled += b.scheduled || 0;
+        depProposed += b.proposed || 0;
+        depTotal += d.total || 0;
+    });
+
+    // Update arrival stats
+    $('#demand_arr_total').text(arrTotal);
+    $('#demand_arr_active').text(arrActive);
+    $('#demand_arr_scheduled').text(arrScheduled);
+    $('#demand_arr_proposed').text(arrProposed);
+
+    // Update departure stats
+    $('#demand_dep_total').text(depTotal);
+    $('#demand_dep_active').text(depActive);
+    $('#demand_dep_scheduled').text(depScheduled);
+    $('#demand_dep_proposed').text(depProposed);
+
+    // Update flight count
+    const totalFlights = arrTotal + depTotal;
+    $('#demand_flight_count').text(totalFlights + ' flights');
+}
+
+/**
  * Build a series for a specific status
  */
 function buildStatusSeries(name, timeBins, dataByBin, status, type) {
@@ -542,7 +596,13 @@ function updateLastUpdateDisplay(adlUpdate) {
  * Show loading indicator on chart
  */
 function showLoading() {
+    // Make sure chart is visible
+    $('#demand_empty_state').hide();
+    $('#demand_chart').show();
+
+    // Resize chart in case it was hidden
     if (DEMAND_STATE.chart) {
+        DEMAND_STATE.chart.resize();
         DEMAND_STATE.chart.showLoading({
             text: 'Loading...',
             color: '#007bff',
