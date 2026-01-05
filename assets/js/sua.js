@@ -23,6 +23,18 @@ const TYPE_NAMES = {
     'DZ': 'Drop Zone',
     'ADIZ': 'ADIZ',
     'OSARA': 'OSARA',
+    'WSRP': 'Weather Radar',
+    'SS': 'Supersonic',
+    'USArmy': 'US Army',
+    'LASER': 'Laser',
+    'USAF': 'US Air Force',
+    'ANG': 'Air Nat Guard',
+    'NUCLEAR': 'Nuclear',
+    'NORAD': 'NORAD',
+    'NOAA': 'NOAA',
+    'NASA': 'NASA',
+    'MODEC': 'MODEC',
+    'FRZ': 'FRZ',
     'OTHER': 'Other'
 };
 
@@ -44,6 +56,18 @@ const TYPE_COLORS = {
     'DZ': '#cc0066',   // Pink - Drop Zone
     'ADIZ': '#990000', // Dark Red - ADIZ
     'OSARA': '#666600', // Dark olive - OSARA
+    'WSRP': '#009999', // Teal - Weather Radar
+    'SS': '#cc3300',   // Red-orange - Supersonic
+    'USArmy': '#336600', // Army green
+    'LASER': '#ff3399', // Bright pink - Laser
+    'USAF': '#0033cc', // Air Force blue
+    'ANG': '#006633',  // Guard green
+    'NUCLEAR': '#ff0000', // Red - Nuclear
+    'NORAD': '#333399', // Dark blue - NORAD
+    'NOAA': '#0099cc', // Light blue - NOAA
+    'NASA': '#ff6600', // Orange - NASA
+    'MODEC': '#999966', // Olive gray
+    'FRZ': '#cc0000',  // Dark red - FRZ
     'OTHER': '#999999' // Gray - Other
 };
 
