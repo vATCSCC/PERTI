@@ -61,6 +61,104 @@ var currentView = 'map';
 var popup = null;
 var mapLoaded = false;
 var layersInitialized = false;
+var allFeatures = { areas: [], routes: [] }; // Store all loaded features for filtering
+
+// Layer type mapping - maps colorName to layer group
+const LAYER_GROUPS = {
+    'PROHIBITED': 'PROHIBITED',
+    'RESTRICTED': 'RESTRICTED',
+    'WARNING': 'WARNING',
+    'ALERT': 'ALERT',
+    'MOA': 'MOA',
+    'NSA': 'NSA',
+    'TFR': 'TFR',
+    'AR': 'AR',
+    'ALTRV': 'ALTRV',
+    'AW': 'AW',
+    'USN': 'USN',
+    'ADIZ': 'OTHER',
+    'FRZ': 'OTHER',
+    'OPAREA': 'OTHER',
+    'DZ': 'OTHER',
+    'LASER': 'OTHER',
+    'NUCLEAR': 'OTHER',
+    'USAF': 'OTHER',
+    'USArmy': 'OTHER',
+    'ANG': 'OTHER',
+    'OSARA': 'OTHER',
+    'SS': 'OTHER',
+    'WSRP': 'OTHER',
+    'NORAD': 'OTHER',
+    'NASA': 'OTHER',
+    'NOAA': 'OTHER',
+    'MODEC': 'OTHER',
+    'SUA': 'OTHER',
+    'Unknown': 'OTHER',
+    '120': 'OTHER',
+    '180': 'OTHER'
+};
+
+// Get the layer group for a feature
+function getLayerGroup(colorName) {
+    return LAYER_GROUPS[colorName] || 'OTHER';
+}
+
+// Get currently enabled layer types from checkboxes
+function getEnabledLayers() {
+    var enabled = [];
+    $('.layer-toggle:checked').each(function() {
+        enabled.push($(this).val());
+    });
+    return enabled;
+}
+
+// Toggle all layers on or off
+function toggleAllLayers(state) {
+    $('.layer-toggle').prop('checked', state);
+    applyLayerFilters();
+}
+
+// Apply layer filters to the map
+function applyLayerFilters() {
+    if (!suaMap || !mapLoaded || !layersInitialized) return;
+
+    var enabledLayers = getEnabledLayers();
+
+    // Filter area features
+    var filteredAreas = allFeatures.areas.filter(function(f) {
+        var colorName = f.properties.colorName || 'Unknown';
+        var group = getLayerGroup(colorName);
+        return enabledLayers.indexOf(group) !== -1;
+    });
+
+    // Filter route features
+    var filteredRoutes = allFeatures.routes.filter(function(f) {
+        var colorName = f.properties.colorName || 'Unknown';
+        var group = getLayerGroup(colorName);
+        return enabledLayers.indexOf(group) !== -1;
+    });
+
+    // Update sources
+    var areaSource = suaMap.getSource('sua-areas');
+    var routeSource = suaMap.getSource('sua-routes');
+
+    if (areaSource) {
+        areaSource.setData({
+            type: 'FeatureCollection',
+            features: filteredAreas
+        });
+    }
+
+    if (routeSource) {
+        routeSource.setData({
+            type: 'FeatureCollection',
+            features: filteredRoutes
+        });
+    }
+
+    // Update visible count
+    $('#sua_count').text(filteredAreas.length + filteredRoutes.length);
+}
 
 // Tooltip helper
 function tooltips() {
@@ -531,25 +629,15 @@ function loadSuaMapData() {
 
         console.log('Processed:', areaFeatures.length, 'areas,', routeFeatures.length, 'routes');
 
-        // Update sources
-        var areaSource = suaMap.getSource('sua-areas');
-        var routeSource = suaMap.getSource('sua-routes');
+        // Store all features for layer filtering
+        allFeatures.areas = areaFeatures;
+        allFeatures.routes = routeFeatures;
 
-        if (areaSource) {
-            areaSource.setData({
-                type: 'FeatureCollection',
-                features: areaFeatures
-            });
-        }
+        // Apply layer filters (this will update the map sources)
+        applyLayerFilters();
 
-        if (routeSource) {
-            routeSource.setData({
-                type: 'FeatureCollection',
-                features: routeFeatures
-            });
-        }
-
-        $('#sua_count').text(geojson.features.length);
+        // Show total count (before filtering)
+        console.log('Total features loaded:', areaFeatures.length + routeFeatures.length);
 
     }).fail(function(xhr, status, error) {
         console.error('Failed to load SUA map data:', status, error);
@@ -625,6 +713,11 @@ $(document).ready(function() {
         if (e.which === 13) {
             loadSuaBrowser();
         }
+    });
+
+    // Layer toggle checkboxes
+    $('.layer-toggle').change(function() {
+        applyLayerFilters();
     });
 
     $('#scheduleForm').submit(function(e) {
