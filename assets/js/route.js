@@ -3414,28 +3414,129 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
             onEachFeature: suaPopup
         });
         
-        // Fetch SUA data from our API
+        // Fetch SUA data from our API - now integrates with scheduled activations
         var suaDataLoaded = false;
         function loadSuaData() {
             if (suaDataLoaded) return;
-            
-            console.log('[SUA] Fetching SUA data...');
+
+            console.log('[SUA] Fetching SUA data with activations...');
+
+            // First, get currently active/scheduled activations
             $.ajax({
                 type: 'GET',
-                url: 'api/data/sua',
+                url: 'api/data/sua/activations.php?status=SCHEDULED,ACTIVE&include_geometry=true',
                 dataType: 'json',
-                timeout: 60000
-            }).done(function(data) {
-                if (data && data.features && data.features.length > 0) {
-                    suaLayer.clearLayers();
-                    suaLayer.addData(data);
-                    suaDataLoaded = true;
-                    console.log('[SUA] Loaded ' + data.features.length + ' SUA features');
-                } else {
-                    console.warn('[SUA] No SUA features returned');
+                timeout: 30000
+            }).done(function(activations) {
+                var activeIds = new Set();
+                var customTfrs = [];
+
+                if (activations && activations.status === 'ok' && activations.data) {
+                    // Build set of active SUA IDs and collect custom TFRs
+                    activations.data.forEach(function(act) {
+                        // Check if currently within time window
+                        var now = new Date();
+                        var start = new Date(act.start_utc);
+                        var end = new Date(act.end_utc);
+
+                        if (now >= start && now <= end) {
+                            if (act.sua_id) {
+                                activeIds.add(act.sua_id);
+                            }
+                            // Custom TFRs have geometry but no sua_id
+                            if (act.sua_type === 'TFR' && act.geometry && !act.sua_id) {
+                                customTfrs.push({
+                                    type: 'Feature',
+                                    properties: {
+                                        name: act.name,
+                                        suaType: 'TFR_' + (act.tfr_subtype || 'OTHER'),
+                                        designator: 'TFR',
+                                        lowerLimit: act.lower_alt,
+                                        upperLimit: act.upper_alt,
+                                        remarks: act.remarks
+                                    },
+                                    geometry: act.geometry
+                                });
+                            }
+                        }
+                    });
                 }
+
+                console.log('[SUA] Found ' + activeIds.size + ' active SUA IDs, ' + customTfrs.length + ' custom TFRs');
+
+                // Now fetch SUA boundaries and filter to active ones
+                $.ajax({
+                    type: 'GET',
+                    url: 'api/data/sua',
+                    dataType: 'json',
+                    timeout: 60000
+                }).done(function(data) {
+                    suaLayer.clearLayers();
+
+                    if (data && data.features && data.features.length > 0) {
+                        // Filter to only active SUAs
+                        var filteredFeatures = data.features.filter(function(f) {
+                            var designator = f.properties && f.properties.designator;
+                            return designator && activeIds.has(designator);
+                        });
+
+                        // Add filtered SUA features
+                        if (filteredFeatures.length > 0) {
+                            var filteredData = {
+                                type: 'FeatureCollection',
+                                features: filteredFeatures
+                            };
+                            suaLayer.addData(filteredData);
+                        }
+
+                        // Add custom TFRs
+                        if (customTfrs.length > 0) {
+                            customTfrs.forEach(function(tfr) {
+                                suaLayer.addData(tfr);
+                            });
+                        }
+
+                        suaDataLoaded = true;
+                        console.log('[SUA] Loaded ' + filteredFeatures.length + ' active SUAs, ' + customTfrs.length + ' custom TFRs');
+                    } else {
+                        // Just add custom TFRs if any
+                        if (customTfrs.length > 0) {
+                            customTfrs.forEach(function(tfr) {
+                                suaLayer.addData(tfr);
+                            });
+                            suaDataLoaded = true;
+                            console.log('[SUA] Loaded ' + customTfrs.length + ' custom TFRs (no base SUA data)');
+                        } else {
+                            console.warn('[SUA] No active SUA features');
+                        }
+                    }
+                }).fail(function(xhr, status, error) {
+                    console.warn('[SUA] Failed to fetch SUA data:', error);
+                    // Still try to show custom TFRs
+                    if (customTfrs.length > 0) {
+                        customTfrs.forEach(function(tfr) {
+                            suaLayer.addData(tfr);
+                        });
+                        console.log('[SUA] Loaded ' + customTfrs.length + ' custom TFRs (SUA fetch failed)');
+                    }
+                });
+
             }).fail(function(xhr, status, error) {
-                console.warn('[SUA] Failed to fetch SUA data:', error);
+                console.warn('[SUA] Failed to fetch activations, falling back to all SUAs:', error);
+                // Fallback: load all SUAs without filtering
+                $.ajax({
+                    type: 'GET',
+                    url: 'api/data/sua',
+                    dataType: 'json',
+                    timeout: 60000
+                }).done(function(data) {
+                    if (data && data.features && data.features.length > 0) {
+                        suaLayer.clearLayers();
+                        suaLayer.addData(data);
+                        suaDataLoaded = true;
+                        console.log('[SUA] Loaded ' + data.features.length + ' SUA features (fallback)');
+                    }
+                });
             });
         }
         
