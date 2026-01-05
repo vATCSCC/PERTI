@@ -124,7 +124,7 @@ $sql = "
         ICAO_ID,
         ARPT_NAME,
         RESP_ARTCC_ID,
-        [DCC REGION] AS DCC_REGION,
+        DCC_REGION,
         ASPM77,
         OEP35,
         Core30,
