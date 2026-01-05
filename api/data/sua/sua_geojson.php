@@ -3,19 +3,20 @@
  * SUA GeoJSON API Endpoint
  *
  * Returns SUAs with full geometry for map display.
+ * Uses the ATCSCC SUA.geojson file with LineString geometries.
  * Supports filtering and search.
  *
  * Parameters:
- * - search: Search by name or designator
- * - type: Filter by type (comma-separated)
- * - artcc: Filter by ARTCC
+ * - search: Search by name
+ * - type: Filter by type/colorName (comma-separated)
  */
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Cache-Control: max-age=300'); // Cache for 5 minutes
 
-$sua_file = __DIR__ . '/../sua_boundaries.json';
+// Use the ATCSCC SUA.geojson file
+$sua_file = __DIR__ . '/../../assets/geojson/SUA.geojson';
 
 if (!file_exists($sua_file)) {
     echo json_encode([
@@ -37,32 +38,74 @@ if (!$data || !isset($data['features'])) {
 
 $features = $data['features'];
 
+// Map colorName to standard suaType for compatibility
+$typeMap = [
+    'PROHIBITED' => 'P',
+    'RESTRICTED' => 'R',
+    'WARNING' => 'W',
+    'ALERT' => 'A',
+    'MOA' => 'MOA',
+    'NSA' => 'NSA',
+    'ATCAA' => 'ATCAA',
+    'TFR' => 'TFR',
+    'AR' => 'AR',
+    'ALTRV' => 'ALTRV',
+    'OPAREA' => 'OPAREA',
+    'AW' => 'AW',
+    'USN' => 'USN',
+    'DZ' => 'DZ',
+    'ADIZ' => 'ADIZ',
+    'OSARA' => 'OSARA',
+    'SUA' => 'OTHER'
+];
+
+// Normalize features - add suaType based on colorName
+foreach ($features as &$feature) {
+    $colorName = $feature['properties']['colorName'] ?? 'OTHER';
+    $feature['properties']['suaType'] = $typeMap[$colorName] ?? $colorName;
+    // Also set designator from name if not present
+    if (!isset($feature['properties']['designator'])) {
+        $feature['properties']['designator'] = $feature['properties']['name'] ?? '';
+    }
+}
+unset($feature);
+
 // Apply filters
 $search = isset($_GET['search']) ? strtoupper(trim($_GET['search'])) : null;
 $type_filter = isset($_GET['type']) ? explode(',', strtoupper($_GET['type'])) : null;
-$artcc_filter = isset($_GET['artcc']) ? strtoupper($_GET['artcc']) : null;
 
-if ($search || $type_filter || $artcc_filter) {
-    $features = array_filter($features, function($f) use ($search, $type_filter, $artcc_filter) {
+if ($search || $type_filter) {
+    $features = array_filter($features, function($f) use ($search, $type_filter, $typeMap) {
         $props = $f['properties'] ?? [];
 
         // Search filter
         if ($search) {
             $name = strtoupper($props['name'] ?? '');
-            $designator = strtoupper($props['designator'] ?? '');
-            if (strpos($name, $search) === false && strpos($designator, $search) === false) {
+            if (strpos($name, $search) === false) {
                 return false;
             }
         }
 
-        // Type filter
-        if ($type_filter && !in_array($props['suaType'] ?? '', $type_filter)) {
-            return false;
-        }
+        // Type filter - check both suaType and colorName
+        if ($type_filter) {
+            $suaType = $props['suaType'] ?? '';
+            $colorName = strtoupper($props['colorName'] ?? '');
 
-        // ARTCC filter
-        if ($artcc_filter && ($props['artcc'] ?? '') !== $artcc_filter) {
-            return false;
+            $matched = false;
+            foreach ($type_filter as $filterType) {
+                if ($suaType === $filterType || $colorName === $filterType) {
+                    $matched = true;
+                    break;
+                }
+                // Also check if filter matches the mapped type
+                if (isset($typeMap[$colorName]) && $typeMap[$colorName] === $filterType) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if (!$matched) {
+                return false;
+            }
         }
 
         return true;

@@ -14,8 +14,15 @@ const TYPE_NAMES = {
     'IR': 'IR',
     'VR': 'VR',
     'SR': 'SR',
-    'AR': 'AR',
+    'AR': 'Air Refueling',
     'TFR': 'TFR',
+    'ALTRV': 'ALTRV',
+    'OPAREA': 'Operating Area',
+    'AW': 'AW',
+    'USN': 'USN Area',
+    'DZ': 'Drop Zone',
+    'ADIZ': 'ADIZ',
+    'OSARA': 'OSARA',
     'OTHER': 'Other'
 };
 
@@ -29,6 +36,14 @@ const TYPE_COLORS = {
     'NSA': '#00cc00',  // Green - NSA
     'ATCAA': '#006699', // Dark Blue - ATCAA
     'TFR': '#cc0000',  // Dark Red - TFR
+    'AR': '#00cccc',   // Cyan - Air Refueling
+    'ALTRV': '#cc6600', // Brown - ALTRV
+    'OPAREA': '#996699', // Purple-gray - Operating Area
+    'AW': '#669900',   // Olive - AW
+    'USN': '#003366',  // Navy - USN Area
+    'DZ': '#cc0066',   // Pink - Drop Zone
+    'ADIZ': '#990000', // Dark Red - ADIZ
+    'OSARA': '#666600', // Dark olive - OSARA
     'OTHER': '#999999' // Gray - Other
 };
 
@@ -269,7 +284,8 @@ function loadSuaMapData() {
             L.geoJSON(geojson, {
                 style: function(feature) {
                     var suaType = feature.properties.suaType || 'OTHER';
-                    var color = TYPE_COLORS[suaType] || TYPE_COLORS['OTHER'];
+                    // Use feature's own color if available, otherwise use type-based color
+                    var color = feature.properties.color || TYPE_COLORS[suaType] || TYPE_COLORS['OTHER'];
                     return {
                         color: color,
                         weight: 2,

@@ -84,10 +84,14 @@
 
     /**
      * Format date as DD/HHMMZ (FAA Zulu format)
+     * Note: datetime-local inputs provide values without timezone info.
+     * We treat all input values as UTC by appending 'Z' before parsing.
      */
     function formatZulu(dateStr) {
         if (!dateStr) return '--/----Z';
-        const d = new Date(dateStr);
+        // Treat datetime-local value as UTC (append Z if not present)
+        const utcDateStr = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
+        const d = new Date(utcDateStr);
         if (isNaN(d.getTime())) return '--/----Z';
 
         const day = String(d.getUTCDate()).padStart(2, '0');
@@ -98,10 +102,13 @@
 
     /**
      * Format date as DD/HHMM (without Z suffix)
+     * Note: Treats datetime-local values as UTC.
      */
     function formatZuluNoSuffix(dateStr) {
         if (!dateStr) return '--/----';
-        const d = new Date(dateStr);
+        // Treat datetime-local value as UTC (append Z if not present)
+        const utcDateStr = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
+        const d = new Date(utcDateStr);
         if (isNaN(d.getTime())) return '--/----';
 
         const day = String(d.getUTCDate()).padStart(2, '0');
@@ -118,14 +125,41 @@
     }
 
     /**
-     * Get current date for advisory header (DDMMYYZ format)
+     * Get current date for advisory header (MM/DD/YYYY format per TFMS spec)
      */
     function getAdvDateHeader() {
         const d = new Date();
         const day = String(d.getUTCDate()).padStart(2, '0');
         const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-        const year = String(d.getUTCFullYear()).slice(-2);
-        return `${day}${month}${year}`;
+        const year = d.getUTCFullYear();
+        return `${month}/${day}/${year}`;
+    }
+
+    /**
+     * Get valid time range for advisory footer (ddhhmm-ddhhmm format per TFMS spec)
+     */
+    function getValidTimeRange(startStr, endStr) {
+        const formatTime = (dateStr) => {
+            if (!dateStr) return '------';
+            const utcDateStr = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
+            const d = new Date(utcDateStr);
+            if (isNaN(d.getTime())) return '------';
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            const hour = String(d.getUTCHours()).padStart(2, '0');
+            const min = String(d.getUTCMinutes()).padStart(2, '0');
+            return `${day}${hour}${min}`;
+        };
+        return `${formatTime(startStr)}-${formatTime(endStr)}`;
+    }
+
+    /**
+     * Get ADL time (current Zulu time in HHMMZ format)
+     */
+    function getAdlTime() {
+        const d = new Date();
+        const hour = String(d.getUTCHours()).padStart(2, '0');
+        const min = String(d.getUTCMinutes()).padStart(2, '0');
+        return `${hour}${min}Z`;
     }
 
     /**
