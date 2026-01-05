@@ -83,20 +83,81 @@ const TYPE_TO_GROUP = {
 };
 
 // Types that are inherently lines (not areas)
-const LINE_TYPES = ['AR', 'IR', 'VR', 'SR', 'MTR', 'OSARA', 'ANG', 'WSRP'];
+// Note: OSARA removed - they should render as polygons
+const LINE_TYPES = ['AR', 'IR', 'VR', 'SR', 'MTR', 'ANG', 'WSRP'];
 
 // Types that may have dashed borders
 const DASHED_BORDER_TYPES = ['120', 'SS', 'ADIZ'];
 
-// Default colors by group (if not specified in feature)
+// Colors by type (user specified)
+const TYPE_COLORS = {
+    // Regulatory - user specified
+    'PROHIBITED': '#FF00FF',  // Magenta
+    'P': '#FF00FF',           // Magenta
+    'RESTRICTED': '#FF0000',  // Red
+    'R': '#FF0000',           // Red
+    'WARNING': '#8B00FF',     // Violet
+    'W': '#8B00FF',           // Violet
+    'ALERT': '#FFFF00',       // Yellow
+    'A': '#FFFF00',           // Yellow
+    'NSA': '#00FF00',         // Green
+
+    // Special - user specified
+    'TFR': '#00FFFF',         // Cyan
+
+    // Military
+    'MOA': '#0000FF',         // Blue
+    'ATCAA': '#4169E1',       // Royal Blue
+    'ALTRV': '#FFD700',       // Gold
+    'USN': '#000080',         // Navy
+    'USAF': '#1E90FF',        // Dodger Blue
+    'USArmy': '#556B2F',      // Dark Olive Green
+    'ANG': '#2E8B57',         // Sea Green
+    'NORAD': '#8B0000',       // Dark Red
+    'OPAREA': '#8B4513',      // Saddle Brown
+
+    // Routes
+    'AR': '#4682B4',          // Steel Blue
+    'IR': '#CD853F',          // Peru
+    'VR': '#CD853F',          // Peru
+    'SR': '#BDB76B',          // Dark Khaki
+    'MTR': '#9ACD32',         // Yellow Green
+    'OSARA': '#20B2AA',       // Light Sea Green
+
+    // Special
+    'DZ': '#FF6347',          // Tomato
+    'SS': '#9932CC',          // Dark Orchid
+    'LASER': '#FF4500',       // Orange Red
+    'NUCLEAR': '#DC143C',     // Crimson
+
+    // DC Area
+    'SFRA': '#FF8C00',        // Dark Orange
+    'FRZ': '#FF4500',         // Orange Red
+    'ADIZ': '#FF8800',        // Orange
+    '120': '#FFA500',         // Orange
+    '180': '#FF8C00',         // Dark Orange
+
+    // AWACS
+    'AW': '#00CED1',          // Dark Turquoise
+    'AWACS': '#00CED1',       // Dark Turquoise
+
+    // Other
+    'NOAA': '#4169E1',        // Royal Blue
+    'NASA': '#FF6347',        // Tomato
+    'WSRP': '#9370DB',        // Medium Purple
+    'MODEC': '#808080',       // Gray
+    'Unknown': '#999999'      // Gray
+};
+
+// Default colors by group (fallback)
 const GROUP_COLORS = {
-    'REGULATORY': '#ff0000',
-    'MILITARY': '#0000ff',
-    'ROUTES': '#00ff00',
-    'SPECIAL': '#ff00ff',
-    'DC_AREA': '#ff8800',
+    'REGULATORY': '#FF0000',
+    'MILITARY': '#0000FF',
+    'ROUTES': '#4682B4',
+    'SPECIAL': '#00FFFF',
+    'DC_AREA': '#FF8800',
     'SURFACE_OPS': '#888888',
-    'AWACS': '#00ffff',
+    'AWACS': '#00CED1',
     'OTHER': '#999999'
 };
 
@@ -107,6 +168,7 @@ const stats = {
     lines: { solid: 0, dashed: 0 },
     dashSegments: 0,
     closureFixed: 0,
+    closedFeatures: [],  // Track which features had closure fixed
     byGroup: {},
     byType: {},
     errors: []
@@ -233,12 +295,18 @@ function classifyGeometry(feature) {
 
 /**
  * Convert geometry to proper type (LineString -> Polygon if needed)
+ * @param {Object} geometry - The geometry object
+ * @param {Object} classification - The classification result
+ * @param {string} featureName - Name of the feature for tracking
+ * @param {string} featureType - Type of the feature for tracking
  */
-function convertGeometry(geometry, classification) {
+function convertGeometry(geometry, classification, featureName, featureType) {
     if (classification.type === 'dash_segments') {
         // Keep as-is for now, these need manual review
         return geometry;
     }
+
+    let closedThisFeature = false;
 
     if (classification.type === 'polygon') {
         if (geometry.type === 'LineString') {
@@ -246,6 +314,15 @@ function convertGeometry(geometry, classification) {
             if (!isClosed(coords)) {
                 coords = closeCoords(coords);
                 stats.closureFixed++;
+                closedThisFeature = true;
+            }
+            if (closedThisFeature) {
+                stats.closedFeatures.push({
+                    name: featureName || 'Unknown',
+                    type: featureType || 'Unknown',
+                    originalGeom: 'LineString',
+                    points: geometry.coordinates.length
+                });
             }
             return {
                 type: 'Polygon',
@@ -255,15 +332,27 @@ function convertGeometry(geometry, classification) {
 
         if (geometry.type === 'MultiLineString') {
             const polygons = [];
+            let segmentsClosed = 0;
             for (const segment of geometry.coordinates) {
                 if (segment.length >= 3) {
                     let coords = segment;
                     if (!isClosed(coords)) {
                         coords = closeCoords(coords);
                         stats.closureFixed++;
+                        segmentsClosed++;
                     }
                     polygons.push([coords]);
                 }
+            }
+
+            if (segmentsClosed > 0) {
+                stats.closedFeatures.push({
+                    name: featureName || 'Unknown',
+                    type: featureType || 'Unknown',
+                    originalGeom: 'MultiLineString',
+                    segments: geometry.coordinates.length,
+                    segmentsClosed: segmentsClosed
+                });
             }
 
             if (polygons.length === 1) {
@@ -303,6 +392,36 @@ function extractArtcc(props) {
 }
 
 /**
+ * Check if a feature should be skipped (garbage data)
+ */
+function shouldSkipFeature(feature) {
+    const props = feature.properties || {};
+    const geom = feature.geometry;
+    const name = props.name || '';
+    const colorName = props.colorName || '';
+
+    // Skip AWACS/AW features that are just small reference boxes
+    // These have names like "//" or ";" and only 5-7 coordinates
+    if (colorName === 'AW') {
+        if (name === '//' || name === ';' || name === '//;' || name === '') {
+            if (geom.type === 'Polygon' && geom.coordinates[0] && geom.coordinates[0].length < 10) {
+                return true;
+            }
+            if (geom.type === 'LineString' && geom.coordinates && geom.coordinates.length < 10) {
+                return true;
+            }
+        }
+    }
+
+    // Skip features with no valid geometry
+    if (!geom || !geom.coordinates) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Transform a single feature to the new schema
  */
 function transformFeature(feature, index) {
@@ -326,8 +445,14 @@ function transformFeature(feature, index) {
     stats.byGroup[group] = (stats.byGroup[group] || 0) + 1;
     stats.byType[colorName] = (stats.byType[colorName] || 0) + 1;
 
-    // Convert geometry if needed
-    const newGeometry = convertGeometry(feature.geometry, classification);
+    // Get feature name for tracking
+    const featureName = props.name || props.designator || `Feature_${index}`;
+
+    // Convert geometry if needed (pass name and type for closure tracking)
+    const newGeometry = convertGeometry(feature.geometry, classification, featureName, colorName);
+
+    // Get color: prefer type-specific color, then group color, then default
+    const featureColor = TYPE_COLORS[colorName] || GROUP_COLORS[group] || '#999999';
 
     // Build new properties
     const newProps = {
@@ -351,7 +476,7 @@ function transformFeature(feature, index) {
         // Render
         geometry_type: classification.type,
         border_style: classification.border,
-        color: props.color || GROUP_COLORS[group] || '#999999',
+        color: featureColor,
 
         // Location
         artcc: extractArtcc(props),
@@ -394,8 +519,14 @@ function transform() {
 
     const transformedFeatures = [];
 
+    let skipped = 0;
     for (let i = 0; i < geojson.features.length; i++) {
         try {
+            // Skip garbage features (AWACS boxes, empty geometries)
+            if (shouldSkipFeature(geojson.features[i])) {
+                skipped++;
+                continue;
+            }
             const transformed = transformFeature(geojson.features[i], i);
             transformedFeatures.push(transformed);
         } catch (err) {
@@ -411,6 +542,7 @@ function transform() {
             console.log(`  Processed ${i + 1}/${stats.total} features...`);
         }
     }
+    stats.skipped = skipped;
 
     const output = {
         type: 'FeatureCollection',
@@ -428,6 +560,8 @@ function transform() {
     // Print summary
     console.log('\n=== Transformation Complete ===');
     console.log(`Total features: ${stats.total}`);
+    console.log(`Skipped (garbage): ${stats.skipped}`);
+    console.log(`Output features: ${transformedFeatures.length}`);
     console.log(`Polygons (solid): ${stats.polygons.solid}`);
     console.log(`Polygons (dashed): ${stats.polygons.dashed}`);
     console.log(`Lines (solid): ${stats.lines.solid}`);
@@ -438,6 +572,22 @@ function transform() {
     console.log('\nBy Group:');
     for (const [group, count] of Object.entries(stats.byGroup).sort((a, b) => b[1] - a[1])) {
         console.log(`  ${group}: ${count}`);
+    }
+
+    // Print closed features (first 20)
+    if (stats.closedFeatures.length > 0) {
+        console.log(`\n=== Closed Features (${stats.closedFeatures.length} total) ===`);
+        const toShow = stats.closedFeatures.slice(0, 20);
+        toShow.forEach(f => {
+            if (f.originalGeom === 'LineString') {
+                console.log(`  [${f.type}] ${f.name} (${f.points} points)`);
+            } else {
+                console.log(`  [${f.type}] ${f.name} (${f.segmentsClosed}/${f.segments} segments closed)`);
+            }
+        });
+        if (stats.closedFeatures.length > 20) {
+            console.log(`  ... and ${stats.closedFeatures.length - 20} more`);
+        }
     }
 }
 

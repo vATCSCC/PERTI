@@ -60,13 +60,13 @@ const GROUP_NAMES = {
 };
 
 // Types that should remain as lines (routes, tracks) - NOT converted to polygons
+// Note: OSARA removed - they should render as polygons
 const LINE_TYPES = [
     'AR',      // Air Refueling tracks
     'ALTRV',   // Altitude Reservations
     'IR',      // IFR Routes
     'VR',      // VFR Routes
     'SR',      // Slow Routes
-    'OSARA',   // Offshore Airspace Restricted Areas
     'SS'       // Supersonic corridors
 ];
 
@@ -546,6 +546,67 @@ function getFeatureColor(props) {
     return '#999999';
 }
 
+// Boundary layer visibility state
+var boundaryLayersVisible = {
+    artcc: true,
+    superhigh: false,
+    high: false,
+    low: false,
+    tracon: false
+};
+
+// Load boundary layers (ARTCC, superhigh, high, low, TRACON)
+function loadBoundaryLayers() {
+    var boundaryConfigs = [
+        { id: 'artcc', url: 'assets/geojson/artcc.json', color: '#515151', weight: 1.5, visible: boundaryLayersVisible.artcc },
+        { id: 'superhigh', url: 'assets/geojson/superhigh.json', color: '#303030', weight: 1.5, visible: boundaryLayersVisible.superhigh },
+        { id: 'high', url: 'assets/geojson/high.json', color: '#303030', weight: 1.5, visible: boundaryLayersVisible.high },
+        { id: 'low', url: 'assets/geojson/low.json', color: '#303030', weight: 1.5, visible: boundaryLayersVisible.low },
+        { id: 'tracon', url: 'assets/geojson/tracon.json', color: '#505050', weight: 1.0, visible: boundaryLayersVisible.tracon }
+    ];
+
+    boundaryConfigs.forEach(function(config) {
+        $.getJSON(config.url).done(function(data) {
+            // Add source
+            suaMap.addSource('boundary-' + config.id, {
+                type: 'geojson',
+                data: data
+            });
+
+            // Add line layer (insert below SUA layers)
+            suaMap.addLayer({
+                id: 'boundary-' + config.id + '-line',
+                type: 'line',
+                source: 'boundary-' + config.id,
+                layout: {
+                    'visibility': config.visible ? 'visible' : 'none'
+                },
+                paint: {
+                    'line-color': config.color,
+                    'line-width': config.weight,
+                    'line-opacity': 1
+                }
+            }, 'sua-area-fill'); // Insert below SUA fill layer
+
+            console.log('Loaded boundary layer:', config.id, '- features:', data.features ? data.features.length : 0);
+        }).fail(function() {
+            console.warn('Failed to load boundary layer:', config.id);
+        });
+    });
+}
+
+// Toggle boundary layer visibility
+function toggleBoundaryLayer(layerId, visible) {
+    if (!suaMap || !mapLoaded) return;
+
+    boundaryLayersVisible[layerId] = visible;
+    var mapLayerId = 'boundary-' + layerId + '-line';
+
+    if (suaMap.getLayer(mapLayerId)) {
+        suaMap.setLayoutProperty(mapLayerId, 'visibility', visible ? 'visible' : 'none');
+    }
+}
+
 // Initialize the SUA map with MapLibre GL
 function initSuaMap() {
     if (suaMap) return;
@@ -649,6 +710,9 @@ function initSuaMap() {
                 'line-gap-width': 0
             }
         }, 'sua-route-line'); // Insert below route line
+
+        // Load boundary layers (ARTCC, high, low, etc.)
+        loadBoundaryLayers();
 
         // Click handlers
         suaMap.on('click', 'sua-area-fill', function(e) {
@@ -843,6 +907,13 @@ $(document).ready(function() {
     // Layer toggle checkboxes
     $('.layer-toggle').change(function() {
         applyLayerFilters();
+    });
+
+    // Boundary toggle checkboxes
+    $('.boundary-toggle').change(function() {
+        var layerId = $(this).val();
+        var visible = $(this).is(':checked');
+        toggleBoundaryLayer(layerId, visible);
     });
 
     $('#scheduleForm').submit(function(e) {
