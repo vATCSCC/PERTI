@@ -5,7 +5,16 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "Bash(mkdir:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd SUA management and replace TinyMCE with Summernote\n\n- Add Special Use Airspace \\(SUA\\) activation management page\n- Add SUA API endpoints for activations, TFR creation, and management\n- Add database migration for SUA activations table\n- Replace TinyMCE editor with Summernote for better Bootstrap integration\n- Add SUA link to navigation menu\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Discord bot integration for bidirectional messaging\n\n- Add DiscordAPI class for REST API operations \\(messages, reactions, channels\\)\n- Add DiscordWebhookHandler for real-time event processing with Ed25519 verification\n- Add DiscordMessageParser for TMI/advisory content extraction\n- Create API endpoints: messages, reactions, webhook, channels, announcements\n- Add database migration for Discord tables \\(messages, reactions, sent_messages, webhook_log\\)\n- Refactor api/nod/discord.php to use new service layer\n- Update config.example.php with Discord configuration template\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(az --version:*)",
+      "Bash(gh run list:*)",
+      "Bash(mv:*)",
+      "Bash(git pull:*)",
+      "Bash(powershell.exe -Command \"gh run list --limit 3 --repo vATCSCC/PERTI\")"
     ]
   }
 }
