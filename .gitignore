@@ -1,2 +1,8 @@
 .htaccess
 load/config.php
+
+# Log and lock files
+*.log
+*.lock
+scripts/*.log
+scripts/*.lock
