@@ -232,12 +232,18 @@
                     <div id="sua-map"></div>
                     <div class="mt-2">
                         <small class="text-muted">
-                            <span class="badge" style="background-color: #ff0000; color: #fff;">P</span> Prohibited
-                            <span class="badge" style="background-color: #ff6600; color: #fff;">R</span> Restricted
-                            <span class="badge" style="background-color: #9900ff; color: #fff;">W</span> Warning
-                            <span class="badge" style="background-color: #ff00ff; color: #fff;">A</span> Alert
-                            <span class="badge" style="background-color: #0066ff; color: #fff;">MOA</span> Military Operations Area
-                            <span class="badge" style="background-color: #00cc00; color: #fff;">NSA</span> National Security Area
+                            <strong>Areas:</strong>
+                            <span class="badge" style="background-color: #FF00FF; color: #fff;">P</span> Prohibited
+                            <span class="badge" style="background-color: #0004B0; color: #fff;">R</span> Restricted
+                            <span class="badge" style="background-color: #3D6003; color: #fff;">W</span> Warning
+                            <span class="badge" style="background-color: #199696; color: #fff;">A</span> Alert
+                            <span class="badge" style="background-color: #087DD4; color: #fff;">MOA</span> MOA
+                            <span class="badge" style="background-color: #00FF00; color: #000;">NSA</span> NSA
+                            <span class="badge" style="background-color: #EF4AC0; color: #fff;">TFR</span> TFR
+                            &nbsp;|&nbsp;
+                            <strong>Routes:</strong>
+                            <span class="badge" style="background-color: #164856; color: #fff;">AR</span> Air Refueling
+                            <span class="badge" style="background-color: #E1E101; color: #000;">ALTRV</span> ALTRV
                         </small>
                     </div>
                 </div>
