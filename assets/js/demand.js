@@ -16,7 +16,13 @@ let DEMAND_STATE = {
     refreshInterval: 15000, // 15 seconds
     refreshTimer: null,
     chart: null,
-    lastUpdate: null
+    lastUpdate: null,
+    timeBins: [], // Store time bins for drill-down
+    currentStart: null,
+    currentEnd: null,
+    chartView: 'status', // 'status' or 'origin'
+    originBreakdown: null, // Store origin ARTCC breakdown data
+    lastDemandData: null // Store last demand response for view switching
 };
 
 // FSM Status colors from design document Table 7-1
@@ -28,6 +34,30 @@ const FSM_STATUS_COLORS = {
     'proposed': '#0066FF',    // Blue - Proposed
     'dep_past_etd': '#8B4513' // Brown - Dep Past ETD
 };
+
+// ARTCC colors for origin breakdown visualization
+const ARTCC_COLORS = {
+    'ZNY': '#e41a1c', 'ZDC': '#377eb8', 'ZBW': '#4daf4a', 'ZOB': '#984ea3',
+    'ZAU': '#ff7f00', 'ZID': '#ffff33', 'ZTL': '#a65628', 'ZJX': '#f781bf',
+    'ZMA': '#999999', 'ZHU': '#66c2a5', 'ZFW': '#fc8d62', 'ZKC': '#8da0cb',
+    'ZME': '#e78ac3', 'ZDV': '#a6d854', 'ZMP': '#ffd92f', 'ZAB': '#e5c494',
+    'ZLA': '#b3b3b3', 'ZOA': '#1b9e77', 'ZSE': '#d95f02', 'ZLC': '#7570b3',
+    'ZAN': '#e7298a', 'ZHN': '#66a61e'
+};
+
+// Generate a color for unknown ARTCCs
+function getARTCCColor(artcc) {
+    if (ARTCC_COLORS[artcc]) {
+        return ARTCC_COLORS[artcc];
+    }
+    // Generate consistent color from ARTCC name
+    let hash = 0;
+    for (let i = 0; i < artcc.length; i++) {
+        hash = artcc.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    return `hsl(${hue}, 70%, 50%)`;
+}
 
 // Time range options (from design document)
 const TIME_RANGE_OPTIONS = [
@@ -276,6 +306,19 @@ function setupEventHandlers() {
             loadDemandData();
         }
     });
+
+    // Chart view toggle (Status vs Origin)
+    $('input[name="demand_chart_view"]').on('change', function() {
+        DEMAND_STATE.chartView = $(this).val();
+        if (DEMAND_STATE.selectedAirport && DEMAND_STATE.lastDemandData) {
+            // Re-render with stored data
+            if (DEMAND_STATE.chartView === 'origin') {
+                renderOriginChart();
+            } else {
+                renderChart(DEMAND_STATE.lastDemandData);
+            }
+        }
+    });
 }
 
 /**
@@ -369,13 +412,31 @@ function loadDemandData() {
     // Show loading state
     showLoading();
 
+    // Store time range for summary API
+    DEMAND_STATE.currentStart = start.toISOString();
+    DEMAND_STATE.currentEnd = end.toISOString();
+
     $.getJSON(`api/demand/airport.php?${params.toString()}`)
         .done(function(response) {
             if (response.success) {
                 DEMAND_STATE.lastUpdate = new Date();
-                renderChart(response);
+                DEMAND_STATE.lastDemandData = response; // Store for view switching
+
+                // Render based on current view mode
+                if (DEMAND_STATE.chartView === 'origin') {
+                    // Load origin data first, then render
+                    loadFlightSummary(true);
+                } else {
+                    renderChart(response);
+                }
+
                 updateInfoBarStats(response);
                 updateLastUpdateDisplay(response.last_adl_update);
+
+                // Load flight summary data (for tables)
+                if (DEMAND_STATE.chartView !== 'origin') {
+                    loadFlightSummary(false);
+                }
             } else {
                 console.error('API error:', response.error);
                 showError('Failed to load demand data: ' + response.error);
@@ -405,6 +466,9 @@ function renderChart(data) {
     arrivals.forEach(d => timeBinsSet.add(d.time_bin));
     departures.forEach(d => timeBinsSet.add(d.time_bin));
     const timeBins = Array.from(timeBinsSet).sort();
+
+    // Store for drill-down
+    DEMAND_STATE.timeBins = timeBins;
 
     // Format time labels
     const labels = timeBins.map(formatTimeLabel);
@@ -492,6 +556,147 @@ function renderChart(data) {
     };
 
     DEMAND_STATE.chart.setOption(option, true);
+
+    // Add click handler for drill-down
+    DEMAND_STATE.chart.off('click'); // Remove previous handler
+    DEMAND_STATE.chart.on('click', function(params) {
+        if (params.componentType === 'series') {
+            const timeBin = DEMAND_STATE.timeBins[params.dataIndex];
+            if (timeBin) {
+                showFlightDetails(timeBin);
+            }
+        }
+    });
+}
+
+/**
+ * Render chart with origin ARTCC breakdown
+ */
+function renderOriginChart() {
+    if (!DEMAND_STATE.chart) {
+        console.error('Chart not initialized');
+        return;
+    }
+
+    const originBreakdown = DEMAND_STATE.originBreakdown || {};
+    const data = DEMAND_STATE.lastDemandData;
+
+    if (!data) {
+        console.error('No demand data available');
+        return;
+    }
+
+    // Get time bins from arrivals data
+    const arrivals = data.data.arrivals || [];
+    const timeBinsSet = new Set();
+    arrivals.forEach(d => timeBinsSet.add(d.time_bin));
+    const timeBins = Array.from(timeBinsSet).sort();
+
+    // Store for drill-down
+    DEMAND_STATE.timeBins = timeBins;
+
+    // Collect all unique ARTCCs
+    const allARTCCs = new Set();
+    for (const bin in originBreakdown) {
+        const artccData = originBreakdown[bin];
+        if (Array.isArray(artccData)) {
+            artccData.forEach(item => allARTCCs.add(item.artcc));
+        }
+    }
+    const artccList = Array.from(allARTCCs).sort();
+
+    // Format time labels
+    const labels = timeBins.map(formatTimeLabel);
+
+    // Build series for each ARTCC
+    const series = artccList.map(artcc => {
+        const seriesData = timeBins.map(bin => {
+            const binData = originBreakdown[bin] || [];
+            const artccEntry = binData.find(item => item.artcc === artcc);
+            return artccEntry ? artccEntry.count : 0;
+        });
+
+        return {
+            name: artcc,
+            type: 'bar',
+            stack: 'origin',
+            emphasis: {
+                focus: 'series'
+            },
+            itemStyle: {
+                color: getARTCCColor(artcc)
+            },
+            data: seriesData
+        };
+    });
+
+    // Chart options
+    const option = {
+        title: {
+            text: `${data.airport} Arrivals by Origin ARTCC`,
+            subtext: `${DEMAND_STATE.granularity === '15min' ? '15-Minute' : 'Hourly'} | Origin Breakdown`,
+            left: 'center'
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'shadow'
+            },
+            formatter: function(params) {
+                let tooltip = `<strong>${params[0].axisValueLabel}</strong><br/>`;
+                let total = 0;
+                // Sort by value descending
+                const sorted = [...params].sort((a, b) => b.value - a.value);
+                sorted.forEach(p => {
+                    if (p.value > 0) {
+                        tooltip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                        total += p.value;
+                    }
+                });
+                tooltip += `<strong>Total: ${total}</strong>`;
+                return tooltip;
+            }
+        },
+        legend: {
+            bottom: 10,
+            left: 'center',
+            type: 'scroll'
+        },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: 80,
+            top: 80,
+            containLabel: true
+        },
+        xAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: {
+                rotate: 45,
+                interval: 0
+            }
+        },
+        yAxis: {
+            type: 'value',
+            name: 'Arrivals',
+            minInterval: 1
+        },
+        series: series
+    };
+
+    DEMAND_STATE.chart.setOption(option, true);
+
+    // Add click handler for drill-down
+    DEMAND_STATE.chart.off('click');
+    DEMAND_STATE.chart.on('click', function(params) {
+        if (params.componentType === 'series') {
+            const timeBin = DEMAND_STATE.timeBins[params.dataIndex];
+            if (timeBin) {
+                showFlightDetails(timeBin);
+            }
+        }
+    });
 }
 
 /**
@@ -689,6 +894,217 @@ function stopAutoRefresh() {
         clearInterval(DEMAND_STATE.refreshTimer);
         DEMAND_STATE.refreshTimer = null;
         console.log('Auto-refresh stopped');
+    }
+}
+
+/**
+ * Load flight summary data (top origins, top carriers, origin breakdown)
+ * @param {boolean} renderOriginChartAfter - If true, render origin chart after loading
+ */
+function loadFlightSummary(renderOriginChartAfter) {
+    const airport = DEMAND_STATE.selectedAirport;
+    if (!airport) return;
+
+    const params = new URLSearchParams({
+        airport: airport,
+        start: DEMAND_STATE.currentStart,
+        end: DEMAND_STATE.currentEnd,
+        direction: DEMAND_STATE.direction
+    });
+
+    $.getJSON(`api/demand/summary.php?${params.toString()}`)
+        .done(function(response) {
+            if (response.success) {
+                updateTopOrigins(response.top_origins || []);
+                updateTopCarriers(response.top_carriers || []);
+
+                // Store origin breakdown for chart
+                DEMAND_STATE.originBreakdown = response.origin_artcc_breakdown || {};
+
+                // Auto-expand the summary section if it has data
+                const hasData = (response.top_origins && response.top_origins.length > 0) ||
+                               (response.top_carriers && response.top_carriers.length > 0);
+                if (hasData) {
+                    const $summary = $('#demand_flight_summary');
+                    const $icon = $('#demand_toggle_flights i');
+                    if (!$summary.is(':visible')) {
+                        $summary.slideDown(200);
+                        $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+                    }
+                }
+
+                // Render origin chart if requested
+                if (renderOriginChartAfter) {
+                    renderOriginChart();
+                }
+            }
+        })
+        .fail(function(err) {
+            console.error('Failed to load flight summary:', err);
+        });
+}
+
+/**
+ * Update top origins table
+ */
+function updateTopOrigins(origins) {
+    const $tbody = $('#demand_top_origins');
+    $tbody.empty();
+
+    if (origins.length === 0) {
+        $tbody.append('<tr><td class="text-muted text-center" colspan="2">No data</td></tr>');
+        return;
+    }
+
+    origins.forEach(function(item, index) {
+        const bgClass = index === 0 ? 'table-primary' : '';
+        $tbody.append(`
+            <tr class="${bgClass}">
+                <td><strong>${item.artcc}</strong></td>
+                <td class="text-right">${item.count}</td>
+            </tr>
+        `);
+    });
+}
+
+/**
+ * Update top carriers table
+ */
+function updateTopCarriers(carriers) {
+    const $tbody = $('#demand_top_carriers');
+    $tbody.empty();
+
+    if (carriers.length === 0) {
+        $tbody.append('<tr><td class="text-muted text-center" colspan="2">No data</td></tr>');
+        return;
+    }
+
+    carriers.forEach(function(item, index) {
+        const bgClass = index === 0 ? 'table-primary' : '';
+        $tbody.append(`
+            <tr class="${bgClass}">
+                <td><strong>${item.carrier}</strong></td>
+                <td class="text-right">${item.count}</td>
+            </tr>
+        `);
+    });
+}
+
+/**
+ * Show flight details for a specific time bin (drill-down)
+ */
+function showFlightDetails(timeBin) {
+    const airport = DEMAND_STATE.selectedAirport;
+    if (!airport) return;
+
+    const params = new URLSearchParams({
+        airport: airport,
+        time_bin: timeBin,
+        direction: DEMAND_STATE.direction
+    });
+
+    // Show loading in modal
+    const timeLabel = formatTimeLabel(timeBin);
+    const endTime = new Date(new Date(timeBin).getTime() + 60 * 60 * 1000);
+    const endLabel = formatTimeLabel(endTime.toISOString());
+
+    Swal.fire({
+        title: `Flights: ${timeLabel} - ${endLabel}`,
+        html: '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Loading flights...</div>',
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: '800px',
+        didOpen: function() {
+            $.getJSON(`api/demand/summary.php?${params.toString()}`)
+                .done(function(response) {
+                    if (response.success && response.flights) {
+                        const html = buildFlightListHtml(response.flights);
+                        Swal.update({
+                            html: html
+                        });
+                    } else {
+                        Swal.update({
+                            html: '<p class="text-muted">No flights found for this time period.</p>'
+                        });
+                    }
+                })
+                .fail(function() {
+                    Swal.update({
+                        html: '<p class="text-danger">Failed to load flight details.</p>'
+                    });
+                });
+        }
+    });
+}
+
+/**
+ * Build HTML for flight list
+ */
+function buildFlightListHtml(flights) {
+    if (!flights || flights.length === 0) {
+        return '<p class="text-muted">No flights found for this time period.</p>';
+    }
+
+    let html = `
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-sm table-striped table-hover mb-0">
+                <thead class="thead-light" style="position: sticky; top: 0;">
+                    <tr>
+                        <th>Callsign</th>
+                        <th>Type</th>
+                        <th>Origin</th>
+                        <th>Dest</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    flights.forEach(function(flight) {
+        const statusClass = getStatusBadgeClass(flight.status);
+        const dirIcon = flight.direction === 'arrival'
+            ? '<i class="fas fa-plane-arrival text-success"></i>'
+            : '<i class="fas fa-plane-departure text-warning"></i>';
+        const time = flight.time ? formatTimeLabel(flight.time) : '--';
+
+        html += `
+            <tr>
+                <td><strong>${flight.callsign || '--'}</strong></td>
+                <td>${flight.aircraft || '--'}</td>
+                <td>${flight.origin || '--'}</td>
+                <td>${flight.destination || '--'}</td>
+                <td>${time} ${dirIcon}</td>
+                <td><span class="badge ${statusClass}">${flight.status || 'unknown'}</span></td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-2 text-muted small">
+            <i class="fas fa-plane-arrival text-success"></i> Arrival &nbsp;
+            <i class="fas fa-plane-departure text-warning"></i> Departure &nbsp;
+            Total: ${flights.length} flights
+        </div>
+    `;
+
+    return html;
+}
+
+/**
+ * Get Bootstrap badge class for status
+ */
+function getStatusBadgeClass(status) {
+    switch (status) {
+        case 'active': return 'badge-danger';
+        case 'arrived': return 'badge-dark';
+        case 'departed': return 'badge-success';
+        case 'scheduled': return 'badge-info';
+        case 'proposed': return 'badge-primary';
+        default: return 'badge-secondary';
     }
 }
 
