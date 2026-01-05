@@ -78,6 +78,11 @@ var mapLoaded = false;
 var layersInitialized = false;
 var allFeatures = { areas: [], routes: [] }; // Store all loaded features for filtering
 
+// Drawing variables
+var draw = null;
+var isDrawingMode = false;
+var drawnGeometry = null;
+
 // Layer type mapping - maps colorName to layer group (legacy support)
 const LAYER_GROUPS = {
     'PROHIBITED': 'REGULATORY',
@@ -742,6 +747,88 @@ function initSuaMap() {
         });
 
         layersInitialized = true;
+
+        // Initialize MapboxDraw for ALTRV drawing
+        draw = new MapboxDraw({
+            displayControlsDefault: false,
+            controls: {
+                line_string: true,
+                polygon: true,
+                trash: true
+            },
+            defaultMode: 'simple_select',
+            styles: [
+                // Active line (while drawing)
+                {
+                    id: 'gl-draw-line-active',
+                    type: 'line',
+                    filter: ['all', ['==', '$type', 'LineString'], ['==', 'active', 'true']],
+                    paint: {
+                        'line-color': '#E1E101',
+                        'line-dasharray': [0.2, 2],
+                        'line-width': 3
+                    }
+                },
+                // Active vertex points
+                {
+                    id: 'gl-draw-point-active',
+                    type: 'circle',
+                    filter: ['all', ['==', '$type', 'Point'], ['==', 'meta', 'vertex']],
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': '#E1E101',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 2
+                    }
+                },
+                // Inactive completed line
+                {
+                    id: 'gl-draw-line-inactive',
+                    type: 'line',
+                    filter: ['all', ['==', '$type', 'LineString'], ['!=', 'active', 'true']],
+                    paint: {
+                        'line-color': '#E1E101',
+                        'line-width': 3
+                    }
+                },
+                // Polygon fill
+                {
+                    id: 'gl-draw-polygon-fill',
+                    type: 'fill',
+                    filter: ['all', ['==', '$type', 'Polygon']],
+                    paint: {
+                        'fill-color': '#E1E101',
+                        'fill-opacity': 0.3
+                    }
+                },
+                // Polygon outline
+                {
+                    id: 'gl-draw-polygon-stroke',
+                    type: 'line',
+                    filter: ['all', ['==', '$type', 'Polygon']],
+                    paint: {
+                        'line-color': '#E1E101',
+                        'line-width': 2
+                    }
+                }
+            ]
+        });
+
+        suaMap.addControl(draw, 'top-left');
+
+        // Draw event handlers
+        suaMap.on('draw.create', function(e) {
+            updateDrawnGeometry();
+        });
+
+        suaMap.on('draw.update', function(e) {
+            updateDrawnGeometry();
+        });
+
+        suaMap.on('draw.delete', function(e) {
+            updateDrawnGeometry();
+        });
+
         loadSuaMapData();
     });
 }
@@ -888,6 +975,104 @@ function toggleView(view) {
     }
 }
 
+// Update drawn geometry from MapboxDraw
+function updateDrawnGeometry() {
+    if (!draw) return;
+
+    var data = draw.getAll();
+    if (data.features.length === 0) {
+        drawnGeometry = null;
+        $('#altrv_geometry').val('');
+        $('#altrv_point_count').text('No geometry drawn');
+        return;
+    }
+
+    // Get the first feature (we only support one ALTRV at a time)
+    var feature = data.features[0];
+    drawnGeometry = feature.geometry;
+
+    // Store in hidden form field
+    $('#altrv_geometry').val(JSON.stringify(drawnGeometry));
+
+    // Update point count display
+    var pointCount = 0;
+    var geomType = drawnGeometry.type;
+    if (geomType === 'LineString') {
+        pointCount = drawnGeometry.coordinates.length;
+        $('#altrv_point_count').html('<i class="fas fa-check text-success"></i> Line drawn with <strong>' + pointCount + ' points</strong>');
+    } else if (geomType === 'Polygon') {
+        pointCount = drawnGeometry.coordinates[0].length - 1; // Subtract closing point
+        $('#altrv_point_count').html('<i class="fas fa-check text-success"></i> Polygon drawn with <strong>' + pointCount + ' points</strong>');
+    }
+}
+
+// Start ALTRV drawing mode
+function startAltrvDrawing() {
+    if (!suaMap || !mapLoaded || !draw) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Map Not Ready',
+            text: 'Please wait for the map to load before drawing.'
+        });
+        return;
+    }
+
+    isDrawingMode = true;
+
+    // Clear any existing drawings
+    draw.deleteAll();
+    drawnGeometry = null;
+    $('#altrv_geometry').val('');
+    $('#altrv_point_count').text('Click on the map to draw points. Double-click to finish.');
+
+    // Enter draw line mode (ALTRVs are typically routes/lines)
+    draw.changeMode('draw_line_string');
+
+    // Set default times
+    var now = new Date();
+    var end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    $('#altrv_start').val(formatDateTimeLocal(now));
+    $('#altrv_end').val(formatDateTimeLocal(end));
+
+    // Show the modal
+    $('#altrvModal').modal('show');
+
+    // Show toast instruction
+    Swal.fire({
+        toast: true,
+        position: 'top',
+        icon: 'info',
+        title: 'Click points on the map to draw the ALTRV route. Double-click to finish.',
+        timer: 5000,
+        showConfirmButton: false
+    });
+}
+
+// Clear ALTRV drawing
+function clearAltrvDrawing() {
+    if (draw) {
+        draw.deleteAll();
+        drawnGeometry = null;
+        $('#altrv_geometry').val('');
+        $('#altrv_point_count').text('No geometry drawn. Click on the map to start drawing.');
+
+        // Re-enter draw mode
+        draw.changeMode('draw_line_string');
+    }
+}
+
+// Cancel ALTRV drawing
+function cancelAltrvDrawing() {
+    isDrawingMode = false;
+    if (draw) {
+        draw.deleteAll();
+        draw.changeMode('simple_select');
+    }
+    drawnGeometry = null;
+    $('#altrv_geometry').val('');
+    $('#altrvForm')[0].reset();
+}
+
 // Document ready
 $(document).ready(function() {
     loadActivations();
@@ -997,6 +1182,59 @@ $(document).ready(function() {
                 });
             }
         });
+    });
+
+    // ALTRV form submission
+    $('#altrvForm').submit(function(e) {
+        e.preventDefault();
+
+        // Validate geometry
+        if (!drawnGeometry) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Geometry',
+                text: 'Please draw the ALTRV route on the map before submitting.'
+            });
+            return;
+        }
+
+        $.ajax({
+            type: 'POST',
+            url: 'api/mgt/sua/altrv_create.php',
+            data: $(this).serialize(),
+            success: function(data) {
+                Swal.fire({
+                    toast: true,
+                    position: 'bottom-right',
+                    icon: 'success',
+                    title: 'ALTRV created',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+                loadActivations();
+                loadSuaMapData();
+                cancelAltrvDrawing();
+                $('#altrvModal').modal('hide');
+                $('.modal-backdrop').remove();
+            },
+            error: function(xhr) {
+                var msg = 'Failed to create ALTRV';
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.message) msg = resp.message;
+                } catch (e) {}
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: msg
+                });
+            }
+        });
+    });
+
+    // Close ALTRV modal cleanup
+    $('#altrvModal').on('hidden.bs.modal', function() {
+        cancelAltrvDrawing();
     });
 
     $('#editModal').on('show.bs.modal', function(event) {
