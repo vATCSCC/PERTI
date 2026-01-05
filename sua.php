@@ -279,16 +279,31 @@
             <form method="post" id="scheduleForm">
                 <div class="modal-body">
                     <input type="hidden" name="sua_id" id="schedule_sua_id">
-                    <input type="hidden" name="sua_type" id="schedule_sua_type">
 
                     <div class="row">
-                        <div class="col-md-8">
+                        <div class="col-md-5">
                             <div class="form-group">
                                 <label>SUA Name</label>
                                 <input type="text" class="form-control" name="name" id="schedule_name" required>
                             </div>
                         </div>
                         <div class="col-md-4">
+                            <div class="form-group">
+                                <label>SUA Type</label>
+                                <select class="form-control" name="sua_type" id="schedule_sua_type" required>
+                                    <option value="">Select Type</option>
+                                    <option value="P">Prohibited (P)</option>
+                                    <option value="R">Restricted (R)</option>
+                                    <option value="W">Warning (W)</option>
+                                    <option value="A">Alert (A)</option>
+                                    <option value="MOA">MOA</option>
+                                    <option value="NSA">NSA</option>
+                                    <option value="ATCAA">ATCAA</option>
+                                    <option value="OTHER">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
                             <div class="form-group">
                                 <label>ARTCC</label>
                                 <select class="form-control" name="artcc" id="schedule_artcc">
