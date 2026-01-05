@@ -89,7 +89,13 @@ $filepath = "";
                     JATOC
                 </a>
             </li>
-            
+
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./demand">
+                    Demand
+                </a>
+            </li>
+
             <!--Reroutes button
             <li class="nav-item">
                 <a class="nav-link" href="<?= $filepath; ?>./reroutes">

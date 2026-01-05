@@ -1,0 +1,166 @@
+{
+  "global": {
+    "ALL": { "code": "ALL", "label": "(ALL)", "facility": null, "artccs": ["ZAB", "ZAU", "ZBW", "ZDC", "ZDV", "ZFW", "ZHU", "ZID", "ZJX", "ZKC", "ZLA", "ZLC", "ZMA", "ZME", "ZMP", "ZNY", "ZOA", "ZOB", "ZSE", "ZTL"] },
+    "ALL+Canada": { "code": "ALL+Canada", "label": "(ALL+Canada)", "facility": null, "artccs": ["ZAB", "ZAU", "ZBW", "ZDC", "ZDV", "ZFW", "ZHU", "ZID", "ZJX", "ZKC", "ZLA", "ZLC", "ZMA", "ZME", "ZMP", "ZNY", "ZOA", "ZOB", "ZSE", "ZTL", "CZE", "CZM", "CZU", "CZV", "CZW", "CZY"] },
+    "Manual": { "code": "Manual", "label": "(Manual)", "facility": null, "artccs": [] }
+  },
+  "byFacility": {
+    "ZAB": {
+      "ZABI": { "code": "ZABI", "label": "(Internal)", "artccs": ["ZAB"] },
+      "ZAB1": { "code": "ZAB1", "label": "(1stTier)", "artccs": ["ZAB", "ZLA", "ZDV", "ZKC", "ZFW", "ZHU"] },
+      "ZAB2": { "code": "ZAB2", "label": "(2ndTier)", "artccs": ["ZAB", "ZLA", "ZDV", "ZKC", "ZFW", "ZHU", "ZOA", "ZLC", "ZMP", "ZAU", "ZID", "ZME", "ZTL", "ZJX"] },
+      "ZAB6W": { "code": "ZAB6W", "label": "(6West)", "artccs": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE"] },
+      "ZAB10W": { "code": "ZAB10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZAB12W": { "code": "ZAB12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZAU": {
+      "ZAUI": { "code": "ZAUI", "label": "(Internal)", "artccs": ["ZAU"] },
+      "ZAU1": { "code": "ZAU1", "label": "(1stTier)", "artccs": ["ZAU", "ZMP", "ZKC", "ZID", "ZOB"] },
+      "ZAU2": { "code": "ZAU2", "label": "(2ndTier)", "artccs": ["ZAU", "ZMP", "ZKC", "ZID", "ZOB", "ZLC", "ZDV", "ZAB", "ZFW", "ZME", "ZTL", "ZDC", "ZNY", "ZBW"] },
+      "ZAU12W": { "code": "ZAU12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZBW": {
+      "ZBWI": { "code": "ZBWI", "label": "(Internal)", "artccs": ["ZBW"] },
+      "ZBW1": { "code": "ZBW1", "label": "(1stTier)", "artccs": ["ZBW", "ZDC", "ZNY", "ZOB"] },
+      "ZBW1C": { "code": "ZBW1C", "label": "(1stTier+Canada)", "artccs": ["ZBW", "ZDC", "ZNY", "ZOB", "CYYZ", "CYOW", "CYUL"] },
+      "ZBW2": { "code": "ZBW2", "label": "(2ndTier)", "artccs": ["ZBW", "ZDC", "ZNY", "ZOB", "ZMP", "ZAU", "ZID", "ZTL", "ZJX"] },
+      "ZBWEC": { "code": "ZBWEC", "label": "(EastCoast)", "artccs": ["ZBW", "ZNY", "ZDC", "ZJX", "ZMA"] }
+    },
+    "ZDC": {
+      "ZDCI": { "code": "ZDCI", "label": "(Internal)", "artccs": ["ZDC"] },
+      "ZDC1": { "code": "ZDC1", "label": "(1stTier)", "artccs": ["ZDC", "ZBW", "ZNY", "ZOB", "ZID", "ZTL", "ZJX"] },
+      "ZDC2": { "code": "ZDC2", "label": "(2ndTier)", "artccs": ["ZDC", "ZBW", "ZNY", "ZOB", "ZID", "ZTL", "ZJX", "ZMA", "ZHU", "ZME", "ZKC", "ZAU", "ZMP"] },
+      "ZDCEC": { "code": "ZDCEC", "label": "(EastCoast)", "artccs": ["ZBW", "ZNY", "ZDC", "ZJX", "ZMA"] }
+    },
+    "ZDV": {
+      "ZDVI": { "code": "ZDVI", "label": "(Internal)", "artccs": ["ZDV"] },
+      "ZDV1": { "code": "ZDV1", "label": "(1stTier)", "artccs": ["ZDV", "ZLC", "ZLA", "ZAB", "ZMP", "ZKC"] },
+      "ZDV2": { "code": "ZDV2", "label": "(2ndTier)", "artccs": ["ZDV", "ZLC", "ZLA", "ZAB", "ZMP", "ZKC", "ZSE", "ZOA", "ZFW", "ZME", "ZHU", "ZID", "ZOB", "ZAU"] },
+      "ZDV6W": { "code": "ZDV6W", "label": "(6West)", "artccs": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE"] },
+      "ZDV10W": { "code": "ZDV10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZDV12W": { "code": "ZDV12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZFW": {
+      "ZFWI": { "code": "ZFWI", "label": "(Internal)", "artccs": ["ZFW"] },
+      "ZFW1": { "code": "ZFW1", "label": "(1stTier)", "artccs": ["ZFW", "ZME", "ZKC", "ZAB", "ZHU"] },
+      "ZFW2": { "code": "ZFW2", "label": "(2ndTier)", "artccs": ["ZFW", "ZME", "ZKC", "ZAB", "ZHU", "ZLA", "ZDV", "ZMP", "ZAU", "ZID", "ZTL", "ZJX", "ZMA"] },
+      "ZFW10W": { "code": "ZFW10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZFW12W": { "code": "ZFW12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZHU": {
+      "ZHUI": { "code": "ZHUI", "label": "(Internal)", "artccs": ["ZHU"] },
+      "ZHU1": { "code": "ZHU1", "label": "(1stTier)", "artccs": ["ZHU", "ZAB", "ZFW", "ZME", "ZTL", "ZJX", "ZMA"] },
+      "ZHU2": { "code": "ZHU2", "label": "(2ndTier)", "artccs": ["ZHU", "ZAB", "ZFW", "ZME", "ZTL", "ZJX", "ZMA", "ZLA", "ZDV", "ZKC", "ZID", "ZDC"] },
+      "ZHUGULF": { "code": "ZHUGULF", "label": "(Gulf)", "artccs": ["ZJX", "ZMA", "ZHU"] },
+      "ZHU10W": { "code": "ZHU10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZHU12W": { "code": "ZHU12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZID": {
+      "ZIDI": { "code": "ZIDI", "label": "(Internal)", "artccs": ["ZID"] },
+      "ZID1": { "code": "ZID1", "label": "(1stTier)", "artccs": ["ZID", "ZAU", "ZOB", "ZDC", "ZME", "ZTL", "ZKC"] },
+      "ZID2": { "code": "ZID2", "label": "(2ndTier)", "artccs": ["ZID", "ZAU", "ZOB", "ZDC", "ZME", "ZTL", "ZKC", "ZAB", "ZDV", "ZFW", "ZMP", "ZHU", "ZJX", "ZNY", "ZBW"] }
+    },
+    "ZJX": {
+      "ZJXI": { "code": "ZJXI", "label": "(Internal)", "artccs": ["ZJX"] },
+      "ZJX1": { "code": "ZJX1", "label": "(1stTier)", "artccs": ["ZJX", "ZMA", "ZHU", "ZTL", "ZDC"] },
+      "ZJX2": { "code": "ZJX2", "label": "(2ndTier)", "artccs": ["ZJX", "ZMA", "ZHU", "ZTL", "ZDC", "ZAB", "ZFW", "ZME", "ZID", "ZOB", "ZNY", "ZBW"] },
+      "ZJXEC": { "code": "ZJXEC", "label": "(EastCoast)", "artccs": ["ZBW", "ZNY", "ZDC", "ZJX", "ZMA"] },
+      "ZJXGULF": { "code": "ZJXGULF", "label": "(Gulf)", "artccs": ["ZJX", "ZMA", "ZHU"] }
+    },
+    "ZKC": {
+      "ZKCI": { "code": "ZKCI", "label": "(Internal)", "artccs": ["ZKC"] },
+      "ZKC1": { "code": "ZKC1", "label": "(1stTier)", "artccs": ["ZKC", "ZMP", "ZAU", "ZID", "ZME", "ZFW", "ZAB", "ZDV"] },
+      "ZKC2": { "code": "ZKC2", "label": "(2ndTier)", "artccs": ["ZKC", "ZMP", "ZAU", "ZID", "ZME", "ZFW", "ZAB", "ZDV", "ZLC", "ZLA", "ZHU", "ZTL", "ZDC", "ZOB"] },
+      "ZKC10W": { "code": "ZKC10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZKC12W": { "code": "ZKC12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZLA": {
+      "ZLAI": { "code": "ZLAI", "label": "(Internal)", "artccs": ["ZLA"] },
+      "ZLA1": { "code": "ZLA1", "label": "(1stTier)", "artccs": ["ZLA", "ZLC", "ZOA", "ZDV", "ZAB"] },
+      "ZLA2": { "code": "ZLA2", "label": "(2ndTier)", "artccs": ["ZLA", "ZLC", "ZOA", "ZDV", "ZAB", "ZSE", "ZMP", "ZKC", "ZFW", "ZHU"] },
+      "ZLA6W": { "code": "ZLA6W", "label": "(6West)", "artccs": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE"] },
+      "ZLAWC": { "code": "ZLAWC", "label": "(WestCoast)", "artccs": ["ZSE", "ZOA", "ZLA"] },
+      "ZLA10W": { "code": "ZLA10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZLA12W": { "code": "ZLA12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZLC": {
+      "ZLCI": { "code": "ZLCI", "label": "(Internal)", "artccs": ["ZLC"] },
+      "ZLC1": { "code": "ZLC1", "label": "(1stTier)", "artccs": ["ZLC", "ZDV", "ZLA", "ZMP", "ZOA", "ZSE"] },
+      "ZLC1C": { "code": "ZLC1C", "label": "(1stTier+Canada)", "artccs": ["ZLC", "ZDV", "ZLA", "ZMP", "ZOA", "ZSE", "CYYZ", "CYEG"] },
+      "ZLC2": { "code": "ZLC2", "label": "(2ndTier)", "artccs": ["ZLC", "ZDV", "ZLA", "ZMP", "ZOA", "ZSE", "ZAB", "ZKC", "ZAU", "ZOB"] },
+      "ZLC6W": { "code": "ZLC6W", "label": "(6West)", "artccs": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE"] },
+      "ZLC10W": { "code": "ZLC10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZLC12W": { "code": "ZLC12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZMA": {
+      "ZMAI": { "code": "ZMAI", "label": "(Internal)", "artccs": ["ZMA"] },
+      "ZMA1": { "code": "ZMA1", "label": "(1stTier)", "artccs": ["ZMA", "ZJX", "ZHU"] },
+      "ZMA2": { "code": "ZMA2", "label": "(2ndTier)", "artccs": ["ZMA", "ZJX", "ZHU", "ZFW", "ZME", "ZTL", "ZDC"] },
+      "ZMAEC": { "code": "ZMAEC", "label": "(EastCoast)", "artccs": ["ZBW", "ZNY", "ZDC", "ZJX", "ZMA"] },
+      "ZMAGULF": { "code": "ZMAGULF", "label": "(Gulf)", "artccs": ["ZJX", "ZMA", "ZHU"] }
+    },
+    "ZME": {
+      "ZMEI": { "code": "ZMEI", "label": "(Internal)", "artccs": ["ZME"] },
+      "ZME1": { "code": "ZME1", "label": "(1stTier)", "artccs": ["ZME", "ZTL", "ZID", "ZKC", "ZFW", "ZHU"] },
+      "ZME2": { "code": "ZME2", "label": "(2ndTier)", "artccs": ["ZME", "ZTL", "ZID", "ZKC", "ZFW", "ZHU", "ZAB", "ZDV", "ZMP", "ZAU", "ZOB", "ZDC", "ZJX", "ZMA"] },
+      "ZME12W": { "code": "ZME12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZMP": {
+      "ZMPI": { "code": "ZMPI", "label": "(Internal)", "artccs": ["ZMP"] },
+      "ZMP1": { "code": "ZMP1", "label": "(1stTier)", "artccs": ["ZMP", "ZAU", "ZOB", "ZKC", "ZDV", "ZLC"] },
+      "ZMP1C": { "code": "ZMP1C", "label": "(1stTier+Canada)", "artccs": ["ZMP", "ZAU", "ZOB", "ZKC", "ZDV", "ZLC", "CYYZ"] },
+      "ZMP2": { "code": "ZMP2", "label": "(2ndTier)", "artccs": ["ZMP", "ZAU", "ZOB", "ZKC", "ZDV", "ZLC", "ZSE", "ZOA", "ZLA", "ZAB", "ZFW", "ZME", "ZID", "ZDC", "ZNY", "ZBW"] },
+      "ZMP10W": { "code": "ZMP10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZMP12W": { "code": "ZMP12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZNY": {
+      "ZNYI": { "code": "ZNYI", "label": "(Internal)", "artccs": ["ZNY"] },
+      "ZNY1": { "code": "ZNY1", "label": "(1stTier)", "artccs": ["ZNY", "ZBW", "ZDC", "ZOB"] },
+      "ZNY2": { "code": "ZNY2", "label": "(2ndTier)", "artccs": ["ZNY", "ZBW", "ZDC", "ZOB", "ZMP", "ZAU", "ZID", "ZTL", "ZJX"] },
+      "ZNYEC": { "code": "ZNYEC", "label": "(EastCoast)", "artccs": ["ZBW", "ZNY", "ZDC", "ZJX", "ZMA"] }
+    },
+    "ZOA": {
+      "ZOAI": { "code": "ZOAI", "label": "(Internal)", "artccs": ["ZOA"] },
+      "ZOA1": { "code": "ZOA1", "label": "(1stTier)", "artccs": ["ZOA", "ZLA", "ZSE", "ZLC"] },
+      "ZOA2": { "code": "ZOA2", "label": "(2ndTier)", "artccs": ["ZOA", "ZLA", "ZSE", "ZLC", "ZDV", "ZAB", "ZMP"] },
+      "ZOA6W": { "code": "ZOA6W", "label": "(6West)", "artccs": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE"] },
+      "ZOAWC": { "code": "ZOAWC", "label": "(WestCoast)", "artccs": ["ZSE", "ZOA", "ZLA"] },
+      "ZOA10W": { "code": "ZOA10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZOA12W": { "code": "ZOA12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZOB": {
+      "ZOBI": { "code": "ZOBI", "label": "(Internal)", "artccs": ["ZOB"] },
+      "ZOB1": { "code": "ZOB1", "label": "(1stTier)", "artccs": ["ZOB", "ZAU", "ZMP", "ZID", "ZDC", "ZNY", "ZBW"] },
+      "ZOB1C": { "code": "ZOB1C", "label": "(1stTier+Canada)", "artccs": ["ZOB", "ZAU", "ZMP", "ZID", "ZDC", "ZNY", "ZBW", "CYYZ"] },
+      "ZOB2": { "code": "ZOB2", "label": "(2ndTier)", "artccs": ["ZOB", "ZAU", "ZMP", "ZID", "ZDC", "ZNY", "ZBW", "ZLC", "ZDV", "ZKC", "ZME", "ZTL", "ZJX"] }
+    },
+    "ZSE": {
+      "ZSEI": { "code": "ZSEI", "label": "(Internal)", "artccs": ["ZSE"] },
+      "ZSE1": { "code": "ZSE1", "label": "(1stTier)", "artccs": ["ZSE", "ZOA", "ZLC"] },
+      "ZSE1C": { "code": "ZSE1C", "label": "(1stTier+Canada)", "artccs": ["ZSE", "ZOA", "ZLC", "CYVR", "CYYC", "CYEG"] },
+      "ZSE2": { "code": "ZSE2", "label": "(2ndTier)", "artccs": ["ZSE", "ZOA", "ZLC", "ZMP", "ZDV", "ZLA"] },
+      "ZSE6W": { "code": "ZSE6W", "label": "(6West)", "artccs": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE"] },
+      "ZSEWC": { "code": "ZSEWC", "label": "(WestCoast)", "artccs": ["ZSE", "ZOA", "ZLA"] },
+      "ZSE10W": { "code": "ZSE10W", "label": "(10West)", "artccs": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"] },
+      "ZSE12W": { "code": "ZSE12W", "label": "(12West)", "artccs": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"] }
+    },
+    "ZTL": {
+      "ZTLI": { "code": "ZTLI", "label": "(Internal)", "artccs": ["ZTL"] },
+      "ZTL1": { "code": "ZTL1", "label": "(1stTier)", "artccs": ["ZTL", "ZID", "ZDC", "ZJX", "ZME", "ZHU"] },
+      "ZTL2": { "code": "ZTL2", "label": "(2ndTier)", "artccs": ["ZTL", "ZID", "ZDC", "ZJX", "ZME", "ZHU", "ZAB", "ZFW", "ZKC", "ZAU", "ZOB", "ZNY", "ZBW", "ZMA"] }
+    }
+  },
+  "facilityList": ["ZAB", "ZAU", "ZBW", "ZDC", "ZDV", "ZFW", "ZHU", "ZID", "ZJX", "ZKC", "ZLA", "ZLC", "ZMA", "ZME", "ZMP", "ZNY", "ZOA", "ZOB", "ZSE", "ZTL"],
+  "tierTypes": {
+    "internal": "Internal",
+    "1stTier": "1st Tier",
+    "2ndTier": "2nd Tier",
+    "1stTier+Canada": "1st Tier + Canada",
+    "6West": "6 West",
+    "10West": "10 West",
+    "12West": "12 West",
+    "eastCoast": "East Coast",
+    "westCoast": "West Coast",
+    "gulf": "Gulf"
+  }
+}
