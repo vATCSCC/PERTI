@@ -122,10 +122,14 @@ function populateARTCCDropdown() {
 function loadAirportList() {
     const category = DEMAND_STATE.category;
     const artcc = DEMAND_STATE.artcc;
+    const tier = DEMAND_STATE.tier;
 
     let url = `api/demand/airports.php?category=${category}`;
     if (artcc) {
         url += `&artcc=${artcc}`;
+    }
+    if (tier && tier !== 'all') {
+        url += `&tier=${tier}`;
     }
 
     $.getJSON(url)
@@ -284,10 +288,28 @@ function updateTierOptions() {
     select.append('<option value="all">All Tiers</option>');
 
     if (artcc && ARTCC_TIERS && ARTCC_TIERS.byFacility && ARTCC_TIERS.byFacility[artcc]) {
-        const tiers = ARTCC_TIERS.byFacility[artcc];
-        if (tiers.internal) select.append('<option value="internal">Internal</option>');
-        if (tiers['1stTier']) select.append('<option value="1stTier">1st Tier</option>');
-        if (tiers['2ndTier']) select.append('<option value="2ndTier">2nd Tier</option>');
+        const facilityTiers = ARTCC_TIERS.byFacility[artcc];
+        // Check for tier types based on label patterns
+        let hasInternal = false, has1stTier = false, has2ndTier = false;
+        let internalCode = null, tier1Code = null, tier2Code = null;
+
+        for (const code in facilityTiers) {
+            const tier = facilityTiers[code];
+            if (tier.label && tier.label.includes('Internal')) {
+                hasInternal = true;
+                internalCode = code;
+            } else if (tier.label && tier.label.includes('1stTier')) {
+                has1stTier = true;
+                tier1Code = code;
+            } else if (tier.label && tier.label.includes('2ndTier')) {
+                has2ndTier = true;
+                tier2Code = code;
+            }
+        }
+
+        if (hasInternal) select.append(`<option value="${internalCode}">Internal</option>`);
+        if (has1stTier) select.append(`<option value="${tier1Code}">1st Tier</option>`);
+        if (has2ndTier) select.append(`<option value="${tier2Code}">2nd Tier</option>`);
     }
 }
 

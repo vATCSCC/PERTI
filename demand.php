@@ -66,15 +66,23 @@ include("load/connect.php");
             color: #333;
         }
 
-        /* Granularity and direction toggles */
+        /* Granularity and direction toggles - Bootstrap 4 */
         .demand-toggle-group .btn {
             font-size: 0.8rem;
             padding: 5px 15px;
         }
 
-        .demand-toggle-group .btn-check:checked + .btn-outline-secondary {
-            background-color: #6c757d;
-            color: #fff;
+        .demand-toggle-group .btn.active {
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+            color: #fff !important;
+        }
+
+        /* Hide radio buttons inside labels */
+        .demand-toggle-group input[type="radio"] {
+            position: absolute;
+            clip: rect(0,0,0,0);
+            pointer-events: none;
         }
 
         /* Legend items */
@@ -326,27 +334,29 @@ include("load/connect.php");
                     <!-- Granularity Toggle -->
                     <div class="form-group">
                         <label class="demand-label mb-1">Granularity</label>
-                        <div class="btn-group btn-group-sm demand-toggle-group w-100" role="group">
-                            <input type="radio" class="btn-check" name="demand_granularity" id="granularity_15min" value="15min" autocomplete="off">
-                            <label class="btn btn-outline-secondary" for="granularity_15min">15-min</label>
-
-                            <input type="radio" class="btn-check" name="demand_granularity" id="granularity_hourly" value="hourly" autocomplete="off" checked>
-                            <label class="btn btn-outline-secondary" for="granularity_hourly">Hourly</label>
+                        <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group w-100" data-toggle="buttons" role="group">
+                            <label class="btn btn-outline-secondary">
+                                <input type="radio" name="demand_granularity" id="granularity_15min" value="15min" autocomplete="off"> 15-min
+                            </label>
+                            <label class="btn btn-outline-secondary active">
+                                <input type="radio" name="demand_granularity" id="granularity_hourly" value="hourly" autocomplete="off" checked> Hourly
+                            </label>
                         </div>
                     </div>
 
                     <!-- Direction Toggle -->
                     <div class="form-group mb-0">
                         <label class="demand-label mb-1">Direction</label>
-                        <div class="btn-group btn-group-sm demand-toggle-group w-100" role="group">
-                            <input type="radio" class="btn-check" name="demand_direction" id="direction_both" value="both" autocomplete="off" checked>
-                            <label class="btn btn-outline-secondary" for="direction_both">Both</label>
-
-                            <input type="radio" class="btn-check" name="demand_direction" id="direction_arr" value="arr" autocomplete="off">
-                            <label class="btn btn-outline-secondary" for="direction_arr">Arr</label>
-
-                            <input type="radio" class="btn-check" name="demand_direction" id="direction_dep" value="dep" autocomplete="off">
-                            <label class="btn btn-outline-secondary" for="direction_dep">Dep</label>
+                        <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group w-100" data-toggle="buttons" role="group">
+                            <label class="btn btn-outline-secondary active">
+                                <input type="radio" name="demand_direction" id="direction_both" value="both" autocomplete="off" checked> Both
+                            </label>
+                            <label class="btn btn-outline-secondary">
+                                <input type="radio" name="demand_direction" id="direction_arr" value="arr" autocomplete="off"> Arr
+                            </label>
+                            <label class="btn btn-outline-secondary">
+                                <input type="radio" name="demand_direction" id="direction_dep" value="dep" autocomplete="off"> Dep
+                            </label>
                         </div>
                     </div>
                 </div>

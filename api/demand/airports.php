@@ -62,7 +62,20 @@ if ($conn === false) {
 // Get filter parameters
 $category = isset($_GET['category']) ? strtolower(trim($_GET['category'])) : 'all';
 $artcc = isset($_GET['artcc']) ? strtoupper(trim($_GET['artcc'])) : '';
+$tier = isset($_GET['tier']) ? trim($_GET['tier']) : '';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// Load tier data if tier filter is specified
+$tierARTCCs = [];
+if (!empty($tier) && $tier !== 'all' && !empty($artcc)) {
+    $tierJsonPath = realpath(__DIR__ . '/../../assets/data/artcc_tiers.json');
+    if ($tierJsonPath && file_exists($tierJsonPath)) {
+        $tierData = json_decode(file_get_contents($tierJsonPath), true);
+        if ($tierData && isset($tierData['byFacility'][$artcc][$tier])) {
+            $tierARTCCs = $tierData['byFacility'][$artcc][$tier]['artccs'] ?? [];
+        }
+    }
+}
 
 // Build WHERE clause
 $whereClauses = [];
@@ -80,8 +93,17 @@ if ($category === 'aspm77') {
     $whereClauses[] = "Core30 = 1";
 }
 
-// Filter by ARTCC
-if (!empty($artcc)) {
+// Filter by ARTCC or tier ARTCCs
+if (!empty($tierARTCCs)) {
+    // Filter by multiple ARTCCs from tier
+    $placeholders = [];
+    foreach ($tierARTCCs as $tierArtcc) {
+        $placeholders[] = "?";
+        $params[] = $tierArtcc;
+    }
+    $whereClauses[] = "RESP_ARTCC_ID IN (" . implode(", ", $placeholders) . ")";
+} elseif (!empty($artcc)) {
+    // Filter by single ARTCC
     $whereClauses[] = "RESP_ARTCC_ID = ?";
     $params[] = $artcc;
 }
@@ -175,6 +197,7 @@ echo json_encode([
     "filters" => [
         "category" => $category,
         "artcc" => $artcc,
+        "tier" => $tier,
         "search" => $search
     ],
     "count" => count($airports),
