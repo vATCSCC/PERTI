@@ -349,31 +349,43 @@
     function formatGDP(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu} CDM GROUND DELAY PROGRAM`);
+        // Header line per TFMS spec: ATCSCC ADVZY ### APT/CTR MM/DD/YYYY CDM GROUND DELAY PROGRAM
+        const ctlElement = data.ctlElement || 'TBD';
+        const artcc = data.gdpScopeCenters ?
+            (Array.isArray(data.gdpScopeCenters) ? data.gdpScopeCenters[0] : data.gdpScopeCenters.split(' ')[0]) :
+            data.facility;
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${ctlElement}/${artcc} ${data.dateHeader} CDM GROUND DELAY PROGRAM`);
         lines.push('');
 
-        // Control element
-        lines.push(`CTL: ${data.ctlElement || 'TBD'}`);
+        // CTL ELEMENT and ELEMENT TYPE per TFMS spec
+        lines.push(`CTL ELEMENT...............: ${ctlElement}`);
+        lines.push(`ELEMENT TYPE..............: ARPT`);
+        lines.push(`ADL TIME..................: ${getAdlTime()}`);
 
-        // Effective period
-        lines.push(`EFFECTIVE: ${data.startZulu} - ${data.endZulu}`);
+        // Delay assignment mode (GDP typically uses RBS+)
+        lines.push(`DELAY ASSIGNMENT MODE.....: RBS+`);
 
-        // Program parameters
-        if (data.gdpRate) {
-            lines.push(`PROGRAM RATE: ${data.gdpRate}/HR`);
+        // Program scope
+        if (data.gdpScopeCenters && data.gdpScopeCenters.length > 0) {
+            const scope = Array.isArray(data.gdpScopeCenters) ? data.gdpScopeCenters.join(' ') : data.gdpScopeCenters;
+            lines.push(`SCOPE - CENTERS...........: ${scope}`);
         }
+        if (data.gdpScopeTiers) {
+            lines.push(`SCOPE - TIERS.............: ${data.gdpScopeTiers}`);
+        }
+
+        // Program rate
+        if (data.gdpRate) {
+            lines.push(`PROGRAM RATE..............: ${data.gdpRate}/HR`);
+        }
+
+        // Max delay (cap)
         if (data.gdpDelayCap) {
-            lines.push(`MAX DELAY: ${data.gdpDelayCap} MIN`);
+            lines.push(`MAX DELAY.................: ${data.gdpDelayCap} MINS`);
         }
 
         // Impacting condition
-        lines.push(`IMPACTING CONDITION: ${data.gdpReason || 'WEATHER'}`);
-
-        // Scope
-        if (data.gdpScopeCenters && data.gdpScopeCenters.length > 0) {
-            lines.push(`SCOPE: ${Array.isArray(data.gdpScopeCenters) ? data.gdpScopeCenters.join(' ') : data.gdpScopeCenters}`);
-        }
+        lines.push(`IMPACTING CONDITION.......: ${data.gdpReason || 'WEATHER'}`);
 
         // Comments
         if (data.comments) {
@@ -382,9 +394,9 @@
             lines.push(wrapText(data.comments));
         }
 
-        // Signature
+        // Valid time range at footer per TFMS spec (ddhhmm-ddhhmm format)
         lines.push('');
-        lines.push('END ADVZY');
+        lines.push(getValidTimeRange(data.startTime, data.endTime));
 
         return lines.join('\n');
     }
@@ -392,32 +404,36 @@
     function formatGS(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu} CDM GROUND STOP`);
+        // Header line per TFMS spec: ATCSCC ADVZY ### APT/CTR MM/DD/YYYY CDM GROUND STOP
+        const ctlElement = data.ctlElement || 'TBD';
+        const artcc = data.gsScopeCenters ?
+            (Array.isArray(data.gsScopeCenters) ? data.gsScopeCenters[0] : data.gsScopeCenters.split(' ')[0]) :
+            data.facility;
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${ctlElement}/${artcc} ${data.dateHeader} CDM GROUND STOP`);
         lines.push('');
 
-        // Control element
-        lines.push(`CTL: ${data.ctlElement || 'TBD'}`);
+        // CTL ELEMENT and ELEMENT TYPE per TFMS spec
+        lines.push(`CTL ELEMENT...............: ${ctlElement}`);
+        lines.push(`ELEMENT TYPE..............: ARPT`);
+        lines.push(`ADL TIME..................: ${getAdlTime()}`);
 
-        // Effective period
-        lines.push(`EFFECTIVE: ${data.startZulu} - ${data.endZulu}`);
+        // Program scope
+        if (data.gsScopeCenters && data.gsScopeCenters.length > 0) {
+            const scope = Array.isArray(data.gsScopeCenters) ? data.gsScopeCenters.join(' ') : data.gsScopeCenters;
+            lines.push(`SCOPE - CENTERS...........: ${scope}`);
+        }
 
-        // Reason
-        lines.push(`REASON: ${data.gsReason || 'WEATHER'}`);
+        // Departure airports filter
+        if (data.gsDepAirports) {
+            lines.push(`DEP ARPTS INCLUDED........: ${data.gsDepAirports.toUpperCase()}`);
+        }
+
+        // Impacting condition
+        lines.push(`IMPACTING CONDITION.......: ${data.gsReason || 'WEATHER'}`);
 
         // Probability of extension
         if (data.gsProbability) {
-            lines.push(`PROBABILITY OF EXTENSION: ${data.gsProbability}`);
-        }
-
-        // Scope
-        if (data.gsScopeCenters && data.gsScopeCenters.length > 0) {
-            lines.push(`SCOPE: ${Array.isArray(data.gsScopeCenters) ? data.gsScopeCenters.join(' ') : data.gsScopeCenters}`);
-        }
-
-        // Departure airports
-        if (data.gsDepAirports) {
-            lines.push(`DEP AIRPORTS: ${data.gsDepAirports.toUpperCase()}`);
+            lines.push(`PROBABILITY OF EXTENSION..: ${data.gsProbability}%`);
         }
 
         // Comments
@@ -427,9 +443,9 @@
             lines.push(wrapText(data.comments));
         }
 
-        // Signature
+        // Valid time range at footer per TFMS spec (ddhhmm-ddhhmm format)
         lines.push('');
-        lines.push('END ADVZY');
+        lines.push(getValidTimeRange(data.startTime, data.endTime));
 
         return lines.join('\n');
     }
@@ -437,28 +453,31 @@
     function formatAFP(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu} AIRSPACE FLOW PROGRAM`);
+        // Header line per TFMS spec: ATCSCC ADVZY ### FCAxxxx MM/DD/YYYY CDM AIRSPACE FLOW PROGRAM
+        const fcaId = data.afpFca || 'FCA001';
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${fcaId} ${data.dateHeader} CDM AIRSPACE FLOW PROGRAM`);
         lines.push('');
 
-        // FCA
-        lines.push(`FCA: ${data.afpFca || 'TBD'}`);
+        // CTL ELEMENT (FCA) and ELEMENT TYPE per TFMS spec
+        lines.push(`CTL ELEMENT...............: ${fcaId}`);
+        lines.push(`ELEMENT TYPE..............: FCA`);
+        lines.push(`ADL TIME..................: ${getAdlTime()}`);
 
-        // Effective period
-        lines.push(`EFFECTIVE: ${data.startZulu} - ${data.endZulu}`);
+        // Delay assignment mode
+        lines.push(`DELAY ASSIGNMENT MODE.....: RBS+`);
 
-        // Rate
+        // Program rate
         if (data.afpRate) {
-            lines.push(`PROGRAM RATE: ${data.afpRate}/HR`);
+            lines.push(`PROGRAM RATE..............: ${data.afpRate}/HR`);
         }
 
-        // Reason
-        lines.push(`IMPACTING CONDITION: ${data.afpReason || 'WEATHER'}`);
-
-        // Scope description
+        // Scope description (affected airspace)
         if (data.afpScope) {
-            lines.push(`SCOPE: ${data.afpScope}`);
+            lines.push(`SCOPE.....................: ${data.afpScope}`);
         }
+
+        // Impacting condition
+        lines.push(`IMPACTING CONDITION.......: ${data.afpReason || 'WEATHER'}`);
 
         // Comments
         if (data.comments) {
@@ -467,9 +486,9 @@
             lines.push(wrapText(data.comments));
         }
 
-        // Signature
+        // Valid time range at footer per TFMS spec (ddhhmm-ddhhmm format)
         lines.push('');
-        lines.push('END ADVZY');
+        lines.push(getValidTimeRange(data.startTime, data.endTime));
 
         return lines.join('\n');
     }
@@ -477,26 +496,28 @@
     function formatCTOP(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu} CTOP`);
+        // Header line per TFMS spec: ATCSCC ADVZY ### CTPxxx MM/DD/YYYY ACTUAL CTOP
+        const ctopName = data.ctopName || 'CTP001';
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${ctopName} ${data.dateHeader} ACTUAL CTOP`);
         lines.push('');
 
-        // CTOP Name
-        lines.push(`CTOP: ${data.ctopName || 'TBD'}`);
+        // CTL ELEMENT and ELEMENT TYPE per TFMS spec
+        lines.push(`CTL ELEMENT...............: ${ctopName}`);
+        lines.push(`ELEMENT TYPE..............: CTOP`);
+        lines.push(`ADL TIME..................: ${getAdlTime()}`);
 
-        // Effective period
-        lines.push(`EFFECTIVE: ${data.startZulu} - ${data.endZulu}`);
-
-        // Reason
-        lines.push(`IMPACTING CONDITION: ${data.ctopReason || 'WEATHER'}`);
-
-        // FCAs and Caps
+        // FCAs assigned to this CTOP
         if (data.ctopFcas) {
-            lines.push(`FCAS: ${data.ctopFcas}`);
+            lines.push(`ASSIGNED FCAS.............: ${data.ctopFcas.toUpperCase()}`);
         }
+
+        // Caps (capacity values for each FCA)
         if (data.ctopCaps) {
-            lines.push(`CAPS: ${data.ctopCaps}`);
+            lines.push(`CAPACITY VALUES...........: ${data.ctopCaps}`);
         }
+
+        // Impacting condition
+        lines.push(`IMPACTING CONDITION.......: ${data.ctopReason || 'WEATHER'}`);
 
         // Comments
         if (data.comments) {
@@ -505,9 +526,9 @@
             lines.push(wrapText(data.comments));
         }
 
-        // Signature
+        // Valid time range at footer per TFMS spec (ddhhmm-ddhhmm format)
         lines.push('');
-        lines.push('END ADVZY');
+        lines.push(getValidTimeRange(data.startTime, data.endTime));
 
         return lines.join('\n');
     }
@@ -515,44 +536,42 @@
     function formatReroute(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu} ROUTE ADVISORY`);
+        // Header line per TFMS spec for reroutes
+        const routeName = data.rerouteName || 'RTE001';
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${routeName} ${data.dateHeader} PLAYBOOK ROUTE`);
         lines.push('');
 
-        // Route name
-        if (data.rerouteName) {
-            lines.push(`ROUTE: ${data.rerouteName}`);
-        }
+        // Route identification
+        lines.push(`ROUTE DESIGNATOR..........: ${routeName}`);
+        lines.push(`ADL TIME..................: ${getAdlTime()}`);
 
-        // Constrained area
+        // Constrained area (the area causing the reroute)
         if (data.rerouteArea) {
-            lines.push(`CONSTRAINED AREA: ${data.rerouteArea}`);
+            lines.push(`CONSTRAINED AREA..........: ${data.rerouteArea.toUpperCase()}`);
         }
 
-        // Effective period
-        lines.push(`EFFECTIVE: ${data.startZulu} - ${data.endZulu}`);
-
-        // Reason
-        lines.push(`REASON: ${data.rerouteReason || 'WEATHER'}`);
-
-        // Traffic filter
+        // Traffic filter - origin/destination
         if (data.rerouteFrom) {
-            lines.push(`TRAFFIC FROM: ${data.rerouteFrom.toUpperCase()}`);
+            lines.push(`TRAFFIC FROM..............: ${data.rerouteFrom.toUpperCase()}`);
         }
         if (data.rerouteTo) {
-            lines.push(`TRAFFIC TO: ${data.rerouteTo.toUpperCase()}`);
+            lines.push(`TRAFFIC TO................: ${data.rerouteTo.toUpperCase()}`);
         }
 
-        // Route string
+        // Impacting condition
+        lines.push(`IMPACTING CONDITION.......: ${data.rerouteReason || 'WEATHER'}`);
+
+        // Route string (the actual route to fly)
         if (data.rerouteString) {
             lines.push('');
-            lines.push('ROUTE REQUIRED:');
+            lines.push('ROUTE:');
             lines.push(wrapText(data.rerouteString.toUpperCase()));
         }
 
-        // Facilities
+        // Participating facilities
         if (data.rerouteFacilities) {
-            lines.push(`FACILITIES: ${data.rerouteFacilities.toUpperCase()}`);
+            lines.push('');
+            lines.push(`PARTICIPATING FACS........: ${data.rerouteFacilities.toUpperCase()}`);
         }
 
         // Comments
@@ -562,9 +581,9 @@
             lines.push(wrapText(data.comments));
         }
 
-        // Signature
+        // Valid time range at footer per TFMS spec (ddhhmm-ddhhmm format)
         lines.push('');
-        lines.push('END ADVZY');
+        lines.push(getValidTimeRange(data.startTime, data.endTime));
 
         return lines.join('\n');
     }
@@ -572,19 +591,14 @@
     function formatATCSCC(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu}`);
+        // Header line per TFMS spec for general messages
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.dateHeader} GENERAL MESSAGE`);
         lines.push('');
 
         // Subject
         if (data.atcsccSubject) {
-            lines.push(`SUBJECT: ${data.atcsccSubject.toUpperCase()}`);
-            lines.push('');
-        }
-
-        // Effective period (if set)
-        if (data.startTime || data.endTime) {
-            lines.push(`EFFECTIVE: ${data.startZulu} - ${data.endZulu}`);
+            lines.push(`SUBJECT...................: ${data.atcsccSubject.toUpperCase()}`);
+            lines.push(`ADL TIME..................: ${getAdlTime()}`);
             lines.push('');
         }
 
@@ -600,9 +614,14 @@
             lines.push(wrapText(data.comments));
         }
 
-        // Signature
-        lines.push('');
-        lines.push('END ADVZY');
+        // Valid time range at footer (if times set)
+        if (data.startTime || data.endTime) {
+            lines.push('');
+            lines.push(getValidTimeRange(data.startTime, data.endTime));
+        } else {
+            lines.push('');
+            lines.push('END OF MESSAGE');
+        }
 
         return lines.join('\n');
     }
@@ -610,28 +629,27 @@
     function formatMIT(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu} ${data.mitType || 'MIT'}`);
+        // Header line per TFMS spec for MIT/MINIT restrictions
+        const type = data.mitType || 'MIT';
+        const facility = data.mitFacility || 'TBD';
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${facility} ${data.dateHeader} ${type}`);
         lines.push('');
 
-        // Facility
-        lines.push(`FACILITY: ${data.mitFacility || 'TBD'}`);
+        // Facility and restriction type
+        lines.push(`FACILITY..................: ${facility}`);
+        lines.push(`ADL TIME..................: ${getAdlTime()}`);
 
-        // MIT/MINIT value
-        const type = data.mitType || 'MIT';
+        // MIT/MINIT value with appropriate unit
         const unit = type === 'MIT' ? 'NM' : 'MIN';
-        lines.push(`${type}: ${data.mitMiles || '0'} ${unit}`);
+        lines.push(`RESTRICTION...............: ${data.mitMiles || '0'} ${unit} ${type}`);
 
-        // Fix
+        // Fix (if applicable)
         if (data.mitFix) {
-            lines.push(`AT FIX: ${data.mitFix.toUpperCase()}`);
+            lines.push(`AT FIX....................: ${data.mitFix.toUpperCase()}`);
         }
 
-        // Effective period
-        lines.push(`EFFECTIVE: ${data.startZulu} - ${data.endZulu}`);
-
-        // Reason
-        lines.push(`REASON: ${data.mitReason || 'VOLUME'}`);
+        // Impacting condition
+        lines.push(`IMPACTING CONDITION.......: ${data.mitReason || 'VOLUME'}`);
 
         // Comments
         if (data.comments) {
@@ -640,9 +658,9 @@
             lines.push(wrapText(data.comments));
         }
 
-        // Signature
+        // Valid time range at footer per TFMS spec (ddhhmm-ddhhmm format)
         lines.push('');
-        lines.push('END ADVZY');
+        lines.push(getValidTimeRange(data.startTime, data.endTime));
 
         return lines.join('\n');
     }
@@ -650,24 +668,26 @@
     function formatCNX(data) {
         const lines = [];
 
-        // Header line
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.currentZulu} CANCELLATION`);
+        // Header line per TFMS spec for cancellation
+        const refType = data.cnxRefType || 'GDP';
+        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.dateHeader} ${refType} CANCELLATION`);
         lines.push('');
 
-        // Reference
-        lines.push(`CANCEL: ${data.cnxRefType || 'GDP'} ADVISORY ${data.cnxRefNumber || 'XXX'}`);
-        lines.push(`EFFECTIVE: ${data.currentZulu}`);
+        // Reference to original advisory
+        lines.push(`CANCEL ADVISORY...........: ${refType} ${data.cnxRefNumber || 'XXX'}`);
+        lines.push(`ADL TIME..................: ${getAdlTime()}`);
+        lines.push(`EFFECTIVE IMMEDIATELY`);
 
-        // Comments
+        // Reason for cancellation
         if (data.cnxComments) {
             lines.push('');
             lines.push('REASON:');
             lines.push(wrapText(data.cnxComments));
         }
 
-        // Signature
+        // End of message
         lines.push('');
-        lines.push('END ADVZY');
+        lines.push('END OF MESSAGE');
 
         return lines.join('\n');
     }
