@@ -56,7 +56,21 @@ $typeMap = [
     'DZ' => 'DZ',
     'ADIZ' => 'ADIZ',
     'OSARA' => 'OSARA',
-    'SUA' => 'OTHER'
+    'WSRP' => 'WSRP',
+    'SS' => 'SS',
+    'USArmy' => 'USArmy',
+    'LASER' => 'LASER',
+    'USAF' => 'USAF',
+    'ANG' => 'ANG',
+    'NUCLEAR' => 'NUCLEAR',
+    'NORAD' => 'NORAD',
+    'NOAA' => 'NOAA',
+    'NASA' => 'NASA',
+    'MODEC' => 'MODEC',
+    'FRZ' => 'FRZ',
+    'SUA' => 'OTHER',
+    '180' => 'OTHER',
+    '120' => 'OTHER'
 ];
 
 // Normalize features - add suaType based on colorName
