@@ -1,5 +1,6 @@
 /**
  * SUA/TFR Management Page JavaScript
+ * Uses MapLibre GL JS for map rendering
  */
 
 // Type display names
@@ -38,7 +39,7 @@ const TYPE_NAMES = {
     'OTHER': 'Other'
 };
 
-// Type colors for map display
+// Type colors for map display (fallback when no color in data)
 const TYPE_COLORS = {
     'P': '#ff0000',    // Red - Prohibited
     'R': '#ff6600',    // Orange - Restricted
@@ -73,8 +74,8 @@ const TYPE_COLORS = {
 
 // Map variables
 var suaMap = null;
-var suaLayer = null;
 var currentView = 'map';
+var popup = null;
 
 // Tooltip helper
 function tooltips() {
@@ -262,24 +263,94 @@ function generateCircularGeometry(lat, lon, radiusNM) {
     };
 }
 
-// Initialize the SUA map
+// Convert LineString to Polygon if it's a closed shape
+function convertToPolygon(feature) {
+    if (feature.geometry.type === 'LineString') {
+        var coords = feature.geometry.coordinates;
+        if (coords.length >= 3) {
+            // Check if it's closed (first and last points are same or very close)
+            var first = coords[0];
+            var last = coords[coords.length - 1];
+            var isClosed = (first[0] === last[0] && first[1] === last[1]) ||
+                          (Math.abs(first[0] - last[0]) < 0.0001 && Math.abs(first[1] - last[1]) < 0.0001);
+
+            // If not closed, close it
+            var polygonCoords = coords.slice();
+            if (!isClosed) {
+                polygonCoords.push(coords[0]);
+            }
+
+            return {
+                type: 'Feature',
+                properties: feature.properties,
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [polygonCoords]
+                }
+            };
+        }
+    }
+    return feature;
+}
+
+// Get color for a feature
+function getFeatureColor(props) {
+    // Use color from data if available
+    if (props.color) {
+        return props.color;
+    }
+    // Fall back to type-based color
+    var suaType = props.suaType || props.colorName || 'OTHER';
+    return TYPE_COLORS[suaType] || TYPE_COLORS['OTHER'];
+}
+
+// Initialize the SUA map with MapLibre GL
 function initSuaMap() {
     if (suaMap) return; // Already initialized
 
     // Create map centered on CONUS
-    suaMap = L.map('sua-map').setView([39.5, -98.35], 4);
+    suaMap = new maplibregl.Map({
+        container: 'sua-map',
+        style: {
+            version: 8,
+            sources: {
+                'osm': {
+                    type: 'raster',
+                    tiles: [
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                    ],
+                    tileSize: 256,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }
+            },
+            layers: [
+                {
+                    id: 'osm-layer',
+                    type: 'raster',
+                    source: 'osm',
+                    minzoom: 0,
+                    maxzoom: 18
+                }
+            ]
+        },
+        center: [-98.35, 39.5],
+        zoom: 4
+    });
 
-    // Add tile layer (OpenStreetMap)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 18
-    }).addTo(suaMap);
+    // Add navigation controls
+    suaMap.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-    // Create layer group for SUAs
-    suaLayer = L.layerGroup().addTo(suaMap);
+    // Create popup for interactions
+    popup = new maplibregl.Popup({
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: '300px'
+    });
 
-    // Load SUAs with geometry
-    loadSuaMapData();
+    // Load SUAs when map is ready
+    suaMap.on('load', function() {
+        loadSuaMapData();
+    });
 }
 
 // Load SUA data with geometry for the map
@@ -300,56 +371,126 @@ function loadSuaMapData() {
     }
 
     $.getJSON(url).done(function(geojson) {
-        if (suaLayer) {
-            suaLayer.clearLayers();
+        if (!suaMap || !geojson || !geojson.features) return;
+
+        // Convert LineStrings to Polygons and add colors
+        var processedFeatures = geojson.features.map(function(feature, index) {
+            var converted = convertToPolygon(feature);
+            // Add a unique ID for interaction
+            converted.properties._id = index;
+            // Ensure color is set
+            converted.properties._color = getFeatureColor(converted.properties);
+            return converted;
+        });
+
+        var processedGeojson = {
+            type: 'FeatureCollection',
+            features: processedFeatures
+        };
+
+        // Remove existing layers and source if they exist
+        if (suaMap.getLayer('sua-fill')) {
+            suaMap.removeLayer('sua-fill');
+        }
+        if (suaMap.getLayer('sua-line')) {
+            suaMap.removeLayer('sua-line');
+        }
+        if (suaMap.getSource('sua-data')) {
+            suaMap.removeSource('sua-data');
         }
 
-        if (geojson && geojson.features) {
-            L.geoJSON(geojson, {
-                style: function(feature) {
-                    var suaType = feature.properties.suaType || 'OTHER';
-                    // Use feature's own color if available, otherwise use type-based color
-                    var color = feature.properties.color || TYPE_COLORS[suaType] || TYPE_COLORS['OTHER'];
-                    return {
-                        color: color,
-                        weight: 2,
-                        opacity: 0.8,
-                        fillColor: color,
-                        fillOpacity: 0.2
-                    };
-                },
-                onEachFeature: function(feature, layer) {
-                    var props = feature.properties;
-                    var typeName = TYPE_NAMES[props.suaType] || props.suaType;
-                    var altDisplay = (props.lowerLimit || '-') + ' - ' + (props.upperLimit || '-');
+        // Add the source
+        suaMap.addSource('sua-data', {
+            type: 'geojson',
+            data: processedGeojson
+        });
 
-                    var popupContent = '<div class="sua-popup">' +
-                        '<strong>' + (props.name || props.designator || 'Unknown') + '</strong><br>' +
-                        '<span class="badge" style="background-color: ' + (TYPE_COLORS[props.suaType] || '#999') + '; color: #fff;">' + typeName + '</span><br>' +
-                        '<small><strong>Designator:</strong> ' + (props.designator || '-') + '</small><br>' +
-                        '<small><strong>ARTCC:</strong> ' + (props.artcc || '-') + '</small><br>' +
-                        '<small><strong>Altitude:</strong> ' + altDisplay + '</small><br>' +
-                        '<small><strong>Schedule:</strong> ' + (props.scheduleDesc || props.schedule || '-') + '</small><br>' +
-                        '<button class="btn btn-sm btn-success mt-2" onclick="openScheduleModal(\'' +
-                            escapeHtml(props.designator || '') + '\', \'' +
-                            escapeHtml(props.suaType || '') + '\', \'' +
-                            escapeHtml(props.name || '') + '\', \'' +
-                            escapeHtml(props.artcc || '') + '\', \'' +
-                            escapeHtml(props.lowerLimit || '') + '\', \'' +
-                            escapeHtml(props.upperLimit || '') + '\')">' +
-                            '<i class="fas fa-plus"></i> Activate</button>' +
-                        '</div>';
+        // Add fill layer for polygons
+        suaMap.addLayer({
+            id: 'sua-fill',
+            type: 'fill',
+            source: 'sua-data',
+            filter: ['==', '$type', 'Polygon'],
+            paint: {
+                'fill-color': ['get', '_color'],
+                'fill-opacity': 0.25
+            }
+        });
 
-                    layer.bindPopup(popupContent);
-                }
-            }).addTo(suaLayer);
+        // Add line layer for outlines
+        suaMap.addLayer({
+            id: 'sua-line',
+            type: 'line',
+            source: 'sua-data',
+            paint: {
+                'line-color': ['get', '_color'],
+                'line-width': 2,
+                'line-opacity': 0.9
+            }
+        });
 
-            // Update count
-            $('#sua_count').text(geojson.features.length);
-        }
+        // Update count
+        $('#sua_count').text(processedFeatures.length);
+
+        // Add click interaction
+        suaMap.on('click', 'sua-fill', function(e) {
+            if (e.features.length > 0) {
+                showFeaturePopup(e.features[0], e.lngLat);
+            }
+        });
+
+        suaMap.on('click', 'sua-line', function(e) {
+            if (e.features.length > 0) {
+                showFeaturePopup(e.features[0], e.lngLat);
+            }
+        });
+
+        // Change cursor on hover
+        suaMap.on('mouseenter', 'sua-fill', function() {
+            suaMap.getCanvas().style.cursor = 'pointer';
+        });
+        suaMap.on('mouseleave', 'sua-fill', function() {
+            suaMap.getCanvas().style.cursor = '';
+        });
+        suaMap.on('mouseenter', 'sua-line', function() {
+            suaMap.getCanvas().style.cursor = 'pointer';
+        });
+        suaMap.on('mouseleave', 'sua-line', function() {
+            suaMap.getCanvas().style.cursor = '';
+        });
+
     }).fail(function() {
         console.error('Failed to load SUA map data');
     });
+}
+
+// Show popup for a feature
+function showFeaturePopup(feature, lngLat) {
+    var props = feature.properties;
+    var typeName = TYPE_NAMES[props.suaType] || props.suaType || props.colorName || 'Unknown';
+    var altDisplay = (props.lowerLimit || '-') + ' - ' + (props.upperLimit || '-');
+    var color = props._color || getFeatureColor(props);
+
+    var popupContent = '<div class="sua-popup">' +
+        '<strong>' + (props.name || props.designator || 'Unknown') + '</strong><br>' +
+        '<span class="badge" style="background-color: ' + color + '; color: #fff;">' + typeName + '</span><br>' +
+        '<small><strong>Designator:</strong> ' + (props.designator || '-') + '</small><br>' +
+        '<small><strong>ARTCC:</strong> ' + (props.artcc || '-') + '</small><br>' +
+        '<small><strong>Altitude:</strong> ' + altDisplay + '</small><br>' +
+        '<small><strong>Schedule:</strong> ' + (props.scheduleDesc || props.schedule || '-') + '</small><br>' +
+        '<button class="btn btn-sm btn-success mt-2" onclick="openScheduleModal(\'' +
+            escapeHtml(props.designator || '') + '\', \'' +
+            escapeHtml(props.suaType || '') + '\', \'' +
+            escapeHtml(props.name || '') + '\', \'' +
+            escapeHtml(props.artcc || '') + '\', \'' +
+            escapeHtml(props.lowerLimit || '') + '\', \'' +
+            escapeHtml(props.upperLimit || '') + '\')">' +
+            '<i class="fas fa-plus"></i> Activate</button>' +
+        '</div>';
+
+    popup.setLngLat(lngLat)
+        .setHTML(popupContent)
+        .addTo(suaMap);
 }
 
 // Toggle between map and table view
@@ -362,10 +503,10 @@ function toggleView(view) {
         $('#viewMapBtn').addClass('active');
         $('#viewTableBtn').removeClass('active');
 
-        // Invalidate map size after showing (fixes display issues)
+        // Resize map after showing (fixes display issues)
         setTimeout(function() {
             if (suaMap) {
-                suaMap.invalidateSize();
+                suaMap.resize();
             }
         }, 100);
     } else {

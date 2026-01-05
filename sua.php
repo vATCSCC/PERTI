@@ -107,8 +107,8 @@
         }
     </style>
 
-    <!-- Leaflet CSS for map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- MapLibre GL CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin=""/>
 </head>
 
 <body>
@@ -178,7 +178,7 @@
 
         <!-- SUA Browser -->
         <div class="card" style="max-width: 1400px;">
-            <div class="card-header bg-secondary text-light">
+            <div class="card-header bg-dark text-light">
                 <strong>SUA Browser</strong>
                 <span class="badge badge-light ml-2" id="sua_count">0</span>
                 <div class="float-right">
@@ -544,8 +544,8 @@
 
 <?php include('load/footer.php'); ?>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- MapLibre GL JS -->
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 
 <script src="assets/js/sua.js"></script>
 
