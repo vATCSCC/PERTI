@@ -10,6 +10,10 @@ variables:
   # Azure Resource Manager connection created during pipeline creation
   azureSubscription: '3743219c-064b-4c38-bb67-971b60d113c2'
 
+  # Azure login
+  name: Azure Login
+  uses: Azure/login@v2.3.0
+
   # Web app name
   webAppName: 'vatcscc'
 
