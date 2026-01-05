@@ -10,7 +10,6 @@ This index is based on the `wwwroot.zip` snapshot provided in this chat, and is 
 
 - `index.php` — landing/dashboard
 - `plan.php`, `review.php`, `schedule.php`, `sheet.php` — planning workflow pages (MySQL-backed)
-- `tmi.php` — TMI tools page (GS + GDP; Azure SQL ADL-backed)
 - `gdt.php` — **Ground Delay Tool** (GDT) page (FSM-style GDP interface)
 - `reroutes.php`, `reroutes_index.php` — reroute authoring + monitoring (Azure SQL-backed)
 - `route.php` — TSD-style live flight map + route plotting (Azure SQL-backed; Leaflet/MapLibre)
