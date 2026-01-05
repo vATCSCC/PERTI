@@ -109,6 +109,8 @@
 
     <!-- MapLibre GL CSS for map -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin=""/>
+    <!-- MapLibre Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.css" crossorigin=""/>
 </head>
 
 <body>
@@ -136,6 +138,9 @@
             </button>
             <button class="btn btn-warning btn-sm" data-toggle="modal" data-target="#tfrModal">
                 <i class="fas fa-exclamation-triangle"></i> Create TFR
+            </button>
+            <button class="btn btn-info btn-sm" onclick="startAltrvDrawing()">
+                <i class="fas fa-draw-polygon"></i> Draw ALTRV
             </button>
         </div>
 
@@ -681,10 +686,98 @@
     </div>
 </div>
 
+<!-- ALTRV Creation Modal -->
+<div class="modal fade" id="altrvModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-light">
+                <h5 class="modal-title"><i class="fas fa-draw-polygon"></i> Create ALTRV</h5>
+                <button type="button" class="close text-light" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post" id="altrvForm">
+                <div class="modal-body">
+                    <input type="hidden" name="geometry" id="altrv_geometry">
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>ALTRV Name/Designator</label>
+                                <input type="text" class="form-control" name="name" id="altrv_name" placeholder="e.g., AR-123" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>ARTCC</label>
+                                <select class="form-control" name="artcc" id="altrv_artcc">
+                                    <option value="">Select ARTCC</option>
+                                    <?php foreach ($artccs as $artcc): ?>
+                                        <option value="<?= $artcc ?>"><?= $artcc ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Start Time (UTC)</label>
+                                <input type="datetime-local" class="form-control" name="start_utc" id="altrv_start" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>End Time (UTC)</label>
+                                <input type="datetime-local" class="form-control" name="end_utc" id="altrv_end" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Lower Altitude</label>
+                                <input type="text" class="form-control" name="lower_alt" id="altrv_lower" placeholder="e.g., FL180 or 18000">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Upper Altitude</label>
+                                <input type="text" class="form-control" name="upper_alt" id="altrv_upper" placeholder="e.g., FL350 or 35000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Route/Description</label>
+                        <textarea class="form-control" name="description" id="altrv_description" rows="2" placeholder="Route description or remarks"></textarea>
+                    </div>
+
+                    <div class="alert alert-info" id="altrv_geometry_info">
+                        <i class="fas fa-info-circle"></i> <span id="altrv_point_count">No geometry drawn</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="clearAltrvDrawing()">
+                        <i class="fas fa-eraser"></i> Clear Drawing
+                    </button>
+                    <input type="submit" class="btn btn-info" value="Create ALTRV">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="cancelAltrvDrawing()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <?php include('load/footer.php'); ?>
 
 <!-- MapLibre GL JS -->
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
+<!-- MapLibre Draw (Mapbox GL Draw compatible) -->
+<script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js" crossorigin=""></script>
 
 <script src="assets/js/sua.js"></script>
 
