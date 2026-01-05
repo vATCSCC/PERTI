@@ -4,27 +4,27 @@
         <!-- Left Column: GDT Setup Panel + Model Summary -->
         <div class="col-lg-5 mb-3">
             <!-- GDT Setup Component -->
-            <div class="card shadow-sm border-info gdt-setup-panel" id="gdt_setup_panel">
+            <div class="card shadow-sm border-info gdt-setup-panel" id="gdp_setup_panel">
                 <div class="card-header bg-info text-white py-1 px-2 d-flex justify-content-between align-items-center">
                     <span class="font-weight-bold">
-                        <i class="fas fa-cog mr-1"></i> GDT Setup: <span id="gdt_airport_label">---</span>
+                        <i class="fas fa-cog mr-1"></i> GDT Setup: <span id="gdp_airport_label">---</span>
                     </span>
-                    <span class="badge badge-light" id="gdt_status_badge">Draft</span>
+                    <span class="badge badge-light" id="gdp_status_badge">Draft</span>
                 </div>
                 
                 <!-- Toolbar -->
                 <div class="gdt-toolbar bg-light border-bottom px-2 py-1">
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary" id="gdt_reload_btn" title="Reload ADL data">
+                        <button class="btn btn-outline-secondary" id="gdp_reload_btn" title="Reload ADL data">
                             <i class="fas fa-sync-alt"></i> Reload
                         </button>
-                        <button class="btn btn-outline-primary" id="gdt_model_btn" title="Model with current parameters">
+                        <button class="btn btn-outline-primary" id="gdp_model_btn" title="Model with current parameters">
                             <i class="fas fa-calculator"></i> Model
                         </button>
-                        <button class="btn btn-outline-success" id="gdt_run_proposed_btn" title="Run as proposed" disabled>
+                        <button class="btn btn-outline-success" id="gdp_run_proposed_btn" title="Run as proposed" disabled>
                             <i class="fas fa-paper-plane"></i> Run Proposed
                         </button>
-                        <button class="btn btn-success" id="gdt_run_actual_btn" title="Run actual program" disabled>
+                        <button class="btn btn-success" id="gdp_run_actual_btn" title="Run actual program" disabled>
                             <i class="fas fa-check-circle"></i> Run Actual
                         </button>
                     </div>
@@ -37,7 +37,7 @@
                             <label class="mb-0 small font-weight-bold text-dark">Program Type</label>
                         </div>
                         <div class="col">
-                            <select class="form-control form-control-sm" id="gdt_program_type">
+                            <select class="form-control form-control-sm" id="gdp_program_type">
                                 <option value="GDP-DAS">GDP - DAS</option>
                                 <option value="GDP-GAAP">GDP - GAAP</option>
                                 <option value="GDP-UDP" selected>GDP - UDP</option>
@@ -47,15 +47,15 @@
                 </div>
                 
                 <!-- Tabs -->
-                <ul class="nav nav-tabs nav-fill small" id="gdt_tabs" role="tablist">
+                <ul class="nav nav-tabs nav-fill small" id="gdp_tabs" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active py-1" id="gdt_params_tab" data-toggle="tab" href="#gdt_params_pane" role="tab">Parameters</a>
+                        <a class="nav-link active py-1" id="gdp_params_tab" data-toggle="tab" href="#gdp_params_pane" role="tab">Parameters</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link py-1" id="gdt_scope_tab" data-toggle="tab" href="#gdt_scope_pane" role="tab">Scope</a>
+                        <a class="nav-link py-1" id="gdp_scope_tab" data-toggle="tab" href="#gdp_scope_pane" role="tab">Scope</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link py-1" id="gdt_modeling_tab" data-toggle="tab" href="#gdt_modeling_pane" role="tab">Modeling Options</a>
+                        <a class="nav-link py-1" id="gdp_modeling_tab" data-toggle="tab" href="#gdp_modeling_pane" role="tab">Modeling Options</a>
                     </li>
                 </ul>
                 
@@ -63,11 +63,11 @@
                 <div class="tab-content gdt-tab-content" style="max-height: 55vh; overflow-y: auto;">
                     
                     <!-- Parameters Tab -->
-                    <div class="tab-pane fade show active p-2" id="gdt_params_pane" role="tabpanel">
+                    <div class="tab-pane fade show active p-2" id="gdp_params_pane" role="tabpanel">
                         <!-- CTL Element -->
                         <div class="form-group mb-2">
                             <label class="small font-weight-bold mb-0 text-dark">CTL Element (Airport)</label>
-                            <input type="text" class="form-control form-control-sm" id="gdt_ctl_element" placeholder="KATL">
+                            <input type="text" class="form-control form-control-sm" id="gdp_ctl_element" placeholder="KATL">
                         </div>
                         
                         <!-- Program Time Options -->
@@ -76,21 +76,21 @@
                             <div class="form-row">
                                 <div class="form-group col-6 mb-1">
                                     <label class="small mb-0 text-dark">Start (ddhhmm)</label>
-                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdt_start_ddhhmm" placeholder="201800">
+                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdp_start_ddhhmm" placeholder="201800">
                                 </div>
                                 <div class="form-group col-6 mb-1">
                                     <label class="small mb-0 text-dark">End (ddhhmm)</label>
-                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdt_end_ddhhmm" placeholder="210600">
+                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdp_end_ddhhmm" placeholder="210600">
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group col-6 mb-0">
                                     <label class="small mb-0 text-dark">Data Time</label>
-                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdt_data_time" readonly>
+                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdp_data_time" readonly>
                                 </div>
                                 <div class="form-group col-6 mb-0">
                                     <label class="small mb-0 text-dark">Adv #</label>
-                                    <input type="text" class="form-control form-control-sm" id="gdt_adv_number" placeholder="001">
+                                    <input type="text" class="form-control form-control-sm" id="gdp_adv_number" placeholder="001">
                                 </div>
                             </div>
                         </fieldset>
@@ -102,24 +102,24 @@
                                 <div class="form-group col-4 mb-1">
                                     <label class="small mb-0 text-dark">Delay Limit</label>
                                     <div class="input-group input-group-sm">
-                                        <input type="number" class="form-control" id="gdt_delay_limit" value="180" min="15" max="999">
+                                        <input type="number" class="form-control" id="gdp_delay_limit" value="180" min="15" max="999">
                                         <div class="input-group-append"><span class="input-group-text">min</span></div>
                                     </div>
                                 </div>
                                 <!-- Hidden: Target Delay (Issue #3) -->
                                 <div class="form-group col-4 mb-1" style="display: none;">
                                     <label class="small mb-0 text-dark">Target Delay</label>
-                                    <input type="number" class="form-control form-control-sm" id="gdt_target_delay" value="1" min="0.5" max="2" step="0.1">
+                                    <input type="number" class="form-control form-control-sm" id="gdp_target_delay" value="1" min="0.5" max="2" step="0.1">
                                 </div>
                                 <!-- Hidden: Earliest R-Slot (Issue #3) -->
                                 <div class="form-group col-4 mb-1" style="display: none;">
                                     <label class="small mb-0 text-dark">Earliest R-Slot</label>
-                                    <input type="number" class="form-control form-control-sm" id="gdt_earliest_rslot" value="0" min="0" max="120">
+                                    <input type="number" class="form-control form-control-sm" id="gdp_earliest_rslot" value="0" min="0" max="120">
                                 </div>
                             </div>
                             <div class="custom-control custom-checkbox small">
-                                <input type="checkbox" class="custom-control-input" id="gdt_compress_to_last_cta" checked>
-                                <label class="custom-control-label text-dark" for="gdt_compress_to_last_cta">Compress to Last CTA</label>
+                                <input type="checkbox" class="custom-control-input" id="gdp_compress_to_last_cta" checked>
+                                <label class="custom-control-label text-dark" for="gdp_compress_to_last_cta">Compress to Last CTA</label>
                             </div>
                         </fieldset>
                         
@@ -128,9 +128,9 @@
                             <legend class="w-auto px-2 small font-weight-bold mb-0 text-dark">Program Rate</legend>
                             <div class="d-flex justify-content-between mb-1">
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-secondary btn-sm" id="gdt_load_times_btn">Load Times</button>
-                                    <button class="btn btn-outline-secondary btn-sm" id="gdt_load_aar_btn">Load ADL AAR</button>
-                                    <button class="btn btn-outline-secondary btn-sm" id="gdt_hist_popups_btn">Historical Pop-Ups...</button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="gdp_load_times_btn">Load Times</button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="gdp_load_aar_btn">Load ADL AAR</button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="gdp_hist_popups_btn">Historical Pop-Ups...</button>
                                 </div>
                             </div>
                             <div class="form-row align-items-center mb-1">
@@ -138,7 +138,7 @@
                                     <label class="small mb-0 text-dark">Fill</label>
                                 </div>
                                 <div class="col-3">
-                                    <select class="form-control form-control-sm" id="gdt_fill_row">
+                                    <select class="form-control form-control-sm" id="gdp_fill_row">
                                         <option value="PR">Program Rate</option>
                                         <option value="Reserve">Reserve</option>
                                     </select>
@@ -147,33 +147,33 @@
                                     <label class="small mb-0 text-dark">With</label>
                                 </div>
                                 <div class="col-auto">
-                                    <input type="number" class="form-control form-control-sm gdt-fill-input" id="gdt_fill_value" value="40">
+                                    <input type="number" class="form-control form-control-sm gdt-fill-input" id="gdp_fill_value" value="40">
                                 </div>
                                 <div class="col-auto">
-                                    <button class="btn btn-sm btn-outline-primary" id="gdt_fill_btn">Fill</button>
+                                    <button class="btn btn-sm btn-outline-primary" id="gdp_fill_btn">Fill</button>
                                 </div>
                             </div>
                             <div class="table-responsive" style="max-height: 120px; overflow-y: auto;">
-                                <table class="table table-sm table-bordered mb-0 gdt-rate-table" id="gdt_rate_table">
+                                <table class="table table-sm table-bordered mb-0 gdt-rate-table" id="gdp_rate_table">
                                     <thead class="thead-light">
-                                        <tr id="gdt_rate_header"></tr>
+                                        <tr id="gdp_rate_header"></tr>
                                     </thead>
                                     <tbody>
-                                        <tr id="gdt_rate_pr"><td class="font-weight-bold small">PR</td></tr>
-                                        <tr id="gdt_rate_popup"><td class="font-weight-bold small text-secondary">Pop-Up</td></tr>
-                                        <tr id="gdt_rate_reserve"><td class="font-weight-bold small text-info">Reserve</td></tr>
+                                        <tr id="gdp_rate_pr"><td class="font-weight-bold small">PR</td></tr>
+                                        <tr id="gdp_rate_popup"><td class="font-weight-bold small text-secondary">Pop-Up</td></tr>
+                                        <tr id="gdp_rate_reserve"><td class="font-weight-bold small text-info">Reserve</td></tr>
                                     </tbody>
                                 </table>
                             </div>
                             <div class="form-row mt-1">
                                 <div class="col">
                                     <div class="custom-control custom-radio custom-control-inline small">
-                                        <input type="radio" id="gdt_aar_set" name="gdt_aar_mode" class="custom-control-input" checked>
-                                        <label class="custom-control-label text-dark" for="gdt_aar_set">Set AAR to Program Rate</label>
+                                        <input type="radio" id="gdp_aar_set" name="gdp_aar_mode" class="custom-control-input" checked>
+                                        <label class="custom-control-label text-dark" for="gdp_aar_set">Set AAR to Program Rate</label>
                                     </div>
                                     <div class="custom-control custom-radio custom-control-inline small">
-                                        <input type="radio" id="gdt_aar_retain" name="gdt_aar_mode" class="custom-control-input">
-                                        <label class="custom-control-label text-dark" for="gdt_aar_retain">Retain Current ADL AAR</label>
+                                        <input type="radio" id="gdp_aar_retain" name="gdp_aar_mode" class="custom-control-input">
+                                        <label class="custom-control-label text-dark" for="gdp_aar_retain">Retain Current ADL AAR</label>
                                     </div>
                                 </div>
                             </div>
@@ -185,13 +185,13 @@
                             <div class="form-row">
                                 <div class="form-group col-4 mb-0">
                                     <label class="small mb-0 text-dark">Arrival Fix</label>
-                                    <select class="form-control form-control-sm" id="gdt_arrival_fix">
+                                    <select class="form-control form-control-sm" id="gdp_arrival_fix">
                                         <option value="ALL">All</option>
                                     </select>
                                 </div>
                                 <div class="form-group col-4 mb-0">
                                     <label class="small mb-0 text-dark">Aircraft Type</label>
-                                    <select class="form-control form-control-sm" id="gdt_aircraft_type">
+                                    <select class="form-control form-control-sm" id="gdp_aircraft_type">
                                         <option value="ALL">All</option>
                                         <option value="JET">Jet</option>
                                         <option value="PROP">Prop</option>
@@ -199,36 +199,36 @@
                                 </div>
                                 <div class="form-group col-4 mb-0">
                                     <label class="small mb-0 text-dark">Carrier</label>
-                                    <input type="text" class="form-control form-control-sm" id="gdt_carrier_filter" placeholder="All">
+                                    <input type="text" class="form-control form-control-sm" id="gdp_carrier_filter" placeholder="All">
                                 </div>
                             </div>
                         </fieldset>
                     </div>
                     
                     <!-- Scope Tab -->
-                    <div class="tab-pane fade p-2" id="gdt_scope_pane" role="tabpanel">
+                    <div class="tab-pane fade p-2" id="gdp_scope_pane" role="tabpanel">
                         <!-- Scope Selection Method -->
                         <fieldset class="border rounded p-2 mb-2">
                             <legend class="w-auto px-2 small font-weight-bold mb-0 text-dark">Select By</legend>
                             <div class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" id="gdt_scope_tier" name="gdt_scope_method" class="custom-control-input" checked>
-                                <label class="custom-control-label small text-dark" for="gdt_scope_tier">Tier</label>
+                                <input type="radio" id="gdp_scope_tier" name="gdp_scope_method" class="custom-control-input" checked>
+                                <label class="custom-control-label small text-dark" for="gdp_scope_tier">Tier</label>
                             </div>
                             <div class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" id="gdt_scope_distance" name="gdt_scope_method" class="custom-control-input">
-                                <label class="custom-control-label small text-dark" for="gdt_scope_distance">Distance</label>
+                                <input type="radio" id="gdp_scope_distance" name="gdp_scope_method" class="custom-control-input">
+                                <label class="custom-control-label small text-dark" for="gdp_scope_distance">Distance</label>
                             </div>
                             
                             <!-- Tier Panel -->
-                            <div id="gdt_tier_panel" class="mt-2">
-                                <select multiple class="form-control form-control-sm tmi-scope-select" id="gdt_scope_select" size="5"></select>
+                            <div id="gdp_tier_panel" class="mt-2">
+                                <select multiple class="form-control form-control-sm tmi-scope-select" id="gdp_scope_select" size="5"></select>
                             </div>
                             
                             <!-- Distance Panel -->
-                            <div id="gdt_distance_panel" class="mt-2" style="display: none;">
+                            <div id="gdp_distance_panel" class="mt-2" style="display: none;">
                                 <div class="input-group input-group-sm">
                                     <div class="input-group-prepend"><span class="input-group-text">Scope</span></div>
-                                    <input type="number" class="form-control" id="gdt_scope_distance_nm" value="400" min="50" max="3000" step="50">
+                                    <input type="number" class="form-control" id="gdp_scope_distance_nm" value="400" min="50" max="3000" step="50">
                                     <div class="input-group-append"><span class="input-group-text">nm</span></div>
                                 </div>
                             </div>
@@ -239,11 +239,11 @@
                             <legend class="w-auto px-2 small font-weight-bold mb-0 text-dark">Centers</legend>
                             <div class="form-group mb-1">
                                 <label class="small mb-0 text-success">Exempt</label>
-                                <input type="text" class="form-control form-control-sm" id="gdt_exempt_centers" placeholder="Centers within distance">
+                                <input type="text" class="form-control form-control-sm" id="gdp_exempt_centers" placeholder="Centers within distance">
                             </div>
                             <div class="form-group mb-0">
                                 <label class="small mb-0 text-danger">Non-Exempt</label>
-                                <input type="text" class="form-control form-control-sm" id="gdt_nonexempt_centers" placeholder="Centers outside distance">
+                                <input type="text" class="form-control form-control-sm" id="gdp_nonexempt_centers" placeholder="Centers outside distance">
                             </div>
                         </fieldset>
                         
@@ -252,15 +252,15 @@
                             <legend class="w-auto px-2 small font-weight-bold mb-0 text-dark">Airports - Origin</legend>
                             <div class="form-group mb-1">
                                 <label class="small mb-0 text-success">Exempt</label>
-                                <input type="text" class="form-control form-control-sm" id="gdt_exempt_airports" placeholder="e.g. KJFK KLGA">
+                                <input type="text" class="form-control form-control-sm" id="gdp_exempt_airports" placeholder="e.g. KJFK KLGA">
                             </div>
                             <div class="form-group mb-1">
                                 <label class="small mb-0 text-danger">Non-Exempt</label>
-                                <input type="text" class="form-control form-control-sm" id="gdt_nonexempt_airports" placeholder="Additional non-exempt">
+                                <input type="text" class="form-control form-control-sm" id="gdp_nonexempt_airports" placeholder="Additional non-exempt">
                             </div>
                             <div class="form-group mb-0">
                                 <label class="small mb-0 text-warning">Non-Exempt If Distance (Manual)</label>
-                                <input type="text" class="form-control form-control-sm" id="gdt_nonexempt_manual" placeholder="e.g. CYYZ CYUL">
+                                <input type="text" class="form-control form-control-sm" id="gdp_nonexempt_manual" placeholder="e.g. CYYZ CYUL">
                             </div>
                         </fieldset>
                         
@@ -268,20 +268,20 @@
                         <fieldset class="border rounded p-2 mb-0">
                             <legend class="w-auto px-2 small font-weight-bold mb-0 text-dark">Flights</legend>
                             <div class="custom-control custom-radio small">
-                                <input type="radio" id="gdt_exempt_departing" name="gdt_exempt_mode" class="custom-control-input" checked>
-                                <label class="custom-control-label text-dark" for="gdt_exempt_departing">
+                                <input type="radio" id="gdp_exempt_departing" name="gdp_exempt_mode" class="custom-control-input" checked>
+                                <label class="custom-control-label text-dark" for="gdp_exempt_departing">
                                     Exempt All Flights Departing Within 
-                                    <input type="number" class="form-control form-control-sm d-inline gdt-exempt-minutes-input" id="gdt_exempt_minutes" value="10"> Minutes
+                                    <input type="number" class="form-control form-control-sm d-inline gdt-exempt-minutes-input" id="gdp_exempt_minutes" value="10"> Minutes
                                 </label>
                             </div>
                             <div class="custom-control custom-radio small">
-                                <input type="radio" id="gdt_exempt_individual" name="gdt_exempt_mode" class="custom-control-input">
-                                <label class="custom-control-label text-dark" for="gdt_exempt_individual">Exempt Individual Flights</label>
+                                <input type="radio" id="gdp_exempt_individual" name="gdp_exempt_mode" class="custom-control-input">
+                                <label class="custom-control-label text-dark" for="gdp_exempt_individual">Exempt Individual Flights</label>
                             </div>
-                            <input type="text" class="form-control form-control-sm mt-1" id="gdt_exempt_callsigns" placeholder="Enter callsigns" disabled>
+                            <input type="text" class="form-control form-control-sm mt-1" id="gdp_exempt_callsigns" placeholder="Enter callsigns" disabled>
                             
                             <div class="mt-2">
-                                <button class="btn btn-sm btn-outline-info" id="gdt_show_demand_btn">
+                                <button class="btn btn-sm btn-outline-info" id="gdp_show_demand_btn">
                                     <i class="fas fa-chart-bar mr-1"></i> Show Demand
                                 </button>
                             </div>
@@ -289,10 +289,10 @@
                     </div>
                     
                     <!-- Modeling Options Tab -->
-                    <div class="tab-pane fade p-2" id="gdt_modeling_pane" role="tabpanel">
+                    <div class="tab-pane fade p-2" id="gdp_modeling_pane" role="tabpanel">
                         <fieldset class="border rounded p-2 mb-2">
                             <legend class="w-auto px-2 small font-weight-bold mb-0 text-dark">Power Run By</legend>
-                            <select class="form-control form-control-sm" id="gdt_power_run_by">
+                            <select class="form-control form-control-sm" id="gdp_power_run_by">
                                 <option value="GDP_DISTANCE">GDP Distance</option>
                                 <option value="GDP_DATA_TIME">GDP Data Time</option>
                                 <option value="GDP_CENTER_GROUP">GDP Center Group</option>
@@ -300,37 +300,37 @@
                             </select>
                             
                             <!-- Distance Options (shown when GDP Distance selected) -->
-                            <div id="gdt_powerrun_distance_opts" class="mt-2">
+                            <div id="gdp_powerrun_distance_opts" class="mt-2">
                                 <div class="form-row">
                                     <div class="form-group col-4 mb-1">
                                         <label class="small mb-0 text-dark">Start Distance</label>
-                                        <input type="number" class="form-control form-control-sm" id="gdt_pr_start_dist" value="199">
+                                        <input type="number" class="form-control form-control-sm" id="gdp_pr_start_dist" value="199">
                                     </div>
                                     <div class="form-group col-4 mb-1">
                                         <label class="small mb-0 text-dark">End Distance</label>
-                                        <input type="number" class="form-control form-control-sm" id="gdt_pr_end_dist" value="2600">
+                                        <input type="number" class="form-control form-control-sm" id="gdp_pr_end_dist" value="2600">
                                     </div>
                                     <div class="form-group col-4 mb-1">
                                         <label class="small mb-0 text-dark">Step Size</label>
-                                        <input type="number" class="form-control form-control-sm" id="gdt_pr_step_size" value="200">
+                                        <input type="number" class="form-control form-control-sm" id="gdp_pr_step_size" value="200">
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Rate Options (shown when GDP Rate selected) -->
-                            <div id="gdt_powerrun_rate_opts" class="mt-2" style="display: none;">
+                            <div id="gdp_powerrun_rate_opts" class="mt-2" style="display: none;">
                                 <div class="form-row">
                                     <div class="form-group col-4 mb-1">
                                         <label class="small mb-0 text-dark">Start Rate</label>
-                                        <input type="number" class="form-control form-control-sm" id="gdt_pr_start_rate" value="20">
+                                        <input type="number" class="form-control form-control-sm" id="gdp_pr_start_rate" value="20">
                                     </div>
                                     <div class="form-group col-4 mb-1">
                                         <label class="small mb-0 text-dark">End Rate</label>
-                                        <input type="number" class="form-control form-control-sm" id="gdt_pr_end_rate" value="80">
+                                        <input type="number" class="form-control form-control-sm" id="gdp_pr_end_rate" value="80">
                                     </div>
                                     <div class="form-group col-4 mb-1">
                                         <label class="small mb-0 text-dark">Step Size</label>
-                                        <input type="number" class="form-control form-control-sm" id="gdt_pr_rate_step" value="5">
+                                        <input type="number" class="form-control form-control-sm" id="gdp_pr_rate_step" value="5">
                                     </div>
                                 </div>
                             </div>
@@ -340,12 +340,12 @@
                             <legend class="w-auto px-2 small font-weight-bold mb-0 text-dark">Program Cancellation Time</legend>
                             <div class="form-row align-items-center">
                                 <div class="col">
-                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdt_cancel_time" placeholder="ddhhmm">
+                                    <input type="text" class="form-control form-control-sm font-monospace" id="gdp_cancel_time" placeholder="ddhhmm">
                                 </div>
                                 <div class="col-auto">
                                     <div class="custom-control custom-checkbox small">
-                                        <input type="checkbox" class="custom-control-input" id="gdt_freeze_cancel_time">
-                                        <label class="custom-control-label text-dark" for="gdt_freeze_cancel_time">Freeze Cancellation Time</label>
+                                        <input type="checkbox" class="custom-control-input" id="gdp_freeze_cancel_time">
+                                        <label class="custom-control-label text-dark" for="gdp_freeze_cancel_time">Freeze Cancellation Time</label>
                                     </div>
                                 </div>
                             </div>
@@ -355,8 +355,24 @@
                 </div>
                 
                 <!-- Hidden fields for computed values -->
-                <input type="hidden" id="gdt_origin_centers">
-                <input type="hidden" id="gdt_dep_facilities">
+                <input type="hidden" id="gdp_origin_centers">
+                <input type="hidden" id="gdp_dep_facilities">
+                <input type="hidden" id="gdp_program_rate" value="40">
+                <input type="hidden" id="gdp_reserve_rate" value="0">
+                <input type="hidden" id="gdp_program_id" value="">
+                <input type="hidden" id="gdp_origin_airports" value="">
+                <input type="hidden" id="gdp_flt_incl_carrier" value="">
+                <input type="hidden" id="gdp_flt_incl_type" value="ALL">
+                <input type="hidden" id="gdp_adv_number" value="">
+                <input type="hidden" id="gdp_impacting_condition" value="">
+                <input type="hidden" id="gdp_prob_ext" value="">
+                <input type="hidden" id="gdp_distance_nm" value="500">
+                <input type="hidden" id="gdp_exempt_orig_airports" value="">
+                <input type="hidden" id="gdp_exempt_orig_tracons" value="">
+                <input type="hidden" id="gdp_exempt_orig_artccs" value="">
+                <input type="hidden" id="gdp_exempt_carriers" value="">
+                <input type="hidden" id="gdp_exempt_callsigns" value="">
+                <input type="hidden" id="gdp_exempt_airborne" value="">
             </div>
             
             <!-- Model Summary Card (moved from right column) -->
@@ -370,27 +386,27 @@
                     <div class="row">
                         <div class="col-3 text-center border-right">
                             <div class="text-secondary">Total Flights</div>
-                            <div class="h5 mb-0" id="gdt_sum_total">--</div>
+                            <div class="h5 mb-0" id="gdp_sum_total">--</div>
                         </div>
                         <div class="col-3 text-center border-right">
                             <div class="text-secondary">Delayed</div>
-                            <div class="h5 mb-0 text-warning" id="gdt_sum_delayed">--</div>
+                            <div class="h5 mb-0 text-warning" id="gdp_sum_delayed">--</div>
                         </div>
                         <div class="col-3 text-center border-right">
                             <div class="text-secondary">Exempt</div>
-                            <div class="h5 mb-0 text-success" id="gdt_sum_exempt">--</div>
+                            <div class="h5 mb-0 text-success" id="gdp_sum_exempt">--</div>
                         </div>
                         <div class="col-3 text-center">
                             <div class="text-secondary">Slot Utilization</div>
-                            <div class="h5 mb-0" id="gdt_sum_utilization">--%</div>
+                            <div class="h5 mb-0" id="gdp_sum_utilization">--%</div>
                         </div>
                     </div>
                     <hr class="my-2">
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-sm btn-outline-info flex-fill mr-1" id="gdt_flight_list_btn">
+                        <button class="btn btn-sm btn-outline-info flex-fill mr-1" id="gdp_flight_list_btn">
                             <i class="fas fa-list mr-1"></i> Flight List
                         </button>
-                        <button class="btn btn-sm btn-outline-info flex-fill ml-1" id="gdt_slots_list_btn">
+                        <button class="btn btn-sm btn-outline-info flex-fill ml-1" id="gdp_slots_list_btn">
                             <i class="fas fa-clock mr-1"></i> Slots List
                         </button>
                     </div>
@@ -404,11 +420,11 @@
             <div class="card shadow-sm border-secondary mb-3">
                 <div class="card-header bg-info text-white py-1 px-2 d-flex justify-content-between align-items-center">
                     <span class="font-weight-bold small">
-                        <i class="fas fa-chart-bar mr-1"></i> GDT Bar Graph: <span id="gdt_bargraph_label">---</span>
+                        <i class="fas fa-chart-bar mr-1"></i> GDT Bar Graph: <span id="gdp_bargraph_label">---</span>
                     </span>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-light btn-sm active" id="gdt_bar_eta_btn">ETA</button>
-                        <button class="btn btn-outline-light btn-sm" id="gdt_bar_cta_btn">CTA</button>
+                        <button class="btn btn-light btn-sm active" id="gdp_bar_eta_btn">ETA</button>
+                        <button class="btn btn-outline-light btn-sm" id="gdp_bar_cta_btn">CTA</button>
                     </div>
                 </div>
                 <div class="card-body p-2">
@@ -421,8 +437,8 @@
                             <span class="border-bottom border-white" style="border-style: dashed !important;">---</span> AAR Line
                         </div>
                     </div>
-                    <div id="gdt_bargraph_container" style="height: 200px; position: relative;">
-                        <canvas id="gdt_bargraph_canvas"></canvas>
+                    <div id="gdp_bargraph_container" style="height: 200px; position: relative;">
+                        <canvas id="gdp_bargraph_canvas"></canvas>
                     </div>
                 </div>
             </div>
@@ -436,30 +452,30 @@
                             <span class="font-weight-bold small">
                                 <i class="fas fa-chart-line mr-1"></i> GDT Data Graph (Power Run)
                             </span>
-                            <span class="badge badge-light" id="gdt_powerrun_label">GDP Distance</span>
+                            <span class="badge badge-light" id="gdp_powerrun_label">GDP Distance</span>
                         </div>
                         <div class="card-body p-2">
                             <!-- Legend/Stats -->
                             <div class="row small mb-2">
                                 <div class="col-3 text-center border-right">
                                     <div class="text-secondary">Avg Delay</div>
-                                    <div class="font-weight-bold text-primary" id="gdt_stat_avg_delay">--</div>
+                                    <div class="font-weight-bold text-primary" id="gdp_stat_avg_delay">--</div>
                                 </div>
                                 <div class="col-3 text-center border-right">
                                     <div class="text-secondary">Max Delay</div>
-                                    <div class="font-weight-bold text-danger" id="gdt_stat_max_delay">--</div>
+                                    <div class="font-weight-bold text-danger" id="gdp_stat_max_delay">--</div>
                                 </div>
                                 <div class="col-3 text-center border-right">
                                     <div class="text-secondary">Total Delay</div>
-                                    <div class="font-weight-bold text-warning" id="gdt_stat_total_delay">--</div>
+                                    <div class="font-weight-bold text-warning" id="gdp_stat_total_delay">--</div>
                                 </div>
                                 <div class="col-3 text-center">
                                     <div class="text-secondary">Affected</div>
-                                    <div class="font-weight-bold text-info" id="gdt_stat_affected">--</div>
+                                    <div class="font-weight-bold text-info" id="gdp_stat_affected">--</div>
                                 </div>
                             </div>
-                            <div id="gdt_datagraph_container" style="height: 180px; position: relative;">
-                                <canvas id="gdt_datagraph_canvas"></canvas>
+                            <div id="gdp_datagraph_container" style="height: 180px; position: relative;">
+                                <canvas id="gdp_datagraph_canvas"></canvas>
                             </div>
                             <div class="text-center small text-secondary mt-1">
                                 <i class="fas fa-arrows-alt-h mr-1"></i> Click or drag to select scenario
@@ -478,7 +494,7 @@
                             </span>
                         </div>
                         <div class="card-body p-1">
-                            <div id="gdt_scope_map" style="height: 120px; background: #1a1a2e; border-radius: 4px; position: relative;">
+                            <div id="gdp_scope_map" style="height: 120px; background: #1a1a2e; border-radius: 4px; position: relative;">
                                 <!-- SVG map will be rendered here -->
                             </div>
                             <div class="d-flex justify-content-around small mt-1">
@@ -505,7 +521,7 @@
                                         <th class="text-right text-success">Exempt</th>
                                     </tr>
                                 </thead>
-                                <tbody id="gdt_demand_by_center">
+                                <tbody id="gdp_demand_by_center">
                                     <tr><td colspan="3" class="text-center text-secondary">Click Model to view</td></tr>
                                 </tbody>
                             </table>
@@ -518,12 +534,12 @@
 </div>
 
 <!-- Flight List Modal (Issue #2) -->
-<div class="modal fade" id="gdt_flight_list_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_flight_list_modal_label" aria-hidden="true">
+<div class="modal fade" id="gdp_flight_list_modal" tabindex="-1" role="dialog" aria-labelledby="gdp_flight_list_modal_label" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
         <div class="modal-content">
             <div class="modal-header py-2 bg-info text-white">
-                <h6 class="modal-title" id="gdt_flight_list_modal_label">
-                    <i class="fas fa-list mr-1"></i> GDP Flight List - <span id="gdt_flight_list_airport">---</span>
+                <h6 class="modal-title" id="gdp_flight_list_modal_label">
+                    <i class="fas fa-list mr-1"></i> GDP Flight List - <span id="gdp_flight_list_airport">---</span>
                 </h6>
                 <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -532,9 +548,9 @@
             <div class="modal-body p-0">
                 <div class="p-2 bg-light border-bottom">
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-info active" id="gdt_fl_filter_all" onclick="GDT.setFlightListFilter('all')">All <span class="badge badge-light" id="gdt_fl_count_all">0</span></button>
-                        <button class="btn btn-outline-warning" id="gdt_fl_filter_delayed" onclick="GDT.setFlightListFilter('delayed')">Delayed <span class="badge badge-warning" id="gdt_fl_count_delayed">0</span></button>
-                        <button class="btn btn-outline-success" id="gdt_fl_filter_exempt" onclick="GDT.setFlightListFilter('exempt')">Exempt <span class="badge badge-success" id="gdt_fl_count_exempt">0</span></button>
+                        <button class="btn btn-info active" id="gdp_fl_filter_all">All <span class="badge badge-light" id="gdp_fl_count_all">0</span></button>
+                        <button class="btn btn-outline-warning" id="gdp_fl_filter_delayed">Delayed <span class="badge badge-warning" id="gdp_fl_count_delayed">0</span></button>
+                        <button class="btn btn-outline-success" id="gdp_fl_filter_exempt">Exempt <span class="badge badge-success" id="gdp_fl_count_exempt">0</span></button>
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 60vh;">
@@ -553,15 +569,15 @@
                                 <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody id="gdt_flight_list_tbody">
+                        <tbody id="gdp_flight_list_tbody">
                             <tr><td colspan="10" class="text-center text-secondary">No flights loaded. Run Model first.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
             <div class="modal-footer py-2">
-                <span class="mr-auto small text-secondary" id="gdt_fl_status">Showing 0 flights</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="GDT.exportFlightsCSV()">
+                <span class="mr-auto small text-secondary" id="gdp_fl_status">Showing 0 flights</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary">
                     <i class="fas fa-download mr-1"></i> Export CSV
                 </button>
                 <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>
@@ -571,12 +587,12 @@
 </div>
 
 <!-- Slots List Modal (Issue #7) -->
-<div class="modal fade" id="gdt_slots_list_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_slots_list_modal_label" aria-hidden="true">
+<div class="modal fade" id="gdp_slots_list_modal" tabindex="-1" role="dialog" aria-labelledby="gdp_slots_list_modal_label" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
         <div class="modal-content">
             <div class="modal-header py-2 bg-info text-white">
-                <h6 class="modal-title" id="gdt_slots_list_modal_label">
-                    <i class="fas fa-clock mr-1"></i> GDP Slots List - <span id="gdt_slots_list_airport">---</span>
+                <h6 class="modal-title" id="gdp_slots_list_modal_label">
+                    <i class="fas fa-clock mr-1"></i> GDP Slots List - <span id="gdp_slots_list_airport">---</span>
                 </h6>
                 <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -585,9 +601,9 @@
             <div class="modal-body p-0">
                 <div class="p-2 bg-light border-bottom">
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-info active" id="gdt_sl_filter_all" onclick="GDT.setSlotsListFilter('all')">All Slots <span class="badge badge-light" id="gdt_sl_count_all">0</span></button>
-                        <button class="btn btn-outline-primary" id="gdt_sl_filter_assigned" onclick="GDT.setSlotsListFilter('assigned')">Assigned <span class="badge badge-primary" id="gdt_sl_count_assigned">0</span></button>
-                        <button class="btn btn-outline-secondary" id="gdt_sl_filter_open" onclick="GDT.setSlotsListFilter('open')">Open <span class="badge badge-secondary" id="gdt_sl_count_open">0</span></button>
+                        <button class="btn btn-info active" id="gdp_sl_filter_all">All Slots <span class="badge badge-light" id="gdp_sl_count_all">0</span></button>
+                        <button class="btn btn-outline-primary" id="gdp_sl_filter_assigned">Assigned <span class="badge badge-primary" id="gdp_sl_count_assigned">0</span></button>
+                        <button class="btn btn-outline-secondary" id="gdp_sl_filter_open">Open <span class="badge badge-secondary" id="gdp_sl_count_open">0</span></button>
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 60vh;">
@@ -604,15 +620,15 @@
                                 <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody id="gdt_slots_list_tbody">
+                        <tbody id="gdp_slots_list_tbody">
                             <tr><td colspan="8" class="text-center text-secondary">No slots generated. Run Model first.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
             <div class="modal-footer py-2">
-                <span class="mr-auto small text-secondary" id="gdt_sl_status">Showing 0 slots</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="GDT.exportSlotsCSV()">
+                <span class="mr-auto small text-secondary" id="gdp_sl_status">Showing 0 slots</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary">
                     <i class="fas fa-download mr-1"></i> Export CSV
                 </button>
                 <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>

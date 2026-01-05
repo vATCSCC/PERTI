@@ -134,8 +134,8 @@ const GDP = (function() {
         
         const payload = {
             gdp_airport: (document.getElementById('gdp_ctl_element')?.value || '').toUpperCase().trim(),
-            gdp_start: document.getElementById('gdp_start')?.value || '',
-            gdp_end: document.getElementById('gdp_end')?.value || '',
+            gdp_start: document.getElementById('gdp_start_ddhhmm')?.value || document.getElementById('gdp_start')?.value || '',
+            gdp_end: document.getElementById('gdp_end_ddhhmm')?.value || document.getElementById('gdp_end')?.value || '',
             program_rate: parseInt(document.getElementById('gdp_program_rate')?.value || '40', 10),
             reserve_rate: parseInt(document.getElementById('gdp_reserve_rate')?.value || '0', 10),
             delay_limit: parseInt(document.getElementById('gdp_delay_limit')?.value || '180', 10),
@@ -842,13 +842,26 @@ const GDP = (function() {
     }
 
     function buildHourlyRateTable() {
-        const startInput = document.getElementById('gdp_start');
-        const endInput = document.getElementById('gdp_end');
-        
+        const startInput = document.getElementById('gdp_start') || document.getElementById('gdp_start_ddhhmm');
+        const endInput = document.getElementById('gdp_end') || document.getElementById('gdp_end_ddhhmm');
+
         if (!startInput?.value || !endInput?.value) return;
 
-        const start = new Date(startInput.value);
-        const end = new Date(endInput.value);
+        // Parse ddhhmm format or ISO format
+        const parseDateValue = (val) => {
+            if (val.length === 6) {
+                // ddhhmm format
+                const day = parseInt(val.slice(0, 2), 10);
+                const hour = parseInt(val.slice(2, 4), 10);
+                const min = parseInt(val.slice(4, 6), 10);
+                const now = new Date();
+                return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), day, hour, min));
+            }
+            return new Date(val);
+        };
+
+        const start = parseDateValue(startInput.value);
+        const end = parseDateValue(endInput.value);
         
         const headers = document.getElementById('gdp_hourly_headers');
         const rates = document.getElementById('gdp_hourly_rates');
@@ -1301,14 +1314,32 @@ const GDP = (function() {
             return d.toISOString().slice(0, 16);
         };
 
-        const startInput = document.getElementById('gdp_start');
-        const endInput = document.getElementById('gdp_end');
-        
+        // Try both ID patterns for compatibility
+        const startInput = document.getElementById('gdp_start') || document.getElementById('gdp_start_ddhhmm');
+        const endInput = document.getElementById('gdp_end') || document.getElementById('gdp_end_ddhhmm');
+
+        // Format for ddhhmm style inputs (e.g., 201800 for day 20, 18:00)
+        const formatDdhhmm = (d) => {
+            const day = d.getUTCDate().toString().padStart(2, '0');
+            const hour = d.getUTCHours().toString().padStart(2, '0');
+            const min = d.getUTCMinutes().toString().padStart(2, '0');
+            return day + hour + min;
+        };
+
         if (startInput && !startInput.value) {
-            startInput.value = formatForInput(roundedHour);
+            // Check input type/placeholder to determine format
+            if (startInput.placeholder && startInput.placeholder.length === 6) {
+                startInput.value = formatDdhhmm(roundedHour);
+            } else {
+                startInput.value = formatForInput(roundedHour);
+            }
         }
         if (endInput && !endInput.value) {
-            endInput.value = formatForInput(endTime);
+            if (endInput.placeholder && endInput.placeholder.length === 6) {
+                endInput.value = formatDdhhmm(endTime);
+            } else {
+                endInput.value = formatForInput(endTime);
+            }
         }
     }
 
