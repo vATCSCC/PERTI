@@ -2,7 +2,7 @@
 
 ## Overview
 
-PERTI is a comprehensive web-based traffic flow management platform for VATSIM (Virtual Air Traffic Control Simulation). It provides professional-grade tools for virtual air traffic controllers to manage traffic flow, monitor incidents, and coordinate operations.
+PERTI is a comprehensive web-based Traffic Flow Management System (TFMS) for the VATSIM (Virtual Air Traffic Simulation) community. It provides professional-grade tools for virtual air traffic controllers to manage traffic flow, monitor incidents, coordinate operations, and visualize airspace status—all modeled after real-world FAA systems.
 
 **Production URL:** https://vatcscc.azurewebsites.net
 
@@ -16,6 +16,7 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 |------|-----|-------------|
 | **Home** | `/` | Landing page and dashboard |
 | **JATOC** | `/jatoc.php` | AWO Incident Monitor (no login required) |
+| **NOD** | `/nod.php` | NAS Operations Dashboard (no login required) |
 | **Privacy Policy** | `/privacy.php` | Privacy policy |
 
 ### Traffic Management Tools (Authentication Required)
@@ -23,9 +24,13 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 | Page | URL | Description |
 |------|-----|-------------|
 | **TMI Tools** | `/tmi.php` | Ground Stops, Ground Delay Programs, traffic management |
+| **GDT** | `/gdt.php` | Ground Delay Tool (FSM-style GDP interface) |
 | **Route Plotter** | `/route.php` | TSD-style live flight map with route plotting |
 | **Reroutes** | `/reroutes.php` | Reroute authoring and monitoring |
 | **Splits** | `/splits.php` | Sector/position split configuration |
+| **Demand** | `/demand.php` | FSM-style demand visualization charts |
+| **SUA** | `/sua.php` | Special Use Airspace / TFR management |
+| **Advisory Builder** | `/advisory-builder.php` | FAA TFMS-style advisory generator |
 
 ### Planning & Scheduling (Authentication Required)
 
@@ -39,6 +44,17 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 ---
 
 ## 🔧 Key Features
+
+### NOD - NAS Operations Dashboard
+*Consolidated Monitoring* - Publicly accessible at `/nod.php`
+
+- **Live Traffic:** Real-time TSD-style flight visualization with MapLibre GL
+- **TMI Summary:** Active Ground Stops, GDPs, Reroutes in one view
+- **Advisory Management:** FAA-style advisory creation and publishing
+- **Public Routes:** Global route advisory overlay with color coding
+- **JATOC Integration:** Active incident summary
+- **Discord TMIs:** Traffic management from Discord channels
+- **Stats Bar:** Flight counts, TMI breakdown, active positions
 
 ### JATOC - Joint Air Traffic Operations Command
 *AWO Incident Monitor* - Publicly accessible at `/jatoc.php`
@@ -56,6 +72,16 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 - **Ground Stops (GS):** Preview, simulate, and apply ground stops
 - **Ground Delay Programs (GDP):** EDCT/CTA slot allocation
 - **Status Bar:** Real-time flight statistics by phase/region
+
+### GDT - Ground Delay Tool
+*FSM-Style GDP Interface* - at `/gdt.php`
+
+- **FSM Chapter 5 Styling:** Professional FAA-compliant interface
+- **Program Types:** GDP-DAS, GDP-GAAP, GDP-UDP
+- **Rate Tables:** Fill options with automatic calculations
+- **Scope Filtering:** By ARTCC, tier, or distance
+- **Flight/Slots Modals:** Detailed flight and slot information
+- **CSV Export:** Export program data
 
 ### Route Plotter
 *TSD-Style Flight Visualization* - at `/route.php`
