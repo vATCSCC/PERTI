@@ -19,7 +19,7 @@ if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
         $cid = strip_tags($_SESSION['VATSIM_CID']);
         $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-        if ($p_check && $p_check->num_rows > 0) {
+        if ($p_check) {
             $perm = true;
         }
     }
