@@ -352,6 +352,32 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Boundaries -->
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1"><strong>Boundaries</strong></small>
+                            <div class="d-flex flex-wrap">
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-artcc" value="artcc" checked>
+                                    <label class="custom-control-label" for="boundary-artcc"><span class="badge" style="background-color: #515151; color: #fff;">ARTCC</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-superhigh" value="superhigh">
+                                    <label class="custom-control-label" for="boundary-superhigh"><span class="badge" style="background-color: #303030; color: #fff;">Superhigh</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-high" value="high">
+                                    <label class="custom-control-label" for="boundary-high"><span class="badge" style="background-color: #303030; color: #fff;">High</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-low" value="low">
+                                    <label class="custom-control-label" for="boundary-low"><span class="badge" style="background-color: #303030; color: #fff;">Low</span></label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-tracon" value="tracon">
+                                    <label class="custom-control-label" for="boundary-tracon"><span class="badge" style="background-color: #505050; color: #fff;">TRACON</span></label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
