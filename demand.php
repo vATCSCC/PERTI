@@ -397,7 +397,18 @@ include("load/connect.php");
                     <span class="demand-section-title">
                         <i class="fas fa-chart-bar mr-1 text-primary"></i> Demand Chart
                     </span>
-                    <span class="text-muted small" id="demand_last_update">--</span>
+                    <div class="d-flex align-items-center">
+                        <!-- Chart View Toggle -->
+                        <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group mr-3" data-toggle="buttons" role="group">
+                            <label class="btn btn-outline-secondary active" title="Show by flight status">
+                                <input type="radio" name="demand_chart_view" id="view_status" value="status" autocomplete="off" checked> Status
+                            </label>
+                            <label class="btn btn-outline-secondary" title="Show arrivals by origin ARTCC">
+                                <input type="radio" name="demand_chart_view" id="view_origin" value="origin" autocomplete="off"> Origin
+                            </label>
+                        </div>
+                        <span class="text-muted small" id="demand_last_update">--</span>
+                    </div>
                 </div>
                 <div class="card-body p-2">
                     <!-- Empty State (shown when no airport selected) -->
