@@ -2,7 +2,7 @@
 
 ## Overview
 
-PERTI is a comprehensive web-based Traffic Flow Management System (TFMS) for the VATSIM (Virtual Air Traffic Simulation) community. It provides professional-grade tools for virtual air traffic controllers to manage traffic flow, monitor incidents, coordinate operations, and visualize airspace status—all modeled after real-world FAA systems.
+PERTI is a comprehensive web-based traffic flow management platform for VATSIM (Virtual Air Traffic Control Simulation). It provides professional-grade tools for virtual air traffic controllers to manage traffic flow, monitor incidents, and coordinate operations.
 
 **Production URL:** https://vatcscc.azurewebsites.net
 
@@ -23,14 +23,11 @@ PERTI is a comprehensive web-based Traffic Flow Management System (TFMS) for the
 
 | Page | URL | Description |
 |------|-----|-------------|
-| **TMI Tools** | `/tmi.php` | Ground Stops, Ground Delay Programs, traffic management |
-| **GDT** | `/gdt.php` | Ground Delay Tool (FSM-style GDP interface) |
+| **GDT** | `/gdt.php` | Ground Delay Tool - FSM-style GDP/GS interface with modeling |
 | **Route Plotter** | `/route.php` | TSD-style live flight map with route plotting |
-| **Reroutes** | `/reroutes.php` | Reroute authoring and monitoring |
 | **Splits** | `/splits.php` | Sector/position split configuration |
-| **Demand** | `/demand.php` | FSM-style demand visualization charts |
-| **SUA** | `/sua.php` | Special Use Airspace / TFR management |
-| **Advisory Builder** | `/advisory-builder.php` | FAA TFMS-style advisory generator |
+| **Demand** | `/demand.php` | FSM-style demand visualization (in development) |
+| **SUA** | `/sua.php` | Special Use Airspace display |
 
 ### Planning & Scheduling (Authentication Required)
 
@@ -45,17 +42,6 @@ PERTI is a comprehensive web-based Traffic Flow Management System (TFMS) for the
 
 ## 🔧 Key Features
 
-### NOD - NAS Operations Dashboard
-*Consolidated Monitoring* - Publicly accessible at `/nod.php`
-
-- **Live Traffic:** Real-time TSD-style flight visualization with MapLibre GL
-- **TMI Summary:** Active Ground Stops, GDPs, Reroutes in one view
-- **Advisory Management:** FAA-style advisory creation and publishing
-- **Public Routes:** Global route advisory overlay with color coding
-- **JATOC Integration:** Active incident summary
-- **Discord TMIs:** Traffic management from Discord channels
-- **Stats Bar:** Flight counts, TMI breakdown, active positions
-
 ### JATOC - Joint Air Traffic Operations Command
 *AWO Incident Monitor* - Publicly accessible at `/jatoc.php`
 
@@ -66,22 +52,24 @@ PERTI is a comprehensive web-based Traffic Flow Management System (TFMS) for the
 - **Personnel Roster:** JATOC position assignments
 - **Incident Search:** Multi-criteria historical search
 
-### TMI Tools
-*Traffic Management Initiatives* - at `/tmi.php`
+### NOD - NAS Operations Dashboard
+*Consolidated Monitoring View* - Publicly accessible at `/nod.php`
 
-- **Ground Stops (GS):** Preview, simulate, and apply ground stops
-- **Ground Delay Programs (GDP):** EDCT/CTA slot allocation
-- **Status Bar:** Real-time flight statistics by phase/region
+- **System-Wide Overview:** Aggregated view of all active TMIs
+- **Live Flight Display:** TSD-style aircraft visualization
+- **Split Configuration:** Current sector splits across facilities
+- **Weather Integration:** Radar overlay and METAR display
+- **Advisory Feed:** Active advisories and alerts
 
 ### GDT - Ground Delay Tool
-*FSM-Style GDP Interface* - at `/gdt.php`
+*FSM-Style TMI Interface* - at `/gdt.php`
 
-- **FSM Chapter 5 Styling:** Professional FAA-compliant interface
-- **Program Types:** GDP-DAS, GDP-GAAP, GDP-UDP
-- **Rate Tables:** Fill options with automatic calculations
-- **Scope Filtering:** By ARTCC, tier, or distance
-- **Flight/Slots Modals:** Detailed flight and slot information
-- **CSV Export:** Export program data
+- **Ground Stops (GS):** Preview, simulate, and apply ground stops
+- **Ground Delay Programs (GDP):** EDCT/CTA slot allocation with modeling
+- **Rate Management:** Configure airport acceptance rates
+- **Flight List:** Preview affected flights with EDCT assignments
+- **Status Bar:** Real-time flight statistics by phase/region
+- **FSM Compliance:** Interface modeled after FAA FSM
 
 ### Route Plotter
 *TSD-Style Flight Visualization* - at `/route.php`
@@ -93,14 +81,6 @@ PERTI is a comprehensive web-based Traffic Flow Management System (TFMS) for the
 - **Export:** GeoJSON, KML, GeoPackage export formats
 - **Playbook/CDR Search:** FAA playbook and CDR route lookup
 
-### Reroutes
-*Reroute Management* - at `/reroutes.php`
-
-- **Reroute Authoring:** Create reroute definitions with constraints
-- **Flight Matching:** Preview and assign affected flights
-- **Compliance Tracking:** Monitor route compliance status
-- **Export:** CSV/JSON export of assignments
-
 ### Splits
 *Sector Configuration* - at `/splits.php`
 
@@ -108,6 +88,14 @@ PERTI is a comprehensive web-based Traffic Flow Management System (TFMS) for the
 - **Configuration Presets:** Reusable split configurations
 - **Active Splits:** Real-time position assignments
 - **Map Visualization:** MapLibre-based sector display with color coding
+
+### Demand Visualization
+*FSM-Style Demand Analysis* - at `/demand.php` (in development)
+
+- **Airport Demand:** Single airport arrival/departure analysis
+- **System Demand:** Multi-airport comparative view
+- **Element Demand:** Sector and fix loading analysis
+- **Historical Analysis:** Analog situation finder
 
 ---
 
@@ -118,12 +106,13 @@ wwwroot/
 ├── api/                    # API endpoints
 │   ├── adl/               # ADL flight data APIs
 │   ├── data/              # Reference data APIs
+│   ├── demand/            # Demand visualization APIs
 │   ├── jatoc/             # JATOC incident APIs
 │   ├── mgt/               # Management CRUD APIs
 │   ├── routes/            # Public routes APIs
 │   ├── splits/            # Splits APIs
 │   ├── statsim/           # StatSim integration APIs
-│   ├── tmi/               # TMI workflow APIs
+│   ├── tmi/               # TMI workflow APIs (GS/GDP)
 │   └── user/              # User-specific APIs
 │
 ├── assets/
@@ -163,10 +152,11 @@ wwwroot/
 
 ### Azure SQL (ADL)
 - Live flight state (`dbo.adl_flights`)
-- TMI workflows (GS/GDP/Reroute)
+- TMI workflows (GS/GDP)
 - Splits configurations
 - JATOC incidents
 - Flight history
+- Demand snapshots
 
 ---
 
@@ -180,7 +170,6 @@ wwwroot/
 ### TMI Operations
 - `POST /api/tmi/gs_*.php` - Ground Stop operations
 - `POST /api/tmi/gdp_*.php` - GDP operations
-- `POST /api/tmi/rr_*.php` - Reroute operations
 
 ### JATOC
 - `GET /api/jatoc/incidents.php` - List incidents
@@ -197,6 +186,11 @@ wwwroot/
 - `GET /api/routes/public.php` - List public routes
 - `POST /api/routes/public_post.php` - Create route
 
+### Demand (Planned)
+- `GET /api/demand/airport.php` - Single airport demand
+- `GET /api/demand/system.php` - Multi-airport overview
+- `GET /api/demand/flights.php` - Flight list drill-down
+
 ---
 
 ## 🔐 Authentication
@@ -207,7 +201,7 @@ Session data is stored in PHP sessions and includes:
 - `VATSIM_CID` - VATSIM CID
 - `VATSIM_FIRST_NAME` / `VATSIM_LAST_NAME` - User name
 
-**Note:** JATOC viewing is public; editing requires DCC role assignment.
+**Note:** JATOC and NOD viewing is public; editing requires DCC role assignment.
 
 ---
 
@@ -248,7 +242,7 @@ Example config template: `load/config.example.php`
 ## 📚 Documentation
 
 For detailed technical documentation, see:
-- `assistant_codebase_index_v10.md` - Comprehensive codebase index
+- `assistant_codebase_index_v13.md` - Comprehensive codebase index
 - `scripts/README.md` - Script documentation
 - `scripts/README_boundaries.md` - Boundary refresh documentation
 - Database migrations in `database/migrations/`
@@ -260,7 +254,7 @@ For detailed technical documentation, see:
 - **Backend:** PHP 7.4+
 - **Frontend:** JavaScript (ES6+), jQuery, Bootstrap 4.5
 - **Mapping:** MapLibre GL JS, Leaflet
-- **Charts:** Chart.js, D3.js
+- **Charts:** Chart.js, D3.js, Apache ECharts
 - **Databases:** MySQL, Azure SQL
 - **Hosting:** Azure App Service
 - **Auth:** VATSIM Connect (OAuth)
@@ -273,4 +267,4 @@ For issues or questions about PERTI, contact the vATCSCC development team.
 
 ---
 
-*Last updated: 2025-12-30*
+*Last updated: 2026-01-05*

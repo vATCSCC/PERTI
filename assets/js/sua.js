@@ -5,43 +5,58 @@
 
 // Type display names
 const TYPE_NAMES = {
-    'P': 'Prohibited',
-    'R': 'Restricted',
-    'W': 'Warning',
-    'A': 'Alert',
-    'MOA': 'MOA',
-    'NSA': 'NSA',
-    'ATCAA': 'ATCAA',
+    'P': 'Prohibited Area',
+    'R': 'Restricted Area',
+    'W': 'Warning Area',
+    'A': 'Alert Area',
+    'MOA': 'Military Operations Area',
+    'NSA': 'National Security Area',
+    'ATCAA': 'ATC Assigned Airspace',
     'IR': 'IR Route',
     'VR': 'VR Route',
     'SR': 'SR Route',
-    'AR': 'Air Refueling',
-    'TFR': 'TFR',
-    'ALTRV': 'ALTRV',
+    'AR': 'Aerial Refueling',
+    'TFR': 'Temporary Flight Restriction',
+    'ALTRV': 'Altitude Reservation',
     'OPAREA': 'Operating Area',
     'AW': 'AWACS Orbit',
-    'USN': 'USN Area',
+    'USN': 'US Navy',
     'DZ': 'Drop Zone',
-    'ADIZ': 'ADIZ',
-    'OSARA': 'OSARA',
-    'WSRP': 'Weather Radar',
+    'ADIZ': 'Air Defense Identification Zone',
+    'OSARA': 'Offshore Airspace Restricted Area',
+    'WSRP': 'Weather Surveillance Radar Program',
     'SS': 'Supersonic',
     'USArmy': 'US Army',
     'LASER': 'Laser',
     'USAF': 'US Air Force',
-    'ANG': 'Air Nat Guard',
+    'ANG': 'Air National Guard',
     'NUCLEAR': 'Nuclear',
     'NORAD': 'NORAD',
     'NOAA': 'NOAA',
     'NASA': 'NASA',
-    'MODEC': 'MODEC',
-    'FRZ': 'FRZ',
-    'PROHIBITED': 'Prohibited',
-    'RESTRICTED': 'Restricted',
-    'WARNING': 'Warning',
-    'ALERT': 'Alert',
+    'MODEC': 'Mode C Veil',
+    'FRZ': 'Flight Restricted Zone',
+    'SFRA': 'Special Flight Rules Area',
+    'PROHIBITED': 'Prohibited Area',
+    'RESTRICTED': 'Restricted Area',
+    'WARNING': 'Warning Area',
+    'ALERT': 'Alert Area',
     'OTHER': 'Other',
-    'Unknown': 'Other'
+    'Unknown': 'Other',
+    '120': 'DC Speed Restriction',
+    '180': 'DC Special Flight Rules Area',
+};
+
+// Group display names (for new schema)
+const GROUP_NAMES = {
+    'REGULATORY': 'Regulatory',
+    'MILITARY': 'Military',
+    'ROUTES': 'Routes',
+    'SPECIAL': 'Special',
+    'DC_AREA': 'DC NCR',
+    'SURFACE_OPS': 'Surface Ops',
+    'AWACS': 'AWACS',
+    'OTHER': 'Other'
 };
 
 // Types that should remain as lines (routes, tracks) - NOT converted to polygons
@@ -63,43 +78,61 @@ var mapLoaded = false;
 var layersInitialized = false;
 var allFeatures = { areas: [], routes: [] }; // Store all loaded features for filtering
 
-// Layer type mapping - maps colorName to layer group
+// Layer type mapping - maps colorName to layer group (legacy support)
 const LAYER_GROUPS = {
-    'PROHIBITED': 'PROHIBITED',
-    'RESTRICTED': 'RESTRICTED',
-    'WARNING': 'WARNING',
-    'ALERT': 'ALERT',
-    'MOA': 'MOA',
-    'NSA': 'NSA',
-    'TFR': 'TFR',
-    'AR': 'AR',
-    'ALTRV': 'ALTRV',
-    'AW': 'AW',
-    'USN': 'USN',
-    'ADIZ': 'OTHER',
-    'FRZ': 'OTHER',
-    'OPAREA': 'OTHER',
-    'DZ': 'OTHER',
-    'LASER': 'OTHER',
-    'NUCLEAR': 'OTHER',
-    'USAF': 'OTHER',
-    'USArmy': 'OTHER',
-    'ANG': 'OTHER',
-    'OSARA': 'OTHER',
-    'SS': 'OTHER',
-    'WSRP': 'OTHER',
-    'NORAD': 'OTHER',
-    'NASA': 'OTHER',
+    'PROHIBITED': 'REGULATORY',
+    'RESTRICTED': 'REGULATORY',
+    'WARNING': 'REGULATORY',
+    'ALERT': 'REGULATORY',
+    'P': 'REGULATORY',
+    'R': 'REGULATORY',
+    'W': 'REGULATORY',
+    'A': 'REGULATORY',
+    'NSA': 'REGULATORY',
+    'MOA': 'MILITARY',
+    'ATCAA': 'MILITARY',
+    'ALTRV': 'MILITARY',
+    'USAF': 'MILITARY',
+    'USArmy': 'MILITARY',
+    'ANG': 'MILITARY',
+    'USN': 'MILITARY',
+    'NORAD': 'MILITARY',
+    'OPAREA': 'MILITARY',
+    'AR': 'ROUTES',
+    'IR': 'ROUTES',
+    'VR': 'ROUTES',
+    'SR': 'ROUTES',
+    'MTR': 'ROUTES',
+    'OSARA': 'ROUTES',
+    'TFR': 'SPECIAL',
+    'DZ': 'SPECIAL',
+    'SS': 'SPECIAL',
+    'LASER': 'SPECIAL',
+    'NUCLEAR': 'SPECIAL',
+    'SFRA': 'DC_AREA',
+    'FRZ': 'DC_AREA',
+    'ADIZ': 'DC_AREA',
+    '120': 'DC_AREA',
+    '180': 'DC_AREA',
+    'AW': 'AWACS',
     'NOAA': 'OTHER',
+    'NASA': 'OTHER',
     'MODEC': 'OTHER',
+    'WSRP': 'OTHER',
     'SUA': 'OTHER',
-    'Unknown': 'OTHER',
-    '120': 'OTHER',
-    '180': 'OTHER'
+    'Unknown': 'OTHER'
 };
 
 // Get the layer group for a feature
-function getLayerGroup(colorName) {
+// Supports both new schema (sua_group) and legacy (colorName lookup)
+function getLayerGroup(feature) {
+    var props = feature.properties || feature;
+    // New schema: use sua_group directly
+    if (props.sua_group) {
+        return props.sua_group;
+    }
+    // Legacy: map colorName to group
+    var colorName = props.colorName || props.sua_type || 'Unknown';
     return LAYER_GROUPS[colorName] || 'OTHER';
 }
 
@@ -126,15 +159,13 @@ function applyLayerFilters() {
 
     // Filter area features
     var filteredAreas = allFeatures.areas.filter(function(f) {
-        var colorName = f.properties.colorName || 'Unknown';
-        var group = getLayerGroup(colorName);
+        var group = getLayerGroup(f);
         return enabledLayers.indexOf(group) !== -1;
     });
 
     // Filter route features
     var filteredRoutes = allFeatures.routes.filter(function(f) {
-        var colorName = f.properties.colorName || 'Unknown';
-        var group = getLayerGroup(colorName);
+        var group = getLayerGroup(f);
         return enabledLayers.indexOf(group) !== -1;
     });
 
@@ -210,24 +241,29 @@ function loadSuaBrowser() {
                 html = '<tr><td colspan="7" class="text-center text-muted">No SUAs found</td></tr>';
             } else {
                 data.forEach(function(sua) {
-                    var typeName = TYPE_NAMES[sua.suaType] || TYPE_NAMES[sua.colorName] || sua.suaType;
-                    var altDisplay = (sua.lowerLimit || '-') + ' - ' + (sua.upperLimit || '-');
+                    // Support both new and legacy schema
+                    var suaType = sua.sua_type || sua.suaType || sua.colorName || 'Unknown';
+                    var typeName = TYPE_NAMES[suaType] || suaType;
+                    var floorAlt = sua.floor_alt || sua.lowerLimit || '-';
+                    var ceilingAlt = sua.ceiling_alt || sua.upperLimit || '-';
+                    var altDisplay = floorAlt + ' - ' + ceilingAlt;
+                    var suaId = sua.sua_id || sua.designator || '-';
 
                     html += '<tr>';
                     html += '<td><span class="badge badge-primary">' + typeName + '</span></td>';
-                    html += '<td class="text-monospace">' + (sua.designator || '-') + '</td>';
+                    html += '<td class="text-monospace">' + suaId + '</td>';
                     html += '<td>' + (sua.name || '-') + '</td>';
                     html += '<td>' + (sua.artcc || '-') + '</td>';
                     html += '<td class="small">' + altDisplay + '</td>';
                     html += '<td class="small">' + (sua.scheduleDesc || sua.schedule || '-') + '</td>';
                     html += '<td>';
                     html += '<button class="btn btn-sm btn-success activation-btn" onclick="openScheduleModal(\'' +
-                            escapeHtml(sua.designator || '') + '\', \'' +
-                            escapeHtml(sua.suaType || '') + '\', \'' +
+                            escapeHtml(suaId) + '\', \'' +
+                            escapeHtml(suaType) + '\', \'' +
                             escapeHtml(sua.name || '') + '\', \'' +
                             escapeHtml(sua.artcc || '') + '\', \'' +
-                            escapeHtml(sua.lowerLimit || '') + '\', \'' +
-                            escapeHtml(sua.upperLimit || '') + '\')">';
+                            escapeHtml(floorAlt) + '\', \'' +
+                            escapeHtml(ceilingAlt) + '\')">';
                     html += '<i class="fas fa-plus"></i> Activate</button>';
                     html += '</td>';
                     html += '</tr>';
@@ -344,22 +380,45 @@ function generateCircularGeometry(lat, lon, radiusNM) {
 }
 
 // Check if a type should be rendered as a line (route) vs area (polygon)
-function isLineType(colorName, suaType) {
-    var typeToCheck = colorName || suaType || '';
+// Supports both new schema (geometry_type) and legacy (type detection)
+function isLineType(feature) {
+    var props = feature.properties || feature;
+
+    // New schema: use geometry_type directly
+    if (props.geometry_type) {
+        return props.geometry_type === 'line' || props.geometry_type === 'dash_segments';
+    }
+
+    // Legacy: check colorName/suaType against LINE_TYPES
+    var typeToCheck = props.colorName || props.sua_type || props.suaType || '';
     return LINE_TYPES.indexOf(typeToCheck) !== -1;
 }
 
-// Convert LineString to Polygon only for area types (not routes)
+// Process feature for map display
+// New schema: geometry already converted by transformation script
+// Legacy: convert LineString to Polygon for area types
 function processFeature(feature) {
     if (!feature.geometry) return feature;
 
     var props = feature.properties || {};
+
+    // New schema: geometry already processed, just set _isRoute flag
+    if (props.geometry_type) {
+        props._isRoute = (props.geometry_type === 'line' || props.geometry_type === 'dash_segments');
+        props._hasDashedBorder = (props.border_style === 'dashed');
+        return {
+            type: 'Feature',
+            properties: props,
+            geometry: feature.geometry
+        };
+    }
+
+    // Legacy processing: convert LineString to Polygon for area types
     var colorName = props.colorName || '';
     var suaType = props.suaType || '';
 
     // If this is a line type (route), keep it as a line
-    if (isLineType(colorName, suaType)) {
-        // Mark as line type for styling
+    if (LINE_TYPES.indexOf(colorName) !== -1 || LINE_TYPES.indexOf(suaType) !== -1) {
         props._isRoute = true;
         return {
             type: 'Feature',
@@ -647,27 +706,47 @@ function loadSuaMapData() {
 // Show popup for a feature
 function showFeaturePopup(feature, lngLat) {
     var props = feature.properties || {};
-    var colorName = props.colorName || props.suaType || 'Unknown';
-    var typeName = TYPE_NAMES[colorName] || colorName;
-    var altDisplay = (props.lowerLimit || '-') + ' - ' + (props.upperLimit || '-');
+
+    // Support both new and legacy schema
+    var suaType = props.sua_type || props.colorName || props.suaType || 'Unknown';
+    var typeName = TYPE_NAMES[suaType] || suaType;
+    var suaGroup = props.sua_group || getLayerGroup(feature);
+    var groupName = GROUP_NAMES[suaGroup] || suaGroup;
+
+    // Altitude display - new schema uses floor_alt/ceiling_alt
+    var floorAlt = props.floor_alt || props.lowerLimit || '-';
+    var ceilingAlt = props.ceiling_alt || props.upperLimit || '-';
+    var altDisplay = floorAlt + ' - ' + ceilingAlt;
+
     var color = props._color || props.color || '#999';
     var featureType = props._isRoute ? 'Route' : 'Area';
 
+    // Name display
+    var displayName = props.name || props.designator || 'Unknown';
+    var areaName = props.area_name;
+
     var popupContent = '<div class="sua-popup">' +
-        '<strong>' + (props.name || props.designator || 'Unknown') + '</strong><br>' +
+        '<strong>' + displayName + '</strong>';
+
+    if (areaName) {
+        popupContent += '<br><small class="text-muted">' + areaName + '</small>';
+    }
+
+    popupContent += '<br>' +
         '<span class="badge" style="background-color: ' + color + '; color: #fff;">' + typeName + '</span> ' +
+        '<span class="badge badge-info">' + groupName + '</span> ' +
         '<span class="badge badge-secondary">' + featureType + '</span><br>' +
-        '<small><strong>Designator:</strong> ' + (props.designator || '-') + '</small><br>' +
+        '<small><strong>ID:</strong> ' + (props.sua_id || props.designator || '-') + '</small><br>' +
         '<small><strong>ARTCC:</strong> ' + (props.artcc || '-') + '</small><br>' +
         '<small><strong>Altitude:</strong> ' + altDisplay + '</small><br>' +
         '<small><strong>Schedule:</strong> ' + (props.scheduleDesc || props.schedule || '-') + '</small><br>' +
         '<button class="btn btn-sm btn-success mt-2" onclick="openScheduleModal(\'' +
-            escapeHtml(props.designator || '') + '\', \'' +
-            escapeHtml(props.suaType || colorName) + '\', \'' +
+            escapeHtml(props.sua_id || props.designator || '') + '\', \'' +
+            escapeHtml(suaType) + '\', \'' +
             escapeHtml(props.name || '') + '\', \'' +
             escapeHtml(props.artcc || '') + '\', \'' +
-            escapeHtml(props.lowerLimit || '') + '\', \'' +
-            escapeHtml(props.upperLimit || '') + '\')">' +
+            escapeHtml(floorAlt) + '\', \'' +
+            escapeHtml(ceilingAlt) + '\')">' +
             '<i class="fas fa-plus"></i> Activate</button>' +
         '</div>';
 
