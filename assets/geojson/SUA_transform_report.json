@@ -1,0 +1,56 @@
+{
+  "total": 3814,
+  "polygons": {
+    "solid": 2979,
+    "dashed": 0
+  },
+  "lines": {
+    "solid": 801,
+    "dashed": 0
+  },
+  "dashSegments": 34,
+  "closureFixed": 407,
+  "byGroup": {
+    "DC_AREA": 12,
+    "REGULATORY": 534,
+    "MILITARY": 791,
+    "AWACS": 124,
+    "OTHER": 1684,
+    "SPECIAL": 65,
+    "ROUTES": 604
+  },
+  "byType": {
+    "120": 1,
+    "180": 1,
+    "ADIZ": 9,
+    "WARNING": 159,
+    "MOA": 634,
+    "USN": 61,
+    "AW": 124,
+    "Unknown": 1660,
+    "TFR": 34,
+    "NORAD": 1,
+    "WSRP": 6,
+    "PROHIBITED": 17,
+    "RESTRICTED": 321,
+    "AR": 589,
+    "ALTRV": 55,
+    "LASER": 3,
+    "DZ": 22,
+    "USArmy": 3,
+    "ANG": 2,
+    "FRZ": 1,
+    "ALERT": 31,
+    "OPAREA": 33,
+    "SUA": 15,
+    "NASA": 1,
+    "NSA": 6,
+    "MODEC": 1,
+    "SS": 5,
+    "USAF": 2,
+    "OSARA": 15,
+    "NUCLEAR": 1,
+    "NOAA": 1
+  },
+  "errors": []
+}
