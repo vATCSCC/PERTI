@@ -4,7 +4,8 @@
       "Bash(cd:*)",
       "Bash(find:*)",
       "Bash(cat:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git push)"
     ]
   }
 }
