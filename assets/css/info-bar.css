@@ -1,0 +1,245 @@
+/**
+ * info-bar.css
+ * Shared styles for the UTC/Times/Flights info bar component
+ * Used in route.php and tmi.php
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INFO BAR CONTAINER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.perti-info-bar {
+    background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 0;
+    margin-bottom: 16px;
+}
+
+.perti-info-bar .row {
+    margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.perti-clock-display {
+    font-family: "Inconsolata", "SF Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+}
+
+.perti-clock-display-lg {
+    font-size: 1.1rem;
+}
+
+.perti-clock-display-md {
+    font-size: 0.9rem;
+}
+
+.perti-clock-display-sm {
+    font-size: 0.8rem;
+}
+
+.perti-info-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+
+.perti-info-sublabel {
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: #868e96;
+    margin-bottom: 1px;
+}
+
+.perti-stat-value {
+    font-family: "Inconsolata", monospace;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARD STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.perti-info-card {
+    border-radius: 6px;
+    border-width: 1px;
+    border-style: solid;
+    transition: box-shadow 0.15s ease;
+}
+
+.perti-info-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.perti-info-card .card-body {
+    padding: 10px 14px;
+}
+
+/* UTC Clock Card */
+.perti-card-utc {
+    border-color: #4dabf7;
+    border-width: 2px;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+}
+
+.perti-card-utc .perti-info-label {
+    color: #1971c2;
+}
+
+/* Local Times Card */
+.perti-card-local {
+    border-color: #adb5bd;
+    background: #ffffff;
+}
+
+/* Global Flights Card */
+.perti-card-global {
+    border-color: #17a2b8;
+    background: linear-gradient(135deg, #ffffff 0%, #f0fbff 100%);
+}
+
+.perti-card-global .perti-info-label {
+    color: #0c8599;
+}
+
+/* Domestic Arrivals Card */
+.perti-card-domestic {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #ffffff 0%, #f0fff4 100%);
+}
+
+.perti-card-domestic .perti-info-label {
+    color: #1e7e34;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLOCK GRID
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.perti-clock-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.perti-clock-item {
+    text-align: center;
+    min-width: 36px;
+}
+
+.perti-clock-tz {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #868e96;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLIGHT STATS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.perti-stat-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.perti-stat-item {
+    text-align: center;
+    padding: 0 4px;
+}
+
+.perti-stat-category {
+    font-size: 0.55rem;
+    font-weight: 500;
+    color: #868e96;
+    text-transform: uppercase;
+}
+
+/* Badge overrides for consistent sizing */
+.perti-info-bar .badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 3px 6px;
+    vertical-align: middle;
+}
+
+.perti-info-bar .badge-total {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+/* DCC/Tier badge groups */
+.perti-badge-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.perti-badge-group .badge {
+    font-size: 0.65rem;
+    padding: 2px 5px;
+}
+
+.perti-badge-group .badge strong {
+    margin-right: 2px;
+}
+
+/* Section divider within cards */
+.perti-stat-section {
+    margin-right: 12px;
+}
+
+.perti-stat-section:last-child {
+    margin-right: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE ADJUSTMENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 992px) {
+    .perti-info-bar {
+        padding: 8px 0;
+    }
+    
+    .perti-clock-grid {
+        gap: 8px;
+    }
+    
+    .perti-clock-display-lg {
+        font-size: 1rem;
+    }
+    
+    .perti-clock-display-md {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .perti-info-card .card-body {
+        padding: 8px 10px;
+    }
+    
+    .perti-clock-grid {
+        gap: 6px;
+    }
+    
+    .perti-stat-grid {
+        gap: 4px;
+    }
+    
+    .perti-stat-section {
+        margin-right: 8px;
+    }
+}

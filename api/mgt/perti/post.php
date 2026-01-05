@@ -44,6 +44,8 @@ if ($perm == true) {
 $event_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['event_name'])));
 $event_date = strip_tags($_POST['event_date']);
 $event_start = strip_tags($_POST['event_start']);
+$event_end_date = strip_tags($_POST['event_end_date']);
+$event_end_time = strip_tags($_POST['event_end_time']);
 $event_banner = strip_tags($_POST['event_banner']);
 $oplevel = strip_tags($_POST['oplevel']);
 $hotline = strip_tags($_POST['hotline']);
@@ -55,8 +57,8 @@ try {
     $conn_pdo->beginTransaction();
 
     // SQL Query
-    $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_banner, oplevel, hotline)
-    VALUES ('$event_name', '$event_date', '$event_start', '$event_banner', '$oplevel', '$hotline')";
+    $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline)
+    VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline')";
 
     $conn_pdo->exec($sql);
 

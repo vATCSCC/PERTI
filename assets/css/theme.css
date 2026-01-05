@@ -12527,7 +12527,6 @@ label {
 }
 
 label:not(.form-check-label):not(.custom-control-label):not(.custom-file-label):not(.cs-custom-option-label):not(.btn) {
-    color: #4a4b65;
     font-weight: 500
 }
 

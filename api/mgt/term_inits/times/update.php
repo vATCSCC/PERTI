@@ -4,7 +4,7 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
     ob_start();
-  }
+}
 // Session Start (E)
 
 include("../../../../load/config.php");
@@ -12,47 +12,40 @@ include("../../../../load/connect.php");
 
 $domain = strip_tags(SITE_DOMAIN);
 
-// Check Perms
+// Simple permission check: require logged-in VATSIM CID or DEV mode
 $perm = false;
-if (!defined('DEV')) {
-    if (isset($_SESSION['VATSIM_CID'])) {
+if (defined('DEV')) {
+    $perm = true;
+} else {
+    if (isset($_SESSION['VATSIM_CID']) && $_SESSION['VATSIM_CID'] !== '') {
+        $perm = true;
+    }
+}
 
-        // Getting CID Value
-        $cid = strip_tags($_SESSION['VATSIM_CID']);
+if ($perm === true) {
+    if (!isset($_POST['id']) || !isset($_POST['probability'])) {
+        http_response_code(400);
+        exit;
+    }
 
-        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
+    $id          = intval($_POST['id']);
+    $probability = intval($_POST['probability']);
 
-        if ($p_check) {
-            $perm = true;
-        }
+    if ($probability < 0) {
+        $probability = 0;
+    } elseif ($probability > 4) {
+        $probability = 4;
+    }
 
+    $query = $conn_sqli->query("UPDATE p_terminal_init_times SET probability='$probability' WHERE id=$id");
+
+    if ($query) {
+        http_response_code(200);
+    } else {
+        http_response_code(500);
     }
 } else {
-    $perm = true;
-    $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
-}
-
-// Check Perms (S)
-if ($perm == true) {
-    // Do Nothing
-} else {
     http_response_code(403);
-    exit();
-}
-// (E)
-
-$id = strip_tags($_POST['id']);
-
-$probability = strip_tags($_POST['probability']);
-$np = $probability + 1;
-
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_terminal_init_times SET probability='$np' WHERE id=$id");
-
-if ($query) {
-    http_response_code('200');
-} else {
-    http_response_code('500');
 }
 
 ?>

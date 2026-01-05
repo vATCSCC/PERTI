@@ -33,10 +33,32 @@ if (!defined('DEV')) {
 $query = mysqli_query($conn_sqli, ("SELECT * FROM p_plans ORDER BY event_date DESC LIMIT 15"));
 
 while ($data = mysqli_fetch_array($query)) {
+    // Handle nullable end date/time values
+    $event_end_date = $data['event_end_date'] ?? '';
+    $event_end_time = $data['event_end_time'] ?? '';
+    
     echo '<tr>';
     echo '<td>'.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$data['hotline'][0].'</span></td>';
+    
+    // Start Date
     echo '<td class="text-center">'.$data['event_date'].'</td>';
+    
+    // Start Time
     echo '<td class="text-center">'.$data['event_start'].'Z</td>';
+    
+    // End Date
+    if (!empty($event_end_date)) {
+        echo '<td class="text-center">'.$event_end_date.'</td>';
+    } else {
+        echo '<td class="text-center text-muted">—</td>';
+    }
+    
+    // End Time
+    if (!empty($event_end_time)) {
+        echo '<td class="text-center">'.$event_end_time.'Z</td>';
+    } else {
+        echo '<td class="text-center text-muted">—</td>';
+    }
 
     if ($data['oplevel'] == 1) {
         echo '<td class="text-dark text-center">'.$data['oplevel'].' - Steady State</td>';
@@ -63,7 +85,7 @@ while ($data = mysqli_fetch_array($query)) {
 
             if ($perm == true) {
                 echo ' ';
-                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit PERTI Plan"><span class="badge badge-warning" data-toggle="modal" data-target="#editplanModal" data-id="'.$data['id'].'" data-event_name="'.$data['event_name'].'" data-event_date="'.$data['event_date'].'" data-event_start="'.$data['event_start'].'" data-oplevel="'.$data['oplevel'].'" data-hotline="'.$data['hotline'].'" data-event_banner="'.$data['event_banner'].'">
+                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit PERTI Plan"><span class="badge badge-warning" data-toggle="modal" data-target="#editplanModal" data-id="'.$data['id'].'" data-event_name="'.$data['event_name'].'" data-event_date="'.$data['event_date'].'" data-event_start="'.$data['event_start'].'" data-event_end_date="'.$event_end_date.'" data-event_end_time="'.$event_end_time.'" data-oplevel="'.$data['oplevel'].'" data-hotline="'.$data['hotline'].'" data-event_banner="'.$data['event_banner'].'">
                     <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                 echo ' ';
                 echo '<a href="javascript:void(0)" onclick="deletePlan('.$data['id'].')" data-toggle="tooltip" title="Delete PERTI Plan"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';

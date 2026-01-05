@@ -4,7 +4,7 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
     ob_start();
-  }
+}
 // Session Start (E)
 
 include("../../../../load/config.php");
@@ -12,57 +12,57 @@ include("../../../../load/connect.php");
 
 $domain = strip_tags(SITE_DOMAIN);
 
-// Check Perms
+// Simple permission check: require logged-in VATSIM CID or DEV mode
 $perm = false;
-if (!defined('DEV')) {
-    if (isset($_SESSION['VATSIM_CID'])) {
+if (defined('DEV')) {
+    $perm = true;
+} else {
+    if (isset($_SESSION['VATSIM_CID']) && $_SESSION['VATSIM_CID'] !== '') {
+        $perm = true;
+    }
+}
 
-        // Getting CID Value
-        $cid = strip_tags($_SESSION['VATSIM_CID']);
+if ($perm === true) {
+    if (!isset($_POST['init_id']) || !isset($_POST['time'])) {
+        http_response_code(400);
+        exit;
+    }
 
-        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
+    $init_id = intval($_POST['init_id']);
+    $time    = strip_tags($_POST['time']);
 
-        if ($p_check) {
-            $perm = true;
-        }
+    // Optional probability; default to 0 (CDW) if not provided
+    $probability = 0;
+    if (isset($_POST['probability']) && $_POST['probability'] !== '') {
+        $probability = intval($_POST['probability']);
+    }
 
+    if ($probability < 0) {
+        $probability = 0;
+    } elseif ($probability > 4) {
+        $probability = 4;
+    }
+
+    try {
+        $conn_pdo->beginTransaction();
+
+        $sql = "INSERT INTO p_enroute_init_times (time, probability, init_id)
+                VALUES (:time, :probability, :init_id)";
+        $stmt = $conn_pdo->prepare($sql);
+        $stmt->execute([
+            ':time'        => $time,
+            ':probability' => $probability,
+            ':init_id'     => $init_id
+        ]);
+
+        $conn_pdo->commit();
+        http_response_code(200);
+    } catch (PDOException $e) {
+        $conn_pdo->rollback();
+        http_response_code(500);
     }
 } else {
-    $perm = true;
-    $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
-}
-
-// Check Perms (S)
-if ($perm == true) {
-    // Do Nothing
-} else {
     http_response_code(403);
-    exit();
-}
-// (E)
-
-$init_id = strip_tags($_POST['init_id']);
-$time = strip_tags($_POST['time']);
-
-// Insert Data into Database
-try {
-
-    // Begin Transaction
-    $conn_pdo->beginTransaction();
-
-    // SQL Query
-    $sql = "INSERT INTO p_enroute_init_times (time, probability, init_id)
-    VALUES ('$time', '0', '$init_id')";
-
-    $conn_pdo->exec($sql);
-
-    $conn_pdo->commit();
-    http_response_code(200);
-}
-
-catch (PDOException $e) {
-    $conn_pdo->rollback();
-    http_response_code(500);
 }
 
 ?>

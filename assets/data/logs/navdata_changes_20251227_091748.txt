@@ -1,0 +1,256 @@
+NASR NavData Update Report
+============================================================
+
+Generated: 2025-12-27T09:17:48.058071
+AIRAC Cycles: 21008, 21009
+
+
+POINTS:
+  Added: 21477
+  Modified: 2500
+  Preserved: 242768
+  Renamed to _OLD: 2500
+  Details:
+    - Modified ALEXA: (44.772778,8.045556) -> (34.981075,-78.631725), old renamed to ALEXA_OLD
+    - Modified AROSS: (27.148367,-80.129364) -> (27.148564,-80.129956), old renamed to AROSS_OLD
+    - Modified AYOSI: (31.926958,-83.862117) -> (31.927081,-83.861911), old renamed to AYOSI_OLD
+    - Modified BEYEL: (41.645953,-71.457358) -> (41.639722,-71.451539), old renamed to BEYEL_OLD
+    - Added BOXRR: (38.639328,-92.251092)
+    - Modified CANOE: (37.395833,126.268333) -> (23.527500,155.000000), old renamed to CANOE_OLD
+    - Modified CARVI: (33.343119,-117.306756) -> (33.343242,-117.306617), old renamed to CARVI_OLD
+    - Modified CATEB: (31.543142,-94.713297) -> (31.545817,-94.713058), old renamed to CATEB_OLD
+    - Modified CONEZ: (41.529972,-71.349239) -> (41.530469,-71.349703), old renamed to CONEZ_OLD
+    - Modified CORGI: (35.641603,140.860806) -> (24.861800,-81.713750), old renamed to CORGI_OLD
+    - Modified COSAX: (41.479419,-71.302261) -> (41.489194,-71.311339), old renamed to COSAX_OLD
+    - Modified EBESE: (32.054219,-83.686225) -> (32.045086,-83.698886), old renamed to EBESE_OLD
+    - Added EEASL: (39.209308,-101.487928)
+    - Added EEELS: (38.635394,-92.440283)
+    - Modified ERZEH: (41.960836,-85.471697) -> (41.960769,-85.494792), old renamed to ERZEH_OLD
+    - Modified FALAG: (41.690539,-71.499053) -> (41.690311,-71.498836), old renamed to FALAG_OLD
+    - Modified FEBAT: (37.613547,-118.695933) -> (37.580092,-118.678322), old renamed to FEBAT_OLD
+    - Modified FEBTO: (31.975097,-83.665511) -> (31.975756,-83.671464), old renamed to FEBTO_OLD
+    - Modified FEGEB: (42.975431,-115.779981) -> (42.974628,-115.778778), old renamed to FEGEB_OLD
+    - Modified FIRLO: (34.429003,-86.195667) -> (34.428778,-86.196256), old renamed to FIRLO_OLD
+    - Modified FOGMO: (44.373922,-72.883492) -> (44.373672,-72.883608), old renamed to FOGMO_OLD
+    - Modified GEMTE: (39.946878,-74.282828) -> (39.946164,-74.282269), old renamed to GEMTE_OLD
+    - Modified GLISS: (35.480111,-80.688294) -> (35.481394,-80.688000), old renamed to GLISS_OLD
+    - Modified HAGPA: (43.112072,-115.965817) -> (43.113058,-115.967056), old renamed to HAGPA_OLD
+    - Added HHOYT: (39.734233,-118.896817)
+    - Modified HIBAG: (44.349033,-68.457211) -> (44.418744,-68.575969), old renamed to HIBAG_OLD
+    - Modified HOGEP: (44.237381,-120.963178) -> (44.230192,-120.950819), old renamed to HOGEP_OLD
+    - Modified HULEM: (41.561728,-71.378794) -> (41.569950,-71.386453), old renamed to HULEM_OLD
+    - Modified IDWAP: (36.218283,-76.570136) -> (36.226225,-76.570153), old renamed to IDWAP_OLD
+    - Modified IJYEP: (41.961061,-85.359997) -> (41.961069,-85.338414), old renamed to IJYEP_OLD
+    - Modified IRAGE: (44.445975,-73.090444) -> (44.446428,-73.092008), old renamed to IRAGE_OLD
+    - Modified ISATE: (34.340983,-84.391147) -> (34.344525,-84.387269), old renamed to ISATE_OLD
+    - Modified JASAT: (37.635625,-118.504278) -> (37.612703,-118.492025), old renamed to JASAT_OLD
+    - Modified JEDUM: (44.306775,-68.583461) -> (44.441428,-68.513783), old renamed to JEDUM_OLD
+    - Modified JEMOD: (33.385033,-117.258217) -> (33.381433,-117.262389), old renamed to JEMOD_OLD
+    - Modified JENAX: (44.241906,-73.245153) -> (44.239394,-73.268072), old renamed to JENAX_OLD
+    - Modified JERLU: (43.029200,-115.854903) -> (43.024067,-115.845950), old renamed to JERLU_OLD
+    - Modified JIDUT: (44.368247,-121.069797) -> (44.372233,-121.059528), old renamed to JIDUT_OLD
+    - Modified JUXEL: (31.173106,-83.407392) -> (31.173344,-83.407086), old renamed to JUXEL_OLD
+    - Modified KA27W: (56.296531,8.968481) -> (34.500000,-104.000000), old renamed to KA27W_OLD
+    - Modified KECEG: (38.008367,-87.557992) -> (38.005083,-87.561242), old renamed to KECEG_OLD
+    - Modified KOTEY: (34.380814,-84.348164) -> (34.394519,-84.333294), old renamed to KOTEY_OLD
+    - Modified KUCEV: (44.328475,-68.520717) -> (44.380211,-68.443614), old renamed to KUCEV_OLD
+    - Modified KUMSE: (43.030411,-115.854539) -> (43.024453,-115.846406), old renamed to KUMSE_OLD
+    - Modified LAURA: (34.623956,137.370794) -> (32.901925,-96.922175), old renamed to LAURA_OLD
+    - Modified LIDPE: (38.667008,-92.441428) -> (38.667131,-92.441822), old renamed to LIDPE_OLD
+    - Modified LIVNE: (40.073472,-74.291100) -> (40.069625,-74.297653), old renamed to LIVNE_OLD
+    - Modified LUPXA: (42.044431,-85.360231) -> (42.077786,-85.338714), old renamed to LUPXA_OLD
+    - Modified MAMNN: (34.420092,-84.305719) -> (34.429794,-84.295192), old renamed to MAMNN_OLD
+    - Modified MANIF: (44.477247,-73.180611) -> (44.493947,-73.228792), old renamed to MANIF_OLD
+    ... and 23927 more
+
+NAVAIDS:
+  Added: 23
+  Modified: 104
+  Preserved: 1643
+  Renamed to _OLD: 104
+  Details:
+    - Modified AA: (33.533283,-82.614369) -> (47.009052,-96.815184), old renamed to AA_OLD
+    - Added AAT: (41.483354,-120.561542)
+    - Modified AB: (32.298863,-99.674228) -> (45.386106,-98.328511), old renamed to AB_OLD
+    - Modified ABQ: (35.038190,-106.608418) -> (35.043796,-106.816312), old renamed to ABQ_OLD
+    - Modified AHQ: (41.239169,-96.598360) -> (41.239001,-96.598661), old renamed to AHQ_OLD
+    - Modified AI: (34.232346,-96.933109) -> (40.069527,-85.510687), old renamed to AI_OLD
+    - Modified ALB: (42.742300,-73.822066) -> (42.747280,-73.803184), old renamed to ALB_OLD
+    - Modified AN: (29.607656,-98.569741) -> (33.534338,-85.931270), old renamed to AN_OLD
+    - Modified AST: (46.161698,-123.880377) -> (46.208436,-123.965426), old renamed to AST_OLD
+    - Modified BDR: (41.161389,-73.125833) -> (41.160706,-73.124486), old renamed to BDR_OLD
+    - Modified BNA: (36.115000,-86.660000) -> (36.136960,-86.684771), old renamed to BNA_OLD
+    - Modified BOI: (43.555950,-116.219636) -> (43.552811,-116.192126), old renamed to BOI_OLD
+    - Modified BOS: (42.357045,-70.990169) -> (42.357450,-70.989548), old renamed to BOS_OLD
+    - Modified BQN: (18.498002,-67.108349) -> (18.498403,-67.108422), old renamed to BQN_OLD
+    - Modified BR: (40.654357,-91.123226) -> (46.456620,-94.022430), old renamed to BR_OLD
+    - Modified BT: (44.532288,-73.249534) -> (30.582919,-91.211079), old renamed to BT_OLD
+    - Modified BTV: (44.470820,-73.155458) -> (44.397105,-73.182635), old renamed to BTV_OLD
+    - Modified BU: (39.819279,-83.204632) -> (43.000315,-78.650773), old renamed to BU_OLD
+    - Modified BUF: (42.939225,-78.734197) -> (42.928992,-78.646349), old renamed to BUF_OLD
+    - Modified BWG: (36.928741,-86.443434) -> (36.964444,-86.423333), old renamed to BWG_OLD
+    - Added BYT: (41.930562,-72.699873)
+    - Added BZQ: (32.415374,-81.664033)
+    - Modified CHS: (32.905583,-80.041194) -> (32.894319,-80.037814), old renamed to CHS_OLD
+    - Modified CL: (48.150199,-123.670251) -> (30.493772,-96.337795), old renamed to CL_OLD
+    - Modified CLT: (35.224722,-80.956667) -> (35.190289,-80.951753), old renamed to CLT_OLD
+    - Modified CO: (43.118777,-71.452429) -> (38.694403,-104.716346), old renamed to CO_OLD
+    - Modified CV: (34.350695,-103.174406) -> (32.266792,-104.338512), old renamed to CV_OLD
+    - Added CVC: (33.631225,-83.848350)
+    - Modified CZF: (61.790378,-165.970060) -> (61.776014,-166.043437), old renamed to CZF_OLD
+    - Modified DEN: (39.870467,-104.654832) -> (39.812514,-104.660740), old renamed to DEN_OLD
+    - Modified DSM: (41.538998,-93.657426) -> (41.437625,-93.648558), old renamed to DSM_OLD
+    - Added DYY: (37.611766,-118.008169)
+    - Added EEA: (39.479869,-115.991856)
+    - Modified EL: (31.860296,-106.317766) -> (33.286069,-92.728150), old renamed to EL_OLD
+    - Modified ELP: (31.804444,-106.366111) -> (31.815910,-106.281883), old renamed to ELP_OLD
+    - Modified EWR: (40.703384,-74.187423) -> (40.674344,-74.177967), old renamed to EWR_OLD
+    - Modified FOE: (38.951667,-95.666945) -> (38.947370,-95.661179), old renamed to FOE_OLD
+    - Added FVI: (41.016167,-121.433417)
+    - Added FVQ: (33.130172,-117.275900)
+    - Modified GB: (44.502063,-95.910973) -> (42.873888,-78.816452), old renamed to GB_OLD
+    - Modified GEG: (47.613639,-117.527861) -> (47.564946,-117.626886), old renamed to GEG_OLD
+    - Modified GF: (47.846465,-97.181517) -> (43.255014,-73.605111), old renamed to GF_OLD
+    - Modified GL: (39.293782,-101.600346) -> (45.014652,-84.807965), old renamed to GL_OLD
+    - Modified GM: (34.337296,-77.811782) -> (34.780168,-82.349788), old renamed to GM_OLD
+    - Modified GON: (41.325000,-72.050556) -> (41.330402,-72.051985), old renamed to GON_OLD
+    - Modified GR: (44.440471,-88.239520) -> (42.895642,-85.378643), old renamed to GR_OLD
+    - Added GSU: (33.633564,-84.412189)
+    - Modified GW: (33.592064,-90.084407) -> (41.308286,-84.944081), old renamed to GW_OLD
+    - Modified HFD: (41.734933,-72.651431) -> (41.641105,-72.547418), old renamed to HFD_OLD
+    - Modified HNL: (21.318670,-157.930385) -> (21.308322,-157.930411), old renamed to HNL_OLD
+    ... and 77 more
+
+AIRWAYS:
+  Added: 1
+  Modified: 62
+  Preserved: 1403
+  Renamed to _OLD: 62
+  Details:
+    - Modified G8, old renamed to G8_OLD
+    - Modified J101, old renamed to J101_OLD
+    - Modified J115, old renamed to J115_OLD
+    - Modified J152, old renamed to J152_OLD
+    - Modified J49, old renamed to J49_OLD
+    - Modified Q33, old renamed to Q33_OLD
+    - Modified T227, old renamed to T227_OLD
+    - Modified T437, old renamed to T437_OLD
+    - Modified T634, old renamed to T634_OLD
+    - Modified T645, old renamed to T645_OLD
+    - Modified V1, old renamed to V1_OLD
+    - Modified V11, old renamed to V11_OLD
+    - Modified V12, old renamed to V12_OLD
+    - Modified V13, old renamed to V13_OLD
+    - Modified V15, old renamed to V15_OLD
+    - Modified V16, old renamed to V16_OLD
+    - Modified V17, old renamed to V17_OLD
+    - Modified V2, old renamed to V2_OLD
+    - Modified V20, old renamed to V20_OLD
+    - Modified V21, old renamed to V21_OLD
+    - Modified V23, old renamed to V23_OLD
+    - Modified V230, old renamed to V230_OLD
+    - Modified V24, old renamed to V24_OLD
+    - Modified V25, old renamed to V25_OLD
+    - Modified V3, old renamed to V3_OLD
+    - Modified V301, old renamed to V301_OLD
+    - Modified V302, old renamed to V302_OLD
+    - Modified V309, old renamed to V309_OLD
+    - Modified V311, old renamed to V311_OLD
+    - Modified V317, old renamed to V317_OLD
+    - Modified V319, old renamed to V319_OLD
+    - Modified V320, old renamed to V320_OLD
+    - Modified V321, old renamed to V321_OLD
+    - Modified V333, old renamed to V333_OLD
+    - Modified V334, old renamed to V334_OLD
+    - Modified V357, old renamed to V357_OLD
+    - Modified V385, old renamed to V385_OLD
+    - Modified V388, old renamed to V388_OLD
+    - Modified V4, old renamed to V4_OLD
+    - Modified V436, old renamed to V436_OLD
+    - Modified V438, old renamed to V438_OLD
+    - Modified V439, old renamed to V439_OLD
+    - Modified V440, old renamed to V440_OLD
+    - Modified V441, old renamed to V441_OLD
+    - Modified V444, old renamed to V444_OLD
+    - Modified V452, old renamed to V452_OLD
+    - Modified V453, old renamed to V453_OLD
+    - Modified V454, old renamed to V454_OLD
+    - Modified V457, old renamed to V457_OLD
+    - Modified V473, old renamed to V473_OLD
+    ... and 13 more
+
+CDRS:
+  Added: 89
+  Modified: 3110
+  Preserved: 37869
+  Renamed to _OLD: 3110
+  Details:
+    - Modified ABQASESK, old renamed to ABQASESK_OLD
+    - Modified ABQCVGCV, old renamed to ABQCVGCV_OLD
+    - Modified ABQEGESK, old renamed to ABQEGESK_OLD
+    - Modified ACKCVGA6, old renamed to ACKCVGA6_OLD
+    - Modified ACKMCOA4, old renamed to ACKMCOA4_OLD
+    - Modified ACKORFPJ, old renamed to ACKORFPJ_OLD
+    - Modified ACKRDUPJ, old renamed to ACKRDUPJ_OLD
+    - Modified ACYRDU00, old renamed to ACYRDU00_OLD
+    - Modified ADWWRB00, old renamed to ADWWRB00_OLD
+    - Modified ALBCVGA6, old renamed to ALBCVGA6_OLD
+    - Modified ALBMCOA4, old renamed to ALBMCOA4_OLD
+    - Modified ALBRDUT7, old renamed to ALBRDUT7_OLD
+    - Modified APACVGE1, old renamed to APACVGE1_OLD
+    - Modified APACVGN1, old renamed to APACVGN1_OLD
+    - Modified APACVGS1, old renamed to APACVGS1_OLD
+    - Modified APACVGW1, old renamed to APACVGW1_OLD
+    - Modified APAMYRE1, old renamed to APAMYRE1_OLD
+    - Modified APAMYRN1, old renamed to APAMYRN1_OLD
+    - Modified APAMYRS1, old renamed to APAMYRS1_OLD
+    - Modified APAMYRW1, old renamed to APAMYRW1_OLD
+    - Modified APAORFE1, old renamed to APAORFE1_OLD
+    - Modified APAORFN1, old renamed to APAORFN1_OLD
+    - Modified APAORFS1, old renamed to APAORFS1_OLD
+    - Modified APAORFW1, old renamed to APAORFW1_OLD
+    - Modified APAPHFE1, old renamed to APAPHFE1_OLD
+    - Modified APAPHFN1, old renamed to APAPHFN1_OLD
+    - Modified APAPHFS1, old renamed to APAPHFS1_OLD
+    - Modified APAPHFW1, old renamed to APAPHFW1_OLD
+    - Modified APFABEV0, old renamed to APFABEV0_OLD
+    - Modified APFACYC2, old renamed to APFACYC2_OLD
+    - Modified APFACYL0, old renamed to APFACYL0_OLD
+    - Modified APFACYV0, old renamed to APFACYV0_OLD
+    - Modified APFAGSC2, old renamed to APFAGSC2_OLD
+    - Modified APFAGSV0, old renamed to APFAGSV0_OLD
+    - Modified APFALBC2, old renamed to APFALBC2_OLD
+    - Modified APFALBL0, old renamed to APFALBL0_OLD
+    - Modified APFALBPL, old renamed to APFALBPL_OLD
+    - Modified APFALBV0, old renamed to APFALBV0_OLD
+    - Modified APFASED2, old renamed to APFASED2_OLD
+    - Modified APFASEH2, old renamed to APFASEH2_OLD
+    - Modified APFASEJ0, old renamed to APFASEJ0_OLD
+    - Modified APFASEL2, old renamed to APFASEL2_OLD
+    - Modified APFASEM0, old renamed to APFASEM0_OLD
+    - Modified APFASEN0, old renamed to APFASEN0_OLD
+    - Modified APFATLC2, old renamed to APFATLC2_OLD
+    - Modified APFATLC3, old renamed to APFATLC3_OLD
+    - Modified APFATLJ1, old renamed to APFATLJ1_OLD
+    - Modified APFATLJ2, old renamed to APFATLJ2_OLD
+    - Modified APFAUSJ1, old renamed to APFAUSJ1_OLD
+    - Modified APFAUSL2, old renamed to APFAUSL2_OLD
+    ... and 3149 more
+
+DPS:
+  Added: 84
+  Modified: 3750
+  Preserved: 3
+  Renamed to _OLD: 0
+
+STARS:
+  Added: 94
+  Modified: 5003
+  Preserved: 3
+  Renamed to _OLD: 0
+
+PLAYBOOK:
+  Added: 0
+  Modified: 0
+  Preserved: 0
+  Renamed to _OLD: 0

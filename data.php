@@ -146,30 +146,18 @@ include('load/nav.php');
 
                                 <h4><b>Resources</b></h4>
                                 <ul>
-                                    <li>TMU Dashboard for operational status and real-time issue tracking <a href="https://vats.im/vATCSCC_TMU_Dashboard" target="_blank">here</a>.</li>
-                                    <li>JATOC AWO Incident Monitor for incident management and real-time tracking <a href="https://vats.im/JATOC" target="_blank">here</a>.</li>
+                                    <li><a href="https://perti.vatcscc.org/nod" target="_blank">PERTI NAS Operations Dashboard (NOD)</a> for NAS-wide information.</li>
+                                    <li><a href="https://perti.vatcscc.org/splits" target="_blank">PERTI Active Splits</a> for airspace split coordination.</li>
+                                    <li><a href="https://perti.vatcscc.org/gdt" target="_blank">PERTI Ground Delay Tool (GDT)</a> for ground delay program/ground stop management.</li>
+                                    <li><a href="https://perti.vatcscc.org/jatoc" target="_blank">PERTI JATOC AWO Incident Monitor</a> for incident management and real-time tracking.</li>
                                     <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
-                                    <li>VATUSA NTOS for public-facing, real-time TMI notices <a href="https://www.vatusa.net/mgt/tmu#notices" target="_blank">here</a>.
-                                        <ul><li><b>ALL</b> NTOS entries must be accompanied by an NTML entry.</li></ul></li>
                                     <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline']; ?></b></span> Hotline for real-time operational coordination.
                                         <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
                                         <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang channel will serve as a primary backup if the VATUSA TeamSpeak fails.</li>
                                         <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
                                     <li>Post any known virtual airline/group flight entries into <a href="https://bit.ly/NTML_Entry" target="_blank">this form</a>.</li>
-                                    <li>Monthly & Current Traffic Dashboards:
-                                        <ul>
-                                            <li><a href="https://vats.im/dcc/VATUSA_Traffic_Dashboard" target="_blank">https://vats.im/dcc/VATUSA_Traffic_Dashboard</a></li>
-                                            <li><a href="https://vats.im/dcc/Current_Traffic_Dashboard" target="_blank">https://vats.im/dcc/Current_Traffic_Dashboard</a></li>
-                                        </ul>
-                                    </li>
-                                    <li>CDR & Preferred Route Databases:
-                                        <ul>
-                                            <li><a href="https://vats.im/dcc/CDR" target="_blank">https://vats.im/dcc/CDR</a></li>
-                                            <li><a href="https://vats.im/dcc/PRD" target="_blank">https://vats.im/dcc/PRD</a></li>
-                                        </ul>
-                                    </li>
                                     <li>TMU personnel must utilize <b>authorized</b> callsigns (XX_XX_TMU) in accordance with <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank">this policy</a>.</li>
-                                    <li>Trangression Reporting Form for incident reporting available <a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank">here</a>.</li>
+                                    <li><a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank">vATCSCC Trangression Reporting Form</a> for incident reporting.</li>
                                 </ul>
 
                             </div>

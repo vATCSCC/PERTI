@@ -5,12 +5,15 @@ $filepath = "";
 
 ?>
 
+<!-- Base URL for relative paths -->
+<base href="/">
+
 <!-- Tags: General -->
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
 <!-- Tags: Facility Specific -->
-<meta name="keywords" content="html, css, zob, vzob, cleveland, artcc, cleveland artcc, vatusa, vatsim, vatcscc, acc, fir">
+<meta name="keywords" content="html, css, artcc, vatusa, vatsim, vatcscc, acc, fir, dcc, atcscc, atfm, tfm, tmu">
 
 <meta name="description" content="The site for PERTI operational planning of vATCSCC events on the VATSIM Network.">
 <meta name="author" content="vATCSCC">

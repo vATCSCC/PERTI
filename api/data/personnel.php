@@ -31,6 +31,9 @@ if (!defined('DEV')) {
 }
 
 if ($perm !== false) {
+    // Hardcoded protected CID - always allowed, cannot be deleted
+    $protected_cid = '1234727';
+    
     $query = mysqli_query($conn_sqli, ("SELECT * FROM users ORDER BY last_name DESC"));
 
     while ($data = mysqli_fetch_array($query)) {
@@ -42,7 +45,11 @@ if ($perm !== false) {
     
     
             echo '<td><center>';
+            if ($data['cid'] == $protected_cid) {
+                echo '<span class="badge badge-secondary" data-toggle="tooltip" title="System personnel cannot be deleted"><i class="fas fa-lock"></i> Protected</span>';
+            } else {
                 echo '<a href="javascript:void(0)" onclick="deletePersonnel('.$data['id'].')" data-toggle="tooltip" title="Delete Personnel"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+            }
             echo '</center></td>';
     
         echo '</tr>';

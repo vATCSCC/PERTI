@@ -126,13 +126,15 @@ include('load/nav.php');
                 <button class="mt-2 mb-2 btn btn-success btn-sm" data-target="#createplanModal" data-toggle="modal"><i class="fas fa-plus"></i> Create Plan</button>
             <?php } ?>
 
-            <table class="table table-sm table-striped table-bordered w-75">
+            <table class="table table-sm table-striped table-bordered w-100">
                 <thead class="table-dark text-light">
-                    <th style="width: 30%;">Event Name</th>
-                    <th class="text-center" style="width: 10%;">Event Date</th>
-                    <th class="text-center" style="width: 10%;">Event Start</th>
-                    <th class="text-center" style="width: 20%;">Event TMU OpLevel</th>
-                    <th class="text-center">Last Updated</th>
+                    <th style="width: 20%;">Event Name</th>
+                    <th class="text-center" style="width: 8%;">Start Date</th>
+                    <th class="text-center" style="width: 6%;">Start Time</th>
+                    <th class="text-center" style="width: 8%;">End Date</th>
+                    <th class="text-center" style="width: 6%;">End Time</th>
+                    <th class="text-center" style="width: 14%;">TMU OpLevel</th>
+                    <th class="text-center" style="width: 12%;">Last Updated</th>
                     <th></th>
                 </thead>
 
@@ -149,7 +151,7 @@ include('load/nav.php');
 <!-- Create Plan Modal -->
 <div class="modal fade" id="createplanModal" tabindex="-1" role="dialog" aria-labelledby="createplanModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="createplanModalLabel">Create PERTI Plan</h5>
@@ -162,43 +164,85 @@ include('load/nav.php');
 
                 <div class="modal-body">
 
-                    Event Name:
-                    <input type="text" class="form-control" name="event_name" required><br>
+                    <div class="form-group">
+                        <label for="event_name">Event Name</label>
+                        <input type="text" class="form-control" name="event_name" required>
+                    </div>
 
-                    Event Date:
-                    <input type="text" name="event_date" class="form-control" id="date" autocomplete="false" readonly>
-
-                    Event Start (in Zulu):
-                    <input type="text" name="event_start" class="form-control" autocomplete="false" placeholder="2300" maxlength="4" required>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Start Date / Time (Zulu)</label>
+                                <div class="row">
+                                    <div class="col-7">
+                                        <input type="text" name="event_date" class="form-control" id="date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
+                                    </div>
+                                    <div class="col-5">
+                                        <div class="input-group">
+                                            <input type="text" name="event_start" class="form-control" autocomplete="off" placeholder="2300" maxlength="4" required>
+                                            <div class="input-group-append">
+                                                <span class="input-group-text">Z</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>End Date / Time (Zulu)</label>
+                                <div class="row">
+                                    <div class="col-7">
+                                        <input type="text" name="event_end_date" class="form-control" id="end-date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
+                                    </div>
+                                    <div class="col-5">
+                                        <div class="input-group">
+                                            <input type="text" name="event_end_time" class="form-control" autocomplete="off" placeholder="0300" maxlength="4">
+                                            <div class="input-group-append">
+                                                <span class="input-group-text">Z</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <hr>
 
-                    TMU OpLevel:<br>
-                    <select class="form-control" name="oplevel" required>
-                        <option value="1">OpLevel 1 - Steady State</option>
-                        <option value="2">OpLevel 2 - Localized Impact</option>
-                        <option value="3">OpLevel 3 - Regional Impact</option>
-                        <option value="4">OpLevel 4 - NAS-Wide Impact</option>
-                    </select>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>TMU OpLevel</label>
+                                <select class="form-control" name="oplevel" required>
+                                    <option value="1">OpLevel 1 - Steady State</option>
+                                    <option value="2">OpLevel 2 - Localized Impact</option>
+                                    <option value="3">OpLevel 3 - Regional Impact</option>
+                                    <option value="4">OpLevel 4 - NAS-Wide Impact</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Hotline</label>
+                                <select class="form-control" name="hotline" required>
+                                    <option>NY Metro</option>
+                                    <option>DC Metro</option>
+                                    <option>Chicago</option>
+                                    <option>Atlanta</option>
+                                    <option>Florida</option>
+                                    <option>Texas</option>
+                                    <option>East Coast</option>
+                                    <option>West Coast</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
-                    <br>
-
-                    Hotline:<br>
-                    <select class="form-control" name="hotline" required>
-                        <option>NY Metro</option>
-                        <option>DC Metro</option>
-                        <option>Chicago</option>
-                        <option>Atlanta</option>
-                        <option>Florida</option>
-                        <option>Texas</option>
-                        <option>East Coast</option>
-                        <option>West Coast</option>
-                    </select>
-
-                    <hr>
-
-                    Event Banner URL:
-                    <input type="text" class="form-control" name="event_banner" required><br>
+                    <div class="form-group">
+                        <label>Event Banner URL</label>
+                        <input type="text" class="form-control" name="event_banner" placeholder="https://..." required>
+                    </div>
 
                 </div>
                 <div class="modal-footer">
@@ -215,7 +259,7 @@ include('load/nav.php');
 <!-- Edit Plan Modal -->
 <div class="modal fade" id="editplanModal" tabindex="-1" role="dialog" aria-labelledby="editplanModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="editplanModalLabel">Edit PERTI Plan</h5>
@@ -230,47 +274,89 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Event Name:
-                    <input type="text" class="form-control" name="event_name" id="event_name" required><br>
+                    <div class="form-group">
+                        <label for="event_name">Event Name</label>
+                        <input type="text" class="form-control" name="event_name" id="event_name" required>
+                    </div>
 
-                    Event Date:
-                    <input type="text" name="event_date" class="form-control" id="e-date" autocomplete="false" readonly>
-
-                    Event Start (in Zulu):
-                    <input type="text" name="event_start" class="form-control" id="event_start" autocomplete="false" placeholder="2300" maxlength="4" required>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Start Date / Time (Zulu)</label>
+                                <div class="row">
+                                    <div class="col-7">
+                                        <input type="text" name="event_date" class="form-control" id="e-date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
+                                    </div>
+                                    <div class="col-5">
+                                        <div class="input-group">
+                                            <input type="text" name="event_start" class="form-control" id="event_start" autocomplete="off" placeholder="2300" maxlength="4" required>
+                                            <div class="input-group-append">
+                                                <span class="input-group-text">Z</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>End Date / Time (Zulu)</label>
+                                <div class="row">
+                                    <div class="col-7">
+                                        <input type="text" name="event_end_date" class="form-control" id="e-end-date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
+                                    </div>
+                                    <div class="col-5">
+                                        <div class="input-group">
+                                            <input type="text" name="event_end_time" class="form-control" id="event_end_time" autocomplete="off" placeholder="0300" maxlength="4">
+                                            <div class="input-group-append">
+                                                <span class="input-group-text">Z</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <hr>
 
-                    TMU OpLevel:<br>
-                    <select class="form-control" name="oplevel" id="oplevel" required>
-                        <option value="1">OpLevel 1 - Steady State</option>
-                        <option value="2">OpLevel 2 - Localized Impact</option>
-                        <option value="3">OpLevel 3 - Regional Impact</option>
-                        <option value="4">OpLevel 4 - NAS-Wide Impact</option>
-                    </select>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>TMU OpLevel</label>
+                                <select class="form-control" name="oplevel" id="oplevel" required>
+                                    <option value="1">OpLevel 1 - Steady State</option>
+                                    <option value="2">OpLevel 2 - Localized Impact</option>
+                                    <option value="3">OpLevel 3 - Regional Impact</option>
+                                    <option value="4">OpLevel 4 - NAS-Wide Impact</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Hotline</label>
+                                <select class="form-control" name="hotline" id="hotline" required>
+                                    <option>NY Metro</option>
+                                    <option>DC Metro</option>
+                                    <option>Chicago</option>
+                                    <option>Atlanta</option>
+                                    <option>Florida</option>
+                                    <option>Texas</option>
+                                    <option>East Coast</option>
+                                    <option>West Coast</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
-                    <br>
-
-                    Hotline:<br>
-                    <select class="form-control" name="hotline" id="hotline" required>
-                        <option>NY Metro</option>
-                        <option>DC Metro</option>
-                        <option>Chicago</option>
-                        <option>Atlanta</option>
-                        <option>Florida</option>
-                        <option>Texas</option>
-                        <option>East Coast</option>
-                        <option>West Coast</option>
-                    </select>
-
-                    <hr>
-
-                    Event Banner URL:
-                    <input type="text" class="form-control" name="event_banner" id="event_banner" required><br>
+                    <div class="form-group">
+                        <label>Event Banner URL</label>
+                        <input type="text" class="form-control" name="event_banner" id="event_banner" placeholder="https://..." required>
+                    </div>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
+                    <input type="submit" class="btn btn-sm btn-warning" value="Save Changes">
                     <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
                 </div>
         </div>
@@ -330,12 +416,28 @@ include('load/nav.php');
         $(document).ready(function() {
             loadData();      
 
-            // Init: Date Time Picker
+            // Init: Date Time Picker for Create modal - Start Date
             $('#date').datetimepicker({
                 format: 'Y-m-d',
                 inline: false,
                 minDate: '<?= date('Y-m-d'); ?>',
                 timepicker: false
+            });
+
+            // Init: Date Time Picker for Create modal - End Date
+            $('#end-date').datetimepicker({
+                format: 'Y-m-d',
+                inline: false,
+                minDate: '<?= date('Y-m-d'); ?>',
+                timepicker: false
+            });
+
+            // Auto-set end date when start date changes (Create modal)
+            $('#date').on('change', function() {
+                var startDate = $(this).val();
+                if (startDate && !$('#end-date').val()) {
+                    $('#end-date').val(startDate);
+                }
             });
 
             // AJAX: #createplan POST
@@ -362,6 +464,9 @@ include('load/nav.php');
                         loadData();
                         $('#createplanModal').modal('hide');
                         $('.modal-backdrop').remove();
+                        
+                        // Reset form
+                        $('#createplan')[0].reset();
                     },
                     error:function(data) {
                         Swal.fire({
@@ -382,17 +487,27 @@ include('load/nav.php');
                 modal.find('.modal-body #id').val(button.data('id'));
                 modal.find('.modal-body #event_name').val(button.data('event_name'));
                 modal.find('.modal-body #event_start').val(button.data('event_start'));
+                modal.find('.modal-body #event_end_time').val(button.data('event_end_time'));
                 modal.find('.modal-body #oplevel').val(button.data('oplevel')).trigger('change');
                 modal.find('.modal-body #hotline').val(button.data('hotline')).trigger('change');
                 modal.find('.modal-body #event_banner').val(button.data('event_banner'));
 
-                // Init: Date Time Picker
+                // Init: Date Time Picker for Edit modal - Start Date
                 $('#e-date').datetimepicker({
                     format: 'Y-m-d',
                     inline: false,
                     minDate: '<?= date('Y-m-d'); ?>',
                     timepicker: false,
                     value: button.data('event_date')
+                });
+
+                // Init: Date Time Picker for Edit modal - End Date
+                $('#e-end-date').datetimepicker({
+                    format: 'Y-m-d',
+                    inline: false,
+                    minDate: '<?= date('Y-m-d'); ?>',
+                    timepicker: false,
+                    value: button.data('event_end_date') || button.data('event_date')
                 });
             });
 
@@ -411,7 +526,7 @@ include('load/nav.php');
                             toast:      true,
                             position:   'bottom-right',
                             icon:       'success',
-                            title:      'Successfully Created',
+                            title:      'Successfully Updated',
                             text:       'You have successfully edited the selected PERTI Plan.',
                             timer:      3000,
                             showConfirmButton: false
