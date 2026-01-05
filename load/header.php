@@ -35,6 +35,7 @@ $filepath = "";
 <!-- Load Initial Bootstrap Source --> 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-bs4.min.css">
 <link rel="stylesheet" href="<?= $filepath; ?>assets/css/plugins/datetimepicker.css">
 
 <!-- Load jQuery/Javascript Sources -->

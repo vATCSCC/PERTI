@@ -116,6 +116,11 @@ $filepath = "";
                         Schedule
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?= $filepath; ?>./sua">
+                        SUA
+                    </a>
+                </li>
             <?php } ?>
         </ul>
     </div>

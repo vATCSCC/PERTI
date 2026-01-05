@@ -2,7 +2,7 @@ var pathname = $(location).attr('href');
 var uri = pathname.split('?');
 var p_id = uri[1];
 
-const tinyMCE_b = [
+const summernoteFields = [
     'a_staffing',
     'a_tactical',
     'a_other',
@@ -19,22 +19,16 @@ const tinyMCE_b = [
     'e_ace'
 ];
 
-tinyMCE_b.forEach(e => {
-    tinyMCE.init({
-        selector: `#${e}`,
-        menubar : false,
-        plugins : [
-        'advlist lists charmap preview anchor',
-        'searchreplace visualblocks code fullscreen',
-        'insertdatetime media table paste code help',
-        'link'
+summernoteFields.forEach(e => {
+    $(`#${e}`).summernote({
+        toolbar: [
+            ['style', ['bold', 'italic', 'underline']],
+            ['para', ['ul', 'ol']],
+            ['insert', ['link', 'table']],
+            ['misc', ['undo', 'redo', 'codeview']]
         ],
-        toolbar : 'undo redo | ' +
-        ' bold italic underline |' +
-        ' bullist numlist link table removeformat ',
-        force_br_newlines : true,
-        force_p_newlines : false,
-        forced_root_block : ''
+        height: 150,
+        disableDragAndDrop: true
     });
 });
 
@@ -188,8 +182,6 @@ $("#addcomment").submit(function(e) {
 
     var url = 'api/mgt/comments/post';
 
-    tinymce.triggerSave();
-
     $.ajax({
         type:   'POST',
         url:    url,
@@ -226,13 +218,13 @@ $('#editcommentModal').on('show.bs.modal', function(event) {
     var modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
-    tinymce.get('e_staffing').setContent(button.data('staffing'));
-    tinymce.get('e_tactical').setContent(button.data('tactical'));
-    tinymce.get('e_other').setContent(button.data('other'));
-    tinymce.get('e_perti').setContent(button.data('perti'));
-    tinymce.get('e_ntml').setContent(button.data('ntml'));
-    tinymce.get('e_tmi').setContent(button.data('tmi'));
-    tinymce.get('e_ace').setContent(button.data('ace'));
+    $('#e_staffing').summernote('code', button.data('staffing'));
+    $('#e_tactical').summernote('code', button.data('tactical'));
+    $('#e_other').summernote('code', button.data('other'));
+    $('#e_perti').summernote('code', button.data('perti'));
+    $('#e_ntml').summernote('code', button.data('ntml'));
+    $('#e_tmi').summernote('code', button.data('tmi'));
+    $('#e_ace').summernote('code', button.data('ace'));
 });
 
 // AJAX: #editcomment POST
@@ -240,8 +232,6 @@ $("#editcomment").submit(function(e) {
     e.preventDefault();
 
     var url = 'api/mgt/comments/update';
-
-    tinymce.triggerSave();
 
     $.ajax({
         type:   'POST',

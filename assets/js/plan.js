@@ -2,29 +2,23 @@
 var uri = pathname.split('?');
 var p_id = uri[1];
 
-const tinyMCE_b = [
+const summernoteFields = [
     'atp_comments',
     'etp_comments',
     'aep_comments',
     'eep_comments'
 ];
 
-tinyMCE_b.forEach(e => {
-    tinyMCE.init({
-        selector: `#${e}`,
-        menubar : false,
-        plugins : [
-        'advlist lists charmap preview anchor',
-        'searchreplace visualblocks code fullscreen',
-        'insertdatetime media table paste code help',
-        'link'
+summernoteFields.forEach(e => {
+    $(`#${e}`).summernote({
+        toolbar: [
+            ['style', ['bold', 'italic', 'underline']],
+            ['para', ['ul', 'ol']],
+            ['insert', ['link', 'table']],
+            ['misc', ['undo', 'redo', 'codeview']]
         ],
-        toolbar : 'undo redo | ' +
-        ' bold italic underline |' +
-        ' bullist numlist link table removeformat ',
-        force_br_newlines : true,
-        force_p_newlines : false,
-        forced_root_block : ''
+        height: 150,
+        disableDragAndDrop: true
     });
 });
 
@@ -1128,7 +1122,7 @@ function autoConfig(id, aar, adr) {
 
 // addtermplanning Modal
 $('#addtermplanningModal').on('show.bs.modal', function(event) {
-    tinymce.get('atp_comments').setContent('') 
+    $('#atp_comments').summernote('code', '');
 });
 
 // AJAX: #addtermplanning POST
@@ -1136,8 +1130,6 @@ $("#addtermplanning").submit(function(e) {
     e.preventDefault();
 
     var url = 'api/mgt/terminal_planning/post';
-
-    tinymce.triggerSave();
 
     $.ajax({
         type:   'POST',
@@ -1177,7 +1169,7 @@ $('#edittermplanningModal').on('show.bs.modal', function(event) {
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name'));
-    tinymce.get('etp_comments').setContent(button.data('comments')) 
+    $('#etp_comments').summernote('code', button.data('comments'));
 });
 
 // AJAX: #edittermplanning POST
@@ -1185,8 +1177,6 @@ $("#edittermplanning").submit(function(e) {
     e.preventDefault();
 
     var url = 'api/mgt/terminal_planning/update';
-
-    tinymce.triggerSave();
 
     $.ajax({
         type:   'POST',
@@ -1690,7 +1680,7 @@ function deleteEnrouteStaffing(id) {
 
 // addenrouteplanning Modal
 $('#addenrouteplanningModal').on('show.bs.modal', function(event) {
-    tinymce.get('aep_comments').setContent('') 
+    $('#aep_comments').summernote('code', '');
 });
 
 // AJAX: #addenrouteplanning POST
@@ -1698,8 +1688,6 @@ $("#addenrouteplanning").submit(function(e) {
     e.preventDefault();
 
     var url = 'api/mgt/enroute_planning/post';
-
-    tinymce.triggerSave();
 
     $.ajax({
         type:   'POST',
@@ -1739,7 +1727,7 @@ $('#editenrouteplanningModal').on('show.bs.modal', function(event) {
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name')).trigger('change');
-    tinymce.get('eep_comments').setContent(button.data('comments'))
+    $('#eep_comments').summernote('code', button.data('comments'));
 });
 
 // AJAX: #editenrouteplanning POST
@@ -1747,8 +1735,6 @@ $("#editenrouteplanning").submit(function(e) {
     e.preventDefault();
 
     var url = 'api/mgt/enroute_planning/update';
-
-    tinymce.triggerSave();
 
     $.ajax({
         type:   'POST',
@@ -1824,8 +1810,6 @@ $("#addenrouteconstraint").submit(function(e) {
 
     var url = 'api/mgt/enroute_constraints/post';
 
-    tinymce.triggerSave();
-    
     $.ajax({
         type:   'POST',
         url:    url,
@@ -1881,8 +1865,6 @@ $("#editenrouteconstraint").submit(function(e) {
     e.preventDefault();
 
     var url = 'api/mgt/enroute_constraints/update';
-
-    tinymce.triggerSave();
 
     $.ajax({
         type:   'POST',

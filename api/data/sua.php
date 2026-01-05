@@ -24,7 +24,7 @@ header('Access-Control-Allow-Origin: *');
 header('Cache-Control: max-age=3600'); // Cache for 1 hour
 
 // Static GeoJSON file path (generated from AIXM data)
-$sua_file = __DIR__ . '/../../assets/geojson/sua_boundaries.json';
+$sua_file = __DIR__ . '/sua_boundaries.json';
 
 // Check if pre-generated file exists
 if (file_exists($sua_file)) {
