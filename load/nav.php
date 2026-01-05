@@ -68,7 +68,39 @@ $filepath = "";
 
             <li class="nav-item">
                 <a class="nav-link" href="<?= $filepath; ?>./route">
-                    Plot Routes
+                    Routes
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./nod">
+                    NOD
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./gdt">
+                    GDT
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./jatoc">
+                    JATOC
+                </a>
+            </li>
+            
+            <!--Reroutes button
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./reroutes">
+                    Reroutes
+                </a>
+            </li>
+            -->
+            
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./splits">
+                    Splits
                 </a>
             </li>
 

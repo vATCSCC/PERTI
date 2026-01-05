@@ -229,6 +229,28 @@ $tables = [
             "source_url:varchar:512",
         ],
     ],   
+
+    [
+        "name" => "tmi_ground_stops",
+        "columns" => [
+            "status:int:1",
+            "name:varchar:64",
+            "ctl_element:varchar:4",
+            "element_type:varchar:8",
+            "airports:text",
+            "start_utc:varchar:20",
+            "end_utc:varchar:20",
+            "prob_ext:int:1",
+            "origin_centers:text",
+            "origin_airports:text",
+            "flt_incl_carrier:varchar:64",
+            "flt_incl_type:varchar:4",
+            "dep_facilities:text",
+            "comments:text",
+            "adv_number:varchar:16",
+            "advisory_text:text",
+        ],
+    ],
     [
         "name" => "assigned",
         "columns" => [

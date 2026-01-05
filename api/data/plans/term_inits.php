@@ -104,9 +104,9 @@ if ($c_q['total'] > 0) {
                             if ($t_q['probability'] == 0) {
                                 // CDW
                                 if ($perm == true) {
-                                    echo '<td style="width: 3%; background-color: #ffd501;" onclick="changeTermTime(`'.$t_q['id'].'`, `'.$t_q['probability'].'`)" data-toggle="tooltip" title="Criticial Decision Window"></td>';
+                                    echo '<td style="width: 3%; background-color: #ffd501;" onclick="changeTermTime(`'.$t_q['id'].'`, `'.$t_q['probability'].'`)" data-toggle="tooltip" title="Critical Decision Window"></td>';
                                 } else {
-                                    echo '<td style="width: 3%; background-color: #ffd501;" data-toggle="tooltip" title="Criticial Decision Window"></td>';
+                                    echo '<td style="width: 3%; background-color: #ffd501;" data-toggle="tooltip" title="Critical Decision Window"></td>';
                                 }
 
                             } elseif ($t_q['probability'] == 1) {

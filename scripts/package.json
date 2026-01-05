@@ -1,0 +1,15 @@
+{
+  "name": "perti-statsim-scraper",
+  "version": "1.0.0",
+  "description": "Statsim scraper for PERTI event traffic data",
+  "private": true,
+  "scripts": {
+    "scrape": "node statsim_scraper.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

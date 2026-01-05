@@ -180,11 +180,20 @@ function deletePersonnel(id) {
 
             loadData();
         },
-        error:function(data) {
+        error:function(xhr, status, error) {
+            var errorMsg = 'There was an error in removing this personnel from the system.';
+            try {
+                var response = JSON.parse(xhr.responseText);
+                if (response.error) {
+                    errorMsg = response.error;
+                }
+            } catch (e) {
+                // Use default error message
+            }
             Swal.fire({
                 icon:   'error',
                 title:  'Not Removed',
-                text:   'There was an error in removing this personnel from the system.'
+                text:   errorMsg
             });
         }
     });

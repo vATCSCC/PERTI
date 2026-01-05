@@ -43,6 +43,20 @@ if ($perm == true) {
 
 $id = strip_tags($_REQUEST['id']);
 
+// Hardcoded protected CID - always allowed, cannot be deleted
+$protected_cid = '1234727';
+
+// Check if the user being deleted has the protected CID
+$check_protected = $conn_sqli->query("SELECT cid FROM users WHERE id=$id");
+if ($check_protected && $check_protected->num_rows > 0) {
+    $user_row = $check_protected->fetch_assoc();
+    if ($user_row['cid'] == $protected_cid) {
+        http_response_code(403);
+        echo json_encode(['error' => 'This system personnel cannot be deleted.']);
+        exit();
+    }
+}
+
 // Insert Data into Database
 $query = $conn_sqli->multi_query("DELETE FROM users WHERE id=$id");
 

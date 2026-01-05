@@ -46,6 +46,7 @@ include("sessions/handler.php");
     <?php
         include("load/header.php");
     ?>
+    <link rel="stylesheet" href="assets/css/initiative_timeline.css">
 
     <script>
         function tooltips() {
@@ -55,6 +56,85 @@ include("sessions/handler.php");
                 $('[data-toggle="tooltip"]').tooltip()
             }); 
         }
+    </script>
+
+    <style>
+        /* Advisory builder: Facilities Included dropdown */
+        .adv-facilities-wrapper {
+            position: relative;
+        }
+
+        .adv-facilities-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1050;
+            display: none;
+            background-color: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            max-height: 260px;
+            overflow-y: auto;
+            min-width: 260px;
+            box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.15);
+        }
+
+        .adv-facilities-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-column-gap: 0.75rem;
+            grid-row-gap: 0.25rem;
+        }
+
+        .adv-facilities-grid .form-check {
+            margin-bottom: 0.25rem;
+        }
+
+        .adv-facilities-grid input[type="checkbox"] {
+            margin-right: 0.25rem;
+        }
+
+        .adv-facilities-grid label {
+            font-size: 0.75rem;
+            margin-bottom: 0;
+        }
+    </style>
+
+    <script>
+        // PERTI Discord Notification globals
+        var PERTI_EVENT_NAME     = <?= json_encode($plan_info['event_name']); ?>;
+        var PERTI_EVENT_DATE     = <?= json_encode($plan_info['event_date']); ?>;       // 'YYYY-MM-DD'
+        var PERTI_EVENT_START    = <?= json_encode($plan_info['event_start']); ?>;      // 'hhmm' Z
+        var PERTI_EVENT_END_DATE = <?= json_encode($plan_info['event_end_date'] ?? ''); ?>;  // 'YYYY-MM-DD'
+        var PERTI_EVENT_END_TIME = <?= json_encode($plan_info['event_end_time'] ?? ''); ?>;  // 'hhmm' Z
+        var PERTI_OPLEVEL        = <?= json_encode($plan_info['oplevel']); ?>;
+        var PERTI_PLAN_ID        = <?= json_encode($id); ?>;
+        var PERTI_HAS_PERM       = <?= json_encode($perm); ?>;
+        
+        // Compute event start/end as ISO strings for timeline
+        var PERTI_EVENT_START_ISO = null;
+        var PERTI_EVENT_END_ISO = null;
+        
+        (function() {
+            // Parse event start
+            if (PERTI_EVENT_DATE && PERTI_EVENT_START) {
+                var startTime = PERTI_EVENT_START.padStart(4, '0');
+                PERTI_EVENT_START_ISO = PERTI_EVENT_DATE + 'T' + startTime.substring(0,2) + ':' + startTime.substring(2,4) + ':00Z';
+            }
+            // Parse event end
+            var endDate = PERTI_EVENT_END_DATE || PERTI_EVENT_DATE;
+            var endTime = PERTI_EVENT_END_TIME || '';
+            if (endDate && endTime) {
+                endTime = endTime.padStart(4, '0');
+                PERTI_EVENT_END_ISO = endDate + 'T' + endTime.substring(0,2) + ':' + endTime.substring(2,4) + ':00Z';
+            } else if (PERTI_EVENT_START_ISO) {
+                // Default to 6 hours after start if no end time specified
+                var startDt = new Date(PERTI_EVENT_START_ISO);
+                var endDt = new Date(startDt.getTime() + 6 * 60 * 60 * 1000);
+                PERTI_EVENT_END_ISO = endDt.toISOString();
+            }
+        })();
     </script>
 </head>
 
@@ -90,15 +170,14 @@ include('load/nav.php');
                     <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing">Terminal Staffing</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#configs">Field Configurations</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#t_planning">Terminal Planning</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_constraints">Terminal Constraints</a></li>
                     <hr>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_initiatives">En-Route Initiatives</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing">En-Route Staffing</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_planning">En-Route Planning</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_constraints">En-Route Constraints</a></li>
                     <hr>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#group_flights">Group Flights</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#outlook">Extended Outlook</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#advisories">Advisory Builder</a></li>
                 </ul>
             </div>
             <div class="col-10">
@@ -132,12 +211,34 @@ include('load/nav.php');
                                             <td><?= $plan_info['event_name']; ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event Date</b></td>
+                                            <td><b>Event Start Date</b></td>
                                             <td><?= $plan_info['event_date']; ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event Start</b></td>
+                                            <td><b>Event Start Time</b></td>
                                             <td><?= $plan_info['event_start']; ?>Z</td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Event End Date</b></td>
+                                            <td><?php
+                                                $end_date = $plan_info['event_end_date'] ?? '';
+                                                if (!empty($end_date)) {
+                                                    echo $end_date;
+                                                } else {
+                                                    echo '<span class="text-muted">—</span>';
+                                                }
+                                            ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Event End Time</b></td>
+                                            <td><?php
+                                                $end_time = $plan_info['event_end_time'] ?? '';
+                                                if (!empty($end_time)) {
+                                                    echo $end_time . 'Z';
+                                                } else {
+                                                    echo '<span class="text-muted">—</span>';
+                                                }
+                                            ?></td>
                                         </tr>
                                         <tr>
                                             <td><b>TMU OpLevel</b></td>
@@ -161,32 +262,30 @@ include('load/nav.php');
 
                                 <hr>
 
+                                <button type="button" class="btn btn-sm btn-primary mb-2" onclick="openPertiModal();">
+                                    Create PERTI Discord Notification
+                                </button>
+
+                                <button type="button" class="btn btn-sm btn-outline-primary mb-2" onclick="openOpsPlanModal();">
+                                    Create Operations Plan Advisory
+                                </button>
+
+                                <hr>
+
                                 <h4><b>Resources</b></h4>
                                 <ul>
-                                    <li>TMU Dashboard for operational status and real-time issue tracking <a href="https://vats.im/vATCSCC_TMU_Dashboard" target="_blank">here</a>.</li>
-                                    <li>JATOC AWO Incident Monitor for incident management and real-time tracking <a href="https://vats.im/JATOC" target="_blank">here</a>.</li>
+                                    <li><a href="https://perti.vatcscc.org/nod" target="_blank">PERTI NAS Operations Dashboard (NOD)</a> for NAS-wide information.</li>
+                                    <li><a href="https://perti.vatcscc.org/splits" target="_blank">PERTI Active Splits</a> for airspace split coordination.</li>
+                                    <li><a href="https://perti.vatcscc.org/gdt" target="_blank">PERTI Ground Delay Tool (GDT)</a> for ground delay program/ground stop management.</li>
+                                    <li><a href="https://perti.vatcscc.org/jatoc" target="_blank">PERTI JATOC AWO Incident Monitor</a> for incident management and real-time tracking.</li>
                                     <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
-                                    <li>VATUSA NTOS for public-facing, real-time TMI notices <a href="https://www.vatusa.net/mgt/tmu#notices" target="_blank">here</a>.
-                                        <ul><li><b>ALL</b> NTOS entries must be accompanied by an NTML entry.</li></ul></li>
                                     <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline']; ?></b></span> Hotline for real-time operational coordination.
                                         <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
                                         <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang channel will serve as a primary backup if the VATUSA TeamSpeak fails.</li>
                                         <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
                                     <li>Post any known virtual airline/group flight entries into <a href="https://bit.ly/NTML_Entry" target="_blank">this form</a>.</li>
-                                    <li>Monthly & Current Traffic Dashboards:
-                                        <ul>
-                                            <li><a href="https://vats.im/dcc/VATUSA_Traffic_Dashboard" target="_blank">https://vats.im/dcc/VATUSA_Traffic_Dashboard</a></li>
-                                            <li><a href="https://vats.im/dcc/Current_Traffic_Dashboard" target="_blank">https://vats.im/dcc/Current_Traffic_Dashboard</a></li>
-                                        </ul>
-                                    </li>
-                                    <li>CDR & Preferred Route Databases:
-                                        <ul>
-                                            <li><a href="https://vats.im/dcc/CDR" target="_blank">https://vats.im/dcc/CDR</a></li>
-                                            <li><a href="https://vats.im/dcc/PRD" target="_blank">https://vats.im/dcc/PRD</a></li>
-                                        </ul>
-                                    </li>
                                     <li>TMU personnel must utilize <b>authorized</b> callsigns (XX_XX_TMU) in accordance with <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank">this policy</a>.</li>
-                                    <li>Trangression Reporting Form for incident reporting available <a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank">here</a>.</li>
+                                    <li><a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank">vATCSCC Trangression Reporting Form</a> for incident reporting.</li>
                                 </ul>
 
                             </div>
@@ -265,13 +364,18 @@ include('load/nav.php');
                     <!-- Tab: Terminal Initiatives -->
                     <div class="tab-pane fade" id="t_initiatives">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addterminalinitModal"><i class="fas fa-plus"></i> Add Initiative</button>      
-
-                            <hr>
+                            <button class="btn btn-sm btn-success mb-3" onclick="window.termInitTimeline && window.termInitTimeline.showAddModal()"><i class="fas fa-plus"></i> Add Initiative</button>
                         <?php } ?>
-
-
-                        <center><div id="term_inits"></div></center>
+                        <div id="term_inits_timeline"></div>
+                        
+                        <!-- Legacy view (hidden by default, kept for backwards compatibility) -->
+                        <div id="term_inits_legacy" style="display: none;">
+                            <?php if ($perm == true) { ?>
+                                <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addterminalinitModal"><i class="fas fa-plus"></i> Add Initiative (Legacy)</button>      
+                                <hr>
+                            <?php } ?>
+                            <center><div id="term_inits"></div></center>
+                        </div>
                     </div>
 
                     <!-- Tab: Terminal Staffing -->
@@ -337,37 +441,21 @@ include('load/nav.php');
                         <div class="row gutters-tiny py-20" id="termplanningdata"></div>
                     </div>
 
-                    <!-- Tab: Terminal Constraints -->
-                    <div class="tab-pane fade" id="t_constraints">
-                        <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addtermconstraintModal"><i class="fas fa-plus"></i> Add Constraint</button>      
-
-                            <hr>
-                        <?php } ?>                        
-
-                        <center><table class="table table-striped table-bordered w-75">
-                            <thead>
-                                <th class="text-center"><b>Location - Cause/Context</b></th>
-                                <th class="text-center"><b>Date</b></th>
-                                <th class="text-center"><b>Impact</b></th>
-                                <?php if ($perm == true) {
-                                    echo '<th></th>';
-                                }
-                                ?>
-                            </thead>
-                            <tbody id="term_constraints_table"></tbody>
-                        </table></center>
-                    </div>
-
                     <!-- Tab: Enroute Initiatives -->
                     <div class="tab-pane fade" id="e_initiatives">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenrouteinitModal"><i class="fas fa-plus"></i> Add Initiative</button>      
-
-                            <hr>
-                        <?php } ?>                          
-
-                        <center><div id="enroute_inits"></div></center>
+                            <button class="btn btn-sm btn-success mb-3" onclick="window.enrouteInitTimeline && window.enrouteInitTimeline.showAddModal()"><i class="fas fa-plus"></i> Add Initiative</button>
+                        <?php } ?>
+                        <div id="enroute_inits_timeline"></div>
+                        
+                        <!-- Legacy view (hidden by default, kept for backwards compatibility) -->
+                        <div id="enroute_inits_legacy" style="display: none;">
+                            <?php if ($perm == true) { ?>
+                                <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenrouteinitModal"><i class="fas fa-plus"></i> Add Initiative (Legacy)</button>      
+                                <hr>
+                            <?php } ?>                          
+                            <center><div id="enroute_inits"></div></center>
+                        </div>
                     </div>
 
                     <!-- Tab: Enroute Staffing -->
@@ -404,28 +492,6 @@ include('load/nav.php');
                         <div class="row gutters-tiny py-20" id="enrouteplanningdata"></div>
                     </div>
 
-                    <!-- Tab: Enroute Constraints -->
-                    <div class="tab-pane fade" id="e_constraints">
-                        <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenrouteconstraintModal"><i class="fas fa-plus"></i> Add Constraint</button>      
-
-                            <hr>
-                        <?php } ?>                         
-
-                        <center><table class="table table-striped table-bordered w-75">
-                            <thead>
-                                <th class="text-center"><b>Location - Cause/Context</b></th>
-                                <th class="text-center"><b>Date</b></th>
-                                <th class="text-center"><b>Impact</b></th>
-                                <?php if ($perm == true) {
-                                    echo '<th></th>';
-                                }
-                                ?>
-                            </thead>
-                            <tbody id="enroute_constraints_table"></tbody>
-                        </table></center>
-                    </div>
-
                     <!-- Tab: Group Flights -->
                     <div class="tab-pane fade" id="group_flights">
                         <?php if ($perm == true) { ?>
@@ -456,6 +522,122 @@ include('load/nav.php');
                     <!-- Tab: Extended Outlook -->
                     <div class="tab-pane fade" id="outlook">
                         <div class="row gutters-tiny py-20" id="outlook_data"></div>
+                    </div>
+
+                    <!-- Tab: Advisory Builder -->
+                    <div class="tab-pane fade" id="advisories">
+                        <div class="card">
+                            <div class="card-header">
+                                <strong>vATCSCC Advisory Builder (Discord)</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="container-fluid">
+
+                                    <!-- Line 1: vATCSCC ADVZY ... -->
+                                    <div class="form-row">
+                                        <div class="form-group col-md-3">
+                                            <label for="advzyNumber">Advisory Number</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyNumber" placeholder="e.g. 027">
+                                            <small class="form-text text-muted">
+                                                Numeric; will be zero-padded to 3 digits.
+                                            </small>
+                                        </div>
+                                        <div class="form-group col-md-3">
+                                            <label for="advzyFacility">Facility (optional)</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyFacility" placeholder="e.g. DCC or JFK/ZNY">
+                                        </div>
+                                        <div class="form-group col-md-6">
+                                            <label for="advzyDate">Advisory Date (UTC, mm/dd/yyyy)</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyDate" placeholder="mm/dd/yyyy">
+                                        </div>
+                                    </div>
+
+                                    <!-- Advisory Type/Name (OPERATIONS PLAN, ROUTE, etc.) -->
+                                    <div class="form-row">
+                                        <div class="form-group col-md-12">
+                                            <label for="advzyType">Advisory Type/Name</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyType" placeholder="e.g. OPERATIONS PLAN">
+                                            <small class="form-text text-muted">
+                                                Examples: OPERATIONS PLAN, ROUTE, PLAYBOOK, INFORMATIONAL, etc.
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <!-- VALID FOR line -->
+                                    <div class="form-row">
+                                        <div class="form-group col-md-3">
+                                            <label for="advzyValidFrom">Valid From (ddhhmm)</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyValidFrom" placeholder="e.g. 301300">
+                                        </div>
+                                        <div class="form-group col-md-3">
+                                            <label for="advzyValidTo">Valid To (ddhhmm)</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyValidTo" placeholder="e.g. 301900">
+                                        </div>
+                                        <div class="form-group col-md-6">
+                                            <small class="form-text text-muted mt-4">
+                                                If both are filled, a <code>VALID FOR ddhhmm THRU ddhhmm</code> line will be added.
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-2">
+
+                                    <!-- Free-text advisory body -->
+                                    <div class="form-group">
+                                        <label for="advzyBody">Advisory Text</label>
+                                        <textarea class="form-control" id="advzyBody" rows="6"></textarea>
+                                        <small class="form-text text-muted">
+                                            Free-form text; lines are wrapped to 68 characters per line.
+                                        </small>
+                                    </div>
+
+                                    <!-- Effective time line -->
+                                    <div class="form-row">
+                                        <div class="form-group col-md-3">
+                                            <label for="advzyEffFrom">Effective From (ddhhmm)</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyEffFrom" placeholder="e.g. 301224">
+                                        </div>
+                                        <div class="form-group col-md-3">
+                                            <label for="advzyEffTo">Effective To (ddhhmm)</label>
+                                            <input type="text" class="form-control form-control-sm" id="advzyEffTo" placeholder="e.g. 301359">
+                                        </div>
+                                        <div class="form-group col-md-6">
+                                            <small class="form-text text-muted mt-4">
+                                                Creates the <code>ddhhmm-ddhhmm</code> line for advisory coverage time.
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Signature line -->
+                                    <div class="form-group">
+                                        <label for="advzySignature">Signature Line</label>
+                                        <input type="text" class="form-control form-control-sm" id="advzySignature" placeholder="YY/MM/DD hh:mm /OI">
+                                        <small class="form-text text-muted">
+                                            Example: <code>25/12/07 13:45 /HP</code>.
+                                        </small>
+                                    </div>
+
+                                    <hr class="my-2">
+
+                                    <!-- Build & copy -->
+                                    <div class="form-group">
+                                        <button type="button" class="btn btn-sm btn-primary" id="advzyBuildBtn">
+                                            Generate Advisory Text
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="advzyCopyBtn">
+                                            Copy to Clipboard
+                                        </button>
+                                    </div>
+
+                                    <!-- Final Discord-ready output -->
+                                    <div class="form-group mt-2">
+                                        <label for="advzyMessage">Advisory Text (copy into Discord)</label>
+                                        <textarea class="form-control" id="advzyMessage" rows="14" style="font-family: Menlo, Consolas, monospace;"></textarea>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
 
@@ -1921,7 +2103,356 @@ include('load/nav.php');
 </div>
 <?php } ?>
 
+<!-- PERTI Discord Notification Modal -->
+<div class="modal fade" id="pertiModal" tabindex="-1" role="dialog" aria-labelledby="pertiModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pertiModalLabel">PERTI Discord Notification</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+
+            <!-- Start / End date & time (all UTC) -->
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="pertiStartDate">Start Date (UTC)</label>
+                    <input type="date" class="form-control form-control-sm" id="pertiStartDate">
+                    <small class="form-text text-muted">
+                        Defaults from event date.
+                    </small>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="pertiStartTime">Start Time (UTC)</label>
+                    <input type="text" class="form-control form-control-sm" id="pertiStartTime" placeholder="e.g. 1800">
+                    <small class="form-text text-muted">
+                        Defaults from event start time.
+                    </small>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="pertiEndDate">End Date (UTC)</label>
+                    <input type="date" class="form-control form-control-sm" id="pertiEndDate">
+                    <small class="form-text text-muted">
+                        Defaults from event end date, or calculated from start if not set.
+                    </small>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="pertiEndTime">End Time (UTC)</label>
+                    <input type="text" class="form-control form-control-sm" id="pertiEndTime" placeholder="e.g. 0300">
+                    <small class="form-text text-muted">
+                        Defaults from event end time. Used for Discord timestamps.
+                    </small>
+                </div>
+            </div>
+
+                <!-- Facilities selector -->
+                <div class="form-group mt-3">
+                    <label class="small mb-0" for="advFacilities">Facilities Included</label>
+                    <div class="adv-facilities-wrapper">
+                        <div class="input-group input-group-sm">
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   id="advFacilities"
+                                   placeholder="ZTL/ZDC/ZNY">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" type="button" id="advFacilitiesToggle">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+                        <div id="advFacilitiesDropdown" class="adv-facilities-dropdown">
+                            <div class="adv-facilities-grid" id="advFacilitiesGrid">
+                                <!-- Populated by JS -->
+                            </div>
+                            <div class="mt-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-light mr-2" id="advFacilitiesClear">Clear</button>
+                                    <button type="button" class="btn btn-sm btn-light mr-2" id="advFacilitiesSelectAll">All</button>
+                                    <button type="button" class="btn btn-sm btn-light" id="advFacilitiesSelectUs">US ARTCCs</button>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-primary" id="advFacilitiesApply">Apply</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Final message -->
+                <div class="form-group mt-3">
+                    <label for="pertiMessage">Notification Text (copy into Discord)</label>
+                    <textarea class="form-control" id="pertiMessage" rows="20" style="font-family: Menlo, Consolas, monospace;"></textarea>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="pertiCopyBtn">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End PERTI Discord Notification Modal -->
+
+
+<!-- Operations Plan Advisory Modal -->
+<div class="modal fade" id="opsPlanModal" tabindex="-1" role="dialog" aria-labelledby="opsPlanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="opsPlanModalLabel">Operations Plan Advisory</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="container-fluid">
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label for="opsAdvNum">Advisory Number</label>
+                            <input type="text" class="form-control form-control-sm" id="opsAdvNum" placeholder="e.g. 001">
+                        </div>
+                        <div class="form-group col-md-5">
+                            <label for="opsAdvDate">Advisory Date (UTC, mm/dd/yyyy)</label>
+                            <input type="text" class="form-control form-control-sm" id="opsAdvDate" placeholder="mm/dd/yyyy">
+                            <small class="form-text text-muted">
+                                Defaults from event date if left blank.
+                            </small>
+                        </div>
+                    </div>
+
+                    <hr class="my-2">
+
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label for="opsStartDate">Start Date (UTC)</label>
+                            <input type="date" class="form-control form-control-sm" id="opsStartDate">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label for="opsStartTime">Start Time (UTC)</label>
+                            <input type="text" class="form-control form-control-sm" id="opsStartTime" placeholder="e.g. 2359">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label for="opsEndDate">End Date (UTC)</label>
+                            <input type="date" class="form-control form-control-sm" id="opsEndDate">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label for="opsEndTime">End Time (UTC)</label>
+                            <input type="text" class="form-control form-control-sm" id="opsEndTime" placeholder="e.g. 0400">
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-2">
+                        <label for="opsNarrative">Narrative</label>
+                        <textarea class="form-control" id="opsNarrative" rows="4"></textarea>
+                        <small class="form-text text-muted">
+                            This text populates the NARRATIVE section of the advisory.
+                        </small>
+                    </div>
+
+                    <div class="form-group mt-2">
+                        <label for="opsPlanMessage">Operations Plan Advisory Text</label>
+                        <small class="form-text text-muted mb-1">
+                            Auto-generated from the PERTI plan. If the text exceeds Discord’s 2000-character limit, it will be split into multiple parts labeled <code>(PART 1 OF N)</code>, <code>(PART 2 OF N)</code>, etc.
+                        </small>
+                        <textarea class="form-control" id="opsPlanMessage" rows="18" style="font-family: Menlo, Consolas, monospace;"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="opsPlanCopyBtn">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Operations Plan Advisory Modal -->
+
 <!-- Insert plan.js Script -->
 <script src="assets/js/plan.js"></script>
+
+<!-- Insert Initiative Timeline Script -->
+<script src="assets/js/initiative_timeline.js"></script>
+<script>
+    // Initialize Initiative Timelines when DOM is ready
+    $(function() {
+        // Terminal Initiatives Timeline
+        if (document.getElementById('term_inits_timeline')) {
+            window.termInitTimeline = new InitiativeTimeline({
+                type: 'terminal',
+                containerId: 'term_inits_timeline',
+                planId: PERTI_PLAN_ID,
+                eventStart: PERTI_EVENT_START_ISO,
+                eventEnd: PERTI_EVENT_END_ISO,
+                hasPerm: PERTI_HAS_PERM
+            });
+        }
+        
+        // En Route Initiatives Timeline
+        if (document.getElementById('enroute_inits_timeline')) {
+            window.enrouteInitTimeline = new InitiativeTimeline({
+                type: 'enroute',
+                containerId: 'enroute_inits_timeline',
+                planId: PERTI_PLAN_ID,
+                eventStart: PERTI_EVENT_START_ISO,
+                eventEnd: PERTI_EVENT_END_ISO,
+                hasPerm: PERTI_HAS_PERM
+            });
+        }
+    });
+</script>
+
+<script>
+    function wrapTo68(line) {
+        line = line.trim();
+        if (!line) return [];
+        var words = line.split(/\s+/);
+        var out = [];
+        var current = '';
+
+        for (var i = 0; i < words.length; i++) {
+            var w = words[i];
+            if (!w) continue;
+            if (!current) {
+                current = w;
+            } else if (current.length + 1 + w.length > 68) {
+                out.push(current);
+                current = w;
+            } else {
+                current += ' ' + w;
+            }
+        }
+        if (current) out.push(current);
+        return out;
+    }
+
+    function buildAdvzyText() {
+        var num       = (document.getElementById('advzyNumber').value || '').trim();
+        var facility  = (document.getElementById('advzyFacility').value || '').trim();
+        var dateStr   = (document.getElementById('advzyDate').value || '').trim();
+        var typeName  = (document.getElementById('advzyType').value || '').trim();
+        var validFrom = (document.getElementById('advzyValidFrom').value || '').trim();
+        var validTo   = (document.getElementById('advzyValidTo').value || '').trim();
+        var body      = (document.getElementById('advzyBody').value || '').trim();
+        var effFrom   = (document.getElementById('advzyEffFrom').value || '').trim();
+        var effTo     = (document.getElementById('advzyEffTo').value || '').trim();
+        var signature = (document.getElementById('advzySignature').value || '').trim();
+
+        // Default advisory date from event date if empty
+        if (!dateStr && typeof PERTI_EVENT_DATE !== 'undefined' && PERTI_EVENT_DATE) {
+            var parts = PERTI_EVENT_DATE.split('-'); // 'YYYY-MM-DD'
+            if (parts.length === 3) {
+                var mm0 = parts[1].padStart(2, '0');
+                var dd0 = parts[2].padStart(2, '0');
+                var yyyy0 = parts[0];
+                dateStr = mm0 + '/' + dd0 + '/' + yyyy0;
+                document.getElementById('advzyDate').value = dateStr;
+            }
+        }
+
+        // Advisory number: zero-pad to 3 digits if numeric
+        if (num && /^\d+$/.test(num)) {
+            num = num.padStart(3, '0');
+        }
+
+        // Date: allow mm/dd/yyyy or mm/dd/yy; header shows mm/dd/yy
+        var headerDate = dateStr;
+        var m = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (m) {
+            var mm = m[1].padStart(2, '0');
+            var dd = m[2].padStart(2, '0');
+            var yyyyOrYY = m[3];
+            var yy = yyyyOrYY.length === 4 ? yyyyOrYY.slice(-2) : yyyyOrYY.padStart(2, '0');
+            headerDate = mm + '/' + dd + '/' + yy;
+        }
+
+        // Default type if blank
+        if (!typeName) {
+            typeName = 'OPERATIONS PLAN';
+            document.getElementById('advzyType').value = typeName;
+        }
+
+        // Line 1: ATCSCC ADVZY ### [FACILITY] mm/dd/yy TYPE
+        var line1Parts = ['vATCSCC', 'ADVZY'];
+        if (num) {
+            line1Parts.push(num);
+        } else {
+            line1Parts.push('###');
+        }
+        if (facility) {
+            line1Parts.push(facility);
+        }
+        if (headerDate) {
+            line1Parts.push(headerDate);
+        }
+        if (typeName) {
+            line1Parts.push(typeName.toUpperCase());
+        }
+
+        var lines = [];
+        lines.push(line1Parts.join(' '));
+
+        // VALID FOR line (optional)
+        if (validFrom && validTo) {
+            lines.push('VALID FOR ' + validFrom + ' THRU ' + validTo);
+        }
+
+        // Body: wrap to 68 chars per line, uppercase
+        if (body) {
+            var bodyLines = body.split(/\r?\n/);
+            for (var i = 0; i < bodyLines.length; i++) {
+                var chunk = bodyLines[i];
+                var wrapped = wrapTo68(chunk);
+                for (var j = 0; j < wrapped.length; j++) {
+                    lines.push(wrapped[j].toUpperCase());
+                }
+            }
+        }
+
+        // Effective time line: ddhhmm-ddhhmm
+        if (effFrom && effTo) {
+            lines.push(effFrom + '-' + effTo);
+        }
+
+        // Default signature if empty
+        if (!signature) {
+            var now = new Date();
+            var yy = String(now.getUTCFullYear()).slice(-2);
+            var mm2 = String(now.getUTCMonth() + 1).padStart(2, '0');
+            var dd2 = String(now.getUTCDate()).padStart(2, '0');
+            var hh = String(now.getUTCHours()).padStart(2, '0');
+            var mi = String(now.getUTCMinutes()).padStart(2, '0');
+            signature = yy + '/' + mm2 + '/' + dd2 + ' ' + hh + ':' + mi + ' DCC';
+            document.getElementById('advzySignature').value = signature;
+        }
+
+        lines.push(signature);
+
+        document.getElementById('advzyMessage').value = lines.join('\n');
+    }
+
+    $(function () {
+        $('#advzyBuildBtn').on('click', function () {
+            buildAdvzyText();
+        });
+
+        $('#advzyCopyBtn').on('click', function () {
+            var ta = document.getElementById('advzyMessage');
+            if (!ta) return;
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand('copy');
+            } catch (e) {
+                // ignore
+            }
+        });
+    });
+</script>
 
 </html>

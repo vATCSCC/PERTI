@@ -2,7 +2,7 @@
 
 <!-- Load Plugins -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
-<script src="https://cdn.tiny.cloud/1/7cxrtdggyqrplp1mdmvu1otaovywlrdlkb95quc4y7036q5f/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="https://cdn.tiny.cloud/1/7cxrtdggyqrplp1mdmvu1otaovywlrdlkb95quc4y7036q5f/tinymce/8/tinymce.min.js" referrerpolicy="origin" crossorigin="anonymous"></script>
 <script src="<?= $filepath; ?>assets/js/plugins/datetimepicker.js"> </script>
 <script src="<?= $filepath; ?>assets/vendor/parallax-js/dist/parallax.min.js"></script>
 <script src="<?= $filepath; ?>assets/vendor/jarallax/dist/jarallax.min.js"></script>
