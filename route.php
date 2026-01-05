@@ -2388,8 +2388,7 @@ ROUTE2</pre>
                 <!-- Output text area -->
                 <label class="small mb-1">Advisory Output</label>
                 <textarea class="form-control" id="advOutput" rows="12"
-                          style="font-family: Inconsolata, monospace; font-size: 0.85rem; white-space: pre; overflow-x: auto;"
-                          readonly></textarea>
+                          style="font-family: Inconsolata, monospace; font-size: 0.85rem; white-space: pre; overflow-x: auto;"></textarea>
             </div>
         </div>
     </div>

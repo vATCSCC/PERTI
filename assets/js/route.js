@@ -4913,21 +4913,14 @@ function advInitFacilitiesDropdown() {
         return /^[A-Z][0-9]{2}$/.test(t);
     }
 
-    // Check if token is an airport (4 chars with ICAO prefix)
+    // Check if token is an airport (4-letter ICAO code)
     function advIsAirport(code) {
         if (!code) return false;
         var t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        if (!/^[A-Z]{4}$/.test(t)) return false;
-        // US airports start with K
-        if (/^K[A-Z]{3}$/.test(t)) return true;
-        // Canadian airports
-        if (/^CY[A-Z]{2}$/.test(t)) return true;
-        if (/^CZ[A-Z]{2}$/.test(t)) return true;
-        // Pacific start with P
-        if (/^P[A-Z]{3}$/.test(t)) return true;
-        // Mexico starts with MM
-        if (/^MM[A-Z]{2}$/.test(t)) return true;
-        return false;
+        // Accept any valid 4-letter ICAO code (supports all global regions)
+        // ICAO prefixes: K=US, CY/CZ=Canada, P=Pacific, MM=Mexico, E=N.Europe,
+        // L=S.Europe, M=Central America/Caribbean, S=South America, etc.
+        return /^[A-Z]{4}$/.test(t);
     }
 
 function advIsFacility(code) {
