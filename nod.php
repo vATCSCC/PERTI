@@ -1145,6 +1145,9 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                         <span id="nod_stats_total"><strong>0</strong> total</span>
                     </small>
                     <div>
+                        <button class="btn btn-sm btn-outline-warning mr-1" onclick="NOD.clearFlightRoutes()" title="Clear all drawn flight routes">
+                            <i class="fas fa-route"></i><i class="fas fa-times" style="font-size:8px;margin-left:2px;"></i>
+                        </button>
                         <button class="btn btn-sm btn-outline-secondary mr-1" onclick="NOD.resetFilters()" title="Clear all filters">
                             <i class="fas fa-eraser"></i>
                         </button>
