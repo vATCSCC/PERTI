@@ -58,6 +58,7 @@ $stats = [
 
 /**
  * Convert GeoJSON geometry to WKT
+ * Ensures rings are closed (first point = last point)
  */
 function geojsonToWkt($geometry) {
     $type = $geometry['type'];
@@ -70,6 +71,14 @@ function geojsonToWkt($geometry) {
             foreach ($ring as $coord) {
                 $points[] = $coord[0] . ' ' . $coord[1];
             }
+            // Ensure ring is closed
+            if (count($ring) > 0) {
+                $first = $ring[0][0] . ' ' . $ring[0][1];
+                $last = $points[count($points) - 1];
+                if ($first !== $last) {
+                    $points[] = $first;
+                }
+            }
             $rings[] = '(' . implode(', ', $points) . ')';
         }
         return 'POLYGON (' . implode(', ', $rings) . ')';
@@ -81,6 +90,14 @@ function geojsonToWkt($geometry) {
                 $points = [];
                 foreach ($ring as $coord) {
                     $points[] = $coord[0] . ' ' . $coord[1];
+                }
+                // Ensure ring is closed
+                if (count($ring) > 0) {
+                    $first = $ring[0][0] . ' ' . $ring[0][1];
+                    $last = $points[count($points) - 1];
+                    if ($first !== $last) {
+                        $points[] = $first;
+                    }
                 }
                 $rings[] = '(' . implode(', ', $points) . ')';
             }
@@ -101,8 +118,7 @@ function importBoundary($conn, $data) {
     try {
         $wkt = geojsonToWkt($data['geometry']);
         
-        $sql = "DECLARE @boundary_id INT;
-            EXEC sp_ImportBoundary 
+        $sql = "EXEC sp_ImportBoundary 
                 @boundary_type = ?,
                 @boundary_code = ?,
                 @boundary_name = ?,
@@ -122,9 +138,7 @@ function importBoundary($conn, $data) {
                 @shape_area = ?,
                 @source_object_id = ?,
                 @source_fid = ?,
-                @source_file = ?,
-                @boundary_id = @boundary_id OUTPUT;
-            SELECT @boundary_id as boundary_id;";
+                @source_file = ?;";
         
         $params = [
             $data['boundary_type'],
@@ -155,8 +169,7 @@ function importBoundary($conn, $data) {
             return false;
         }
         
-        // Get result
-        sqlsrv_next_result($stmt);
+        // Fetch the result - SP now always returns SELECT at the end
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
         

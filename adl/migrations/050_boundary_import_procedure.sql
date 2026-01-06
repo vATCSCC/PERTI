@@ -39,6 +39,15 @@ BEGIN
         -- Parse WKT to geography
         SET @geography = GEOGRAPHY::STGeomFromText(@wkt_geometry, 4326);
         
+        -- Apply MakeValid to fix any geometry issues
+        IF @geography.STIsValid() = 0
+        BEGIN
+            -- Convert to geometry, make valid, convert back
+            DECLARE @geom GEOMETRY = GEOMETRY::STGeomFromText(@wkt_geometry, 4326);
+            SET @geom = @geom.MakeValid();
+            SET @geography = GEOGRAPHY::STGeomFromText(@geom.STAsText(), 4326);
+        END
+        
         -- Apply polygon orientation fix
         -- SQL Server geography requires exterior rings to be counter-clockwise
         -- Large polygons (>hemisphere) may be inverted without this fix
@@ -50,6 +59,14 @@ BEGIN
         ELSE
         BEGIN
             SET @oriented_geography = @geography;
+        END
+        
+        -- Ensure oriented geography is also valid
+        IF @oriented_geography.STIsValid() = 0
+        BEGIN
+            DECLARE @geom2 GEOMETRY = GEOMETRY::STGeomFromText(@oriented_geography.STAsText(), 4326);
+            SET @geom2 = @geom2.MakeValid();
+            SET @oriented_geography = GEOGRAPHY::STGeomFromText(@geom2.STAsText(), 4326);
         END
         
         -- Check for existing boundary with same type and code
@@ -122,6 +139,9 @@ BEGIN
         PRINT 'Error importing boundary ' + @boundary_code + ': ' + ERROR_MESSAGE();
         SET @boundary_id = -1;
     END CATCH
+    
+    -- Return result for PHP to fetch
+    SELECT @boundary_id as boundary_id;
 END;
 GO
 
