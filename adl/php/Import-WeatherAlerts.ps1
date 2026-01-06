@@ -33,7 +33,9 @@ param(
     [switch]$DryRun,
     [ValidateSet('sigmet', 'airmet', 'all')]
     [string]$Type = 'all',
-    [switch]$ShowVerbose
+    [switch]$ShowVerbose,
+    [string]$SqlUser,
+    [string]$SqlPass
 )
 
 # Configuration
@@ -280,9 +282,9 @@ function Import-AlertsToDatabase {
     catch {
         Write-Host "Azure AD auth failed, trying environment credentials..." -ForegroundColor Yellow
         
-        # Try with environment credentials
-        $user = $env:SQL_USER
-        $pass = $env:SQL_PASS
+        # Try with parameter or environment credentials
+        $user = if ($script:SqlUser) { $script:SqlUser } else { $env:SQL_USER }
+        $pass = if ($script:SqlPass) { $script:SqlPass } else { $env:SQL_PASS }
         
         if ($user -and $pass) {
             $connString = "Server=$DB_SERVER;Database=$DB_NAME;User Id=$user;Password=$pass;TrustServerCertificate=True;Connect Timeout=30"
@@ -295,28 +297,30 @@ function Import-AlertsToDatabase {
         }
     }
     
-    # Call import procedure
+    # Call import procedure with output parameters
     $cmd = $conn.CreateCommand()
-    $cmd.CommandText = "EXEC dbo.sp_ImportWeatherAlerts @json = @json, @source_url = @url"
+    $cmd.CommandText = "EXEC dbo.sp_ImportWeatherAlerts @json = @json, @source_url = @url, @alerts_inserted = @inserted OUTPUT, @alerts_updated = @updated OUTPUT, @alerts_expired = @expired OUTPUT"
     $cmd.Parameters.AddWithValue("@json", $json) | Out-Null
     $cmd.Parameters.AddWithValue("@url", $AWC_URL) | Out-Null
+    
+    $insertedParam = $cmd.Parameters.Add("@inserted", [System.Data.SqlDbType]::Int)
+    $insertedParam.Direction = [System.Data.ParameterDirection]::Output
+    
+    $updatedParam = $cmd.Parameters.Add("@updated", [System.Data.SqlDbType]::Int)
+    $updatedParam.Direction = [System.Data.ParameterDirection]::Output
+    
+    $expiredParam = $cmd.Parameters.Add("@expired", [System.Data.SqlDbType]::Int)
+    $expiredParam.Direction = [System.Data.ParameterDirection]::Output
+    
     $cmd.CommandTimeout = 60
     
-    $reader = $cmd.ExecuteReader()
+    $cmd.ExecuteNonQuery() | Out-Null
     
     $result = @{
-        inserted = 0
-        updated = 0
-        expired = 0
+        inserted = $insertedParam.Value
+        updated = $updatedParam.Value
+        expired = $expiredParam.Value
     }
-    
-    if ($reader.Read()) {
-        $result.inserted = $reader["inserted"]
-        $result.updated = $reader["updated"]
-        $result.expired = $reader["expired"]
-    }
-    
-    $reader.Close()
     $conn.Close()
     
     return $result

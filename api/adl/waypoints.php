@@ -185,6 +185,9 @@ $flightInfo = [
 // Fetch waypoints for the flight
 // ---------------------------------------------------------------------------
 
+// Debug mode
+$debug = isset($_GET['debug']) && $_GET['debug'] === '1';
+
 $sql = "
     SELECT
         w.sequence_num,
@@ -203,7 +206,12 @@ $sql = "
     ORDER BY w.sequence_num ASC
 ";
 
-$stmt = sqlsrv_query($conn_adl, $sql, [$flight_uid]);
+// Explicitly type the parameter as BIGINT
+$params = array(
+    array($flight_uid, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_INT, SQLSRV_SQLTYPE_BIGINT)
+);
+
+$stmt = sqlsrv_query($conn_adl, $sql, $params);
 if ($stmt === false) {
     http_response_code(500);
     echo json_encode([
@@ -235,11 +243,22 @@ sqlsrv_free_stmt($stmt);
 sqlsrv_close($conn_adl);
 
 // Return response - always includes flight info with airport coords
-echo json_encode([
+$response = [
     "flight" => $flightInfo,
     "waypoints" => $waypoints,
     "count" => count($waypoints),
     "message" => empty($waypoints) ? "No parsed waypoints - use airport coords for simple route" : null
-]);
+];
+
+// Add debug info if requested
+if ($debug) {
+    $response['debug'] = [
+        'flight_uid_queried' => $flight_uid,
+        'flight_uid_type' => gettype($flight_uid),
+        'sql_errors' => adl_sql_error_message()
+    ];
+}
+
+echo json_encode($response);
 
 ?>
