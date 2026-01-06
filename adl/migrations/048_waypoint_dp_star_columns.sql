@@ -1,10 +1,10 @@
 -- ============================================================================
--- ADL Migration 047: Add DP/STAR columns to waypoints
+-- ADL Migration 048: Add DP/STAR columns to waypoints
 --
 -- Adds columns to track which specific departure procedure (DP/SID) or
 -- standard terminal arrival route (STAR) a waypoint belongs to.
 --
--- Run Order: 47
+-- Run Order: 48
 -- Depends on: 003_adl_waypoints_stepclimbs.sql
 -- ============================================================================
 
@@ -12,7 +12,7 @@ SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 
-PRINT '=== ADL Migration 047: Waypoint DP/STAR Columns ===';
+PRINT '=== ADL Migration 048: Waypoint DP/STAR Columns ===';
 PRINT 'Started at: ' + CONVERT(VARCHAR, GETUTCDATE(), 120);
 GO
 
@@ -73,6 +73,6 @@ END
 GO
 
 PRINT '';
-PRINT '=== ADL Migration 047 Complete ===';
+PRINT '=== ADL Migration 048 Complete ===';
 PRINT 'Finished at: ' + CONVERT(VARCHAR, GETUTCDATE(), 120);
 GO
