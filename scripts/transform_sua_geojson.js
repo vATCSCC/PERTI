@@ -84,7 +84,9 @@ const TYPE_TO_GROUP = {
 
 // Types that are inherently lines (not areas)
 // Note: OSARA removed - they should render as polygons
-const LINE_TYPES = ['AR', 'IR', 'VR', 'SR', 'MTR', 'ANG', 'WSRP'];
+// AW (AWACS orbits) are oval/racetrack patterns - should be lines NOT polygons
+// ALTRV are altitude reservation routes
+const LINE_TYPES = ['AR', 'IR', 'VR', 'SR', 'MTR', 'ANG', 'WSRP', 'AW', 'AWACS', 'ALTRV'];
 
 // Types that may have dashed borders
 const DASHED_BORDER_TYPES = ['120', 'SS', 'ADIZ'];
@@ -175,7 +177,7 @@ const stats = {
 };
 
 /**
- * Check if coordinates form a closed ring
+ * Check if coordinates form a closed ring (exact match)
  */
 function isClosed(coords) {
     if (!coords || coords.length < 3) return false;
@@ -186,8 +188,9 @@ function isClosed(coords) {
 
 /**
  * Check if coordinates are approximately closed (within tolerance)
+ * Tolerance of 0.001 degrees = ~111 meters at equator
  */
-function isApproxClosed(coords, tolerance = 0.0001) {
+function isApproxClosed(coords, tolerance = 0.001) {
     if (!coords || coords.length < 3) return false;
     const first = coords[0];
     const last = coords[coords.length - 1];
@@ -196,11 +199,50 @@ function isApproxClosed(coords, tolerance = 0.0001) {
 }
 
 /**
+ * Calculate if a set of coordinates forms a closed shape (not just a line)
+ * Uses bounding box ratio and point distribution to determine
+ */
+function looksLikeClosed(coords) {
+    if (!coords || coords.length < 4) return false;
+
+    // Find bounding box
+    let minLon = Infinity, maxLon = -Infinity;
+    let minLat = Infinity, maxLat = -Infinity;
+
+    for (const [lon, lat] of coords) {
+        minLon = Math.min(minLon, lon);
+        maxLon = Math.max(maxLon, lon);
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+    }
+
+    const width = maxLon - minLon;
+    const height = maxLat - minLat;
+
+    // If bounding box is too narrow (aspect ratio > 10:1), likely a line
+    if (width === 0 || height === 0) return false;
+    const ratio = Math.max(width, height) / Math.min(width, height);
+    if (ratio > 15) return false;
+
+    // Check if first and last points are close enough to be auto-closed
+    const first = coords[0];
+    const last = coords[coords.length - 1];
+    const distance = Math.sqrt(
+        Math.pow(first[0] - last[0], 2) +
+        Math.pow(first[1] - last[1], 2)
+    );
+
+    // If distance between first and last is less than 5% of perimeter, consider it closeable
+    const avgDim = (width + height) / 2;
+    return distance < avgDim * 0.15;
+}
+
+/**
  * Close coordinates if they should form a ring
  */
 function closeCoords(coords) {
     if (!coords || coords.length < 3) return coords;
-    if (!isClosed(coords) && !isApproxClosed(coords)) {
+    if (!isClosed(coords)) {
         return [...coords, coords[0]];
     }
     return coords;
@@ -233,7 +275,7 @@ function classifyGeometry(feature) {
     const geom = feature.geometry;
     const colorName = props.colorName || 'Unknown';
 
-    // Check if type is inherently a line
+    // Check if type is inherently a line (routes, orbits, etc.)
     const isLineType = LINE_TYPES.includes(colorName);
 
     // Check for dash segments (MultiLineString with many short segments)
@@ -244,14 +286,18 @@ function classifyGeometry(feature) {
     // For LineString
     if (geom.type === 'LineString') {
         const coords = geom.coordinates;
-        const closed = isClosed(coords) || isApproxClosed(coords);
 
+        // Line types always stay as lines
         if (isLineType) {
             return { type: 'line', border: 'solid' };
         }
 
-        if (closed || coords.length > 15) {
-            // Likely a polygon (closed or has many points)
+        // Check if it's closed or looks like it should be closed
+        const closed = isClosed(coords) || isApproxClosed(coords);
+        const shouldClose = looksLikeClosed(coords);
+
+        if (closed || shouldClose || coords.length > 10) {
+            // Likely a polygon
             return { type: 'polygon', border: 'solid' };
         }
 
@@ -260,6 +306,7 @@ function classifyGeometry(feature) {
 
     // For MultiLineString
     if (geom.type === 'MultiLineString') {
+        // Line types always stay as lines
         if (isLineType) {
             return { type: 'line', border: 'solid' };
         }
@@ -267,21 +314,18 @@ function classifyGeometry(feature) {
         // Check if segments form closed areas
         let closedSegments = 0;
         for (const segment of geom.coordinates) {
-            if (isClosed(segment) || isApproxClosed(segment) || segment.length > 15) {
+            if (isClosed(segment) || isApproxClosed(segment) || looksLikeClosed(segment) || segment.length > 10) {
                 closedSegments++;
             }
         }
 
-        if (closedSegments > geom.coordinates.length / 2) {
-            return { type: 'polygon', border: 'solid' };
+        if (closedSegments > 0) {
+            // Check for dashed border types
+            const border = DASHED_BORDER_TYPES.includes(colorName) ? 'dashed' : 'solid';
+            return { type: 'polygon', border };
         }
 
-        // Check for dashed border types
-        if (DASHED_BORDER_TYPES.includes(colorName)) {
-            return { type: 'polygon', border: 'dashed' };
-        }
-
-        return { type: 'polygon', border: 'solid' };
+        return { type: 'line', border: 'solid' };
     }
 
     // Already a polygon type

@@ -1,15 +1,15 @@
 {
   "total": 3814,
   "polygons": {
-    "solid": 2953,
+    "solid": 2853,
     "dashed": 0
   },
   "lines": {
-    "solid": 768,
+    "solid": 868,
     "dashed": 0
   },
   "dashSegments": 34,
-  "closureFixed": 407,
+  "closureFixed": 404,
   "closedFeatures": [
     {
       "name": "R-2303A (SFC-150 Exc Cut)",
@@ -95,6 +95,12 @@
       "segmentsClosed": 4
     },
     {
+      "name": "HILL TOP MOA",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 8
+    },
+    {
       "name": "MOA SYRACUSE 3",
       "type": "MOA",
       "originalGeom": "LineString",
@@ -119,10 +125,28 @@
       "points": 27
     },
     {
+      "name": "MAC ATCAA",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 12
+    },
+    {
       "name": "R-4101",
       "type": "RESTRICTED",
       "originalGeom": "LineString",
       "points": 21
+    },
+    {
+      "name": "W-104B",
+      "type": "WARNING",
+      "originalGeom": "LineString",
+      "points": 15
+    },
+    {
+      "name": "W-104C",
+      "type": "WARNING",
+      "originalGeom": "LineString",
+      "points": 15
     },
     {
       "name": "W-105A",
@@ -147,6 +171,12 @@
       "type": "180",
       "originalGeom": "LineString",
       "points": 372
+    },
+    {
+      "name": "MOA DEMO",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 15
     },
     {
       "name": "MOA FARMVILLE",
@@ -190,10 +220,22 @@
       "segmentsClosed": 1
     },
     {
+      "name": "R4006",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 12
+    },
+    {
       "name": "R4009",
       "type": "RESTRICTED",
       "originalGeom": "LineString",
       "points": 72
+    },
+    {
+      "name": "R5001A/B",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 11
     },
     {
       "name": "R5301",
@@ -246,6 +288,24 @@
       "originalGeom": "MultiLineString",
       "segments": 5,
       "segmentsClosed": 1
+    },
+    {
+      "name": "R6601",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 11
+    },
+    {
+      "name": "R6602A/B/C",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 13
+    },
+    {
+      "name": "R6604A/B",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 13
     },
     {
       "name": "R6608A/B/C",
@@ -305,78 +365,6 @@
       "points": 25
     },
     {
-      "name": "AW-700 (12.5 NM)",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
-      "name": ";",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
-      "name": "AW-701 (10 NM)",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 64
-    },
-    {
-      "name": ";",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 64
-    },
-    {
-      "name": "AW-702 (12.5 NM)",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
-      "name": ";",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
-      "name": "AW-703 (15 NM)",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 96
-    },
-    {
-      "name": ";",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 96
-    },
-    {
-      "name": "AW-710 (12.5 NM)",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
-      "name": ";",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
-      "name": "AW-712 (12.5 NM)",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
-      "name": ";",
-      "type": "AW",
-      "originalGeom": "LineString",
-      "points": 80
-    },
-    {
       "name": "ANNE_LOW (SFC-070)",
       "type": "MOA",
       "originalGeom": "LineString",
@@ -390,11 +378,29 @@
       "segmentsClosed": 1
     },
     {
+      "name": "HOOD (2K-10K)",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 12
+    },
+    {
       "name": "JENA1 (SFC-5K)",
       "type": "MOA",
       "originalGeom": "MultiLineString",
       "segments": 5,
       "segmentsClosed": 3
+    },
+    {
+      "name": "SHEPPARD1 (8K-FL180)",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 15
+    },
+    {
+      "name": "SHEPPARD2 (8K-FL180)",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 9
     },
     {
       "name": "WASHITA (8K-FL180)",
@@ -456,6 +462,12 @@
       "type": "MOA",
       "originalGeom": "LineString",
       "points": 71
+    },
+    {
+      "name": "Feature_2878",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 8
     },
     {
       "name": "P31 > SOUTH MOA LABELS",
@@ -528,39 +540,11 @@
       "segmentsClosed": 1
     },
     {
-      "name": "PALATKA (2) 030-179",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 2
-    },
-    {
       "name": "TYNDALL 003-179",
       "type": "MOA",
       "originalGeom": "MultiLineString",
       "segments": 10,
       "segmentsClosed": 6
-    },
-    {
-      "name": "R-2918",
-      "type": "RESTRICTED",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 1
-    },
-    {
-      "name": ";R2915A",
-      "type": "RESTRICTED",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 2
-    },
-    {
-      "name": ";R2915B",
-      "type": "RESTRICTED",
-      "originalGeom": "MultiLineString",
-      "segments": 3,
-      "segmentsClosed": 1
     },
     {
       "name": "R-2932/2933",
@@ -586,13 +570,6 @@
       "name": ";",
       "type": "RESTRICTED",
       "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 1
-    },
-    {
-      "name": ";",
-      "type": "RESTRICTED",
-      "originalGeom": "MultiLineString",
       "segments": 3,
       "segmentsClosed": 1
     },
@@ -604,27 +581,6 @@
       "segmentsClosed": 2
     },
     {
-      "name": "R-3008A",
-      "type": "RESTRICTED",
-      "originalGeom": "MultiLineString",
-      "segments": 4,
-      "segmentsClosed": 1
-    },
-    {
-      "name": "R-3008C",
-      "type": "RESTRICTED",
-      "originalGeom": "MultiLineString",
-      "segments": 3,
-      "segmentsClosed": 1
-    },
-    {
-      "name": "R-3008D",
-      "type": "RESTRICTED",
-      "originalGeom": "MultiLineString",
-      "segments": 3,
-      "segmentsClosed": 1
-    },
-    {
       "name": "A-292 Pensacola",
       "type": "ALERT",
       "originalGeom": "MultiLineString",
@@ -632,11 +588,10 @@
       "segmentsClosed": 3
     },
     {
-      "name": "W-136F",
+      "name": "W-497B",
       "type": "WARNING",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 2
+      "originalGeom": "LineString",
+      "points": 12
     },
     {
       "name": "DISNEY TFR SFC-030",
@@ -646,45 +601,10 @@
       "segmentsClosed": 7
     },
     {
-      "name": ";EWTA 1 Label",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 1
-    },
-    {
-      "name": ";EWTA 2A Label",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 3,
-      "segmentsClosed": 2
-    },
-    {
       "name": ";EWTA 2B Label",
       "type": "MOA",
       "originalGeom": "MultiLineString",
       "segments": 3,
-      "segmentsClosed": 1
-    },
-    {
-      "name": ";EWTA 2C Label",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 2
-    },
-    {
-      "name": ";EWTA 3 Label",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 1
-    },
-    {
-      "name": ";EWTA 4 Label",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
       "segmentsClosed": 1
     },
     {
@@ -694,11 +614,22 @@
       "points": 17
     },
     {
-      "name": "LINDBERGH MOA",
+      "name": "ADA WEST MOA",
       "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 3,
-      "segmentsClosed": 1
+      "originalGeom": "LineString",
+      "points": 15
+    },
+    {
+      "name": "EUREKA LOW MOA",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 15
+    },
+    {
+      "name": "EUREKA HIGH MOA",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 15
     },
     {
       "name": "PRUITT A MOA ABV 1500 AGL",
@@ -720,13 +651,6 @@
       "points": 72
     },
     {
-      "name": "MOA US 02080",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 2
-    },
-    {
       "name": "TRUMAN C MOA ABV 1500 AGL",
       "type": "MOA",
       "originalGeom": "LineString",
@@ -743,6 +667,12 @@
       "type": "MOA",
       "originalGeom": "LineString",
       "points": 22
+    },
+    {
+      "name": "+BRISTOL MOA",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 12
     },
     {
       "name": "+DESERT MOA",
@@ -778,13 +708,6 @@
       "segmentsClosed": 1
     },
     {
-      "name": "+SELLS MOA",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 2
-    },
-    {
       "name": "+SHOSHONE MOA",
       "type": "MOA",
       "originalGeom": "MultiLineString",
@@ -792,18 +715,17 @@
       "segmentsClosed": 1
     },
     {
-      "name": "+SILVER MOA (N & S)",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 2,
-      "segmentsClosed": 2
-    },
-    {
       "name": "+SUNDANCE MOA",
       "type": "MOA",
       "originalGeom": "MultiLineString",
       "segments": 2,
       "segmentsClosed": 1
+    },
+    {
+      "name": "Sidewinder LL",
+      "type": "SS",
+      "originalGeom": "LineString",
+      "points": 13
     },
     {
       "name": ";30NM RING",
@@ -857,13 +779,6 @@
       "originalGeom": "MultiLineString",
       "segments": 2,
       "segmentsClosed": 1
-    },
-    {
-      "name": "Hog North/South High/Low",
-      "type": "MOA",
-      "originalGeom": "MultiLineString",
-      "segments": 3,
-      "segmentsClosed": 2
     },
     {
       "name": "R90 MOAS",
@@ -949,6 +864,12 @@
       "segmentsClosed": 23
     },
     {
+      "name": "{alert} A-680",
+      "type": "ALERT",
+      "originalGeom": "LineString",
+      "points": 13
+    },
+    {
       "name": "{atcaa} DOLPHIN",
       "type": "MOA",
       "originalGeom": "LineString",
@@ -961,10 +882,46 @@
       "points": 22
     },
     {
+      "name": "{moa} CHINOOK B",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 4
+    },
+    {
       "name": "{moa} DOLPHIN NORTH",
       "type": "MOA",
       "originalGeom": "LineString",
       "points": 16
+    },
+    {
+      "name": "{moa} DOLPHIN SOUTH",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 15
+    },
+    {
+      "name": "{moa} OLYMPIC A",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 14
+    },
+    {
+      "name": "{moa} OLYMPIC B",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 15
+    },
+    {
+      "name": "{moa} RAINIER 3",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 7
+    },
+    {
+      "name": "{moa} ROOSEVELT B",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 12
     },
     {
       "name": "{r} R-6714A",
@@ -973,16 +930,64 @@
       "points": 19
     },
     {
+      "name": "{r} R-6714C",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 6
+    },
+    {
       "name": "{r} R-6714E",
       "type": "RESTRICTED",
       "originalGeom": "LineString",
       "points": 35
     },
     {
+      "name": "{r} R-6714F",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 6
+    },
+    {
+      "name": "{r} R-6714H",
+      "type": "RESTRICTED",
+      "originalGeom": "LineString",
+      "points": 8
+    },
+    {
+      "name": "{warn} W-237A HIGH",
+      "type": "WARNING",
+      "originalGeom": "LineString",
+      "points": 13
+    },
+    {
+      "name": "{warn} W-237A LOW",
+      "type": "WARNING",
+      "originalGeom": "LineString",
+      "points": 13
+    },
+    {
+      "name": "{warn} W-237B HIGH",
+      "type": "WARNING",
+      "originalGeom": "LineString",
+      "points": 11
+    },
+    {
+      "name": "{warn} W-237B LOW",
+      "type": "WARNING",
+      "originalGeom": "LineString",
+      "points": 11
+    },
+    {
       "name": "{warn} W-93 NORTH",
       "type": "WARNING",
       "originalGeom": "LineString",
       "points": 17
+    },
+    {
+      "name": "{warn} W-93 SOUTH",
+      "type": "WARNING",
+      "originalGeom": "LineString",
+      "points": 15
     },
     {
       "name": "Olympic Coast NMS",
@@ -997,6 +1002,12 @@
       "points": 16
     },
     {
+      "name": "NLC237",
+      "type": "SUA",
+      "originalGeom": "LineString",
+      "points": 13
+    },
+    {
       "name": "NZY237",
       "type": "SUA",
       "originalGeom": "LineString",
@@ -1008,6 +1019,12 @@
       "originalGeom": "MultiLineString",
       "segments": 2,
       "segmentsClosed": 1
+    },
+    {
+      "name": "Muniz MOA 1",
+      "type": "MOA",
+      "originalGeom": "LineString",
+      "points": 13
     },
     {
       "name": "Feature_3782",
