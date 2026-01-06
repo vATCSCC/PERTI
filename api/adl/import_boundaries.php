@@ -151,8 +151,7 @@ function importBoundary($conn, $data) {
         
         $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
-            // Uncomment for debugging:
-            // echo "    Error: " . print_r(sqlsrv_errors(), true) . "\n";
+            echo "    Error ({$data['boundary_code']}): " . print_r(sqlsrv_errors(), true) . "\n";
             return false;
         }
         
@@ -161,10 +160,17 @@ function importBoundary($conn, $data) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
         
-        return $row && $row['boundary_id'] > 0;
+        // Debug first few
+        static $debugCount = 0;
+        if ($debugCount < 5) {
+            echo "    Debug ({$data['boundary_code']}): row = " . json_encode($row) . "\n";
+            $debugCount++;
+        }
+        
+        return $row && isset($row['boundary_id']) && $row['boundary_id'] > 0;
         
     } catch (Exception $e) {
-        // echo "    Error: " . $e->getMessage() . "\n";
+        echo "    Exception ({$data['boundary_code']}): " . $e->getMessage() . "\n";
         return false;
     }
 }
