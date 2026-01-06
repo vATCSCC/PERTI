@@ -2,7 +2,7 @@
 -- sp_Adl_RefreshFromVatsim_Normalized.sql
 -- Bulk upsert from VATSIM JSON into normalized ADL tables
 -- 
--- V5: Removed TRACON column references (not in all apts table versions)
+-- V6: Fixed weight_class to use single char (J/H/L/S) instead of full words
 --     Added ACD_Data and airlines table lookups
 --     Now populates: engine_count, cruise_tas_kts, wake_category (from ACD)
 --                    airline_name (from airlines table)
@@ -456,19 +456,21 @@ BEGIN
             END AS aircraft_icao,
             -- Full FAA equipment string (e.g., H/B738/L)
             p.aircraft_faa_raw AS aircraft_faa,
-            -- Weight class: prefer ACD_Data, fall back to derivation
-            COALESCE(
-                acd.FAA_Weight,
-                CASE 
-                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('A388', 'A380', 'B748', 'B744', 'AN25', 'A225') THEN 'Super'
-                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('B77W', 'B77L', 'B772', 'B773', 'A359', 'A35K', 'A346', 'A345', 'A343', 'A342', 'A333', 'A332', 'A339', 'B788', 'B789', 'B78X', 'B764', 'B763', 'B762', 'MD11', 'DC10', 'IL96', 'B752', 'B753', 'A310', 'A306') THEN 'Heavy'
-                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C1%' 
-                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C2%' 
-                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'PA%'
-                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'SR2%' THEN 'Small'
-                    ELSE 'Large'
-                END
-            ) AS weight_class,
+            -- Weight class: prefer ACD_Data (converted to single char), fall back to derivation
+            CASE 
+                WHEN acd.FAA_Weight = 'Super' THEN 'J'
+                WHEN acd.FAA_Weight = 'Heavy' THEN 'H'
+                WHEN acd.FAA_Weight = 'Large' THEN 'L'
+                WHEN acd.FAA_Weight = 'Small' THEN 'S'
+                WHEN acd.FAA_Weight = 'Small+' THEN 'S'
+                WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('A388', 'A380', 'B748', 'B744', 'AN25', 'A225') THEN 'J'
+                WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('B77W', 'B77L', 'B772', 'B773', 'A359', 'A35K', 'A346', 'A345', 'A343', 'A342', 'A333', 'A332', 'A339', 'B788', 'B789', 'B78X', 'B764', 'B763', 'B762', 'MD11', 'DC10', 'IL96', 'B752', 'B753', 'A310', 'A306') THEN 'H'
+                WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C1%' 
+                  OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C2%' 
+                  OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'PA%'
+                  OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'SR2%' THEN 'S'
+                ELSE 'L'
+            END AS weight_class,
             -- Engine type from ACD_Data
             CASE acd.Physical_Class_Engine
                 WHEN 'Jet' THEN 'J'
