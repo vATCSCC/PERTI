@@ -1613,11 +1613,29 @@
         
         switch (mode) {
             case 'status':
+                // Check TMI status flags first (highest priority)
                 if (flight.gs_affected || flight.ground_stop_affected) return '#dc3545';  // Red - Ground stopped
                 if (flight.gdp_affected || flight.edct_issued) return '#ffc107';  // Yellow - EDCT
-                if (flight.status === 'AIRBORNE' || flight.status === 'ACTIVE') return '#28a745';  // Green - Airborne
-                if (flight.status === 'DEPARTING' || flight.status === 'PROPOSED') return '#17a2b8';  // Cyan - Departing
-                if (flight.status === 'ARRIVED') return '#6c757d';  // Gray - Arrived
+
+                // Get flight status - supports both single-char codes (A/D/L) and full words
+                const flightStatus = (flight.flight_status || flight.status || '').toUpperCase();
+
+                // Airborne/Active - single char 'A' or full words
+                if (flightStatus === 'A' || flightStatus === 'AIRBORNE' || flightStatus === 'ACTIVE') {
+                    return '#28a745';  // Green - Airborne
+                }
+                // Departed - single char 'D' or full word
+                if (flightStatus === 'D' || flightStatus === 'DEPARTED' || flightStatus === 'DEPARTING' || flightStatus === 'TAXIED') {
+                    return '#17a2b8';  // Cyan - Departing/Taxied
+                }
+                // Landed/Arrived - single char 'L' or full words
+                if (flightStatus === 'L' || flightStatus === 'LANDED' || flightStatus === 'ARRIVED') {
+                    return '#6c757d';  // Gray - Arrived
+                }
+                // Proposed/Scheduled - no status yet
+                if (flightStatus === 'PROPOSED' || flightStatus === '' || !flightStatus) {
+                    return '#ffffff';  // White - Proposed/Unknown
+                }
                 return '#ffffff';
                 
             case 'altitude':
@@ -1708,10 +1726,10 @@
                 return AIRCRAFT_CONFIG_COLORS[cfg] || AIRCRAFT_CONFIG_COLORS['OTHER'];
                 
             case 'wake_category':
-                // Use weight class as wake category proxy
-                const wcWake = getWeightClass(flight);
-                return WEIGHT_CLASS_COLORS[wcWake] || WEIGHT_CLASS_COLORS[''];
-                
+                // FAA RECAT wake turbulence categories (A-F)
+                const recat = getRecatCategory(flight);
+                return RECAT_COLORS[recat] || RECAT_COLORS[''];
+
             case 'operator_group':
                 const opGroup = getOperatorGroup(flight.callsign);
                 return OPERATOR_GROUP_COLORS[opGroup] || OPERATOR_GROUP_COLORS['OTHER'];
@@ -2070,16 +2088,32 @@
     // Helper: Operator group detection
     function getOperatorGroup(callsign) {
         if (!callsign) return 'OTHER';
+        const cs = callsign.toUpperCase();
         const carrier = extractCarrier(callsign);
+
+        // Check carriers first (most common)
         if (MAJOR_CARRIERS.includes(carrier)) return 'MAJOR';
         if (REGIONAL_CARRIERS.includes(carrier)) return 'REGIONAL';
         if (FREIGHT_CARRIERS.includes(carrier)) return 'FREIGHT';
-        // Check military prefixes
+
+        // Military detection - multiple methods:
+        // 1. Check explicit military prefixes (startsWith for flexibility)
         for (const prefix of MILITARY_PREFIXES) {
-            if (callsign.toUpperCase().startsWith(prefix)) return 'MILITARY';
+            if (cs.startsWith(prefix)) return 'MILITARY';
         }
-        // GA typically has N-numbers or short callsigns
-        if (/^N[0-9]/.test(callsign.toUpperCase()) || callsign.length <= 5) return 'GA';
+        // 2. Military-style callsigns: word + numbers (e.g., REACH01, KING21, NAVY42)
+        if (/^[A-Z]{3,7}[0-9]{1,3}$/.test(cs) && !carrier) {
+            // Check if the word part matches any military prefix
+            const wordPart = cs.replace(/[0-9]+$/, '');
+            if (MILITARY_PREFIXES.includes(wordPart)) return 'MILITARY';
+        }
+        // 3. Check for common military tail number patterns
+        //    US military often uses 5-6 digit tail numbers without letters
+        if (/^[0-9]{5,6}$/.test(cs)) return 'MILITARY';
+
+        // GA detection: N-numbers (US civil), short callsigns, or tail number patterns
+        if (/^N[0-9]/.test(cs) || callsign.length <= 5) return 'GA';
+
         return 'OTHER';
     }
     
@@ -2929,7 +2963,77 @@
         'SMALL': '#17a2b8', 'S': '#17a2b8',  // Cyan for Small/Prop
         '': '#6c757d'
     };
-    
+
+    // FAA RECAT Wake Turbulence Categories (6-category system)
+    // Based on FAA Order 7110.659 and JO 7110.65BB
+    // Categories A-F based on wingspan and MTOW
+    const RECAT_COLORS = {
+        'A': '#9c27b0',  // Purple - Super (A380-800)
+        'B': '#dc3545',  // Red - Upper Heavy (747, 777, A340, A350, C-5, AN-124)
+        'C': '#f28e2b',  // Orange - Lower Heavy (767, 787, A300, A330, MD-11, DC-10)
+        'D': '#edc948',  // Yellow - Upper Large (757, MD-80/90, A320, 737, CRJ-900)
+        'E': '#28a745',  // Green - Lower Large (ERJ, CRJ, ATR, DHC-8, Beech 1900)
+        'F': '#17a2b8',  // Cyan - Small (Light aircraft < 15,500 lbs)
+        '': '#6c757d'    // Gray - Unknown
+    };
+
+    // FAA RECAT aircraft type to category mapping
+    // Based on FAA RECAT 1.5 Phase I/II/III implementation
+    const RECAT_PATTERNS = {
+        // Cat A: Super - A380 only (wingspan > 245ft, MTOW > 560,000 lbs)
+        'A': /^A38[0-9]/i,
+
+        // Cat B: Upper Heavy (wingspan 175-245ft, MTOW 300,000-560,000 lbs)
+        // 747 variants, 777 variants, A340, A350-1000, MD-11, DC-10-30/40, C-5, AN-124, AN-225
+        'B': /^B74[0-9]|^B77[0-9]|^B77[A-Z]|^A34[0-9]|^A35K|^MD11|^DC10|^C5|^C5M|^AN12|^A124|^AN225|^IL96|^A300B4|^KC10|^KC135|^E3|^E4|^E6|^VC25/i,
+
+        // Cat C: Lower Heavy (wingspan 125-175ft, MTOW 200,000-300,000 lbs)
+        // 787, 767, A350-900, A330, A300, L-1011, DC-8, IL-62, IL-86, TU-154M
+        'C': /^B78[0-9]|^B78X|^B76[0-9]|^A35[0-9]|^A33[0-9]|^A30[0-9]|^A310|^L101|^DC8|^IL62|^IL86|^TU15|^C17|^KC46|^P8/i,
+
+        // Cat D: Upper Large (wingspan 90-125ft, MTOW 41,000-200,000 lbs)
+        // 757, 737-700/800/900/MAX, A321, A320, A319, A318, MD-80/90, 717, C-130, P-3, Gulfstream
+        'D': /^B75[0-9]|^B73[789]|^B38M|^B39M|^B3XM|^A32[0-1]|^A31[89]|^MD[89][0-9]|^B712|^B717|^C130|^C160|^P3|^G[56][0-9]{2}|^GLF[456]|^F900|^FA[78]X|^CL60|^GL[57]T|^GLEX|^BCS[13]/i,
+
+        // Cat E: Lower Large (wingspan 65-90ft, MTOW 15,500-41,000 lbs)
+        // CRJ-200/700, ERJ-145/170/175, E-Jets, ATR 42/72, DHC-8, Saab 340/2000, Beech 1900
+        'E': /^CRJ[12789]|^ERJ|^E[0-9]{3}|^E1[0-9]{2}|^E75|^E90|^E95|^AT[47][0-9]|^ATR|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^BE20|^BE30|^BE35|^C208|^DHC[67]|^F[27]0|^F100|^BA46|^B146|^RJ[0-9]{2}/i,
+
+        // Cat F: Small (wingspan < 65ft, MTOW < 15,500 lbs)
+        // Light GA, Cessna singles/twins, Piper, Cirrus, Diamond, Beech Bonanza, etc.
+        'F': /^C1[0-9]{2}|^C2[0-9]{2}|^C3[0-9]{2}|^C4[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]|^BE3[56]|^A36|^G36|^TB[0-9]{2}|^TBM|^PC6|^ULAC/i
+    };
+
+    /**
+     * Get FAA RECAT wake turbulence category (A-F) from aircraft type
+     * Falls back to weight class if no pattern match
+     */
+    function getRecatCategory(flight) {
+        const acType = stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || '');
+        if (!acType) {
+            // Fallback to weight class mapping
+            const wc = getWeightClass(flight);
+            if (wc === 'SUPER') return 'A';
+            if (wc === 'HEAVY') return 'B';  // Conservative - assume upper heavy
+            if (wc === 'LARGE') return 'D';  // Most large are Cat D
+            if (wc === 'SMALL') return 'F';
+            return '';
+        }
+
+        // Check patterns in order (A is most restrictive)
+        for (const [cat, pattern] of Object.entries(RECAT_PATTERNS)) {
+            if (pattern.test(acType)) return cat;
+        }
+
+        // Fallback to weight class if no pattern match
+        const wc = getWeightClass(flight);
+        if (wc === 'SUPER') return 'A';
+        if (wc === 'HEAVY') return 'C';  // Default heavy to Cat C (lower heavy)
+        if (wc === 'LARGE') return 'D';
+        if (wc === 'SMALL') return 'F';
+        return 'D';  // Default to Cat D (most common)
+    }
+
     // Altitude block colors (gradient)
     const ALTITUDE_BLOCK_COLORS = {
         'GROUND': '#666666',     // Gray - Ground/Taxi
@@ -3109,7 +3213,69 @@
     const MAJOR_CARRIERS = ['AAL', 'UAL', 'DAL', 'SWA', 'JBU', 'ASA', 'HAL', 'NKS', 'FFT', 'AAY', 'VXP', 'SYX'];
     const REGIONAL_CARRIERS = ['SKW', 'RPA', 'ENY', 'PDT', 'PSA', 'ASQ', 'GJS', 'CPZ', 'EDV', 'QXE', 'ASH', 'OO', 'AIP', 'MES', 'JIA', 'SCX'];
     const FREIGHT_CARRIERS = ['FDX', 'UPS', 'ABX', 'GTI', 'ATN', 'CLX', 'PAC', 'KAL', 'MTN', 'SRR', 'WCW', 'CAO'];
-    const MILITARY_PREFIXES = ['AIO', 'RCH', 'RRR', 'CNV', 'PAT', 'NAVY', 'ARMY', 'USAF', 'USCG', 'EXEC'];
+    // Military callsign prefixes - comprehensive list
+    // US Military: Air Force, Army, Navy, Marines, Coast Guard, Air National Guard
+    // NATO and allied nations military aviation
+    const MILITARY_PREFIXES = [
+        // US Air Force
+        'RCH',    // Reach (AMC tanker/transport)
+        'REACH',  // Reach alternate
+        'AIO',    // Air Mobility Command
+        'KING',   // HC-130 rescue
+        'JOLLY',  // HH-60 rescue
+        'PEDRO',  // Pararescue
+        'SPAR',   // Special Operations
+        'EVAC',   // Aeromedical evacuation
+        'BREW',   // KC-135 callsign
+        'SHELL',  // Tanker
+        'DARK',   // Special ops
+        'HAWK',   // F-15/F-16
+        'VIPER',  // F-16
+        'EAGLE',  // F-15
+        'RAPTOR', // F-22
+        'BOLT',   // F-35
+        'SLAM',   // Strike aircraft
+        'BONE',   // B-1 Lancer
+        'DEATH',  // B-2 Spirit
+        'DOOM',   // B-52
+        'COBRA',  // Military
+        'TIGER',  // Military
+        'WOLF',   // Military
+        'REAPER', // MQ-9
+        'SHADOW', // RQ-7
+        'GLOBAL', // RQ-4 Global Hawk
+        // US Air Force standard prefixes
+        'USAF', 'AF', 'ANG',
+        // US Army
+        'ARMY', 'PAT',  // Patriot Express
+        // US Navy
+        'NAVY', 'CNV',  // Convair (Navy)
+        // US Marines
+        'MARINE', 'MAR',
+        // US Coast Guard
+        'USCG', 'CG', 'COAST',
+        // US Special Operations
+        'RRR',    // Rescue
+        'EXEC',   // Executive transport
+        'SAM',    // Special Air Mission (VIP)
+        'VENUS',  // VIP transport
+        // NATO common callsigns
+        'NATO',
+        // UK Royal Air Force
+        'RFR', 'ASCOT', 'TARTAN', 'TALLY',
+        // Canadian Forces
+        'CFC', 'CANFORCE', 'CANAF',
+        // German Luftwaffe
+        'GAF', 'GAM',
+        // French Air Force
+        'FAF', 'CTM', 'COTAM',
+        // Italian Air Force
+        'IAM',
+        // Australian Defence Force
+        'AUSSIE', 'RAAF',
+        // Other NATO/Allied
+        'NATO', 'ALLIED', 'SENTRY', 'AWACS'
+    ];
     
     const OPERATOR_GROUP_COLORS = {
         'MAJOR': '#4e79a7',      // Blue
@@ -3730,6 +3896,17 @@
                     { color: OPERATOR_GROUP_COLORS['OTHER'], label: 'Other' }
                 ];
                 break;
+            case 'wake_category':
+                // FAA RECAT categories (A-F)
+                items = [
+                    { color: RECAT_COLORS['A'], label: 'A (Super)' },
+                    { color: RECAT_COLORS['B'], label: 'B (Upper Heavy)' },
+                    { color: RECAT_COLORS['C'], label: 'C (Lower Heavy)' },
+                    { color: RECAT_COLORS['D'], label: 'D (Upper Large)' },
+                    { color: RECAT_COLORS['E'], label: 'E (Lower Large)' },
+                    { color: RECAT_COLORS['F'], label: 'F (Small)' }
+                ];
+                break;
             case 'altitude':
                 items = [
                     { color: ALTITUDE_BLOCK_COLORS['GROUND'], label: 'Ground' },
@@ -3928,11 +4105,14 @@
                 ];
                 break;
             case 'wake_category':
+                // FAA RECAT categories (A-F)
                 items = [
-                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: 'J (Super)' },
-                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: 'H (Heavy)' },
-                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: 'L (Large)' },
-                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'S (Small)' }
+                    { color: RECAT_COLORS['A'], label: 'A (Super)' },
+                    { color: RECAT_COLORS['B'], label: 'B (Upper Heavy)' },
+                    { color: RECAT_COLORS['C'], label: 'C (Lower Heavy)' },
+                    { color: RECAT_COLORS['D'], label: 'D (Upper Large)' },
+                    { color: RECAT_COLORS['E'], label: 'E (Lower Large)' },
+                    { color: RECAT_COLORS['F'], label: 'F (Small)' }
                 ];
                 break;
             case 'altitude':
