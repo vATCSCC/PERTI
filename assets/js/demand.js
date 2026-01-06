@@ -455,11 +455,8 @@ function renderChart(data) {
     const departures = data.data.departures || [];
     const direction = DEMAND_STATE.direction;
 
-    // Get all unique time bins
-    const timeBinsSet = new Set();
-    arrivals.forEach(d => timeBinsSet.add(d.time_bin));
-    departures.forEach(d => timeBinsSet.add(d.time_bin));
-    const timeBins = Array.from(timeBinsSet).sort();
+    // Generate complete time bins for the entire range (no gaps)
+    const timeBins = generateAllTimeBins();
 
     // Store for drill-down
     DEMAND_STATE.timeBins = timeBins;
@@ -467,13 +464,20 @@ function renderChart(data) {
     // Format time labels
     const labels = timeBins.map(formatTimeLabel);
 
+    // Create lookup maps for data by time bin (normalized to match generated bins)
+    const normalizeTimeBin = (bin) => {
+        const d = new Date(bin);
+        d.setUTCSeconds(0, 0);
+        return d.toISOString();
+    };
+
     // Build series based on direction
     const series = [];
 
     if (direction === 'arr' || direction === 'both') {
-        // Build arrival series by status
+        // Build arrival series by status (normalize time bins for lookup)
         const arrivalsByBin = {};
-        arrivals.forEach(d => { arrivalsByBin[d.time_bin] = d.breakdown; });
+        arrivals.forEach(d => { arrivalsByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
 
         series.push(
             buildStatusSeries('Active (Arr)', timeBins, arrivalsByBin, 'active', 'arrivals'),
@@ -484,9 +488,9 @@ function renderChart(data) {
     }
 
     if (direction === 'dep' || direction === 'both') {
-        // Build departure series by status
+        // Build departure series by status (normalize time bins for lookup)
         const departuresByBin = {};
-        departures.forEach(d => { departuresByBin[d.time_bin] = d.breakdown; });
+        departures.forEach(d => { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
 
         series.push(
             buildStatusSeries('Active (Dep)', timeBins, departuresByBin, 'active', 'departures'),
@@ -648,14 +652,18 @@ function renderOriginChart() {
         return;
     }
 
-    // Get time bins from arrivals data
-    const arrivals = data.data.arrivals || [];
-    const timeBinsSet = new Set();
-    arrivals.forEach(d => timeBinsSet.add(d.time_bin));
-    const timeBins = Array.from(timeBinsSet).sort();
+    // Generate complete time bins for the entire range (no gaps)
+    const timeBins = generateAllTimeBins();
 
     // Store for drill-down
     DEMAND_STATE.timeBins = timeBins;
+
+    // Normalize time bin helper for lookup
+    const normalizeTimeBin = (bin) => {
+        const d = new Date(bin);
+        d.setUTCSeconds(0, 0);
+        return d.toISOString();
+    };
 
     // Collect all unique ARTCCs
     const allARTCCs = new Set();
@@ -670,11 +678,11 @@ function renderOriginChart() {
     // Format time labels
     const labels = timeBins.map(formatTimeLabel);
 
-    // Build series for each ARTCC
+    // Build series for each ARTCC (use normalized lookup)
     const series = artccList.map(artcc => {
         const seriesData = timeBins.map(bin => {
-            const binData = originBreakdown[bin] || [];
-            const artccEntry = binData.find(item => item.artcc === artcc);
+            const binData = originBreakdown[normalizeTimeBin(bin)] || originBreakdown[bin] || [];
+            const artccEntry = Array.isArray(binData) ? binData.find(item => item.artcc === artcc) : null;
             return artccEntry ? artccEntry.count : 0;
         });
 
@@ -932,6 +940,44 @@ function formatTimeLabel(isoString) {
         return `${hours}Z`;
     }
     return `${hours}:${minutes.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Generate all time bins for the current time range and granularity
+ * This ensures the x-axis shows all time slots, not just those with data
+ */
+function generateAllTimeBins() {
+    const now = new Date();
+    const start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 60 * 60 * 1000);
+    const end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 60 * 60 * 1000);
+
+    // Round start down and end up to nearest interval
+    const intervalMinutes = DEMAND_STATE.granularity === '15min' ? 15 : 60;
+
+    // Round start down to nearest interval
+    const startMinutes = start.getUTCMinutes();
+    const roundedStartMinutes = Math.floor(startMinutes / intervalMinutes) * intervalMinutes;
+    start.setUTCMinutes(roundedStartMinutes, 0, 0);
+
+    // Round end up to nearest interval
+    const endMinutes = end.getUTCMinutes();
+    const roundedEndMinutes = Math.ceil(endMinutes / intervalMinutes) * intervalMinutes;
+    if (roundedEndMinutes >= 60) {
+        end.setUTCHours(end.getUTCHours() + 1);
+        end.setUTCMinutes(0, 0, 0);
+    } else {
+        end.setUTCMinutes(roundedEndMinutes, 0, 0);
+    }
+
+    const timeBins = [];
+    const current = new Date(start);
+
+    while (current <= end) {
+        timeBins.push(current.toISOString());
+        current.setUTCMinutes(current.getUTCMinutes() + intervalMinutes);
+    }
+
+    return timeBins;
 }
 
 /**
