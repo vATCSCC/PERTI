@@ -3843,11 +3843,12 @@
 
     /**
      * Toggle flight route display for a specific flight
-     * @param {Object} flight - Flight data with waypoints_json
+     * Fetches waypoints from ADL API if not available locally
+     * @param {Object} flight - Flight data
      * @param {string} color - Route color (optional, defaults based on color mode)
-     * @returns {boolean} true if route was added, false if removed
+     * @returns {Promise<boolean>} true if route was added, false if removed
      */
-    function toggleFlightRoute(flight, color = null) {
+    async function toggleFlightRoute(flight, color = null) {
         const flightKey = flight.flight_key || flight.callsign;
         if (!flightKey) return false;
 
@@ -3859,7 +3860,7 @@
             return false;
         }
 
-        // Try to get waypoints
+        // Try to get waypoints from flight object first
         let waypoints = null;
         if (flight.waypoints_json) {
             try {
@@ -3871,7 +3872,25 @@
             }
         }
 
-        // If no waypoints, create simple direct route from origin to destination
+        // If no local waypoints, fetch from API
+        if (!waypoints || !Array.isArray(waypoints) || waypoints.length < 2) {
+            console.log(`[NOD] Fetching waypoints from API for ${flightKey}...`);
+            try {
+                const lookupParam = flight.flight_key ? `key=${encodeURIComponent(flight.flight_key)}` : `cs=${encodeURIComponent(flight.callsign)}`;
+                const response = await fetch(`api/adl/waypoints.php?${lookupParam}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.waypoints && data.waypoints.length > 0) {
+                        waypoints = data.waypoints;
+                        console.log(`[NOD] Fetched ${waypoints.length} waypoints for ${flightKey}`);
+                    }
+                }
+            } catch (e) {
+                console.warn(`[NOD] Failed to fetch waypoints for ${flightKey}:`, e);
+            }
+        }
+
+        // If still no waypoints, create simple direct route from origin to destination
         if (!waypoints || !Array.isArray(waypoints) || waypoints.length < 2) {
             // Try to build a simple route from dept -> current position -> dest
             const coords = [];
@@ -3880,23 +3899,24 @@
             const deptIcao = flight.fp_dept_icao;
             if (deptIcao && window.NOD_AIRPORTS && window.NOD_AIRPORTS[deptIcao]) {
                 const apt = window.NOD_AIRPORTS[deptIcao];
-                coords.push({ name: deptIcao, lat: apt.lat, lon: apt.lon });
+                coords.push({ fix: deptIcao, lat: apt.lat, lon: apt.lon });
             }
 
             // Add current position
             if (flight.lat && flight.lon) {
-                coords.push({ name: 'AIRCRAFT', lat: parseFloat(flight.lat), lon: parseFloat(flight.lon) });
+                coords.push({ fix: 'AIRCRAFT', lat: parseFloat(flight.lat), lon: parseFloat(flight.lon) });
             }
 
             // Add destination airport if known
             const destIcao = flight.fp_dest_icao;
             if (destIcao && window.NOD_AIRPORTS && window.NOD_AIRPORTS[destIcao]) {
                 const apt = window.NOD_AIRPORTS[destIcao];
-                coords.push({ name: destIcao, lat: apt.lat, lon: apt.lon });
+                coords.push({ fix: destIcao, lat: apt.lat, lon: apt.lon });
             }
 
             if (coords.length >= 2) {
                 waypoints = coords;
+                console.log(`[NOD] Using simple route (${coords.length} points) for ${flightKey}`);
             } else {
                 console.warn(`[NOD] No route data available for ${flightKey}`);
                 return false;
@@ -4833,7 +4853,7 @@
     }
 
     // Event delegation for popup buttons (show route toggle)
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', async function(e) {
         if (e.target.classList.contains('show-route-btn')) {
             const flightKey = e.target.dataset.flightKey;
             if (flightKey && state.lastPopupFlight) {
@@ -4844,9 +4864,21 @@
                 ) || state.lastPopupFlight;
 
                 if (flight) {
-                    const wasDisplayed = toggleFlightRoute(flight);
+                    // Check if already displayed (will be removed)
+                    const wasAlreadyDisplayed = isFlightRouteDisplayed(flight);
+
+                    // Show loading state if we're adding a route
+                    if (!wasAlreadyDisplayed) {
+                        e.target.textContent = '⏳ Loading...';
+                        e.target.disabled = true;
+                    }
+
+                    // Toggle route (async - fetches waypoints from API)
+                    const isNowDisplayed = await toggleFlightRoute(flight);
+
                     // Update button text
-                    e.target.textContent = wasDisplayed ? '✓ Hide Route' : '➤ Show Route';
+                    e.target.disabled = false;
+                    e.target.textContent = isNowDisplayed ? '✓ Hide Route' : '➤ Show Route';
                 }
             }
         }
