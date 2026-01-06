@@ -320,14 +320,7 @@ include("load/connect.php");
                     <div class="form-group">
                         <label class="demand-label mb-1" for="demand_time_range">Time Range</label>
                         <select class="form-control form-control-sm" id="demand_time_range">
-                            <option value="1">+/- 1H</option>
-                            <option value="2">+/- 2H</option>
-                            <option value="3">+/- 3H</option>
-                            <option value="6" selected>+/- 6H</option>
-                            <option value="12">+/- 12H</option>
-                            <option value="24">+/- 24H</option>
-                            <option value="48">+/- 48H</option>
-                            <option value="96">+/- 96H</option>
+                            <!-- Populated by JavaScript -->
                         </select>
                     </div>
 
