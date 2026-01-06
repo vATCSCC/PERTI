@@ -1,0 +1,350 @@
+/**
+ * Weather Hazards Styles
+ * Styling for SIGMET/AIRMET display on TSD map
+ * 
+ * @version 1.0
+ * @date 2026-01-06
+ */
+
+/* =========================================================================
+   Popup Styles
+   ========================================================================= */
+
+.weather-hazard-popup {
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+    min-width: 250px;
+    max-width: 350px;
+}
+
+.weather-hazard-popup .hazard-header {
+    padding: 8px 10px;
+    margin: -10px -10px 10px -10px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 4px 4px 0 0;
+}
+
+.weather-hazard-popup .hazard-header.convective {
+    background: linear-gradient(135deg, #FF0000, #CC0000);
+    color: white;
+}
+
+.weather-hazard-popup .hazard-header.turb {
+    background: linear-gradient(135deg, #FFA500, #CC8400);
+    color: white;
+}
+
+.weather-hazard-popup .hazard-header.ice {
+    background: linear-gradient(135deg, #00BFFF, #0099CC);
+    color: white;
+}
+
+.weather-hazard-popup .hazard-header.ifr {
+    background: linear-gradient(135deg, #808080, #666666);
+    color: white;
+}
+
+.weather-hazard-popup .hazard-header.mtn {
+    background: linear-gradient(135deg, #8B4513, #704010);
+    color: white;
+}
+
+.weather-hazard-popup .hazard-header .severity {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+}
+
+.weather-hazard-popup .hazard-details {
+    padding: 0 0 8px 0;
+}
+
+.weather-hazard-popup .hazard-details div {
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.weather-hazard-popup .hazard-raw {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.weather-hazard-popup .hazard-raw pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    color: #333;
+}
+
+/* Dark theme support */
+.dark-theme .weather-hazard-popup .hazard-details div {
+    color: #ddd;
+}
+
+.dark-theme .weather-hazard-popup .hazard-raw {
+    background: #2a2a2a;
+    border-color: #444;
+}
+
+.dark-theme .weather-hazard-popup .hazard-raw pre {
+    color: #ddd;
+}
+
+/* =========================================================================
+   Weather Panel Styles
+   ========================================================================= */
+
+.weather-panel {
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    width: 320px;
+    background: rgba(30, 30, 30, 0.95);
+    border: 1px solid #444;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    color: #eee;
+    font-size: 12px;
+    max-height: calc(100vh - 120px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.weather-panel.collapsed {
+    width: auto;
+    height: auto;
+}
+
+.weather-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: #333;
+    border-bottom: 1px solid #444;
+    cursor: pointer;
+}
+
+.weather-panel-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.weather-panel-header .refresh-btn {
+    background: none;
+    border: 1px solid #666;
+    color: #aaa;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.weather-panel-header .refresh-btn:hover {
+    background: #444;
+    color: #fff;
+}
+
+.weather-panel-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px;
+    background: #2a2a2a;
+    border-bottom: 1px solid #444;
+}
+
+.weather-panel-toggles label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #333;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.weather-panel-toggles label:hover {
+    background: #3a3a3a;
+}
+
+.weather-panel-toggles label input {
+    margin: 0;
+}
+
+.weather-panel-toggles .hazard-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.weather-panel-toggles .hazard-indicator.convective { background: #FF0000; }
+.weather-panel-toggles .hazard-indicator.turb { background: #FFA500; }
+.weather-panel-toggles .hazard-indicator.ice { background: #00BFFF; }
+.weather-panel-toggles .hazard-indicator.ifr { background: #808080; }
+.weather-panel-toggles .hazard-indicator.mtn { background: #8B4513; }
+
+.weather-panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+}
+
+.weather-alert-item {
+    background: #333;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    padding: 10px;
+    border-left: 4px solid #666;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.weather-alert-item:hover {
+    background: #3a3a3a;
+}
+
+.weather-alert-item.convective { border-left-color: #FF0000; }
+.weather-alert-item.turb { border-left-color: #FFA500; }
+.weather-alert-item.ice { border-left-color: #00BFFF; }
+.weather-alert-item.ifr { border-left-color: #808080; }
+.weather-alert-item.mtn { border-left-color: #8B4513; }
+
+.weather-alert-item .alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.weather-alert-item .alert-type {
+    font-weight: 600;
+}
+
+.weather-alert-item .alert-expires {
+    font-size: 10px;
+    color: #999;
+}
+
+.weather-alert-item .alert-info {
+    font-size: 11px;
+    color: #aaa;
+}
+
+.weather-panel-footer {
+    padding: 8px 12px;
+    background: #2a2a2a;
+    border-top: 1px solid #444;
+    font-size: 10px;
+    color: #888;
+    text-align: center;
+}
+
+.weather-panel-empty {
+    text-align: center;
+    padding: 30px 20px;
+    color: #888;
+}
+
+.weather-panel-empty i {
+    font-size: 32px;
+    margin-bottom: 10px;
+    color: #666;
+}
+
+/* =========================================================================
+   Map Legend
+   ========================================================================= */
+
+.weather-legend {
+    position: absolute;
+    bottom: 30px;
+    left: 10px;
+    background: rgba(30, 30, 30, 0.9);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 8px 12px;
+    z-index: 900;
+    font-size: 11px;
+    color: #ddd;
+}
+
+.weather-legend-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #fff;
+}
+
+.weather-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.weather-legend-item:last-child {
+    margin-bottom: 0;
+}
+
+.weather-legend-color {
+    width: 16px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* =========================================================================
+   MapLibre Popup Override (Dark Theme)
+   ========================================================================= */
+
+.maplibregl-popup-content {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    padding: 10px;
+}
+
+.dark-theme .maplibregl-popup-content {
+    background: #2a2a2a;
+    color: #eee;
+}
+
+.dark-theme .maplibregl-popup-tip {
+    border-top-color: #2a2a2a;
+}
+
+.maplibregl-popup-close-button {
+    font-size: 18px;
+    padding: 4px 8px;
+    color: #666;
+}
+
+.maplibregl-popup-close-button:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.dark-theme .maplibregl-popup-close-button {
+    color: #aaa;
+}
+
+.dark-theme .maplibregl-popup-close-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
