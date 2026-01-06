@@ -364,19 +364,19 @@ include("load/connect.php");
                 </div>
                 <div class="card-body py-2">
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #FF0000;"></span>
+                        <span class="demand-legend-color" style="background-color: #CC0000;"></span>
                         Active (Airborne)
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #90EE90;"></span>
+                        <span class="demand-legend-color" style="background-color: #32CD32;"></span>
                         Scheduled
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #0066FF;"></span>
+                        <span class="demand-legend-color" style="background-color: #4169E1;"></span>
                         Proposed
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #000000;"></span>
+                        <span class="demand-legend-color" style="background-color: #333333;"></span>
                         Arrived/Departed
                     </div>
                 </div>
