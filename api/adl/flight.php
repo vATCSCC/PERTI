@@ -63,66 +63,11 @@ if ($conn_adl === false) {
 }
 
 // ---------------------------------------------------------------------------
-// Introspect columns
+// Use ADL Query Helper for normalized table support
 // ---------------------------------------------------------------------------
 
-$columnsLower = [];
-
-// Use the compatibility view which joins normalized tables
-// Falls back to adl_flights if view doesn't exist yet
-$colSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'vw_adl_flights'";
-$colStmt = sqlsrv_query($conn_adl, $colSql);
-if ($colStmt === false) {
-    http_response_code(500);
-    echo json_encode([
-        "error" => "Unable to read ADL schema (INFORMATION_SCHEMA query failed).",
-        "sql_error" => adl_sql_error_message(),
-        "sql" => $colSql
-    ]);
-    exit;
-}
-
-while ($col = sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
-    if (!isset($col['COLUMN_NAME'])) {
-        continue;
-    }
-    $field = $col['COLUMN_NAME'];
-    $columnsLower[strtolower($field)] = $field;
-}
-
-sqlsrv_free_stmt($colStmt);
-
-if (empty($columnsLower)) {
-    // View might not exist yet - try legacy table
-    $colSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adl_flights'";
-    $colStmt = sqlsrv_query($conn_adl, $colSql);
-    if ($colStmt !== false) {
-        while ($col = sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
-            if (isset($col['COLUMN_NAME'])) {
-                $columnsLower[strtolower($col['COLUMN_NAME'])] = $col['COLUMN_NAME'];
-            }
-        }
-        sqlsrv_free_stmt($colStmt);
-    }
-    
-    if (empty($columnsLower)) {
-        http_response_code(500);
-        echo json_encode([
-            "error" => "ADL table/view not found or has no columns."
-        ]);
-        exit;
-    }
-}
-
-function adl_lookup_column($columnsLower, $candidateNames) {
-    foreach ($candidateNames as $name) {
-        $key = strtolower($name);
-        if (isset($columnsLower[$key])) {
-            return $columnsLower[$key];
-        }
-    }
-    return null;
-}
+require_once(__DIR__ . '/AdlQueryHelper.php');
+$helper = new AdlQueryHelper();
 
 // ---------------------------------------------------------------------------
 // Determine lookup key
@@ -148,70 +93,15 @@ if ($id <= 0 && $callsign === '') {
     exit;
 }
 
-$idCol        = adl_lookup_column($columnsLower, ['id']);
-$callsignCol  = adl_lookup_column($columnsLower, ['callsign']);
-$isActiveCol  = adl_lookup_column($columnsLower, ['is_active']);
-$lastSeenCol  = adl_lookup_column($columnsLower, ['last_seen_utc']);
-$snapshotCol  = adl_lookup_column($columnsLower, ['snapshot_utc']);
-
-// Use view if available (normalized schema), otherwise legacy table
-$tableName = isset($columnsLower['flight_uid']) ? 'vw_adl_flights' : 'adl_flights';
-$sql = "SELECT TOP 1 * FROM {$tableName}";
-$where = [];
-$params = [];
-
-if ($id > 0) {
-    if ($idCol === null) {
-        http_response_code(500);
-        echo json_encode([
-            "error" => "ADL table does not have an 'id' column; cannot look up by id."
-        ]);
-        exit;
-    }
-    $where[] = $idCol . " = ?";
-    $params[] = $id;
-} else {
-    if ($callsignCol === null) {
-        http_response_code(500);
-        echo json_encode([
-            "error" => "ADL table does not have a 'callsign' column; cannot look up by callsign."
-        ]);
-        exit;
-    }
-    $where[] = $callsignCol . " = ?";
-    $params[] = $callsign;
-}
-
-// Optional active filter, if requested
-if ($isActiveCol !== null &&
-    ($activeParam === '1' || $activeParam === 'true' || $activeParam === 'yes')) {
-
-    $where[] = $isActiveCol . " = 1";
-}
-
-if (!empty($where)) {
-    $sql .= " WHERE " . implode(" AND ", $where);
-}
-
-// If multiple rows exist for a callsign, prefer active and most recent
-$orderParts = [];
-if ($isActiveCol !== null) {
-    $orderParts[] = $isActiveCol . " DESC";
-}
-if ($lastSeenCol !== null) {
-    $orderParts[] = $lastSeenCol . " DESC";
-}
-if ($snapshotCol !== null) {
-    $orderParts[] = $snapshotCol . " DESC";
-}
-if ($callsignCol !== null) {
-    $orderParts[] = $callsignCol . " ASC";
-}
-
-if (!empty($orderParts)) {
-    $orderParts = array_values(array_unique($orderParts));
-    $sql .= " ORDER BY " . implode(", ", $orderParts);
-}
+// Build query using helper (supports view or normalized tables)
+$activeOnly = ($activeParam === '1' || $activeParam === 'true' || $activeParam === 'yes');
+$query = $helper->buildFlightLookupQuery([
+    'id' => $id,
+    'callsign' => $callsign,
+    'activeOnly' => $activeOnly
+]);
+$sql = $query['sql'];
+$params = $query['params'];
 
 // ---------------------------------------------------------------------------
 // Execute

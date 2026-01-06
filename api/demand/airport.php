@@ -111,32 +111,9 @@ if ($end !== null) {
 $startSQL = $startDt->format('Y-m-d H:i:s');
 $endSQL = $endDt->format('Y-m-d H:i:s');
 
-// Determine time binning SQL based on granularity
-// For hourly: truncate to hour
-// For 15min: truncate to 15-minute boundary
-if ($granularity === '15min') {
-    // 15-minute bins: DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, time) / 15) * 15, 0)
-    $arrTimeBinSQL = "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', eta_runway_utc) / 15) * 15, '2000-01-01')";
-    $depTimeBinSQL = "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', etd_runway_utc) / 15) * 15, '2000-01-01')";
-} else {
-    // Hourly bins
-    $arrTimeBinSQL = "DATEADD(HOUR, DATEDIFF(HOUR, 0, eta_runway_utc), 0)";
-    $depTimeBinSQL = "DATEADD(HOUR, DATEDIFF(HOUR, 0, etd_runway_utc), 0)";
-}
-
-// FSM Status mapping based on flight_status and is_active
-// flight_status: NULL/empty = not departed, 'A' = active/airborne, 'D' = departed, 'L' = landed
-$statusCaseSQL = "
-    CASE
-        WHEN flight_status = 'L' THEN 'arrived'
-        WHEN flight_status = 'A' THEN 'active'
-        WHEN flight_status = 'D' THEN 'departed'
-        WHEN etd_runway_utc IS NOT NULL AND etd_runway_utc < GETUTCDATE()
-             AND (flight_status IS NULL OR flight_status = '') THEN 'dep_past_etd'
-        WHEN is_active = 1 AND (flight_status IS NULL OR flight_status = '') THEN 'scheduled'
-        ELSE 'proposed'
-    END
-";
+// Use ADL Query Helper for normalized table support
+require_once(__DIR__ . '/../adl/AdlQueryHelper.php');
+$helper = new AdlQueryHelper();
 
 $response = [
     "success" => true,
@@ -156,28 +133,15 @@ $response = [
 
 // Query arrivals
 if ($direction === 'arr' || $direction === 'both') {
-    $arrSQL = "
-        SELECT
-            {$arrTimeBinSQL} AS time_bin,
-            COUNT(*) AS total,
-            SUM(CASE WHEN flight_status = 'L' THEN 1 ELSE 0 END) AS arrived,
-            SUM(CASE WHEN flight_status = 'A' THEN 1 ELSE 0 END) AS active,
-            SUM(CASE WHEN flight_status = 'D' THEN 1 ELSE 0 END) AS departed,
-            SUM(CASE WHEN (flight_status IS NULL OR flight_status = '' OR flight_status NOT IN ('A','D','L'))
-                          AND is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
-            SUM(CASE WHEN (flight_status IS NULL OR flight_status = '' OR flight_status NOT IN ('A','D','L'))
-                          AND (is_active = 0 OR is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
-        FROM dbo.adl_flights
-        WHERE fp_dest_icao = ?
-          AND eta_runway_utc IS NOT NULL
-          AND eta_runway_utc >= ?
-          AND eta_runway_utc < ?
-        GROUP BY {$arrTimeBinSQL}
-        ORDER BY time_bin
-    ";
+    $arrQuery = $helper->buildDemandAggregationQuery([
+        'airport' => $airport,
+        'direction' => 'arr',
+        'granularity' => $granularity,
+        'startSQL' => $startSQL,
+        'endSQL' => $endSQL
+    ]);
 
-    $params = [$airport, $startSQL, $endSQL];
-    $arrStmt = sqlsrv_query($conn, $arrSQL, $params);
+    $arrStmt = sqlsrv_query($conn, $arrQuery['sql'], $arrQuery['params']);
 
     if ($arrStmt === false) {
         http_response_code(500);
@@ -213,28 +177,15 @@ if ($direction === 'arr' || $direction === 'both') {
 
 // Query departures
 if ($direction === 'dep' || $direction === 'both') {
-    $depSQL = "
-        SELECT
-            {$depTimeBinSQL} AS time_bin,
-            COUNT(*) AS total,
-            SUM(CASE WHEN flight_status = 'L' THEN 1 ELSE 0 END) AS arrived,
-            SUM(CASE WHEN flight_status = 'A' THEN 1 ELSE 0 END) AS active,
-            SUM(CASE WHEN flight_status = 'D' THEN 1 ELSE 0 END) AS departed,
-            SUM(CASE WHEN (flight_status IS NULL OR flight_status = '' OR flight_status NOT IN ('A','D','L'))
-                          AND is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
-            SUM(CASE WHEN (flight_status IS NULL OR flight_status = '' OR flight_status NOT IN ('A','D','L'))
-                          AND (is_active = 0 OR is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
-        FROM dbo.adl_flights
-        WHERE fp_dept_icao = ?
-          AND etd_runway_utc IS NOT NULL
-          AND etd_runway_utc >= ?
-          AND etd_runway_utc < ?
-        GROUP BY {$depTimeBinSQL}
-        ORDER BY time_bin
-    ";
+    $depQuery = $helper->buildDemandAggregationQuery([
+        'airport' => $airport,
+        'direction' => 'dep',
+        'granularity' => $granularity,
+        'startSQL' => $startSQL,
+        'endSQL' => $endSQL
+    ]);
 
-    $params = [$airport, $startSQL, $endSQL];
-    $depStmt = sqlsrv_query($conn, $depSQL, $params);
+    $depStmt = sqlsrv_query($conn, $depQuery['sql'], $depQuery['params']);
 
     if ($depStmt === false) {
         http_response_code(500);
@@ -269,8 +220,8 @@ if ($direction === 'dep' || $direction === 'both') {
 }
 
 // Get last ADL update time
-$lastUpdateSQL = "SELECT MAX(snapshot_utc) AS last_update FROM dbo.adl_flights";
-$lastUpdateStmt = sqlsrv_query($conn, $lastUpdateSQL);
+$lastUpdateQuery = $helper->buildLastUpdateQuery();
+$lastUpdateStmt = sqlsrv_query($conn, $lastUpdateQuery['sql']);
 if ($lastUpdateStmt !== false) {
     $row = sqlsrv_fetch_array($lastUpdateStmt, SQLSRV_FETCH_ASSOC);
     if ($row && $row['last_update']) {

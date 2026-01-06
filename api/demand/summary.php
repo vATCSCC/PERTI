@@ -100,6 +100,10 @@ if ($end !== null) {
 $startSQL = $startDt->format('Y-m-d H:i:s');
 $endSQL = $endDt->format('Y-m-d H:i:s');
 
+// Use ADL Query Helper for normalized table support
+require_once(__DIR__ . '/../adl/AdlQueryHelper.php');
+$helper = new AdlQueryHelper();
+
 $response = [
     "success" => true,
     "airport" => $airport,
@@ -112,12 +116,12 @@ $response = [
 
 // If time_bin is specified, return detailed flight list for that bin
 if ($timeBin !== null) {
-    $response['flights'] = getFlightsForTimeBin($conn, $airport, $timeBin, $direction);
+    $response['flights'] = getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction);
 } else {
     // Return summary data
-    $response['top_origins'] = getTopOrigins($conn, $airport, $startSQL, $endSQL);
-    $response['top_carriers'] = getTopCarriers($conn, $airport, $startSQL, $endSQL, $direction);
-    $response['origin_artcc_breakdown'] = getOriginARTCCBreakdown($conn, $airport, $startSQL, $endSQL);
+    $response['top_origins'] = getTopOrigins($conn, $helper, $airport, $startSQL, $endSQL);
+    $response['top_carriers'] = getTopCarriers($conn, $helper, $airport, $startSQL, $endSQL, $direction);
+    $response['origin_artcc_breakdown'] = getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL);
 }
 
 sqlsrv_close($conn);
@@ -126,23 +130,9 @@ echo json_encode($response);
 /**
  * Get top origin ARTCCs for arrivals
  */
-function getTopOrigins($conn, $airport, $startSQL, $endSQL) {
-    $sql = "
-        SELECT TOP 10
-            fp_dept_artcc AS artcc,
-            COUNT(*) AS count
-        FROM dbo.adl_flights
-        WHERE fp_dest_icao = ?
-          AND eta_runway_utc IS NOT NULL
-          AND eta_runway_utc >= ?
-          AND eta_runway_utc < ?
-          AND fp_dept_artcc IS NOT NULL
-          AND fp_dept_artcc != ''
-        GROUP BY fp_dept_artcc
-        ORDER BY count DESC
-    ";
-
-    $stmt = sqlsrv_query($conn, $sql, [$airport, $startSQL, $endSQL]);
+function getTopOrigins($conn, $helper, $airport, $startSQL, $endSQL) {
+    $query = $helper->buildTopOriginsQuery($airport, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
     if ($stmt !== false) {
@@ -161,39 +151,11 @@ function getTopOrigins($conn, $airport, $startSQL, $endSQL) {
 /**
  * Get top carriers
  */
-function getTopCarriers($conn, $airport, $startSQL, $endSQL, $direction) {
-    $whereClause = "";
-    if ($direction === 'arr') {
-        $whereClause = "fp_dest_icao = ? AND eta_runway_utc >= ? AND eta_runway_utc < ?";
-    } elseif ($direction === 'dep') {
-        $whereClause = "fp_dept_icao = ? AND etd_runway_utc >= ? AND etd_runway_utc < ?";
-    } else {
+function getTopCarriers($conn, $helper, $airport, $startSQL, $endSQL, $direction) {
+    if ($direction === 'both') {
         // Both - union arrivals and departures
-        $sql = "
-            SELECT TOP 10 carrier, SUM(cnt) AS count FROM (
-                SELECT LEFT(callsign, 3) AS carrier, COUNT(*) AS cnt
-                FROM dbo.adl_flights
-                WHERE fp_dest_icao = ?
-                  AND eta_runway_utc >= ?
-                  AND eta_runway_utc < ?
-                  AND callsign IS NOT NULL
-                  AND LEN(callsign) >= 3
-                GROUP BY LEFT(callsign, 3)
-                UNION ALL
-                SELECT LEFT(callsign, 3) AS carrier, COUNT(*) AS cnt
-                FROM dbo.adl_flights
-                WHERE fp_dept_icao = ?
-                  AND etd_runway_utc >= ?
-                  AND etd_runway_utc < ?
-                  AND callsign IS NOT NULL
-                  AND LEN(callsign) >= 3
-                GROUP BY LEFT(callsign, 3)
-            ) combined
-            GROUP BY carrier
-            ORDER BY count DESC
-        ";
-
-        $stmt = sqlsrv_query($conn, $sql, [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]);
+        $query = $helper->buildTopCarriersBothQuery($airport, $startSQL, $endSQL);
+        $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
         $results = [];
 
         if ($stmt !== false) {
@@ -210,19 +172,8 @@ function getTopCarriers($conn, $airport, $startSQL, $endSQL, $direction) {
     }
 
     // Single direction query
-    $sql = "
-        SELECT TOP 10
-            LEFT(callsign, 3) AS carrier,
-            COUNT(*) AS count
-        FROM dbo.adl_flights
-        WHERE {$whereClause}
-          AND callsign IS NOT NULL
-          AND LEN(callsign) >= 3
-        GROUP BY LEFT(callsign, 3)
-        ORDER BY count DESC
-    ";
-
-    $stmt = sqlsrv_query($conn, $sql, [$airport, $startSQL, $endSQL]);
+    $query = $helper->buildTopCarriersSingleQuery($airport, $startSQL, $endSQL, $direction);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
     if ($stmt !== false) {
@@ -241,24 +192,9 @@ function getTopCarriers($conn, $airport, $startSQL, $endSQL, $direction) {
 /**
  * Get origin ARTCC breakdown for arrivals (for chart visualization)
  */
-function getOriginARTCCBreakdown($conn, $airport, $startSQL, $endSQL) {
-    $sql = "
-        SELECT
-            DATEADD(HOUR, DATEDIFF(HOUR, 0, eta_runway_utc), 0) AS time_bin,
-            fp_dept_artcc AS artcc,
-            COUNT(*) AS count
-        FROM dbo.adl_flights
-        WHERE fp_dest_icao = ?
-          AND eta_runway_utc IS NOT NULL
-          AND eta_runway_utc >= ?
-          AND eta_runway_utc < ?
-          AND fp_dept_artcc IS NOT NULL
-          AND fp_dept_artcc != ''
-        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, eta_runway_utc), 0), fp_dept_artcc
-        ORDER BY time_bin, count DESC
-    ";
-
-    $stmt = sqlsrv_query($conn, $sql, [$airport, $startSQL, $endSQL]);
+function getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
+    $query = $helper->buildOriginARTCCBreakdownQuery($airport, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
     if ($stmt !== false) {
@@ -285,7 +221,7 @@ function getOriginARTCCBreakdown($conn, $airport, $startSQL, $endSQL) {
 /**
  * Get detailed flight list for a specific time bin (drill-down)
  */
-function getFlightsForTimeBin($conn, $airport, $timeBin, $direction) {
+function getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction) {
     // Parse the time bin to get start and end of the hour
     try {
         $binStart = new DateTime($timeBin, new DateTimeZone('UTC'));
@@ -301,24 +237,8 @@ function getFlightsForTimeBin($conn, $airport, $timeBin, $direction) {
 
     // Get arrivals
     if ($direction === 'arr' || $direction === 'both') {
-        $sql = "
-            SELECT
-                callsign,
-                fp_dept_icao AS origin,
-                fp_dest_icao AS destination,
-                fp_dept_artcc AS origin_artcc,
-                eta_runway_utc AS eta,
-                flight_status,
-                is_active,
-                aircraft_type
-            FROM dbo.adl_flights
-            WHERE fp_dest_icao = ?
-              AND eta_runway_utc >= ?
-              AND eta_runway_utc < ?
-            ORDER BY eta_runway_utc
-        ";
-
-        $stmt = sqlsrv_query($conn, $sql, [$airport, $binStartSQL, $binEndSQL]);
+        $query = $helper->buildFlightsForTimeBinQuery($airport, $binStartSQL, $binEndSQL, 'arr');
+        $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
 
         if ($stmt !== false) {
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -344,24 +264,8 @@ function getFlightsForTimeBin($conn, $airport, $timeBin, $direction) {
 
     // Get departures
     if ($direction === 'dep' || $direction === 'both') {
-        $sql = "
-            SELECT
-                callsign,
-                fp_dept_icao AS origin,
-                fp_dest_icao AS destination,
-                fp_dest_artcc AS dest_artcc,
-                etd_runway_utc AS etd,
-                flight_status,
-                is_active,
-                aircraft_type
-            FROM dbo.adl_flights
-            WHERE fp_dept_icao = ?
-              AND etd_runway_utc >= ?
-              AND etd_runway_utc < ?
-            ORDER BY etd_runway_utc
-        ";
-
-        $stmt = sqlsrv_query($conn, $sql, [$airport, $binStartSQL, $binEndSQL]);
+        $query = $helper->buildFlightsForTimeBinQuery($airport, $binStartSQL, $binEndSQL, 'dep');
+        $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
 
         if ($stmt !== false) {
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {

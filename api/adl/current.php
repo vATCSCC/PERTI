@@ -74,66 +74,11 @@ if ($conn_adl === false) {
 }
 
 // ---------------------------------------------------------------------------
-// 3) Introspect adl_flights columns
+// 3) Use ADL Query Helper for normalized table support
 // ---------------------------------------------------------------------------
 
-$columnsLower = [];
-
-// Use the compatibility view which joins normalized tables
-// Falls back to adl_flights if view doesn't exist yet
-$colSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'vw_adl_flights'";
-$colStmt = sqlsrv_query($conn_adl, $colSql);
-if ($colStmt === false) {
-    http_response_code(500);
-    echo json_encode([
-        "error" => "Unable to read ADL schema (INFORMATION_SCHEMA query failed).",
-        "sql_error" => adl_sql_error_message(),
-        "sql" => $colSql
-    ]);
-    exit;
-}
-
-while ($col = sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
-    if (!isset($col['COLUMN_NAME'])) {
-        continue;
-    }
-    $field = $col['COLUMN_NAME'];
-    $columnsLower[strtolower($field)] = $field;
-}
-
-sqlsrv_free_stmt($colStmt);
-
-if (empty($columnsLower)) {
-    // View might not exist yet - try legacy table
-    $colSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adl_flights'";
-    $colStmt = sqlsrv_query($conn_adl, $colSql);
-    if ($colStmt !== false) {
-        while ($col = sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
-            if (isset($col['COLUMN_NAME'])) {
-                $columnsLower[strtolower($col['COLUMN_NAME'])] = $col['COLUMN_NAME'];
-            }
-        }
-        sqlsrv_free_stmt($colStmt);
-    }
-    
-    if (empty($columnsLower)) {
-        http_response_code(500);
-        echo json_encode([
-            "error" => "ADL table/view not found or has no columns."
-        ]);
-        exit;
-    }
-}
-
-function adl_lookup_column($columnsLower, $candidateNames) {
-    foreach ($candidateNames as $name) {
-        $key = strtolower($name);
-        if (isset($columnsLower[$key])) {
-            return $columnsLower[$key];
-        }
-    }
-    return null;
-}
+require_once(__DIR__ . '/AdlQueryHelper.php');
+$helper = new AdlQueryHelper();
 
 // ---------------------------------------------------------------------------
 // 4) Input parameters
@@ -151,6 +96,7 @@ $arr = isset($_GET['arr']) ? strtoupper(trim($_GET['arr'])) : '';
 
 // active flag: default is only active flights
 $activeParam = isset($_GET['active']) ? strtolower(trim($_GET['active'])) : '1';
+$activeOnly = ($activeParam !== 'all' && $activeParam !== '0' && $activeParam !== 'false' && $activeParam !== 'no');
 
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10000;
 if ($limit <= 0) {
@@ -160,92 +106,18 @@ if ($limit <= 0) {
 }
 
 // ---------------------------------------------------------------------------
-// 5) Build WHERE clause & ORDER BY
+// 5) Build query using helper (supports view or normalized tables)
 // ---------------------------------------------------------------------------
 
-$where = [];
-$params = [];
-
-// is_active filter by default (if column exists)
-$isActiveCol = adl_lookup_column($columnsLower, ['is_active']);
-if ($isActiveCol !== null &&
-    $activeParam !== 'all' &&
-    $activeParam !== '0' &&
-    $activeParam !== 'false' &&
-    $activeParam !== 'no') {
-
-    $where[] = $isActiveCol . " = 1";
-}
-
-if ($callsign !== '') {
-    $callsignCol = adl_lookup_column($columnsLower, ['callsign']);
-    if ($callsignCol !== null) {
-        $where[] = $callsignCol . " = ?";
-        $params[] = $callsign;
-    }
-}
-
-// Determine which columns to use for dep/arr filters
-$depField = adl_lookup_column($columnsLower, ['fp_dept_icao', 'dep_icao', 'dep', 'departure', 'origin']);
-$arrField = adl_lookup_column($columnsLower, ['fp_dest_icao', 'arr_icao', 'arr', 'arrival', 'destination']);
-
-if ($dep !== '' && $depField !== null) {
-    $where[] = $depField . " = ?";
-    $params[] = $dep;
-}
-
-if ($arr !== '' && $arrField !== null) {
-    $where[] = $arrField . " = ?";
-    $params[] = $arr;
-}
-
-// ORDER BY: prefer ETA-like columns, then arrival buckets, then last_seen, then callsign
-$orderParts = [];
-
-$etaCol = adl_lookup_column($columnsLower, ['eta_epoch', 'eta_best_epoch', 'eta_best_utc', 'eta_utc']);
-if ($etaCol !== null) {
-    $orderParts[] = $etaCol . " ASC";
-}
-
-$arrBucketCol = adl_lookup_column($columnsLower, ['arrival_bucket_utc']);
-if ($arrBucketCol !== null) {
-    $orderParts[] = $arrBucketCol . " ASC";
-}
-
-$estArrCol = adl_lookup_column($columnsLower, ['estimated_arr_utc']);
-if ($estArrCol !== null) {
-    $orderParts[] = $estArrCol . " ASC";
-}
-
-$lastSeenCol = adl_lookup_column($columnsLower, ['last_seen_utc']);
-if ($lastSeenCol !== null) {
-    $orderParts[] = $lastSeenCol . " ASC";
-}
-
-$callsignCol = adl_lookup_column($columnsLower, ['callsign']);
-if ($callsignCol !== null) {
-    $orderParts[] = $callsignCol . " ASC";
-}
-
-if (!empty($orderParts)) {
-    $orderParts = array_values(array_unique($orderParts));
-}
-
-// ---------------------------------------------------------------------------
-// 6) Build SQL
-// ---------------------------------------------------------------------------
-
-// Use view if available (normalized schema), otherwise legacy table
-$tableName = isset($columnsLower['flight_uid']) ? 'vw_adl_flights' : 'adl_flights';
-$sql = "SELECT TOP {$limit} * FROM {$tableName}";
-
-if (!empty($where)) {
-    $sql .= " WHERE " . implode(" AND ", $where);
-}
-
-if (!empty($orderParts)) {
-    $sql .= " ORDER BY " . implode(", ", $orderParts);
-}
+$query = $helper->buildCurrentFlightsQuery([
+    'activeOnly' => $activeOnly,
+    'callsign' => $callsign,
+    'dep' => $dep,
+    'arr' => $arr,
+    'limit' => $limit
+]);
+$sql = $query['sql'];
+$params = $query['params'];
 
 // ---------------------------------------------------------------------------
 // 7) Execute query
@@ -282,9 +154,8 @@ sqlsrv_close($conn_adl);
 
 // Derive a snapshot_utc value if possible
 $snapshotUtc = gmdate("Y-m-d\\TH:i:s\\Z");
-$snapshotColName = adl_lookup_column($columnsLower, ['snapshot_utc']);
-if ($snapshotColName !== null && !empty($rows) && isset($rows[0][$snapshotColName])) {
-    $val = $rows[0][$snapshotColName];
+if (!empty($rows) && isset($rows[0]['snapshot_utc'])) {
+    $val = $rows[0]['snapshot_utc'];
     if ($val instanceof DateTimeInterface) {
         $snapshotUtc = $val->format("Y-m-d\\TH:i:s\\Z");
     } elseif (is_string($val) && trim($val) !== "") {
