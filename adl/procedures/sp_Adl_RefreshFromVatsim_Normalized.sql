@@ -358,9 +358,10 @@ BEGIN
                 THEN TRY_CAST(LEFT(p.fuel_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.fuel_time_raw, 2) AS INT)
                 ELSE TRY_CAST(p.fuel_time_raw AS INT)
             END AS fuel_minutes,
-            CASE 
+            -- Extract aircraft type: H/A359/L -> A359, A359/L -> A359, B738 -> B738
+            CASE
                 WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
-                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
+                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
                 ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
             END AS aircraft_type
         FROM #pilots p
@@ -449,11 +450,12 @@ BEGIN
     
     MERGE dbo.adl_flight_aircraft AS target
     USING (
-        SELECT 
+        SELECT
             p.flight_uid,
-            CASE 
+            -- Extract aircraft ICAO: H/A359/L -> A359, A359/L -> A359, B738 -> B738
+            CASE
                 WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
-                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
+                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
                 ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
             END AS aircraft_icao,
             p.aircraft_faa_raw AS aircraft_faa,
@@ -502,10 +504,11 @@ BEGIN
             p.airline_icao,
             al.name AS airline_name
         FROM #pilots p
-        LEFT JOIN dbo.ACD_Data acd ON acd.ICAO_Code = 
-            CASE 
+        LEFT JOIN dbo.ACD_Data acd ON acd.ICAO_Code =
+            -- Extract aircraft ICAO for ACD lookup: H/A359/L -> A359, A359/L -> A359
+            CASE
                 WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
-                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
+                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
                 ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
             END
         LEFT JOIN dbo.airlines al ON al.icao = p.airline_icao
