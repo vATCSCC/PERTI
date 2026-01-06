@@ -610,6 +610,8 @@ BEGIN
         fix_type NVARCHAR(20),
         source NVARCHAR(20),  -- ROUTE, SID, STAR, AIRWAY, COORD, RADIAL_DME
         on_airway NVARCHAR(10),
+        on_dp NVARCHAR(20),      -- DP/SID procedure name (e.g., SKORR5)
+        on_star NVARCHAR(20),    -- STAR procedure name (e.g., ANJLL4)
         original_token NVARCHAR(100)
     );
     
@@ -829,11 +831,11 @@ BEGIN
                 
                 DECLARE @sid_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
                 INSERT INTO @sid_fixes (fix)
-                SELECT value FROM STRING_SPLIT(@sid_route, ' ') 
+                SELECT value FROM STRING_SPLIT(@sid_route, ' ')
                 WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';  -- Skip runway specs
-                
-                INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, original_token)
-                SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token
+
+                INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
+                SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
                 FROM @sid_fixes sf
                 LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = sf.fix
                 WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'  -- Skip airport/runway
@@ -881,11 +883,11 @@ BEGIN
                 
                 DECLARE @star_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
                 INSERT INTO @star_fixes (fix)
-                SELECT value FROM STRING_SPLIT(@star_route, ' ') 
+                SELECT value FROM STRING_SPLIT(@star_route, ' ')
                 WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
-                
-                INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, original_token)
-                SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token
+
+                INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
+                SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
                 FROM @star_fixes sf
                 LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = sf.fix
                 WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
@@ -965,11 +967,11 @@ BEGIN
                     
                     DECLARE @dp_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
                     INSERT INTO @dp_fixes (fix)
-                    SELECT value FROM STRING_SPLIT(@proc_route, ' ') 
+                    SELECT value FROM STRING_SPLIT(@proc_route, ' ')
                     WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
-                    
-                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, original_token)
-                    SELECT df.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token
+
+                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
+                    SELECT df.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
                     FROM @dp_fixes df
                     LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = df.fix
                     WHERE df.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
@@ -990,11 +992,11 @@ BEGIN
                     
                     DECLARE @star_fixes2 TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
                     INSERT INTO @star_fixes2 (fix)
-                    SELECT value FROM STRING_SPLIT(@proc_route, ' ') 
+                    SELECT value FROM STRING_SPLIT(@proc_route, ' ')
                     WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
-                    
-                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, original_token)
-                    SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token
+
+                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
+                    SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
                     FROM @star_fixes2 sf
                     LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = sf.fix
                     WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
@@ -1048,7 +1050,7 @@ BEGIN
     BEGIN
         PRINT '';
         PRINT 'Waypoints before dedup:';
-        SELECT seq, fix_name, lat, lon, fix_type, source, on_airway FROM @waypoints ORDER BY seq;
+        SELECT seq, fix_name, lat, lon, fix_type, source, on_airway, on_dp, on_star FROM @waypoints ORDER BY seq;
     END
     
     -- ========================================================================
@@ -1154,23 +1156,25 @@ BEGIN
     -- Step 7: Populate adl_flight_waypoints
     -- ========================================================================
     DELETE FROM dbo.adl_flight_waypoints WHERE flight_uid = @flight_uid;
-    
+
     INSERT INTO dbo.adl_flight_waypoints (
         flight_uid, sequence_num, fix_name, lat, lon, position_geo,
-        fix_type, source, on_airway
+        fix_type, source, on_airway, on_dp, on_star
     )
-    SELECT 
+    SELECT
         @flight_uid,
         ROW_NUMBER() OVER (ORDER BY seq),
         fix_name,
         lat,
         lon,
-        CASE WHEN lat IS NOT NULL AND lon IS NOT NULL 
-             THEN geography::Point(lat, lon, 4326) 
+        CASE WHEN lat IS NOT NULL AND lon IS NOT NULL
+             THEN geography::Point(lat, lon, 4326)
              ELSE NULL END,
         fix_type,
         source,
-        on_airway
+        on_airway,
+        on_dp,
+        on_star
     FROM @waypoints
     ORDER BY seq;
     
@@ -1197,9 +1201,9 @@ BEGIN
         PRINT '  STAR Trans: ' + ISNULL(@strsn, '(none)');
         PRINT '================================================';
         
-        SELECT sequence_num, fix_name, ROUND(lat, 4) as lat, ROUND(lon, 4) as lon, fix_type, source, on_airway
-        FROM dbo.adl_flight_waypoints 
-        WHERE flight_uid = @flight_uid 
+        SELECT sequence_num, fix_name, ROUND(lat, 4) as lat, ROUND(lon, 4) as lon, fix_type, source, on_airway, on_dp, on_star
+        FROM dbo.adl_flight_waypoints
+        WHERE flight_uid = @flight_uid
         ORDER BY sequence_num;
     END
 END;

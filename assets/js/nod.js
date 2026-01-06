@@ -842,13 +842,14 @@
         }, 'traffic-circles-fallback');
 
         // Waypoint labels - only show at higher zoom
+        // Shows fix name with airway/DP/STAR info (e.g., "FIXNAME (J60)")
         state.map.addLayer({
             id: 'flight-waypoints-labels',
             type: 'symbol',
             source: 'flight-waypoints-source',
             minzoom: 7,
             layout: {
-                'text-field': ['get', 'name'],
+                'text-field': ['get', 'label'],
                 'text-size': 9,
                 'text-offset': [0, 1],
                 'text-anchor': 'top',
@@ -4032,9 +4033,33 @@
                     const name = wp.name || wp.ident || wp.fix || `WP${idx}`;
                     if (isNaN(lat) || isNaN(lon)) return;
 
+                    // Build label with airway/DP/STAR info
+                    const airway = wp.airway || null;
+                    const dp = wp.dp || null;
+                    const star = wp.star || null;
+
+                    // Format: "FIXNAME (J60)" or "FIXNAME (SKORR5)" or "FIXNAME (ANJLL4)"
+                    let label = name;
+                    if (airway) {
+                        label = `${name} (${airway})`;
+                    } else if (dp) {
+                        label = `${name} (${dp})`;
+                    } else if (star) {
+                        label = `${name} (${star})`;
+                    }
+
                     waypointFeatures.push({
                         type: 'Feature',
-                        properties: { flightKey, name, color },
+                        properties: {
+                            flightKey,
+                            name,
+                            label,
+                            color,
+                            airway,
+                            dp,
+                            star,
+                            source: wp.source || null
+                        },
                         geometry: { type: 'Point', coordinates: [lon, lat] }
                     });
                 });
@@ -4060,6 +4085,59 @@
         state.drawnFlightRoutes.clear();
         updateFlightRoutesDisplay();
         console.log('[NOD] All flight routes cleared');
+    }
+
+    /**
+     * Draw routes for all currently filtered flights
+     * Fetches waypoint data from API for each flight that doesn't already have a route displayed
+     */
+    async function drawAllFilteredRoutes() {
+        const flights = state.traffic.filteredData || state.traffic.data || [];
+
+        if (flights.length === 0) {
+            console.log('[NOD] No flights to draw routes for');
+            return;
+        }
+
+        // Limit to avoid overwhelming the API/map
+        const MAX_ROUTES = 50;
+        const flightsToProcess = flights.filter(f => !isFlightRouteDisplayed(f)).slice(0, MAX_ROUTES);
+
+        if (flightsToProcess.length === 0) {
+            console.log('[NOD] All filtered flights already have routes displayed');
+            return;
+        }
+
+        console.log(`[NOD] Drawing routes for ${flightsToProcess.length} flights...`);
+
+        // Process in batches to avoid overwhelming the browser/API
+        const BATCH_SIZE = 10;
+        let processed = 0;
+
+        for (let i = 0; i < flightsToProcess.length; i += BATCH_SIZE) {
+            const batch = flightsToProcess.slice(i, i + BATCH_SIZE);
+
+            // Process batch in parallel
+            await Promise.all(batch.map(async (flight) => {
+                try {
+                    await toggleFlightRoute(flight);
+                    processed++;
+                } catch (err) {
+                    console.warn('[NOD] Failed to draw route for', flight.callsign, err);
+                }
+            }));
+
+            // Small delay between batches to be nice to the API
+            if (i + BATCH_SIZE < flightsToProcess.length) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        console.log(`[NOD] Drew routes for ${processed} flights`);
+
+        if (flights.length > MAX_ROUTES) {
+            console.log(`[NOD] Note: Limited to ${MAX_ROUTES} routes. ${flights.length - MAX_ROUTES} flights not drawn.`);
+        }
     }
 
     /**
@@ -4839,6 +4917,11 @@
                         <td style="text-align:right;">${props.current_artcc}</td>
                     </tr>` : ''}
                 </table>
+                ${props.route ? `
+                <div style="margin-top:6px; padding-top:6px; border-top:1px solid #444;">
+                    <div style="font-size:9px; color:#888; margin-bottom:2px;">FLIGHT PLAN:</div>
+                    <div style="font-size:9px; color:#ccc; word-break:break-all; max-height:60px; overflow-y:auto;">${escapeHtml(props.route)}</div>
+                </div>` : ''}
                 ${statusIcon ? `<div style="margin-top:6px; text-align:center;">${statusIcon}</div>` : ''}
                 ${routeMatchHtml}
                 <div style="margin-top:8px; padding-top:6px; border-top:1px solid #444; text-align:center;">
@@ -5568,6 +5651,7 @@
         // Flight route functions
         toggleFlightRoute,
         clearFlightRoutes,
+        drawAllFilteredRoutes,
         isFlightRouteDisplayed
     };
     
