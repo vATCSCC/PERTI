@@ -12,7 +12,7 @@
 .PARAMETER Type
     Filter by alert type: sigmet, airmet, or all (default)
 
-.PARAMETER Verbose
+.PARAMETER ShowVerbose
     Show detailed output
 
 .EXAMPLE
@@ -23,26 +23,32 @@
     .\Import-WeatherAlerts.ps1 -DryRun
     # Test without importing
 
-.EXAMPLE
-    .\Import-WeatherAlerts.ps1 -Type sigmet -Verbose
-    # Import only SIGMETs with detailed output
-
 .NOTES
-    Version: 1.0
+    Version: 1.1
     Date: 2026-01-06
+    Compatible with PowerShell 5.1+
 #>
 
 param(
     [switch]$DryRun,
     [ValidateSet('sigmet', 'airmet', 'all')]
     [string]$Type = 'all',
-    [switch]$Verbose
+    [switch]$ShowVerbose
 )
 
 # Configuration
 $AWC_URL = "https://aviationweather.gov/api/data/airsigmet"
 $DB_SERVER = "vatsim.database.windows.net"
 $DB_NAME = "VATSIM_ADL"
+
+# Helper function for null coalescing (PS 5.1 compatible)
+function Coalesce {
+    param([array]$values)
+    foreach ($v in $values) {
+        if ($null -ne $v -and $v -ne '') { return $v }
+    }
+    return $null
+}
 
 # ============================================================================
 # Main
@@ -68,7 +74,7 @@ try {
     $queryString = ($params.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join '&'
     $url = "$AWC_URL`?$queryString"
     
-    if ($Verbose) {
+    if ($ShowVerbose) {
         Write-Host "Fetching: $url" -ForegroundColor Gray
         Write-Host ""
     }
@@ -94,7 +100,7 @@ try {
     # Process alerts
     $alerts = @()
     foreach ($item in $items) {
-        $alert = Convert-Alert $item
+        $alert = Convert-AlertItem $item
         if ($alert) {
             $alerts += $alert
         }
@@ -122,7 +128,7 @@ try {
     }
     else {
         # Import to database
-        $result = Import-AlertsToDatabase $alerts
+        $result = Import-AlertsToDatabase $alerts $ShowVerbose
         
         Write-Host "Import Results:" -ForegroundColor Green
         Write-Host "  Inserted: $($result.inserted)"
@@ -145,7 +151,7 @@ Write-Host "Completed in $([math]::Round($elapsed, 2)) seconds" -ForegroundColor
 # Functions
 # ============================================================================
 
-function Convert-Alert {
+function Convert-AlertItem {
     param($item)
     
     # Handle GeoJSON format
@@ -153,8 +159,8 @@ function Convert-Alert {
     $geom = $item.geometry
     
     # Determine type and hazard
-    $rawType = ($props.airSigmetType ?? $props.type ?? '').ToUpper()
-    $hazard = ($props.hazard ?? $props.wxType ?? 'UNKNOWN').ToUpper()
+    $rawType = (Coalesce @($props.airSigmetType, $props.type, '')).ToString().ToUpper()
+    $hazard = (Coalesce @($props.hazard, $props.wxType, 'UNKNOWN')).ToString().ToUpper()
     
     $alertType = 'SIGMET'
     if ($rawType -match 'AIRMET') { $alertType = 'AIRMET' }
@@ -184,35 +190,48 @@ function Convert-Alert {
     }
     
     # Parse times
-    $validFrom = Convert-Time ($props.validTimeFrom ?? $props.validFrom ?? $props.issueTime)
-    $validTo = Convert-Time ($props.validTimeTo ?? $props.validTo ?? $props.expireTime)
+    $validFrom = Convert-TimeString (Coalesce @($props.validTimeFrom, $props.validFrom, $props.issueTime))
+    $validTo = Convert-TimeString (Coalesce @($props.validTimeTo, $props.validTo, $props.expireTime))
     
     if (-not $validFrom -or -not $validTo) {
         return $null
     }
     
     # Parse altitudes
-    $floorFl = Convert-Altitude ($props.altitudeLow1 ?? $props.base ?? $props.loAlt)
-    $ceilingFl = Convert-Altitude ($props.altitudeHi1 ?? $props.top ?? $props.hiAlt)
+    $floorFl = Convert-AltitudeToFL (Coalesce @($props.altitudeLow1, $props.base, $props.loAlt))
+    $ceilingFl = Convert-AltitudeToFL (Coalesce @($props.altitudeHi1, $props.top, $props.hiAlt))
+    
+    # Movement
+    $direction = [int](Coalesce @($props.dir, $props.movementDir, 0))
+    if ($direction -eq 0) { $direction = $null }
+    
+    $speed = [int](Coalesce @($props.spd, $props.movementSpd, 0))
+    if ($speed -eq 0) { $speed = $null }
     
     # Source ID
-    $sourceId = $props.airSigmetId ?? $props.id ?? $props.seriesId ?? "$($alertType)_$($hazard)_$(Get-Date -Format 'yyyyMMddHHmm')"
+    $sourceId = Coalesce @($props.airSigmetId, $props.id, $props.seriesId)
+    if (-not $sourceId) {
+        $sourceId = "$($alertType)_$($hazard)_$(Get-Date -Format 'yyyyMMddHHmm')"
+    }
+    
+    # Severity
+    $severity = if ($props.severity) { $props.severity.ToString().ToUpper() } else { $null }
     
     return @{
         alert_type = $alertType
         hazard = $hazard
-        severity = ($props.severity ?? '').ToUpper()
+        severity = $severity
         source_id = $sourceId
         valid_from = $validFrom
         valid_to = $validTo
         floor_fl = $floorFl
         ceiling_fl = $ceilingFl
-        direction = [int]($props.dir ?? $props.movementDir ?? 0) | Where-Object { $_ -gt 0 }
-        speed = [int]($props.spd ?? $props.movementSpd ?? 0) | Where-Object { $_ -gt 0 }
+        direction = $direction
+        speed = $speed
         wkt = $wkt
         center_lat = $centerLat
         center_lon = $centerLon
-        raw_text = $props.rawAirSigmet ?? $props.rawText
+        raw_text = Coalesce @($props.rawAirSigmet, $props.rawText)
     }
 }
 
@@ -289,8 +308,8 @@ function Convert-CoordsToWkt {
     $lonSum = 0
     
     foreach ($coord in $coords) {
-        $lat = $coord.lat ?? $coord.latitude ?? $coord[1]
-        $lon = $coord.lon ?? $coord.longitude ?? $coord[0]
+        $lat = Coalesce @($coord.lat, $coord.latitude, $coord[1])
+        $lon = Coalesce @($coord.lon, $coord.longitude, $coord[0])
         
         # AWC sometimes uses positive west longitude
         if ($lon -gt 0 -and $lon -gt 30) {
@@ -320,13 +339,13 @@ function Convert-CoordsToWkt {
     }
 }
 
-function Convert-Time {
+function Convert-TimeString {
     param($timeStr)
     
     if (-not $timeStr) { return $null }
     
     try {
-        $dt = [DateTime]::Parse($timeStr)
+        $dt = [DateTime]::Parse($timeStr.ToString())
         return $dt.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     }
     catch {
@@ -334,30 +353,30 @@ function Convert-Time {
     }
 }
 
-function Convert-Altitude {
+function Convert-AltitudeToFL {
     param($alt)
     
-    if (-not $alt) { return $null }
+    if ($null -eq $alt -or $alt -eq '') { return $null }
     
-    $alt = $alt.ToString().ToUpper().Trim()
+    $altStr = $alt.ToString().ToUpper().Trim()
     
     # Already flight level
-    if ($alt -match '^\d+$' -and [int]$alt -le 600) {
-        return [int]$alt
+    if ($altStr -match '^\d+$' -and [int]$altStr -le 600) {
+        return [int]$altStr
     }
     
     # FL prefix
-    if ($alt -match '^FL?(\d+)$') {
+    if ($altStr -match '^FL?(\d+)$') {
         return [int]$Matches[1]
     }
     
     # Feet - convert
-    if ($alt -match '^\d+$' -and [int]$alt -gt 600) {
-        return [int]([int]$alt / 100)
+    if ($altStr -match '^\d+$' -and [int]$altStr -gt 600) {
+        return [int]([int]$altStr / 100)
     }
     
     # Surface
-    if ($alt -eq 'SFC' -or $alt -eq 'SURFACE') {
+    if ($altStr -eq 'SFC' -or $altStr -eq 'SURFACE') {
         return 0
     }
     
@@ -365,18 +384,29 @@ function Convert-Altitude {
 }
 
 function Import-AlertsToDatabase {
-    param($alerts)
+    param($alerts, $showVerbose)
     
     Write-Host "Connecting to database..."
     
-    # Build connection string
+    # Convert alerts to JSON
+    $json = $alerts | ConvertTo-Json -Depth 10 -Compress
+    
+    if ($showVerbose) {
+        Write-Host "JSON payload: $($json.Length) bytes" -ForegroundColor Gray
+    }
+    
+    # Try Azure AD auth first
     $connString = "Server=$DB_SERVER;Database=$DB_NAME;Authentication=Active Directory Default;TrustServerCertificate=True;Connect Timeout=30"
     
+    $conn = $null
     try {
         $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
         $conn.Open()
+        Write-Host "Connected via Azure AD" -ForegroundColor Green
     }
     catch {
+        Write-Host "Azure AD auth failed, trying environment credentials..." -ForegroundColor Yellow
+        
         # Try with environment credentials
         $user = $env:SQL_USER
         $pass = $env:SQL_PASS
@@ -385,19 +415,11 @@ function Import-AlertsToDatabase {
             $connString = "Server=$DB_SERVER;Database=$DB_NAME;User Id=$user;Password=$pass;TrustServerCertificate=True;Connect Timeout=30"
             $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
             $conn.Open()
+            Write-Host "Connected via SQL auth" -ForegroundColor Green
         }
         else {
-            throw "Database connection failed: $_"
+            throw "Database connection failed. Set SQL_USER and SQL_PASS environment variables."
         }
-    }
-    
-    Write-Host "Connected to $DB_NAME" -ForegroundColor Green
-    
-    # Convert alerts to JSON
-    $json = $alerts | ConvertTo-Json -Depth 10 -Compress
-    
-    if ($Verbose) {
-        Write-Host "JSON payload: $($json.Length) bytes" -ForegroundColor Gray
     }
     
     # Call import procedure
