@@ -84,11 +84,13 @@ $filepath = "";
                 </a>
             </li>
 
+            <!-- advisory builder
             <li class="nav-item">
                 <a class="nav-link" href="<?= $filepath; ?>./advisory-builder">
                     Advisories
                 </a>
             </li>
+            -->
 
             <li class="nav-item">
                 <a class="nav-link" href="<?= $filepath; ?>./jatoc">

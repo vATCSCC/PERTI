@@ -61,13 +61,19 @@ const GROUP_NAMES = {
 
 // Types that should remain as lines (routes, tracks) - NOT converted to polygons
 // Note: OSARA removed - they should render as polygons
+// AW (AWACS orbits) are oval/racetrack patterns - should be lines NOT polygons
 const LINE_TYPES = [
     'AR',      // Air Refueling tracks
     'ALTRV',   // Altitude Reservations
     'IR',      // IFR Routes
     'VR',      // VFR Routes
     'SR',      // Slow Routes
-    'SS'       // Supersonic corridors
+    'SS',      // Supersonic corridors
+    'MTR',     // Military Training Routes
+    'ANG',     // Air National Guard routes
+    'WSRP',    // Weather routes
+    'AW',      // AWACS orbits (oval/racetrack)
+    'AWACS'    // AWACS orbits
 ];
 
 // Map variables
@@ -453,10 +459,10 @@ function processFeature(feature) {
 
     var props = feature.properties || {};
 
-    // New schema: geometry already processed, just set _isRoute flag
+    // New schema: geometry already processed, just set _isRoute and _dashed flags
     if (props.geometry_type) {
         props._isRoute = (props.geometry_type === 'line' || props.geometry_type === 'dash_segments');
-        props._hasDashedBorder = (props.border_style === 'dashed');
+        props._dashed = (props.border_style === 'dashed');
         return {
             type: 'Feature',
             properties: props,
@@ -679,11 +685,12 @@ function initSuaMap() {
             }
         });
 
-        // Area outline layer
+        // Area outline layer - solid
         suaMap.addLayer({
             id: 'sua-area-outline',
             type: 'line',
             source: 'sua-areas',
+            filter: ['!=', ['get', '_dashed'], true],
             paint: {
                 'line-color': ['coalesce', ['get', '_color'], '#999999'],
                 'line-width': 1.5,
@@ -691,15 +698,44 @@ function initSuaMap() {
             }
         });
 
-        // Route line layer (thicker, more visible)
+        // Area outline layer - dashed
+        suaMap.addLayer({
+            id: 'sua-area-outline-dashed',
+            type: 'line',
+            source: 'sua-areas',
+            filter: ['==', ['get', '_dashed'], true],
+            paint: {
+                'line-color': ['coalesce', ['get', '_color'], '#999999'],
+                'line-width': 1.5,
+                'line-opacity': 0.8,
+                'line-dasharray': [4, 3]
+            }
+        });
+
+        // Route line layer - solid (thicker, more visible)
         suaMap.addLayer({
             id: 'sua-route-line',
             type: 'line',
             source: 'sua-routes',
+            filter: ['!=', ['get', '_dashed'], true],
             paint: {
                 'line-color': ['coalesce', ['get', '_color'], '#999999'],
                 'line-width': 3,
                 'line-opacity': 0.9
+            }
+        });
+
+        // Route line layer - dashed
+        suaMap.addLayer({
+            id: 'sua-route-line-dashed',
+            type: 'line',
+            source: 'sua-routes',
+            filter: ['==', ['get', '_dashed'], true],
+            paint: {
+                'line-color': ['coalesce', ['get', '_color'], '#999999'],
+                'line-width': 3,
+                'line-opacity': 0.9,
+                'line-dasharray': [6, 4]
             }
         });
 
@@ -719,31 +755,21 @@ function initSuaMap() {
         // Load boundary layers (ARTCC, high, low, etc.)
         loadBoundaryLayers();
 
-        // Click handlers
-        suaMap.on('click', 'sua-area-fill', function(e) {
-            if (e.features && e.features.length > 0) {
-                showFeaturePopup(e.features[0], e.lngLat);
-            }
-        });
+        // Click handlers for all interactive layers
+        var clickableLayers = ['sua-area-fill', 'sua-route-line', 'sua-route-line-dashed'];
+        clickableLayers.forEach(function(layerId) {
+            suaMap.on('click', layerId, function(e) {
+                if (e.features && e.features.length > 0) {
+                    showFeaturePopup(e.features[0], e.lngLat);
+                }
+            });
 
-        suaMap.on('click', 'sua-route-line', function(e) {
-            if (e.features && e.features.length > 0) {
-                showFeaturePopup(e.features[0], e.lngLat);
-            }
-        });
-
-        // Cursor changes
-        suaMap.on('mouseenter', 'sua-area-fill', function() {
-            suaMap.getCanvas().style.cursor = 'pointer';
-        });
-        suaMap.on('mouseleave', 'sua-area-fill', function() {
-            suaMap.getCanvas().style.cursor = '';
-        });
-        suaMap.on('mouseenter', 'sua-route-line', function() {
-            suaMap.getCanvas().style.cursor = 'pointer';
-        });
-        suaMap.on('mouseleave', 'sua-route-line', function() {
-            suaMap.getCanvas().style.cursor = '';
+            suaMap.on('mouseenter', layerId, function() {
+                suaMap.getCanvas().style.cursor = 'pointer';
+            });
+            suaMap.on('mouseleave', layerId, function() {
+                suaMap.getCanvas().style.cursor = '';
+            });
         });
 
         layersInitialized = true;
