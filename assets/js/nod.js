@@ -4821,8 +4821,9 @@
         if (e.target.classList.contains('show-route-btn')) {
             const flightKey = e.target.dataset.flightKey;
             if (flightKey && state.lastPopupFlight) {
-                // Find flight in current data
-                const flight = state.allFlights.find(f =>
+                // Find flight in current data (use traffic.data, fallback to lastPopupFlight)
+                const flights = state.traffic && state.traffic.data ? state.traffic.data : [];
+                const flight = flights.find(f =>
                     (f.flight_key || f.callsign) === flightKey
                 ) || state.lastPopupFlight;
 
