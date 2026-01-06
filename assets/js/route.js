@@ -8,6 +8,8 @@ $(document).ready(function() {
     let cached_geojson_multipoint = [];
     let overlays = [];
     let graphic_map; // Exposed for ADL Live Flights module
+    let routesLayerGroup = null; // Layer group for plotted routes (for z-ordering)
+    let fixMarkersLayerGroup = null; // Layer group for fix markers (for z-ordering)
     
     let points = {};
     // Derived facility codes from ZZ_* dummy fixes (ARTCCs / TRACONs / FIRs, etc.)
@@ -3649,14 +3651,23 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
             });
         });
     
+        // Layer order matches nod.js (bottom to top):
+        // 1. Weather Radar (BOTTOM)
+        // 2. TRACON Boundaries
+        // 3. Sector Boundaries (High, Low, Superhigh)
+        // 4. SIGMETs
+        // 5. NAVAIDs
+        // 6. SUA/TFR
+        // (ARTCC added separately and brought to front)
+        // (Routes and flights added dynamically on top)
         var overlaysArray = [
-            ['superhigh_splits', superhigh_splits],
+            ['cells', cells],
+            ['tracon', tracon],
             ['high_splits', high_splits],
             ['low_splits', low_splits],
-            ['tracon', tracon],
-            ['navaids', navaids],
+            ['superhigh_splits', superhigh_splits],
             ['sigmets', sigmets],
-            ['cells', cells],
+            ['navaids', navaids],
             ['sua', suaLayer]
         ];
     
@@ -3680,8 +3691,13 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
                     startSuaRefresh();
                 }
             }
-        }); 
-    
+        });
+
+        // Ensure proper layer order after initial setup: overlays → ARTCC → routes → ADL flights
+        artcc.bringToFront();
+        if (routesLayerGroup) routesLayerGroup.bringToFront();
+        if (fixMarkersLayerGroup) fixMarkersLayerGroup.bringToFront();
+
         graphic_map.on('overlayadd', function(eventlayer) {
             overlaysArray.forEach(o => {
                 if (eventlayer.layer == o[1]) {
@@ -3692,11 +3708,18 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
                         startSuaRefresh();
                     }
                 }
-            }); 
-    
+            });
+
+            // Maintain layer order: overlays → ARTCC → routes → ADL flights (top)
             artcc.bringToFront();
+            if (routesLayerGroup) routesLayerGroup.bringToFront();
+            if (fixMarkersLayerGroup) fixMarkersLayerGroup.bringToFront();
+            if (typeof ADL !== 'undefined' && ADL.getState && ADL.getState().layer) {
+                if (ADL.getState().routeLayer) ADL.getState().routeLayer.bringToFront();
+                ADL.getState().layer.bringToFront();
+            }
         });
-    
+
         graphic_map.on('overlayremove', function(eventlayer) {
             overlaysArray.forEach(o => {
                 if (eventlayer.layer == o[1]) {
@@ -3706,9 +3729,16 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
                         stopSuaRefresh();
                     }
                 }
-            }); 
-    
+            });
+
+            // Maintain layer order: overlays → ARTCC → routes → ADL flights (top)
             artcc.bringToFront();
+            if (routesLayerGroup) routesLayerGroup.bringToFront();
+            if (fixMarkersLayerGroup) fixMarkersLayerGroup.bringToFront();
+            if (typeof ADL !== 'undefined' && ADL.getState && ADL.getState().layer) {
+                if (ADL.getState().routeLayer) ADL.getState().routeLayer.bringToFront();
+                ADL.getState().layer.bringToFront();
+            }
         });
     
         L.control.layers(null, layers).addTo(graphic_map);
@@ -3791,8 +3821,18 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
         const rawInput = $('#routeSearch').val();
     
         const route_lat_long_for_indiv = [];
-        const linestring = new L.layerGroup();
-        const fixMarkersGroup = new L.layerGroup(); // Collect all fix markers for zoom-based visibility
+        // Use module-level layer groups for z-ordering control
+        // Clear and recreate each time routes are drawn
+        if (routesLayerGroup && graphic_map) {
+            graphic_map.removeLayer(routesLayerGroup);
+        }
+        if (fixMarkersLayerGroup && graphic_map) {
+            graphic_map.removeLayer(fixMarkersLayerGroup);
+        }
+        routesLayerGroup = new L.layerGroup();
+        fixMarkersLayerGroup = new L.layerGroup();
+        const linestring = routesLayerGroup; // Alias for backward compatibility
+        const fixMarkersGroup = fixMarkersLayerGroup; // Alias for backward compatibility
         const multipoint = {
             type: 'FeatureCollection',
             features: []
@@ -4428,7 +4468,6 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
 
 
 
-                line.addTo(graphic_map);
                 linestring.addLayer(line);
             });
 
@@ -4478,7 +4517,6 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
                         seenSegmentKeys.add(fanKey);
                         // Fan routes are typically short - use simple polyline
                         const fanLine = L.polyline(fanCoords, fanOptions);
-                        fanLine.addTo(graphic_map);
                         linestring.addLayer(fanLine);
                     }
                 });
@@ -4533,9 +4571,20 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
         });
         // Route (E)
 
+        // Add routes layer group to map and bring to front (above boundaries)
+        linestring.addTo(graphic_map);
+        linestring.bringToFront();
+
         // Add fix markers group to map with zoom-based visibility
         fixMarkersGroup.addTo(graphic_map);
-        
+        fixMarkersGroup.bringToFront();
+
+        // Ensure ADL flights stay on top after routes are drawn
+        if (typeof ADL !== 'undefined' && ADL.getState && ADL.getState().layer) {
+            if (ADL.getState().routeLayer) ADL.getState().routeLayer.bringToFront();
+            ADL.getState().layer.bringToFront();
+        }
+
         // Hide fix markers when zoomed out for performance
         const FIX_MARKER_MIN_ZOOM = 5;
         function updateFixMarkerVisibility() {
@@ -4543,6 +4592,13 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
             if (currentZoom >= FIX_MARKER_MIN_ZOOM) {
                 if (!graphic_map.hasLayer(fixMarkersGroup)) {
                     graphic_map.addLayer(fixMarkersGroup);
+                    // Bring fix markers to front after re-adding
+                    fixMarkersGroup.bringToFront();
+                    // Also bring ADL flights to front to keep them on top
+                    if (typeof ADL !== 'undefined' && ADL.getState && ADL.getState().layer) {
+                        if (ADL.getState().routeLayer) ADL.getState().routeLayer.bringToFront();
+                        ADL.getState().layer.bringToFront();
+                    }
                 }
             } else {
                 if (graphic_map.hasLayer(fixMarkersGroup)) {
@@ -7070,6 +7126,9 @@ advAddLabeledField(lines, 'NAME', advName);
                 state.routeLayer = L.layerGroup();
                 if (graphic_map) {
                     state.routeLayer.addTo(graphic_map);
+                    // Bring flight routes below aircraft markers but above other layers
+                    state.routeLayer.bringToFront();
+                    if (state.layer) state.layer.bringToFront();
                 }
             }
             
@@ -7804,9 +7863,10 @@ advAddLabeledField(lines, 'NAME', advName);
                 console.log('[ADL] Created new layer group');
             }
             
-            // Add to map
+            // Add to map and bring to front (flights should be on top)
             state.layer.addTo(graphic_map);
-            console.log('[ADL] Layer added to map');
+            state.layer.bringToFront();
+            console.log('[ADL] Layer added to map and brought to front');
             
             // Enable filter button
             $('#adl_filter_toggle').prop('disabled', false);
