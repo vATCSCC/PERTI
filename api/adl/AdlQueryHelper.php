@@ -568,29 +568,33 @@ class AdlQueryHelper {
         $startSQL = $options['startSQL'] ?? '';
         $endSQL = $options['endSQL'] ?? '';
 
+        // Time column with COALESCE fallback: prefer runway time, fall back to general ETA/ETD
+        $arrTimeExpr = "COALESCE(t.eta_runway_utc, t.eta_utc)";
+        $depTimeExpr = "COALESCE(t.etd_runway_utc, t.etd_utc)";
+        $timeExpr = $direction === 'arr' ? $arrTimeExpr : $depTimeExpr;
+
         // Time bin SQL based on granularity
         if ($granularity === '15min') {
-            $timeBinSQL = $direction === 'arr'
-                ? "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', t.eta_runway_utc) / 15) * 15, '2000-01-01')"
-                : "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', t.etd_runway_utc) / 15) * 15, '2000-01-01')";
+            $timeBinSQL = "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', {$timeExpr}) / 15) * 15, '2000-01-01')";
         } else {
-            $timeBinSQL = $direction === 'arr'
-                ? "DATEADD(HOUR, DATEDIFF(HOUR, 0, t.eta_runway_utc), 0)"
-                : "DATEADD(HOUR, DATEDIFF(HOUR, 0, t.etd_runway_utc), 0)";
+            $timeBinSQL = "DATEADD(HOUR, DATEDIFF(HOUR, 0, {$timeExpr}), 0)";
         }
 
         if ($this->source === self::SOURCE_VIEW) {
             return $this->buildDemandAggregationViewQuery($airport, $direction, $timeBinSQL, $startSQL, $endSQL);
         }
-        return $this->buildDemandAggregationNormalizedQuery($airport, $direction, $timeBinSQL, $startSQL, $endSQL);
+        return $this->buildDemandAggregationNormalizedQuery($airport, $direction, $timeBinSQL, $startSQL, $endSQL, $timeExpr);
     }
 
     private function buildDemandAggregationViewQuery($airport, $direction, $timeBinSQL, $startSQL, $endSQL) {
-        // For view mode, we reference eta_runway_utc/etd_runway_utc without alias
+        // For view mode, we reference columns without alias
         $timeBinSQL = str_replace('t.', '', $timeBinSQL);
 
         $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
-        $timeCol = $direction === 'arr' ? 'eta_runway_utc' : 'etd_runway_utc';
+        // Use COALESCE to fall back to general ETA/ETD if runway time is NULL
+        $timeCol = $direction === 'arr'
+            ? 'COALESCE(eta_runway_utc, eta_utc)'
+            : 'COALESCE(etd_runway_utc, etd_utc)';
 
         $sql = "
             SELECT
@@ -615,9 +619,10 @@ class AdlQueryHelper {
         return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL]];
     }
 
-    private function buildDemandAggregationNormalizedQuery($airport, $direction, $timeBinSQL, $startSQL, $endSQL) {
+    private function buildDemandAggregationNormalizedQuery($airport, $direction, $timeBinSQL, $startSQL, $endSQL, $timeExpr = null) {
         $airportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
-        $timeCol = $direction === 'arr' ? 't.eta_runway_utc' : 't.etd_runway_utc';
+        // Use provided time expression with COALESCE fallback, or default to runway time
+        $timeCol = $timeExpr ?? ($direction === 'arr' ? 't.eta_runway_utc' : 't.etd_runway_utc');
 
         $sql = "
             SELECT
@@ -632,7 +637,7 @@ class AdlQueryHelper {
                               AND (c.is_active = 0 OR c.is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-            INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+            LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
             WHERE {$airportCol} = ?
               AND {$timeCol} IS NOT NULL
               AND {$timeCol} >= ?
@@ -660,9 +665,9 @@ class AdlQueryHelper {
                     COUNT(*) AS count
                 FROM dbo.vw_adl_flights
                 WHERE fp_dest_icao = ?
-                  AND eta_runway_utc IS NOT NULL
-                  AND eta_runway_utc >= ?
-                  AND eta_runway_utc < ?
+                  AND COALESCE(eta_runway_utc, eta_utc) IS NOT NULL
+                  AND COALESCE(eta_runway_utc, eta_utc) >= ?
+                  AND COALESCE(eta_runway_utc, eta_utc) < ?
                   AND fp_dept_artcc IS NOT NULL
                   AND fp_dept_artcc != ''
                 GROUP BY fp_dept_artcc
@@ -675,11 +680,11 @@ class AdlQueryHelper {
                     COUNT(*) AS count
                 FROM dbo.adl_flight_core c
                 INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                 WHERE fp.fp_dest_icao = ?
-                  AND t.eta_runway_utc IS NOT NULL
-                  AND t.eta_runway_utc >= ?
-                  AND t.eta_runway_utc < ?
+                  AND COALESCE(t.eta_runway_utc, t.eta_utc) IS NOT NULL
+                  AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ?
+                  AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
                   AND fp.fp_dept_artcc IS NOT NULL
                   AND fp.fp_dept_artcc != ''
                 GROUP BY fp.fp_dept_artcc
@@ -700,8 +705,8 @@ class AdlQueryHelper {
                     SELECT LEFT(callsign, 3) AS carrier, COUNT(*) AS cnt
                     FROM dbo.vw_adl_flights
                     WHERE fp_dest_icao = ?
-                      AND eta_runway_utc >= ?
-                      AND eta_runway_utc < ?
+                      AND COALESCE(eta_runway_utc, eta_utc) >= ?
+                      AND COALESCE(eta_runway_utc, eta_utc) < ?
                       AND callsign IS NOT NULL
                       AND LEN(callsign) >= 3
                     GROUP BY LEFT(callsign, 3)
@@ -709,8 +714,8 @@ class AdlQueryHelper {
                     SELECT LEFT(callsign, 3) AS carrier, COUNT(*) AS cnt
                     FROM dbo.vw_adl_flights
                     WHERE fp_dept_icao = ?
-                      AND etd_runway_utc >= ?
-                      AND etd_runway_utc < ?
+                      AND COALESCE(etd_runway_utc, etd_utc) >= ?
+                      AND COALESCE(etd_runway_utc, etd_utc) < ?
                       AND callsign IS NOT NULL
                       AND LEN(callsign) >= 3
                     GROUP BY LEFT(callsign, 3)
@@ -724,10 +729,10 @@ class AdlQueryHelper {
                     SELECT LEFT(c.callsign, 3) AS carrier, COUNT(*) AS cnt
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                    INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                     WHERE fp.fp_dest_icao = ?
-                      AND t.eta_runway_utc >= ?
-                      AND t.eta_runway_utc < ?
+                      AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ?
+                      AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
                       AND c.callsign IS NOT NULL
                       AND LEN(c.callsign) >= 3
                     GROUP BY LEFT(c.callsign, 3)
@@ -735,10 +740,10 @@ class AdlQueryHelper {
                     SELECT LEFT(c.callsign, 3) AS carrier, COUNT(*) AS cnt
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                    INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                     WHERE fp.fp_dept_icao = ?
-                      AND t.etd_runway_utc >= ?
-                      AND t.etd_runway_utc < ?
+                      AND COALESCE(t.etd_runway_utc, t.etd_utc) >= ?
+                      AND COALESCE(t.etd_runway_utc, t.etd_utc) < ?
                       AND c.callsign IS NOT NULL
                       AND LEN(c.callsign) >= 3
                     GROUP BY LEFT(c.callsign, 3)
@@ -756,7 +761,9 @@ class AdlQueryHelper {
      */
     public function buildTopCarriersSingleQuery($airport, $startSQL, $endSQL, $direction) {
         $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
-        $timeCol = $direction === 'arr' ? 'eta_runway_utc' : 'etd_runway_utc';
+        $timeCol = $direction === 'arr'
+            ? 'COALESCE(eta_runway_utc, eta_utc)'
+            : 'COALESCE(etd_runway_utc, etd_utc)';
 
         if ($this->source === self::SOURCE_VIEW) {
             $sql = "
@@ -774,7 +781,9 @@ class AdlQueryHelper {
             ";
         } else {
             $airportColN = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
-            $timeColN = $direction === 'arr' ? 't.eta_runway_utc' : 't.etd_runway_utc';
+            $timeColN = $direction === 'arr'
+                ? 'COALESCE(t.eta_runway_utc, t.eta_utc)'
+                : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
 
             $sql = "
                 SELECT TOP 10
@@ -782,7 +791,7 @@ class AdlQueryHelper {
                     COUNT(*) AS count
                 FROM dbo.adl_flight_core c
                 INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                 WHERE {$airportColN} = ?
                   AND {$timeColN} >= ?
                   AND {$timeColN} < ?
@@ -803,35 +812,35 @@ class AdlQueryHelper {
         if ($this->source === self::SOURCE_VIEW) {
             $sql = "
                 SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, eta_runway_utc), 0) AS time_bin,
+                    DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0) AS time_bin,
                     fp_dept_artcc AS artcc,
                     COUNT(*) AS count
                 FROM dbo.vw_adl_flights
                 WHERE fp_dest_icao = ?
-                  AND eta_runway_utc IS NOT NULL
-                  AND eta_runway_utc >= ?
-                  AND eta_runway_utc < ?
+                  AND COALESCE(eta_runway_utc, eta_utc) IS NOT NULL
+                  AND COALESCE(eta_runway_utc, eta_utc) >= ?
+                  AND COALESCE(eta_runway_utc, eta_utc) < ?
                   AND fp_dept_artcc IS NOT NULL
                   AND fp_dept_artcc != ''
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, eta_runway_utc), 0), fp_dept_artcc
+                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0), fp_dept_artcc
                 ORDER BY time_bin, count DESC
             ";
         } else {
             $sql = "
                 SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, t.eta_runway_utc), 0) AS time_bin,
+                    DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(t.eta_runway_utc, t.eta_utc)), 0) AS time_bin,
                     fp.fp_dept_artcc AS artcc,
                     COUNT(*) AS count
                 FROM dbo.adl_flight_core c
                 INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                 WHERE fp.fp_dest_icao = ?
-                  AND t.eta_runway_utc IS NOT NULL
-                  AND t.eta_runway_utc >= ?
-                  AND t.eta_runway_utc < ?
+                  AND COALESCE(t.eta_runway_utc, t.eta_utc) IS NOT NULL
+                  AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ?
+                  AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
                   AND fp.fp_dept_artcc IS NOT NULL
                   AND fp.fp_dept_artcc != ''
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, t.eta_runway_utc), 0), fp.fp_dept_artcc
+                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(t.eta_runway_utc, t.eta_utc)), 0), fp.fp_dept_artcc
                 ORDER BY time_bin, count DESC
             ";
         }
@@ -851,15 +860,15 @@ class AdlQueryHelper {
                         fp_dept_icao AS origin,
                         fp_dest_icao AS destination,
                         fp_dept_artcc AS origin_artcc,
-                        eta_runway_utc AS eta,
+                        COALESCE(eta_runway_utc, eta_utc) AS eta,
                         flight_status,
                         is_active,
                         aircraft_type
                     FROM dbo.vw_adl_flights
                     WHERE fp_dest_icao = ?
-                      AND eta_runway_utc >= ?
-                      AND eta_runway_utc < ?
-                    ORDER BY eta_runway_utc
+                      AND COALESCE(eta_runway_utc, eta_utc) >= ?
+                      AND COALESCE(eta_runway_utc, eta_utc) < ?
+                    ORDER BY COALESCE(eta_runway_utc, eta_utc)
                 ";
             } else {
                 $sql = "
@@ -868,15 +877,15 @@ class AdlQueryHelper {
                         fp_dept_icao AS origin,
                         fp_dest_icao AS destination,
                         fp_dest_artcc AS dest_artcc,
-                        etd_runway_utc AS etd,
+                        COALESCE(etd_runway_utc, etd_utc) AS etd,
                         flight_status,
                         is_active,
                         aircraft_type
                     FROM dbo.vw_adl_flights
                     WHERE fp_dept_icao = ?
-                      AND etd_runway_utc >= ?
-                      AND etd_runway_utc < ?
-                    ORDER BY etd_runway_utc
+                      AND COALESCE(etd_runway_utc, etd_utc) >= ?
+                      AND COALESCE(etd_runway_utc, etd_utc) < ?
+                    ORDER BY COALESCE(etd_runway_utc, etd_utc)
                 ";
             }
         } else {
@@ -887,17 +896,17 @@ class AdlQueryHelper {
                         fp.fp_dept_icao AS origin,
                         fp.fp_dest_icao AS destination,
                         fp.fp_dept_artcc AS origin_artcc,
-                        t.eta_runway_utc AS eta,
+                        COALESCE(t.eta_runway_utc, t.eta_utc) AS eta,
                         c.flight_status,
                         c.is_active,
                         fp.aircraft_type
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                    INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                     WHERE fp.fp_dest_icao = ?
-                      AND t.eta_runway_utc >= ?
-                      AND t.eta_runway_utc < ?
-                    ORDER BY t.eta_runway_utc
+                      AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ?
+                      AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
+                    ORDER BY COALESCE(t.eta_runway_utc, t.eta_utc)
                 ";
             } else {
                 $sql = "
@@ -906,17 +915,17 @@ class AdlQueryHelper {
                         fp.fp_dept_icao AS origin,
                         fp.fp_dest_icao AS destination,
                         fp.fp_dest_artcc AS dest_artcc,
-                        t.etd_runway_utc AS etd,
+                        COALESCE(t.etd_runway_utc, t.etd_utc) AS etd,
                         c.flight_status,
                         c.is_active,
                         fp.aircraft_type
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                    INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                     WHERE fp.fp_dept_icao = ?
-                      AND t.etd_runway_utc >= ?
-                      AND t.etd_runway_utc < ?
-                    ORDER BY t.etd_runway_utc
+                      AND COALESCE(t.etd_runway_utc, t.etd_utc) >= ?
+                      AND COALESCE(t.etd_runway_utc, t.etd_utc) < ?
+                    ORDER BY COALESCE(t.etd_runway_utc, t.etd_utc)
                 ";
             }
         }
