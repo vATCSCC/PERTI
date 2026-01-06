@@ -1696,12 +1696,14 @@
                 return DCC_REGION_COLORS[''];
                 
             case 'aircraft_type':
-                const acType = stripAircraftSuffixes(flight.fp_acft_type || flight.aircraft_type || '');
+                // Prefer aircraft_icao (clean code from DB), fallback to flight plan fields
+                const acType = stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || '');
                 const mfr = getAircraftManufacturer(acType);
                 return AIRCRAFT_MANUFACTURER_COLORS[mfr] || AIRCRAFT_MANUFACTURER_COLORS['OTHER'];
-                
+
             case 'aircraft_config':
-                const acType2 = stripAircraftSuffixes(flight.fp_acft_type || flight.aircraft_type || '');
+                // Prefer aircraft_icao (clean code from DB), fallback to flight plan fields
+                const acType2 = stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || '');
                 const cfg = getAircraftConfig(acType2);
                 return AIRCRAFT_CONFIG_COLORS[cfg] || AIRCRAFT_CONFIG_COLORS['OTHER'];
                 
