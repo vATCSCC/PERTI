@@ -808,8 +808,7 @@
             layout: { 'line-join': 'round', 'line-cap': 'round' },
             paint: {
                 'line-color': ['get', 'color'],
-                'line-width': 2,
-                'line-opacity': 0.7
+                'line-width': 2.5
             }
         }, 'traffic-circles-fallback');
 
@@ -822,23 +821,29 @@
             layout: { 'line-join': 'round', 'line-cap': 'round' },
             paint: {
                 'line-color': ['get', 'color'],
-                'line-width': 2,
-                'line-dasharray': [8, 6],
-                'line-opacity': 0.9
+                'line-width': 2.5,
+                'line-dasharray': [4, 4]
             }
         }, 'traffic-circles-fallback');
 
-        // Waypoint circles - small white dots with colored outline
+        // Waypoint circles - colored dots with dark outline (matches route.php)
         state.map.addLayer({
             id: 'flight-waypoints-circles',
             type: 'circle',
             source: 'flight-waypoints-source',
             paint: {
-                'circle-radius': 3,
-                'circle-color': '#ffffff',
-                'circle-stroke-color': ['get', 'color'],
-                'circle-stroke-width': 1.5
-            }
+                'circle-radius': [
+                    'interpolate', ['linear'], ['zoom'],
+                    4, 1.5,
+                    8, 2.5,
+                    12, 3.5
+                ],
+                'circle-color': ['get', 'color'],
+                'circle-stroke-width': 0.5,
+                'circle-stroke-color': '#222222',
+                'circle-opacity': 0.8
+            },
+            minzoom: 5
         }, 'traffic-circles-fallback');
 
         // Waypoint labels - only show at higher zoom
