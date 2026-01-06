@@ -2,8 +2,9 @@
 -- sp_Adl_RefreshFromVatsim_Normalized.sql
 -- Bulk upsert from VATSIM JSON into normalized ADL tables
 -- 
--- This replaces sp_Adl_RefreshFromVatsim for the new normalized schema.
--- Designed to be called by the existing vatsim_adl_daemon.php
+-- V4: Added ACD_Data and airlines table lookups
+--     Now populates: engine_count, cruise_tas_kts, wake_category (from ACD)
+--                    airline_name (from airlines table)
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -28,14 +29,11 @@ BEGIN
     DECLARE @new_flights INT = 0;
     DECLARE @updated_flights INT = 0;
     DECLARE @routes_queued INT = 0;
-    DECLARE @step_start DATETIME2(3);
     
     -- ========================================================================
     -- Step 1: Parse JSON into temp table
     -- ========================================================================
-    SET @step_start = SYSUTCDATETIME();
     
-    -- Parse pilots array from JSON
     SELECT
         CAST(p.cid AS INT) AS cid,
         CAST(p.callsign AS NVARCHAR(16)) AS callsign,
@@ -60,14 +58,35 @@ BEGIN
         CAST(fp.deptime AS CHAR(4)) AS dep_time_z,
         CAST(fp.enroute_time AS NVARCHAR(8)) AS enroute_time_raw,
         CAST(fp.fuel_time AS NVARCHAR(8)) AS fuel_time_raw,
-        CAST(fp.aircraft_faa AS NVARCHAR(32)) AS aircraft_faa,
+        CAST(fp.aircraft_faa AS NVARCHAR(32)) AS aircraft_faa_raw,
         CAST(fp.aircraft_short AS NVARCHAR(8)) AS aircraft_short,
-        -- Derived fields
+        -- Derived: flight_key
         CAST(p.cid AS NVARCHAR) + '|' + CAST(p.callsign AS NVARCHAR(16)) + '|' + 
             ISNULL(CAST(fp.departure AS NVARCHAR(4)), '') + '|' + 
             ISNULL(CAST(fp.arrival AS NVARCHAR(4)), '') + '|' + 
             ISNULL(CAST(fp.deptime AS NVARCHAR(4)), '') AS flight_key,
-        HASHBYTES('SHA2_256', ISNULL(CAST(fp.route AS NVARCHAR(MAX)), '') + '|' + ISNULL(CAST(fp.remarks AS NVARCHAR(MAX)), '')) AS route_hash
+        -- Derived: route_hash
+        HASHBYTES('SHA2_256', ISNULL(CAST(fp.route AS NVARCHAR(MAX)), '') + '|' + ISNULL(CAST(fp.remarks AS NVARCHAR(MAX)), '')) AS route_hash,
+        -- Derived: airline_icao (first 3 chars if looks like airline callsign)
+        CASE 
+            WHEN LEN(p.callsign) >= 4 AND p.callsign LIKE '[A-Z][A-Z][A-Z][0-9]%'
+            THEN LEFT(p.callsign, 3)
+            ELSE NULL
+        END AS airline_icao,
+        -- Placeholders for enrichment
+        CAST(NULL AS DECIMAL(10,7)) AS dept_lat,
+        CAST(NULL AS DECIMAL(11,7)) AS dept_lon,
+        CAST(NULL AS NVARCHAR(4)) AS dept_artcc,
+        CAST(NULL AS NVARCHAR(8)) AS dept_tracon,
+        CAST(NULL AS DECIMAL(10,7)) AS dest_lat,
+        CAST(NULL AS DECIMAL(11,7)) AS dest_lon,
+        CAST(NULL AS NVARCHAR(4)) AS dest_artcc,
+        CAST(NULL AS NVARCHAR(8)) AS dest_tracon,
+        CAST(NULL AS DECIMAL(10,2)) AS gcd_nm,
+        CAST(NULL AS DECIMAL(10,2)) AS dist_to_dest_nm,
+        CAST(NULL AS DECIMAL(10,2)) AS dist_flown_nm,
+        CAST(NULL AS DECIMAL(5,2)) AS pct_complete,
+        CAST(NULL AS BIGINT) AS flight_uid
     INTO #pilots
     FROM OPENJSON(@Json, '$.pilots') 
     WITH (
@@ -103,27 +122,97 @@ BEGIN
     
     SET @pilot_count = @@ROWCOUNT;
     
-    -- Create index for faster lookups
+    -- Indexes for performance
     CREATE CLUSTERED INDEX IX_pilots_key ON #pilots (flight_key);
+    CREATE NONCLUSTERED INDEX IX_pilots_dept ON #pilots (dept_icao) WHERE dept_icao IS NOT NULL;
+    CREATE NONCLUSTERED INDEX IX_pilots_dest ON #pilots (dest_icao) WHERE dest_icao IS NOT NULL;
+    
+    -- ========================================================================
+    -- Step 1b: Enrich with airport data
+    -- Column names based on FAA NASR CSV format (apts.csv)
+    -- ========================================================================
+    
+    -- Departure airport enrichment
+    UPDATE p
+    SET p.dept_lat = a.LAT_DECIMAL,
+        p.dept_lon = a.LONG_DECIMAL,
+        p.dept_artcc = a.RESP_ARTCC_ID,
+        p.dept_tracon = COALESCE(a.[Approach ID], a.[Departure ID], a.[Approach/Departure ID])
+    FROM #pilots p
+    INNER JOIN dbo.apts a ON a.ICAO_ID = p.dept_icao
+    WHERE p.dept_icao IS NOT NULL;
+    
+    -- Destination airport enrichment
+    UPDATE p
+    SET p.dest_lat = a.LAT_DECIMAL,
+        p.dest_lon = a.LONG_DECIMAL,
+        p.dest_artcc = a.RESP_ARTCC_ID,
+        p.dest_tracon = COALESCE(a.[Approach ID], a.[Departure ID], a.[Approach/Departure ID])
+    FROM #pilots p
+    INNER JOIN dbo.apts a ON a.ICAO_ID = p.dest_icao
+    WHERE p.dest_icao IS NOT NULL;
+    
+    -- Calculate distances using geography
+    UPDATE #pilots
+    SET 
+        gcd_nm = CASE 
+            WHEN dept_lat IS NOT NULL AND dest_lat IS NOT NULL 
+            THEN geography::Point(dept_lat, dept_lon, 4326).STDistance(
+                 geography::Point(dest_lat, dest_lon, 4326)) / 1852.0
+            ELSE NULL
+        END,
+        dist_to_dest_nm = CASE 
+            WHEN lat IS NOT NULL AND dest_lat IS NOT NULL 
+            THEN geography::Point(lat, lon, 4326).STDistance(
+                 geography::Point(dest_lat, dest_lon, 4326)) / 1852.0
+            ELSE NULL
+        END,
+        dist_flown_nm = CASE 
+            WHEN lat IS NOT NULL AND dept_lat IS NOT NULL 
+            THEN geography::Point(dept_lat, dept_lon, 4326).STDistance(
+                 geography::Point(lat, lon, 4326)) / 1852.0
+            ELSE NULL
+        END
+    WHERE lat IS NOT NULL;
+    
+    -- Calculate percent complete (capped at 100)
+    UPDATE #pilots
+    SET pct_complete = CASE 
+        WHEN gcd_nm > 10 AND dist_flown_nm IS NOT NULL
+        THEN CASE 
+            WHEN (dist_flown_nm / gcd_nm) * 100.0 > 100.0 THEN 100.0
+            ELSE CAST((dist_flown_nm / gcd_nm) * 100.0 AS DECIMAL(5,2))
+        END
+        ELSE NULL
+    END
+    WHERE gcd_nm IS NOT NULL;
     
     -- ========================================================================
     -- Step 2: Upsert adl_flight_core
     -- ========================================================================
-    SET @step_start = SYSUTCDATETIME();
     
     -- Insert new flights
     INSERT INTO dbo.adl_flight_core (
         flight_key, cid, callsign, flight_id,
-        phase, last_source, is_active,
+        phase, flight_status, last_source, is_active,
         first_seen_utc, last_seen_utc, logon_time_utc,
         adl_date, adl_time, snapshot_utc
     )
     SELECT 
         p.flight_key, p.cid, p.callsign, p.flight_server,
+        -- phase
         CASE 
+            WHEN p.lat IS NULL THEN 'prefile'
             WHEN p.groundspeed_kts < 50 THEN 'taxiing'
             WHEN p.altitude_ft < 10000 THEN 'departed'
             ELSE 'enroute'
+        END,
+        -- flight_status
+        CASE 
+            WHEN p.lat IS NULL THEN 'PROPOSED'
+            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) < 10 THEN 'DEPARTING'
+            WHEN ISNULL(p.pct_complete, 0) >= 90 THEN 'ARRIVING'
+            ELSE 'ACTIVE'
         END,
         'vatsim', 1,
         @now, @now, p.logon_time,
@@ -141,20 +230,26 @@ BEGIN
         c.snapshot_utc = @now,
         c.last_source = 'vatsim',
         c.phase = CASE 
+            WHEN p.lat IS NULL THEN 'prefile'
             WHEN p.groundspeed_kts < 50 THEN 'taxiing'
-            WHEN p.altitude_ft < 10000 AND p.altitude_ft > (SELECT altitude_ft FROM dbo.adl_flight_position WHERE flight_uid = c.flight_uid) THEN 'departed'
-            WHEN p.altitude_ft < 10000 THEN 'descending'
+            WHEN p.altitude_ft < 10000 AND p.altitude_ft > ISNULL(pos.altitude_ft, 0) THEN 'departed'
+            WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) > 50 THEN 'descending'
             ELSE 'enroute'
+        END,
+        c.flight_status = CASE 
+            WHEN p.lat IS NULL THEN 'PROPOSED'
+            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) < 10 THEN 'DEPARTING'
+            WHEN ISNULL(p.pct_complete, 0) >= 90 THEN 'ARRIVING'
+            ELSE 'ACTIVE'
         END,
         c.flight_id = COALESCE(p.flight_server, c.flight_id)
     FROM dbo.adl_flight_core c
-    INNER JOIN #pilots p ON c.flight_key = p.flight_key;
+    INNER JOIN #pilots p ON c.flight_key = p.flight_key
+    LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid;
     
     SET @updated_flights = @@ROWCOUNT;
     
-    -- Add flight_uid to temp table for subsequent joins
-    ALTER TABLE #pilots ADD flight_uid BIGINT NULL;
-    
+    -- Get flight_uid for all pilots
     UPDATE p
     SET p.flight_uid = c.flight_uid
     FROM #pilots p
@@ -163,13 +258,14 @@ BEGIN
     -- ========================================================================
     -- Step 3: Upsert adl_flight_position
     -- ========================================================================
-    SET @step_start = SYSUTCDATETIME();
     
     MERGE dbo.adl_flight_position AS target
     USING (
         SELECT flight_uid, lat, lon, altitude_ft, groundspeed_kts, 
-               heading_deg, qnh_in_hg, qnh_mb
-        FROM #pilots WHERE flight_uid IS NOT NULL
+               heading_deg, qnh_in_hg, qnh_mb,
+               dist_to_dest_nm, dist_flown_nm, pct_complete
+        FROM #pilots 
+        WHERE flight_uid IS NOT NULL AND lat IS NOT NULL
     ) AS source
     ON target.flight_uid = source.flight_uid
     WHEN MATCHED THEN
@@ -182,21 +278,27 @@ BEGIN
             heading_deg = source.heading_deg,
             qnh_in_hg = source.qnh_in_hg,
             qnh_mb = source.qnh_mb,
+            dist_to_dest_nm = source.dist_to_dest_nm,
+            dist_flown_nm = source.dist_flown_nm,
+            pct_complete = source.pct_complete,
             position_updated_utc = @now
     WHEN NOT MATCHED THEN
         INSERT (flight_uid, lat, lon, position_geo, altitude_ft, groundspeed_kts,
-                heading_deg, qnh_in_hg, qnh_mb, position_updated_utc)
+                heading_deg, qnh_in_hg, qnh_mb, 
+                dist_to_dest_nm, dist_flown_nm, pct_complete,
+                position_updated_utc)
         VALUES (source.flight_uid, source.lat, source.lon,
                 geography::Point(source.lat, source.lon, 4326),
                 source.altitude_ft, source.groundspeed_kts, source.heading_deg,
-                source.qnh_in_hg, source.qnh_mb, @now);
+                source.qnh_in_hg, source.qnh_mb,
+                source.dist_to_dest_nm, source.dist_flown_nm, source.pct_complete,
+                @now);
     
     -- ========================================================================
-    -- Step 4: Upsert adl_flight_plan (track route changes)
+    -- Step 4: Identify route changes and upsert adl_flight_plan
     -- ========================================================================
-    SET @step_start = SYSUTCDATETIME();
     
-    -- Identify flights with route changes
+    -- Find flights with changed routes
     SELECT p.flight_uid, p.route, p.route_hash
     INTO #route_changes
     FROM #pilots p
@@ -212,36 +314,52 @@ BEGIN
     MERGE dbo.adl_flight_plan AS target
     USING (
         SELECT 
-            flight_uid, fp_rule, dept_icao, dest_icao, alt_icao,
-            route, remarks, route_hash,
-            -- Parse altitude (handle FL350 or 35000)
+            p.flight_uid, 
+            p.fp_rule, 
+            p.dept_icao, 
+            p.dest_icao, 
+            p.alt_icao,
+            p.dept_artcc,
+            p.dept_tracon,
+            p.dest_artcc,
+            p.dest_tracon,
+            p.route, 
+            p.remarks, 
+            p.route_hash,
+            p.gcd_nm,
+            p.aircraft_faa_raw AS aircraft_equip,
+            -- Parse altitude (FL350 -> 35000, or raw number)
             CASE 
-                WHEN altitude_filed_raw LIKE 'FL%' THEN TRY_CAST(SUBSTRING(altitude_filed_raw, 3, 10) AS INT) * 100
-                ELSE TRY_CAST(altitude_filed_raw AS INT)
+                WHEN p.altitude_filed_raw LIKE 'FL%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 3, 10) AS INT) * 100
+                WHEN p.altitude_filed_raw LIKE 'F%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 2, 10) AS INT) * 100
+                ELSE TRY_CAST(p.altitude_filed_raw AS INT)
             END AS altitude_ft,
-            -- Parse TAS (handle N0450 or 450)
+            -- Parse TAS (N0450 -> 450, or raw number)
             CASE 
-                WHEN tas_filed_raw LIKE 'N%' THEN TRY_CAST(SUBSTRING(tas_filed_raw, 2, 10) AS INT)
-                ELSE TRY_CAST(tas_filed_raw AS INT)
+                WHEN p.tas_filed_raw LIKE 'N%' THEN TRY_CAST(SUBSTRING(p.tas_filed_raw, 2, 10) AS INT)
+                ELSE TRY_CAST(p.tas_filed_raw AS INT)
             END AS tas_kts,
-            dep_time_z,
-            -- Parse enroute time (HHMM to minutes)
+            p.dep_time_z,
+            -- Parse enroute time (HHMM -> minutes)
             CASE 
-                WHEN LEN(enroute_time_raw) = 4 THEN TRY_CAST(LEFT(enroute_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(enroute_time_raw, 2) AS INT)
-                ELSE TRY_CAST(enroute_time_raw AS INT)
+                WHEN LEN(p.enroute_time_raw) = 4 
+                THEN TRY_CAST(LEFT(p.enroute_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.enroute_time_raw, 2) AS INT)
+                ELSE TRY_CAST(p.enroute_time_raw AS INT)
             END AS enroute_minutes,
             -- Parse fuel time
             CASE 
-                WHEN LEN(fuel_time_raw) = 4 THEN TRY_CAST(LEFT(fuel_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(fuel_time_raw, 2) AS INT)
-                ELSE TRY_CAST(fuel_time_raw AS INT)
+                WHEN LEN(p.fuel_time_raw) = 4 
+                THEN TRY_CAST(LEFT(p.fuel_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.fuel_time_raw, 2) AS INT)
+                ELSE TRY_CAST(p.fuel_time_raw AS INT)
             END AS fuel_minutes,
-            -- Parse aircraft type from H/B738/L format
+            -- Extract aircraft type from H/B738/L format
             CASE 
-                WHEN aircraft_faa LIKE '%/%' THEN PARSENAME(REPLACE(aircraft_faa, '/', '.'), 2)
-                ELSE COALESCE(aircraft_short, aircraft_faa)
+                WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
+                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
+                ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
             END AS aircraft_type
-        FROM #pilots 
-        WHERE flight_uid IS NOT NULL
+        FROM #pilots p
+        WHERE p.flight_uid IS NOT NULL
     ) AS source
     ON target.flight_uid = source.flight_uid
     WHEN MATCHED THEN
@@ -250,6 +368,10 @@ BEGIN
             fp_dept_icao = COALESCE(source.dept_icao, target.fp_dept_icao),
             fp_dest_icao = COALESCE(source.dest_icao, target.fp_dest_icao),
             fp_alt_icao = COALESCE(source.alt_icao, target.fp_alt_icao),
+            fp_dept_artcc = COALESCE(source.dept_artcc, target.fp_dept_artcc),
+            fp_dept_tracon = COALESCE(source.dept_tracon, target.fp_dept_tracon),
+            fp_dest_artcc = COALESCE(source.dest_artcc, target.fp_dest_artcc),
+            fp_dest_tracon = COALESCE(source.dest_tracon, target.fp_dest_tracon),
             fp_route = COALESCE(source.route, target.fp_route),
             fp_remarks = COALESCE(source.remarks, target.fp_remarks),
             fp_altitude_ft = COALESCE(source.altitude_ft, target.fp_altitude_ft),
@@ -258,48 +380,47 @@ BEGIN
             fp_enroute_minutes = COALESCE(source.enroute_minutes, target.fp_enroute_minutes),
             fp_fuel_minutes = COALESCE(source.fuel_minutes, target.fp_fuel_minutes),
             aircraft_type = COALESCE(source.aircraft_type, target.aircraft_type),
-            -- Reset parse status if route changed
+            aircraft_equip = COALESCE(source.aircraft_equip, target.aircraft_equip),
+            gcd_nm = COALESCE(source.gcd_nm, target.gcd_nm),
+            -- Update hash and reset parse status if route changed
             fp_hash = CASE 
                 WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash 
-                THEN source.route_hash 
-                ELSE target.fp_hash 
+                THEN source.route_hash ELSE target.fp_hash 
             END,
             fp_updated_utc = CASE 
                 WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash 
-                THEN @now 
-                ELSE target.fp_updated_utc 
+                THEN @now ELSE target.fp_updated_utc 
             END,
             parse_status = CASE 
                 WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash 
-                THEN 'PENDING' 
-                ELSE target.parse_status 
+                THEN 'PENDING' ELSE target.parse_status 
             END,
             route_geometry = CASE 
                 WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash 
-                THEN NULL 
-                ELSE target.route_geometry 
+                THEN NULL ELSE target.route_geometry 
             END
     WHEN NOT MATCHED THEN
         INSERT (flight_uid, fp_rule, fp_dept_icao, fp_dest_icao, fp_alt_icao,
+                fp_dept_artcc, fp_dept_tracon, fp_dest_artcc, fp_dest_tracon,
                 fp_route, fp_remarks, fp_altitude_ft, fp_tas_kts, fp_dept_time_z,
-                fp_enroute_minutes, fp_fuel_minutes, aircraft_type,
-                fp_hash, fp_updated_utc, parse_status)
+                fp_enroute_minutes, fp_fuel_minutes, aircraft_type, aircraft_equip,
+                gcd_nm, fp_hash, fp_updated_utc, parse_status)
         VALUES (source.flight_uid, source.fp_rule, source.dept_icao, source.dest_icao, source.alt_icao,
+                source.dept_artcc, source.dept_tracon, source.dest_artcc, source.dest_tracon,
                 source.route, source.remarks, source.altitude_ft, source.tas_kts, source.dep_time_z,
-                source.enroute_minutes, source.fuel_minutes, source.aircraft_type,
-                source.route_hash, @now, 'PENDING');
+                source.enroute_minutes, source.fuel_minutes, source.aircraft_type, source.aircraft_equip,
+                source.gcd_nm, source.route_hash, @now, 'PENDING');
     
     -- ========================================================================
     -- Step 5: Queue routes for parsing
     -- ========================================================================
-    SET @step_start = SYSUTCDATETIME();
     
-    -- Insert/update parse queue for changed routes
     MERGE dbo.adl_parse_queue AS target
     USING (
         SELECT 
             rc.flight_uid,
-            dbo.fn_GetParseTier(p.dept_icao, p.dest_icao, p.lat, p.lon) AS parse_tier
+            rc.route_hash,
+            COALESCE(dbo.fn_GetParseTier(p.dept_icao, p.dest_icao, p.lat, p.lon), 4) AS parse_tier
         FROM #route_changes rc
         INNER JOIN #pilots p ON p.flight_uid = rc.flight_uid
     ) AS source
@@ -307,69 +428,135 @@ BEGIN
     WHEN MATCHED THEN
         UPDATE SET
             parse_tier = source.parse_tier,
+            route_hash = source.route_hash,
             status = 'PENDING',
             queued_utc = @now,
+            started_utc = NULL,
+            completed_utc = NULL,
             attempts = 0,
             error_message = NULL
     WHEN NOT MATCHED THEN
-        INSERT (flight_uid, parse_tier, status, queued_utc, next_eligible_utc)
-        VALUES (source.flight_uid, source.parse_tier, 'PENDING', @now, @now);
+        INSERT (flight_uid, parse_tier, route_hash, status, queued_utc, next_eligible_utc)
+        VALUES (source.flight_uid, source.parse_tier, source.route_hash, 'PENDING', @now, @now);
     
     -- ========================================================================
-    -- Step 6: Upsert adl_flight_aircraft
+    -- Step 6: Upsert adl_flight_aircraft (with ACD_Data and airlines lookup)
     -- ========================================================================
+    
     MERGE dbo.adl_flight_aircraft AS target
     USING (
         SELECT 
-            flight_uid,
+            p.flight_uid,
+            -- Aircraft ICAO type code
             CASE 
-                WHEN aircraft_faa LIKE '%/%' THEN PARSENAME(REPLACE(aircraft_faa, '/', '.'), 2)
-                ELSE COALESCE(aircraft_short, aircraft_faa)
+                WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
+                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
+                ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
             END AS aircraft_icao,
-            -- Weight class derivation
+            -- Full FAA equipment string (e.g., H/B738/L)
+            p.aircraft_faa_raw AS aircraft_faa,
+            -- Weight class: prefer ACD_Data, fall back to derivation
+            COALESCE(
+                acd.FAA_Weight,
+                CASE 
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('A388', 'A380', 'B748', 'B744', 'AN25', 'A225') THEN 'Super'
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('B77W', 'B77L', 'B772', 'B773', 'A359', 'A35K', 'A346', 'A345', 'A343', 'A342', 'A333', 'A332', 'A339', 'B788', 'B789', 'B78X', 'B764', 'B763', 'B762', 'MD11', 'DC10', 'IL96', 'B752', 'B753', 'A310', 'A306') THEN 'Heavy'
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C1%' 
+                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C2%' 
+                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'PA%'
+                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'SR2%' THEN 'Small'
+                    ELSE 'Large'
+                END
+            ) AS weight_class,
+            -- Engine type from ACD_Data
+            CASE acd.Physical_Class_Engine
+                WHEN 'Jet' THEN 'J'
+                WHEN 'Turboprop' THEN 'T'
+                WHEN 'Piston' THEN 'P'
+                WHEN 'Turboshaft' THEN 'T'
+                WHEN 'Electric' THEN 'E'
+                ELSE CASE 
+                    WHEN p.aircraft_faa_raw LIKE 'H/%' THEN 'J'
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C1%' THEN 'P'
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'PA%' THEN 'P'
+                    ELSE 'J'
+                END
+            END AS engine_type,
+            -- Engine count from ACD_Data
+            acd.Num_Engines AS engine_count,
+            -- Cruise TAS estimation from approach speed (cruise ~= approach * 2)
+            CAST(acd.Approach_Speed_knot * 2 AS INT) AS cruise_tas_kts,
+            -- Ceiling (not in ACD, but could add if needed)
+            CAST(NULL AS INT) AS ceiling_ft,
+            -- Wake category from ACD_Data
+            COALESCE(
+                acd.ICAO_WTC,
+                CASE 
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('A388', 'A380', 'B748', 'B744', 'AN25', 'A225') THEN 'Super'
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('B77W', 'B77L', 'B772', 'B773', 'A359', 'A35K', 'A346', 'A345', 'A343', 'A342', 'A333', 'A332', 'A339', 'B788', 'B789', 'B78X', 'B764', 'B763', 'B762', 'MD11', 'DC10', 'IL96', 'B752', 'B753', 'A310', 'A306') THEN 'Heavy'
+                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C1%' 
+                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C2%' 
+                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'PA%'
+                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'SR2%' THEN 'Light'
+                    ELSE 'Medium'
+                END
+            ) AS wake_category,
+            -- Airline info
+            p.airline_icao,
+            al.name AS airline_name
+        FROM #pilots p
+        LEFT JOIN dbo.ACD_Data acd ON acd.ICAO_Code = 
             CASE 
-                WHEN COALESCE(aircraft_short, aircraft_faa) IN ('A388', 'A380', 'B748', 'B744', 'AN25') THEN 'J'
-                WHEN COALESCE(aircraft_short, aircraft_faa) IN ('B77W', 'B77L', 'B772', 'B773', 'A359', 'A35K', 'A346', 'A345', 'A343', 'A342', 'A333', 'A332', 'B788', 'B789', 'B78X', 'B764', 'B763', 'B762', 'MD11', 'DC10', 'IL96', 'B752', 'B753') THEN 'H'
-                WHEN COALESCE(aircraft_short, aircraft_faa) LIKE 'C1%' OR COALESCE(aircraft_short, aircraft_faa) LIKE 'C2%' OR COALESCE(aircraft_short, aircraft_faa) LIKE 'PA%' THEN 'S'
-                ELSE 'L'
-            END AS weight_class
-        FROM #pilots 
-        WHERE flight_uid IS NOT NULL AND (aircraft_faa IS NOT NULL OR aircraft_short IS NOT NULL)
+                WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
+                WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
+                ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
+            END
+        LEFT JOIN dbo.airlines al ON al.icao = p.airline_icao
+        WHERE p.flight_uid IS NOT NULL 
+          AND (p.aircraft_faa_raw IS NOT NULL OR p.aircraft_short IS NOT NULL)
     ) AS source
     ON target.flight_uid = source.flight_uid
     WHEN MATCHED THEN
         UPDATE SET
-            aircraft_icao = source.aircraft_icao,
-            weight_class = source.weight_class,
-            wake_category = CASE source.weight_class WHEN 'J' THEN 'SUPER' WHEN 'H' THEN 'HEAVY' WHEN 'S' THEN 'LIGHT' ELSE 'MEDIUM' END,
+            aircraft_icao = COALESCE(source.aircraft_icao, target.aircraft_icao),
+            aircraft_faa = COALESCE(source.aircraft_faa, target.aircraft_faa),
+            weight_class = COALESCE(source.weight_class, target.weight_class),
+            engine_type = COALESCE(source.engine_type, target.engine_type),
+            engine_count = COALESCE(source.engine_count, target.engine_count),
+            cruise_tas_kts = COALESCE(source.cruise_tas_kts, target.cruise_tas_kts),
+            ceiling_ft = COALESCE(source.ceiling_ft, target.ceiling_ft),
+            wake_category = COALESCE(source.wake_category, target.wake_category),
+            airline_icao = COALESCE(source.airline_icao, target.airline_icao),
+            airline_name = COALESCE(source.airline_name, target.airline_name),
             aircraft_updated_utc = @now
     WHEN NOT MATCHED THEN
-        INSERT (flight_uid, aircraft_icao, weight_class, wake_category, aircraft_updated_utc)
-        VALUES (source.flight_uid, source.aircraft_icao, source.weight_class,
-                CASE source.weight_class WHEN 'J' THEN 'SUPER' WHEN 'H' THEN 'HEAVY' WHEN 'S' THEN 'LIGHT' ELSE 'MEDIUM' END,
-                @now);
+        INSERT (flight_uid, aircraft_icao, aircraft_faa, weight_class, engine_type, 
+                engine_count, cruise_tas_kts, ceiling_ft, wake_category,
+                airline_icao, airline_name, aircraft_updated_utc)
+        VALUES (source.flight_uid, source.aircraft_icao, source.aircraft_faa, source.weight_class, 
+                source.engine_type, source.engine_count, source.cruise_tas_kts, source.ceiling_ft,
+                source.wake_category, source.airline_icao, source.airline_name, @now);
     
     -- ========================================================================
-    -- Step 7: Mark inactive flights (not seen in this refresh)
+    -- Step 7: Mark inactive flights
     -- ========================================================================
+    
     UPDATE dbo.adl_flight_core
     SET is_active = 0,
-        phase = 'arrived'
+        phase = 'arrived',
+        flight_status = 'COMPLETED'
     WHERE is_active = 1
       AND last_seen_utc < DATEADD(MINUTE, -5, @now);
     
     -- ========================================================================
-    -- Cleanup
+    -- Cleanup and return stats
     -- ========================================================================
+    
     DROP TABLE IF EXISTS #route_changes;
     DROP TABLE IF EXISTS #pilots;
     
-    -- ========================================================================
-    -- Log run stats (optional - matches your existing adl_run_log pattern)
-    -- ========================================================================
     DECLARE @elapsed_ms INT = DATEDIFF(MILLISECOND, @start_time, SYSUTCDATETIME());
     
-    -- Return stats
     SELECT 
         @pilot_count AS pilots_received,
         @new_flights AS new_flights,
@@ -380,9 +567,17 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized created successfully.';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V4 created successfully.';
 PRINT '';
-PRINT 'To use with existing daemon, update vatsim_adl_daemon.php:';
-PRINT '  Change: EXEC [dbo].[sp_Adl_RefreshFromVatsim] @Json = ?';
-PRINT '  To:     EXEC [dbo].[sp_Adl_RefreshFromVatsim_Normalized] @Json = ?';
+PRINT 'Fields now populated:';
+PRINT '  adl_flight_core: flight_status';
+PRINT '  adl_flight_position: dist_to_dest_nm, dist_flown_nm, pct_complete';
+PRINT '  adl_flight_plan: fp_dept_artcc, fp_dept_tracon, fp_dest_artcc, fp_dest_tracon, gcd_nm, aircraft_equip';
+PRINT '  adl_flight_aircraft: aircraft_faa, engine_type, engine_count, cruise_tas_kts, wake_category, airline_icao, airline_name';
+PRINT '  adl_parse_queue: route_hash';
+PRINT '';
+PRINT 'Data sources:';
+PRINT '  - apts table: ARTCC, TRACON, airport coordinates';
+PRINT '  - ACD_Data table: engine type/count, wake category, approach speed';
+PRINT '  - airlines table: airline name lookup';
 GO
