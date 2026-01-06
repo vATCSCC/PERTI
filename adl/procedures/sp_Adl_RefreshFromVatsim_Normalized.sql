@@ -1,11 +1,11 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized.sql
--- Bulk upsert from VATSIM JSON into normalized ADL tables
+-- PATCH: sp_Adl_RefreshFromVatsim_Normalized - ETA & Trajectory Integration
 -- 
--- V6: Fixed weight_class to use single char (J/H/L/S) instead of full words
---     Added ACD_Data and airlines table lookups
---     Now populates: engine_count, cruise_tas_kts, wake_category (from ACD)
---                    airline_name (from airlines table)
+-- This patch adds:
+-- 1. Creating adl_flight_times rows for new flights
+-- 2. Calling sp_ProcessTrajectoryBatch at the end of each refresh
+-- 
+-- Apply by running this script which recreates the full procedure
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -30,6 +30,9 @@ BEGIN
     DECLARE @new_flights INT = 0;
     DECLARE @updated_flights INT = 0;
     DECLARE @routes_queued INT = 0;
+    -- NEW: ETA/Trajectory counters
+    DECLARE @eta_count INT = 0;
+    DECLARE @traj_count INT = 0;
     
     -- ========================================================================
     -- Step 1: Parse JSON into temp table
@@ -68,7 +71,7 @@ BEGIN
             ISNULL(CAST(fp.deptime AS NVARCHAR(4)), '') AS flight_key,
         -- Derived: route_hash
         HASHBYTES('SHA2_256', ISNULL(CAST(fp.route AS NVARCHAR(MAX)), '') + '|' + ISNULL(CAST(fp.remarks AS NVARCHAR(MAX)), '')) AS route_hash,
-        -- Derived: airline_icao (first 3 chars if looks like airline callsign)
+        -- Derived: airline_icao
         CASE 
             WHEN LEN(p.callsign) >= 4 AND p.callsign LIKE '[A-Z][A-Z][A-Z][0-9]%'
             THEN LEFT(p.callsign, 3)
@@ -130,7 +133,6 @@ BEGIN
     
     -- ========================================================================
     -- Step 1b: Enrich with airport data
-    -- Column names based on FAA NASR CSV format (apts.csv)
     -- ========================================================================
     
     -- Departure airport enrichment
@@ -176,7 +178,7 @@ BEGIN
         END
     WHERE lat IS NOT NULL;
     
-    -- Calculate percent complete (capped at 100)
+    -- Calculate percent complete
     UPDATE #pilots
     SET pct_complete = CASE 
         WHEN gcd_nm > 10 AND dist_flown_nm IS NOT NULL
@@ -201,14 +203,12 @@ BEGIN
     )
     SELECT 
         p.flight_key, p.cid, p.callsign, p.flight_server,
-        -- phase
         CASE 
             WHEN p.lat IS NULL THEN 'prefile'
             WHEN p.groundspeed_kts < 50 THEN 'taxiing'
             WHEN p.altitude_ft < 10000 THEN 'departed'
             ELSE 'enroute'
         END,
-        -- flight_status
         CASE 
             WHEN p.lat IS NULL THEN 'PROPOSED'
             WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) < 10 THEN 'DEPARTING'
@@ -257,6 +257,16 @@ BEGIN
     INNER JOIN dbo.adl_flight_core c ON c.flight_key = p.flight_key;
     
     -- ========================================================================
+    -- Step 2b: NEW - Create adl_flight_times rows for new flights
+    -- ========================================================================
+    
+    INSERT INTO dbo.adl_flight_times (flight_uid)
+    SELECT c.flight_uid
+    FROM dbo.adl_flight_core c
+    WHERE c.is_active = 1
+      AND NOT EXISTS (SELECT 1 FROM dbo.adl_flight_times ft WHERE ft.flight_uid = c.flight_uid);
+    
+    -- ========================================================================
     -- Step 3: Upsert adl_flight_position
     -- ========================================================================
     
@@ -299,7 +309,6 @@ BEGIN
     -- Step 4: Identify route changes and upsert adl_flight_plan
     -- ========================================================================
     
-    -- Find flights with changed routes
     SELECT p.flight_uid, p.route, p.route_hash
     INTO #route_changes
     FROM #pilots p
@@ -329,31 +338,26 @@ BEGIN
             p.route_hash,
             p.gcd_nm,
             p.aircraft_faa_raw AS aircraft_equip,
-            -- Parse altitude (FL350 -> 35000, or raw number)
             CASE 
                 WHEN p.altitude_filed_raw LIKE 'FL%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 3, 10) AS INT) * 100
                 WHEN p.altitude_filed_raw LIKE 'F%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 2, 10) AS INT) * 100
                 ELSE TRY_CAST(p.altitude_filed_raw AS INT)
             END AS altitude_ft,
-            -- Parse TAS (N0450 -> 450, or raw number)
             CASE 
                 WHEN p.tas_filed_raw LIKE 'N%' THEN TRY_CAST(SUBSTRING(p.tas_filed_raw, 2, 10) AS INT)
                 ELSE TRY_CAST(p.tas_filed_raw AS INT)
             END AS tas_kts,
             p.dep_time_z,
-            -- Parse enroute time (HHMM -> minutes)
             CASE 
                 WHEN LEN(p.enroute_time_raw) = 4 
                 THEN TRY_CAST(LEFT(p.enroute_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.enroute_time_raw, 2) AS INT)
                 ELSE TRY_CAST(p.enroute_time_raw AS INT)
             END AS enroute_minutes,
-            -- Parse fuel time
             CASE 
                 WHEN LEN(p.fuel_time_raw) = 4 
                 THEN TRY_CAST(LEFT(p.fuel_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.fuel_time_raw, 2) AS INT)
                 ELSE TRY_CAST(p.fuel_time_raw AS INT)
             END AS fuel_minutes,
-            -- Extract aircraft type from H/B738/L format
             CASE 
                 WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
                 WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
@@ -383,7 +387,6 @@ BEGIN
             aircraft_type = COALESCE(source.aircraft_type, target.aircraft_type),
             aircraft_equip = COALESCE(source.aircraft_equip, target.aircraft_equip),
             gcd_nm = COALESCE(source.gcd_nm, target.gcd_nm),
-            -- Update hash and reset parse status if route changed
             fp_hash = CASE 
                 WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash 
                 THEN source.route_hash ELSE target.fp_hash 
@@ -441,22 +444,19 @@ BEGIN
         VALUES (source.flight_uid, source.parse_tier, source.route_hash, 'PENDING', @now, @now);
     
     -- ========================================================================
-    -- Step 6: Upsert adl_flight_aircraft (with ACD_Data and airlines lookup)
+    -- Step 6: Upsert adl_flight_aircraft
     -- ========================================================================
     
     MERGE dbo.adl_flight_aircraft AS target
     USING (
         SELECT 
             p.flight_uid,
-            -- Aircraft ICAO type code
             CASE 
                 WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
                 WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 1)
                 ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
             END AS aircraft_icao,
-            -- Full FAA equipment string (e.g., H/B738/L)
             p.aircraft_faa_raw AS aircraft_faa,
-            -- Weight class: prefer ACD_Data (converted to single char), fall back to derivation
             CASE 
                 WHEN acd.FAA_Weight = 'Super' THEN 'J'
                 WHEN acd.FAA_Weight = 'Heavy' THEN 'H'
@@ -471,7 +471,6 @@ BEGIN
                   OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'SR2%' THEN 'S'
                 ELSE 'L'
             END AS weight_class,
-            -- Engine type from ACD_Data
             CASE acd.Physical_Class_Engine
                 WHEN 'Jet' THEN 'J'
                 WHEN 'Turboprop' THEN 'T'
@@ -485,13 +484,9 @@ BEGIN
                     ELSE 'J'
                 END
             END AS engine_type,
-            -- Engine count from ACD_Data
             acd.Num_Engines AS engine_count,
-            -- Cruise TAS estimation from approach speed (cruise ~= approach * 2)
             CAST(acd.Approach_Speed_knot * 2 AS INT) AS cruise_tas_kts,
-            -- Ceiling (not in ACD, but could add if needed)
             CAST(NULL AS INT) AS ceiling_ft,
-            -- Wake category from ACD_Data
             COALESCE(
                 acd.ICAO_WTC,
                 CASE 
@@ -504,7 +499,6 @@ BEGIN
                     ELSE 'Medium'
                 END
             ) AS wake_category,
-            -- Airline info
             p.airline_icao,
             al.name AS airline_name
         FROM #pilots p
@@ -552,6 +546,16 @@ BEGIN
       AND last_seen_utc < DATEADD(MINUTE, -5, @now);
     
     -- ========================================================================
+    -- Step 8: NEW - Process Trajectory & ETA Calculations
+    -- ========================================================================
+    
+    EXEC dbo.sp_ProcessTrajectoryBatch 
+        @process_eta = 1, 
+        @process_trajectory = 1,
+        @eta_count = @eta_count OUTPUT,
+        @traj_count = @traj_count OUTPUT;
+    
+    -- ========================================================================
     -- Cleanup and return stats
     -- ========================================================================
     
@@ -565,22 +569,25 @@ BEGIN
         @new_flights AS new_flights,
         @updated_flights AS updated_flights,
         @routes_queued AS routes_queued,
+        @eta_count AS etas_calculated,
+        @traj_count AS trajectories_logged,
         @elapsed_ms AS elapsed_ms;
     
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V4 created successfully.';
+PRINT '============================================================================';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V7 - ETA & Trajectory Integration';
+PRINT '============================================================================';
 PRINT '';
-PRINT 'Fields now populated:';
-PRINT '  adl_flight_core: flight_status';
-PRINT '  adl_flight_position: dist_to_dest_nm, dist_flown_nm, pct_complete';
-PRINT '  adl_flight_plan: fp_dept_artcc, fp_dept_tracon, fp_dest_artcc, fp_dest_tracon, gcd_nm, aircraft_equip';
-PRINT '  adl_flight_aircraft: aircraft_faa, engine_type, engine_count, cruise_tas_kts, wake_category, airline_icao, airline_name';
-PRINT '  adl_parse_queue: route_hash';
+PRINT 'NEW in V7:';
+PRINT '  - Creates adl_flight_times rows for new flights (Step 2b)';
+PRINT '  - Calls sp_ProcessTrajectoryBatch at end (Step 8)';
+PRINT '  - Returns etas_calculated and trajectories_logged in output';
 PRINT '';
-PRINT 'Data sources:';
-PRINT '  - apts table: ARTCC, TRACON, airport coordinates';
-PRINT '  - ACD_Data table: engine type/count, wake category, approach speed';
-PRINT '  - airlines table: airline name lookup';
+PRINT 'The procedure now automatically:';
+PRINT '  1. Updates flight relevance flags';
+PRINT '  2. Logs trajectory points based on 8-tier system';
+PRINT '  3. Calculates ETAs with phase-aware accuracy';
+PRINT '============================================================================';
 GO
