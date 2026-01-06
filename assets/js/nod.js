@@ -1925,7 +1925,8 @@
         if (!icao) return AIRPORT_TIER_COLORS['OTHER'];
         const apt = icao.toUpperCase();
         if (CORE30_AIRPORTS.includes(apt)) return AIRPORT_TIER_COLORS['CORE30'];
-        // Could add OEP35/ASPM77 lists if needed
+        if (OEP35_AIRPORTS.includes(apt)) return AIRPORT_TIER_COLORS['OEP35'];
+        if (ASPM77_AIRPORTS.includes(apt)) return AIRPORT_TIER_COLORS['ASPM77'];
         return AIRPORT_TIER_COLORS['OTHER'];
     }
     
@@ -3259,14 +3260,29 @@
         '': '#6c757d'
     };
     
-    // Core 30 airports
+    // Core 30 airports (highest priority)
     const CORE30_AIRPORTS = [
-        'KATL', 'KBOS', 'KBWI', 'KCLT', 'KDCA', 'KDEN', 'KDFW', 'KDTW', 
+        'KATL', 'KBOS', 'KBWI', 'KCLT', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
         'KEWR', 'KFLL', 'KHOU', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX',
         'KLGA', 'KMCO', 'KMDW', 'KMEM', 'KMIA', 'KMSP', 'KORD', 'KPHL',
         'KPHX', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KTPA'
     ];
-    
+
+    // OEP 35 airports (5 additional beyond Core 30)
+    const OEP35_AIRPORTS = [
+        'KCLE', 'KCVG', 'KPBI', 'KPIT', 'KSTL'
+    ];
+
+    // ASPM 77 airports (additional beyond OEP 35)
+    const ASPM77_AIRPORTS = [
+        'KABQ', 'PANC', 'KAUS', 'KBDL', 'KBHM', 'KBNA', 'KBUF', 'KBUR',
+        'KCHS', 'KCMH', 'KDAL', 'KDAY', 'KDSM', 'KELP', 'KGEG', 'KGRR',
+        'KGSO', 'PHNL', 'KHPN', 'KIND', 'KISP', 'KJAX', 'KLGB', 'KLIT',
+        'KMCI', 'KMKE', 'KMSY', 'KOAK', 'PHOG', 'KOKC', 'KOMA', 'KONT',
+        'KPDX', 'KPVD', 'KRDU', 'KRIC', 'KRNO', 'KRSW', 'KSAT', 'KSDF',
+        'KSJC', 'TJSJ', 'KSMF', 'KSNA', 'KSWF', 'KSYR', 'KTUS'
+    ];
+
     // Aircraft Manufacturer Patterns (for aircraft_type color mode)
     const AIRCRAFT_MANUFACTURER_PATTERNS = {
         'AIRBUS':     /^A[0-9]{3}|^A[0-9]{2}[NK]/i,
