@@ -2,6 +2,7 @@
 
 // api/adl/waypoints.php
 // Returns flight waypoints from ADL Azure SQL (adl_flight_waypoints) in JSON format.
+// Also returns airport coordinates for origin/destination for fallback route display.
 // Lookup by flight_uid, flight_key, or callsign.
 
 if (session_status() == PHP_SESSION_NONE) {
@@ -85,42 +86,100 @@ if ($flight_uid <= 0 && $flight_key === '' && $callsign === '') {
 }
 
 // ---------------------------------------------------------------------------
-// First, resolve to flight_uid if needed
+// First, get flight info including airport coordinates
 // ---------------------------------------------------------------------------
 
-if ($flight_uid <= 0) {
-    if ($flight_key !== '') {
-        $sql = "SELECT flight_uid FROM dbo.adl_flight_core WHERE flight_key = ? AND is_active = 1";
-        $params = [$flight_key];
-    } else {
-        $sql = "SELECT flight_uid FROM dbo.adl_flight_core WHERE callsign = ? AND is_active = 1 ORDER BY last_seen_utc DESC";
-        $params = [$callsign];
-    }
-
-    $stmt = sqlsrv_query($conn_adl, $sql, $params);
-    if ($stmt === false) {
-        http_response_code(500);
-        echo json_encode([
-            "error" => "Database error looking up flight.",
-            "sql_error" => adl_sql_error_message()
-        ]);
-        exit;
-    }
-
-    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    sqlsrv_free_stmt($stmt);
-
-    if (!$row) {
-        http_response_code(404);
-        echo json_encode([
-            "error" => "Flight not found",
-            "waypoints" => []
-        ]);
-        exit;
-    }
-
-    $flight_uid = (int)$row['flight_uid'];
+if ($flight_uid > 0) {
+    $lookupSql = "
+        SELECT
+            c.flight_uid, c.flight_key, c.callsign,
+            fp.fp_dept_icao, fp.fp_dest_icao,
+            p.lat AS ac_lat, p.lon AS ac_lon,
+            dept.LAT_DECIMAL AS dept_lat, dept.LONG_DECIMAL AS dept_lon,
+            dest.LAT_DECIMAL AS dest_lat, dest.LONG_DECIMAL AS dest_lon
+        FROM dbo.adl_flight_core c
+        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+        LEFT JOIN dbo.apts dept ON dept.ICAO_ID = fp.fp_dept_icao
+        LEFT JOIN dbo.apts dest ON dest.ICAO_ID = fp.fp_dest_icao
+        WHERE c.flight_uid = ?
+    ";
+    $lookupParams = [$flight_uid];
+} elseif ($flight_key !== '') {
+    $lookupSql = "
+        SELECT
+            c.flight_uid, c.flight_key, c.callsign,
+            fp.fp_dept_icao, fp.fp_dest_icao,
+            p.lat AS ac_lat, p.lon AS ac_lon,
+            dept.LAT_DECIMAL AS dept_lat, dept.LONG_DECIMAL AS dept_lon,
+            dest.LAT_DECIMAL AS dest_lat, dest.LONG_DECIMAL AS dest_lon
+        FROM dbo.adl_flight_core c
+        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+        LEFT JOIN dbo.apts dept ON dept.ICAO_ID = fp.fp_dept_icao
+        LEFT JOIN dbo.apts dest ON dest.ICAO_ID = fp.fp_dest_icao
+        WHERE c.flight_key = ? AND c.is_active = 1
+    ";
+    $lookupParams = [$flight_key];
+} else {
+    $lookupSql = "
+        SELECT TOP 1
+            c.flight_uid, c.flight_key, c.callsign,
+            fp.fp_dept_icao, fp.fp_dest_icao,
+            p.lat AS ac_lat, p.lon AS ac_lon,
+            dept.LAT_DECIMAL AS dept_lat, dept.LONG_DECIMAL AS dept_lon,
+            dest.LAT_DECIMAL AS dest_lat, dest.LONG_DECIMAL AS dest_lon
+        FROM dbo.adl_flight_core c
+        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+        LEFT JOIN dbo.apts dept ON dept.ICAO_ID = fp.fp_dept_icao
+        LEFT JOIN dbo.apts dest ON dest.ICAO_ID = fp.fp_dest_icao
+        WHERE c.callsign = ? AND c.is_active = 1
+        ORDER BY c.last_seen_utc DESC
+    ";
+    $lookupParams = [$callsign];
 }
+
+$stmt = sqlsrv_query($conn_adl, $lookupSql, $lookupParams);
+if ($stmt === false) {
+    http_response_code(500);
+    echo json_encode([
+        "error" => "Database error looking up flight.",
+        "sql_error" => adl_sql_error_message()
+    ]);
+    exit;
+}
+
+$flightRow = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+sqlsrv_free_stmt($stmt);
+
+if (!$flightRow) {
+    http_response_code(404);
+    echo json_encode([
+        "error" => "Flight not found",
+        "flight" => null,
+        "waypoints" => [],
+        "count" => 0
+    ]);
+    exit;
+}
+
+$flight_uid = (int)$flightRow['flight_uid'];
+
+// Build flight info with airport coordinates
+$flightInfo = [
+    'flight_uid' => $flight_uid,
+    'flight_key' => $flightRow['flight_key'],
+    'callsign' => $flightRow['callsign'],
+    'fp_dept_icao' => $flightRow['fp_dept_icao'],
+    'fp_dest_icao' => $flightRow['fp_dest_icao'],
+    'dept_lat' => $flightRow['dept_lat'] !== null ? (float)$flightRow['dept_lat'] : null,
+    'dept_lon' => $flightRow['dept_lon'] !== null ? (float)$flightRow['dept_lon'] : null,
+    'dest_lat' => $flightRow['dest_lat'] !== null ? (float)$flightRow['dest_lat'] : null,
+    'dest_lon' => $flightRow['dest_lon'] !== null ? (float)$flightRow['dest_lon'] : null,
+    'ac_lat' => $flightRow['ac_lat'] !== null ? (float)$flightRow['ac_lat'] : null,
+    'ac_lon' => $flightRow['ac_lon'] !== null ? (float)$flightRow['ac_lon'] : null
+];
 
 // ---------------------------------------------------------------------------
 // Fetch waypoints for the flight
@@ -138,14 +197,8 @@ $sql = "
         w.planned_alt_ft,
         w.is_step_climb_point,
         w.is_toc,
-        w.is_tod,
-        fp.fp_dept_icao,
-        fp.fp_dest_icao,
-        c.callsign,
-        c.flight_key
+        w.is_tod
     FROM dbo.adl_flight_waypoints w
-    JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
-    JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
     WHERE w.flight_uid = ?
     ORDER BY w.sequence_num ASC
 ";
@@ -161,20 +214,8 @@ if ($stmt === false) {
 }
 
 $waypoints = [];
-$flightInfo = null;
 
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    // Capture flight info from first row
-    if ($flightInfo === null) {
-        $flightInfo = [
-            'flight_uid' => $flight_uid,
-            'flight_key' => $row['flight_key'],
-            'callsign' => $row['callsign'],
-            'fp_dept_icao' => $row['fp_dept_icao'],
-            'fp_dest_icao' => $row['fp_dest_icao']
-        ];
-    }
-
     $waypoints[] = [
         'seq' => (int)$row['sequence_num'],
         'fix' => $row['fix_name'],
@@ -193,21 +234,12 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 sqlsrv_free_stmt($stmt);
 sqlsrv_close($conn_adl);
 
-// If no waypoints found, try to get basic route from flight_plan
-if (empty($waypoints)) {
-    echo json_encode([
-        "flight" => $flightInfo,
-        "waypoints" => [],
-        "count" => 0,
-        "message" => "No parsed waypoints available for this flight"
-    ]);
-    exit;
-}
-
+// Return response - always includes flight info with airport coords
 echo json_encode([
     "flight" => $flightInfo,
     "waypoints" => $waypoints,
-    "count" => count($waypoints)
+    "count" => count($waypoints),
+    "message" => empty($waypoints) ? "No parsed waypoints - use airport coords for simple route" : null
 ]);
 
 ?>

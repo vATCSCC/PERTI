@@ -3873,6 +3873,7 @@
         }
 
         // If no local waypoints, fetch from API
+        let apiFlightInfo = null;
         if (!waypoints || !Array.isArray(waypoints) || waypoints.length < 2) {
             console.log(`[NOD] Fetching waypoints from API for ${flightKey}...`);
             try {
@@ -3880,6 +3881,7 @@
                 const response = await fetch(`api/adl/waypoints.php?${lookupParam}`);
                 if (response.ok) {
                     const data = await response.json();
+                    apiFlightInfo = data.flight;
                     if (data.waypoints && data.waypoints.length > 0) {
                         waypoints = data.waypoints;
                         console.log(`[NOD] Fetched ${waypoints.length} waypoints for ${flightKey}`);
@@ -3891,34 +3893,40 @@
         }
 
         // If still no waypoints, create simple direct route from origin to destination
+        // Use airport coordinates from API response
         if (!waypoints || !Array.isArray(waypoints) || waypoints.length < 2) {
-            // Try to build a simple route from dept -> current position -> dest
             const coords = [];
 
-            // Add departure airport if known
-            const deptIcao = flight.fp_dept_icao;
-            if (deptIcao && window.NOD_AIRPORTS && window.NOD_AIRPORTS[deptIcao]) {
-                const apt = window.NOD_AIRPORTS[deptIcao];
-                coords.push({ fix: deptIcao, lat: apt.lat, lon: apt.lon });
+            // Get airport coords from API response
+            const deptLat = apiFlightInfo?.dept_lat;
+            const deptLon = apiFlightInfo?.dept_lon;
+            const destLat = apiFlightInfo?.dest_lat;
+            const destLon = apiFlightInfo?.dest_lon;
+            const deptIcao = apiFlightInfo?.fp_dept_icao || flight.fp_dept_icao;
+            const destIcao = apiFlightInfo?.fp_dest_icao || flight.fp_dest_icao;
+
+            // Add departure airport if we have coordinates
+            if (deptLat != null && deptLon != null) {
+                coords.push({ fix: deptIcao || 'DEP', lat: deptLat, lon: deptLon });
             }
 
-            // Add current position
-            if (flight.lat && flight.lon) {
-                coords.push({ fix: 'AIRCRAFT', lat: parseFloat(flight.lat), lon: parseFloat(flight.lon) });
+            // Add current aircraft position
+            const acLat = apiFlightInfo?.ac_lat ?? parseFloat(flight.lat);
+            const acLon = apiFlightInfo?.ac_lon ?? parseFloat(flight.lon);
+            if (!isNaN(acLat) && !isNaN(acLon)) {
+                coords.push({ fix: 'AIRCRAFT', lat: acLat, lon: acLon });
             }
 
-            // Add destination airport if known
-            const destIcao = flight.fp_dest_icao;
-            if (destIcao && window.NOD_AIRPORTS && window.NOD_AIRPORTS[destIcao]) {
-                const apt = window.NOD_AIRPORTS[destIcao];
-                coords.push({ fix: destIcao, lat: apt.lat, lon: apt.lon });
+            // Add destination airport if we have coordinates
+            if (destLat != null && destLon != null) {
+                coords.push({ fix: destIcao || 'ARR', lat: destLat, lon: destLon });
             }
 
             if (coords.length >= 2) {
                 waypoints = coords;
-                console.log(`[NOD] Using simple route (${coords.length} points) for ${flightKey}`);
+                console.log(`[NOD] Using simple route (${coords.length} points) for ${flightKey}: ${coords.map(c => c.fix).join(' -> ')}`);
             } else {
-                console.warn(`[NOD] No route data available for ${flightKey}`);
+                console.warn(`[NOD] No route data available for ${flightKey} (coords: ${coords.length})`);
                 return false;
             }
         }
