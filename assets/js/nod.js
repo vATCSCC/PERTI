@@ -46,7 +46,41 @@
         // Return black for light backgrounds, white for dark
         return luminance > 0.5 ? '#000000' : '#ffffff';
     }
-    
+
+    /**
+     * Normalize coordinates for International Date Line (IDL) crossing
+     * When a route crosses ±180° longitude, adjust coordinates to prevent
+     * the line from wrapping around the entire globe.
+     * @param {Array} coords - Array of [lon, lat] coordinates
+     * @returns {Array} - Normalized coordinates
+     */
+    function normalizeForIDL(coords) {
+        if (!coords || coords.length < 2) return coords;
+
+        const normalized = [[coords[0][0], coords[0][1]]];
+
+        for (let i = 1; i < coords.length; i++) {
+            let prevLon = normalized[i - 1][0];
+            let currLon = coords[i][0];
+            const currLat = coords[i][1];
+
+            // Check for IDL crossing (longitude jump > 180°)
+            const lonDiff = currLon - prevLon;
+            if (Math.abs(lonDiff) > 180) {
+                // Adjust current longitude to be continuous with previous
+                if (lonDiff > 0) {
+                    currLon -= 360;
+                } else {
+                    currLon += 360;
+                }
+            }
+
+            normalized.push([currLon, currLat]);
+        }
+
+        return normalized;
+    }
+
     // =========================================
     // State Management
     // =========================================
@@ -3986,12 +4020,16 @@
             if (aheadCoords.length > 0) aheadCoords.unshift([acLon, acLat]);
         }
 
+        // Normalize coordinates for IDL crossing (prevents routes wrapping around globe)
+        const normalizedBehind = normalizeForIDL(behindCoords);
+        const normalizedAhead = normalizeForIDL(aheadCoords);
+
         // Store route data
         state.drawnFlightRoutes.set(flightKey, {
             flight,
             waypoints,
-            behindCoords,
-            aheadCoords,
+            behindCoords: normalizedBehind,
+            aheadCoords: normalizedAhead,
             color
         });
 
