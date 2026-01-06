@@ -7,7 +7,8 @@
 let DEMAND_STATE = {
     selectedAirport: null,
     granularity: 'hourly',
-    timeRange: 6, // hours (+/-)
+    timeRangeStart: -2, // hours before now
+    timeRangeEnd: 14,   // hours after now
     direction: 'both',
     category: 'all',
     artcc: '',
@@ -61,19 +62,12 @@ function getARTCCColor(artcc) {
 
 // Time range options (from design document)
 const TIME_RANGE_OPTIONS = [
-    { value: 1, label: '+/- 1H' },
-    { value: 2, label: '+/- 2H' },
-    { value: 3, label: '+/- 3H' },
-    { value: 4, label: '+/- 4H' },
-    { value: 5, label: '+/- 5H' },
-    { value: 6, label: '+/- 6H' },
-    { value: 8, label: '+/- 8H' },
-    { value: 12, label: '+/- 12H' },
-    { value: 24, label: '+/- 24H' },
-    { value: 36, label: '+/- 36H' },
-    { value: 48, label: '+/- 48H' },
-    { value: 72, label: '+/- 72H' },
-    { value: 96, label: '+/- 96H' }
+    { value: 'T-2/+14', label: 'T-2H/T+14H', start: -2, end: 14 },
+    { value: 'T-1/+6', label: 'T-1H/T+6H', start: -1, end: 6 },
+    { value: 'T-3/+6', label: 'T-3H/T+6H', start: -3, end: 6 },
+    { value: 'T-6/+6', label: '+/- 6H', start: -6, end: 6 },
+    { value: 'T-12/+12', label: '+/- 12H', start: -12, end: 12 },
+    { value: 'T-24/+24', label: '+/- 24H', start: -24, end: 24 }
 ];
 
 // ARTCC tier data (loaded from JSON)
@@ -126,8 +120,10 @@ function populateTimeRanges() {
     const select = $('#demand_time_range');
     select.empty();
     TIME_RANGE_OPTIONS.forEach(function(opt) {
-        const selected = opt.value === DEMAND_STATE.timeRange ? 'selected' : '';
-        select.append(`<option value="${opt.value}" ${selected}>${opt.label}</option>`);
+        // Default selection is T-2H/T+14H
+        const isDefault = opt.start === DEMAND_STATE.timeRangeStart && opt.end === DEMAND_STATE.timeRangeEnd;
+        const selected = isDefault ? 'selected' : '';
+        select.append(`<option value="${opt.value}" data-start="${opt.start}" data-end="${opt.end}" ${selected}>${opt.label}</option>`);
     });
 }
 
@@ -188,15 +184,8 @@ function populateAirportDropdown(airports) {
     select.append('<option value="">-- Select Airport --</option>');
 
     airports.forEach(function(apt) {
-        let label = apt.icao;
-        if (apt.is_core30) {
-            label += ' (Core30)';
-        } else if (apt.is_oep35) {
-            label += ' (OEP35)';
-        } else if (apt.is_aspm77) {
-            label += ' (ASPM77)';
-        }
-        select.append(`<option value="${apt.icao}" data-name="${apt.name}" data-artcc="${apt.artcc}">${label}</option>`);
+        // Show only FAA/ICAO code without category labels
+        select.append(`<option value="${apt.icao}" data-name="${apt.name}" data-artcc="${apt.artcc}">${apt.icao}</option>`);
     });
 
     // Restore selection if still valid
@@ -257,7 +246,9 @@ function setupEventHandlers() {
 
     // Time range
     $('#demand_time_range').on('change', function() {
-        DEMAND_STATE.timeRange = parseInt($(this).val());
+        const $selected = $(this).find(':selected');
+        DEMAND_STATE.timeRangeStart = parseInt($selected.data('start'));
+        DEMAND_STATE.timeRangeEnd = parseInt($selected.data('end'));
         if (DEMAND_STATE.selectedAirport) {
             loadDemandData();
         }
@@ -396,10 +387,10 @@ function loadDemandData() {
     $('#demand_empty_state').hide();
     $('#demand_chart').show();
 
-    // Calculate time range
+    // Calculate time range using asymmetric start/end offsets
     const now = new Date();
-    const start = new Date(now.getTime() - DEMAND_STATE.timeRange * 60 * 60 * 1000);
-    const end = new Date(now.getTime() + DEMAND_STATE.timeRange * 60 * 60 * 1000);
+    const start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 60 * 60 * 1000);
+    const end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 60 * 60 * 1000);
 
     const params = new URLSearchParams({
         airport: airport,
@@ -457,6 +448,9 @@ function renderChart(data) {
         return;
     }
 
+    // Hide loading indicator
+    DEMAND_STATE.chart.hideLoading();
+
     const arrivals = data.data.arrivals || [];
     const departures = data.data.departures || [];
     const direction = DEMAND_STATE.direction;
@@ -500,6 +494,12 @@ function renderChart(data) {
             buildStatusSeries('Proposed (Dep)', timeBins, departuresByBin, 'proposed', 'departures'),
             buildStatusSeries('Departed', timeBins, departuresByBin, 'departed', 'departures')
         );
+    }
+
+    // Add current time marker to first series
+    const timeMarkLine = getCurrentTimeMarkLine(timeBins);
+    if (series.length > 0 && timeMarkLine) {
+        series[0].markLine = timeMarkLine;
     }
 
     // Chart options
@@ -578,6 +578,9 @@ function renderOriginChart() {
         return;
     }
 
+    // Hide loading indicator
+    DEMAND_STATE.chart.hideLoading();
+
     const originBreakdown = DEMAND_STATE.originBreakdown || {};
     const data = DEMAND_STATE.lastDemandData;
 
@@ -629,6 +632,12 @@ function renderOriginChart() {
             data: seriesData
         };
     });
+
+    // Add current time marker to first series
+    const timeMarkLine = getCurrentTimeMarkLine(timeBins);
+    if (series.length > 0 && timeMarkLine) {
+        series[0].markLine = timeMarkLine;
+    }
 
     // Chart options
     const option = {
@@ -793,6 +802,58 @@ function formatTimeLabel(isoString) {
     const hours = date.getUTCHours().toString().padStart(2, '0');
     const minutes = date.getUTCMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}Z`;
+}
+
+/**
+ * Find the index of the time bin closest to current time
+ */
+function findCurrentTimeIndex(timeBins) {
+    if (!timeBins || timeBins.length === 0) return -1;
+
+    const now = new Date().getTime();
+    let closestIndex = 0;
+    let closestDiff = Math.abs(new Date(timeBins[0]).getTime() - now);
+
+    for (let i = 1; i < timeBins.length; i++) {
+        const diff = Math.abs(new Date(timeBins[i]).getTime() - now);
+        if (diff < closestDiff) {
+            closestDiff = diff;
+            closestIndex = i;
+        }
+    }
+
+    return closestIndex;
+}
+
+/**
+ * Get current time markLine configuration for chart
+ */
+function getCurrentTimeMarkLine(timeBins) {
+    const currentIndex = findCurrentTimeIndex(timeBins);
+    if (currentIndex < 0) return null;
+
+    const now = new Date();
+    const hours = now.getUTCHours().toString().padStart(2, '0');
+    const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+
+    return {
+        silent: true,
+        symbol: 'none',
+        lineStyle: {
+            color: '#000000',
+            width: 2,
+            type: 'solid'
+        },
+        label: {
+            show: true,
+            formatter: `NOW\n${hours}:${minutes}Z`,
+            position: 'start',
+            color: '#000000',
+            fontWeight: 'bold',
+            fontSize: 10
+        },
+        data: [{ xAxis: currentIndex }]
+    };
 }
 
 /**
