@@ -54,10 +54,11 @@ if ($conn === false) {
     exit;
 }
 
-// Build the statistics query
-// Domestic = ICAO starts with 'K' (CONUS), 'P' (Pacific - HI, AK, etc.)
-// International = Everything else
-//
+// Use ADL Query Helper for normalized table support
+require_once(__DIR__ . '/AdlQueryHelper.php');
+
+// Build the statistics query using helper
+// Supports feature flag switching between view and normalized tables
 // DCC Region mapping (dbo.apts.DCC_REGION uses full names):
 //   Northeast    -> NE (ZBW ZDC ZNY ZOB ZWY)
 //   Southeast    -> SE (ZID ZJX ZMA ZMO ZTL)
@@ -66,70 +67,9 @@ if ($conn === false) {
 //   West         -> NW (ZAK ZAN ZHN ZLA ZLC ZOA ZSE)
 //   Canada, Caribbean, Other -> Other
 
-$sql = "
-WITH flight_classifications AS (
-    SELECT 
-        f.flight_key,
-        f.fp_dept_icao,
-        f.fp_dest_icao,
-        CASE 
-            WHEN LEFT(f.fp_dept_icao, 1) IN ('K', 'P') THEN 1 
-            ELSE 0 
-        END AS dep_domestic,
-        CASE 
-            WHEN LEFT(f.fp_dest_icao, 1) IN ('K', 'P') THEN 1 
-            ELSE 0 
-        END AS arr_domestic,
-        dept_apt.DCC_REGION AS dep_dcc_region,
-        dest_apt.DCC_REGION AS arr_dcc_region,
-        dest_apt.ASPM77 AS arr_aspm77,
-        dest_apt.OEP35 AS arr_oep35,
-        dest_apt.Core30 AS arr_core30
-    -- Use view if available (normalized schema), falls back gracefully
-    FROM dbo.vw_adl_flights f
-    LEFT JOIN dbo.apts dept_apt ON dept_apt.ICAO_ID = f.fp_dept_icao
-    LEFT JOIN dbo.apts dest_apt ON dest_apt.ICAO_ID = f.fp_dest_icao
-    WHERE f.is_active = 1
-)
-SELECT 
-    -- Global totals
-    COUNT(*) AS total_flights,
-    SUM(CASE WHEN dep_domestic = 1 AND arr_domestic = 1 THEN 1 ELSE 0 END) AS domestic_to_domestic,
-    SUM(CASE WHEN dep_domestic = 1 AND arr_domestic = 0 THEN 1 ELSE 0 END) AS domestic_to_intl,
-    SUM(CASE WHEN dep_domestic = 0 AND arr_domestic = 1 THEN 1 ELSE 0 END) AS intl_to_domestic,
-    SUM(CASE WHEN dep_domestic = 0 AND arr_domestic = 0 THEN 1 ELSE 0 END) AS intl_to_intl,
-    
-    -- Domestic flights total (either dep or arr is domestic)
-    SUM(CASE WHEN dep_domestic = 1 OR arr_domestic = 1 THEN 1 ELSE 0 END) AS domestic_total,
-    
-    -- By arrival DCC Region (domestic arrivals only)
-    -- Map full region names to abbreviations: Northeast->NE, Southeast->SE, Midwest->MW, South Central->SC, West->W
-    SUM(CASE WHEN arr_domestic = 1 AND arr_dcc_region = 'Northeast' THEN 1 ELSE 0 END) AS arr_dcc_ne,
-    SUM(CASE WHEN arr_domestic = 1 AND arr_dcc_region = 'Southeast' THEN 1 ELSE 0 END) AS arr_dcc_se,
-    SUM(CASE WHEN arr_domestic = 1 AND arr_dcc_region = 'Midwest' THEN 1 ELSE 0 END) AS arr_dcc_mw,
-    SUM(CASE WHEN arr_domestic = 1 AND arr_dcc_region = 'South Central' THEN 1 ELSE 0 END) AS arr_dcc_sc,
-    SUM(CASE WHEN arr_domestic = 1 AND arr_dcc_region = 'West' THEN 1 ELSE 0 END) AS arr_dcc_w,
-    SUM(CASE WHEN arr_domestic = 1 AND (arr_dcc_region IS NULL OR arr_dcc_region NOT IN ('Northeast','Southeast','Midwest','South Central','West')) THEN 1 ELSE 0 END) AS arr_dcc_other,
-    
-    -- By departure DCC Region (domestic departures only)
-    SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'Northeast' THEN 1 ELSE 0 END) AS dep_dcc_ne,
-    SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'Southeast' THEN 1 ELSE 0 END) AS dep_dcc_se,
-    SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'Midwest' THEN 1 ELSE 0 END) AS dep_dcc_mw,
-    SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'South Central' THEN 1 ELSE 0 END) AS dep_dcc_sc,
-    SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'West' THEN 1 ELSE 0 END) AS dep_dcc_w,
-    SUM(CASE WHEN dep_domestic = 1 AND (dep_dcc_region IS NULL OR dep_dcc_region NOT IN ('Northeast','Southeast','Midwest','South Central','West')) THEN 1 ELSE 0 END) AS dep_dcc_other,
-    
-    -- By airport tier (domestic arrivals only)
-    SUM(CASE WHEN arr_domestic = 1 AND arr_aspm77 = 1 THEN 1 ELSE 0 END) AS arr_aspm77,
-    SUM(CASE WHEN arr_domestic = 1 AND arr_oep35 = 1 THEN 1 ELSE 0 END) AS arr_oep35,
-    SUM(CASE WHEN arr_domestic = 1 AND arr_core30 = 1 THEN 1 ELSE 0 END) AS arr_core30,
-    
-    -- Non-tier domestic arrivals
-    SUM(CASE WHEN arr_domestic = 1 AND (arr_aspm77 = 0 OR arr_aspm77 IS NULL) THEN 1 ELSE 0 END) AS arr_non_aspm77,
-    SUM(CASE WHEN arr_domestic = 1 AND (arr_oep35 = 0 OR arr_oep35 IS NULL) THEN 1 ELSE 0 END) AS arr_non_oep35,
-    SUM(CASE WHEN arr_domestic = 1 AND (arr_core30 = 0 OR arr_core30 IS NULL) THEN 1 ELSE 0 END) AS arr_non_core30
-FROM flight_classifications
-";
+$helper = new AdlQueryHelper();
+$query = $helper->buildStatsQuery();
+$sql = $query['sql'];
 
 $stmt = sqlsrv_query($conn, $sql);
 if ($stmt === false) {
