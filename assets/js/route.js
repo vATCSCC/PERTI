@@ -6456,26 +6456,49 @@ advAddLabeledField(lines, 'NAME', advName);
             return 'hsl(' + hue + ', 85%, 50%)';
         }
         
+        // Helper: Strip ICAO equipment suffixes from aircraft type
+        // e.g., "A359/L" -> "A359", "B738-L" -> "B738"
+        function stripAircraftSuffixes(acType) {
+            if (!acType) return '';
+            return acType.split(/[\/\-_]/)[0].toUpperCase();
+        }
+
+        // Helper: Normalize weight class to standard form
+        // Normalizes weight_class codes: J->SUPER, H->HEAVY, L->LARGE, S->SMALL
+        // FSM Table 3-6: SUPER/J, HEAVY/H, LARGE/L, SMALL/S
+        function getWeightClass(flight) {
+            if (flight.weight_class) {
+                var wc = flight.weight_class.toUpperCase();
+                if (wc === 'SUPER' || wc === 'J' || wc === 'JUMBO') return 'SUPER';
+                if (wc === 'HEAVY' || wc === 'H') return 'HEAVY';
+                if (wc === 'LARGE' || wc === 'L') return 'LARGE';
+                if (wc === 'SMALL' || wc === 'S') return 'SMALL';
+            }
+
+            // Default to LARGE for unknown/jets
+            return 'LARGE';
+        }
+
         // Get flight color based on current color scheme
         function getFlightColor(flight) {
             var scheme = state.colorBy || 'weight_class';
             
             switch (scheme) {
                 case 'weight_class':
-                    var wc = (flight.weight_class || '').toUpperCase().trim();
+                    var wc = getWeightClass(flight);
                     return WEIGHT_CLASS_COLORS[wc] || WEIGHT_CLASS_COLORS[''];
-                    
+
                 case 'aircraft_category':
-                    // Derive category from weight class or aircraft type
-                    var wc = (flight.weight_class || '').toUpperCase().trim();
-                    if (wc === 'SMALL' || wc === 'S') return AIRCRAFT_CATEGORY_COLORS['P'];
-                    if (wc === 'LARGE' || wc === 'L' || wc === 'HEAVY' || wc === 'H' || wc === 'SUPER' || wc === 'J') {
+                    // Derive category from normalized weight class
+                    var wc = getWeightClass(flight);
+                    if (wc === 'SMALL') return AIRCRAFT_CATEGORY_COLORS['P'];
+                    if (wc === 'LARGE' || wc === 'HEAVY' || wc === 'SUPER') {
                         return AIRCRAFT_CATEGORY_COLORS['J'];
                     }
                     return AIRCRAFT_CATEGORY_COLORS[''];
-                    
+
                 case 'aircraft_type':
-                    var acType = (flight.aircraft_type || '').toUpperCase().trim();
+                    var acType = stripAircraftSuffixes(flight.aircraft_type || flight.aircraft_icao || '');
                     return AIRCRAFT_TYPE_COLORS[acType] || AIRCRAFT_TYPE_COLORS[''];
                     
                 case 'carrier':
@@ -7397,16 +7420,15 @@ advAddLabeledField(lines, 'NAME', advName);
             var beforeCount = state.flights.length;
             
             state.filteredFlights = state.flights.filter(function(flight) {
-                // Weight class filter
-                var wc = (flight.weight_class || '').toUpperCase().trim();
+                // Weight class filter - use normalized weight class
+                var wc = getWeightClass(flight);
                 var wcMatch = f.weightClasses.some(function(w) {
-                    if (w === '' && wc === '') return true;
                     if (w === wc) return true;
-                    // Map aliases
-                    if ((w === 'SUPER' || w === 'J') && (wc === 'SUPER' || wc === 'J')) return true;
-                    if ((w === 'HEAVY' || w === 'H') && (wc === 'HEAVY' || wc === 'H')) return true;
-                    if ((w === 'LARGE' || w === 'L') && (wc === 'LARGE' || wc === 'L' || wc === '')) return true;
-                    if ((w === 'SMALL' || w === 'S') && (wc === 'SMALL' || wc === 'S')) return true;
+                    // Map aliases to normalized form
+                    if ((w === 'SUPER' || w === 'J') && wc === 'SUPER') return true;
+                    if ((w === 'HEAVY' || w === 'H') && wc === 'HEAVY') return true;
+                    if ((w === 'LARGE' || w === 'L' || w === '') && wc === 'LARGE') return true;
+                    if ((w === 'SMALL' || w === 'S') && wc === 'SMALL') return true;
                     return false;
                 });
                 if (!wcMatch) return false;
@@ -7436,10 +7458,10 @@ advAddLabeledField(lines, 'NAME', advName);
                 
                 // Carrier filter
                 if (f.carrier && f.carrier.length > 0) {
-                    var flightCarrier = (flight.major_carrier || '').toUpperCase().trim();
+                    var airlineIcao = (flight.airline_icao || '').toUpperCase().trim();
                     var callsign = (flight.callsign || '').toUpperCase().trim();
-                    // Match carrier prefix in major_carrier or callsign
-                    var carrierMatch = flightCarrier.indexOf(f.carrier) === 0 || 
+                    // Match carrier prefix in airline_icao or callsign
+                    var carrierMatch = airlineIcao.indexOf(f.carrier) === 0 ||
                                        callsign.indexOf(f.carrier) === 0;
                     if (!carrierMatch) return false;
                 }
@@ -7517,7 +7539,8 @@ advAddLabeledField(lines, 'NAME', advName);
                         callsign: f.callsign,
                         lat: f.lat,
                         lon: f.lon,
-                        weight_class: f.weight_class,
+                        weight_class: getWeightClass(f),
+                        aircraft_type: stripAircraftSuffixes(f.aircraft_type || f.aircraft_icao),
                         heading: f.heading_deg
                     };
                 }));
@@ -7541,12 +7564,12 @@ advAddLabeledField(lines, 'NAME', advName);
                     // Update existing marker
                     var marker = state.markers.get(key);
                     marker.setLatLng([lat, lon]);
-                    marker.setIcon(createTsdIcon(flight.weight_class, heading, isTracked, flightColor));
+                    marker.setIcon(createTsdIcon(getWeightClass(flight), heading, isTracked, flightColor));
                     marker._flightData = flight;
                 } else {
                     // Create new marker
                     var marker = L.marker([lat, lon], {
-                        icon: createTsdIcon(flight.weight_class, heading, isTracked, flightColor),
+                        icon: createTsdIcon(getWeightClass(flight), heading, isTracked, flightColor),
                         zIndexOffset: isTracked ? 1000 : 0
                     });
                     
@@ -7650,7 +7673,7 @@ advAddLabeledField(lines, 'NAME', advName);
                 ' <i class="fas fa-long-arrow-alt-right mx-1"></i> ' +
                 '<strong>' + (flight.fp_dest_icao || '????') + '</strong>' +
                 '</div>' +
-                '<div class="detail-row"><span class="detail-label">Aircraft</span><span class="detail-value">' + (flight.aircraft_type || '--') + '</span></div>' +
+                '<div class="detail-row"><span class="detail-label">Aircraft</span><span class="detail-value">' + (stripAircraftSuffixes(flight.aircraft_type || flight.aircraft_icao) || '--') + ' (' + getWeightClass(flight) + ')</span></div>' +
                 '<div class="detail-row"><span class="detail-label">Altitude</span><span class="detail-value">' + alt + '</span></div>' +
                 '<div class="detail-row"><span class="detail-label">Speed</span><span class="detail-value">' + spd + '</span></div>' +
                 '<div class="detail-row"><span class="detail-label">Heading</span><span class="detail-value">' + hdg + '</span></div>' +
@@ -7749,9 +7772,9 @@ advAddLabeledField(lines, 'NAME', advName);
             $('#adl_modal_callsign').text(flight.callsign);
             $('#adl_detail_callsign').text(flight.callsign);
             $('#adl_detail_route').text((flight.fp_dept_icao || '????') + ' → ' + (flight.fp_dest_icao || '????'));
-            $('#adl_detail_aircraft').text(flight.aircraft_type || '--');
-            $('#adl_detail_weight').text(flight.weight_class || '--');
-            $('#adl_detail_carrier').text(flight.major_carrier || '--');
+            $('#adl_detail_aircraft').text(stripAircraftSuffixes(flight.aircraft_type || flight.aircraft_icao) || '--');
+            $('#adl_detail_weight').text(getWeightClass(flight));
+            $('#adl_detail_carrier').text(flight.airline_icao || flight.airline_name || '--');
             $('#adl_detail_phase').text(flight.phase || '--');
             $('#adl_detail_status').text(flight.flight_status || '--');
             $('#adl_detail_position').text(

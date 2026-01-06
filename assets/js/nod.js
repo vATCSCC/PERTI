@@ -1426,17 +1426,17 @@
     
     function updateTrafficLayer() {
         if (!state.map || !state.map.getSource('traffic-source')) return;
-        
+
         const features = state.traffic.filteredData
             .filter(f => f.lat && f.lon)
             .map(flight => {
-                // Determine weight class from ac_cat or weight_class field
+                // Determine normalized weight class
                 const weightClass = getWeightClass(flight);
-                
-                // Clean aircraft type - strip ICAO suffixes (e.g., B738/L -> B738)
-                const rawAcType = flight.aircraft_icao || flight.ac_type || '';
+
+                // Clean aircraft type - strip equipment suffixes (e.g., B738/L -> B738)
+                const rawAcType = flight.aircraft_icao || flight.aircraft_type || '';
                 const cleanAcType = stripAircraftSuffixes(rawAcType);
-                
+
                 return {
                     type: 'Feature',
                     geometry: {
@@ -1451,7 +1451,7 @@
                         origin: flight.fp_dept_icao || flight.dep,
                         dest: flight.fp_dest_icao || flight.arr,
                         ac_type: cleanAcType,
-                        ac_cat: flight.ac_cat,
+                        raw_weight_class: flight.weight_class || '',
                         weight_class: weightClass,
                         heading: parseInt(flight.heading_deg) || 0,
                         status: flight.flight_status || flight.status,
@@ -1484,15 +1484,15 @@
     function applyFilters() {
         const f = state.traffic.filters;
         state.traffic.filteredData = state.traffic.data.filter(flight => {
-            // Weight class filter
+            // Weight class filter - getWeightClass() returns normalized SUPER/HEAVY/LARGE/SMALL
             const wc = getWeightClass(flight);
             const wcMatch = f.weightClasses.some(w => {
-                if (w === '' && wc === '') return true;
                 if (w === wc) return true;
-                if ((w === 'SUPER' || w === 'J') && (wc === 'SUPER' || wc === 'J')) return true;
-                if ((w === 'HEAVY' || w === 'H') && (wc === 'HEAVY' || wc === 'H')) return true;
-                if ((w === 'LARGE' || w === 'L') && (wc === 'LARGE' || wc === 'L' || wc === '')) return true;
-                if ((w === 'SMALL' || w === 'S') && (wc === 'SMALL' || wc === 'S')) return true;
+                // Map filter aliases to normalized form (wc is always normalized)
+                if ((w === 'SUPER' || w === 'J') && wc === 'SUPER') return true;
+                if ((w === 'HEAVY' || w === 'H') && wc === 'HEAVY') return true;
+                if ((w === 'LARGE' || w === 'L' || w === '') && wc === 'LARGE') return true;
+                if ((w === 'SMALL' || w === 'S') && wc === 'SMALL') return true;
                 return false;
             });
             if (!wcMatch) return false;
@@ -1513,8 +1513,10 @@
             
             // Carrier filter
             if (f.carrier && f.carrier.length > 0) {
+                const airlineIcao = (flight.airline_icao || '').toUpperCase().trim();
                 const callsign = (flight.callsign || '').toUpperCase().trim();
-                if (!callsign.startsWith(f.carrier)) return false;
+                // Match carrier prefix in airline_icao or callsign
+                if (!(airlineIcao.startsWith(f.carrier) || callsign.startsWith(f.carrier))) return false;
             }
             
             // Altitude filter (in feet)
@@ -1590,10 +1592,10 @@
     
     /**
      * Determine weight class from flight data
+     * Normalizes weight_class codes: J->SUPER, H->HEAVY, L->LARGE, S->SMALL
      * FSM Table 3-6: SUPER/J, HEAVY/H, LARGE/L, SMALL/S
      */
     function getWeightClass(flight) {
-        // First check if weight_class is directly provided
         if (flight.weight_class) {
             const wc = flight.weight_class.toUpperCase();
             if (['SUPER', 'J', 'JUMBO'].includes(wc)) return 'SUPER';
@@ -1601,14 +1603,7 @@
             if (['LARGE', 'L'].includes(wc)) return 'LARGE';
             if (['SMALL', 'S'].includes(wc)) return 'SMALL';
         }
-        
-        // Fall back to ac_cat (aircraft category)
-        const cat = (flight.ac_cat || '').toUpperCase();
-        if (cat === 'J' || cat === 'SUPER') return 'SUPER';
-        if (cat === 'H' || cat === 'HEAVY') return 'HEAVY';
-        if (cat === 'L' || cat === 'LARGE') return 'LARGE';
-        if (cat === 'S' || cat === 'SMALL' || cat === 'P' || cat === 'PROP') return 'SMALL';
-        
+
         // Default to LARGE for unknown/jets
         return 'LARGE';
     }
@@ -1634,7 +1629,8 @@
                 
             case 'aircraft_category':
             case 'ac_cat':
-                const cat = (flight.ac_cat || '').toUpperCase();
+                // Use raw weight_class field (J/H/L/S or SUPER/HEAVY/LARGE/SMALL)
+                const cat = (flight.weight_class || '').toUpperCase();
                 if (cat === 'J' || cat === 'SUPER') return WEIGHT_CLASS_COLORS['SUPER'];
                 if (cat === 'H' || cat === 'HEAVY') return WEIGHT_CLASS_COLORS['HEAVY'];
                 if (cat === 'L' || cat === 'LARGE') return WEIGHT_CLASS_COLORS['LARGE'];
@@ -4235,7 +4231,7 @@
                     <span title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
                 </div>
                 <div style="color:#aaa; font-size:10px; margin-bottom:4px;">
-                    ${escapeHtml(props.ac_type || '---')} ${props.ac_cat ? `(${props.ac_cat})` : ''}
+                    ${escapeHtml(props.ac_type || '---')} (${props.weight_class || '?'})
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
