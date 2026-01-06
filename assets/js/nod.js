@@ -3070,20 +3070,31 @@
         'OTHER': '#6c757d'         // Gray
     };
     
-    // Aircraft Configuration Patterns
+    // Aircraft Configuration Patterns (order matters - first match wins)
     const AIRCRAFT_CONFIG_PATTERNS = {
-        'A380':        /^A38[0-9]/i,
-        'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96/i,
-        'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]/i,
-        'TRI_JET':     /^MD11|^DC10|^L101|^TU154/i,
-        'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]/i,
-        'REGIONAL_JET': /^CRJ|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]/i,
-        'TURBOPROP':   /^AT[0-9]{2}|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^C208|^BE[0-9]{2}[0-9]/i,
-        'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]/i
+        // Supersonic
+        'CONC':        /^CONC|^T144|^TU144/i,
+        // Super Heavy (A380, AN-225, AN-124)
+        'A380':        /^A38[0-9]|^A225|^AN225|^A124|^AN124/i,
+        // Quad Jets (747, A340, IL-96, DC-8, VC10)
+        'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96|^DC8|^VC10/i,
+        // Heavy Twins (777, 787, A330, A350, 767, A300, A310, IL-86, IL-62)
+        'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]|^A30[0-9]|^A310|^IL86|^IL62/i,
+        // Tri-Jets (MD-11, DC-10, L-1011, TU-154, 727, Yak-42, TU-134, Falcon 900/7X)
+        'TRI_JET':     /^MD11|^DC10|^L101|^L10|^TU15|^B72[0-9]|^R72[0-9]|^YK42|^YAK42|^TU13|^F900|^FA7X|^FA8X/i,
+        // Twin Jets - Narrowbody (A320 fam, 737 fam, 757, MD-80/90, 717, Fokker, BAe, TU-204, C919, SSJ, ARJ)
+        'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]|^B712|^B717|^F100|^F70|^F28|^B146|^RJ[0-9]{2}|^BA46|^AVRO|^TU20|^TU21|^C919|^SSJ|^SU95|^ARJ|^CRJX/i,
+        // Regional Jets (CRJ, ERJ, E-Jets)
+        'REGIONAL_JET': /^CRJ[0-9]|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]|^E1[0-9]{2}|^E75|^E90|^E95/i,
+        // Turboprops (ATR, DHC-8/Q, Saab, Beech 1900, Jetstream, PC-12/24, Caravan, L-410, MA60, Y-12)
+        'TURBOPROP':   /^AT[0-9]{2}|^ATR|^DH8|^DHC[0-9]|^Q[0-9]{3}|^SF34|^SB20|^SAAB|^B190|^BE19|^JS[0-9]{2}|^J31|^J32|^J41|^PC12|^PC24|^C208|^C212|^L410|^MA60|^Y12|^AN[23][0-9]|^DO[0-9]{2}|^D328/i,
+        // Props/GA (Cessna 1xx/2xx, Piper, Cirrus, Diamond, Mooney, Beech Bonanza, Robin, Socata)
+        'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^C3[0-9]{2}|^C4[0-9]{2}|^P28|^PA[0-9]{2}|^PA[0-9][0-9]T|^SR2[0-9]|^SR22|^DA[0-9]{2}|^DA4[0-9]|^M20|^M20[A-Z]|^BE[0-9]{2}[^0-9]|^BE3[0-9]|^BE36|^A36|^G36|^DR[0-9]{2}|^TB[0-9]{2}|^TBM|^RV[0-9]|^AAA|^AA5|^GLST|^ULAC|^TRIN|^COL[0-9]|^EVOT/i
     };
-    
+
     const AIRCRAFT_CONFIG_COLORS = {
-        'A380': '#9c27b0',          // Deep Purple
+        'CONC': '#ff1493',          // Deep Pink - Supersonic
+        'A380': '#9c27b0',          // Deep Purple - Super Heavy
         'QUAD_JET': '#e15759',      // Red
         'HEAVY_TWIN': '#f28e2b',    // Orange
         'TRI_JET': '#edc948',       // Yellow
@@ -3698,6 +3709,7 @@
                 break;
             case 'aircraft_config':
                 items = [
+                    { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: 'Concorde' },
                     { color: AIRCRAFT_CONFIG_COLORS['A380'], label: 'A380' },
                     { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: 'Quad Jet' },
                     { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: 'Heavy Twin' },
@@ -3904,6 +3916,7 @@
                 break;
             case 'aircraft_config':
                 items = [
+                    { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: 'Concorde' },
                     { color: AIRCRAFT_CONFIG_COLORS['A380'], label: 'A380' },
                     { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: 'Quad Jet' },
                     { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: 'Heavy Twin' },
