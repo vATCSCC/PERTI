@@ -1617,24 +1617,29 @@
                 if (flight.gs_affected || flight.ground_stop_affected) return '#dc3545';  // Red - Ground stopped
                 if (flight.gdp_affected || flight.edct_issued) return '#ffc107';  // Yellow - EDCT
 
-                // Get flight status - supports both single-char codes (A/D/L) and full words
+                // Get flight status - supports both single-char codes and full words
+                // ADL normalized uses: PROPOSED, DEPARTING, ACTIVE, ARRIVING, COMPLETED
                 const flightStatus = (flight.flight_status || flight.status || '').toUpperCase();
 
-                // Airborne/Active - single char 'A' or full words
-                if (flightStatus === 'A' || flightStatus === 'AIRBORNE' || flightStatus === 'ACTIVE') {
-                    return '#28a745';  // Green - Airborne
+                // Airborne/Active/Enroute - single char 'A' or full words
+                if (flightStatus === 'A' || flightStatus === 'AIRBORNE' || flightStatus === 'ACTIVE' || flightStatus === 'ENROUTE') {
+                    return '#28a745';  // Green - Airborne/Enroute
                 }
-                // Departed - single char 'D' or full word
-                if (flightStatus === 'D' || flightStatus === 'DEPARTED' || flightStatus === 'DEPARTING' || flightStatus === 'TAXIED') {
-                    return '#17a2b8';  // Cyan - Departing/Taxied
+                // Departing/Taxiing - on ground at origin
+                if (flightStatus === 'D' || flightStatus === 'DEPARTED' || flightStatus === 'DEPARTING' || flightStatus === 'TAXIING' || flightStatus === 'TAXIED') {
+                    return '#17a2b8';  // Cyan - Departing/Taxiing
                 }
-                // Landed/Arrived - single char 'L' or full words
-                if (flightStatus === 'L' || flightStatus === 'LANDED' || flightStatus === 'ARRIVED') {
-                    return '#6c757d';  // Gray - Arrived
+                // Arriving - approaching destination (ADL: pct_complete >= 90)
+                if (flightStatus === 'ARRIVING' || flightStatus === 'DESCENDING') {
+                    return '#f28e2b';  // Orange - Arriving
                 }
-                // Proposed/Scheduled - no status yet
-                if (flightStatus === 'PROPOSED' || flightStatus === '' || !flightStatus) {
-                    return '#ffffff';  // White - Proposed/Unknown
+                // Landed/Arrived/Completed - on ground at destination or disconnected
+                if (flightStatus === 'L' || flightStatus === 'LANDED' || flightStatus === 'ARRIVED' || flightStatus === 'COMPLETED') {
+                    return '#6c757d';  // Gray - Arrived/Completed
+                }
+                // Proposed/Prefile - no position yet
+                if (flightStatus === 'PROPOSED' || flightStatus === 'PREFILE' || flightStatus === '' || !flightStatus) {
+                    return '#b07aa1';  // Purple - Proposed/Prefile
                 }
                 return '#ffffff';
                 
@@ -3939,9 +3944,12 @@
                 ];
                 break;
             case 'status':
+                // ADL flight statuses: PROPOSED, DEPARTING, ACTIVE, ARRIVING, COMPLETED
                 items = [
-                    { color: '#28a745', label: 'Airborne' },
+                    { color: '#b07aa1', label: 'Proposed' },
                     { color: '#17a2b8', label: 'Departing' },
+                    { color: '#28a745', label: 'Airborne' },
+                    { color: '#f28e2b', label: 'Arriving' },
                     { color: '#6c757d', label: 'Arrived' },
                     { color: '#dc3545', label: 'GS Affected' },
                     { color: '#ffc107', label: 'EDCT' }
@@ -4146,9 +4154,12 @@
                 ];
                 break;
             case 'status':
+                // ADL flight statuses: PROPOSED, DEPARTING, ACTIVE, ARRIVING, COMPLETED
                 items = [
-                    { color: '#28a745', label: 'Airborne' },
+                    { color: '#b07aa1', label: 'Proposed' },
                     { color: '#17a2b8', label: 'Departing' },
+                    { color: '#28a745', label: 'Airborne' },
+                    { color: '#f28e2b', label: 'Arriving' },
                     { color: '#6c757d', label: 'Arrived' },
                     { color: '#dc3545', label: 'GS Affected' },
                     { color: '#ffc107', label: 'EDCT' }
