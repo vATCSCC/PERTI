@@ -6498,7 +6498,8 @@ advAddLabeledField(lines, 'NAME', advName);
                     return AIRCRAFT_CATEGORY_COLORS[''];
 
                 case 'aircraft_type':
-                    var acType = stripAircraftSuffixes(flight.aircraft_type || flight.aircraft_icao || '');
+                    // Prefer aircraft_icao (clean code from DB), fallback to flight plan field
+                    var acType = stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || '');
                     return AIRCRAFT_TYPE_COLORS[acType] || AIRCRAFT_TYPE_COLORS[''];
                     
                 case 'carrier':
