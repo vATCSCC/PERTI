@@ -2107,14 +2107,19 @@
         //    A + 5-6 digits = Air Force (e.g., A12345)
         //    VV + 3-4 digits = Navy (e.g., VV123)
         //    R + digits = Army
+        //    AF + 1-4 digits = Air Force (but NOT AFR/AFL which are airlines)
+        //    CG + digits = Coast Guard (but NOT airline codes starting with CG)
         if (/^A[0-9]{5,6}$/.test(cs)) return 'MILITARY';      // Air Force tail
         if (/^VV[0-9]{3,4}$/.test(cs)) return 'MILITARY';     // Navy tail
         if (/^R[0-9]{5,6}$/.test(cs)) return 'MILITARY';      // Army tail
+        if (/^AF[0-9]{1,4}$/.test(cs)) return 'MILITARY';     // Air Force (AF + digits only)
+        if (/^CG[0-9]{2,5}$/.test(cs)) return 'MILITARY';     // Coast Guard (CG + digits)
+        if (/^VR[0-9]{2,4}$/.test(cs)) return 'MILITARY';     // Navy Fleet Logistics (VR + digits)
 
         // 2. Check explicit military prefixes (startsWith for flexibility)
-        //    Skip single-letter prefixes here to avoid false positives with airlines
+        //    Only check prefixes 3+ chars to avoid airline conflicts (AF->AFR, CG->CGA, etc.)
         for (const prefix of MILITARY_PREFIXES) {
-            if (prefix.length >= 2 && cs.startsWith(prefix)) return 'MILITARY';
+            if (prefix.length >= 3 && cs.startsWith(prefix)) return 'MILITARY';
         }
 
         // 3. Military-style callsigns: word + numbers (e.g., REACH01, KING21, NAVY42)
@@ -3261,16 +3266,16 @@
         'REAPER', // MQ-9
         'SHADOW', // RQ-7
         'GLOBAL', // RQ-4 Global Hawk
-        // US Air Force standard prefixes (letter codes used with tail numbers)
-        'USAF', 'AF', 'ANG', 'AFRC',
+        // US Air Force standard prefixes (longer codes only - 'AF' handled separately to avoid AFR/AFL conflicts)
+        'USAF', 'ANG', 'AFRC',
         // US Army
         'ARMY', 'PAT',  // Patriot Express
-        // US Navy (VV = Navy, VR = Fleet Logistics)
-        'NAVY', 'CNV', 'VV', 'VR', 'VP', 'VQ', 'VAQ', 'VFA', 'VAW', 'VRC', 'VRM',
+        // US Navy (squadron prefixes - 2-letter ones handled by regex to avoid airline conflicts)
+        'NAVY', 'CNV', 'VAQ', 'VFA', 'VAW', 'VRC', 'VRM',
         // US Marines (various squadron designators)
         'MARINE', 'MAR', 'USMC', 'VMM', 'VMA', 'VMFA', 'VMC', 'VMGR', 'HMH', 'HMM', 'HML', 'HMLA',
-        // US Coast Guard
-        'USCG', 'CG', 'COAST',
+        // US Coast Guard (CG + digits handled by regex to avoid airline conflicts)
+        'USCG', 'COAST',
         // US Special Operations
         'RRR',    // Rescue
         'EXEC',   // Executive transport
