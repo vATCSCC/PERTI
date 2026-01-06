@@ -2097,17 +2097,29 @@
         if (FREIGHT_CARRIERS.includes(carrier)) return 'FREIGHT';
 
         // Military detection - multiple methods:
-        // 1. Check explicit military prefixes (startsWith for flexibility)
+
+        // 1. US Military tail number patterns (letter prefix + digits)
+        //    A + 5-6 digits = Air Force (e.g., A12345)
+        //    VV + 3-4 digits = Navy (e.g., VV123)
+        //    R + digits = Army
+        if (/^A[0-9]{5,6}$/.test(cs)) return 'MILITARY';      // Air Force tail
+        if (/^VV[0-9]{3,4}$/.test(cs)) return 'MILITARY';     // Navy tail
+        if (/^R[0-9]{5,6}$/.test(cs)) return 'MILITARY';      // Army tail
+
+        // 2. Check explicit military prefixes (startsWith for flexibility)
+        //    Skip single-letter prefixes here to avoid false positives with airlines
         for (const prefix of MILITARY_PREFIXES) {
-            if (cs.startsWith(prefix)) return 'MILITARY';
+            if (prefix.length >= 2 && cs.startsWith(prefix)) return 'MILITARY';
         }
-        // 2. Military-style callsigns: word + numbers (e.g., REACH01, KING21, NAVY42)
+
+        // 3. Military-style callsigns: word + numbers (e.g., REACH01, KING21, NAVY42)
         if (/^[A-Z]{3,7}[0-9]{1,3}$/.test(cs) && !carrier) {
             // Check if the word part matches any military prefix
             const wordPart = cs.replace(/[0-9]+$/, '');
             if (MILITARY_PREFIXES.includes(wordPart)) return 'MILITARY';
         }
-        // 3. Check for common military tail number patterns
+
+        // 4. Check for common military tail number patterns
         //    US military often uses 5-6 digit tail numbers without letters
         if (/^[0-9]{5,6}$/.test(cs)) return 'MILITARY';
 
@@ -3244,14 +3256,14 @@
         'REAPER', // MQ-9
         'SHADOW', // RQ-7
         'GLOBAL', // RQ-4 Global Hawk
-        // US Air Force standard prefixes
-        'USAF', 'AF', 'ANG',
+        // US Air Force standard prefixes (letter codes used with tail numbers)
+        'USAF', 'AF', 'ANG', 'AFRC',
         // US Army
         'ARMY', 'PAT',  // Patriot Express
-        // US Navy
-        'NAVY', 'CNV',  // Convair (Navy)
-        // US Marines
-        'MARINE', 'MAR',
+        // US Navy (VV = Navy, VR = Fleet Logistics)
+        'NAVY', 'CNV', 'VV', 'VR', 'VP', 'VQ', 'VAQ', 'VFA', 'VAW', 'VRC', 'VRM',
+        // US Marines (various squadron designators)
+        'MARINE', 'MAR', 'USMC', 'VMM', 'VMA', 'VMFA', 'VMC', 'VMGR', 'HMH', 'HMM', 'HML', 'HMLA',
         // US Coast Guard
         'USCG', 'CG', 'COAST',
         // US Special Operations
