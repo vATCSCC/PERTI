@@ -643,7 +643,8 @@ BEGIN
     DECLARE @strsn NVARCHAR(16) = NULL;
     DECLARE @found_sid BIT = 0;
     DECLARE @last_fix_before_star NVARCHAR(50) = NULL;
-    
+    DECLARE @next_fix_after_dp NVARCHAR(50) = NULL;
+
     DECLARE route_cursor CURSOR LOCAL FAST_FORWARD FOR
         SELECT seq, token, token_type 
         FROM @tokens 
@@ -920,19 +921,61 @@ BEGIN
             WHERE computer_code = @t_token;
             
             -- 2. Try as DP: token.% pattern (SKORR5 -> SKORR5.%)
+            -- Prefer transition that matches the next fix after this DP
             IF @proc_route IS NULL
             BEGIN
-                SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code
-                FROM dbo.nav_procedures
-                WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'DP';
+                -- Look ahead to find the next FIX token after this DP
+                SET @next_fix_after_dp = NULL;
+                SELECT TOP 1 @next_fix_after_dp = token
+                FROM @tokens
+                WHERE seq > @t_seq
+                  AND token_type = 'FIX'
+                ORDER BY seq;
+
+                -- First try to find a DP whose transition matches the next fix
+                IF @next_fix_after_dp IS NOT NULL
+                BEGIN
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code
+                    FROM dbo.nav_procedures
+                    WHERE computer_code = @t_token + '.' + @next_fix_after_dp
+                      AND procedure_type = 'DP';
+
+                    IF @debug = 1 AND @proc_route IS NOT NULL
+                        PRINT '  -> Found DP with matching transition: ' + @next_fix_after_dp;
+                END
+
+                -- If no context match, fall back to first matching DP
+                IF @proc_route IS NULL
+                BEGIN
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code
+                    FROM dbo.nav_procedures
+                    WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'DP';
+                END
             END
             
             -- 3. Try as STAR: %.token pattern (ANJLL4 -> %.ANJLL4)
+            -- Prefer transition that matches the last fix before this STAR
             IF @proc_route IS NULL
             BEGIN
-                SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code
-                FROM dbo.nav_procedures
-                WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR';
+                -- First try to find a STAR whose transition matches the last fix
+                IF @last_fix_before_star IS NOT NULL
+                BEGIN
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code
+                    FROM dbo.nav_procedures
+                    WHERE computer_code = @last_fix_before_star + '.' + @t_token
+                      AND procedure_type = 'STAR';
+
+                    IF @debug = 1 AND @proc_route IS NOT NULL
+                        PRINT '  -> Found STAR with matching transition: ' + @last_fix_before_star;
+                END
+
+                -- If no context match, fall back to first matching STAR
+                IF @proc_route IS NULL
+                BEGIN
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code
+                    FROM dbo.nav_procedures
+                    WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR';
+                END
             END
             
             -- 4. Try stripping trailing digit/letter and search again for DPs
