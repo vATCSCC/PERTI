@@ -16,11 +16,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once __DIR__ . '/../../config/database.php';
+require_once(__DIR__ . "/../../load/config.php");
 
-try {
-    $pdo = getVatsimAdlConnection();
-} catch (Exception $e) {
+if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
+    !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {
+    http_response_code(500);
+    echo json_encode(['error' => 'ADL_SQL_* constants not defined']);
+    exit;
+}
+
+$connInfo = [
+    "Database" => ADL_SQL_DATABASE,
+    "UID" => ADL_SQL_USERNAME,
+    "PWD" => ADL_SQL_PASSWORD,
+    "CharacterSet" => "UTF-8",
+    "TrustServerCertificate" => true
+];
+
+$conn = sqlsrv_connect(ADL_SQL_HOST, $connInfo);
+if ($conn === false) {
     http_response_code(500);
     echo json_encode(['error' => 'Database connection failed']);
     exit;
@@ -33,12 +47,10 @@ switch ($action) {
     /**
      * List boundaries by type
      * GET /api/adl/boundaries.php?action=list&type=ARTCC
-     * GET /api/adl/boundaries.php?action=list&type=SECTOR_HIGH&artcc=ZDC
      */
     case 'list':
         $type = $_GET['type'] ?? null;
         $artcc = $_GET['artcc'] ?? null;
-        $includeGeometry = ($_GET['geometry'] ?? '0') === '1';
         
         $sql = "SELECT 
             boundary_id,
@@ -55,30 +67,27 @@ switch ($action) {
             ceiling_altitude,
             label_lat,
             label_lon,
-            shape_area";
-        
-        if ($includeGeometry) {
-            $sql .= ", boundary_geography.STAsText() as geometry_wkt";
-        }
-        
-        $sql .= " FROM adl_boundary WHERE is_active = 1";
+            shape_area
+        FROM adl_boundary WHERE is_active = 1";
         
         $params = [];
         if ($type) {
-            $sql .= " AND boundary_type = :type";
-            $params[':type'] = $type;
+            $sql .= " AND boundary_type = ?";
+            $params[] = $type;
         }
         if ($artcc) {
-            $sql .= " AND (parent_artcc = :artcc OR boundary_code = :artcc2)";
-            $params[':artcc'] = strtoupper($artcc);
-            $params[':artcc2'] = strtoupper($artcc);
+            $sql .= " AND (parent_artcc = ? OR boundary_code = ?)";
+            $params[] = strtoupper($artcc);
+            $params[] = strtoupper($artcc);
         }
         
         $sql .= " ORDER BY boundary_type, boundary_code";
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $boundaries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = sqlsrv_query($conn, $sql, $params);
+        $boundaries = [];
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $boundaries[] = $row;
+        }
         
         echo json_encode([
             'success' => true,
@@ -90,7 +99,6 @@ switch ($action) {
     /**
      * Get GeoJSON for map display
      * GET /api/adl/boundaries.php?action=geojson&type=ARTCC
-     * GET /api/adl/boundaries.php?action=geojson&type=SECTOR_HIGH&artcc=ZDC
      */
     case 'geojson':
         $type = $_GET['type'] ?? null;
@@ -117,22 +125,19 @@ switch ($action) {
         
         $params = [];
         if ($type) {
-            $sql .= " AND boundary_type = :type";
-            $params[':type'] = $type;
+            $sql .= " AND boundary_type = ?";
+            $params[] = $type;
         }
         if ($artcc) {
-            $sql .= " AND (parent_artcc = :artcc OR boundary_code = :artcc2)";
-            $params[':artcc'] = strtoupper($artcc);
-            $params[':artcc2'] = strtoupper($artcc);
+            $sql .= " AND (parent_artcc = ? OR boundary_code = ?)";
+            $params[] = strtoupper($artcc);
+            $params[] = strtoupper($artcc);
         }
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = sqlsrv_query($conn, $sql, $params);
         
-        // Build GeoJSON FeatureCollection
         $features = [];
-        foreach ($rows as $row) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $geometry = wktToGeoJson($row['geometry_wkt']);
             
             $features[] = [
@@ -184,12 +189,11 @@ switch ($action) {
         FROM adl_boundary
         WHERE boundary_type = 'ARTCC'
           AND is_active = 1
-          AND boundary_geography.STContains(geography::Point(:lat1, :lon1, 4326)) = 1
+          AND boundary_geography.STContains(geography::Point(?, ?, 4326)) = 1
         ORDER BY is_oceanic ASC, boundary_geography.STArea() ASC";
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':lat1' => $lat, ':lon1' => $lon]);
-        $artcc = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = sqlsrv_query($conn, $sql, [$lat, $lon]);
+        $artcc = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         
         // Find Sector
         $sql = "SELECT TOP 1 
@@ -198,12 +202,11 @@ switch ($action) {
         FROM adl_boundary
         WHERE boundary_type IN ('SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH')
           AND is_active = 1
-          AND boundary_geography.STContains(geography::Point(:lat2, :lon2, 4326)) = 1
+          AND boundary_geography.STContains(geography::Point(?, ?, 4326)) = 1
         ORDER BY boundary_geography.STArea() ASC";
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':lat2' => $lat, ':lon2' => $lon]);
-        $sector = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = sqlsrv_query($conn, $sql, [$lat, $lon]);
+        $sector = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         
         // Find TRACON
         $tracon = null;
@@ -213,12 +216,11 @@ switch ($action) {
             FROM adl_boundary
             WHERE boundary_type = 'TRACON'
               AND is_active = 1
-              AND boundary_geography.STContains(geography::Point(:lat3, :lon3, 4326)) = 1
+              AND boundary_geography.STContains(geography::Point(?, ?, 4326)) = 1
             ORDER BY boundary_geography.STArea() ASC";
             
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([':lat3' => $lat, ':lon3' => $lon]);
-            $tracon = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt = sqlsrv_query($conn, $sql, [$lat, $lon]);
+            $tracon = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         }
         
         echo json_encode([
@@ -243,8 +245,11 @@ switch ($action) {
         GROUP BY boundary_type
         ORDER BY boundary_type";
         
-        $stmt = $pdo->query($sql);
-        $summary = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = sqlsrv_query($conn, $sql);
+        $summary = [];
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $summary[] = $row;
+        }
         
         echo json_encode([
             'success' => true,
@@ -254,7 +259,6 @@ switch ($action) {
     
     /**
      * Get flight boundary status
-     * GET /api/adl/boundaries.php?action=flight&uid=123
      * GET /api/adl/boundaries.php?action=flight&callsign=AAL123
      */
     case 'flight':
@@ -281,42 +285,20 @@ switch ($action) {
         LEFT JOIN adl_boundary ab3 ON fc.current_tracon_id = ab3.boundary_id
         WHERE ";
         
+        $params = [];
         if ($flightUid) {
-            $sql .= "fc.flight_uid = :uid";
-            $params = [':uid' => $flightUid];
+            $sql .= "fc.flight_uid = ?";
+            $params[] = $flightUid;
         } elseif ($callsign) {
-            $sql .= "fc.callsign = :callsign AND fc.is_active = 1";
-            $params = [':callsign' => strtoupper($callsign)];
+            $sql .= "fc.callsign = ? AND fc.is_active = 1";
+            $params[] = strtoupper($callsign);
         } else {
             echo json_encode(['error' => 'Flight UID or callsign required']);
             break;
         }
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $flight = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($flight) {
-            // Get recent boundary transitions
-            $logSql = "SELECT TOP 10
-                bl.boundary_type,
-                bl.boundary_code,
-                ab.boundary_name,
-                bl.entry_time,
-                bl.exit_time,
-                bl.entry_lat,
-                bl.entry_lon
-            FROM adl_flight_boundary_log bl
-            LEFT JOIN adl_boundary ab ON bl.boundary_id = ab.boundary_id
-            WHERE bl.flight_id = :fuid
-            ORDER BY bl.entry_time DESC";
-            
-            $logStmt = $pdo->prepare($logSql);
-            $logStmt->execute([':fuid' => $flight['flight_uid']]);
-            $transitions = $logStmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            $flight['transitions'] = $transitions;
-        }
+        $stmt = sqlsrv_query($conn, $sql, $params);
+        $flight = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         
         echo json_encode([
             'success' => true,
@@ -324,79 +306,35 @@ switch ($action) {
         ]);
         break;
     
-    /**
-     * Detect boundaries for a flight (trigger detection)
-     * POST /api/adl/boundaries.php?action=detect
-     * Body: { "flight_uid": 123, "lat": 38.8977, "lon": -77.0365, "alt": 35000 }
-     */
-    case 'detect':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            echo json_encode(['error' => 'POST required']);
-            break;
-        }
-        
-        $input = json_decode(file_get_contents('php://input'), true);
-        $flightUid = $input['flight_uid'] ?? null;
-        $lat = $input['lat'] ?? null;
-        $lon = $input['lon'] ?? null;
-        $alt = $input['alt'] ?? null;
-        
-        if (!$flightUid || !$lat || !$lon) {
-            echo json_encode(['error' => 'flight_uid, lat, lon required']);
-            break;
-        }
-        
-        $sql = "EXEC sp_DetectFlightBoundaries :flight_uid, :lat, :lon, :alt";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':flight_uid' => $flightUid,
-            ':lat' => $lat,
-            ':lon' => $lon,
-            ':alt' => $alt
-        ]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        echo json_encode([
-            'success' => true,
-            'boundaries' => $result
-        ]);
-        break;
-    
     default:
         echo json_encode(['error' => 'Unknown action']);
 }
+
+sqlsrv_close($conn);
 
 /**
  * Convert WKT to GeoJSON geometry
  */
 function wktToGeoJson($wkt) {
-    // Parse WKT type
-    if (preg_match('/^(POLYGON|MULTIPOLYGON)\s*\((.+)\)$/is', $wkt, $matches)) {
-        $type = strtoupper($matches[1]);
-        $coordStr = $matches[2];
-        
-        if ($type === 'POLYGON') {
-            return [
-                'type' => 'Polygon',
-                'coordinates' => parsePolygonCoords($coordStr)
-            ];
-        } else {
-            return [
-                'type' => 'MultiPolygon',
-                'coordinates' => parseMultiPolygonCoords($coordStr)
-            ];
-        }
+    if (!$wkt) return null;
+    
+    if (preg_match('/^POLYGON\s*\((.+)\)$/is', $wkt, $matches)) {
+        return [
+            'type' => 'Polygon',
+            'coordinates' => parsePolygonCoords($matches[1])
+        ];
+    } elseif (preg_match('/^MULTIPOLYGON\s*\((.+)\)$/is', $wkt, $matches)) {
+        return [
+            'type' => 'MultiPolygon',
+            'coordinates' => parseMultiPolygonCoords($matches[1])
+        ];
     }
     
     return null;
 }
 
-/**
- * Parse polygon coordinates from WKT
- */
 function parsePolygonCoords($str) {
     $rings = [];
-    // Match each ring: (x1 y1, x2 y2, ...)
     preg_match_all('/\(([^()]+)\)/', $str, $ringMatches);
     
     foreach ($ringMatches[1] as $ringStr) {
@@ -405,7 +343,6 @@ function parsePolygonCoords($str) {
         foreach ($points as $point) {
             $coords = preg_split('/\s+/', trim($point));
             if (count($coords) >= 2) {
-                // WKT is lon lat, GeoJSON is [lon, lat]
                 $ring[] = [(float)$coords[0], (float)$coords[1]];
             }
         }
@@ -415,23 +352,16 @@ function parsePolygonCoords($str) {
     return $rings;
 }
 
-/**
- * Parse multipolygon coordinates from WKT
- */
 function parseMultiPolygonCoords($str) {
     $polygons = [];
-    // Match each polygon: ((ring1), (ring2))
     preg_match_all('/\(\(([^)]+(?:\),[^)]+)*)\)\)/', $str, $polyMatches);
     
     foreach ($polyMatches[0] as $polyStr) {
-        // Remove outer parens
         $polyStr = trim($polyStr, '()');
         $polygons[] = parsePolygonCoords($polyStr);
     }
     
-    // If no matches, try simpler pattern
     if (empty($polygons)) {
-        // Fall back to treating entire string as single polygon
         $polygons[] = parsePolygonCoords($str);
     }
     
