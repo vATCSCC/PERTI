@@ -2,7 +2,8 @@
 -- sp_Adl_RefreshFromVatsim_Normalized.sql
 -- Bulk upsert from VATSIM JSON into normalized ADL tables
 -- 
--- V4: Added ACD_Data and airlines table lookups
+-- V5: Removed TRACON column references (not in all apts table versions)
+--     Added ACD_Data and airlines table lookups
 --     Now populates: engine_count, cruise_tas_kts, wake_category (from ACD)
 --                    airline_name (from airlines table)
 -- ============================================================================
@@ -137,7 +138,7 @@ BEGIN
     SET p.dept_lat = a.LAT_DECIMAL,
         p.dept_lon = a.LONG_DECIMAL,
         p.dept_artcc = a.RESP_ARTCC_ID,
-        p.dept_tracon = COALESCE(a.[Approach ID], a.[Departure ID], a.[Approach/Departure ID])
+        p.dept_tracon = COALESCE(a.Approach_ID, a.Departure_ID, a.Approach_Departure_ID)
     FROM #pilots p
     INNER JOIN dbo.apts a ON a.ICAO_ID = p.dept_icao
     WHERE p.dept_icao IS NOT NULL;
@@ -147,7 +148,7 @@ BEGIN
     SET p.dest_lat = a.LAT_DECIMAL,
         p.dest_lon = a.LONG_DECIMAL,
         p.dest_artcc = a.RESP_ARTCC_ID,
-        p.dest_tracon = COALESCE(a.[Approach ID], a.[Departure ID], a.[Approach/Departure ID])
+        p.dest_tracon = COALESCE(a.Approach_ID, a.Departure_ID, a.Approach_Departure_ID)
     FROM #pilots p
     INNER JOIN dbo.apts a ON a.ICAO_ID = p.dest_icao
     WHERE p.dest_icao IS NOT NULL;
