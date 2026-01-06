@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase 5E.1: Boundary Import - Web Trigger
+ * Phase 5E.1: Boundary Import - Web Trigger (v2 with Failure Logging)
  * /api/adl/import_boundaries.php
  */
 
@@ -44,17 +44,88 @@ if ($conn === false) {
     die("ERROR: Database connection failed - " . print_r(sqlsrv_errors(), true) . "\n");
 }
 
-echo "=== Boundary Import ===\n";
+echo "=== Boundary Import (v2 with Logging) ===\n";
 echo "Connected to database.\n\n";
+
+// Generate unique run ID for this import batch
+$runId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+    mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+    mt_rand(0, 0xffff),
+    mt_rand(0, 0x0fff) | 0x4000,
+    mt_rand(0, 0x3fff) | 0x8000,
+    mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+);
+echo "Import Run ID: $runId\n\n";
 
 $geojsonDir = __DIR__ . '/../../assets/geojson/';
 
-// Stats
+// Stats with failure details
 $stats = [
-    'artcc' => ['imported' => 0, 'failed' => 0],
-    'sectors' => ['imported' => 0, 'failed' => 0],
-    'tracon' => ['imported' => 0, 'failed' => 0]
+    'artcc' => ['imported' => 0, 'failed' => 0, 'failures' => []],
+    'sectors' => ['imported' => 0, 'failed' => 0, 'failures' => []],
+    'tracon' => ['imported' => 0, 'failed' => 0, 'failures' => []]
 ];
+
+// Check if log table exists
+$logTableExists = false;
+$checkSql = "SELECT 1 FROM sys.tables WHERE name = 'adl_boundary_import_log'";
+$checkStmt = sqlsrv_query($conn, $checkSql);
+if ($checkStmt && sqlsrv_fetch_array($checkStmt)) {
+    $logTableExists = true;
+    echo "Failure logging enabled (adl_boundary_import_log table found)\n\n";
+}
+sqlsrv_free_stmt($checkStmt);
+
+/**
+ * Log import result to database
+ */
+function logImportResult($conn, $runId, $data, $status, $errorMsg = null, $errorCode = null, $wktLength = 0, $geomType = null, $pointCount = 0) {
+    global $logTableExists;
+    if (!$logTableExists) return;
+    
+    $sql = "INSERT INTO adl_boundary_import_log 
+            (import_run_id, boundary_type, boundary_code, boundary_name, source_file, status, error_message, error_code, wkt_length, geometry_type, point_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $params = [
+        $runId,
+        $data['boundary_type'],
+        $data['boundary_code'],
+        $data['boundary_name'] ?? null,
+        $data['source_file'] ?? null,
+        $status,
+        $errorMsg,
+        $errorCode,
+        $wktLength,
+        $geomType,
+        $pointCount
+    ];
+    
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt) sqlsrv_free_stmt($stmt);
+}
+
+/**
+ * Count points in geometry
+ */
+function countPoints($geometry) {
+    $count = 0;
+    $type = $geometry['type'];
+    $coords = $geometry['coordinates'];
+    
+    if ($type === 'Polygon') {
+        foreach ($coords as $ring) {
+            $count += count($ring);
+        }
+    } elseif ($type === 'MultiPolygon') {
+        foreach ($coords as $polygon) {
+            foreach ($polygon as $ring) {
+                $count += count($ring);
+            }
+        }
+    }
+    return $count;
+}
 
 /**
  * Convert GeoJSON geometry to WKT
@@ -110,13 +181,39 @@ function geojsonToWkt($geometry) {
 }
 
 /**
+ * Extract error code from SQL Server error
+ */
+function extractErrorCode($errors) {
+    if (is_array($errors) && isset($errors[0]['code'])) {
+        return 'SQLSTATE_' . $errors[0]['code'];
+    }
+    return 'UNKNOWN';
+}
+
+/**
+ * Extract concise error message
+ */
+function extractErrorMessage($errors) {
+    if (is_array($errors) && isset($errors[0]['message'])) {
+        return substr($errors[0]['message'], 0, 500);
+    }
+    return 'Unknown error';
+}
+
+/**
  * Import a single boundary
  */
-function importBoundary($conn, $data) {
+function importBoundary($conn, $data, $runId, $category) {
     global $stats;
     
+    $wktLength = 0;
+    $pointCount = 0;
+    $geomType = $data['geometry']['type'] ?? 'Unknown';
+    
     try {
+        $pointCount = countPoints($data['geometry']);
         $wkt = geojsonToWkt($data['geometry']);
+        $wktLength = strlen($wkt);
         
         $sql = "EXEC sp_ImportBoundary 
                 @boundary_type = ?,
@@ -165,7 +262,22 @@ function importBoundary($conn, $data) {
         
         $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
-            echo "    Error ({$data['boundary_code']}): " . print_r(sqlsrv_errors(), true) . "\n";
+            $errors = sqlsrv_errors();
+            $errorCode = extractErrorCode($errors);
+            $errorMsg = extractErrorMessage($errors);
+            
+            // Log failure
+            logImportResult($conn, $runId, $data, 'FAILED', $errorMsg, $errorCode, $wktLength, $geomType, $pointCount);
+            
+            // Track in stats
+            $stats[$category]['failures'][] = [
+                'code' => $data['boundary_code'],
+                'error_code' => $errorCode,
+                'error' => substr($errorMsg, 0, 100),
+                'points' => $pointCount,
+                'wkt_len' => $wktLength
+            ];
+            
             return false;
         }
         
@@ -173,17 +285,32 @@ function importBoundary($conn, $data) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
         
-        // Debug first few
-        static $debugCount = 0;
-        if ($debugCount < 5) {
-            echo "    Debug ({$data['boundary_code']}): row = " . json_encode($row) . "\n";
-            $debugCount++;
+        $success = $row && isset($row['boundary_id']) && $row['boundary_id'] > 0;
+        
+        if ($success) {
+            logImportResult($conn, $runId, $data, 'SUCCESS', null, null, $wktLength, $geomType, $pointCount);
+        } else {
+            logImportResult($conn, $runId, $data, 'FAILED', 'SP returned no boundary_id', 'NO_ID', $wktLength, $geomType, $pointCount);
+            $stats[$category]['failures'][] = [
+                'code' => $data['boundary_code'],
+                'error_code' => 'NO_ID',
+                'error' => 'SP returned no boundary_id',
+                'points' => $pointCount,
+                'wkt_len' => $wktLength
+            ];
         }
         
-        return $row && isset($row['boundary_id']) && $row['boundary_id'] > 0;
+        return $success;
         
     } catch (Exception $e) {
-        echo "    Exception ({$data['boundary_code']}): " . $e->getMessage() . "\n";
+        logImportResult($conn, $runId, $data, 'FAILED', $e->getMessage(), 'EXCEPTION', $wktLength, $geomType, $pointCount);
+        $stats[$category]['failures'][] = [
+            'code' => $data['boundary_code'],
+            'error_code' => 'EXCEPTION',
+            'error' => substr($e->getMessage(), 0, 100),
+            'points' => $pointCount,
+            'wkt_len' => $wktLength
+        ];
         return false;
     }
 }
@@ -191,7 +318,7 @@ function importBoundary($conn, $data) {
 /**
  * Import ARTCC boundaries
  */
-function importArtcc($conn, $geojsonDir, &$stats) {
+function importArtcc($conn, $geojsonDir, &$stats, $runId) {
     $file = $geojsonDir . 'artcc.json';
     echo "Importing ARTCC boundaries from: $file\n";
     
@@ -228,7 +355,7 @@ function importArtcc($conn, $geojsonDir, &$stats) {
             'geometry' => $feature['geometry'],
             'source_fid' => $props['fid'] ?? null,
             'source_file' => 'artcc.json'
-        ]);
+        ], $runId, 'artcc');
         
         if ($result) {
             $stats['artcc']['imported']++;
@@ -249,7 +376,7 @@ function importArtcc($conn, $geojsonDir, &$stats) {
 /**
  * Import sector boundaries
  */
-function importSectors($conn, $geojsonDir, $type, &$stats) {
+function importSectors($conn, $geojsonDir, $type, &$stats, $runId) {
     $file = $geojsonDir . $type . '.json';
     $boundaryType = 'SECTOR_' . strtoupper($type);
     
@@ -283,7 +410,7 @@ function importSectors($conn, $geojsonDir, $type, &$stats) {
             'shape_area' => $props['Shape_Area'] ?? null,
             'source_object_id' => $props['OBJECTID'] ?? null,
             'source_file' => $type . '.json'
-        ]);
+        ], $runId, 'sectors');
         
         if ($result) {
             $stats['sectors']['imported']++;
@@ -304,7 +431,7 @@ function importSectors($conn, $geojsonDir, $type, &$stats) {
 /**
  * Import TRACON boundaries
  */
-function importTracon($conn, $geojsonDir, &$stats) {
+function importTracon($conn, $geojsonDir, &$stats, $runId) {
     $file = $geojsonDir . 'tracon.json';
     echo "Importing TRACON boundaries from: $file\n";
     
@@ -338,7 +465,7 @@ function importTracon($conn, $geojsonDir, &$stats) {
             'shape_area' => $props['Shape_Area'] ?? null,
             'source_object_id' => $props['OBJECTID'] ?? null,
             'source_file' => 'tracon.json'
-        ]);
+        ], $runId, 'tracon');
         
         if ($result) {
             $stats['tracon']['imported']++;
@@ -356,28 +483,35 @@ function importTracon($conn, $geojsonDir, &$stats) {
     flush();
 }
 
+// Clear existing data if requested
+if (isset($_GET['clear']) && $_GET['clear'] === 'true') {
+    echo "Clearing existing boundary data...\n";
+    sqlsrv_query($conn, "TRUNCATE TABLE adl_boundary");
+    echo "Cleared.\n\n";
+}
+
 // Run import based on type parameter
 $type = $_GET['type'] ?? 'all';
 
 switch ($type) {
     case 'artcc':
-        importArtcc($conn, $geojsonDir, $stats);
+        importArtcc($conn, $geojsonDir, $stats, $runId);
         break;
     case 'high':
     case 'low':
     case 'superhigh':
-        importSectors($conn, $geojsonDir, $type, $stats);
+        importSectors($conn, $geojsonDir, $type, $stats, $runId);
         break;
     case 'tracon':
-        importTracon($conn, $geojsonDir, $stats);
+        importTracon($conn, $geojsonDir, $stats, $runId);
         break;
     case 'all':
     default:
-        importArtcc($conn, $geojsonDir, $stats);
-        importSectors($conn, $geojsonDir, 'high', $stats);
-        importSectors($conn, $geojsonDir, 'low', $stats);
-        importSectors($conn, $geojsonDir, 'superhigh', $stats);
-        importTracon($conn, $geojsonDir, $stats);
+        importArtcc($conn, $geojsonDir, $stats, $runId);
+        importSectors($conn, $geojsonDir, 'high', $stats, $runId);
+        importSectors($conn, $geojsonDir, 'low', $stats, $runId);
+        importSectors($conn, $geojsonDir, 'superhigh', $stats, $runId);
+        importTracon($conn, $geojsonDir, $stats, $runId);
         break;
 }
 
@@ -387,8 +521,63 @@ echo "ARTCC:   {$stats['artcc']['imported']} imported, {$stats['artcc']['failed'
 echo "Sectors: {$stats['sectors']['imported']} imported, {$stats['sectors']['failed']} failed\n";
 echo "TRACON:  {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed\n";
 
-$total = $stats['artcc']['imported'] + $stats['sectors']['imported'] + $stats['tracon']['imported'];
-echo "Total:   $total boundaries imported\n";
+$totalImported = $stats['artcc']['imported'] + $stats['sectors']['imported'] + $stats['tracon']['imported'];
+$totalFailed = $stats['artcc']['failed'] + $stats['sectors']['failed'] + $stats['tracon']['failed'];
+echo "Total:   $totalImported imported, $totalFailed failed\n\n";
+
+// Print failure details
+if ($totalFailed > 0) {
+    echo "=== Failure Details ===\n";
+    
+    $allFailures = array_merge(
+        $stats['artcc']['failures'],
+        $stats['sectors']['failures'],
+        $stats['tracon']['failures']
+    );
+    
+    // Group by error code
+    $byErrorCode = [];
+    foreach ($allFailures as $f) {
+        $code = $f['error_code'];
+        if (!isset($byErrorCode[$code])) {
+            $byErrorCode[$code] = ['count' => 0, 'sample_error' => $f['error'], 'boundaries' => []];
+        }
+        $byErrorCode[$code]['count']++;
+        if (count($byErrorCode[$code]['boundaries']) < 10) {
+            $byErrorCode[$code]['boundaries'][] = $f['code'];
+        }
+    }
+    
+    echo "\nFailures by error type:\n";
+    foreach ($byErrorCode as $code => $info) {
+        echo "  $code ({$info['count']}): {$info['sample_error']}\n";
+        echo "    Sample boundaries: " . implode(', ', $info['boundaries']) . "\n";
+    }
+    
+    // Show stats on geometry characteristics of failures
+    echo "\nFailure geometry stats:\n";
+    $avgPoints = 0;
+    $avgWkt = 0;
+    $maxPoints = 0;
+    $maxWkt = 0;
+    foreach ($allFailures as $f) {
+        $avgPoints += $f['points'];
+        $avgWkt += $f['wkt_len'];
+        $maxPoints = max($maxPoints, $f['points']);
+        $maxWkt = max($maxWkt, $f['wkt_len']);
+    }
+    if (count($allFailures) > 0) {
+        echo "  Avg points: " . round($avgPoints / count($allFailures)) . "\n";
+        echo "  Max points: $maxPoints\n";
+        echo "  Avg WKT length: " . round($avgWkt / count($allFailures)) . "\n";
+        echo "  Max WKT length: $maxWkt\n";
+    }
+}
+
+if ($logTableExists) {
+    echo "\nDetailed logs saved to adl_boundary_import_log table.\n";
+    echo "Query with: SELECT * FROM adl_boundary_import_log WHERE import_run_id = '$runId' AND status = 'FAILED'\n";
+}
 
 sqlsrv_close($conn);
 echo "\nDone.\n";
