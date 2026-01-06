@@ -799,7 +799,7 @@
             data: { type: 'FeatureCollection', features: [] }
         });
 
-        // Route behind aircraft (solid line - already flown)
+        // Route behind aircraft (solid line - already flown) - matches route.php styling
         state.map.addLayer({
             id: 'flight-routes-behind',
             type: 'line',
@@ -808,12 +808,12 @@
             layout: { 'line-join': 'round', 'line-cap': 'round' },
             paint: {
                 'line-color': ['get', 'color'],
-                'line-width': 2.5,
-                'line-opacity': 0.8
+                'line-width': 2,
+                'line-opacity': 0.7
             }
         }, 'traffic-circles-fallback');
 
-        // Route ahead of aircraft (dashed line - remaining)
+        // Route ahead of aircraft (dashed line - remaining) - matches route.php styling
         state.map.addLayer({
             id: 'flight-routes-ahead',
             type: 'line',
@@ -822,35 +822,35 @@
             layout: { 'line-join': 'round', 'line-cap': 'round' },
             paint: {
                 'line-color': ['get', 'color'],
-                'line-width': 2.5,
-                'line-dasharray': [4, 4],
-                'line-opacity': 0.8
+                'line-width': 2,
+                'line-dasharray': [8, 6],
+                'line-opacity': 0.9
             }
         }, 'traffic-circles-fallback');
 
-        // Waypoint circles
+        // Waypoint circles - small white dots with colored outline
         state.map.addLayer({
             id: 'flight-waypoints-circles',
             type: 'circle',
             source: 'flight-waypoints-source',
             paint: {
-                'circle-radius': 4,
+                'circle-radius': 3,
                 'circle-color': '#ffffff',
                 'circle-stroke-color': ['get', 'color'],
-                'circle-stroke-width': 2
+                'circle-stroke-width': 1.5
             }
         }, 'traffic-circles-fallback');
 
-        // Waypoint labels
+        // Waypoint labels - only show at higher zoom
         state.map.addLayer({
             id: 'flight-waypoints-labels',
             type: 'symbol',
             source: 'flight-waypoints-source',
-            minzoom: 6,
+            minzoom: 7,
             layout: {
                 'text-field': ['get', 'name'],
-                'text-size': 10,
-                'text-offset': [0, 1.2],
+                'text-size': 9,
+                'text-offset': [0, 1],
                 'text-anchor': 'top',
                 'text-allow-overlap': false
             },
