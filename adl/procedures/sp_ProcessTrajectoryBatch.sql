@@ -40,25 +40,39 @@ BEGIN
     END
     
     -- ETA calculation (using ELEV not Elev_ft)
+    -- Updates eta_utc, eta_runway_utc (same value), and eta_epoch for API/UI consumption
     IF @process_eta = 1
     BEGIN
-        UPDATE ft SET 
-            ft.eta_utc = DATEADD(MINUTE, CAST(
-                CASE WHEN c.phase = 'arrived' THEN 0
-                     WHEN c.phase = 'descending' THEN p.dist_to_dest_nm / NULLIF(p.groundspeed_kts, 0) * 60
-                     ELSE (p.dist_to_dest_nm - (ISNULL(fp.fp_altitude_ft,35000) - ISNULL(CAST(a.ELEV AS INT),0))/1000.0*3.0) / 450.0 * 60 
-                          + (ISNULL(fp.fp_altitude_ft,35000) - ISNULL(CAST(a.ELEV AS INT),0))/1000.0*3.0 / 280.0 * 60
-                END AS INT), @now),
-            ft.eta_prefix = CASE WHEN c.phase = 'arrived' THEN 'A' ELSE 'E' END,
-            ft.eta_confidence = CASE c.phase WHEN 'arrived' THEN 1.0 WHEN 'descending' THEN 0.92 WHEN 'enroute' THEN 0.88 ELSE 0.75 END,
+        -- Use a CTE to calculate the ETA value once, then apply to all fields
+        ;WITH EtaCalc AS (
+            SELECT
+                ft.flight_uid,
+                DATEADD(MINUTE, CAST(
+                    CASE WHEN c.phase = 'arrived' THEN 0
+                         WHEN c.phase = 'descending' THEN p.dist_to_dest_nm / NULLIF(p.groundspeed_kts, 0) * 60
+                         ELSE (p.dist_to_dest_nm - (ISNULL(fp.fp_altitude_ft,35000) - ISNULL(CAST(a.ELEV AS INT),0))/1000.0*3.0) / 450.0 * 60
+                              + (ISNULL(fp.fp_altitude_ft,35000) - ISNULL(CAST(a.ELEV AS INT),0))/1000.0*3.0 / 280.0 * 60
+                    END AS INT), @now) AS calc_eta,
+                CASE WHEN c.phase = 'arrived' THEN 'A' ELSE 'E' END AS calc_prefix,
+                CASE c.phase WHEN 'arrived' THEN 1.0 WHEN 'descending' THEN 0.92 WHEN 'enroute' THEN 0.88 ELSE 0.75 END AS calc_confidence,
+                (ISNULL(fp.fp_altitude_ft,35000) - ISNULL(CAST(a.ELEV AS INT),0))/1000.0*3.0 AS calc_tod_dist
+            FROM dbo.adl_flight_times ft
+            JOIN dbo.adl_flight_core c ON c.flight_uid = ft.flight_uid
+            JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+            JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+            LEFT JOIN dbo.apts a ON a.ICAO_ID = fp.fp_dest_icao
+            WHERE c.is_active = 1 AND p.lat IS NOT NULL
+        )
+        UPDATE ft SET
+            ft.eta_utc = e.calc_eta,
+            ft.eta_runway_utc = e.calc_eta,  -- Same as eta_utc for now
+            ft.eta_epoch = DATEDIFF(SECOND, '1970-01-01', e.calc_eta),  -- Unix epoch for sorting/filtering
+            ft.eta_prefix = e.calc_prefix,
+            ft.eta_confidence = e.calc_confidence,
             ft.eta_last_calc_utc = @now,
-            ft.tod_dist_nm = (ISNULL(fp.fp_altitude_ft,35000) - ISNULL(CAST(a.ELEV AS INT),0))/1000.0*3.0
+            ft.tod_dist_nm = e.calc_tod_dist
         FROM dbo.adl_flight_times ft
-        JOIN dbo.adl_flight_core c ON c.flight_uid = ft.flight_uid
-        JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
-        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-        LEFT JOIN dbo.apts a ON a.ICAO_ID = fp.fp_dest_icao
-        WHERE c.is_active = 1 AND p.lat IS NOT NULL;
+        JOIN EtaCalc e ON e.flight_uid = ft.flight_uid;
         SET @eta_count = @@ROWCOUNT;
     END
 END
