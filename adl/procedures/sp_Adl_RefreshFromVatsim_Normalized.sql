@@ -1,9 +1,8 @@
 -- ============================================================================
--- PATCH: sp_Adl_RefreshFromVatsim_Normalized - ETA & Trajectory Integration
+-- PATCH: sp_Adl_RefreshFromVatsim_Normalized V8 - Zone Detection Integration
 -- 
 -- This patch adds:
--- 1. Creating adl_flight_times rows for new flights
--- 2. Calling sp_ProcessTrajectoryBatch at the end of each refresh
+-- 1. Zone detection for OOOI tracking (Step 9)
 -- 
 -- Apply by running this script which recreates the full procedure
 -- ============================================================================
@@ -30,9 +29,11 @@ BEGIN
     DECLARE @new_flights INT = 0;
     DECLARE @updated_flights INT = 0;
     DECLARE @routes_queued INT = 0;
-    -- NEW: ETA/Trajectory counters
+    -- ETA/Trajectory counters
     DECLARE @eta_count INT = 0;
     DECLARE @traj_count INT = 0;
+    -- NEW V8: Zone detection counter
+    DECLARE @zone_transitions INT = 0;
     
     -- ========================================================================
     -- Step 1: Parse JSON into temp table
@@ -257,7 +258,7 @@ BEGIN
     INNER JOIN dbo.adl_flight_core c ON c.flight_key = p.flight_key;
     
     -- ========================================================================
-    -- Step 2b: NEW - Create adl_flight_times rows for new flights
+    -- Step 2b: Create adl_flight_times rows for new flights
     -- ========================================================================
     
     INSERT INTO dbo.adl_flight_times (flight_uid)
@@ -549,7 +550,7 @@ BEGIN
       AND last_seen_utc < DATEADD(MINUTE, -5, @now);
     
     -- ========================================================================
-    -- Step 8: NEW - Process Trajectory & ETA Calculations
+    -- Step 8: Process Trajectory & ETA Calculations
     -- ========================================================================
     
     EXEC dbo.sp_ProcessTrajectoryBatch 
@@ -557,6 +558,17 @@ BEGIN
         @process_trajectory = 1,
         @eta_count = @eta_count OUTPUT,
         @traj_count = @traj_count OUTPUT;
+    
+    -- ========================================================================
+    -- Step 9: NEW V8 - Zone Detection for OOOI
+    -- ========================================================================
+    
+    -- Only process if the procedure exists (graceful degradation)
+    IF OBJECT_ID('dbo.sp_ProcessZoneDetectionBatch', 'P') IS NOT NULL
+    BEGIN
+        EXEC dbo.sp_ProcessZoneDetectionBatch 
+            @transitions_detected = @zone_transitions OUTPUT;
+    END
     
     -- ========================================================================
     -- Cleanup and return stats
@@ -574,23 +586,25 @@ BEGIN
         @routes_queued AS routes_queued,
         @eta_count AS etas_calculated,
         @traj_count AS trajectories_logged,
+        @zone_transitions AS zone_transitions,
         @elapsed_ms AS elapsed_ms;
     
 END;
 GO
 
 PRINT '============================================================================';
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V7 - ETA & Trajectory Integration';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8 - Zone Detection Integration';
 PRINT '============================================================================';
 PRINT '';
-PRINT 'NEW in V7:';
-PRINT '  - Creates adl_flight_times rows for new flights (Step 2b)';
-PRINT '  - Calls sp_ProcessTrajectoryBatch at end (Step 8)';
-PRINT '  - Returns etas_calculated and trajectories_logged in output';
+PRINT 'NEW in V8:';
+PRINT '  - Calls sp_ProcessZoneDetectionBatch (Step 9)';
+PRINT '  - Returns zone_transitions in output';
+PRINT '  - Graceful degradation if zone detection proc not present';
 PRINT '';
 PRINT 'The procedure now automatically:';
 PRINT '  1. Updates flight relevance flags';
 PRINT '  2. Logs trajectory points based on 8-tier system';
 PRINT '  3. Calculates ETAs with phase-aware accuracy';
+PRINT '  4. Detects zone transitions for OOOI tracking';
 PRINT '============================================================================';
 GO
