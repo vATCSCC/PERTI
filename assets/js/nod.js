@@ -782,7 +782,88 @@
                 'circle-opacity': 0.5
             }
         }, 'traffic-circles-fallback');  // Insert below traffic
-        
+
+        // =========================================
+        // Flight Plan Routes (like route.php)
+        // =========================================
+
+        // Flight routes source - stores route lines for selected flights
+        state.map.addSource('flight-routes-source', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+
+        // Flight waypoints source - stores waypoint markers
+        state.map.addSource('flight-waypoints-source', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+
+        // Route behind aircraft (solid line - already flown)
+        state.map.addLayer({
+            id: 'flight-routes-behind',
+            type: 'line',
+            source: 'flight-routes-source',
+            filter: ['==', ['get', 'segment'], 'behind'],
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': 2.5,
+                'line-opacity': 0.8
+            }
+        }, 'traffic-circles-fallback');
+
+        // Route ahead of aircraft (dashed line - remaining)
+        state.map.addLayer({
+            id: 'flight-routes-ahead',
+            type: 'line',
+            source: 'flight-routes-source',
+            filter: ['==', ['get', 'segment'], 'ahead'],
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': 2.5,
+                'line-dasharray': [4, 4],
+                'line-opacity': 0.8
+            }
+        }, 'traffic-circles-fallback');
+
+        // Waypoint circles
+        state.map.addLayer({
+            id: 'flight-waypoints-circles',
+            type: 'circle',
+            source: 'flight-waypoints-source',
+            paint: {
+                'circle-radius': 4,
+                'circle-color': '#ffffff',
+                'circle-stroke-color': ['get', 'color'],
+                'circle-stroke-width': 2
+            }
+        }, 'traffic-circles-fallback');
+
+        // Waypoint labels
+        state.map.addLayer({
+            id: 'flight-waypoints-labels',
+            type: 'symbol',
+            source: 'flight-waypoints-source',
+            minzoom: 6,
+            layout: {
+                'text-field': ['get', 'name'],
+                'text-size': 10,
+                'text-offset': [0, 1.2],
+                'text-anchor': 'top',
+                'text-allow-overlap': false
+            },
+            paint: {
+                'text-color': '#ffffff',
+                'text-halo-color': '#000000',
+                'text-halo-width': 1
+            }
+        }, 'traffic-circles-fallback');
+
+        // State for drawn flight routes
+        state.drawnFlightRoutes = new Map();  // flightKey -> routeData
+
         // =========================================
         // Map Click Handler
         // =========================================
@@ -1696,7 +1777,13 @@
                 
             case 'speed':
                 const spd = parseInt(flight.groundspeed_kts || flight.groundspeed) || 0;
-                return spd < 250 ? SPEED_COLORS['SLOW'] : SPEED_COLORS['FAST'];
+                if (spd < 50) return SPEED_COLORS['GROUND'];
+                if (spd < 150) return SPEED_COLORS['SLOW'];
+                if (spd < 250) return SPEED_COLORS['MEDIUM'];
+                if (spd < 350) return SPEED_COLORS['FAST'];
+                if (spd < 450) return SPEED_COLORS['VFAST'];
+                if (spd < 550) return SPEED_COLORS['JET'];
+                return SPEED_COLORS['SUPERSONIC'];
                 
             case 'dep_airport':
                 return getAirportTierColor(flight.fp_dept_icao);
@@ -1762,21 +1849,22 @@
         return ALTITUDE_BLOCK_COLORS['SUPERHIGH'];
     }
     
-    // Helper: ETA relative color - spectral colormap (red = close, blue = far)
+    // Helper: ETA relative color - discrete buckets matching ETA_RELATIVE_COLORS
     function getEtaRelativeColor(etaUtc) {
         if (!etaUtc) return '#6c757d';
         const now = new Date();
         const eta = new Date(etaUtc);
         const diffMin = (eta - now) / 60000;
-        
-        if (diffMin <= 0) return '#6c757d'; // Past ETA
-        
-        // Map 0-480+ minutes to 0-1 (clamped)
-        const maxMinutes = 480; // 8 hours
-        const t = Math.min(diffMin / maxMinutes, 1);
-        
-        // Spectral interpolation: red → orange → yellow → green → cyan → blue
-        return getSpectralColor(t);
+
+        if (diffMin <= 0) return '#6c757d';       // Past ETA - gray
+        if (diffMin <= 15) return ETA_RELATIVE_COLORS['ETA_15'];   // ≤15 min - red
+        if (diffMin <= 30) return ETA_RELATIVE_COLORS['ETA_30'];   // 15-30 min - orange
+        if (diffMin <= 60) return ETA_RELATIVE_COLORS['ETA_60'];   // 30-60 min - yellow
+        if (diffMin <= 120) return ETA_RELATIVE_COLORS['ETA_120']; // 1-2 hr - green
+        if (diffMin <= 180) return ETA_RELATIVE_COLORS['ETA_180']; // 2-3 hr - cyan
+        if (diffMin <= 300) return ETA_RELATIVE_COLORS['ETA_300']; // 3-5 hr - blue
+        if (diffMin <= 480) return ETA_RELATIVE_COLORS['ETA_480']; // 5-8 hr - purple
+        return ETA_RELATIVE_COLORS['ETA_OVER'];                    // >8 hr - gray
     }
     
     // Helper: ETA hour color - cyclical spectral colormap
@@ -2969,11 +3057,11 @@
     };
     
     const DCC_REGION_COLORS = {
-        'WEST': '#e15759',           // Red
-        'SOUTH_CENTRAL': '#f28e2b',  // Orange
-        'MIDWEST': '#59a14f',        // Green
-        'SOUTHEAST': '#edc948',      // Yellow
-        'NORTHEAST': '#4e79a7',      // Blue
+        'WEST': '#dc3545',           // Red (bright, distinct)
+        'SOUTH_CENTRAL': '#fd7e14',  // Orange (saturated, distinct from yellow)
+        'MIDWEST': '#28a745',        // Green
+        'SOUTHEAST': '#ffc107',      // Yellow (bright amber, distinct from orange)
+        'NORTHEAST': '#007bff',      // Blue
         '': '#6c757d'
     };
     
@@ -3056,62 +3144,69 @@
         return 'D';  // Default to Cat D (most common)
     }
 
-    // Altitude block colors (gradient)
+    // Altitude block colors - spectral gradient (cool=low, warm=high)
     const ALTITUDE_BLOCK_COLORS = {
-        'GROUND': '#666666',     // Gray - Ground/Taxi
-        'SURFACE': '#8b4513',    // Brown - Surface ops (<1000)
-        'LOW': '#17a2b8',        // Cyan - <FL100
-        'LOWMED': '#28a745',     // Green - FL100-180
-        'MED': '#59a14f',        // Light Green - FL180-240
-        'MEDHIGH': '#edc948',    // Yellow - FL240-290
-        'HIGH': '#f28e2b',       // Orange - FL290-350
-        'VHIGH': '#e15759',      // Red - FL350-410
-        'SUPERHIGH': '#9c27b0',  // Purple - >FL410
+        'GROUND': '#6c757d',     // Gray - Ground/Taxi
+        'SURFACE': '#6f42c1',    // Purple - Surface ops (<1000)
+        'LOW': '#007bff',        // Blue - <FL100
+        'LOWMED': '#17a2b8',     // Cyan - FL100-180
+        'MED': '#28a745',        // Green - FL180-240
+        'MEDHIGH': '#ffc107',    // Yellow - FL240-290
+        'HIGH': '#fd7e14',       // Orange - FL290-350
+        'VHIGH': '#dc3545',      // Red - FL350-410
+        'SUPERHIGH': '#e83e8c',  // Pink/Magenta - >FL410
         '': '#6c757d'
     };
     
-    // ETA relative colors
+    // ETA relative colors - spectral (red=imminent, blue/purple=far)
     const ETA_RELATIVE_COLORS = {
-        'ETA_15': '#e15759',     // Red - imminent
-        'ETA_30': '#f28e2b',     // Orange
-        'ETA_60': '#edc948',     // Yellow
-        'ETA_90': '#59a14f',     // Green
-        'ETA_120': '#4e79a7',    // Blue
-        'ETA_180': '#76b7b2',    // Teal
-        'ETA_300': '#b07aa1',    // Purple
-        'ETA_480': '#9c755f',    // Brown
+        'ETA_15': '#dc3545',     // Red - imminent (≤15 min)
+        'ETA_30': '#fd7e14',     // Orange (15-30 min)
+        'ETA_60': '#ffc107',     // Yellow (30-60 min)
+        'ETA_120': '#28a745',    // Green (1-2 hr)
+        'ETA_180': '#17a2b8',    // Cyan (2-3 hr)
+        'ETA_300': '#007bff',    // Blue (3-5 hr)
+        'ETA_480': '#6f42c1',    // Purple (5-8 hr)
         'ETA_OVER': '#6c757d',   // Gray - >8 hours
         '': '#6c757d'
     };
-    
-    // Speed colors
-    const SPEED_COLORS = { 'SLOW': '#17a2b8', 'FAST': '#dc3545' };
+
+    // Speed colors - more granularity
+    const SPEED_COLORS = {
+        'GROUND': '#6c757d',     // Gray - <50 kts (taxi/parked)
+        'SLOW': '#6f42c1',       // Purple - 50-150 kts (climb/descent)
+        'MEDIUM': '#007bff',     // Blue - 150-250 kts
+        'FAST': '#28a745',       // Green - 250-350 kts
+        'VFAST': '#ffc107',      // Yellow - 350-450 kts
+        'JET': '#fd7e14',        // Orange - 450-550 kts
+        'SUPERSONIC': '#dc3545'  // Red - >550 kts
+    };
     
     // Arrival/Departure colors
     const ARR_DEP_COLORS = { 'ARR': '#59a14f', 'DEP': '#4e79a7' };
     
     // Airport tier colors
     const AIRPORT_TIER_COLORS = {
-        'CORE30': '#e15759',    // Red
-        'OEP35': '#4e79a7',     // Blue
-        'ASPM77': '#edc948',    // Yellow
-        'OTHER': '#59a14f',     // Green
+        'CORE30': '#dc3545',    // Red - highest priority
+        'OEP35': '#007bff',     // Blue
+        'ASPM77': '#ffc107',    // Yellow
+        'OTHER': '#6c757d',     // Gray - unclassified
         '': '#6c757d'
     };
-    
+
     // ARTCC colors - inherit from DCC region with variations
     const CENTER_COLORS = {
-        // West (Red family)
-        'ZAK': '#e15759', 'ZAN': '#ff6b6b', 'ZHN': '#c9302c', 'ZLA': '#e15759', 
-        'ZLC': '#ff8787', 'ZOA': '#d64545', 'ZSE': '#f28080',
-        // South Central (Orange family)
-        'ZAB': '#f28e2b', 'ZFW': '#ff9f43', 'ZHO': '#e67e22', 'ZHU': '#f5a623', 'ZME': '#d68910',
-        // Midwest (Green family)
-        'ZAU': '#59a14f', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#45b39d',
-        // Southeast (Yellow family)
-        'ZID': '#edc948', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#d4ac0d', 'ZTL': '#e9b824',
-        // Northeast (Blue family)
-        'ZBW': '#4e79a7', 'ZDC': '#3498db', 'ZNY': '#2980b9', 'ZOB': '#5dade2', 'ZWY': '#1a5276',
+        // West (Red family) - matches DCC_REGION_COLORS['WEST']
+        'ZAK': '#dc3545', 'ZAN': '#e74c3c', 'ZHN': '#c0392b', 'ZLA': '#dc3545',
+        'ZLC': '#e57373', 'ZOA': '#d63031', 'ZSE': '#ff6b6b',
+        // South Central (Orange family) - matches DCC_REGION_COLORS['SOUTH_CENTRAL']
+        'ZAB': '#fd7e14', 'ZFW': '#ff9800', 'ZHO': '#e67e22', 'ZHU': '#f39c12', 'ZME': '#d35400',
+        // Midwest (Green family) - matches DCC_REGION_COLORS['MIDWEST']
+        'ZAU': '#28a745', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#00b894',
+        // Southeast (Yellow family) - matches DCC_REGION_COLORS['SOUTHEAST']
+        'ZID': '#ffc107', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#e9b824', 'ZTL': '#ffca2c',
+        // Northeast (Blue family) - matches DCC_REGION_COLORS['NORTHEAST']
+        'ZBW': '#007bff', 'ZDC': '#0069d9', 'ZNY': '#0056b3', 'ZOB': '#5dade2', 'ZWY': '#004085',
         '': '#6c757d'
     };
     
@@ -3300,12 +3395,12 @@
     ];
     
     const OPERATOR_GROUP_COLORS = {
-        'MAJOR': '#4e79a7',      // Blue
-        'REGIONAL': '#59a14f',   // Green
-        'FREIGHT': '#f28e2b',    // Orange
-        'GA': '#76b7b2',         // Teal
-        'MILITARY': '#556b2f',   // Olive
-        'OTHER': '#6c757d'       // Gray
+        'MAJOR': '#dc3545',      // Red - major carriers
+        'REGIONAL': '#28a745',   // Green - regional carriers
+        'FREIGHT': '#007bff',    // Blue - freight/cargo
+        'GA': '#ffc107',         // Yellow - general aviation
+        'MILITARY': '#6f42c1',   // Purple - military
+        'OTHER': '#6c757d'       // Gray - unclassified
     };
     
     // =========================================
@@ -3725,7 +3820,212 @@
         
         saveUIState();
     }
-    
+
+    // =========================================
+    // Flight Plan Route Display Functions
+    // =========================================
+
+    /**
+     * Toggle flight route display for a specific flight
+     * @param {Object} flight - Flight data with waypoints_json
+     * @param {string} color - Route color (optional, defaults based on color mode)
+     * @returns {boolean} true if route was added, false if removed
+     */
+    function toggleFlightRoute(flight, color = null) {
+        const flightKey = flight.flight_key || flight.callsign;
+        if (!flightKey) return false;
+
+        // If already drawn, remove it
+        if (state.drawnFlightRoutes.has(flightKey)) {
+            state.drawnFlightRoutes.delete(flightKey);
+            updateFlightRoutesDisplay();
+            console.log(`[NOD] Removed route for ${flightKey}`);
+            return false;
+        }
+
+        // Try to get waypoints
+        let waypoints = null;
+        if (flight.waypoints_json) {
+            try {
+                waypoints = typeof flight.waypoints_json === 'string'
+                    ? JSON.parse(flight.waypoints_json)
+                    : flight.waypoints_json;
+            } catch (e) {
+                console.warn(`[NOD] Failed to parse waypoints for ${flightKey}:`, e);
+            }
+        }
+
+        // If no waypoints, create simple direct route from origin to destination
+        if (!waypoints || !Array.isArray(waypoints) || waypoints.length < 2) {
+            // Try to build a simple route from dept -> current position -> dest
+            const coords = [];
+
+            // Add departure airport if known
+            const deptIcao = flight.fp_dept_icao;
+            if (deptIcao && window.NOD_AIRPORTS && window.NOD_AIRPORTS[deptIcao]) {
+                const apt = window.NOD_AIRPORTS[deptIcao];
+                coords.push({ name: deptIcao, lat: apt.lat, lon: apt.lon });
+            }
+
+            // Add current position
+            if (flight.lat && flight.lon) {
+                coords.push({ name: 'AIRCRAFT', lat: parseFloat(flight.lat), lon: parseFloat(flight.lon) });
+            }
+
+            // Add destination airport if known
+            const destIcao = flight.fp_dest_icao;
+            if (destIcao && window.NOD_AIRPORTS && window.NOD_AIRPORTS[destIcao]) {
+                const apt = window.NOD_AIRPORTS[destIcao];
+                coords.push({ name: destIcao, lat: apt.lat, lon: apt.lon });
+            }
+
+            if (coords.length >= 2) {
+                waypoints = coords;
+            } else {
+                console.warn(`[NOD] No route data available for ${flightKey}`);
+                return false;
+            }
+        }
+
+        // Determine route color
+        if (!color) {
+            color = getFlightColor(flight) || '#00ffff';
+        }
+
+        // Find aircraft position to split route
+        const acLat = parseFloat(flight.lat);
+        const acLon = parseFloat(flight.lon);
+
+        // Split waypoints into "behind" (flown) and "ahead" (remaining)
+        const behindCoords = [];
+        const aheadCoords = [];
+        let foundAircraft = false;
+        let minDist = Infinity;
+        let splitIdx = 0;
+
+        // Find closest point on route to aircraft
+        waypoints.forEach((wp, idx) => {
+            const lat = parseFloat(wp.lat || wp.latitude);
+            const lon = parseFloat(wp.lon || wp.longitude || wp.lng);
+            if (isNaN(lat) || isNaN(lon)) return;
+
+            const dist = Math.sqrt(Math.pow(lat - acLat, 2) + Math.pow(lon - acLon, 2));
+            if (dist < minDist) {
+                minDist = dist;
+                splitIdx = idx;
+            }
+        });
+
+        // Build behind and ahead coordinate arrays
+        waypoints.forEach((wp, idx) => {
+            const lat = parseFloat(wp.lat || wp.latitude);
+            const lon = parseFloat(wp.lon || wp.longitude || wp.lng);
+            if (isNaN(lat) || isNaN(lon)) return;
+
+            if (idx <= splitIdx) {
+                behindCoords.push([lon, lat]);
+            }
+            if (idx >= splitIdx) {
+                aheadCoords.push([lon, lat]);
+            }
+        });
+
+        // Insert aircraft position at split point
+        if (!isNaN(acLat) && !isNaN(acLon)) {
+            if (behindCoords.length > 0) behindCoords.push([acLon, acLat]);
+            if (aheadCoords.length > 0) aheadCoords.unshift([acLon, acLat]);
+        }
+
+        // Store route data
+        state.drawnFlightRoutes.set(flightKey, {
+            flight,
+            waypoints,
+            behindCoords,
+            aheadCoords,
+            color
+        });
+
+        updateFlightRoutesDisplay();
+        console.log(`[NOD] Added route for ${flightKey} with ${waypoints.length} waypoints`);
+        return true;
+    }
+
+    /**
+     * Update the flight routes display on the map
+     */
+    function updateFlightRoutesDisplay() {
+        if (!state.map) return;
+
+        const lineFeatures = [];
+        const waypointFeatures = [];
+
+        state.drawnFlightRoutes.forEach((routeData, flightKey) => {
+            const { behindCoords, aheadCoords, color, waypoints } = routeData;
+
+            // Add behind line (solid)
+            if (behindCoords && behindCoords.length >= 2) {
+                lineFeatures.push({
+                    type: 'Feature',
+                    properties: { flightKey, segment: 'behind', color },
+                    geometry: { type: 'LineString', coordinates: behindCoords }
+                });
+            }
+
+            // Add ahead line (dashed)
+            if (aheadCoords && aheadCoords.length >= 2) {
+                lineFeatures.push({
+                    type: 'Feature',
+                    properties: { flightKey, segment: 'ahead', color },
+                    geometry: { type: 'LineString', coordinates: aheadCoords }
+                });
+            }
+
+            // Add waypoint markers
+            if (waypoints) {
+                waypoints.forEach((wp, idx) => {
+                    const lat = parseFloat(wp.lat || wp.latitude);
+                    const lon = parseFloat(wp.lon || wp.longitude || wp.lng);
+                    const name = wp.name || wp.ident || wp.fix || `WP${idx}`;
+                    if (isNaN(lat) || isNaN(lon)) return;
+
+                    waypointFeatures.push({
+                        type: 'Feature',
+                        properties: { flightKey, name, color },
+                        geometry: { type: 'Point', coordinates: [lon, lat] }
+                    });
+                });
+            }
+        });
+
+        // Update map sources
+        const routeSource = state.map.getSource('flight-routes-source');
+        if (routeSource) {
+            routeSource.setData({ type: 'FeatureCollection', features: lineFeatures });
+        }
+
+        const wpSource = state.map.getSource('flight-waypoints-source');
+        if (wpSource) {
+            wpSource.setData({ type: 'FeatureCollection', features: waypointFeatures });
+        }
+    }
+
+    /**
+     * Clear all drawn flight routes
+     */
+    function clearFlightRoutes() {
+        state.drawnFlightRoutes.clear();
+        updateFlightRoutesDisplay();
+        console.log('[NOD] All flight routes cleared');
+    }
+
+    /**
+     * Check if a flight's route is currently displayed
+     */
+    function isFlightRouteDisplayed(flight) {
+        const flightKey = flight.flight_key || flight.callsign;
+        return state.drawnFlightRoutes.has(flightKey);
+    }
+
     function setTrafficColorMode(mode) {
         state.traffic.colorMode = mode;
         updateTrafficLayer();
@@ -3944,8 +4244,13 @@
                 break;
             case 'speed':
                 items = [
-                    { color: SPEED_COLORS['SLOW'], label: '<250 kts' },
-                    { color: SPEED_COLORS['FAST'], label: '≥250 kts' }
+                    { color: SPEED_COLORS['GROUND'], label: '<50' },
+                    { color: SPEED_COLORS['SLOW'], label: '50-150' },
+                    { color: SPEED_COLORS['MEDIUM'], label: '150-250' },
+                    { color: SPEED_COLORS['FAST'], label: '250-350' },
+                    { color: SPEED_COLORS['VFAST'], label: '350-450' },
+                    { color: SPEED_COLORS['JET'], label: '450-550' },
+                    { color: SPEED_COLORS['SUPERSONIC'], label: '550+' }
                 ];
                 break;
             case 'status':
@@ -3968,24 +4273,26 @@
                 ];
                 break;
             case 'dcc_region':
+                // Ordered by color: red, orange, yellow, green, blue
                 items = [
-                    { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                    { color: DCC_REGION_COLORS['WEST'], label: 'West' },
+                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
                     { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
                     { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
-                    { color: DCC_REGION_COLORS['WEST'], label: 'West' }
+                    { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' }
                 ];
                 break;
             case 'eta_relative':
-                // Spectral gradient legend for ETA relative
+                // Discrete bucket legend matching getEtaRelativeColor
                 items = [
-                    { color: getSpectralColor(0.0), label: '0 min' },
-                    { color: getSpectralColor(0.0625), label: '30 min' },
-                    { color: getSpectralColor(0.125), label: '1 hr' },
-                    { color: getSpectralColor(0.25), label: '2 hr' },
-                    { color: getSpectralColor(0.375), label: '3 hr' },
-                    { color: getSpectralColor(0.625), label: '5 hr' },
-                    { color: getSpectralColor(1.0), label: '8+ hr' }
+                    { color: ETA_RELATIVE_COLORS['ETA_15'], label: '≤15m' },
+                    { color: ETA_RELATIVE_COLORS['ETA_30'], label: '15-30m' },
+                    { color: ETA_RELATIVE_COLORS['ETA_60'], label: '30m-1h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_120'], label: '1-2h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_180'], label: '2-3h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_300'], label: '3-5h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_480'], label: '5-8h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_OVER'], label: '>8h' }
                 ];
                 break;
             case 'eta_hour':
@@ -4154,8 +4461,13 @@
                 break;
             case 'speed':
                 items = [
-                    { color: SPEED_COLORS['SLOW'], label: '<250kts' },
-                    { color: SPEED_COLORS['FAST'], label: '≥250kts' }
+                    { color: SPEED_COLORS['GROUND'], label: '<50' },
+                    { color: SPEED_COLORS['SLOW'], label: '50-150' },
+                    { color: SPEED_COLORS['MEDIUM'], label: '150-250' },
+                    { color: SPEED_COLORS['FAST'], label: '250-350' },
+                    { color: SPEED_COLORS['VFAST'], label: '350-450' },
+                    { color: SPEED_COLORS['JET'], label: '450-550' },
+                    { color: SPEED_COLORS['SUPERSONIC'], label: '550+' }
                 ];
                 break;
             case 'status':
@@ -4187,22 +4499,27 @@
                 ];
                 break;
             case 'eta_relative':
+                // Matches getEtaRelativeColor discrete buckets
                 items = [
                     { color: ETA_RELATIVE_COLORS['ETA_15'], label: '≤15m' },
-                    { color: ETA_RELATIVE_COLORS['ETA_30'], label: '≤30m' },
-                    { color: ETA_RELATIVE_COLORS['ETA_60'], label: '≤1h' },
-                    { color: ETA_RELATIVE_COLORS['ETA_120'], label: '≤2h' },
-                    { color: ETA_RELATIVE_COLORS['ETA_180'], label: '≤3h' },
-                    { color: ETA_RELATIVE_COLORS['ETA_300'], label: '≤5h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_30'], label: '15-30m' },
+                    { color: ETA_RELATIVE_COLORS['ETA_60'], label: '30m-1h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_120'], label: '1-2h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_180'], label: '2-3h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_300'], label: '3-5h' },
+                    { color: ETA_RELATIVE_COLORS['ETA_480'], label: '5-8h' },
                     { color: ETA_RELATIVE_COLORS['ETA_OVER'], label: '>8h' }
                 ];
                 break;
             case 'eta_hour':
+                // Cyclical hours - show representative samples
                 items = [
-                    { color: 'hsl(0, 70%, 50%)', label: '00Z' },
-                    { color: 'hsl(90, 70%, 50%)', label: '06Z' },
-                    { color: 'hsl(180, 70%, 50%)', label: '12Z' },
-                    { color: 'hsl(270, 70%, 50%)', label: '18Z' }
+                    { color: 'hsl(0, 85%, 50%)', label: '00Z' },
+                    { color: 'hsl(60, 85%, 50%)', label: '04Z' },
+                    { color: 'hsl(120, 85%, 50%)', label: '08Z' },
+                    { color: 'hsl(180, 85%, 50%)', label: '12Z' },
+                    { color: 'hsl(240, 85%, 50%)', label: '16Z' },
+                    { color: 'hsl(300, 85%, 50%)', label: '20Z' }
                 ];
                 break;
             case 'carrier':
@@ -4480,15 +4797,44 @@
                 </table>
                 ${statusIcon ? `<div style="margin-top:6px; text-align:center;">${statusIcon}</div>` : ''}
                 ${routeMatchHtml}
+                <div style="margin-top:8px; padding-top:6px; border-top:1px solid #444; text-align:center;">
+                    <button class="btn btn-sm btn-outline-info show-route-btn"
+                            data-flight-key="${escapeHtml(props.flight_key || props.callsign)}"
+                            style="font-size:10px; padding:2px 8px;">
+                        ${isFlightRouteDisplayed(props) ? '✓ Hide Route' : '➤ Show Route'}
+                    </button>
+                </div>
             </div>
         `;
-        
+
+        // Store flight data for route toggle
+        state.lastPopupFlight = props;
+
         new maplibregl.Popup({ closeButton: false, offset: 15 })
             .setLngLat(lngLat)
             .setHTML(html)
             .addTo(state.map);
     }
-    
+
+    // Event delegation for popup buttons (show route toggle)
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('show-route-btn')) {
+            const flightKey = e.target.dataset.flightKey;
+            if (flightKey && state.lastPopupFlight) {
+                // Find flight in current data
+                const flight = state.allFlights.find(f =>
+                    (f.flight_key || f.callsign) === flightKey
+                ) || state.lastPopupFlight;
+
+                if (flight) {
+                    const wasDisplayed = toggleFlightRoute(flight);
+                    // Update button text
+                    e.target.textContent = wasDisplayed ? '✓ Hide Route' : '➤ Show Route';
+                }
+            }
+        }
+    });
+
     function showIncidentPopup(props, lngLat) {
         const html = `
             <div style="font-family: 'Consolas', monospace; font-size: 12px;">
@@ -5161,7 +5507,11 @@
         resetPanelPositions,
         applyFilters: collectFiltersFromUI,
         resetFilters,
-        refresh: loadAllData
+        refresh: loadAllData,
+        // Flight route functions
+        toggleFlightRoute,
+        clearFlightRoutes,
+        isFlightRouteDisplayed
     };
     
     // Auto-initialize when DOM is ready
