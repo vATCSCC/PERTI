@@ -26,13 +26,13 @@ let DEMAND_STATE = {
     lastDemandData: null // Store last demand response for view switching
 };
 
-// FSM Status colors from design document Table 7-1
+// FSM Status colors - TFMS/AADC style palette
 const FSM_STATUS_COLORS = {
-    'active': '#FF0000',      // Red - Flight Active (airborne)
-    'arrived': '#000000',     // Black - Arrived
-    'departed': '#006400',    // Dark Green - Departed
-    'scheduled': '#90EE90',   // Light Green - Scheduled (Dep No CTD)
-    'proposed': '#0066FF',    // Blue - Proposed
+    'active': '#CC0000',      // Dark Red - Flight Active (airborne)
+    'arrived': '#333333',     // Dark Gray - Arrived
+    'departed': '#228B22',    // Forest Green - Departed
+    'scheduled': '#32CD32',   // Lime Green - Scheduled
+    'proposed': '#4169E1',    // Royal Blue - Proposed
     'dep_past_etd': '#8B4513' // Brown - Dep Past ETD
 };
 
@@ -502,17 +502,29 @@ function renderChart(data) {
         series[0].markLine = timeMarkLine;
     }
 
-    // Chart options
+    // Chart options - TFMS/FSM/AADC style
     const option = {
+        backgroundColor: '#ffffff',
         title: {
-            text: `${data.airport} Demand`,
-            subtext: `${DEMAND_STATE.granularity === '15min' ? '15-Minute' : 'Hourly'} | ${getDirectionLabel()}`,
-            left: 'center'
+            text: `${data.airport} ${getDirectionLabel()}`,
+            left: 'center',
+            top: 10,
+            textStyle: {
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: '#333'
+            }
         },
         tooltip: {
             trigger: 'axis',
             axisPointer: {
                 type: 'shadow'
+            },
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderColor: '#ccc',
+            borderWidth: 1,
+            textStyle: {
+                color: '#333'
             },
             formatter: function(params) {
                 let tooltip = `<strong>${params[0].axisValueLabel}</strong><br/>`;
@@ -528,29 +540,76 @@ function renderChart(data) {
             }
         },
         legend: {
-            bottom: 10,
+            bottom: 5,
             left: 'center',
-            type: 'scroll'
+            type: 'scroll',
+            itemWidth: 14,
+            itemHeight: 10,
+            textStyle: {
+                fontSize: 11
+            }
         },
         grid: {
-            left: '3%',
-            right: '4%',
-            bottom: 80,
-            top: 80,
-            containLabel: true
+            left: 50,
+            right: 20,
+            bottom: 70,
+            top: 50,
+            containLabel: false
         },
         xAxis: {
             type: 'category',
             data: labels,
+            axisLine: {
+                lineStyle: {
+                    color: '#333'
+                }
+            },
+            axisTick: {
+                alignWithLabel: true,
+                lineStyle: {
+                    color: '#333'
+                }
+            },
             axisLabel: {
-                rotate: 45,
-                interval: 0
+                rotate: 0,
+                interval: 0,
+                fontSize: 11,
+                color: '#333'
+            },
+            splitLine: {
+                show: false
             }
         },
         yAxis: {
             type: 'value',
             name: 'Flights',
-            minInterval: 1
+            nameLocation: 'middle',
+            nameGap: 35,
+            nameTextStyle: {
+                fontSize: 12,
+                color: '#333'
+            },
+            minInterval: 1,
+            axisLine: {
+                show: true,
+                lineStyle: {
+                    color: '#333'
+                }
+            },
+            axisTick: {
+                show: true
+            },
+            axisLabel: {
+                fontSize: 11,
+                color: '#333'
+            },
+            splitLine: {
+                show: true,
+                lineStyle: {
+                    color: '#e0e0e0',
+                    type: 'dashed'
+                }
+            }
         },
         series: series
     };
@@ -623,11 +682,14 @@ function renderOriginChart() {
             name: artcc,
             type: 'bar',
             stack: 'origin',
+            barWidth: '60%',
             emphasis: {
                 focus: 'series'
             },
             itemStyle: {
-                color: getARTCCColor(artcc)
+                color: getARTCCColor(artcc),
+                borderColor: '#fff',
+                borderWidth: 0.5
             },
             data: seriesData
         };
@@ -639,17 +701,29 @@ function renderOriginChart() {
         series[0].markLine = timeMarkLine;
     }
 
-    // Chart options
+    // Chart options - TFMS/FSM/AADC style
     const option = {
+        backgroundColor: '#ffffff',
         title: {
             text: `${data.airport} Arrivals by Origin ARTCC`,
-            subtext: `${DEMAND_STATE.granularity === '15min' ? '15-Minute' : 'Hourly'} | Origin Breakdown`,
-            left: 'center'
+            left: 'center',
+            top: 10,
+            textStyle: {
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: '#333'
+            }
         },
         tooltip: {
             trigger: 'axis',
             axisPointer: {
                 type: 'shadow'
+            },
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderColor: '#ccc',
+            borderWidth: 1,
+            textStyle: {
+                color: '#333'
             },
             formatter: function(params) {
                 let tooltip = `<strong>${params[0].axisValueLabel}</strong><br/>`;
@@ -667,29 +741,76 @@ function renderOriginChart() {
             }
         },
         legend: {
-            bottom: 10,
+            bottom: 5,
             left: 'center',
-            type: 'scroll'
+            type: 'scroll',
+            itemWidth: 14,
+            itemHeight: 10,
+            textStyle: {
+                fontSize: 11
+            }
         },
         grid: {
-            left: '3%',
-            right: '4%',
-            bottom: 80,
-            top: 80,
-            containLabel: true
+            left: 50,
+            right: 20,
+            bottom: 70,
+            top: 50,
+            containLabel: false
         },
         xAxis: {
             type: 'category',
             data: labels,
+            axisLine: {
+                lineStyle: {
+                    color: '#333'
+                }
+            },
+            axisTick: {
+                alignWithLabel: true,
+                lineStyle: {
+                    color: '#333'
+                }
+            },
             axisLabel: {
-                rotate: 45,
-                interval: 0
+                rotate: 0,
+                interval: 0,
+                fontSize: 11,
+                color: '#333'
+            },
+            splitLine: {
+                show: false
             }
         },
         yAxis: {
             type: 'value',
             name: 'Arrivals',
-            minInterval: 1
+            nameLocation: 'middle',
+            nameGap: 35,
+            nameTextStyle: {
+                fontSize: 12,
+                color: '#333'
+            },
+            minInterval: 1,
+            axisLine: {
+                show: true,
+                lineStyle: {
+                    color: '#333'
+                }
+            },
+            axisTick: {
+                show: true
+            },
+            axisLabel: {
+                fontSize: 11,
+                color: '#333'
+            },
+            splitLine: {
+                show: true,
+                lineStyle: {
+                    color: '#e0e0e0',
+                    type: 'dashed'
+                }
+            }
         },
         series: series
     };
@@ -753,7 +874,7 @@ function updateInfoBarStats(data) {
 }
 
 /**
- * Build a series for a specific status
+ * Build a series for a specific status - TFMS style
  */
 function buildStatusSeries(name, timeBins, dataByBin, status, type) {
     const data = timeBins.map(bin => {
@@ -765,18 +886,22 @@ function buildStatusSeries(name, timeBins, dataByBin, status, type) {
     let color = FSM_STATUS_COLORS[status] || '#999';
     if (type === 'departures') {
         // Slightly adjust departure colors for distinction
-        color = adjustColor(color, 0.2);
+        color = adjustColor(color, 0.15);
     }
 
     return {
         name: name,
         type: 'bar',
         stack: type,
+        barWidth: '60%',
+        barGap: '10%',
         emphasis: {
             focus: 'series'
         },
         itemStyle: {
-            color: color
+            color: color,
+            borderColor: '#fff',
+            borderWidth: 0.5
         },
         data: data
     };
@@ -795,13 +920,18 @@ function adjustColor(hex, percent) {
 }
 
 /**
- * Format time bin for display
+ * Format time bin for display - TFMS style
  */
 function formatTimeLabel(isoString) {
     const date = new Date(isoString);
     const hours = date.getUTCHours().toString().padStart(2, '0');
-    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}Z`;
+    const minutes = date.getUTCMinutes();
+
+    // For hourly granularity, show just "14Z", for 15-min show "14:15"
+    if (minutes === 0) {
+        return `${hours}Z`;
+    }
+    return `${hours}:${minutes.toString().padStart(2, '0')}`;
 }
 
 /**
