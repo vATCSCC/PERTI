@@ -52,7 +52,7 @@ Recommended: Weekly updates aligned with AIRAC cycles
 
 ```cron
 # Run every Sunday at 4 AM UTC
-0 4 * * 0 /usr/bin/php /home/site/wwwroot/scripts/refresh_vatsim_boundaries.php >> /home/site/wwwroot/scripts/boundary_refresh.log 2>&1
+0 4 * * 0 /usr/bin/php ./scripts/refresh_vatsim_boundaries.php >> ./scripts/boundary_refresh.log 2>&1
 ```
 
 ## Notes
