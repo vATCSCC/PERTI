@@ -950,8 +950,8 @@ $(document).ready(function() {
             console.log('[MAPLIBRE] Map loaded');
             mapReady = true;
             addStaticLayers();
+            addSuaLayers();  // Add SUA/TFR layer (after boundaries, before routes/flights)
             addDynamicSources();
-            addSuaLayers();  // Add SUA/TFR layer
             setupLayerControl();
             setupInteractivity();
             
@@ -966,70 +966,39 @@ $(document).ready(function() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STATIC LAYERS
+    // STATIC LAYERS - Order matches nod.js for consistency:
+    // 1. Weather Radar (BOTTOM)
+    // 2. TRACON Boundaries
+    // 3. Sector Boundaries (High, Low, Superhigh)
+    // 4. ARTCC Boundaries
+    // 5. SIGMETs
+    // 6. NAVAIDs
+    // (Dynamic layers added on top by addDynamicSources/addSuaLayers)
     // ═══════════════════════════════════════════════════════════════════════════
 
     function addStaticLayers() {
-        // Helper to load GeoJSON with error handling
-        function loadGeoJsonLayer(sourceId, url, layerConfig) {
+        const emptyGeoJSON = { type: 'FeatureCollection', features: [] };
+
+        // Helper to load GeoJSON data into an existing source
+        function loadGeoJsonData(sourceId, url) {
             fetch(url)
                 .then(response => {
                     if (!response.ok) throw new Error('HTTP ' + response.status);
                     return response.json();
                 })
                 .then(data => {
-                    console.log('[MAPLIBRE] Loaded', sourceId, '- features:', 
+                    console.log('[MAPLIBRE] Loaded', sourceId, '- features:',
                         data.features ? data.features.length : 'N/A');
-                    graphic_map.addSource(sourceId, { type: 'geojson', data: data });
-                    graphic_map.addLayer(layerConfig);
+                    if (graphic_map.getSource(sourceId)) {
+                        graphic_map.getSource(sourceId).setData(data);
+                    }
                 })
                 .catch(err => {
                     console.error('[MAPLIBRE] Failed to load', sourceId, ':', err);
-                    // Add empty source so layers don't error
-                    graphic_map.addSource(sourceId, { 
-                        type: 'geojson', 
-                        data: { type: 'FeatureCollection', features: [] } 
-                    });
-                    graphic_map.addLayer(layerConfig);
                 });
         }
 
-        // ARTCC Boundaries
-        loadGeoJsonLayer('artcc', 'assets/geojson/artcc.json', {
-            id: 'artcc-lines', type: 'line', source: 'artcc',
-            paint: { 'line-color': '#515151', 'line-width': 1.5 }
-        });
-
-        // Superhigh Splits (FL350+)
-        loadGeoJsonLayer('superhigh-splits', 'assets/geojson/superhigh.json', {
-            id: 'superhigh-splits-lines', type: 'line', source: 'superhigh-splits',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
-        });
-
-        // High Splits
-        loadGeoJsonLayer('high-splits', 'assets/geojson/high.json', {
-            id: 'high-splits-lines', type: 'line', source: 'high-splits',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
-        });
-
-        // Low Splits
-        loadGeoJsonLayer('low-splits', 'assets/geojson/low.json', {
-            id: 'low-splits-lines', type: 'line', source: 'low-splits',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
-        });
-
-        // TRACON Boundaries
-        loadGeoJsonLayer('tracon', 'assets/geojson/tracon.json', {
-            id: 'tracon-lines', type: 'line', source: 'tracon',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
-        });
-
-        // Weather Radar (Iowa Environmental Mesonet NEXRAD)
-        // IEM provides real-time NEXRAD composite tiles that auto-update
+        // 1. Weather Radar (BOTTOM)
         graphic_map.addSource('weather-cells', {
             type: 'raster',
             tiles: ['https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png'],
@@ -1041,8 +1010,6 @@ $(document).ready(function() {
             paint: { 'raster-opacity': 0.3 },
             layout: { 'visibility': 'none' }
         });
-        
-        // Auto-refresh radar tiles every 5 minutes (IEM tiles update server-side)
         setInterval(function() {
             if (graphic_map && graphic_map.getLayoutProperty('weather-cells-layer', 'visibility') === 'visible') {
                 refreshWeatherRadarMaplibre();
@@ -1050,24 +1017,68 @@ $(document).ready(function() {
         }, 300000);
         console.log('[WX-MAPLIBRE] Iowa Mesonet NEXRAD radar initialized');
 
-        // SIGMETs (empty initially)
-        graphic_map.addSource('sigmets', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        // 2. TRACON Boundaries
+        graphic_map.addSource('tracon', { type: 'geojson', data: emptyGeoJSON });
+        graphic_map.addLayer({
+            id: 'tracon-lines', type: 'line', source: 'tracon',
+            paint: { 'line-color': '#303030', 'line-width': 1.5 },
+            layout: { 'visibility': 'none' }
+        });
+
+        // 3. Sector Boundaries (High, Low, Superhigh)
+        graphic_map.addSource('high-splits', { type: 'geojson', data: emptyGeoJSON });
+        graphic_map.addLayer({
+            id: 'high-splits-lines', type: 'line', source: 'high-splits',
+            paint: { 'line-color': '#303030', 'line-width': 1.5 },
+            layout: { 'visibility': 'none' }
+        });
+
+        graphic_map.addSource('low-splits', { type: 'geojson', data: emptyGeoJSON });
+        graphic_map.addLayer({
+            id: 'low-splits-lines', type: 'line', source: 'low-splits',
+            paint: { 'line-color': '#303030', 'line-width': 1.5 },
+            layout: { 'visibility': 'none' }
+        });
+
+        graphic_map.addSource('superhigh-splits', { type: 'geojson', data: emptyGeoJSON });
+        graphic_map.addLayer({
+            id: 'superhigh-splits-lines', type: 'line', source: 'superhigh-splits',
+            paint: { 'line-color': '#303030', 'line-width': 1.5 },
+            layout: { 'visibility': 'none' }
+        });
+
+        // 4. ARTCC Boundaries
+        graphic_map.addSource('artcc', { type: 'geojson', data: emptyGeoJSON });
+        graphic_map.addLayer({
+            id: 'artcc-lines', type: 'line', source: 'artcc',
+            paint: { 'line-color': '#515151', 'line-width': 1.5 }
+        });
+
+        // 5. SIGMETs
+        graphic_map.addSource('sigmets', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'sigmets-fill', type: 'fill', source: 'sigmets',
             paint: { 'fill-color': '#d8da5b', 'fill-opacity': 0.1 },
             layout: { 'visibility': 'none' }
         });
 
-        // NAVAIDs (empty initially, loaded async)
-        graphic_map.addSource('navaids', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        // 6. NAVAIDs
+        graphic_map.addSource('navaids', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'navaids-circles', type: 'circle', source: 'navaids',
             paint: { 'circle-radius': 3, 'circle-color': '#ffffff', 'circle-opacity': 0.25 },
             layout: { 'visibility': 'none' }
         });
+
+        // Load GeoJSON data asynchronously (layer order already set above)
+        loadGeoJsonData('tracon', 'assets/geojson/tracon.json');
+        loadGeoJsonData('high-splits', 'assets/geojson/high.json');
+        loadGeoJsonData('low-splits', 'assets/geojson/low.json');
+        loadGeoJsonData('superhigh-splits', 'assets/geojson/superhigh.json');
+        loadGeoJsonData('artcc', 'assets/geojson/artcc.json');
         loadNavaidsData();
-        
-        console.log('[MAPLIBRE] Static layer loading initiated');
+
+        console.log('[MAPLIBRE] Static layers added in nod.js order');
     }
 
     function loadNavaidsData() {
