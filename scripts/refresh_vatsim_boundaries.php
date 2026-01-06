@@ -11,7 +11,7 @@
  *   php refresh_vatsim_boundaries.php [--dry-run] [--verbose]
  * 
  * Schedule with cron for periodic updates (e.g., daily or weekly):
- *   0 4 * * 0 /usr/bin/php /home/site/wwwroot/scripts/refresh_vatsim_boundaries.php >> /home/site/wwwroot/scripts/boundary_refresh.log 2>&1
+ *   0 4 * * 0 /usr/bin/php ./scripts/refresh_vatsim_boundaries.php >> ./scripts/boundary_refresh.log 2>&1
  * 
  * @author PERTI System
  * @version 1.0.0
