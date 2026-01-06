@@ -1,0 +1,354 @@
+/**
+ * Weather Impact Styles
+ * Badges, panels, and affected flight displays
+ * 
+ * @version 1.0
+ * @date 2026-01-06
+ */
+
+/* =========================================================================
+   Impact Badges
+   ========================================================================= */
+
+.weather-impact-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-left: 4px;
+    cursor: help;
+    vertical-align: middle;
+}
+
+.weather-impact-badge:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Badge variants in data tables */
+.datatable .weather-impact-badge {
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+}
+
+/* =========================================================================
+   Impact Summary Panel
+   ========================================================================= */
+
+.weather-impact-summary {
+    display: flex;
+    gap: 12px;
+    padding: 10px;
+    background: #2a2a2a;
+    border-radius: 4px;
+}
+
+.weather-impact-summary .impact-stat {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    background: #333;
+    border-radius: 4px;
+}
+
+.weather-impact-summary .impact-stat .stat-value {
+    display: block;
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.weather-impact-summary .impact-stat .stat-label {
+    display: block;
+    font-size: 10px;
+    color: #999;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.weather-impact-summary .impact-stat.direct {
+    border-left: 3px solid #FF4444;
+}
+
+.weather-impact-summary .impact-stat.near {
+    border-left: 3px solid #FFA500;
+}
+
+.weather-impact-summary .impact-stat.alerts {
+    border-left: 3px solid #00BFFF;
+}
+
+.weather-impact-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px;
+    color: #4CAF50;
+    font-size: 14px;
+}
+
+.weather-impact-clear i {
+    font-size: 20px;
+}
+
+.weather-impact-loading {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+}
+
+/* =========================================================================
+   Affected Flights List
+   ========================================================================= */
+
+.affected-flights-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.hazard-group {
+    margin-bottom: 12px;
+}
+
+.hazard-group .hazard-header {
+    padding: 6px 10px;
+    background: #333;
+    font-weight: 600;
+    font-size: 12px;
+    border-radius: 4px 4px 0 0;
+    border-left: 4px solid #666;
+}
+
+.hazard-group.convective .hazard-header { border-left-color: #FF0000; }
+.hazard-group.turb .hazard-header { border-left-color: #FFA500; }
+.hazard-group.ice .hazard-header { border-left-color: #00BFFF; }
+.hazard-group.ifr .hazard-header { border-left-color: #808080; }
+.hazard-group.mtn .hazard-header { border-left-color: #8B4513; }
+
+.hazard-flights {
+    background: #2a2a2a;
+    border-radius: 0 0 4px 4px;
+}
+
+.affected-flight {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.affected-flight:hover {
+    background: #333;
+}
+
+.affected-flight:last-child {
+    border-bottom: none;
+}
+
+.affected-flight .flight-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.affected-flight .flight-callsign {
+    font-weight: 600;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    color: #fff;
+    min-width: 70px;
+}
+
+.affected-flight .flight-route {
+    flex: 1;
+    font-size: 11px;
+    color: #999;
+}
+
+.affected-flight .flight-impact-type {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: #444;
+    color: #ccc;
+}
+
+.more-flights {
+    padding: 8px 10px;
+    text-align: center;
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
+}
+
+.no-affected-flights {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+}
+
+/* =========================================================================
+   Flight Detail Weather Section
+   ========================================================================= */
+
+.flight-weather-impacts {
+    background: #2a2a2a;
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 10px;
+}
+
+.flight-weather-impacts h5 {
+    margin: 0 0 10px 0;
+    font-size: 12px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.flight-weather-impacts h5 .weather-icon {
+    color: #FFA500;
+}
+
+.weather-impact-item {
+    background: #333;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-left: 4px solid #666;
+}
+
+.weather-impact-item:last-child {
+    margin-bottom: 0;
+}
+
+.weather-impact-item.direct { border-left-color: #FF4444; }
+.weather-impact-item.near { border-left-color: #FFA500; }
+
+.weather-impact-item.convective { border-left-color: #FF0000; }
+.weather-impact-item.turb { border-left-color: #FFA500; }
+.weather-impact-item.ice { border-left-color: #00BFFF; }
+
+.weather-impact-item .impact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.weather-impact-item .impact-type {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.weather-impact-item .impact-expires {
+    font-size: 10px;
+    color: #999;
+}
+
+.weather-impact-item .impact-details {
+    font-size: 11px;
+    color: #aaa;
+}
+
+.weather-impact-item .impact-details span {
+    margin-right: 12px;
+}
+
+/* =========================================================================
+   Table Column Styling
+   ========================================================================= */
+
+.weather-col {
+    text-align: center;
+    width: 30px;
+}
+
+/* Row highlighting for affected flights */
+tr.weather-affected {
+    background: rgba(255, 165, 0, 0.08) !important;
+}
+
+tr.weather-affected:hover {
+    background: rgba(255, 165, 0, 0.15) !important;
+}
+
+tr.weather-direct {
+    background: rgba(255, 0, 0, 0.08) !important;
+}
+
+tr.weather-direct:hover {
+    background: rgba(255, 0, 0, 0.15) !important;
+}
+
+/* =========================================================================
+   Status Bar Integration
+   ========================================================================= */
+
+.status-bar .weather-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.status-bar .weather-status.has-impacts {
+    background: rgba(255, 165, 0, 0.2);
+    color: #FFA500;
+}
+
+.status-bar .weather-status.clear {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+}
+
+.status-bar .weather-status .impact-count {
+    font-weight: bold;
+}
+
+/* =========================================================================
+   Map Marker Integration
+   ========================================================================= */
+
+.flight-marker.weather-impacted {
+    animation: pulse-impact 1.5s infinite;
+}
+
+@keyframes pulse-impact {
+    0%, 100% {
+        filter: drop-shadow(0 0 3px rgba(255, 165, 0, 0.8));
+    }
+    50% {
+        filter: drop-shadow(0 0 8px rgba(255, 165, 0, 0.8));
+    }
+}
+
+.flight-marker.weather-direct {
+    animation: pulse-direct 1s infinite;
+}
+
+@keyframes pulse-direct {
+    0%, 100% {
+        filter: drop-shadow(0 0 3px rgba(255, 0, 0, 0.8));
+    }
+    50% {
+        filter: drop-shadow(0 0 10px rgba(255, 0, 0, 1));
+    }
+}
