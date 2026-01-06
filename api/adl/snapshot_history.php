@@ -56,7 +56,7 @@ try {
                 etd_runway_utc, eta_runway_utc, ctd_utc, cta_utc,
                 ctl_type, ctl_element, delay_status, phase,
                 ?, ?
-            FROM dbo.adl_flights
+            FROM dbo.vw_adl_flights
             WHERE flight_key IN ($placeholders)";
             
             $params = array_merge([$snapshotTime, $source], $keys);
@@ -77,7 +77,7 @@ try {
                 etd_runway_utc, eta_runway_utc, ctd_utc, cta_utc,
                 ctl_type, ctl_element, delay_status, phase,
                 ?, ?
-            FROM dbo.adl_flights
+            FROM dbo.vw_adl_flights
             WHERE is_active = 1 OR ? = 0";
             
             $params = [$snapshotTime, $source, $activeOnly];

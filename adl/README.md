@@ -222,7 +222,7 @@ Recommended: **General Purpose Serverless, 2 vCore**
 - [ ] Position geo-coding trigger
 - [ ] Trajectory geo-coding trigger
 - [ ] Archive maintenance procedures
-- [ ] API endpoint updates (api/adl/current.php)
+- [x] API endpoint updates (api/adl/current.php, flight.php, stats.php, snapshot_history.php)
 - [ ] Production cutover
 
 ## Key Procedures Reference

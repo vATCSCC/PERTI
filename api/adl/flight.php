@@ -68,7 +68,9 @@ if ($conn_adl === false) {
 
 $columnsLower = [];
 
-$colSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adl_flights'";
+// Use the compatibility view which joins normalized tables
+// Falls back to adl_flights if view doesn't exist yet
+$colSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'vw_adl_flights'";
 $colStmt = sqlsrv_query($conn_adl, $colSql);
 if ($colStmt === false) {
     http_response_code(500);
@@ -91,11 +93,25 @@ while ($col = sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
 sqlsrv_free_stmt($colStmt);
 
 if (empty($columnsLower)) {
-    http_response_code(500);
-    echo json_encode([
-        "error" => "ADL table adl_flights has no columns or could not be read."
-    ]);
-    exit;
+    // View might not exist yet - try legacy table
+    $colSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adl_flights'";
+    $colStmt = sqlsrv_query($conn_adl, $colSql);
+    if ($colStmt !== false) {
+        while ($col = sqlsrv_fetch_array($colStmt, SQLSRV_FETCH_ASSOC)) {
+            if (isset($col['COLUMN_NAME'])) {
+                $columnsLower[strtolower($col['COLUMN_NAME'])] = $col['COLUMN_NAME'];
+            }
+        }
+        sqlsrv_free_stmt($colStmt);
+    }
+    
+    if (empty($columnsLower)) {
+        http_response_code(500);
+        echo json_encode([
+            "error" => "ADL table/view not found or has no columns."
+        ]);
+        exit;
+    }
 }
 
 function adl_lookup_column($columnsLower, $candidateNames) {
@@ -138,7 +154,9 @@ $isActiveCol  = adl_lookup_column($columnsLower, ['is_active']);
 $lastSeenCol  = adl_lookup_column($columnsLower, ['last_seen_utc']);
 $snapshotCol  = adl_lookup_column($columnsLower, ['snapshot_utc']);
 
-$sql = "SELECT TOP 1 * FROM adl_flights";
+// Use view if available (normalized schema), otherwise legacy table
+$tableName = isset($columnsLower['flight_uid']) ? 'vw_adl_flights' : 'adl_flights';
+$sql = "SELECT TOP 1 * FROM {$tableName}";
 $where = [];
 $params = [];
 

@@ -85,7 +85,8 @@ WITH flight_classifications AS (
         dest_apt.ASPM77 AS arr_aspm77,
         dest_apt.OEP35 AS arr_oep35,
         dest_apt.Core30 AS arr_core30
-    FROM dbo.adl_flights f
+    -- Use view if available (normalized schema), falls back gracefully
+    FROM dbo.vw_adl_flights f
     LEFT JOIN dbo.apts dept_apt ON dept_apt.ICAO_ID = f.fp_dept_icao
     LEFT JOIN dbo.apts dest_apt ON dest_apt.ICAO_ID = f.fp_dest_icao
     WHERE f.is_active = 1
