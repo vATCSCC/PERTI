@@ -1,39 +1,41 @@
 -- =====================================================
--- Phase 5E.1: Boundary Import Stored Procedure (Fixed)
+-- Phase 5E.1: Boundary Import Stored Procedure (v3 - Fixed)
 -- Migration: 050_boundary_import_procedure.sql
 -- Description: Imports boundaries from WKT with polygon orientation fix
+-- Fixes: Removed OUTPUT param, increased field lengths
 -- =====================================================
 
 -- Procedure to import a single boundary with proper polygon orientation
 -- Note: Accepts WKT instead of GeoJSON (PHP converts GeoJSON->WKT before calling)
 CREATE OR ALTER PROCEDURE sp_ImportBoundary
     @boundary_type VARCHAR(20),
-    @boundary_code VARCHAR(20),
-    @boundary_name VARCHAR(100) = NULL,
+    @boundary_code VARCHAR(50),           -- Increased from 20
+    @boundary_name NVARCHAR(255) = NULL,  -- Increased from 100, NVARCHAR for unicode
     @parent_artcc VARCHAR(10) = NULL,
-    @sector_number VARCHAR(10) = NULL,
+    @sector_number VARCHAR(20) = NULL,    -- Increased from 10
     @icao_code VARCHAR(10) = NULL,
-    @vatsim_region VARCHAR(20) = NULL,
-    @vatsim_division VARCHAR(20) = NULL,
-    @vatsim_subdivision VARCHAR(20) = NULL,
+    @vatsim_region VARCHAR(50) = NULL,    -- Increased from 20
+    @vatsim_division VARCHAR(50) = NULL,  -- Increased from 20
+    @vatsim_subdivision VARCHAR(50) = NULL, -- Increased from 20
     @is_oceanic BIT = 0,
     @floor_altitude INT = NULL,
     @ceiling_altitude INT = NULL,
     @label_lat DECIMAL(10,6) = NULL,
     @label_lon DECIMAL(11,6) = NULL,
     @wkt_geometry NVARCHAR(MAX),          -- WKT format (POLYGON, MULTIPOLYGON)
-    @shape_length DECIMAL(15,10) = NULL,
-    @shape_area DECIMAL(15,10) = NULL,
+    @shape_length DECIMAL(18,10) = NULL,  -- Increased precision
+    @shape_area DECIMAL(18,10) = NULL,    -- Increased precision
     @source_object_id INT = NULL,
     @source_fid INT = NULL,
-    @source_file VARCHAR(50) = NULL,
-    @boundary_id INT OUTPUT
+    @source_file VARCHAR(100) = NULL      -- Increased from 50
+    -- REMOVED: @boundary_id INT OUTPUT (use SELECT return instead)
 AS
 BEGIN
     SET NOCOUNT ON;
     
     DECLARE @geography GEOGRAPHY;
     DECLARE @oriented_geography GEOGRAPHY;
+    DECLARE @boundary_id INT;
     
     BEGIN TRY
         -- Parse WKT to geography
@@ -160,7 +162,7 @@ BEGIN
     DECLARE @now DATETIME2 = GETUTCDATE();
     
     -- Find matching ARTCC
-    DECLARE @artcc_id INT, @artcc_code VARCHAR(20);
+    DECLARE @artcc_id INT, @artcc_code VARCHAR(50);
     SELECT TOP 1 
         @artcc_id = boundary_id,
         @artcc_code = boundary_code
@@ -174,7 +176,7 @@ BEGIN
         boundary_geography.STArea() ASC;
     
     -- Find matching sector
-    DECLARE @sector_id INT, @sector_code VARCHAR(20);
+    DECLARE @sector_id INT, @sector_code VARCHAR(50);
     SELECT TOP 1 
         @sector_id = boundary_id,
         @sector_code = boundary_code
@@ -187,7 +189,7 @@ BEGIN
     ORDER BY boundary_geography.STArea() ASC;
     
     -- Find matching TRACON (only at lower altitudes, typically < FL180)
-    DECLARE @tracon_id INT, @tracon_code VARCHAR(20);
+    DECLARE @tracon_id INT, @tracon_code VARCHAR(50);
     IF @altitude IS NULL OR @altitude < 18000
     BEGIN
         SELECT TOP 1 
@@ -363,6 +365,6 @@ END;
 GO
 
 
-PRINT 'Phase 5E.1: Boundary import procedures created successfully';
+PRINT 'Phase 5E.1: Boundary import procedures created successfully (v3)';
 PRINT 'Procedures: sp_ImportBoundary, sp_DetectFlightBoundaries, sp_DetectAllFlightBoundaries';
 GO

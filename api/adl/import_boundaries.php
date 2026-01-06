@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase 5E.1: Boundary Import - Web Trigger (v2 with Failure Logging)
+ * Phase 5E.1: Boundary Import - Web Trigger (v3 with Antimeridian Support)
  * /api/adl/import_boundaries.php
  */
 
@@ -44,7 +44,7 @@ if ($conn === false) {
     die("ERROR: Database connection failed - " . print_r(sqlsrv_errors(), true) . "\n");
 }
 
-echo "=== Boundary Import (v2 with Logging) ===\n";
+echo "=== Boundary Import (v3 with Antimeridian Support) ===\n";
 echo "Connected to database.\n\n";
 
 // Generate unique run ID for this import batch
@@ -61,9 +61,9 @@ $geojsonDir = __DIR__ . '/../../assets/geojson/';
 
 // Stats with failure details
 $stats = [
-    'artcc' => ['imported' => 0, 'failed' => 0, 'failures' => []],
-    'sectors' => ['imported' => 0, 'failed' => 0, 'failures' => []],
-    'tracon' => ['imported' => 0, 'failed' => 0, 'failures' => []]
+    'artcc' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'antimeridian' => 0],
+    'sectors' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'antimeridian' => 0],
+    'tracon' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'antimeridian' => 0]
 ];
 
 // Check if log table exists
@@ -125,6 +125,207 @@ function countPoints($geometry) {
         }
     }
     return $count;
+}
+
+/**
+ * Check if a ring crosses the antimeridian (180° longitude)
+ * Returns true if there's a longitude jump > 180° between consecutive points
+ */
+function ringCrossesAntimeridian($ring) {
+    for ($i = 0; $i < count($ring) - 1; $i++) {
+        $lon1 = $ring[$i][0];
+        $lon2 = $ring[$i + 1][0];
+        $diff = abs($lon2 - $lon1);
+        if ($diff > 180) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Interpolate latitude at the antimeridian crossing
+ */
+function interpolateLatAtAntimeridian($lon1, $lat1, $lon2, $lat2) {
+    // Normalize longitudes for the crossing calculation
+    if ($lon1 > 0 && $lon2 < 0) {
+        // Crossing from east to west (e.g., 170 to -170)
+        $lon2_norm = $lon2 + 360; // -170 -> 190
+        $target = 180;
+    } else {
+        // Crossing from west to east (e.g., -170 to 170)
+        $lon1_norm = $lon1 + 360; // -170 -> 190
+        $lon1 = $lon1_norm;
+        $target = 180;
+    }
+    
+    // Linear interpolation
+    if (abs($lon2 - $lon1) < 0.0001) {
+        return ($lat1 + $lat2) / 2;
+    }
+    
+    // For east-to-west crossing
+    if ($lon1 > 0 && $lon2 < 0) {
+        $t = (180 - $lon1) / ((360 + $lon2) - $lon1);
+    } else {
+        // west-to-east
+        $t = (180 - ($lon1 > 0 ? $lon1 : $lon1 + 360)) / (($lon2 > 0 ? $lon2 : $lon2 + 360) - ($lon1 > 0 ? $lon1 : $lon1 + 360));
+    }
+    
+    return $lat1 + $t * ($lat2 - $lat1);
+}
+
+/**
+ * Split a ring at the antimeridian into two rings (east and west)
+ */
+function splitRingAtAntimeridian($ring) {
+    $eastRing = [];  // Points with positive longitude (or shifted to positive)
+    $westRing = [];  // Points with negative longitude (or shifted to negative)
+    
+    $n = count($ring);
+    
+    for ($i = 0; $i < $n; $i++) {
+        $curr = $ring[$i];
+        $next = $ring[($i + 1) % $n];
+        
+        $currLon = $curr[0];
+        $currLat = $curr[1];
+        $nextLon = $next[0];
+        $nextLat = $next[1];
+        
+        // Determine which side current point is on
+        $currIsEast = $currLon >= 0;
+        
+        // Add current point to appropriate ring
+        if ($currIsEast) {
+            $eastRing[] = $curr;
+        } else {
+            $westRing[] = $curr;
+        }
+        
+        // Check if we're crossing the antimeridian to next point
+        $lonDiff = abs($nextLon - $currLon);
+        if ($lonDiff > 180 && $i < $n - 1) {  // Skip last-to-first (handled by closure)
+            // We're crossing - interpolate the crossing point
+            $crossLat = interpolateLatAtAntimeridian($currLon, $currLat, $nextLon, $nextLat);
+            
+            // Add crossing points to both rings
+            if ($currIsEast) {
+                // Going from east to west
+                $eastRing[] = [180.0, $crossLat];
+                $westRing[] = [-180.0, $crossLat];
+            } else {
+                // Going from west to east
+                $westRing[] = [-180.0, $crossLat];
+                $eastRing[] = [180.0, $crossLat];
+            }
+        }
+    }
+    
+    return [$eastRing, $westRing];
+}
+
+/**
+ * Ensure a ring is closed (first point = last point)
+ */
+function closeRing($ring) {
+    if (count($ring) < 3) return $ring;
+    
+    $first = $ring[0];
+    $last = $ring[count($ring) - 1];
+    
+    if ($first[0] !== $last[0] || $first[1] !== $last[1]) {
+        $ring[] = $first;
+    }
+    
+    return $ring;
+}
+
+/**
+ * Process geometry to handle antimeridian crossings
+ * Returns modified geometry (may convert Polygon to MultiPolygon)
+ */
+function handleAntimeridian($geometry) {
+    $type = $geometry['type'];
+    $coords = $geometry['coordinates'];
+    
+    if ($type === 'Polygon') {
+        // Check if any ring crosses the antimeridian
+        $crosses = false;
+        foreach ($coords as $ring) {
+            if (ringCrossesAntimeridian($ring)) {
+                $crosses = true;
+                break;
+            }
+        }
+        
+        if (!$crosses) {
+            return ['geometry' => $geometry, 'split' => false];
+        }
+        
+        // Split the polygon - for simplicity, we'll handle the exterior ring
+        // and assume holes don't cross (or we ignore holes for split polygons)
+        $exteriorRing = $coords[0];
+        list($eastRing, $westRing) = splitRingAtAntimeridian($exteriorRing);
+        
+        // Close the rings
+        $eastRing = closeRing($eastRing);
+        $westRing = closeRing($westRing);
+        
+        // Build MultiPolygon from valid rings
+        $polygons = [];
+        if (count($eastRing) >= 4) {  // Need at least 4 points for a valid ring (3 + closure)
+            $polygons[] = [$eastRing];
+        }
+        if (count($westRing) >= 4) {
+            $polygons[] = [$westRing];
+        }
+        
+        if (count($polygons) === 0) {
+            // Fallback - return original
+            return ['geometry' => $geometry, 'split' => false];
+        } elseif (count($polygons) === 1) {
+            return [
+                'geometry' => ['type' => 'Polygon', 'coordinates' => $polygons[0]],
+                'split' => true
+            ];
+        } else {
+            return [
+                'geometry' => ['type' => 'MultiPolygon', 'coordinates' => $polygons],
+                'split' => true
+            ];
+        }
+        
+    } elseif ($type === 'MultiPolygon') {
+        // Process each polygon in the MultiPolygon
+        $newPolygons = [];
+        $anySplit = false;
+        
+        foreach ($coords as $polygon) {
+            $singleGeom = ['type' => 'Polygon', 'coordinates' => $polygon];
+            $result = handleAntimeridian($singleGeom);
+            
+            if ($result['split']) {
+                $anySplit = true;
+            }
+            
+            if ($result['geometry']['type'] === 'Polygon') {
+                $newPolygons[] = $result['geometry']['coordinates'];
+            } else {
+                // It was split into MultiPolygon - add each part
+                foreach ($result['geometry']['coordinates'] as $part) {
+                    $newPolygons[] = $part;
+                }
+            }
+        }
+        
+        return [
+            'geometry' => ['type' => 'MultiPolygon', 'coordinates' => $newPolygons],
+            'split' => $anySplit
+        ];
+    }
+    
+    return ['geometry' => $geometry, 'split' => false];
 }
 
 /**
@@ -211,8 +412,16 @@ function importBoundary($conn, $data, $runId, $category) {
     $geomType = $data['geometry']['type'] ?? 'Unknown';
     
     try {
-        $pointCount = countPoints($data['geometry']);
-        $wkt = geojsonToWkt($data['geometry']);
+        // Handle antimeridian crossings
+        $amResult = handleAntimeridian($data['geometry']);
+        $geometry = $amResult['geometry'];
+        if ($amResult['split']) {
+            $stats[$category]['antimeridian']++;
+            $geomType .= ' (split)';
+        }
+        
+        $pointCount = countPoints($geometry);
+        $wkt = geojsonToWkt($geometry);
         $wktLength = strlen($wkt);
         
         $sql = "EXEC sp_ImportBoundary 
@@ -369,7 +578,11 @@ function importArtcc($conn, $geojsonDir, &$stats, $runId) {
         }
     }
     
-    echo "  ARTCC complete: {$stats['artcc']['imported']} imported, {$stats['artcc']['failed']} failed\n\n";
+    echo "  ARTCC complete: {$stats['artcc']['imported']} imported, {$stats['artcc']['failed']} failed";
+    if ($stats['artcc']['antimeridian'] > 0) {
+        echo " ({$stats['artcc']['antimeridian']} antimeridian splits)";
+    }
+    echo "\n\n";
     flush();
 }
 
@@ -479,7 +692,11 @@ function importTracon($conn, $geojsonDir, &$stats, $runId) {
         }
     }
     
-    echo "  TRACON complete: {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed\n\n";
+    echo "  TRACON complete: {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed";
+    if ($stats['tracon']['antimeridian'] > 0) {
+        echo " ({$stats['tracon']['antimeridian']} antimeridian splits)";
+    }
+    echo "\n\n";
     flush();
 }
 
@@ -517,13 +734,22 @@ switch ($type) {
 
 // Print summary
 echo "=== Import Summary ===\n";
-echo "ARTCC:   {$stats['artcc']['imported']} imported, {$stats['artcc']['failed']} failed\n";
-echo "Sectors: {$stats['sectors']['imported']} imported, {$stats['sectors']['failed']} failed\n";
-echo "TRACON:  {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed\n";
+echo "ARTCC:   {$stats['artcc']['imported']} imported, {$stats['artcc']['failed']} failed";
+if ($stats['artcc']['antimeridian'] > 0) echo " ({$stats['artcc']['antimeridian']} antimeridian)";
+echo "\n";
+echo "Sectors: {$stats['sectors']['imported']} imported, {$stats['sectors']['failed']} failed";
+if ($stats['sectors']['antimeridian'] > 0) echo " ({$stats['sectors']['antimeridian']} antimeridian)";
+echo "\n";
+echo "TRACON:  {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed";
+if ($stats['tracon']['antimeridian'] > 0) echo " ({$stats['tracon']['antimeridian']} antimeridian)";
+echo "\n";
 
 $totalImported = $stats['artcc']['imported'] + $stats['sectors']['imported'] + $stats['tracon']['imported'];
 $totalFailed = $stats['artcc']['failed'] + $stats['sectors']['failed'] + $stats['tracon']['failed'];
-echo "Total:   $totalImported imported, $totalFailed failed\n\n";
+$totalAntimeridian = $stats['artcc']['antimeridian'] + $stats['sectors']['antimeridian'] + $stats['tracon']['antimeridian'];
+echo "Total:   $totalImported imported, $totalFailed failed";
+if ($totalAntimeridian > 0) echo " ($totalAntimeridian antimeridian splits handled)";
+echo "\n\n";
 
 // Print failure details
 if ($totalFailed > 0) {
