@@ -1,10 +1,14 @@
 -- ============================================================================
--- PATCH: sp_Adl_RefreshFromVatsim_Normalized V8 - Zone Detection Integration
+-- PATCH: sp_Adl_RefreshFromVatsim_Normalized V8.2 - Fixed Column Sizes + Wake Category
 -- 
--- This patch adds:
--- 1. Zone detection for OOOI tracking (Step 9)
--- 
--- Apply by running this script which recreates the full procedure
+-- Changes from V8.1:
+--   - wake_category: Now uses single-letter codes (J/H/M/L) instead of full words
+--   - aircraft_icao/aircraft_faa: Truncated to 8 chars on insert
+-- Changes from V8:
+--   - dept_artcc: NVARCHAR(4) -> NVARCHAR(8)
+--   - dept_tracon: NVARCHAR(8) -> NVARCHAR(64)
+--   - dest_artcc: NVARCHAR(4) -> NVARCHAR(8)
+--   - dest_tracon: NVARCHAR(8) -> NVARCHAR(64)
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -32,7 +36,7 @@ BEGIN
     -- ETA/Trajectory counters
     DECLARE @eta_count INT = 0;
     DECLARE @traj_count INT = 0;
-    -- NEW V8: Zone detection counter
+    -- Zone detection counter
     DECLARE @zone_transitions INT = 0;
     
     -- ========================================================================
@@ -78,15 +82,15 @@ BEGIN
             THEN LEFT(p.callsign, 3)
             ELSE NULL
         END AS airline_icao,
-        -- Placeholders for enrichment
+        -- Placeholders for enrichment (FIXED SIZES V8.1)
         CAST(NULL AS DECIMAL(10,7)) AS dept_lat,
         CAST(NULL AS DECIMAL(11,7)) AS dept_lon,
-        CAST(NULL AS NVARCHAR(4)) AS dept_artcc,
-        CAST(NULL AS NVARCHAR(8)) AS dept_tracon,
+        CAST(NULL AS NVARCHAR(8)) AS dept_artcc,
+        CAST(NULL AS NVARCHAR(64)) AS dept_tracon,
         CAST(NULL AS DECIMAL(10,7)) AS dest_lat,
         CAST(NULL AS DECIMAL(11,7)) AS dest_lon,
-        CAST(NULL AS NVARCHAR(4)) AS dest_artcc,
-        CAST(NULL AS NVARCHAR(8)) AS dest_tracon,
+        CAST(NULL AS NVARCHAR(8)) AS dest_artcc,
+        CAST(NULL AS NVARCHAR(64)) AS dest_tracon,
         CAST(NULL AS DECIMAL(10,2)) AS gcd_nm,
         CAST(NULL AS DECIMAL(10,2)) AS dist_to_dest_nm,
         CAST(NULL AS DECIMAL(10,2)) AS dist_flown_nm,
@@ -490,18 +494,20 @@ BEGIN
             acd.Num_Engines AS engine_count,
             CAST(acd.Approach_Speed_knot * 2 AS INT) AS cruise_tas_kts,
             CAST(NULL AS INT) AS ceiling_ft,
-            COALESCE(
-                acd.ICAO_WTC,
-                CASE 
-                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('A388', 'A380', 'B748', 'B744', 'AN25', 'A225') THEN 'Super'
-                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('B77W', 'B77L', 'B772', 'B773', 'A359', 'A35K', 'A346', 'A345', 'A343', 'A342', 'A333', 'A332', 'A339', 'B788', 'B789', 'B78X', 'B764', 'B763', 'B762', 'MD11', 'DC10', 'IL96', 'B752', 'B753', 'A310', 'A306') THEN 'Heavy'
-                    WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C1%' 
-                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C2%' 
-                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'PA%'
-                      OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'SR2%' THEN 'Light'
-                    ELSE 'Medium'
-                END
-            ) AS wake_category,
+            -- Wake category: Convert to single letter (J=Super, H=Heavy, M=Medium, L=Light)
+            CASE 
+                WHEN acd.ICAO_WTC LIKE 'Super%' OR acd.ICAO_WTC = 'J' THEN 'J'
+                WHEN acd.ICAO_WTC LIKE 'Heavy%' OR acd.ICAO_WTC = 'H' THEN 'H'
+                WHEN acd.ICAO_WTC LIKE 'Light%' OR acd.ICAO_WTC = 'L' THEN 'L'
+                WHEN acd.ICAO_WTC LIKE 'Medium%' OR acd.ICAO_WTC = 'M' THEN 'M'
+                WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('A388', 'A380', 'B748', 'B744', 'AN25', 'A225') THEN 'J'
+                WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) IN ('B77W', 'B77L', 'B772', 'B773', 'A359', 'A35K', 'A346', 'A345', 'A343', 'A342', 'A333', 'A332', 'A339', 'B788', 'B789', 'B78X', 'B764', 'B763', 'B762', 'MD11', 'DC10', 'IL96', 'B752', 'B753', 'A310', 'A306') THEN 'H'
+                WHEN COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C1%' 
+                  OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'C2%' 
+                  OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'PA%'
+                  OR COALESCE(p.aircraft_short, p.aircraft_faa_raw) LIKE 'SR2%' THEN 'L'
+                ELSE 'M'
+            END AS wake_category,
             p.airline_icao,
             al.name AS airline_name
         FROM #pilots p
@@ -520,7 +526,7 @@ BEGIN
     WHEN MATCHED THEN
         UPDATE SET
             aircraft_icao = COALESCE(source.aircraft_icao, target.aircraft_icao),
-            aircraft_faa = COALESCE(source.aircraft_faa, target.aircraft_faa),
+            aircraft_faa = COALESCE(LEFT(source.aircraft_faa, 8), target.aircraft_faa),
             weight_class = COALESCE(source.weight_class, target.weight_class),
             engine_type = COALESCE(source.engine_type, target.engine_type),
             engine_count = COALESCE(source.engine_count, target.engine_count),
@@ -534,7 +540,7 @@ BEGIN
         INSERT (flight_uid, aircraft_icao, aircraft_faa, weight_class, engine_type, 
                 engine_count, cruise_tas_kts, ceiling_ft, wake_category,
                 airline_icao, airline_name, aircraft_updated_utc)
-        VALUES (source.flight_uid, source.aircraft_icao, source.aircraft_faa, source.weight_class, 
+        VALUES (source.flight_uid, LEFT(source.aircraft_icao, 8), LEFT(source.aircraft_faa, 8), source.weight_class, 
                 source.engine_type, source.engine_count, source.cruise_tas_kts, source.ceiling_ft,
                 source.wake_category, source.airline_icao, source.airline_name, @now);
     
@@ -553,14 +559,17 @@ BEGIN
     -- Step 8: Process Trajectory & ETA Calculations
     -- ========================================================================
     
-    EXEC dbo.sp_ProcessTrajectoryBatch 
-        @process_eta = 1, 
-        @process_trajectory = 1,
-        @eta_count = @eta_count OUTPUT,
-        @traj_count = @traj_count OUTPUT;
+    IF OBJECT_ID('dbo.sp_ProcessTrajectoryBatch', 'P') IS NOT NULL
+    BEGIN
+        EXEC dbo.sp_ProcessTrajectoryBatch 
+            @process_eta = 1, 
+            @process_trajectory = 1,
+            @eta_count = @eta_count OUTPUT,
+            @traj_count = @traj_count OUTPUT;
+    END
     
     -- ========================================================================
-    -- Step 9: NEW V8 - Zone Detection for OOOI
+    -- Step 9: Zone Detection for OOOI
     -- ========================================================================
     
     -- Only process if the procedure exists (graceful degradation)
@@ -592,19 +601,7 @@ BEGIN
 END;
 GO
 
-PRINT '============================================================================';
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8 - Zone Detection Integration';
-PRINT '============================================================================';
-PRINT '';
-PRINT 'NEW in V8:';
-PRINT '  - Calls sp_ProcessZoneDetectionBatch (Step 9)';
-PRINT '  - Returns zone_transitions in output';
-PRINT '  - Graceful degradation if zone detection proc not present';
-PRINT '';
-PRINT 'The procedure now automatically:';
-PRINT '  1. Updates flight relevance flags';
-PRINT '  2. Logs trajectory points based on 8-tier system';
-PRINT '  3. Calculates ETAs with phase-aware accuracy';
-PRINT '  4. Detects zone transitions for OOOI tracking';
-PRINT '============================================================================';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.2 created successfully';
+PRINT 'Fixed: TRACON columns expanded to NVARCHAR(64), ARTCC to NVARCHAR(8)';
+PRINT 'Fixed: wake_category now uses single-letter codes (J/H/M/L)';
 GO
