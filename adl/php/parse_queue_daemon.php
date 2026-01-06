@@ -1,0 +1,229 @@
+<?php
+/**
+ * ADL Route Parse Queue Daemon
+ * 
+ * Processes the parse queue to expand routes into waypoints and geometries.
+ * Run this as a continuous process alongside the ingestion daemon.
+ * 
+ * IMPORTANT: Uses $conn_adl (Azure SQL VATSIM_ADL database), NOT the PERTI MySQL.
+ * 
+ * Usage:
+ *   php parse_queue_daemon.php              # Run once
+ *   php parse_queue_daemon.php --loop       # Run continuously
+ *   php parse_queue_daemon.php --loop --batch=100  # Custom batch size
+ */
+
+// Include the PERTI connection setup which provides $conn_adl
+require_once __DIR__ . '/../../load/connect.php';
+require_once __DIR__ . '/AdlFlightUpsert.php';
+
+// Configuration
+define('DEFAULT_BATCH_SIZE', 50);
+define('DEFAULT_INTERVAL', 5);  // seconds between queue checks
+define('MAX_ITERATIONS', 20);   // max batches per cycle
+
+class ParseQueueDaemon
+{
+    private $conn;
+    private $adl;
+    private $batchSize;
+    private $interval;
+    private $running = true;
+    
+    public function __construct($conn_adl, int $batchSize = DEFAULT_BATCH_SIZE, int $interval = DEFAULT_INTERVAL)
+    {
+        $this->conn = $conn_adl;
+        $this->adl = new AdlFlightUpsert($conn_adl);
+        $this->batchSize = $batchSize;
+        $this->interval = $interval;
+        
+        // Handle graceful shutdown
+        if (function_exists('pcntl_signal')) {
+            pcntl_signal(SIGTERM, [$this, 'shutdown']);
+            pcntl_signal(SIGINT, [$this, 'shutdown']);
+        }
+    }
+    
+    public function shutdown(): void
+    {
+        $this->log("Shutdown signal received");
+        $this->running = false;
+    }
+    
+    private function log(string $message): void
+    {
+        $timestamp = date('Y-m-d H:i:s');
+        echo "[{$timestamp}] {$message}\n";
+    }
+    
+    /**
+     * Get queue statistics
+     */
+    private function getQueueStats(): array
+    {
+        $sql = "
+            SELECT 
+                COUNT(CASE WHEN status = 'PENDING' THEN 1 END) AS pending,
+                COUNT(CASE WHEN status = 'PROCESSING' THEN 1 END) AS processing,
+                COUNT(CASE WHEN status = 'COMPLETE' THEN 1 END) AS complete,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed,
+                AVG(CASE WHEN status = 'COMPLETE' THEN DATEDIFF(MILLISECOND, started_utc, completed_utc) END) AS avg_parse_ms
+            FROM dbo.adl_parse_queue
+            WHERE queued_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())
+        ";
+        
+        $stmt = sqlsrv_query($this->conn, $sql);
+        if ($stmt === false) return [];
+        
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        
+        return $row ?: [];
+    }
+    
+    /**
+     * Process a batch of routes directly (more control than sp_ProcessParseQueue)
+     */
+    private function processBatch(): int
+    {
+        $sql = "EXEC dbo.sp_ParseRouteBatch @batch_size = ?, @tier = NULL";
+        $stmt = sqlsrv_query($this->conn, $sql, [$this->batchSize]);
+        
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            $this->log("ERROR: " . print_r($errors, true));
+            return 0;
+        }
+        
+        // The procedure returns stats
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        
+        return $row['processed'] ?? 0;
+    }
+    
+    /**
+     * Run a single processing cycle
+     */
+    public function runOnce(): array
+    {
+        $startTime = microtime(true);
+        $stats = [
+            'processed' => 0,
+            'duration_ms' => 0,
+            'queue_stats' => []
+        ];
+        
+        // Get initial stats
+        $queueStats = $this->getQueueStats();
+        $pending = $queueStats['pending'] ?? 0;
+        
+        if ($pending == 0) {
+            $this->log("Queue empty, nothing to process");
+            $stats['queue_stats'] = $queueStats;
+            return $stats;
+        }
+        
+        $this->log("Processing queue ({$pending} pending)...");
+        
+        // Process batches
+        $iterations = 0;
+        $totalProcessed = 0;
+        
+        while ($iterations < MAX_ITERATIONS && $this->running) {
+            $processed = $this->processBatch();
+            $totalProcessed += $processed;
+            $iterations++;
+            
+            if ($processed < $this->batchSize) {
+                // Queue exhausted
+                break;
+            }
+        }
+        
+        $stats['processed'] = $totalProcessed;
+        $stats['duration_ms'] = round((microtime(true) - $startTime) * 1000);
+        $stats['queue_stats'] = $this->getQueueStats();
+        
+        $this->log("Processed {$totalProcessed} routes in {$iterations} batches ({$stats['duration_ms']}ms)");
+        
+        return $stats;
+    }
+    
+    /**
+     * Run continuous loop
+     */
+    public function runLoop(): void
+    {
+        $this->log("Starting parse queue daemon (batch: {$this->batchSize}, interval: {$this->interval}s)");
+        $this->log("Connected to VATSIM_ADL Azure SQL database");
+        
+        while ($this->running) {
+            $stats = $this->runOnce();
+            
+            // Log queue status
+            $qs = $stats['queue_stats'];
+            $this->log(sprintf(
+                "Queue: %d pending | %d complete | %d failed | avg %dms",
+                $qs['pending'] ?? 0,
+                $qs['complete'] ?? 0,
+                $qs['failed'] ?? 0,
+                $qs['avg_parse_ms'] ?? 0
+            ));
+            
+            // Sleep until next cycle
+            if ($this->running) {
+                // Sleep longer if queue was empty
+                $sleepTime = ($stats['processed'] == 0) ? $this->interval * 2 : $this->interval;
+                sleep((int)$sleepTime);
+            }
+            
+            // Check for signals
+            if (function_exists('pcntl_signal_dispatch')) {
+                pcntl_signal_dispatch();
+            }
+        }
+        
+        $this->log("Daemon stopped");
+    }
+}
+
+// =============================================================================
+// Main entry point
+// =============================================================================
+
+$options = getopt('', ['loop', 'batch::', 'interval::', 'help']);
+
+if (isset($options['help'])) {
+    echo "ADL Route Parse Queue Daemon\n";
+    echo "============================\n";
+    echo "Processes routes from the parse queue in VATSIM_ADL Azure SQL database.\n\n";
+    echo "Usage: php parse_queue_daemon.php [options]\n";
+    echo "  --loop           Run continuously\n";
+    echo "  --batch=N        Routes per batch (default: 50)\n";
+    echo "  --interval=N     Seconds between cycles (default: 5)\n";
+    echo "  --help           Show this help\n";
+    exit(0);
+}
+
+// Check that we have the ADL connection
+if (!isset($conn_adl) || $conn_adl === null || $conn_adl === false) {
+    echo "ERROR: Could not connect to VATSIM_ADL database.\n";
+    echo "Check that ADL_SQL_* constants are defined in load/config.php\n";
+    echo "and that the sqlsrv extension is loaded.\n";
+    exit(1);
+}
+
+echo "Connected to VATSIM_ADL database successfully.\n";
+
+$batchSize = isset($options['batch']) ? (int)$options['batch'] : DEFAULT_BATCH_SIZE;
+$interval = isset($options['interval']) ? (int)$options['interval'] : DEFAULT_INTERVAL;
+
+$daemon = new ParseQueueDaemon($conn_adl, $batchSize, $interval);
+
+if (isset($options['loop'])) {
+    $daemon->runLoop();
+} else {
+    $stats = $daemon->runOnce();
+    echo json_encode($stats, JSON_PRETTY_PRINT) . "\n";
+}

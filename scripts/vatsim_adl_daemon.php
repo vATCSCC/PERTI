@@ -184,7 +184,7 @@ function executeRefreshSP($conn, string $jsonData, int $timeout): array {
     $startTime = microtime(true);
     
     // Use parameterized query for safety and performance
-    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim] @Json = ?";
+    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Normalized] @Json = ?";
     
     // Set query timeout
     $options = ['QueryTimeout' => $timeout];
