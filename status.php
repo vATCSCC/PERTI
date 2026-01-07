@@ -176,7 +176,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // Zone transitions (last hour)
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_oooi_log WHERE detected_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_zone_events WHERE event_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -185,7 +185,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // Boundary crossings (last hour) and total boundaries
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_boundary_log WHERE crossed_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_boundary_log WHERE entry_time > DATEADD(HOUR, -1, SYSUTCDATETIME())";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -194,7 +194,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // Total boundaries defined
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_boundaries";
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_boundary";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
