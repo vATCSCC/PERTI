@@ -1053,30 +1053,61 @@ BEGIN
                 END
             END
             
-            -- 3. Try as STAR: %.token pattern (ANJLL4 -> %.ANJLL4)
-            -- Prefer transition that matches the last fix before this STAR
+            -- 3. Try as STAR: Check both naming conventions
+            -- Old format: TRANSITION.PROCEDURE (e.g., JOH.WITTI5)
+            -- CIFP format: PROCEDURE.TRANSITION (e.g., WITTI5.JOH)
+            -- Prefer procedures with has_leg_detail = 1
             IF @proc_route IS NULL
             BEGIN
-                -- First try to find a STAR whose transition matches the last fix
+                -- First try CIFP format with matching transition (has leg detail)
                 IF @last_fix_before_star IS NOT NULL
                 BEGIN
                     SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code,
                            @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                     FROM dbo.nav_procedures
-                    WHERE computer_code = @last_fix_before_star + '.' + @t_token
-                      AND procedure_type = 'STAR';
+                    WHERE computer_code = @t_token + '.' + @last_fix_before_star
+                      AND procedure_type = 'STAR'
+                    ORDER BY has_leg_detail DESC;
 
                     IF @debug = 1 AND @proc_route IS NOT NULL
-                        PRINT '  -> Found STAR with matching transition: ' + @last_fix_before_star;
+                        PRINT '  -> Found STAR (CIFP format) with transition: ' + @last_fix_before_star;
                 END
 
-                -- If no context match, fall back to first matching STAR
-                IF @proc_route IS NULL
+                -- Try old format with matching transition
+                IF @proc_route IS NULL AND @last_fix_before_star IS NOT NULL
                 BEGIN
                     SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code,
                            @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                     FROM dbo.nav_procedures
-                    WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR';
+                    WHERE computer_code = @last_fix_before_star + '.' + @t_token
+                      AND procedure_type = 'STAR'
+                    ORDER BY has_leg_detail DESC;
+
+                    IF @debug = 1 AND @proc_route IS NOT NULL
+                        PRINT '  -> Found STAR (old format) with transition: ' + @last_fix_before_star;
+                END
+
+                -- Fall back: Try CIFP format wildcard, prefer RWxx transitions (most legs)
+                IF @proc_route IS NULL
+                BEGIN
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code,
+                           @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
+                    FROM dbo.nav_procedures np
+                    WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'STAR'
+                    ORDER BY has_leg_detail DESC,
+                             CASE WHEN computer_code LIKE @t_token + '.RW%' THEN 0 ELSE 1 END,
+                             (SELECT COUNT(*) FROM dbo.nav_procedure_legs WHERE procedure_id = np.procedure_id) DESC;
+                END
+
+                -- Fall back: Try old format wildcard
+                IF @proc_route IS NULL
+                BEGIN
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code,
+                           @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
+                    FROM dbo.nav_procedures np
+                    WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR'
+                    ORDER BY has_leg_detail DESC,
+                             (SELECT COUNT(*) FROM dbo.nav_procedure_legs WHERE procedure_id = np.procedure_id) DESC;
                 END
             END
             
