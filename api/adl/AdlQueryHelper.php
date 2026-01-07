@@ -180,6 +180,14 @@ class AdlQueryHelper {
                 fp.artccs_traversed,
                 fp.tracons_traversed,
 
+                -- Pre-parsed route data (for client-side rendering without re-parsing)
+                fp.route_geometry.STAsText() AS route_geometry_wkt,
+                (SELECT w.fix_name, w.lat, w.lon, w.sequence_num
+                 FROM dbo.adl_flight_waypoints w
+                 WHERE w.flight_uid = c.flight_uid
+                 ORDER BY w.sequence_num
+                 FOR JSON PATH) AS waypoints_json,
+
                 -- Aircraft fields
                 ac.aircraft_icao,
                 ac.weight_class,

@@ -965,40 +965,90 @@ Real-time weather display and flight impact analysis.
 
 ### 24.1 Purpose
 
-Track aircraft position relative to airports: PARKING, APRON, RUNWAY, AIRBORNE
+Track aircraft ground phase: OUT (left gate), OFF (airborne), ON (landed), IN (at gate).
 
-### 24.2 Key Tables
+### 24.2 Current Status: ✅ OPERATIONAL (V3)
 
-- `airport_geometry` — Airport zone boundaries (OSM-based)
-- `adl_zone_events` — Zone transition events
+| Metric | Value |
+|--------|-------|
+| Complete OOOI cycles | 195+ |
+| IN capture rate | 85%+ |
+| Zone events logged | 37,000+ |
+| Airports with geometry | 203 |
+| OSM zones | 46,124 |
 
-### 24.3 Key Procedures
+### 24.3 Key Tables
 
-- `fn_DetectCurrentZone` — Current zone detection
-- `sp_DetectZoneTransition` — Zone transitions
-- `sp_ProcessZoneDetectionBatch` — Batch processing
-- `sp_ImportAirportGeometry` — Geometry import
+| Table | Purpose |
+|-------|--------|
+| `airport_geometry` | Airport zone boundaries (OSM-based) |
+| `adl_zone_events` | Zone transition events |
+| `adl_flight_times` | Extended zone timestamps |
 
-### 24.4 Zones
+### 24.4 Key Procedures
+
+| Procedure | Purpose |
+|-----------|--------|
+| `fn_DetectCurrentZone` | Current zone detection |
+| `sp_ProcessZoneDetectionBatch` | Batch processing (V3) |
+| `sp_GenerateFallbackZones` | Fallback zone creation |
+| `sp_ImportAirportGeometry` | OSM geometry import |
+
+### 24.5 Zones
 
 | Zone | Description |
 |------|-------------|
 | PARKING | At gate/ramp |
-| APRON | Taxiway/apron area |
+| GATE | Gate position |
+| APRON | Apron area |
+| TAXIWAY | Taxiway |
+| TAXILANE | Taxilane |
+| HOLD | Holding position |
 | RUNWAY | On runway |
 | AIRBORNE | In flight |
 
-### 24.5 Migrations
+### 24.6 OOOI Times Captured
 
-- 040: Airport geometry tables
-- 041: Zone event tracking
-- 042: Detection functions
-- 043: Airport seed data (201 airports)
+**Core Times:**
+- `out_utc` — Left parking/gate
+- `off_utc` — Became airborne (GS > 60 kts)
+- `on_utc` — Touched down (GS < 200 kts)
+- `in_utc` — Arrived at gate (GS < 5 kts)
 
-### 24.6 Import Scripts
+**Extended Departure Times:**
+- `parking_left_utc`, `taxiway_entered_utc`, `hold_entered_utc`
+- `runway_entered_utc`, `takeoff_roll_utc`, `rotation_utc`
 
-- `adl/php/import_osm_web.php` — OSM boundary import
-- `adl/php/import_osm_airport_geometry.php` — Airport zone import
+**Extended Arrival Times:**
+- `approach_start_utc`, `touchdown_utc`, `rollout_end_utc`
+- `taxiway_arr_utc`, `parking_entered_utc`
+
+### 24.7 Version History
+
+| Version | Detection Method | Key Features |
+|---------|-----------------|---------------|
+| V1 | BATCH | Basic zone detection |
+| V2 | BATCH_V2 | Extended times, better OFF detection |
+| **V3** | **BATCH_V3** | **Inactive flight catchup, 85%+ IN capture** |
+
+### 24.8 Migrations
+
+| Migration | Description |
+|-----------|-------------|
+| 040 | Airport geometry tables |
+| 041 | Zone detection deployment |
+| 042 | V2 batch processor |
+| 043 | V3 batch processor (current) |
+
+### 24.9 Import Scripts
+
+- `adl/php/ImportOSM.ps1` — PowerShell OSM importer (RECOMMENDED)
+- `adl/php/import_osm_airport_geometry.php` — PHP version
+
+### 24.10 Documentation
+
+- `adl/OOOI_Zone_Detection_Transition_Summary.md` — Complete transition summary
+- `adl/migrations/043_oooi_verify.sql` — Verification queries
 
 ---
 
