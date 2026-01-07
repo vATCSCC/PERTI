@@ -4318,7 +4318,22 @@ $(document).ready(function() {
                 return false;
             }
 
-            const coords = buildRouteCoords(flight);
+            // Build route coordinates - use pre-parsed ADL data if available
+            let coords;
+            if (flight.waypoints_json && Array.isArray(flight.waypoints_json) && flight.waypoints_json.length >= 2) {
+                // Use pre-parsed waypoints from ADL (no client-side parsing needed)
+                coords = flight.waypoints_json.map(wp => ({
+                    lat: parseFloat(wp.lat),
+                    lon: parseFloat(wp.lon),
+                    name: wp.fix_name || ''
+                }));
+                console.log('[ADL-ML] Using pre-parsed waypoints:', coords.length, 'points');
+            } else {
+                // Fallback: parse route client-side (for user-entered routes or missing ADL data)
+                coords = buildRouteCoords(flight);
+                console.log('[ADL-ML] Using client-side parsed route:', coords.length, 'points');
+            }
+
             if (coords.length < 2) {
                 console.log('[ADL-ML] Not enough coords to draw route');
                 return false;

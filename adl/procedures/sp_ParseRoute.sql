@@ -1006,12 +1006,15 @@ BEGIN
             DECLARE @proc_route NVARCHAR(MAX) = NULL;
             DECLARE @proc_type NVARCHAR(10) = NULL;
             DECLARE @proc_code NVARCHAR(50) = NULL;
+            DECLARE @proc_id INT = NULL;
+            DECLARE @proc_has_legs BIT = 0;
             
             -- Database stores procedures as PROCEDURE.TRANSITION
             -- Try multiple lookup patterns
             
             -- 1. Exact match on computer_code
-            SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
+            SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code,
+                   @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
             FROM dbo.nav_procedures
             WHERE computer_code = @t_token;
             
@@ -1030,7 +1033,8 @@ BEGIN
                 -- First try to find a DP whose transition matches the next fix
                 IF @next_fix_after_dp IS NOT NULL
                 BEGIN
-                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code,
+                           @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                     FROM dbo.nav_procedures
                     WHERE computer_code = @t_token + '.' + @next_fix_after_dp
                       AND procedure_type = 'DP';
@@ -1042,7 +1046,8 @@ BEGIN
                 -- If no context match, fall back to first matching DP
                 IF @proc_route IS NULL
                 BEGIN
-                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code,
+                           @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                     FROM dbo.nav_procedures
                     WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'DP';
                 END
@@ -1055,7 +1060,8 @@ BEGIN
                 -- First try to find a STAR whose transition matches the last fix
                 IF @last_fix_before_star IS NOT NULL
                 BEGIN
-                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code,
+                           @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                     FROM dbo.nav_procedures
                     WHERE computer_code = @last_fix_before_star + '.' + @t_token
                       AND procedure_type = 'STAR';
@@ -1067,7 +1073,8 @@ BEGIN
                 -- If no context match, fall back to first matching STAR
                 IF @proc_route IS NULL
                 BEGIN
-                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code,
+                           @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                     FROM dbo.nav_procedures
                     WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR';
                 END
@@ -1078,14 +1085,16 @@ BEGIN
             BEGIN
                 DECLARE @base_name NVARCHAR(50) = LEFT(@t_token, LEN(@t_token) - 1);
                 -- Could be SKORR5 -> SKORR, try SKORR%.%
-                SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code
+                SELECT TOP 1 @proc_route = full_route, @proc_type = 'DP', @proc_code = computer_code,
+                       @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                 FROM dbo.nav_procedures
                 WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'DP';
-                
+
                 IF @proc_route IS NULL
                 BEGIN
                     -- Try %.BASE for STARs (ANJLL4 -> %.ANJLL% but with the 4)
-                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code
+                    SELECT TOP 1 @proc_route = full_route, @proc_type = 'STAR', @proc_code = computer_code,
+                           @proc_id = procedure_id, @proc_has_legs = ISNULL(has_leg_detail, 0)
                     FROM dbo.nav_procedures
                     WHERE computer_code LIKE @base_name + '.%' AND procedure_type = 'STAR';
                 END
@@ -1097,49 +1106,91 @@ BEGIN
                 
                 IF @proc_type = 'DP'
                 BEGIN
-                    IF @debug = 1 PRINT '  -> Expanding DP: ' + @proc_route;
-                    
                     -- Set DP metadata - DFIX will be set when we hit the next FIX token
                     SET @dp_name = @t_token;
                     SET @found_sid = 1;
-                    
-                    DECLARE @dp_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
-                    INSERT INTO @dp_fixes (fix)
-                    SELECT value FROM STRING_SPLIT(@proc_route, ' ')
-                    WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
 
-                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
-                    SELECT df.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
-                    FROM @dp_fixes df
-                    LEFT JOIN #unique_fixes nf ON nf.fix_name = df.fix
-                    WHERE df.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
-                    ORDER BY df.pos;
-                    
+                    -- Check if we have CIFP leg detail
+                    IF @proc_has_legs = 1 AND @proc_id IS NOT NULL
+                       AND EXISTS (SELECT 1 FROM dbo.nav_procedure_legs WHERE procedure_id = @proc_id)
+                    BEGIN
+                        IF @debug = 1 PRINT '  -> Expanding DP with CIFP legs: ' + @t_token;
+
+                        -- Use leg-level expansion with constraints
+                        INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token,
+                                               leg_type, alt_restriction, altitude_1_ft, altitude_2_ft, speed_limit_kts)
+                        SELECT pl.fix_name, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token,
+                               pl.leg_type, pl.alt_restriction, pl.altitude_1_ft, pl.altitude_2_ft, pl.speed_limit_kts
+                        FROM dbo.nav_procedure_legs pl
+                        LEFT JOIN #unique_fixes nf ON nf.fix_name = pl.fix_name
+                        WHERE pl.procedure_id = @proc_id
+                          AND pl.fix_name IS NOT NULL  -- Skip VA/VM/CA legs
+                        ORDER BY pl.sequence_num;
+                    END
+                    ELSE IF @proc_route IS NOT NULL
+                    BEGIN
+                        IF @debug = 1 PRINT '  -> Expanding DP (text route): ' + @proc_route;
+
+                        -- Fall back to STRING_SPLIT expansion
+                        DECLARE @dp_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
+                        INSERT INTO @dp_fixes (fix)
+                        SELECT value FROM STRING_SPLIT(@proc_route, ' ')
+                        WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
+
+                        INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
+                        SELECT df.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
+                        FROM @dp_fixes df
+                        LEFT JOIN #unique_fixes nf ON nf.fix_name = df.fix
+                        WHERE df.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
+                        ORDER BY df.pos;
+                    END
+
                     -- Track last fix for airway expansion
                     SELECT TOP 1 @prev_fix = fix_name, @prev_fix_lat = lat, @prev_fix_lon = lon
                     FROM @waypoints WHERE source = 'SID' ORDER BY seq DESC;
                 END
                 ELSE -- STAR
                 BEGIN
-                    IF @debug = 1 PRINT '  -> Expanding STAR: ' + @proc_route;
-                    
                     -- Set STAR metadata
                     SET @star_name = @t_token;
                     SET @afix = @last_fix_before_star;
                     SET @strsn = @last_fix_before_star;
-                    
-                    DECLARE @star_fixes2 TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
-                    INSERT INTO @star_fixes2 (fix)
-                    SELECT value FROM STRING_SPLIT(@proc_route, ' ')
-                    WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
 
-                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
-                    SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
-                    FROM @star_fixes2 sf
-                    LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
-                    WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
-                    ORDER BY sf.pos;
-                    
+                    -- Check if we have CIFP leg detail
+                    IF @proc_has_legs = 1 AND @proc_id IS NOT NULL
+                       AND EXISTS (SELECT 1 FROM dbo.nav_procedure_legs WHERE procedure_id = @proc_id)
+                    BEGIN
+                        IF @debug = 1 PRINT '  -> Expanding STAR with CIFP legs: ' + @t_token;
+
+                        -- Use leg-level expansion with constraints
+                        INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token,
+                                               leg_type, alt_restriction, altitude_1_ft, altitude_2_ft, speed_limit_kts)
+                        SELECT pl.fix_name, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token,
+                               pl.leg_type, pl.alt_restriction, pl.altitude_1_ft, pl.altitude_2_ft, pl.speed_limit_kts
+                        FROM dbo.nav_procedure_legs pl
+                        LEFT JOIN #unique_fixes nf ON nf.fix_name = pl.fix_name
+                        WHERE pl.procedure_id = @proc_id
+                          AND pl.fix_name IS NOT NULL  -- Skip VA/VM/CA legs
+                        ORDER BY pl.sequence_num;
+                    END
+                    ELSE IF @proc_route IS NOT NULL
+                    BEGIN
+                        IF @debug = 1 PRINT '  -> Expanding STAR (text route): ' + @proc_route;
+
+                        -- Fall back to STRING_SPLIT expansion
+                        DECLARE @star_fixes2 TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
+                        INSERT INTO @star_fixes2 (fix)
+                        SELECT value FROM STRING_SPLIT(@proc_route, ' ')
+                        WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
+
+                        INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
+                        SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
+                        FROM @star_fixes2 sf
+                        LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
+                        WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
+                        ORDER BY sf.pos;
+                    END
+
                     SELECT TOP 1 @prev_fix = fix_name, @prev_fix_lat = lat, @prev_fix_lon = lon
                     FROM @waypoints WHERE source = 'STAR' ORDER BY seq DESC;
                 END
