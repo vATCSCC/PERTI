@@ -10,7 +10,7 @@
 PRINT 'Phase 5E.2: Boundary Detection Integration';
 PRINT '';
 PRINT 'Files to deploy:';
-PRINT '  1. adl/migrations/053_fix_boundary_log_schema.sql';
+PRINT '  1. adl/migrations/boundaries/006_fix_boundary_log_schema.sql';
 PRINT '  2. adl/procedures/sp_ProcessBoundaryDetectionBatch.sql';
 PRINT '  3. adl/procedures/sp_Adl_RefreshFromVatsim_Normalized.sql (V8.3)';
 PRINT '';
