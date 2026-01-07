@@ -10,6 +10,10 @@
  *        Add &dry-run=1 to preview without inserting
  */
 
+// Prevent timeouts
+set_time_limit(300);
+ini_set('max_execution_time', 300);
+
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
@@ -28,6 +32,9 @@ if (!$isCLI) {
         exit;
     }
     header('Content-Type: text/plain; charset=utf-8');
+    // Disable output buffering for real-time progress
+    if (ob_get_level()) ob_end_flush();
+    ob_implicit_flush(true);
 }
 
 echo "===========================================\n";
@@ -102,6 +109,12 @@ echo "Found $rowCount rows in MySQL config_data.\n\n";
 
 while ($row = mysqli_fetch_assoc($query)) {
     $stats['total']++;
+
+    // Progress output every 50 rows
+    if ($stats['total'] % 50 == 0) {
+        echo "Processing row {$stats['total']}...\n";
+        flush();
+    }
 
     $airport = trim($row['airport'] ?? '');
     $arrRunways = trim($row['arr'] ?? '');
