@@ -40,6 +40,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
+        $page_title = "vATCSCC Airport Configuration";
         include("load/header.php");
     ?>
 

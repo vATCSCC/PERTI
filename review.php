@@ -44,6 +44,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
+        $page_title = "PERTI TMR";
         include("load/header.php");
     ?>
 

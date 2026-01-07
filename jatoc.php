@@ -15,8 +15,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php include("load/header.php"); ?>
-    <title>JATOC - AWO Incident Monitor | PERTI</title>
+    <?php $page_title = "vATCSCC JATOC"; include("load/header.php"); ?>
     <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="assets/css/info-bar.css">
     <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>

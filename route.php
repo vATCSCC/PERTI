@@ -8,6 +8,7 @@
 
     <!-- Import CSS -->
     <?php
+        $page_title = "vATCSCC Route Plotter";
         include("load/header.php");
     ?>
 
