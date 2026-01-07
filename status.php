@@ -61,6 +61,11 @@ $liveData = [
     'boundary_crossings_1h' => 0,
     'weather_alerts_active' => 0,
     'atis_updates_1h' => 0,
+    'atis_pending' => 0,
+    'atis_parsed' => 0,
+    'atis_failed' => 0,
+    'atis_today' => 0,
+    'atis_airports_active' => 0,
     'waypoints_total' => 0,
     'boundaries_total' => 0,
 ];
@@ -627,6 +632,72 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
                 'count' => (int)$row['crossing_cnt']
             ];
         }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Boundary crossings by type (last hour) - minimal overhead, same table scan
+    $liveData['boundary_by_type'] = ['ARTCC' => 0, 'SECTOR_HIGH' => 0, 'SECTOR_LOW' => 0, 'SECTOR_SUPERHIGH' => 0, 'TRACON' => 0];
+    $sql = "SELECT b.boundary_type, COUNT(*) AS cnt
+            FROM dbo.adl_flight_boundary_log bl
+            INNER JOIN dbo.adl_boundary b ON bl.boundary_id = b.boundary_id
+            WHERE bl.entry_time > DATEADD(HOUR, -1, SYSUTCDATETIME())
+            GROUP BY b.boundary_type";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $type = $row['boundary_type'];
+            if (isset($liveData['boundary_by_type'][$type])) {
+                $liveData['boundary_by_type'][$type] = (int)$row['cnt'];
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // ATIS Stats
+    // -------------------------------------------------------------------------
+    // ATIS updates in last hour
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.vatsim_atis WHERE fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['atis_updates_1h'] = (int)($row['cnt'] ?? 0);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // ATIS by parse status
+    $sql = "SELECT parse_status, COUNT(*) AS cnt
+            FROM dbo.vatsim_atis
+            WHERE fetched_utc > DATEADD(DAY, -1, SYSUTCDATETIME())
+            GROUP BY parse_status";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $status = strtolower($row['parse_status'] ?? '');
+            if ($status === 'pending') $liveData['atis_pending'] = (int)$row['cnt'];
+            elseif ($status === 'parsed') $liveData['atis_parsed'] = (int)$row['cnt'];
+            elseif ($status === 'failed') $liveData['atis_failed'] = (int)$row['cnt'];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // ATIS today total
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.vatsim_atis WHERE fetched_utc >= CAST(SYSUTCDATETIME() AS DATE)";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['atis_today'] = (int)($row['cnt'] ?? 0);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Active airports with current ATIS
+    $sql = "SELECT COUNT(DISTINCT airport_icao) AS cnt
+            FROM dbo.vatsim_atis
+            WHERE fetched_utc > DATEADD(MINUTE, -30, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['atis_airports_active'] = (int)($row['cnt'] ?? 0);
         sqlsrv_free_stmt($stmt);
     }
 
@@ -2702,42 +2773,84 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <!-- ATIS Refresh Section (collapsed by default) -->
                         <div class="tier-section">
                             <div class="tier-section-header collapsed" onclick="toggleTierSection('atisRefresh')">
-                                <span class="section-title"><i class="fas fa-broadcast-tower mr-2"></i>ATIS Refresh Intervals</span>
+                                <span class="section-title"><i class="fas fa-broadcast-tower mr-2"></i>ATIS Processing</span>
                                 <i class="fas fa-chevron-down section-toggle" id="atisRefresh-toggle" style="transform: rotate(-90deg)"></i>
                             </div>
                             <div class="tier-section-content collapsed" id="atisRefresh-content">
-                                <div class="tier-group full-width">
+                                <!-- ATIS Live Stats -->
+                                <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Daemon-Managed ATIS Update Tiers</span>
-                                            <span class="tier-group-desc">Airport ATIS polling frequency based on priority and weather</span>
+                                            <span class="tier-group-title">ATIS Stats (24h)</span>
+                                            <span class="tier-group-desc">Broadcast parsing status</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format($liveData['atis_updates_1h']) ?>/hr</span>
+                                    </div>
+                                    <div class="tier-bars">
+                                        <?php
+                                        $atisTotal = $liveData['atis_parsed'] + $liveData['atis_pending'] + $liveData['atis_failed'];
+                                        $atisMax = max(1, $atisTotal);
+                                        ?>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label">Parsed</span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar tier-4" style="width: <?= round(($liveData['atis_parsed'] / $atisMax) * 100) ?>%;"></div>
+                                            </div>
+                                            <span class="tier-value"><?= number_format($liveData['atis_parsed']) ?></span>
+                                        </div>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label">Pending</span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar tier-2" style="width: <?= round(($liveData['atis_pending'] / $atisMax) * 100) ?>%;"></div>
+                                            </div>
+                                            <span class="tier-value"><?= number_format($liveData['atis_pending']) ?></span>
+                                        </div>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label">Failed</span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar tier-0" style="width: <?= round(($liveData['atis_failed'] / $atisMax) * 100) ?>%;"></div>
+                                            </div>
+                                            <span class="tier-value"><?= number_format($liveData['atis_failed']) ?></span>
                                         </div>
                                     </div>
-                                    <div class="tier-info-grid">
+                                    <div style="font-size: 0.65rem; color: #888; margin-top: 6px; display: flex; justify-content: space-between;">
+                                        <span><i class="fas fa-calendar-day mr-1"></i>Today: <?= number_format($liveData['atis_today']) ?></span>
+                                        <span><i class="fas fa-broadcast-tower mr-1"></i>Airports: <?= $liveData['atis_airports_active'] ?></span>
+                                    </div>
+                                </div>
+                                <!-- ATIS Tier Info -->
+                                <div class="tier-group" style="grid-column: span 2;">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Polling Tier Schedule</span>
+                                            <span class="tier-group-desc">Airport ATIS fetch frequency by priority</span>
+                                        </div>
+                                    </div>
+                                    <div class="tier-info-grid" style="grid-template-columns: repeat(5, 1fr);">
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T0</span>
-                                            <span class="tier-info-desc">METAR Update / Bad Wx</span>
+                                            <span class="tier-info-desc">METAR/Bad Wx</span>
                                             <span class="tier-info-interval">15s</span>
                                         </div>
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T1</span>
-                                            <span class="tier-info-desc">ASPM77 Normal Wx</span>
-                                            <span class="tier-info-interval">1min</span>
+                                            <span class="tier-info-desc">ASPM77</span>
+                                            <span class="tier-info-interval">1m</span>
                                         </div>
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T2</span>
-                                            <span class="tier-info-desc">Non-ASPM77 + CAN/LAT/CAR</span>
-                                            <span class="tier-info-interval">5min</span>
+                                            <span class="tier-info-desc">CAN/LAT/CAR</span>
+                                            <span class="tier-info-interval">5m</span>
                                         </div>
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T3</span>
-                                            <span class="tier-info-desc">Other Airports</span>
-                                            <span class="tier-info-interval">30min</span>
+                                            <span class="tier-info-desc">Other Apt</span>
+                                            <span class="tier-info-interval">30m</span>
                                         </div>
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T4</span>
-                                            <span class="tier-info-desc">Clear Wx Non-Priority</span>
-                                            <span class="tier-info-interval">60min</span>
+                                            <span class="tier-info-desc">Clear Wx</span>
+                                            <span class="tier-info-interval">60m</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2982,21 +3095,39 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <span><i class="fas fa-border-all mr-2"></i>Top Boundaries (1h)</span>
                     </div>
                     <div style="padding: 8px;">
+                        <!-- Type Breakdown -->
+                        <?php
+                        $typeLabels = ['ARTCC' => 'ARTCC', 'TRACON' => 'TRACON', 'SECTOR_HIGH' => 'High', 'SECTOR_LOW' => 'Low', 'SECTOR_SUPERHIGH' => 'Super'];
+                        $typeColors = ['ARTCC' => '#3b82f6', 'TRACON' => '#8b5cf6', 'SECTOR_HIGH' => '#ef4444', 'SECTOR_LOW' => '#22c55e', 'SECTOR_SUPERHIGH' => '#f97316'];
+                        $totalByType = array_sum($liveData['boundary_by_type']);
+                        ?>
+                        <div style="display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap;">
+                            <?php foreach ($liveData['boundary_by_type'] as $type => $cnt): ?>
+                            <div style="flex: 1; min-width: 45px; text-align: center; padding: 3px 2px; background: <?= $typeColors[$type] ?? '#888' ?>15; border-radius: 3px; border-left: 2px solid <?= $typeColors[$type] ?? '#888' ?>;">
+                                <div style="font-size: 0.65rem; color: #666;"><?= $typeLabels[$type] ?? $type ?></div>
+                                <div style="font-size: 0.8rem; font-weight: 700;"><?= number_format($cnt) ?></div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <!-- Top Individual Boundaries -->
                         <?php if (!empty($liveData['top_boundaries'])): ?>
+                            <div style="border-top: 1px solid #eee; padding-top: 6px; margin-top: 4px;">
+                            <div style="font-size: 0.6rem; color: #888; margin-bottom: 3px;">TOP INDIVIDUAL</div>
                             <?php
                             $maxBoundary = max(array_column($liveData['top_boundaries'], 'count'));
                             foreach ($liveData['top_boundaries'] as $i => $boundary): ?>
-                            <div style="padding: 3px 0; <?= $i > 0 ? 'border-top: 1px solid #eee;' : '' ?>">
+                            <div style="padding: 2px 0; <?= $i > 0 ? 'border-top: 1px solid #f0f0f0;' : '' ?>">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span style="font-family: 'Inconsolata', monospace; font-size: 0.75rem;"><?= htmlspecialchars($boundary['name']) ?></span>
-                                    <span style="font-size: 0.7rem; font-weight: 600;"><?= $boundary['count'] ?></span>
+                                    <span style="font-family: 'Inconsolata', monospace; font-size: 0.7rem;"><?= htmlspecialchars($boundary['name']) ?></span>
+                                    <span style="font-size: 0.65rem; font-weight: 600;"><?= $boundary['count'] ?></span>
                                 </div>
-                                <div class="tier-bar-container" style="height: 4px; margin-top: 2px;">
+                                <div class="tier-bar-container" style="height: 3px; margin-top: 1px;">
                                     <div class="tier-bar tier-3" style="width: <?= round(($boundary['count'] / $maxBoundary) * 100) ?>%;"></div>
                                 </div>
                             </div>
                             <?php endforeach; ?>
-                        <?php else: ?>
+                            </div>
+                        <?php elseif ($totalByType === 0): ?>
                             <div class="text-muted text-center" style="font-size: 0.75rem; padding: 10px;">No crossings this hour</div>
                         <?php endif; ?>
                     </div>
@@ -3462,32 +3593,24 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             },
                                             grid: { display: false },
                                             ticks: {
-                                                font: { size: 10 },
-                                                maxRotation: 0,
-                                                minRotation: 0,
+                                                maxRotation: 45,
+                                                minRotation: 45,
+                                                autoSkip: true,
+                                                maxTicksLimit: 32,
                                                 callback: function(value, index) {
-                                                    const label = this.getLabelForValue(value);
-                                                    // Format: dd/hhmmZ - extract hour and minute
-                                                    const parts = label.split('/');
-                                                    if (parts.length === 2) {
-                                                        const time = parts[1].replace('Z', '');
-                                                        const hour = time.substring(0, 2);
-                                                        const minute = time.substring(2, 4);
-                                                        // Only show labels on the hour (minute == 00)
-                                                        if (minute === '00') {
-                                                            return hour + 'Z';
-                                                        }
-                                                    }
-                                                    return '';  // Hide non-hour labels
+                                                    return this.getLabelForValue(value);  // Keep dd/hhmmZ format
                                                 },
                                                 color: function(context) {
-                                                    return emphasizeIndices.includes(context.index) ? '#000000' : '#666666';
+                                                    const label = context.chart.data.labels[context.index] || '';
+                                                    // Emphasize hour marks (ends with 00Z)
+                                                    if (label.endsWith('00Z')) return '#000000';
+                                                    return '#999999';
                                                 },
                                                 font: function(context) {
-                                                    if (emphasizeIndices.includes(context.index)) {
-                                                        return { size: 13, weight: 'bold' };
-                                                    }
-                                                    return { size: 11, weight: '500' };
+                                                    const label = context.chart.data.labels[context.index] || '';
+                                                    // Emphasize hour marks (ends with 00Z)
+                                                    if (label.endsWith('00Z')) return { size: 11, weight: 'bold' };
+                                                    return { size: 9 };
                                                 }
                                             }
                                         },
