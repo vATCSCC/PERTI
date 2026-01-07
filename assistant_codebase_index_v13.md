@@ -1541,7 +1541,97 @@ Automates updates from FAA NASR 28-day subscription packages.
 
 ---
 
-## 38) Changelog
+## 38) Flight Statistics System (NEW v13)
+
+### 38.1 Purpose
+
+Comprehensive flight statistics aggregation system for:
+- Taxi time analysis (using OOOI zone data)
+- Summary statistics (daily/hourly aggregates)
+- Demand statistics (airport throughput)
+- TMI decision support (impact analysis)
+- Operational counts (ARTCC, aircraft type, route patterns)
+
+### 38.2 Statistics Tables
+
+| Table | Purpose | Retention |
+|-------|---------|-----------|
+| `flight_stats_daily` | Daily network summary | 180 days |
+| `flight_stats_hourly` | Hourly time-series | 30 days |
+| `flight_stats_airport` | Airport taxi times & throughput | 180 days |
+| `flight_stats_citypair` | Route analytics | 180 days |
+| `flight_stats_artcc` | ARTCC traffic volumes | 180 days |
+| `flight_stats_tmi` | TMI impact analysis | 180 days |
+| `flight_stats_aircraft` | Equipment usage | 180 days |
+| `flight_stats_monthly_summary` | Monthly rollups | 2 years |
+| `flight_stats_monthly_airport` | Monthly airport stats | 2 years |
+| `flight_stats_yearly_summary` | Yearly summaries | Indefinite |
+
+### 38.3 Tiered Retention
+
+| Tier | Data Type | Retention | Purpose |
+|------|-----------|-----------|---------|
+| 0 | Hourly | 30 days | Recent trend analysis |
+| 1 | Daily | 180 days | Operational analysis |
+| 2 | Monthly | 2 years | Seasonal patterns |
+| 3 | Yearly | Indefinite | Long-term trends |
+
+### 38.4 Stored Procedures
+
+| Procedure | Purpose |
+|-----------|---------|
+| `sp_GenerateFlightStats_Hourly` | Aggregate hourly stats |
+| `sp_GenerateFlightStats_Daily` | Aggregate daily stats |
+| `sp_GenerateFlightStats_Airport` | Airport taxi time stats |
+| `sp_GenerateFlightStats_Citypair` | Route analytics |
+| `sp_GenerateFlightStats_Aircraft` | Equipment stats |
+| `sp_GenerateFlightStats_TMI` | TMI impact stats |
+| `sp_CleanupFlightStats` | Apply retention policy |
+| `sp_RollupFlightStats_Monthly` | Monthly rollups |
+| `sp_ProcessFlightStatsJobs` | Daemon job processor |
+
+### 38.5 API Endpoints (`api/stats/`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `daily.php` | GET | Daily summary stats |
+| `hourly.php` | GET | Hourly time-series |
+| `airport.php` | GET | Airport taxi times |
+| `citypair.php` | GET | Route analytics |
+| `artcc.php` | GET | ARTCC traffic |
+| `tmi.php` | GET | TMI impact |
+| `realtime.php` | GET | Live stats (current state) |
+| `status.php` | GET | Job status & health |
+
+### 38.6 Migrations
+
+| Migration | Description |
+|-----------|-------------|
+| 070 | Statistics tables + retention tiers |
+| 071 | Aggregation stored procedures |
+| 072 | Job configuration + scheduling |
+
+### 38.7 Scheduling
+
+Jobs configured in `flight_stats_job_config` table:
+- **Hourly**: Every hour at :05 (sp_GenerateFlightStats_Hourly)
+- **Daily**: 00:15 UTC (sp_GenerateFlightStats_Daily)
+- **Monthly**: 1st of month at 01:30 UTC (sp_RollupFlightStats_Monthly)
+- **Cleanup**: Daily at 03:45 UTC (sp_CleanupFlightStats)
+
+For Azure SQL, call `sp_ProcessFlightStatsJobs` from PHP daemon or use Azure Elastic Jobs.
+
+---
+
+## 39) Changelog
+
+### v14 (2026-01-06)
+- **Flight Statistics System (#38):**
+  - 10 statistics tables with tiered retention
+  - Aggregation procedures for taxi times, demand, TMI impact
+  - API endpoints (api/stats/*)
+  - Job scheduling infrastructure
+  - Migrations 070-072
 
 ### v13 (2026-01-06)
 - **ADL Database Redesign Documentation:**
