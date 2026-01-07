@@ -359,10 +359,12 @@ BEGIN
       AND d.current_zone != 'UNKNOWN';
     
     -- ========================================================================
-    -- Step 8: Catchup - Set IN for flights already at PARKING/GATE with ON set
+    -- Step 8: Catchup - Set IN for flights at PARKING/GATE with ON set
     -- This catches flights that missed the transition detection
+    -- INCLUDES INACTIVE FLIGHTS - pilots often disconnect at gate immediately
     -- ========================================================================
     
+    -- 8a: Active flights at gate
     UPDATE ft
     SET in_utc = @now
     FROM dbo.adl_flight_times ft
@@ -373,6 +375,22 @@ BEGIN
       AND c.current_zone IN ('PARKING', 'GATE')  -- Currently at gate/parking
       AND c.current_zone_airport = fp.fp_dest_icao  -- At destination airport
       AND c.is_active = 1;
+    
+    -- 8b: Inactive flights that reached gate before disconnecting
+    -- Use last zone event time or current time
+    UPDATE ft
+    SET in_utc = COALESCE(
+        (SELECT MAX(e.event_utc) FROM dbo.adl_zone_events e WHERE e.flight_uid = ft.flight_uid),
+        @now
+    )
+    FROM dbo.adl_flight_times ft
+    INNER JOIN dbo.adl_flight_core c ON c.flight_uid = ft.flight_uid
+    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+    WHERE ft.on_utc IS NOT NULL           -- Has landed
+      AND ft.in_utc IS NULL               -- But no IN time
+      AND c.current_zone IN ('PARKING', 'GATE')  -- At gate/parking when disconnected
+      AND c.current_zone_airport = fp.fp_dest_icao  -- At destination airport
+      AND c.is_active = 0;                -- Disconnected flights
     
     -- ========================================================================
     -- Step 9: Cleanup
@@ -406,16 +424,40 @@ GO
 
 PRINT 'Running immediate IN time catchup...';
 
+-- Active flights at gate
+DECLARE @active_updated INT = 0;
+DECLARE @inactive_updated INT = 0;
+
 UPDATE ft
 SET in_utc = SYSUTCDATETIME()
 FROM dbo.adl_flight_times ft
 INNER JOIN dbo.adl_flight_core c ON c.flight_uid = ft.flight_uid
 INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-WHERE ft.on_utc IS NOT NULL           -- Has landed
-  AND ft.in_utc IS NULL               -- But no IN time
-  AND c.current_zone IN ('PARKING', 'GATE')  -- Currently at gate/parking
-  AND c.current_zone_airport = fp.fp_dest_icao  -- At destination airport
+WHERE ft.on_utc IS NOT NULL           
+  AND ft.in_utc IS NULL               
+  AND c.current_zone IN ('PARKING', 'GATE')  
+  AND c.current_zone_airport = fp.fp_dest_icao  
   AND c.is_active = 1;
 
-PRINT '  ✓ Updated ' + CAST(@@ROWCOUNT AS VARCHAR) + ' flights with IN time';
+SET @active_updated = @@ROWCOUNT;
+
+-- Inactive flights that reached gate before disconnecting
+UPDATE ft
+SET in_utc = COALESCE(
+    (SELECT MAX(e.event_utc) FROM dbo.adl_zone_events e WHERE e.flight_uid = ft.flight_uid),
+    SYSUTCDATETIME()
+)
+FROM dbo.adl_flight_times ft
+INNER JOIN dbo.adl_flight_core c ON c.flight_uid = ft.flight_uid
+INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+WHERE ft.on_utc IS NOT NULL           
+  AND ft.in_utc IS NULL               
+  AND c.current_zone IN ('PARKING', 'GATE')  
+  AND c.current_zone_airport = fp.fp_dest_icao  
+  AND c.is_active = 0;
+
+SET @inactive_updated = @@ROWCOUNT;
+
+PRINT '  ✓ Updated ' + CAST(@active_updated AS VARCHAR) + ' active flights with IN time';
+PRINT '  ✓ Updated ' + CAST(@inactive_updated AS VARCHAR) + ' inactive flights with IN time';
 GO

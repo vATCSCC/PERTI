@@ -146,6 +146,12 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $row[$k] = $v->format("Y-m-d\\TH:i:s\\Z");
         }
     }
+    // Decode waypoints_json from SQL Server FOR JSON PATH (returns string)
+    // so client receives a proper array instead of double-encoded string
+    if (isset($row['waypoints_json']) && is_string($row['waypoints_json'])) {
+        $decoded = json_decode($row['waypoints_json'], true);
+        $row['waypoints_json'] = $decoded !== null ? $decoded : [];
+    }
     $rows[] = $row;
 }
 
