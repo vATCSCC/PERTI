@@ -108,7 +108,11 @@ if (!$conn_adl) {
         echo '</tr>';
     }
 } else {
+    // Get active filter
+    $activeFilter = isset($_GET['active']) ? $_GET['active'] : 'active';
+
     // Use ADL SQL Server - Join summary and rates views
+    // Include weather impact info via subquery
     $sql = "
         SELECT
             s.config_id,
@@ -116,6 +120,7 @@ if (!$conn_adl) {
             s.airport_icao,
             s.config_name,
             s.config_code,
+            s.is_active,
             s.arr_runways,
             s.dep_runways,
             r.vatsim_vmc_aar,
@@ -137,12 +142,26 @@ if (!$conn_adl) {
             r.rw_lvmc_adr,
             r.rw_imc_adr,
             r.rw_limc_adr,
-            r.rw_vlimc_adr
+            r.rw_vlimc_adr,
+            -- Weather impact info
+            (SELECT COUNT(*) FROM dbo.airport_weather_impact wi
+             WHERE wi.airport_icao = s.airport_icao AND wi.is_active = 1) AS weather_rule_count,
+            (SELECT MAX(COALESCE(wi.wind_cat, 0) + COALESCE(wi.cig_cat, 0) + COALESCE(wi.vis_cat, 0) + COALESCE(wi.wx_cat, 0))
+             FROM dbo.airport_weather_impact wi
+             WHERE wi.airport_icao = s.airport_icao AND wi.is_active = 1) AS max_weather_impact
         FROM dbo.vw_airport_config_summary s
         LEFT JOIN dbo.vw_airport_config_rates r ON s.config_id = r.config_id
-        WHERE s.airport_faa LIKE ? OR s.airport_icao LIKE ? OR s.config_name LIKE ?
-        ORDER BY s.airport_faa ASC, s.config_name ASC
+        WHERE (s.airport_faa LIKE ? OR s.airport_icao LIKE ? OR s.config_name LIKE ?)
     ";
+
+    // Add active filter
+    if ($activeFilter === 'active') {
+        $sql .= " AND s.is_active = 1";
+    } elseif ($activeFilter === 'inactive') {
+        $sql .= " AND s.is_active = 0";
+    }
+
+    $sql .= " ORDER BY s.airport_faa ASC, s.config_name ASC";
 
     $searchParam = '%' . $search . '%';
     $params = [$searchParam, $searchParam, $searchParam];
@@ -154,13 +173,28 @@ if (!$conn_adl) {
         echo '<tr><td colspan="12" class="text-center text-danger">Error loading configurations</td></tr>';
     } else {
         while ($data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            echo '<tr>';
+            $isActive = $data['is_active'] ?? true;
+            $rowClass = $isActive ? '' : 'config-inactive';
+            echo '<tr class="' . $rowClass . '" data-active="' . ($isActive ? 'true' : 'false') . '">';
+
+            // Checkbox column for bulk selection (admin only)
+            if ($perm == true) {
+                echo '<td class="text-center"><input type="checkbox" class="row-checkbox bulk-checkbox" data-id="' . $data['config_id'] . '"></td>';
+            }
 
             // Airport FAA
             echo '<td class="text-center">' . htmlspecialchars($data['airport_faa']) . '</td>';
 
-            // Airport ICAO
-            echo '<td class="text-center">' . htmlspecialchars($data['airport_icao']) . '</td>';
+            // Airport ICAO with weather impact indicator
+            $icaoHtml = htmlspecialchars($data['airport_icao']);
+            $weatherRules = $data['weather_rule_count'] ?? 0;
+            if ($weatherRules > 0) {
+                $maxImpact = min(3, intval($data['max_weather_impact'] ?? 0));
+                $impactTitles = ['No impact', 'Minor impact rules', 'Moderate impact rules', 'Major impact rules'];
+                $icaoHtml .= ' <span class="weather-impact weather-impact-' . $maxImpact . '" '
+                          . 'data-toggle="tooltip" title="' . $weatherRules . ' weather rule(s) - ' . $impactTitles[$maxImpact] . '"></span>';
+            }
+            echo '<td class="text-center">' . $icaoHtml . '</td>';
 
             // Config Name
             $configDisplay = htmlspecialchars($data['config_name']);
@@ -236,6 +270,9 @@ if (!$conn_adl) {
                 echo 'data-rw_vlimc_adr="' . ($data['rw_vlimc_adr'] ?? '') . '">';
 
                 echo '<i class="fas fa-pencil-alt"></i> Update</span></a>';
+                echo ' ';
+                echo '<a href="javascript:void(0)" onclick="showHistory(' . $data['config_id'] . ', \'' . htmlspecialchars($data['airport_faa'], ENT_QUOTES) . '\', \'' . htmlspecialchars($data['config_name'], ENT_QUOTES) . '\')" data-toggle="tooltip" title="View Rate Change History">';
+                echo '<span class="badge badge-info"><i class="fas fa-history"></i></span></a>';
                 echo ' ';
                 echo '<a href="javascript:void(0)" onclick="deleteConfig(' . $data['config_id'] . ')" data-toggle="tooltip" title="Delete Field Configuration">';
                 echo '<span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
