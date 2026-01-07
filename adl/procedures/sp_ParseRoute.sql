@@ -1203,6 +1203,65 @@ BEGIN
                         WHERE pl.procedure_id = @proc_id
                           AND pl.fix_name IS NOT NULL  -- Skip VA/VM/CA legs
                         ORDER BY pl.sequence_num;
+
+                        -- Check if this is a transition (not RWxx) - if so, append runway segment
+                        IF @proc_code NOT LIKE @t_token + '.RW%'
+                        BEGIN
+                            DECLARE @trans_last_fix NVARCHAR(50);
+                            DECLARE @rw_proc_id INT;
+
+                            -- Get the last fix from the transition we just inserted
+                            SELECT TOP 1 @trans_last_fix = fix_name
+                            FROM @waypoints
+                            WHERE on_star = @t_token
+                            ORDER BY seq DESC;
+
+                            IF @trans_last_fix IS NOT NULL
+                            BEGIN
+                                -- Find a runway segment that starts with this fix
+                                -- Prefer by leg count (most complete)
+                                SELECT TOP 1 @rw_proc_id = np.procedure_id
+                                FROM dbo.nav_procedures np
+                                WHERE np.computer_code LIKE @t_token + '.RW%'
+                                  AND np.procedure_type = 'STAR'
+                                  AND np.has_leg_detail = 1
+                                  AND EXISTS (
+                                      SELECT 1 FROM dbo.nav_procedure_legs pl2
+                                      WHERE pl2.procedure_id = np.procedure_id
+                                        AND pl2.fix_name = @trans_last_fix
+                                        AND pl2.sequence_num = (
+                                            SELECT MIN(sequence_num) FROM dbo.nav_procedure_legs
+                                            WHERE procedure_id = np.procedure_id AND fix_name IS NOT NULL
+                                        )
+                                  )
+                                ORDER BY (SELECT COUNT(*) FROM dbo.nav_procedure_legs WHERE procedure_id = np.procedure_id) DESC;
+
+                                IF @rw_proc_id IS NOT NULL
+                                BEGIN
+                                    IF @debug = 1
+                                    BEGIN
+                                        DECLARE @rw_code NVARCHAR(50);
+                                        SELECT @rw_code = computer_code FROM dbo.nav_procedures WHERE procedure_id = @rw_proc_id;
+                                        PRINT '  -> Appending runway segment: ' + @rw_code;
+                                    END
+
+                                    -- Append runway segment legs (skip first since it duplicates transition endpoint)
+                                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token,
+                                                           leg_type, alt_restriction, altitude_1_ft, altitude_2_ft, speed_limit_kts)
+                                    SELECT pl.fix_name, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token,
+                                           pl.leg_type, pl.alt_restriction, pl.altitude_1_ft, pl.altitude_2_ft, pl.speed_limit_kts
+                                    FROM dbo.nav_procedure_legs pl
+                                    LEFT JOIN #unique_fixes nf ON nf.fix_name = pl.fix_name
+                                    WHERE pl.procedure_id = @rw_proc_id
+                                      AND pl.fix_name IS NOT NULL
+                                      AND pl.sequence_num > (
+                                          SELECT MIN(sequence_num) FROM dbo.nav_procedure_legs
+                                          WHERE procedure_id = @rw_proc_id AND fix_name IS NOT NULL
+                                      )
+                                    ORDER BY pl.sequence_num;
+                                END
+                            END
+                        END
                     END
                     ELSE IF @proc_route IS NOT NULL
                     BEGIN
