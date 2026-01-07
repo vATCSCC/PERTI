@@ -497,7 +497,7 @@ BEGIN
     
     IF OBJECT_ID('dbo.sp_ParseSimBriefDataBatch', 'P') IS NOT NULL
     BEGIN
-        DECLARE @sb_result TABLE (flights_processed INT, simbrief_flights INT, flights_with_stepclimbs INT, elapsed_ms INT);
+        DECLARE @sb_result TABLE (flights_processed INT, simbrief_flights INT, flights_with_stepclimbs INT, flights_with_costindex INT, elapsed_ms INT);
         INSERT INTO @sb_result EXEC dbo.sp_ParseSimBriefDataBatch @batch_size = 50, @only_unparsed = 1;
         SELECT @simbrief_parsed = flights_processed FROM @sb_result;
     END
@@ -606,7 +606,13 @@ BEGIN
     BEGIN
         EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
     END
-    
+
+    -- ========================================================================
+    -- Step 11: Log Trajectory Positions (Archive System)
+    -- ========================================================================
+
+    EXEC dbo.sp_Log_Trajectory;
+
     -- ========================================================================
     -- Cleanup and return stats
     -- ========================================================================

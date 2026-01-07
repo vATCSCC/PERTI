@@ -2,7 +2,7 @@
 
 ## Overview
 
-PERTI is a comprehensive web-based traffic flow management platform for VATSIM (Virtual Air Traffic Control Simulation). It provides professional-grade tools for virtual air traffic controllers to manage traffic flow, monitor incidents, and coordinate operations.
+PERTI (Plan, Execute, Review, Train, and Improve) is a comprehensive web-based traffic flow management platform for VATSIM (Virtual Air Traffic Control Simulation). It provides professional-grade tools for virtual air traffic controllers to manage traffic flow, monitor incidents, and coordinate operations.
 
 **Production URL:** https://vatcscc.azurewebsites.net
 
@@ -23,20 +23,19 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 
 | Page | URL | Description |
 |------|-----|-------------|
-| **GDT** | `/gdt.php` | Ground Delay Tool - FSM-style GDP/GS interface with modeling |
-| **Route Plotter** | `/route.php` | TSD-style live flight map with route plotting |
+| **GDT** | `/gdt.php` | Ground Delay Tool - FSM-style GDP interface |
+| **Route Plotter** | `/route.php` | TSD-style live flight map with route plotting & weather radar |
+| **Reroutes** | `/reroutes.php` | Reroute authoring and monitoring |
 | **Splits** | `/splits.php` | Sector/position split configuration |
-| **Demand** | `/demand.php` | FSM-style demand visualization (in development) |
-| **SUA** | `/sua.php` | Special Use Airspace display |
 
 ### Planning & Scheduling (Authentication Required)
 
 | Page | URL | Description |
 |------|-----|-------------|
-| **Plan** | `/plan.php` | Traffic management planning worksheets |
+| **Plan** | `/plan.php` | Traffic management planning worksheets with initiative timeline |
 | **Schedule** | `/schedule.php` | Staff scheduling |
-| **Data Sheet** | `/sheet.php` | Operational data sheets (`/data.php` redirects here) |
-| **Review** | `/review.php` | Plan review and comments |
+| **Data Sheet** | `/data.php` or `/sheet.php` | Operational data sheets |
+| **Review** | `/review.php` | Plan review and comments with StatSim integration |
 
 ---
 
@@ -51,35 +50,45 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 - **POTUS/Space Calendar:** Track special operations activities
 - **Personnel Roster:** JATOC position assignments
 - **Incident Search:** Multi-criteria historical search
+- **VATUSA Events:** Integrated event display
 
 ### NOD - NAS Operations Dashboard
-*Consolidated Monitoring View* - Publicly accessible at `/nod.php`
+*Consolidated Monitoring* - Publicly accessible at `/nod.php`
 
-- **System-Wide Overview:** Aggregated view of all active TMIs
-- **Live Flight Display:** TSD-style aircraft visualization
-- **Split Configuration:** Current sector splits across facilities
-- **Weather Integration:** Radar overlay and METAR display
-- **Advisory Feed:** Active advisories and alerts
+- **Active TMIs:** Real-time ground stops, GDPs, reroutes
+- **Advisory Management:** DCC advisory creation and tracking
+- **Flight Tracks:** Historical position tracking
+- **Weather Integration:** Radar overlay support
+- **Discord Sync:** TMI synchronization with Discord channels
 
 ### GDT - Ground Delay Tool
-*FSM-Style TMI Interface* - at `/gdt.php`
+*FSM-Style GDP Interface* - at `/gdt.php`
 
-- **Ground Stops (GS):** Preview, simulate, and apply ground stops
-- **Ground Delay Programs (GDP):** EDCT/CTA slot allocation with modeling
-- **Rate Management:** Configure airport acceptance rates
-- **Flight List:** Preview affected flights with EDCT assignments
-- **Status Bar:** Real-time flight statistics by phase/region
-- **FSM Compliance:** Interface modeled after FAA FSM
+- **Rate Visualization:** FSM-style demand/capacity bar graphs
+- **EDCT/CTA Allocation:** Controlled arrival time slot management
+- **Program Parameters:** Scope, rate, duration configuration
+- **Flight List:** Real-time compliance status
+- **Preview/Simulate:** Impact analysis before application
 
-### Route Plotter
-*TSD-Style Flight Visualization* - at `/route.php`
+### Route Plotter (TSD)
+*Live Flight Visualization* - at `/route.php`
 
 - **Live Flights:** Real-time VATSIM flight display with TSD symbology
+- **Weather Radar:** IEM NEXRAD/MRMS overlay with multiple color tables
 - **Route Plotting:** Multi-route plotting with DP/STAR resolution
 - **Public Routes:** Globally shared route advisories
 - **Advisory Builder:** Generate TFMS-style route advisories
 - **Export:** GeoJSON, KML, GeoPackage export formats
 - **Playbook/CDR Search:** FAA playbook and CDR route lookup
+- **SUA/TFR Display:** Special Use Airspace and TFR boundaries
+
+### Reroutes
+*Reroute Management* - at `/reroutes.php`
+
+- **Reroute Authoring:** Create reroute definitions with constraints
+- **Flight Matching:** Preview and assign affected flights
+- **Compliance Tracking:** Monitor route compliance status
+- **Export:** CSV/JSON export of assignments
 
 ### Splits
 *Sector Configuration* - at `/splits.php`
@@ -88,39 +97,41 @@ PERTI is a comprehensive web-based traffic flow management platform for VATSIM (
 - **Configuration Presets:** Reusable split configurations
 - **Active Splits:** Real-time position assignments
 - **Map Visualization:** MapLibre-based sector display with color coding
+- **Strata Filtering:** Low/High/Superhigh sector layers
 
-### Demand Visualization
-*FSM-Style Demand Analysis* - at `/demand.php` (in development)
+### Plan
+*Planning Worksheets* - at `/plan.php`
 
-- **Airport Demand:** Single airport arrival/departure analysis
-- **System Demand:** Multi-airport comparative view
-- **Element Demand:** Sector and fix loading analysis
-- **Historical Analysis:** Analog situation finder
+- **Initiative Timeline:** Interactive Gantt-style TMI visualization
+- **Terminal/Enroute Planning:** Separate worksheets for different airspace
+- **Constraints Management:** Track operational constraints
+- **Group Flights:** Coordinate large traffic events
+- **StatSim Integration:** Historical rate comparison
 
 ---
 
 ## 📁 Directory Structure
 
 ```
-wwwroot/
+PERTI/
 ├── api/                    # API endpoints
 │   ├── adl/               # ADL flight data APIs
-│   ├── data/              # Reference data APIs
-│   ├── demand/            # Demand visualization APIs
+│   ├── data/              # Reference data APIs (including weather, SUA, TFR)
 │   ├── jatoc/             # JATOC incident APIs
 │   ├── mgt/               # Management CRUD APIs
+│   ├── nod/               # NOD dashboard APIs
 │   ├── routes/            # Public routes APIs
 │   ├── splits/            # Splits APIs
 │   ├── statsim/           # StatSim integration APIs
-│   ├── tmi/               # TMI workflow APIs (GS/GDP)
+│   ├── tmi/               # TMI workflow APIs
 │   └── user/              # User-specific APIs
 │
 ├── assets/
-│   ├── css/               # Stylesheets
+│   ├── css/               # Stylesheets (including weather_radar.css)
 │   ├── data/              # Navigation data (CSV)
 │   │   ├── ARTCCs/        # Per-ARTCC sector data
 │   │   └── backups/       # Navdata backups
-│   ├── geojson/           # Map boundary files
+│   ├── geojson/           # Map boundary files (including SUA.geojson)
 │   ├── img/               # Images and icons
 │   ├── js/                # JavaScript modules
 │   └── vendor/            # Third-party libraries
@@ -128,14 +139,8 @@ wwwroot/
 ├── database/
 │   └── migrations/        # SQL migration scripts
 │
-├── includes/              # PHP includes
+├── docs/                  # Documentation
 ├── load/                  # Shared PHP includes
-│   ├── config.php         # Configuration
-│   ├── connect.php        # Database connections
-│   ├── header.php         # HTML head
-│   ├── nav.php            # Navigation
-│   └── footer.php         # Footer
-│
 ├── login/                 # VATSIM OAuth login
 ├── scripts/               # Background scripts
 ├── sessions/              # Session handling
@@ -148,15 +153,16 @@ wwwroot/
 
 ### MySQL
 - Plans, schedules, configs, comments
+- Initiative timelines
 - Ground stop definitions
 
 ### Azure SQL (ADL)
 - Live flight state (`dbo.adl_flights`)
-- TMI workflows (GS/GDP)
+- TMI workflows (GS/GDP/Reroute)
 - Splits configurations
 - JATOC incidents
+- DCC advisories
 - Flight history
-- Demand snapshots
 
 ---
 
@@ -166,16 +172,23 @@ wwwroot/
 - `GET /api/adl/current.php` - Current flights snapshot
 - `GET /api/adl/flight.php?id=xxx` - Single flight lookup
 - `GET /api/adl/stats.php` - Flight statistics
+- `GET /api/adl/snapshot_history.php` - Historical snapshots
 
 ### TMI Operations
 - `POST /api/tmi/gs_*.php` - Ground Stop operations
 - `POST /api/tmi/gdp_*.php` - GDP operations
+- `POST /api/tmi/rr_*.php` - Reroute operations
 
 ### JATOC
 - `GET /api/jatoc/incidents.php` - List incidents
 - `GET /api/jatoc/incident.php?id=xxx` - Get incident
 - `POST /api/jatoc/incident.php` - Create incident
 - `PUT /api/jatoc/incident.php?id=xxx` - Update incident
+
+### NOD
+- `GET /api/nod/tmi_active.php` - Active TMIs
+- `GET /api/nod/advisories.php` - Advisories
+- `GET /api/nod/tracks.php` - Flight tracks
 
 ### Splits
 - `GET /api/splits/areas.php` - Area definitions
@@ -186,10 +199,10 @@ wwwroot/
 - `GET /api/routes/public.php` - List public routes
 - `POST /api/routes/public_post.php` - Create route
 
-### Demand (Planned)
-- `GET /api/demand/airport.php` - Single airport demand
-- `GET /api/demand/system.php` - Multi-airport overview
-- `GET /api/demand/flights.php` - Flight list drill-down
+### Weather/Airspace
+- `GET /api/data/weather.php` - Weather data
+- `GET /api/data/sua.php` - Special Use Airspace
+- `GET /api/data/tfr.php` - Temporary Flight Restrictions
 
 ---
 
@@ -213,6 +226,7 @@ Session data is stored in PHP sessions and includes:
 | `scripts/refresh_vatsim_boundaries.php` | Updates ARTCC/TRACON boundary GeoJSON |
 | `scripts/update_playbook_routes.py` | Updates playbook route CSV from FAA |
 | `nasr_navdata_updater.py` | Updates navigation data from FAA NASR |
+| `scripts/statsim_scraper.js` | Scrapes StatSim historical data |
 
 ---
 
@@ -232,38 +246,22 @@ Example config template: `load/config.example.php`
 
 - **VATSIM API** - Live flight data
 - **FAA NFDC** - NASR navigation data
-- **Iowa Environmental Mesonet** - Weather radar
+- **Iowa Environmental Mesonet** - Weather radar (NEXRAD/MRMS)
 - **VATSpy/SimAware** - Boundary data
 - **FAA Playbook** - Route playbooks
 - **VATUSA** - Events integration
+- **FAA SUA** - Special Use Airspace data
 
 ---
 
 ## 📚 Documentation
 
-### Codebase Index
-
-**[assistant_codebase_index_v13.md](assistant_codebase_index_v13.md)** - Comprehensive technical reference including:
-
-- Complete API endpoint documentation (120+ endpoints)
-- Database schema reference (Azure SQL + MySQL)
-- Stored procedures and functions
-- JavaScript module documentation
-- Subsystem architecture (JATOC, NOD, GDT, Splits, etc.)
-- Background jobs and daemons
-- External data source integrations
-
-### Additional Documentation
-
-| Document | Description |
-| -------- | ----------- |
-| `adl/README.md` | ADL database implementation guide |
-| `adl/ARCHITECTURE.md` | Detailed ADL architecture |
-| `adl/DAEMON_SETUP.md` | Daemon configuration |
-| `adl/NAVDATA_IMPORT.md` | Navigation data import |
-| `scripts/README.md` | Script documentation |
-| `scripts/README_boundaries.md` | Boundary refresh docs |
-| `database/migrations/` | SQL migration scripts |
+For detailed technical documentation, see:
+- `assistant_codebase_index_v14.md` - Comprehensive codebase index
+- `docs/ADL_REFRESH_MIGRATION_GUIDE.md` - ADL refresh patterns
+- `scripts/README.md` - Script documentation
+- `scripts/README_boundaries.md` - Boundary refresh documentation
+- Database migrations in `database/migrations/`
 
 ---
 
@@ -272,10 +270,21 @@ Example config template: `load/config.example.php`
 - **Backend:** PHP 7.4+
 - **Frontend:** JavaScript (ES6+), jQuery, Bootstrap 4.5
 - **Mapping:** MapLibre GL JS, Leaflet
-- **Charts:** Chart.js, D3.js, Apache ECharts
+- **Charts:** Chart.js
 - **Databases:** MySQL, Azure SQL
 - **Hosting:** Azure App Service
 - **Auth:** VATSIM Connect (OAuth)
+- **Weather:** IEM NEXRAD/MRMS tiles
+
+---
+
+## 🆕 Recent Updates (v14)
+
+- **Weather Radar:** IEM NEXRAD/MRMS integration with multiple color tables
+- **SUA/TFR Display:** Special Use Airspace and TFR boundaries
+- **Initiative Timeline:** Interactive Gantt-style TMI visualization
+- **Advisory Import:** Bulk advisory import functionality
+- **Superhigh Sectors:** Added superhigh altitude sector layer
 
 ---
 
@@ -285,4 +294,4 @@ For issues or questions about PERTI, contact the vATCSCC development team.
 
 ---
 
-*Last updated: 2026-01-06*
+*Last updated: 2026-01-07*

@@ -12,22 +12,23 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PidFile = Join-Path $ScriptDir "scripts\vatsim_adl.pid"
 $LogFile = Join-Path $ScriptDir "scripts\vatsim_adl.log"
 $DaemonScript = Join-Path $ScriptDir "scripts\vatsim_adl_daemon.php"
+$PhpPath = "C:\php83\php.exe"
 
 function Get-AdlPid {
     if (Test-Path $PidFile) {
-        $pid = Get-Content $PidFile -ErrorAction SilentlyContinue
-        if ($pid -and (Get-Process -Id $pid -ErrorAction SilentlyContinue)) {
-            return [int]$pid
+        $procId = Get-Content $PidFile -ErrorAction SilentlyContinue
+        if ($procId -and (Get-Process -Id $procId -ErrorAction SilentlyContinue)) {
+            return [int]$procId
         }
     }
     return $null
 }
 
 function Stop-AdlService {
-    $pid = Get-AdlPid
-    if ($pid) {
-        Write-Host "Stopping ADL daemon (PID: $pid)..."
-        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    $procId = Get-AdlPid
+    if ($procId) {
+        Write-Host "Stopping ADL daemon (PID: $procId)..."
+        Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
         Remove-Item $PidFile -ErrorAction SilentlyContinue
         Write-Host "Stopped."
     } else {
@@ -36,13 +37,13 @@ function Stop-AdlService {
 }
 
 function Get-AdlStatus {
-    $pid = Get-AdlPid
-    if ($pid) {
-        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    $procId = Get-AdlPid
+    if ($procId) {
+        $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
         if ($proc) {
             $runtime = (Get-Date) - $proc.StartTime
             Write-Host "ADL daemon is RUNNING"
-            Write-Host "  PID: $pid"
+            Write-Host "  PID: $procId"
             Write-Host "  Runtime: $($runtime.ToString('hh\:mm\:ss'))"
             Write-Host "  Memory: $([math]::Round($proc.WorkingSet64/1MB, 1)) MB"
 
@@ -74,18 +75,19 @@ function Start-AdlService {
 
     if ($Foreground) {
         Write-Host "Starting ADL daemon in foreground (Ctrl+C to stop)..."
-        & php $DaemonScript
+        & $PhpPath "$DaemonScript"
         return
     }
 
     Write-Host "Starting ADL daemon..."
 
     # Start as background process
-    $proc = Start-Process -FilePath "php" `
-        -ArgumentList $DaemonScript `
+    $proc = Start-Process -FilePath $PhpPath `
+        -ArgumentList "`"$DaemonScript`"" `
         -WorkingDirectory $ScriptDir `
         -WindowStyle Hidden `
-        -PassThru
+        -PassThru `
+        -RedirectStandardOutput $LogFile
 
     # Save PID
     $proc.Id | Out-File $PidFile -Encoding ASCII
