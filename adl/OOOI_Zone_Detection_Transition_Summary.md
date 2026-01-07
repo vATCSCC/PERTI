@@ -294,3 +294,68 @@ Phase 4 implementation is complete. The OOOI zone detection system is ready for 
 8. ⏳ OSM data import pending
 
 Next action: Run `041_oooi_deploy.sql` in SSMS, then `.\ImportOSM.ps1` in PowerShell.
+
+---
+
+## V2 Update (2026-01-07)
+
+### What Changed
+
+**Migration 042_oooi_batch_v2.sql** - Enhanced batch processor with fixes:
+
+| Issue | V1 Behavior | V2 Fix |
+|-------|------------|--------|
+| IN time not set | Never populated | Now sets when arriving at PARKING/GATE after ON |
+| Extended times empty | Not populated | Now populates all departure/arrival zone times |
+| OFF detection missed | Only RUNWAY → AIRBORNE | Any ground zone → AIRBORNE with GS>80 |
+| Approach not detected | Not tracked | Now sets when <3000ft AGL and descending |
+
+### New Duration Calculations Available
+
+With V2, you can calculate:
+
+**Departure Durations:**
+- Pushback time: `parking_left_utc` → `taxiway_entered_utc`
+- Taxi to hold: `taxiway_entered_utc` → `hold_entered_utc`
+- Hold time: `hold_entered_utc` → `runway_entered_utc`
+- Runway occupancy: `runway_entered_utc` → `off_utc`
+- Total taxi-out: `out_utc` → `off_utc`
+
+**Arrival Durations:**
+- Approach time: `approach_start_utc` → `touchdown_utc`
+- Rollout time: `touchdown_utc` → `rollout_end_utc`
+- Taxi-in: `on_utc` → `in_utc`
+- Total block: `out_utc` → `in_utc`
+
+### Verification Queries
+
+Run `042_oooi_verify.sql` after deploying V2 to verify:
+- OOOI summary stats
+- Extended zone times coverage
+- Complete OOOI cycles (OUT→OFF→ON→IN)
+- Average taxi times by airport
+
+### Files Added
+
+```
+adl/migrations/
+├── 042_oooi_batch_v2.sql    # Enhanced batch processor
+└── 042_oooi_verify.sql      # Verification queries
+```
+
+### Deployment
+
+```sql
+-- Run after 041 is deployed and working
+-- This REPLACES sp_ProcessZoneDetectionBatch with V2
+adl/migrations/042_oooi_batch_v2.sql
+```
+
+### Live Status (as of V2 deployment)
+
+| Metric | Count |
+|--------|-------|
+| Airports with geometry | 203 |
+| OSM zones | 46,124 |
+| Fallback zones | 12 |
+| Zone events logged | 36,000+ |
