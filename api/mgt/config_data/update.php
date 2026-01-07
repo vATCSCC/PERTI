@@ -39,13 +39,13 @@ if ($perm == true) {
 }
 // (E)
 
-// Get form data
-$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
-$airport = isset($_POST['airport']) ? strtoupper(trim(strip_tags($_POST['airport']))) : '';
+// Get form data - accept both 'id' and 'config_id' for backwards compatibility
+$id = isset($_POST['config_id']) ? intval($_POST['config_id']) : (isset($_POST['id']) ? intval($_POST['id']) : 0);
+$airport = isset($_POST['airport_faa']) ? strtoupper(trim(strip_tags($_POST['airport_faa']))) : (isset($_POST['airport']) ? strtoupper(trim(strip_tags($_POST['airport']))) : '');
 $config_name = isset($_POST['config_name']) ? trim(strip_tags($_POST['config_name'])) : 'Default';
 $config_code = isset($_POST['config_code']) ? trim(strip_tags($_POST['config_code'])) : null;
-$arr_runways = isset($_POST['arr']) ? trim(strip_tags($_POST['arr'])) : '';
-$dep_runways = isset($_POST['dep']) ? trim(strip_tags($_POST['dep'])) : '';
+$arr_runways = isset($_POST['arr_runways']) ? trim(strip_tags($_POST['arr_runways'])) : (isset($_POST['arr']) ? trim(strip_tags($_POST['arr'])) : '');
+$dep_runways = isset($_POST['dep_runways']) ? trim(strip_tags($_POST['dep_runways'])) : (isset($_POST['dep']) ? trim(strip_tags($_POST['dep'])) : '');
 
 // Build ICAO from FAA
 $airport_faa = $airport;
@@ -110,6 +110,22 @@ if (!$conn_adl) {
 
 // Use ADL SQL Server
 $config_id = $id;
+
+// Get user CID for history tracking
+$changed_by_cid = isset($_SESSION['VATSIM_CID']) ? intval($_SESSION['VATSIM_CID']) : null;
+
+// Fetch existing rates BEFORE updating for history comparison
+$existing_rates = [];
+$sql = "SELECT source, weather, rate_type, rate_value FROM dbo.airport_config_rate WHERE config_id = ?";
+$stmt = sqlsrv_query($conn_adl, $sql, [$config_id]);
+if ($stmt !== false) {
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $key = $row['source'] . '_' . $row['weather'] . '_' . $row['rate_type'];
+        $existing_rates[$key] = $row['rate_value'];
+    }
+    sqlsrv_free_stmt($stmt);
+}
+
 sqlsrv_begin_transaction($conn_adl);
 
 try {
@@ -202,6 +218,65 @@ try {
                 throw new Exception("Failed to insert RW rate: " . adl_sql_error_message());
             }
             sqlsrv_free_stmt($stmt);
+        }
+    }
+
+    // 8. Log rate changes to history (if history table exists)
+    $historyTableExists = false;
+    $checkTableSql = "SELECT 1 FROM sys.tables WHERE name = 'airport_config_rate_history'";
+    $checkResult = sqlsrv_query($conn_adl, $checkTableSql);
+    if ($checkResult && sqlsrv_fetch($checkResult)) {
+        $historyTableExists = true;
+    }
+
+    if ($historyTableExists) {
+        // Build new rates map
+        $new_rates = [];
+        foreach ($vatsim_rates as $rate) {
+            if ($rate['value'] !== null && $rate['value'] > 0) {
+                $key = 'VATSIM_' . $rate['weather'] . '_' . $rate['type'];
+                $new_rates[$key] = $rate['value'];
+            }
+        }
+        foreach ($rw_rates as $rate) {
+            if ($rate['value'] !== null && $rate['value'] > 0) {
+                $key = 'RW_' . $rate['weather'] . '_' . $rate['type'];
+                $new_rates[$key] = $rate['value'];
+            }
+        }
+
+        // Find changes and log them
+        $all_keys = array_unique(array_merge(array_keys($existing_rates), array_keys($new_rates)));
+        foreach ($all_keys as $key) {
+            $parts = explode('_', $key, 3);
+            if (count($parts) !== 3) continue;
+            list($source, $weather, $rate_type) = $parts;
+
+            $old_value = $existing_rates[$key] ?? null;
+            $new_value = $new_rates[$key] ?? null;
+
+            // Determine change type
+            $change_type = null;
+            if ($old_value === null && $new_value !== null) {
+                $change_type = 'INSERT';
+            } elseif ($old_value !== null && $new_value === null) {
+                $change_type = 'DELETE';
+            } elseif ($old_value !== null && $new_value !== null && $old_value != $new_value) {
+                $change_type = 'UPDATE';
+            }
+
+            // Log the change
+            if ($change_type !== null) {
+                $histSql = "INSERT INTO dbo.airport_config_rate_history
+                           (config_id, source, weather, rate_type, old_value, new_value, change_type, changed_by_cid)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $histParams = [$config_id, $source, $weather, $rate_type, $old_value, $new_value, $change_type, $changed_by_cid];
+                $histStmt = sqlsrv_query($conn_adl, $histSql, $histParams);
+                if ($histStmt !== false) {
+                    sqlsrv_free_stmt($histStmt);
+                }
+                // Don't fail the main update if history logging fails
+            }
         }
     }
 

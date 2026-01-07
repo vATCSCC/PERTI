@@ -40,7 +40,8 @@ if ($perm == true) {
 }
 // (E)
 
-$id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
+// Accept both 'id' and 'config_id' for backwards compatibility
+$id = isset($_REQUEST['config_id']) ? intval($_REQUEST['config_id']) : (isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0);
 
 // Validate
 if ($id <= 0) {

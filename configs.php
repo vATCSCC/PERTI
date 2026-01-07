@@ -180,6 +180,91 @@ include("sessions/handler.php");
             font-size: 0.8rem;
             color: #6c757d;
         }
+
+        /* Sortable columns */
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .sortable:hover {
+            background-color: rgba(255,255,255,0.1) !important;
+        }
+        .sortable::after {
+            content: " ⇅";
+            opacity: 0.5;
+            font-size: 0.7rem;
+        }
+        .sortable.sort-asc::after {
+            content: " ▲";
+            opacity: 1;
+        }
+        .sortable.sort-desc::after {
+            content: " ▼";
+            opacity: 1;
+        }
+
+        /* Bulk selection */
+        .bulk-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .bulk-actions {
+            display: none;
+            background: #fff3cd;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .bulk-actions.active {
+            display: block;
+        }
+
+        /* Inactive config styling */
+        .config-inactive {
+            opacity: 0.5;
+            background-color: #f0f0f0 !important;
+        }
+        .config-inactive td {
+            text-decoration: line-through;
+        }
+
+        /* Weather impact badge */
+        .weather-impact {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .weather-impact-0 { background-color: #28a745; }
+        .weather-impact-1 { background-color: #ffc107; }
+        .weather-impact-2 { background-color: #fd7e14; }
+        .weather-impact-3 { background-color: #dc3545; }
+
+        /* Rate history */
+        .rate-trend {
+            font-size: 0.65rem;
+            margin-left: 2px;
+        }
+        .rate-trend-up { color: #28a745; }
+        .rate-trend-down { color: #dc3545; }
+        .rate-trend-same { color: #6c757d; }
+
+        /* History modal */
+        .history-table {
+            font-size: 0.85rem;
+        }
+        .history-table th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #6c757d;
+        }
+        .change-increased { color: #28a745; }
+        .change-decreased { color: #dc3545; }
+        .change-new { color: #17a2b8; }
+        .change-removed { color: #6c757d; text-decoration: line-through; }
     </style>
 
 </head>
@@ -246,7 +331,7 @@ include('load/nav.php');
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <select class="form-control form-control-sm" id="filterRates">
                     <option value="">All Configs</option>
                     <option value="has-rw">Has Real-World Rates</option>
@@ -255,7 +340,14 @@ include('load/nav.php');
                     <option value="vatsim-lower">VATSIM Lower than RW</option>
                 </select>
             </div>
-            <div class="col-md-6 text-right">
+            <div class="col-md-2">
+                <select class="form-control form-control-sm" id="filterActive">
+                    <option value="active">Active Only</option>
+                    <option value="all">All (incl. Inactive)</option>
+                    <option value="inactive">Inactive Only</option>
+                </select>
+            </div>
+            <div class="col-md-5 text-right">
                 <?php if ($perm == true) { ?>
                     <button class="btn btn-success btn-sm" data-target="#addconfigModal" data-toggle="modal"><i class="fas fa-plus"></i> Add Config</button>
                 <?php } ?>
@@ -263,21 +355,35 @@ include('load/nav.php');
             </div>
         </div>
 
+        <?php if ($perm == true) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bulk-actions" id="bulkActions">
+            <span id="bulkCount">0</span> configs selected:
+            <button class="btn btn-sm btn-warning ml-2" id="bulkActivate"><i class="fas fa-check"></i> Activate</button>
+            <button class="btn btn-sm btn-secondary ml-1" id="bulkDeactivate"><i class="fas fa-ban"></i> Deactivate</button>
+            <button class="btn btn-sm btn-danger ml-1" id="bulkDelete"><i class="fas fa-trash"></i> Delete</button>
+            <button class="btn btn-sm btn-outline-dark ml-2" id="bulkClear"><i class="fas fa-times"></i> Clear Selection</button>
+        </div>
+        <?php } ?>
+
         <div id="configs-container">
             <table class="table table-sm table-striped table-bordered" id="configs" style="width: 100%;">
                 <thead class="table-dark text-light">
                     <!-- Row 1: Main categories -->
                     <tr>
-                        <th rowspan="3" class="text-center align-middle">FAA</th>
-                        <th rowspan="3" class="text-center align-middle">ICAO</th>
+                        <?php if ($perm == true) { ?>
+                            <th rowspan="3" class="text-center align-middle" style="width: 30px;">
+                                <input type="checkbox" class="bulk-checkbox" id="selectAll" title="Select All">
+                            </th>
+                        <?php } ?>
+                        <th rowspan="3" class="text-center align-middle sortable" data-sort="0" data-type="text">FAA</th>
+                        <th rowspan="3" class="text-center align-middle sortable" data-sort="1" data-type="text">ICAO</th>
                         <th rowspan="3" class="text-center align-middle">Config</th>
                         <th rowspan="3" class="text-center align-middle">ARR<br>Rwys</th>
                         <th rowspan="3" class="text-center align-middle">DEP<br>Rwys</th>
                         <th colspan="7" class="text-center vatsim-header section-divider">VATSIM Rates</th>
                         <th colspan="6" class="text-center rw-header section-divider">Real-World Rates</th>
-                        <?php if ($perm == true) { ?>
-                            <th rowspan="3" class="align-middle"></th>
-                        <?php } ?>
+                        <th rowspan="3" class="align-middle"></th>
                     </tr>
                     <!-- Row 2: ARR/DEP categories -->
                     <tr>
@@ -286,25 +392,25 @@ include('load/nav.php');
                         <th colspan="4" class="text-center rw-arr-header section-divider">AAR</th>
                         <th colspan="2" class="text-center rw-dep-header">ADR</th>
                     </tr>
-                    <!-- Row 3: Weather categories -->
+                    <!-- Row 3: Weather categories (sortable by rate value) -->
                     <tr>
                         <!-- VATSIM AAR -->
-                        <th class="text-center weather-header vatsim-arr-header section-divider" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
-                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Low Visual Meteorological Conditions">LVMC</th>
-                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
-                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Low Instrument Meteorological Conditions">LIMC</th>
-                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Very Low Instrument Meteorological Conditions">VLIMC</th>
+                        <th class="text-center weather-header vatsim-arr-header section-divider sortable" data-sort="5" data-type="num" data-toggle="tooltip" title="VMC Arrival Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="6" data-type="num" data-toggle="tooltip" title="LVMC Arrival Rate - Click to sort">LVMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="7" data-type="num" data-toggle="tooltip" title="IMC Arrival Rate - Click to sort">IMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="8" data-type="num" data-toggle="tooltip" title="LIMC Arrival Rate - Click to sort">LIMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="9" data-type="num" data-toggle="tooltip" title="VLIMC Arrival Rate - Click to sort">VLIMC</th>
                         <!-- VATSIM ADR -->
-                        <th class="text-center weather-header vatsim-dep-header" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
-                        <th class="text-center weather-header vatsim-dep-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
+                        <th class="text-center weather-header vatsim-dep-header sortable" data-sort="10" data-type="num" data-toggle="tooltip" title="VMC Departure Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header vatsim-dep-header sortable" data-sort="11" data-type="num" data-toggle="tooltip" title="IMC Departure Rate - Click to sort">IMC</th>
                         <!-- RW AAR -->
-                        <th class="text-center weather-header rw-arr-header section-divider" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
-                        <th class="text-center weather-header rw-arr-header" data-toggle="tooltip" title="Low Visual Meteorological Conditions">LVMC</th>
-                        <th class="text-center weather-header rw-arr-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
-                        <th class="text-center weather-header rw-arr-header" data-toggle="tooltip" title="Low Instrument Meteorological Conditions">LIMC</th>
+                        <th class="text-center weather-header rw-arr-header section-divider sortable" data-sort="12" data-type="num" data-toggle="tooltip" title="RW VMC Arrival Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header rw-arr-header sortable" data-sort="13" data-type="num" data-toggle="tooltip" title="RW LVMC Arrival Rate - Click to sort">LVMC</th>
+                        <th class="text-center weather-header rw-arr-header sortable" data-sort="14" data-type="num" data-toggle="tooltip" title="RW IMC Arrival Rate - Click to sort">IMC</th>
+                        <th class="text-center weather-header rw-arr-header sortable" data-sort="15" data-type="num" data-toggle="tooltip" title="RW LIMC Arrival Rate - Click to sort">LIMC</th>
                         <!-- RW ADR -->
-                        <th class="text-center weather-header rw-dep-header" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
-                        <th class="text-center weather-header rw-dep-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
+                        <th class="text-center weather-header rw-dep-header sortable" data-sort="16" data-type="num" data-toggle="tooltip" title="RW VMC Departure Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header rw-dep-header sortable" data-sort="17" data-type="num" data-toggle="tooltip" title="RW IMC Departure Rate - Click to sort">IMC</th>
                     </tr>
                 </thead>
 
@@ -605,21 +711,67 @@ include('load/nav.php');
     </div>
 </div>
 
+<!-- Rate History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1" role="dialog" aria-labelledby="historyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="historyModalLabel">Rate Change History</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="historyLoading" class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Loading history...</p>
+                </div>
+                <div id="historyContent" style="display: none;">
+                    <div class="alert alert-info" id="historyInfo"></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped history-table">
+                            <thead>
+                                <tr>
+                                    <th>Date/Time</th>
+                                    <th>Source</th>
+                                    <th>Weather</th>
+                                    <th>Type</th>
+                                    <th>Change</th>
+                                    <th>User</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="historyEmpty" class="text-center text-muted py-4" style="display: none;">
+                        <i class="fas fa-history fa-2x"></i>
+                        <p class="mt-2">No rate changes recorded in the last 30 days.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
     <!-- Scripts -->
     <script async type="text/javascript">
         var configData = []; // Store loaded config data for filtering/export
+        var hasCheckboxCol = <?php echo $perm ? 'true' : 'false'; ?>; // Whether checkbox column exists
+        var colOffset = hasCheckboxCol ? 1 : 0; // Column offset for data columns
 
         function tooltips() {
             $('[data-toggle="tooltip"]').tooltip('dispose');
-
             $(function () {
                 $('[data-toggle="tooltip"]').tooltip()
             });
         }
 
         function updateStats() {
-            var rows = $('#configs_table tr');
+            var rows = $('#configs_table tr:visible');
             var total = rows.length;
             var airports = new Set();
             var withVatsim = 0;
@@ -630,12 +782,13 @@ include('load/nav.php');
             rows.each(function() {
                 var cells = $(this).find('td');
                 if (cells.length > 0) {
-                    var faa = cells.eq(0).text().trim();
+                    var faaIdx = colOffset;
+                    var faa = cells.eq(faaIdx).text().trim();
                     airports.add(faa);
 
-                    // Check VATSIM rates (columns 5-11)
+                    // Check VATSIM rates (offset by checkbox column if present)
                     var hasVatsim = false;
-                    for (var i = 5; i <= 11; i++) {
+                    for (var i = 5 + colOffset; i <= 11 + colOffset; i++) {
                         if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
                             hasVatsim = true;
                             break;
@@ -643,9 +796,9 @@ include('load/nav.php');
                     }
                     if (hasVatsim) withVatsim++;
 
-                    // Check RW rates (columns 12-17)
+                    // Check RW rates
                     var hasRw = false;
-                    for (var i = 12; i <= 17; i++) {
+                    for (var i = 12 + colOffset; i <= 17 + colOffset; i++) {
                         if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
                             hasRw = true;
                             break;
@@ -653,9 +806,9 @@ include('load/nav.php');
                     }
                     if (hasRw) withRw++;
 
-                    // Compare VMC AAR (VATSIM col 5 vs RW col 12)
-                    var vatsimVmc = parseInt(cells.eq(5).text()) || 0;
-                    var rwVmc = parseInt(cells.eq(12).text()) || 0;
+                    // Compare VMC AAR
+                    var vatsimVmc = parseInt(cells.eq(5 + colOffset).text()) || 0;
+                    var rwVmc = parseInt(cells.eq(12 + colOffset).text()) || 0;
                     if (vatsimVmc > 0 && rwVmc > 0) {
                         if (vatsimVmc > rwVmc) vatsimHigher++;
                         else if (vatsimVmc < rwVmc) vatsimLower++;
@@ -671,44 +824,125 @@ include('load/nav.php');
             $('#stat-vatsim-lower').text(vatsimLower);
         }
 
-        function applyFilter(filter) {
-            var rows = $('#configs_table tr');
-            rows.each(function() {
+        function applyFilters() {
+            var filter = $('#filterRates').val();
+            var activeFilter = $('#filterActive').val();
+
+            $('#configs_table tr').each(function() {
                 var row = $(this);
                 var cells = row.find('td');
                 if (cells.length === 0) return;
 
                 var show = true;
+                var isActive = row.data('active') !== false;
 
-                // Check RW rates (columns 12-17)
-                var hasRw = false;
-                for (var i = 12; i <= 17; i++) {
-                    if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
-                        hasRw = true;
-                        break;
+                // Active filter
+                if (activeFilter === 'active' && !isActive) show = false;
+                else if (activeFilter === 'inactive' && isActive) show = false;
+
+                // Rate filter
+                if (show && filter) {
+                    var hasRw = false;
+                    for (var i = 12 + colOffset; i <= 17 + colOffset; i++) {
+                        if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
+                            hasRw = true;
+                            break;
+                        }
+                    }
+                    var vatsimVmc = parseInt(cells.eq(5 + colOffset).text()) || 0;
+                    var rwVmc = parseInt(cells.eq(12 + colOffset).text()) || 0;
+
+                    switch (filter) {
+                        case 'has-rw': show = hasRw; break;
+                        case 'no-rw': show = !hasRw; break;
+                        case 'vatsim-higher': show = (vatsimVmc > 0 && rwVmc > 0 && vatsimVmc > rwVmc); break;
+                        case 'vatsim-lower': show = (vatsimVmc > 0 && rwVmc > 0 && vatsimVmc < rwVmc); break;
                     }
                 }
 
-                // Compare VMC AAR
-                var vatsimVmc = parseInt(cells.eq(5).text()) || 0;
-                var rwVmc = parseInt(cells.eq(12).text()) || 0;
-
-                switch (filter) {
-                    case 'has-rw':
-                        show = hasRw;
-                        break;
-                    case 'no-rw':
-                        show = !hasRw;
-                        break;
-                    case 'vatsim-higher':
-                        show = (vatsimVmc > 0 && rwVmc > 0 && vatsimVmc > rwVmc);
-                        break;
-                    case 'vatsim-lower':
-                        show = (vatsimVmc > 0 && rwVmc > 0 && vatsimVmc < rwVmc);
-                        break;
-                }
-
                 row.toggle(show);
+            });
+            updateStats();
+        }
+
+        // Sorting functionality
+        function sortTable(colIndex, sortType) {
+            var rows = $('#configs_table tr').get();
+            var isAsc = !$('.sortable[data-sort="'+colIndex+'"]').hasClass('sort-asc');
+
+            // Clear other sort indicators
+            $('.sortable').removeClass('sort-asc sort-desc');
+            $('.sortable[data-sort="'+colIndex+'"]').addClass(isAsc ? 'sort-asc' : 'sort-desc');
+
+            rows.sort(function(a, b) {
+                var aVal = $(a).find('td').eq(colIndex + colOffset).text().trim();
+                var bVal = $(b).find('td').eq(colIndex + colOffset).text().trim();
+
+                if (sortType === 'num') {
+                    aVal = parseInt(aVal) || 0;
+                    bVal = parseInt(bVal) || 0;
+                    return isAsc ? aVal - bVal : bVal - aVal;
+                } else {
+                    return isAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                }
+            });
+
+            $.each(rows, function(i, row) {
+                $('#configs_table').append(row);
+            });
+        }
+
+        // Bulk selection
+        function updateBulkActions() {
+            var checked = $('.row-checkbox:checked').length;
+            $('#bulkCount').text(checked);
+            if (checked > 0) {
+                $('#bulkActions').addClass('active');
+            } else {
+                $('#bulkActions').removeClass('active');
+            }
+        }
+
+        function getSelectedIds() {
+            var ids = [];
+            $('.row-checkbox:checked').each(function() {
+                ids.push($(this).data('id'));
+            });
+            return ids;
+        }
+
+        // Bulk actions
+        function bulkAction(action) {
+            var ids = getSelectedIds();
+            if (ids.length === 0) return;
+
+            var confirmMsg = action === 'delete'
+                ? 'Are you sure you want to delete ' + ids.length + ' config(s)?'
+                : 'Are you sure you want to ' + action + ' ' + ids.length + ' config(s)?';
+
+            Swal.fire({
+                title: 'Confirm ' + action,
+                text: confirmMsg,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, proceed'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        type: 'POST',
+                        url: 'api/mgt/config_data/bulk',
+                        data: { action: action, ids: ids },
+                        success: function() {
+                            Swal.fire({ toast: true, position: 'bottom-right', icon: 'success',
+                                title: 'Success', text: ids.length + ' config(s) ' + action + 'd.',
+                                timer: 3000, showConfirmButton: false });
+                            loadData($('#search').val());
+                        },
+                        error: function() {
+                            Swal.fire({ icon: 'error', title: 'Error', text: 'Bulk action failed.' });
+                        }
+                    });
+                }
             });
         }
 
@@ -723,8 +957,9 @@ include('load/nav.php');
 
             $('#configs_table tr:visible').each(function() {
                 var row = [];
+                var startIdx = colOffset; // Skip checkbox column
                 $(this).find('td').each(function(i) {
-                    if (i < 18) { // Skip action column
+                    if (i >= startIdx && i < 18 + colOffset) {
                         var text = $(this).text().trim().replace(/"/g, '""');
                         row.push('"' + text + '"');
                     }
@@ -742,41 +977,94 @@ include('load/nav.php');
         }
 
         function loadData(search) {
-            $.get(`api/data/configs?search=${search}`).done(function(data) {
+            var activeFilter = $('#filterActive').val() || 'active';
+            $.get(`api/data/configs?search=${search}&active=${activeFilter}`).done(function(data) {
                 $('#configs_table').html(data);
                 tooltips();
-                updateStats();
+                applyFilters();
+                updateBulkActions();
+            });
+        }
 
-                // Re-apply filter if one is selected
-                var filter = $('#filterRates').val();
-                if (filter) applyFilter(filter);
+        // FUNC: showHistory [configId, airportFaa, configName]
+        function showHistory(configId, airportFaa, configName) {
+            $('#historyModalLabel').text('Rate Change History - ' + airportFaa + ' (' + configName + ')');
+            $('#historyLoading').show();
+            $('#historyContent').hide();
+            $('#historyModal').modal('show');
+
+            $.get('api/data/rate_history?config_id=' + configId + '&days=30').done(function(response) {
+                $('#historyLoading').hide();
+                $('#historyContent').show();
+
+                if (response.history && response.history.length > 0) {
+                    $('#historyInfo').html('Showing <strong>' + response.history.length + '</strong> change(s) in the last 30 days');
+                    $('#historyEmpty').hide();
+
+                    var html = '';
+                    response.history.forEach(function(item) {
+                        var changeClass = '';
+                        var changeText = '';
+                        if (item.direction === 'NEW') {
+                            changeClass = 'change-new';
+                            changeText = '<i class="fas fa-plus"></i> New: ' + item.new_value;
+                        } else if (item.direction === 'REMOVED') {
+                            changeClass = 'change-removed';
+                            changeText = '<i class="fas fa-minus"></i> Removed: ' + item.old_value;
+                        } else if (item.direction === 'INCREASED') {
+                            changeClass = 'change-increased';
+                            changeText = '<i class="fas fa-arrow-up"></i> ' + item.old_value + ' → ' + item.new_value;
+                        } else if (item.direction === 'DECREASED') {
+                            changeClass = 'change-decreased';
+                            changeText = '<i class="fas fa-arrow-down"></i> ' + item.old_value + ' → ' + item.new_value;
+                        }
+
+                        html += '<tr>';
+                        html += '<td>' + item.changed_utc + '</td>';
+                        html += '<td><span class="badge badge-' + (item.source === 'VATSIM' ? 'primary' : 'success') + '">' + item.source + '</span></td>';
+                        html += '<td>' + item.weather + '</td>';
+                        html += '<td>' + item.rate_type + '</td>';
+                        html += '<td class="' + changeClass + '">' + changeText + '</td>';
+                        html += '<td>' + (item.changed_by_cid || '-') + '</td>';
+                        html += '</tr>';
+                    });
+                    $('#historyTableBody').html(html);
+                } else {
+                    $('#historyInfo').hide();
+                    $('#historyEmpty').show();
+                    $('#historyTableBody').html('');
+                }
+            }).fail(function() {
+                $('#historyLoading').hide();
+                $('#historyContent').show();
+                $('#historyInfo').html('<span class="text-danger">Failed to load history</span>');
+                $('#historyEmpty').hide();
             });
         }
 
         // FUNC: deleteConfig [id:]
         function deleteConfig(id) {
-            $.ajax({
-                type:   'POST',
-                url:    'api/mgt/config_data/delete',
-                data:   {config_id: id},
-                success:function(data) {
-                    Swal.fire({
-                        toast:      true,
-                        position:   'bottom-right',
-                        icon:       'success',
-                        title:      'Successfully Deleted',
-                        text:       'You have successfully deleted the selected field config.',
-                        timer:      3000,
-                        showConfirmButton: false
-                    });
-
-                    loadData($('#search').val());
-                },
-                error:function(data) {
-                    Swal.fire({
-                        icon:   'error',
-                        title:  'Not Deleted',
-                        text:   'There was an error in deleting the selected field config.'
+            Swal.fire({
+                title: 'Delete Config?',
+                text: 'This action cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        type: 'POST',
+                        url: 'api/mgt/config_data/delete',
+                        data: {config_id: id},
+                        success: function() {
+                            Swal.fire({ toast: true, position: 'bottom-right', icon: 'success',
+                                title: 'Deleted', timer: 2000, showConfirmButton: false });
+                            loadData($('#search').val());
+                        },
+                        error: function() {
+                            Swal.fire({ icon: 'error', title: 'Error', text: 'Delete failed.' });
+                        }
                     });
                 }
             });
@@ -786,7 +1074,6 @@ include('load/nav.php');
         function updateIcao(faaInput, icaoInput) {
             var faa = $(faaInput).val().toUpperCase();
             if (faa.length >= 3) {
-                // US airports: prepend K (except for Alaska/Hawaii which start with P)
                 if (faa.charAt(0) === 'P' || faa.length === 4) {
                     $(icaoInput).val(faa);
                 } else {
@@ -822,9 +1109,45 @@ include('load/nav.php');
                 }
             });
 
-            // Filter dropdown
+            // Filter dropdowns
             $('#filterRates').change(function() {
-                applyFilter($(this).val());
+                applyFilters();
+            });
+
+            $('#filterActive').change(function() {
+                loadData($('#search').val());
+            });
+
+            // Sortable columns
+            $(document).on('click', '.sortable', function() {
+                var colIndex = parseInt($(this).data('sort'));
+                var sortType = $(this).data('type') || 'text';
+                sortTable(colIndex, sortType);
+            });
+
+            // Bulk selection - Select All
+            $(document).on('change', '#selectAll', function() {
+                var isChecked = $(this).prop('checked');
+                $('.row-checkbox:visible').prop('checked', isChecked);
+                updateBulkActions();
+            });
+
+            // Bulk selection - Individual rows
+            $(document).on('change', '.row-checkbox', function() {
+                updateBulkActions();
+                // Update select all checkbox state
+                var total = $('.row-checkbox:visible').length;
+                var checked = $('.row-checkbox:visible:checked').length;
+                $('#selectAll').prop('checked', total === checked && total > 0);
+            });
+
+            // Bulk action buttons
+            $('#bulkActivate').click(function() { bulkAction('activate'); });
+            $('#bulkDeactivate').click(function() { bulkAction('deactivate'); });
+            $('#bulkDelete').click(function() { bulkAction('delete'); });
+            $('#bulkClear').click(function() {
+                $('.row-checkbox, #selectAll').prop('checked', false);
+                updateBulkActions();
             });
 
             // Export button
