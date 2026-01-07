@@ -84,21 +84,41 @@ if (isset($_GET['event_idx']) && isset($_GET['airport']) && $conn_adl) {
             sqlsrv_free_stmt($stmt);
         }
 
-        // Get airport configs
-        $sql = "SELECT DISTINCT
+        // Get airport configs with distinct weather conditions
+        $sql = "SELECT
                     c.config_id,
                     c.config_name,
+                    COALESCE(arr.weather, dep.weather, 'VMC') as weather,
                     arr.rate_value as vatsim_aar,
-                    dep.rate_value as vatsim_adr
+                    dep.rate_value as vatsim_adr,
+                    arr_rw.rate_value as rw_aar,
+                    dep_rw.rate_value as rw_adr
                 FROM dbo.airport_config c
                 LEFT JOIN dbo.airport_config_rate arr
                     ON c.config_id = arr.config_id
-                    AND arr.source = 'VATSIM' AND arr.weather = 'VMC' AND arr.rate_type = 'ARR'
+                    AND arr.source = 'VATSIM' AND arr.rate_type = 'ARR'
                 LEFT JOIN dbo.airport_config_rate dep
                     ON c.config_id = dep.config_id
-                    AND dep.source = 'VATSIM' AND dep.weather = 'VMC' AND dep.rate_type = 'DEP'
+                    AND dep.source = 'VATSIM' AND dep.rate_type = 'DEP'
+                    AND dep.weather = COALESCE(arr.weather, dep.weather)
+                LEFT JOIN dbo.airport_config_rate arr_rw
+                    ON c.config_id = arr_rw.config_id
+                    AND arr_rw.source = 'RW' AND arr_rw.rate_type = 'ARR'
+                    AND arr_rw.weather = COALESCE(arr.weather, dep.weather)
+                LEFT JOIN dbo.airport_config_rate dep_rw
+                    ON c.config_id = dep_rw.config_id
+                    AND dep_rw.source = 'RW' AND dep_rw.rate_type = 'DEP'
+                    AND dep_rw.weather = COALESCE(arr.weather, dep.weather)
                 WHERE c.airport_icao = ?
-                ORDER BY c.config_name";
+                  AND (arr.rate_value IS NOT NULL OR dep.rate_value IS NOT NULL)
+                ORDER BY c.config_name,
+                    CASE COALESCE(arr.weather, dep.weather)
+                        WHEN 'VMC' THEN 1
+                        WHEN 'LVMC' THEN 2
+                        WHEN 'LIMC' THEN 3
+                        WHEN 'IMC' THEN 4
+                        ELSE 5
+                    END";
         $stmt = sqlsrv_query($conn_adl, $sql, [$airport_icao]);
         if ($stmt) {
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -208,7 +228,34 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
             margin: 2px;
         }
         .config-badge:hover {
-            background: #218838;
+            opacity: 0.85;
+        }
+        .config-badge.weather-vmc {
+            background: #28a745;
+        }
+        .config-badge.weather-lvmc {
+            background: #fd7e14;
+        }
+        .config-badge.weather-limc {
+            background: #17a2b8;
+        }
+        .config-badge.weather-imc {
+            background: #dc3545;
+        }
+        .weather-label {
+            font-size: 0.7rem;
+            opacity: 0.9;
+            margin-left: 4px;
+            font-weight: normal;
+        }
+        .config-group {
+            margin-bottom: 10px;
+        }
+        .config-group-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #495057;
+            font-size: 0.9rem;
         }
         .info-card {
             background: #f8f9fa;
@@ -321,15 +368,38 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
                 <h6 class="mb-0">Quick Apply: Airport Configurations</h6>
             </div>
             <div class="card-body">
-                <p class="text-muted small">Click a config to apply its rates to all hourly slots.</p>
-                <?php foreach ($configs as $config): ?>
-                    <?php if ($config['vatsim_aar'] || $config['vatsim_adr']): ?>
-                    <span class="config-badge"
-                          onclick="applyConfig(<?= $config['vatsim_aar'] ?? 'null' ?>, <?= $config['vatsim_adr'] ?? 'null' ?>, '<?= htmlspecialchars($config['config_name']) ?>')">
-                        <?= htmlspecialchars($config['config_name']) ?>
-                        (AAR: <?= $config['vatsim_aar'] ?? '-' ?>, ADR: <?= $config['vatsim_adr'] ?? '-' ?>)
-                    </span>
-                    <?php endif; ?>
+                <p class="text-muted small">Click a config to apply its rates to all hourly slots. Colors indicate weather:
+                    <span class="config-badge weather-vmc" style="cursor:default;font-size:0.75rem;padding:2px 6px;">VMC</span>
+                    <span class="config-badge weather-lvmc" style="cursor:default;font-size:0.75rem;padding:2px 6px;">LVMC</span>
+                    <span class="config-badge weather-limc" style="cursor:default;font-size:0.75rem;padding:2px 6px;">LIMC</span>
+                    <span class="config-badge weather-imc" style="cursor:default;font-size:0.75rem;padding:2px 6px;">IMC</span>
+                </p>
+                <?php
+                // Group configs by config_name
+                $grouped_configs = [];
+                foreach ($configs as $config) {
+                    if ($config['vatsim_aar'] || $config['vatsim_adr']) {
+                        $name = $config['config_name'];
+                        if (!isset($grouped_configs[$name])) {
+                            $grouped_configs[$name] = [];
+                        }
+                        $grouped_configs[$name][] = $config;
+                    }
+                }
+                ?>
+                <?php foreach ($grouped_configs as $config_name => $weather_variants): ?>
+                <div class="config-group">
+                    <div class="config-group-name"><?= htmlspecialchars($config_name) ?></div>
+                    <?php foreach ($weather_variants as $config): ?>
+                        <?php $weather_class = 'weather-' . strtolower($config['weather'] ?? 'vmc'); ?>
+                        <span class="config-badge <?= $weather_class ?>"
+                              onclick="applyConfig(<?= $config['vatsim_aar'] ?? 'null' ?>, <?= $config['vatsim_adr'] ?? 'null' ?>, '<?= htmlspecialchars($config['config_name']) ?> [<?= $config['weather'] ?? 'VMC' ?>]')"
+                              title="<?= htmlspecialchars($config['config_name']) ?> - <?= $config['weather'] ?? 'VMC' ?>">
+                            <?= $config['weather'] ?? 'VMC' ?>
+                            <span class="weather-label">(<?= $config['vatsim_aar'] ?? '-' ?>/<?= $config['vatsim_adr'] ?? '-' ?>)</span>
+                        </span>
+                    <?php endforeach; ?>
+                </div>
                 <?php endforeach; ?>
             </div>
         </div>
