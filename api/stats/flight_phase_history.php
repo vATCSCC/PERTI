@@ -125,14 +125,33 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 
 sqlsrv_free_stmt($stmt);
+
+// Get current time label for vertical line marker
+$currentTimeLabel = gmdate('H:i');
+
+// Get total snapshot count for debugging
+$countSql = "SELECT COUNT(*) AS cnt FROM dbo.flight_phase_snapshot WHERE snapshot_utc > DATEADD(HOUR, -?, SYSUTCDATETIME())";
+$countStmt = sqlsrv_query($conn, $countSql, [$hours]);
+$snapshotCount = 0;
+if ($countStmt) {
+    $countRow = sqlsrv_fetch_array($countStmt, SQLSRV_FETCH_ASSOC);
+    $snapshotCount = $countRow['cnt'] ?? 0;
+    sqlsrv_free_stmt($countStmt);
+}
+
 sqlsrv_close($conn);
 
 echo json_encode([
     "success" => true,
     "timestamp_utc" => gmdate('Y-m-d\TH:i:s\Z'),
+    "current_time_label" => $currentTimeLabel,
     "parameters" => [
         "hours" => $hours,
         "interval_minutes" => $interval
+    ],
+    "debug" => [
+        "snapshot_count" => $snapshotCount,
+        "bucket_count" => count($labels)
     ],
     "data" => [
         "labels" => $labels,

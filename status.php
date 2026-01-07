@@ -1045,6 +1045,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
     <!-- Chart.js for live graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
     <?php include('load/nav.php'); ?>
@@ -2102,6 +2103,22 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     .then(result => {
                         if (result.success && result.data) {
                             const data = result.data;
+                            const currentTimeLabel = result.current_time_label;
+
+                            // Find index of current time in labels (or closest match)
+                            let currentTimeIndex = data.labels.length - 1; // Default to last
+                            for (let i = 0; i < data.labels.length; i++) {
+                                if (data.labels[i] === currentTimeLabel) {
+                                    currentTimeIndex = i;
+                                    break;
+                                }
+                                // Find closest match if exact not found
+                                if (data.labels[i] > currentTimeLabel && i > 0) {
+                                    currentTimeIndex = i - 1;
+                                    break;
+                                }
+                            }
+
                             new Chart(phaseCtx, {
                                 type: 'line',
                                 data: {
@@ -2179,6 +2196,26 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         tooltip: {
                                             mode: 'index',
                                             intersect: false
+                                        },
+                                        annotation: {
+                                            annotations: {
+                                                currentTimeLine: {
+                                                    type: 'line',
+                                                    xMin: currentTimeIndex,
+                                                    xMax: currentTimeIndex,
+                                                    borderColor: '#000000',
+                                                    borderWidth: 2,
+                                                    borderDash: [5, 5],
+                                                    label: {
+                                                        display: true,
+                                                        content: 'Now',
+                                                        position: 'start',
+                                                        backgroundColor: '#000000',
+                                                        color: '#ffffff',
+                                                        font: { size: 10 }
+                                                    }
+                                                }
+                                            }
                                         }
                                     },
                                     scales: {
