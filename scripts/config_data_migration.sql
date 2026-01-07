@@ -1,6 +1,6 @@
 -- =====================================================
 -- Config Data Migration from MySQL
--- Generated: 2026-01-07 08:00:23
+-- Generated: 2026-01-07 08:19:58
 -- Total records: 1396
 -- Run this in SSMS or Azure Data Studio
 -- =====================================================
