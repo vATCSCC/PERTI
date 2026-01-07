@@ -71,12 +71,16 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
             display: none !important;
         }
         
+        :root {
+            --navbar-height: 60px; /* Default, updated by JS */
+        }
+
         .nod-container {
             display: flex;
-            height: calc(100vh - 60px); /* Account for navbar */
+            height: calc(100vh - var(--navbar-height));
             width: 100%;
             position: relative;
-            margin-top: 60px; /* Push below fixed navbar */
+            margin-top: var(--navbar-height);
         }
         
         /* Map Container */
@@ -1479,6 +1483,17 @@ window.NOD_CONFIG = {
         superhigh: 'assets/geojson/superhigh.json'
     }
 };
+
+// Dynamically set navbar height CSS variable
+function updateNavbarHeight() {
+    const navbar = document.querySelector('.cs-header.navbar-floating');
+    if (navbar) {
+        const height = navbar.offsetHeight;
+        document.documentElement.style.setProperty('--navbar-height', height + 'px');
+    }
+}
+document.addEventListener('DOMContentLoaded', updateNavbarHeight);
+window.addEventListener('resize', updateNavbarHeight);
 </script>
 
 <!-- NOD Module -->
