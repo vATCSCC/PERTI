@@ -1,0 +1,4606 @@
+openapi: 3.0.3
+info:
+  title: PERTI API
+  description: |
+    Virtual Air Traffic Control System Command Center API
+
+    This API provides access to flight data, traffic management initiatives,
+    sector configurations, and operational planning tools for the VATSIM network.
+
+    ## Authentication
+    Most read-only endpoints are public. Management (POST/PUT/DELETE) endpoints
+    require VATSIM session authentication via cookie.
+
+    ## Data Sources
+    - **ADL Database**: Real-time flight tracking data (Azure SQL)
+    - **PERTI Database**: Planning and configuration data (MySQL)
+    - **CRC Index**: Sector map data (SQLite)
+
+    ## Response Types
+    Most endpoints return JSON. Some legacy endpoints return HTML table rows
+    (noted in each endpoint's description).
+  version: 1.0.0
+  contact:
+    name: PERTI Support
+
+servers:
+  - url: /api
+    description: Production API
+
+tags:
+  - name: ADL
+    description: Arrival/Departure List - Real-time flight tracking data from VATSIM
+  - name: Stats
+    description: Flight statistics and analytics
+  - name: Splits
+    description: Sector configuration and maps
+  - name: Demand
+    description: Traffic demand analysis and forecasting
+  - name: TMI
+    description: Traffic Management Initiatives - Reroutes, GDP, Ground Stops
+  - name: TMI-Reroutes
+    description: Reroute program management and compliance
+  - name: TMI-GDP
+    description: Ground Delay Program management
+  - name: TMI-GS
+    description: Ground Stop management
+  - name: Data
+    description: Reference data and planning information
+  - name: JATOC
+    description: Joint Air Traffic Operations Command
+  - name: NOD
+    description: NAS Operations Dashboard
+  - name: Routes
+    description: Public route management
+  - name: Weather
+    description: Weather data and impacts
+  - name: Discord
+    description: Discord integration
+  - name: Management
+    description: CRUD operations for planning data (requires authentication)
+  - name: User
+    description: User-specific data and preferences
+
+paths:
+  # ============================================================================
+  # ADL ENDPOINTS
+  # ============================================================================
+
+  /adl/current:
+    get:
+      tags: [ADL]
+      summary: Get current active flights
+      description: |
+        Returns current ADL flights from the Azure SQL database.
+        By default returns only active flights. Supports filtering by callsign,
+        departure, and arrival airports.
+
+        **Note:** Route geometry (WKT) is not included in this endpoint for performance
+        optimization. Waypoints are available via the pre-computed `waypoints_json` field,
+        which provides fix names, coordinates, and sequence numbers for route visualization.
+      parameters:
+        - name: cs
+          in: query
+          description: Filter by callsign (case-insensitive, converted to uppercase)
+          schema:
+            type: string
+          example: AAL123
+        - name: callsign
+          in: query
+          description: Alias for cs parameter
+          schema:
+            type: string
+        - name: dep
+          in: query
+          description: Filter by departure airport (ICAO code)
+          schema:
+            type: string
+          example: KJFK
+        - name: arr
+          in: query
+          description: Filter by arrival airport (ICAO code)
+          schema:
+            type: string
+          example: KLAX
+        - name: active
+          in: query
+          description: |
+            Filter active flights only.
+            - "1", "true", "yes" = active only (default)
+            - "0", "false", "no", "all" = include inactive
+          schema:
+            type: string
+            default: "1"
+        - name: limit
+          in: query
+          description: Maximum number of flights to return (1-15000)
+          schema:
+            type: integer
+            default: 10000
+            maximum: 15000
+            minimum: 1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot_utc:
+                    type: string
+                    format: date-time
+                    description: Data snapshot timestamp (ISO8601 UTC)
+                  flights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FlightFull'
+                  rows:
+                    type: array
+                    description: Alias for flights array
+                    items:
+                      $ref: '#/components/schemas/FlightFull'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /adl/flight:
+    get:
+      tags: [ADL]
+      summary: Get single flight details
+      description: |
+        Returns detailed information for a single flight by ID or callsign.
+        Returns the same fields as `/adl/current` but for a single flight lookup.
+        Includes pre-computed `waypoints_json` with fix names, coordinates, and sequence numbers.
+      parameters:
+        - name: id
+          in: query
+          description: Flight UID (integer)
+          schema:
+            type: integer
+        - name: cs
+          in: query
+          description: Callsign (converted to uppercase)
+          schema:
+            type: string
+        - name: callsign
+          in: query
+          description: Alias for cs parameter
+          schema:
+            type: string
+        - name: active
+          in: query
+          description: Only return if flight is active ("1", "true", "yes")
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightFull'
+        '400':
+          description: Missing required parameter (id or cs/callsign)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Flight not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /adl/waypoints:
+    get:
+      tags: [ADL]
+      summary: Get flight waypoints
+      description: Returns waypoint data for a flight including route coordinates and airport positions.
+      parameters:
+        - name: uid
+          in: query
+          description: Flight UID
+          schema:
+            type: integer
+        - name: key
+          in: query
+          description: Flight key
+          schema:
+            type: string
+        - name: cs
+          in: query
+          description: Callsign
+          schema:
+            type: string
+        - name: callsign
+          in: query
+          description: Alias for cs parameter
+          schema:
+            type: string
+        - name: debug
+          in: query
+          description: Set to "1" for debug output
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flight:
+                    type: object
+                    properties:
+                      flight_uid:
+                        type: integer
+                      flight_key:
+                        type: string
+                      callsign:
+                        type: string
+                      fp_dept_icao:
+                        type: string
+                      fp_dest_icao:
+                        type: string
+                      dept_lat:
+                        type: number
+                        nullable: true
+                      dept_lon:
+                        type: number
+                        nullable: true
+                      dest_lat:
+                        type: number
+                        nullable: true
+                      dest_lon:
+                        type: number
+                        nullable: true
+                      ac_lat:
+                        type: number
+                        nullable: true
+                      ac_lon:
+                        type: number
+                        nullable: true
+                  waypoints:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Waypoint'
+                  count:
+                    type: integer
+                  message:
+                    type: string
+                    nullable: true
+                  debug:
+                    type: object
+                    nullable: true
+        '400':
+          description: Missing required parameter
+        '404':
+          description: Flight not found
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /adl/boundaries:
+    get:
+      tags: [ADL]
+      summary: Get boundary data
+      description: |
+        Returns ARTCC/FIR/Sector boundary definitions. Supports multiple actions:
+        - **list**: Returns boundary metadata (default)
+        - **geojson**: Returns GeoJSON FeatureCollection with geometries
+        - **contains**: Returns boundaries containing a lat/lon point
+        - **summary**: Returns boundary type counts
+        - **flight**: Returns boundary info for a specific flight
+      parameters:
+        - name: action
+          in: query
+          description: Response format/action type
+          schema:
+            type: string
+            enum: [list, geojson, contains, summary, flight]
+            default: list
+        - name: type
+          in: query
+          description: Boundary type filter
+          schema:
+            type: string
+            enum: [ARTCC, SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH, TRACON]
+        - name: artcc
+          in: query
+          description: ARTCC code filter
+          schema:
+            type: string
+        - name: lat
+          in: query
+          description: Latitude (required for action=contains)
+          schema:
+            type: number
+        - name: lon
+          in: query
+          description: Longitude (required for action=contains)
+          schema:
+            type: number
+        - name: alt
+          in: query
+          description: Altitude in feet (optional for action=contains)
+          schema:
+            type: integer
+        - name: uid
+          in: query
+          description: Flight UID (for action=flight)
+          schema:
+            type: integer
+        - name: callsign
+          in: query
+          description: Callsign (for action=flight)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success (response varies by action)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/BoundaryListResponse'
+                  - $ref: '#/components/schemas/GeoJSONFeatureCollection'
+                  - $ref: '#/components/schemas/BoundaryContainsResponse'
+                  - $ref: '#/components/schemas/BoundarySummaryResponse'
+                  - $ref: '#/components/schemas/BoundaryFlightResponse'
+    post:
+      tags: [ADL]
+      summary: Get boundary data (POST)
+      description: Same as GET, allows POST for complex queries.
+      responses:
+        '200':
+          description: Success
+    options:
+      tags: [ADL]
+      summary: CORS preflight
+      responses:
+        '200':
+          description: CORS headers returned
+
+  /adl/diagnostic:
+    get:
+      tags: [ADL]
+      summary: System health status
+      description: |
+        Returns health status of the ADL data ingestion system including
+        database connectivity, refresh status, queue statistics, and ATIS status.
+
+        **Health Status Logic:**
+        - **critical**: refresh > 120 seconds old, no refresh data, or connection failed
+        - **warning**: refresh > 60 seconds old or queue backlog > 500 pending
+        - **ok**: normal operation
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database_connected:
+                    type: boolean
+                  last_refresh:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  refresh_age_seconds:
+                    type: integer
+                    nullable: true
+                  last_refresh_stats:
+                    type: object
+                    nullable: true
+                    properties:
+                      pilots_received:
+                        type: integer
+                      new_flights:
+                        type: integer
+                      updated_flights:
+                        type: integer
+                  active_flights:
+                    type: integer
+                  queue_status:
+                    type: object
+                    properties:
+                      pending:
+                        type: integer
+                      processing:
+                        type: integer
+                      complete_1h:
+                        type: integer
+                      failed_1h:
+                        type: integer
+                  atis_status:
+                    type: object
+                    properties:
+                      total_1h:
+                        type: integer
+                      parsed_1h:
+                        type: integer
+                      pending:
+                        type: integer
+                  health:
+                    type: string
+                    enum: [ok, warning, critical]
+                  issues:
+                    type: array
+                    items:
+                      type: string
+
+  /adl/diagnose:
+    get:
+      tags: [ADL]
+      summary: Database diagnostics
+      description: |
+        Returns detailed database diagnostics including table/procedure existence,
+        record counts, and query source information. Used for troubleshooting.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  connection:
+                    type: string
+                  procedures:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum: [EXISTS, MISSING, ERROR]
+                  tables:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum: [EXISTS, MISSING, ERROR]
+                  counts:
+                    type: object
+                    properties:
+                      adl_flight_core:
+                        type: integer
+                      adl_flight_plan:
+                        type: integer
+                      active_in_core:
+                        type: integer
+                      active_with_position:
+                        type: integer
+                      missing_position:
+                        type: integer
+                  query_source:
+                    type: string
+                    enum: [view, normalized]
+                  last_flight_update:
+                    type: string
+                  last_atis_update:
+                    type: string
+
+  /adl/stats:
+    get:
+      tags: [ADL]
+      summary: Get ADL flight statistics
+      description: |
+        Returns aggregate statistics about flights including domestic/international
+        breakdown, DCC region distribution, and airport category breakdowns.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot_utc:
+                    type: string
+                    format: date-time
+                  global:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      domestic_to_domestic:
+                        type: integer
+                      domestic_to_intl:
+                        type: integer
+                      intl_to_domestic:
+                        type: integer
+                      intl_to_intl:
+                        type: integer
+                  domestic:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      arr_dcc:
+                        type: object
+                        description: Arrivals by DCC region (NE, SE, MW, SC, W, Other)
+                      dep_dcc:
+                        type: object
+                        description: Departures by DCC region
+                      arr_aspm77:
+                        type: object
+                        properties:
+                          yes:
+                            type: integer
+                          no:
+                            type: integer
+                      arr_oep35:
+                        type: object
+                      arr_core30:
+                        type: object
+
+  /adl/ingest:
+    get:
+      tags: [ADL]
+      summary: Trigger data ingest
+      description: |
+        Manually triggers a VATSIM data ingest cycle. Fetches from
+        https://data.vatsim.net/v3/vatsim-data.json and processes the data.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  success:
+                    type: boolean
+                  fetch_time_ms:
+                    type: integer
+                  pilots_in_feed:
+                    type: integer
+                  controllers_in_feed:
+                    type: integer
+                  json_length:
+                    type: integer
+                  stats:
+                    type: object
+                    properties:
+                      pilots_received:
+                        type: integer
+                      new_flights:
+                        type: integer
+                      updated_flights:
+                        type: integer
+                      routes_queued:
+                        type: integer
+                      etds_calculated:
+                        type: integer
+                      simbrief_parsed:
+                        type: integer
+                      etas_calculated:
+                        type: integer
+                      trajectories_logged:
+                        type: integer
+                      zone_transitions:
+                        type: integer
+                      boundary_transitions:
+                        type: integer
+                      proc_elapsed_ms:
+                        type: integer
+                  proc_time_ms:
+                    type: integer
+                  total_time_ms:
+                    type: integer
+                  error:
+                    type: string
+                    nullable: true
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /adl/cleanup-queue:
+    get:
+      tags: [ADL]
+      summary: Preview queue cleanup (dry run)
+      description: |
+        Returns a preview of what would be cleaned up in the parse queue.
+        Use POST or GET with run=1 to actually execute cleanup.
+
+        **Cleanup Criteria:**
+        - Orphaned entries: PENDING status + inactive flights
+        - Stale pending: PENDING + > 2 hours old
+        - Old failed: FAILED + > 4 hours old
+        - Stuck processing: PROCESSING + > 30 minutes old
+      parameters:
+        - name: run
+          in: query
+          description: Set to "1" to execute cleanup instead of dry run
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CleanupQueueResponse'
+    post:
+      tags: [ADL]
+      summary: Execute queue cleanup
+      description: Executes the parse queue cleanup (same as GET with run=1).
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CleanupQueueResponse'
+
+  /adl/snapshot_history:
+    post:
+      tags: [ADL]
+      summary: Create snapshot history record
+      description: |
+        Creates a snapshot of current flight data for historical analysis.
+        Requires VATSIM session authentication.
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                source:
+                  type: string
+                  default: ADL
+                  description: Source identifier
+                flight_keys:
+                  type: string
+                  description: Comma-separated flight keys (optional)
+                active_only:
+                  type: integer
+                  default: 1
+                  description: 1 for active flights only
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, error]
+                  method:
+                    type: string
+                    enum: [inline, stored_procedure]
+                  rows_inserted:
+                    type: integer
+                  snapshot_utc:
+                    type: string
+                    format: date-time
+                  source:
+                    type: string
+        '401':
+          description: Not authenticated
+
+  # ============================================================================
+  # STATS ENDPOINTS
+  # ============================================================================
+
+  /stats/status:
+    get:
+      tags: [Stats]
+      summary: Get statistics job status
+      description: |
+        Returns flight statistics job status, recent runs, retention tiers,
+        and table counts for monitoring.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  jobs:
+                    type: array
+                    items:
+                      type: object
+                  recent_runs:
+                    type: array
+                    items:
+                      type: object
+                  retention_tiers:
+                    type: array
+                    items:
+                      type: object
+                  table_counts:
+                    type: object
+                    properties:
+                      flight_stats_daily:
+                        type: integer
+                      flight_stats_hourly:
+                        type: integer
+                      flight_stats_airport:
+                        type: integer
+                      flight_stats_citypair:
+                        type: integer
+                      flight_stats_artcc:
+                        type: integer
+                      flight_stats_tmi:
+                        type: integer
+                      flight_stats_aircraft:
+                        type: integer
+                      flight_stats_monthly_summary:
+                        type: integer
+
+  /stats/daily:
+    get:
+      tags: [Stats]
+      summary: Get daily statistics
+      description: Returns aggregated daily flight statistics.
+      parameters:
+        - name: date
+          in: query
+          description: Specific date (YYYY-MM-DD format)
+          schema:
+            type: string
+            format: date
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+        - name: days
+          in: query
+          description: Number of days to return (1-365)
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 365
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  parameters:
+                    type: object
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid date format
+
+  /stats/hourly:
+    get:
+      tags: [Stats]
+      summary: Get hourly statistics
+      description: Returns aggregated hourly flight statistics.
+      parameters:
+        - name: hours
+          in: query
+          description: Number of hours to return (1-720, i.e., 30 days)
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 720
+        - name: start
+          in: query
+          description: Start datetime (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: End datetime (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  parameters:
+                    type: object
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+
+  /stats/airport:
+    get:
+      tags: [Stats]
+      summary: Get airport statistics
+      description: Returns statistics for a specific airport.
+      parameters:
+        - name: icao
+          in: query
+          description: Airport ICAO code (4 uppercase letters)
+          schema:
+            type: string
+            pattern: '^[A-Z]{4}$'
+          example: KJFK
+        - name: date
+          in: query
+          description: Specific date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: days
+          in: query
+          description: Number of days to return (1-90)
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 90
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  parameters:
+                    type: object
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid ICAO code or date format
+
+  /stats/artcc:
+    get:
+      tags: [Stats]
+      summary: Get ARTCC statistics
+      description: Returns statistics for a specific ARTCC.
+      parameters:
+        - name: artcc
+          in: query
+          description: ARTCC code (3 letters starting with Z, e.g., ZDC, ZNY)
+          schema:
+            type: string
+            pattern: '^Z[A-Z]{2}$'
+          example: ZNY
+        - name: date
+          in: query
+          description: Specific date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: days
+          in: query
+          description: Number of days to return (1-90)
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 90
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  parameters:
+                    type: object
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        artcc:
+                          type: string
+                        stats_date:
+                          type: string
+                        hourly_entries:
+                          type: object
+                          nullable: true
+                        top_origins:
+                          type: object
+                          nullable: true
+                        top_destinations:
+                          type: object
+                          nullable: true
+        '400':
+          description: Invalid ARTCC code or date format
+
+  /stats/citypair:
+    get:
+      tags: [Stats]
+      summary: Get city pair statistics
+      description: Returns statistics for an origin-destination pair.
+      parameters:
+        - name: origin
+          in: query
+          description: Origin airport ICAO (4 uppercase letters)
+          schema:
+            type: string
+            pattern: '^[A-Z]{4}$'
+        - name: dest
+          in: query
+          description: Destination airport ICAO (4 uppercase letters)
+          schema:
+            type: string
+            pattern: '^[A-Z]{4}$'
+        - name: date
+          in: query
+          description: Specific date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: days
+          in: query
+          description: Number of days to return (1-90)
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 90
+        - name: limit
+          in: query
+          description: Maximum records to return (1-1000)
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  parameters:
+                    type: object
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid ICAO codes or date format
+
+  /stats/tmi:
+    get:
+      tags: [Stats]
+      summary: Get TMI program statistics
+      description: Returns statistics for Traffic Management Initiative programs.
+      parameters:
+        - name: type
+          in: query
+          description: TMI type (GS, GDP, AFP, REROUTE, etc.)
+          schema:
+            type: string
+        - name: airport
+          in: query
+          description: Target airport ICAO code
+          schema:
+            type: string
+            pattern: '^[A-Z]{4}$'
+        - name: date
+          in: query
+          description: Specific date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: days
+          in: query
+          description: Number of days to return (1-90)
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 90
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  parameters:
+                    type: object
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tmi_type:
+                          type: string
+                        airport_icao:
+                          type: string
+                        stats_date:
+                          type: string
+                        hourly_affected:
+                          type: object
+                          nullable: true
+        '400':
+          description: Invalid airport code or date format
+
+  /stats/realtime:
+    get:
+      tags: [Stats]
+      summary: Get real-time statistics
+      description: Returns current real-time flight statistics.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      timestamp_utc:
+                        type: string
+                        format: date-time
+                      total_flights:
+                        type: integer
+                      by_phase:
+                        type: object
+                        properties:
+                          enroute:
+                            type: integer
+                          taxiing:
+                            type: integer
+                          departed:
+                            type: integer
+                          descending:
+                            type: integer
+                      domestic:
+                        type: integer
+                      international:
+                        type: integer
+                      tmi_affected:
+                        type: integer
+                      avg_tmi_delay_min:
+                        type: number
+                      last_hour:
+                        type: object
+                        properties:
+                          avg_taxi_out_min:
+                            type: number
+                          avg_taxi_in_min:
+                            type: number
+
+  # ============================================================================
+  # SPLITS ENDPOINTS
+  # ============================================================================
+
+  /splits/index:
+    get:
+      tags: [Splits]
+      summary: List sector maps
+      description: Returns available sector maps from the CRC index for a facility.
+      parameters:
+        - name: facility
+          in: query
+          required: true
+          description: ARTCC/FIR code (3-4 uppercase letters)
+          schema:
+            type: string
+            pattern: '^[A-Z]{3,4}$'
+          example: ZNY
+        - name: search
+          in: query
+          description: Search term for filtering by name or tags
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  facility:
+                    type: string
+                  maps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        path:
+                          type: string
+                        size:
+                          type: integer
+                        exists:
+                          type: boolean
+                  count:
+                    type: integer
+        '400':
+          description: Missing or invalid facility parameter
+
+  /splits/active:
+    get:
+      tags: [Splits]
+      summary: Get active configurations
+      description: Returns currently active sector configurations.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  configs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        artcc:
+                          type: string
+                        config_name:
+                          type: string
+                        status:
+                          type: string
+                        start_time_utc:
+                          type: string
+                          nullable: true
+                        end_time_utc:
+                          type: string
+                          nullable: true
+                        positions:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              position_name:
+                                type: string
+                              color:
+                                type: string
+                              sectors:
+                                type: array
+                                items:
+                                  type: string
+                              sort_order:
+                                type: integer
+                              frequency:
+                                type: string
+                                nullable: true
+                              controller_oi:
+                                type: string
+                                nullable: true
+                              filters:
+                                type: object
+                                nullable: true
+    options:
+      tags: [Splits]
+      summary: CORS preflight
+      responses:
+        '200':
+          description: CORS headers returned
+
+  /splits/sectors:
+    get:
+      tags: [Splits]
+      summary: Get sector geometry
+      description: Returns sector boundary geometry data as GeoJSON.
+      parameters:
+        - name: facility
+          in: query
+          required: true
+          description: ARTCC/FIR code
+          schema:
+            type: string
+        - name: filter
+          in: query
+          description: Sector level filter
+          schema:
+            type: string
+            enum: [all, high, low, ultra]
+            default: all
+        - name: demo
+          in: query
+          description: Set to "1" to force demo/sample data
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  facility:
+                    type: string
+                  filter:
+                    type: string
+                  demo:
+                    type: boolean
+                  sectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        freq:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        geometry:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum: [Polygon, MultiPolygon]
+                            coordinates:
+                              type: array
+                        centroid:
+                          type: array
+                          items:
+                            type: number
+                  bounds:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: number
+                  center:
+                    type: array
+                    items:
+                      type: number
+                    nullable: true
+                  count:
+                    type: integer
+        '400':
+          description: Missing facility parameter
+
+  /splits/configs:
+    get:
+      tags: [Splits]
+      summary: List or get sector configurations
+      description: |
+        - Without id: Returns list of all configurations
+        - With id: Returns single configuration with full positions detail
+      parameters:
+        - name: id
+          in: query
+          description: Config ID for single config retrieval
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      configs:
+                        type: array
+                        items:
+                          type: object
+                  - type: object
+                    properties:
+                      config:
+                        type: object
+    post:
+      tags: [Splits]
+      summary: Create sector configuration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [artcc, config_name]
+              properties:
+                artcc:
+                  type: string
+                config_name:
+                  type: string
+                status:
+                  type: string
+                start_time_utc:
+                  type: string
+                end_time_utc:
+                  type: string
+                created_by:
+                  type: string
+                positions:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: integer
+                  positions_inserted:
+                    type: integer
+                  message:
+                    type: string
+    put:
+      tags: [Splits]
+      summary: Update sector configuration
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Config ID to update
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+    delete:
+      tags: [Splits]
+      summary: Delete sector configuration
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Config ID to delete
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '404':
+          description: Config not found
+    options:
+      tags: [Splits]
+      summary: CORS preflight
+      responses:
+        '200':
+          description: CORS headers returned
+
+  /splits/areas:
+    get:
+      tags: [Splits]
+      summary: List sector areas
+      description: Returns area definitions (groupings of sectors).
+      parameters:
+        - name: artcc
+          in: query
+          description: Filter by ARTCC code
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  areas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        artcc:
+                          type: string
+                        area_name:
+                          type: string
+                        sectors:
+                          type: array
+                          items:
+                            type: string
+                        description:
+                          type: string
+                        color:
+                          type: string
+                          nullable: true
+                        created_by:
+                          type: string
+                        created_at:
+                          type: string
+                        updated_at:
+                          type: string
+    post:
+      tags: [Splits]
+      summary: Create sector area
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [artcc, area_name, sectors]
+              properties:
+                artcc:
+                  type: string
+                area_name:
+                  type: string
+                sectors:
+                  type: array
+                  items:
+                    type: string
+                description:
+                  type: string
+                color:
+                  type: string
+                created_by:
+                  type: string
+      responses:
+        '201':
+          description: Created
+    put:
+      tags: [Splits]
+      summary: Update sector area
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+    patch:
+      tags: [Splits]
+      summary: Partial update sector area
+      description: Update only color or description
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                color:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Success
+    delete:
+      tags: [Splits]
+      summary: Delete sector area
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+    options:
+      tags: [Splits]
+      summary: CORS preflight
+      responses:
+        '200':
+          description: CORS headers returned
+
+  /splits/sample:
+    get:
+      tags: [Splits]
+      summary: Get sample sector data
+      description: Returns demo/sample sector data for a facility (for testing).
+      parameters:
+        - name: facility
+          in: query
+          required: true
+          description: ARTCC/FIR code
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  facility:
+                    type: string
+                  demo:
+                    type: boolean
+                    default: true
+                  sectors:
+                    type: array
+                    items:
+                      type: object
+                  bounds:
+                    type: array
+                  center:
+                    type: array
+                  count:
+                    type: integer
+        '400':
+          description: Missing facility parameter
+
+  # ============================================================================
+  # DEMAND ENDPOINTS
+  # ============================================================================
+
+  /demand/summary:
+    get:
+      tags: [Demand]
+      summary: Get demand summary
+      description: |
+        Returns flight summary data for demand visualization including
+        top origin ARTCCs, top carriers, and optional flight list for drill-down.
+      parameters:
+        - name: airport
+          in: query
+          required: true
+          description: Airport ICAO code (4 characters)
+          schema:
+            type: string
+            pattern: '^[A-Z]{4}$'
+          example: KJFK
+        - name: start
+          in: query
+          description: Start time (ISO8601). Defaults to now - 6 hours.
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: End time (ISO8601). Defaults to now + 6 hours.
+          schema:
+            type: string
+            format: date-time
+        - name: time_bin
+          in: query
+          description: Specific time bin (ISO8601) for drill-down flight list
+          schema:
+            type: string
+            format: date-time
+        - name: direction
+          in: query
+          description: Filter by arrival/departure direction
+          schema:
+            type: string
+            enum: [arr, dep, both]
+            default: both
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  airport:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  time_range:
+                    type: object
+                    properties:
+                      start:
+                        type: string
+                        format: date-time
+                      end:
+                        type: string
+                        format: date-time
+                  top_origins:
+                    type: array
+                    description: Returned when time_bin is not specified
+                    items:
+                      type: object
+                      properties:
+                        artcc:
+                          type: string
+                        count:
+                          type: integer
+                  top_carriers:
+                    type: array
+                    description: Returned when time_bin is not specified
+                    items:
+                      type: object
+                      properties:
+                        carrier:
+                          type: string
+                        count:
+                          type: integer
+                  origin_artcc_breakdown:
+                    type: object
+                    description: Keyed by time bin (ISO8601)
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          artcc:
+                            type: string
+                          count:
+                            type: integer
+                  flights:
+                    type: array
+                    description: Returned when time_bin is specified
+                    items:
+                      type: object
+                      properties:
+                        callsign:
+                          type: string
+                        origin:
+                          type: string
+                        destination:
+                          type: string
+                        origin_artcc:
+                          type: string
+                          nullable: true
+                        dest_artcc:
+                          type: string
+                          nullable: true
+                        time:
+                          type: string
+                          format: date-time
+                        direction:
+                          type: string
+                          enum: [arrival, departure]
+                        status:
+                          type: string
+                          enum: [arrived, active, departed, scheduled, proposed]
+                        aircraft:
+                          type: string
+        '400':
+          description: Invalid or missing airport parameter
+
+  /demand/airport:
+    get:
+      tags: [Demand]
+      summary: Get airport demand
+      description: Returns time-binned demand data for a specific airport.
+      parameters:
+        - name: airport
+          in: query
+          required: true
+          description: Airport ICAO code
+          schema:
+            type: string
+            pattern: '^[A-Z]{4}$'
+        - name: granularity
+          in: query
+          description: Time bin granularity
+          schema:
+            type: string
+            enum: ["15min", hourly]
+            default: hourly
+        - name: direction
+          in: query
+          description: Filter direction
+          schema:
+            type: string
+            enum: [arr, dep, both]
+            default: both
+        - name: start
+          in: query
+          description: Start time (ISO8601). Default now - 1 hour.
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: End time (ISO8601). Default now + 6 hours.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  airport:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  time_range:
+                    type: object
+                  granularity:
+                    type: string
+                  direction:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      arrivals:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            time_bin:
+                              type: string
+                              format: date-time
+                            total:
+                              type: integer
+                            breakdown:
+                              type: object
+                              properties:
+                                arrived:
+                                  type: integer
+                                active:
+                                  type: integer
+                                departed:
+                                  type: integer
+                                scheduled:
+                                  type: integer
+                                proposed:
+                                  type: integer
+                      departures:
+                        type: array
+                        items:
+                          type: object
+                  last_adl_update:
+                    type: string
+                    format: date-time
+                    nullable: true
+        '400':
+          description: Invalid or missing airport parameter
+
+  /demand/airports:
+    get:
+      tags: [Demand]
+      summary: Get multi-airport list
+      description: Returns list of airports with metadata for demand analysis.
+      parameters:
+        - name: category
+          in: query
+          description: Airport category filter
+          schema:
+            type: string
+            enum: [all, aspm77, oep35, core30]
+            default: all
+        - name: artcc
+          in: query
+          description: ARTCC code filter
+          schema:
+            type: string
+        - name: tier
+          in: query
+          description: Tier identifier from artcc_tiers.json
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Search term (matches ICAO or name)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+                  filters:
+                    type: object
+                  count:
+                    type: integer
+                  airports:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        icao:
+                          type: string
+                        name:
+                          type: string
+                        artcc:
+                          type: string
+                        dcc_region:
+                          type: string
+                        is_aspm77:
+                          type: boolean
+                        is_oep35:
+                          type: boolean
+                        is_core30:
+                          type: boolean
+                        lat:
+                          type: number
+                          nullable: true
+                        lon:
+                          type: number
+                          nullable: true
+                  artcc_list:
+                    type: array
+                    items:
+                      type: string
+
+  # ============================================================================
+  # TMI-REROUTES ENDPOINTS
+  # ============================================================================
+
+  /tmi/rr_flight_search:
+    get:
+      tags: [TMI-Reroutes]
+      summary: Search flights for reroute
+      description: Searches for flights that may be candidates for rerouting.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query (callsign or flight_key, min 2 chars)
+          schema:
+            type: string
+            minLength: 2
+        - name: limit
+          in: query
+          description: Maximum results (1-50)
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, error]
+                  query:
+                    type: string
+                  count:
+                    type: integer
+                  flights:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        flight_key:
+                          type: string
+                        callsign:
+                          type: string
+                        fp_dept_icao:
+                          type: string
+                        fp_dest_icao:
+                          type: string
+                        fp_dept_artcc:
+                          type: string
+                        fp_dest_artcc:
+                          type: string
+                        ac_cat:
+                          type: string
+                        aircraft_type:
+                          type: string
+                        major_carrier:
+                          type: string
+                        fp_altitude_ft:
+                          type: integer
+                        fp_route:
+                          type: string
+                        etd_runway_utc:
+                          type: string
+                          format: date-time
+                        eta_runway_utc:
+                          type: string
+                          format: date-time
+                        ete_minutes:
+                          type: integer
+                        gcd_nm:
+                          type: number
+                        lat:
+                          type: number
+                        lon:
+                          type: number
+                        altitude_ft:
+                          type: integer
+                        phase:
+                          type: string
+
+  /tmi/rr_preview:
+    post:
+      tags: [TMI-Reroutes]
+      summary: Preview reroute candidates
+      description: Previews flights that match reroute criteria before assignment.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                origin_airports:
+                  type: string
+                  description: Comma-separated origin airports
+                origin_centers:
+                  type: string
+                  description: Comma-separated origin ARTCCs
+                origin_tracons:
+                  type: string
+                dest_airports:
+                  type: string
+                dest_centers:
+                  type: string
+                dest_tracons:
+                  type: string
+                departure_fix:
+                  type: string
+                arrival_fix:
+                  type: string
+                thru_fixes:
+                  type: string
+                include_ac_cat:
+                  type: string
+                  default: ALL
+                include_carriers:
+                  type: string
+                altitude_min:
+                  type: integer
+                altitude_max:
+                  type: integer
+                airborne_filter:
+                  type: string
+                  default: NOT_AIRBORNE
+                time_basis:
+                  type: string
+                  enum: [ETD, ETA]
+                  default: ETD
+                start_utc:
+                  type: string
+                  format: date-time
+                end_utc:
+                  type: string
+                  format: date-time
+                exempt_airports:
+                  type: string
+                exempt_carriers:
+                  type: string
+                exempt_flights:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  flights:
+                    type: array
+                    items:
+                      type: object
+                  exempt_count:
+                    type: integer
+
+  /tmi/rr_assign:
+    post:
+      tags: [TMI-Reroutes]
+      summary: Assign flights to reroute
+      description: Assigns flights to a reroute program.
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reroute_id]
+              properties:
+                reroute_id:
+                  type: integer
+                flights:
+                  type: array
+                  items:
+                    type: object
+                mode:
+                  type: string
+                  enum: [add, replace]
+                  default: add
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  reroute_id:
+                    type: integer
+                  mode:
+                    type: string
+                  assigned:
+                    type: integer
+                  skipped_duplicates:
+                    type: integer
+                  exempt:
+                    type: integer
+                  total_now:
+                    type: integer
+        '401':
+          description: Unauthorized
+        '404':
+          description: Reroute not found
+
+  /tmi/rr_assign_manual:
+    post:
+      tags: [TMI-Reroutes]
+      summary: Manually add/remove flights from reroute
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reroute_id, action, flights]
+              properties:
+                reroute_id:
+                  type: integer
+                action:
+                  type: string
+                  enum: [add, remove]
+                flights:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  action:
+                    type: string
+                  affected:
+                    type: integer
+                  total_flights:
+                    type: integer
+
+  /tmi/rr_stats:
+    get:
+      tags: [TMI-Reroutes]
+      summary: Get reroute statistics
+      description: Returns compliance and performance statistics for a reroute.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Reroute ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  reroute_id:
+                    type: integer
+                  statistics:
+                    type: object
+                    properties:
+                      total_flights:
+                        type: integer
+                      compliant:
+                        type: integer
+                      partial:
+                        type: integer
+                      non_compliant:
+                        type: integer
+                      monitoring:
+                        type: integer
+                      pending:
+                        type: integer
+                      exempt:
+                        type: integer
+                      avg_compliance_pct:
+                        type: number
+                      compliance_rate:
+                        type: number
+                  by_origin:
+                    type: array
+                    items:
+                      type: object
+                  by_destination:
+                    type: array
+                    items:
+                      type: object
+                  by_hour:
+                    type: array
+                    items:
+                      type: object
+
+  /tmi/rr_compliance_history:
+    get:
+      tags: [TMI-Reroutes]
+      summary: Get flight compliance history
+      description: Returns compliance tracking history for a specific flight.
+      parameters:
+        - name: flight_id
+          in: query
+          required: true
+          description: Flight ID
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum history entries (1-500)
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  flight:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      flight_key:
+                        type: string
+                      callsign:
+                        type: string
+                      compliance_status:
+                        type: string
+                      assigned_utc:
+                        type: string
+                        format: date-time
+                      reroute_name:
+                        type: string
+                  history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        snapshot_utc:
+                          type: string
+                          format: date-time
+                        compliance_status:
+                          type: string
+                        compliance_pct:
+                          type: number
+                        lat:
+                          type: number
+                        lon:
+                          type: number
+                        altitude:
+                          type: integer
+                  track:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        lat:
+                          type: number
+                        lon:
+                          type: number
+                        alt:
+                          type: integer
+                        time:
+                          type: string
+                          format: date-time
+                        status:
+                          type: string
+
+  /tmi/rr_compliance_override:
+    post:
+      tags: [TMI-Reroutes]
+      summary: Override flight compliance status
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flight_id, status, reason]
+              properties:
+                flight_id:
+                  type: integer
+                status:
+                  type: string
+                  enum: [PENDING, MONITORING, COMPLIANT, PARTIAL, NON_COMPLIANT, EXEMPT, UNKNOWN]
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  flight_id:
+                    type: integer
+                  callsign:
+                    type: string
+                  old_status:
+                    type: string
+                  new_status:
+                    type: string
+                  override_by:
+                    type: integer
+
+  /tmi/rr_compliance_refresh:
+    post:
+      tags: [TMI-Reroutes]
+      summary: Refresh compliance status
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reroute_id]
+              properties:
+                reroute_id:
+                  type: integer
+                flight_ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  updated:
+                    type: integer
+
+  /tmi/rr_export:
+    get:
+      tags: [TMI-Reroutes]
+      summary: Export reroute data
+      description: Exports reroute data as JSON or CSV.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Reroute ID
+          schema:
+            type: integer
+        - name: format
+          in: query
+          description: Export format
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+        - name: type
+          in: query
+          description: Export type
+          schema:
+            type: string
+            enum: [flights, summary, history]
+            default: flights
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  reroute_id:
+                    type: integer
+                  reroute_name:
+                    type: string
+                  export_type:
+                    type: string
+                  export_time:
+                    type: string
+                    format: date-time
+                  record_count:
+                    type: integer
+                  data:
+                    type: array
+            text/csv:
+              schema:
+                type: string
+
+  # ============================================================================
+  # TMI-GDP ENDPOINTS
+  # ============================================================================
+
+  /tmi/gdp_preview:
+    post:
+      tags: [TMI-GDP]
+      summary: Preview GDP scope
+      description: Previews flights affected by a Ground Delay Program before simulation.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gdp_airport]
+              properties:
+                gdp_airport:
+                  type: string
+                  description: Target airport ICAO
+                gdp_origin_airports:
+                  type: string
+                gdp_origin_centers:
+                  type: string
+                gdp_dep_facilities:
+                  type: string
+                gdp_flt_incl_type:
+                  type: string
+                  enum: [ALL, JET, PROP]
+                  default: ALL
+                gdp_flt_incl_carrier:
+                  type: string
+                gdp_start:
+                  type: string
+                  format: date-time
+                gdp_end:
+                  type: string
+                  format: date-time
+                distance_nm:
+                  type: integer
+                  default: 0
+                exemptions:
+                  type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  total:
+                    type: integer
+                  affected:
+                    type: integer
+                  exempt:
+                    type: integer
+                  filters:
+                    type: object
+                  summary:
+                    type: object
+                    properties:
+                      by_origin_center:
+                        type: object
+                      by_origin_airport:
+                        type: object
+                      by_carrier:
+                        type: object
+                      by_hour:
+                        type: object
+                      by_ac_cat:
+                        type: object
+                  flights:
+                    type: array
+                  exempt_flights:
+                    type: array
+
+  /tmi/gdp_simulate:
+    post:
+      tags: [TMI-GDP]
+      summary: Simulate GDP
+      description: Runs a Ground Delay Program simulation with slot assignment.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gdp_airport, gdp_start, gdp_end]
+              properties:
+                gdp_airport:
+                  type: string
+                gdp_origin_airports:
+                  type: string
+                gdp_origin_centers:
+                  type: string
+                gdp_dep_facilities:
+                  type: string
+                gdp_flt_incl_type:
+                  type: string
+                  default: ALL
+                gdp_flt_incl_carrier:
+                  type: string
+                gdp_start:
+                  type: string
+                  format: date-time
+                gdp_end:
+                  type: string
+                  format: date-time
+                program_rate:
+                  type: integer
+                  default: 40
+                  description: Arrivals per hour
+                reserve_rate:
+                  type: integer
+                  default: 0
+                delay_limit:
+                  type: integer
+                  default: 180
+                  description: Maximum delay in minutes
+                program_rates_hourly:
+                  type: object
+                  description: Hourly rate overrides
+                reserve_rates_hourly:
+                  type: object
+                exemptions:
+                  type: object
+                distance_nm:
+                  type: integer
+                  default: 0
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  program_id:
+                    type: string
+                  filters:
+                    type: object
+                  summary:
+                    type: object
+                    properties:
+                      total_flights:
+                        type: integer
+                      assigned_flights:
+                        type: integer
+                      stack_flights:
+                        type: integer
+                      total_slots:
+                        type: integer
+                      open_slots:
+                        type: integer
+                      slot_utilization:
+                        type: number
+                      avg_delay_min:
+                        type: number
+                      max_delay_min:
+                        type: integer
+                      sum_delay_min:
+                        type: integer
+                  flights:
+                    type: array
+                  slots:
+                    type: array
+
+  /tmi/gdp_apply:
+    post:
+      tags: [TMI-GDP]
+      summary: Apply GDP
+      description: Applies a Ground Delay Program to affected flights.
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gdp_airport, gdp_start, gdp_end]
+              properties:
+                program_id:
+                  type: string
+                gdp_airport:
+                  type: string
+                gdp_start:
+                  type: string
+                  format: date-time
+                gdp_end:
+                  type: string
+                  format: date-time
+                program_rate:
+                  type: integer
+                  default: 40
+                reserve_rate:
+                  type: integer
+                  default: 0
+                program_rates_hourly:
+                  type: object
+                reserve_rates_hourly:
+                  type: object
+                gdp_origin_centers:
+                  type: string
+                gdp_origin_airports:
+                  type: string
+                gdp_flt_incl_carrier:
+                  type: string
+                gdp_flt_incl_type:
+                  type: string
+                  default: ALL
+                exemptions:
+                  type: object
+                adv_number:
+                  type: string
+                impacting_condition:
+                  type: string
+                prob_extension:
+                  type: string
+                user_id:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  program_id:
+                    type: string
+                  applied_count:
+                    type: integer
+                  metrics:
+                    type: object
+                    properties:
+                      total_flights:
+                        type: integer
+                      affected_flights:
+                        type: integer
+                      exempt_flights:
+                        type: integer
+                      total_delay_min:
+                        type: integer
+                      max_delay_min:
+                        type: integer
+                      avg_delay_min:
+                        type: number
+                      flights_in_stack:
+                        type: integer
+                      slot_utilization:
+                        type: number
+                  flights:
+                    type: array
+
+  /tmi/gdp_purge:
+    post:
+      tags: [TMI-GDP]
+      summary: Purge GDP
+      description: Clears GDP assignments for a program.
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                program_id:
+                  type: string
+                gdp_airport:
+                  type: string
+                user_id:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  program_id:
+                    type: string
+                  flights_cleared:
+                    type: integer
+                  program_info:
+                    type: object
+
+  /tmi/gdp_purge_local:
+    post:
+      tags: [TMI-GDP]
+      summary: Purge local GDP sandbox
+      description: Clears local/sandbox GDP data.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                program_id:
+                  type: string
+                clear_slots:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  flights_cleared:
+                    type: integer
+                  slots_cleared:
+                    type: integer
+
+  # ============================================================================
+  # TMI-GS ENDPOINTS
+  # ============================================================================
+
+  /tmi/gs_preview:
+    post:
+      tags: [TMI-GS]
+      summary: Preview Ground Stop
+      description: Previews flights affected by a Ground Stop before application.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gs_airports:
+                  type: string
+                  description: Arrival airports (comma-separated)
+                gs_origin_airports:
+                  type: string
+                gs_dep_facilities:
+                  type: string
+                gs_origin_centers:
+                  type: string
+                gs_flt_incl_type:
+                  type: string
+                  default: ALL
+                gs_flt_incl_carrier:
+                  type: string
+                gs_start:
+                  type: string
+                  format: date-time
+                gs_end:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  total:
+                    type: integer
+                  filters:
+                    type: object
+                  flights:
+                    type: array
+
+  /tmi/gs_simulate:
+    post:
+      tags: [TMI-GS]
+      summary: Simulate Ground Stop
+      description: Runs a Ground Stop simulation.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gs_airports:
+                  type: string
+                gs_ctl_element:
+                  type: string
+                gs_origin_airports:
+                  type: string
+                gs_origin_centers:
+                  type: string
+                gs_flt_incl_type:
+                  type: string
+                  default: ALL
+                gs_start:
+                  type: string
+                  format: date-time
+                gs_end:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  summary:
+                    type: object
+                    properties:
+                      total_flights:
+                        type: integer
+                      avg_program_delay_min:
+                        type: number
+                        nullable: true
+                      max_program_delay_min:
+                        type: integer
+                        nullable: true
+                      sum_program_delay_min:
+                        type: integer
+                        nullable: true
+                  flights:
+                    type: array
+
+  /tmi/gs_apply:
+    post:
+      tags: [TMI-GS]
+      summary: Apply Ground Stop
+      description: Applies a Ground Stop to affected flights.
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      server_utc:
+                        type: string
+                        format: date-time
+                      simulated_rows:
+                        type: integer
+                      updated_rows:
+                        type: integer
+                      cleared_rows:
+                        type: integer
+                      applied_columns:
+                        type: array
+                        items:
+                          type: string
+                  flight_list:
+                    type: object
+                    properties:
+                      flights:
+                        type: array
+                      total:
+                        type: integer
+                      total_delay:
+                        type: integer
+                      max_delay:
+                        type: integer
+                      avg_delay:
+                        type: number
+
+  /tmi/gs_apply_ctd:
+    post:
+      tags: [TMI-GS]
+      summary: Apply CTD updates
+      description: Applies Controlled Time of Departure updates to flights.
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gs_end_utc:
+                  type: string
+                  format: date-time
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    required: [callsign, ctd_utc]
+                    properties:
+                      callsign:
+                        type: string
+                      dep_icao:
+                        type: string
+                      dest_icao:
+                        type: string
+                      ctd_utc:
+                        type: string
+                        format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  updated:
+                    type: integer
+                  error:
+                    type: string
+
+  /tmi/gs_purge_local:
+    post:
+      tags: [TMI-GS]
+      summary: Purge local GS data
+      description: Clears local Ground Stop data matching filters.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gs_airports:
+                  type: string
+                gs_origin_airports:
+                  type: string
+                gs_origin_centers:
+                  type: string
+                gs_start:
+                  type: string
+                  format: date-time
+                gs_end:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      deleted_gs_rows:
+                        type: integer
+                      inserted_rows:
+                        type: integer
+                      filters_used:
+                        type: object
+
+  /tmi/gs_purge_all:
+    post:
+      tags: [TMI-GS]
+      summary: Purge all GS data
+      description: Clears all Ground Stop data.
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      server_utc:
+                        type: string
+                        format: date-time
+                      purged_flights:
+                        type: integer
+                      cleared_gs_rows:
+                        type: integer
+
+  # ============================================================================
+  # DATA ENDPOINTS
+  # ============================================================================
+
+  /data/fixes:
+    get:
+      tags: [Data]
+      summary: Get fix coordinates
+      description: Returns coordinates for navigation fixes.
+      parameters:
+        - name: names
+          in: query
+          required: true
+          description: Comma-separated list of fix names
+          schema:
+            type: string
+          example: JFK,LGA,EWR,MERIT,LOVES
+        - name: format
+          in: query
+          description: Response format
+          schema:
+            type: string
+            enum: [json, geojson]
+            default: json
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                      found:
+                        type: integer
+                      not_found:
+                        type: array
+                        items:
+                          type: string
+                      fixes:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            lat:
+                              type: number
+                            lon:
+                              type: number
+                  - $ref: '#/components/schemas/GeoJSONFeatureCollection'
+
+  /data/sua:
+    get:
+      tags: [Data]
+      summary: Get Special Use Airspace
+      description: Returns SUA boundaries as GeoJSON.
+      parameters:
+        - name: type
+          in: query
+          description: SUA type filter (comma-separated PA, RA, WA, AA, MOA, NSA)
+          schema:
+            type: string
+        - name: artcc
+          in: query
+          description: ARTCC filter
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [FeatureCollection]
+                  name:
+                    type: string
+                  source:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  count:
+                    type: integer
+                  features:
+                    type: array
+                  note:
+                    type: string
+
+  /data/tfr:
+    get:
+      tags: [Data]
+      summary: Get TFR data
+      description: Returns Temporary Flight Restriction data as GeoJSON.
+      parameters:
+        - name: active
+          in: query
+          description: Only return active TFRs
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [FeatureCollection]
+                  name:
+                    type: string
+                  source:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  count:
+                    type: integer
+                  features:
+                    type: array
+
+  /data/sigmets:
+    get:
+      tags: [Data]
+      summary: Get SIGMET data
+      description: Returns current SIGMET information as GeoJSON.
+      parameters:
+        - name: hazard
+          in: query
+          description: Filter by hazard type
+          schema:
+            type: string
+        - name: region
+          in: query
+          description: Filter by region
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [FeatureCollection]
+                  name:
+                    type: string
+                  source:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  count:
+                    type: integer
+                  features:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [Feature]
+                        properties:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            hazard:
+                              type: string
+                            severity:
+                              type: string
+                            validTimeFrom:
+                              type: string
+                            validTimeTo:
+                              type: string
+                            altitudeLow:
+                              type: integer
+                            altitudeHigh:
+                              type: integer
+                            rawText:
+                              type: string
+                        geometry:
+                          type: object
+
+  /data/weather:
+    get:
+      tags: [Data]
+      summary: Get weather metadata
+      description: Returns weather station and product metadata.
+      parameters:
+        - name: action
+          in: query
+          description: Action type
+          schema:
+            type: string
+            enum: [stations, products, timestamps]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  metadata:
+                    type: object
+                    properties:
+                      timestamp:
+                        type: string
+                        format: date-time
+                      product:
+                        type: string
+                      frames:
+                        type: array
+                  stations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        lat:
+                          type: number
+                        lon:
+                          type: number
+                        artcc:
+                          type: string
+                  products:
+                    type: object
+                  timestamps:
+                    type: array
+
+  /data/weather_impacts:
+    get:
+      tags: [Data]
+      summary: Get weather impacts
+      description: Returns weather impact assessment for airports.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  airports:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        icao:
+                          type: string
+                        max_impact:
+                          type: integer
+                        rule_count:
+                          type: integer
+                        wind_impact:
+                          type: integer
+                        cig_impact:
+                          type: integer
+                        vis_impact:
+                          type: integer
+                        wx_impact:
+                          type: integer
+
+  /data/configs:
+    get:
+      tags: [Data]
+      summary: Get configurations (HTML)
+      description: |
+        **Returns HTML table rows** (legacy endpoint).
+        Used for populating configuration tables in the UI.
+      parameters:
+        - name: search
+          in: query
+          description: Airport search filter
+          schema:
+            type: string
+      responses:
+        '200':
+          description: HTML table rows
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /data/personnel:
+    get:
+      tags: [Data]
+      summary: Get personnel list (HTML)
+      description: |
+        **Returns HTML table rows** (legacy endpoint).
+        Used for populating personnel tables in the UI.
+      responses:
+        '200':
+          description: HTML table rows
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /data/reroutes:
+    get:
+      tags: [Data]
+      summary: Get reroutes (HTML)
+      description: |
+        **Returns HTML table rows** (legacy endpoint).
+        Used for populating reroute tables in the UI.
+      parameters:
+        - name: search
+          in: query
+          description: Reroute name filter
+          schema:
+            type: string
+      responses:
+        '200':
+          description: HTML table rows
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /data/routes:
+    get:
+      tags: [Data]
+      summary: Get routes (HTML)
+      description: |
+        **Returns HTML table rows** (legacy endpoint).
+        Used for populating route tables in the UI.
+      parameters:
+        - name: search
+          in: query
+          description: Route search filter
+          schema:
+            type: string
+      responses:
+        '200':
+          description: HTML table rows
+          content:
+            text/html:
+              schema:
+                type: string
+
+  # ============================================================================
+  # JATOC ENDPOINTS
+  # ============================================================================
+
+  /jatoc/incidents:
+    get:
+      tags: [JATOC]
+      summary: List incidents
+      description: Returns list of JATOC incidents with optional filters.
+      parameters:
+        - name: status
+          in: query
+          description: Filter by incident status
+          schema:
+            type: string
+        - name: facilityType
+          in: query
+          description: Filter by facility type
+          schema:
+            type: string
+        - name: incidentType
+          in: query
+          description: Filter by incident type
+          schema:
+            type: string
+        - name: facility
+          in: query
+          description: Filter by facility code
+          schema:
+            type: string
+        - name: incident_number
+          in: query
+          description: Specific incident number
+          schema:
+            type: string
+        - name: report_number
+          in: query
+          description: Specific report number
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          description: Start date filter
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          description: End date filter
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        incident_number:
+                          type: string
+                        facility:
+                          type: string
+                        facility_type:
+                          type: string
+                        status:
+                          type: string
+                        incident_status:
+                          type: string
+                        start_utc:
+                          type: string
+                          format: date-time
+                        update_utc:
+                          type: string
+                          format: date-time
+                        closeout_utc:
+                          type: string
+                          format: date-time
+                          nullable: true
+    post:
+      tags: [JATOC]
+      summary: Create incident
+      description: Creates a new JATOC incident.
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [facility, status, created_by]
+              properties:
+                facility:
+                  type: string
+                facility_type:
+                  type: string
+                status:
+                  type: string
+                  enum: [ATC_ZERO, ATC_ALERT, ATC_LIMITED, NON_RESPONSIVE, OTHER]
+                trigger_code:
+                  type: string
+                paged:
+                  type: boolean
+                start_utc:
+                  type: string
+                  format: date-time
+                remarks:
+                  type: string
+                created_by:
+                  type: string
+                incident_status:
+                  type: string
+                  default: ACTIVE
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: integer
+                  incident_number:
+                    type: string
+
+  /jatoc/incident:
+    get:
+      tags: [JATOC]
+      summary: Get single incident
+      description: Returns details for a single incident.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Incident ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      incident_number:
+                        type: string
+                      facility:
+                        type: string
+                      facility_type:
+                        type: string
+                      status:
+                        type: string
+                      trigger_code:
+                        type: string
+                      trigger_desc:
+                        type: string
+                      paged:
+                        type: boolean
+                      incident_status:
+                        type: string
+                      remarks:
+                        type: string
+                      start_utc:
+                        type: string
+                        format: date-time
+                      update_utc:
+                        type: string
+                        format: date-time
+                      closeout_utc:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      report_number:
+                        type: string
+                      created_by:
+                        type: string
+                      updated_by:
+                        type: string
+    put:
+      tags: [JATOC]
+      summary: Update incident
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updated_by:
+                  type: string
+                facility:
+                  type: string
+                facility_type:
+                  type: string
+                status:
+                  type: string
+                trigger_code:
+                  type: string
+                trigger_desc:
+                  type: string
+                remarks:
+                  type: string
+                paged:
+                  type: boolean
+                incident_status:
+                  type: string
+                start_utc:
+                  type: string
+                  format: date-time
+                update_utc:
+                  type: string
+                  format: date-time
+                closeout_utc:
+                  type: string
+                  format: date-time
+                generate_report_number:
+                  type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  report_number:
+                    type: string
+                    nullable: true
+    delete:
+      tags: [JATOC]
+      summary: Delete incident
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /jatoc/updates:
+    get:
+      tags: [JATOC]
+      summary: Get incident updates
+      description: Returns update history for an incident.
+      parameters:
+        - name: incident_id
+          in: query
+          required: true
+          description: Incident ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        incident_id:
+                          type: integer
+                        update_type:
+                          type: string
+                        remarks:
+                          type: string
+                        created_by:
+                          type: string
+                        created_utc:
+                          type: string
+                          format: date-time
+    post:
+      tags: [JATOC]
+      summary: Add incident update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [incident_id]
+              properties:
+                incident_id:
+                  type: integer
+                update_type:
+                  type: string
+                  default: REMARK
+                remarks:
+                  type: string
+                created_by:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /jatoc/oplevel:
+    get:
+      tags: [JATOC]
+      summary: Get operational level
+      description: Returns current operational level (1, 2, or 3).
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      ops_level:
+                        type: integer
+                        enum: [1, 2, 3]
+                      reason:
+                        type: string
+                      set_by:
+                        type: string
+                      set_at:
+                        type: string
+                        format: date-time
+    put:
+      tags: [JATOC]
+      summary: Set operational level
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ops_level]
+              properties:
+                ops_level:
+                  type: integer
+                  enum: [1, 2, 3]
+                reason:
+                  type: string
+                set_by:
+                  type: string
+                  default: System
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  logged_incidents:
+                    type: integer
+
+  /jatoc/daily_ops:
+    get:
+      tags: [JATOC]
+      summary: Get daily operations
+      description: Returns daily operations data (POTUS, SPACE launches).
+      parameters:
+        - name: item_type
+          in: query
+          description: Filter by type
+          schema:
+            type: string
+            enum: [POTUS, SPACE]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          nullable: true
+                        item_type:
+                          type: string
+                        content:
+                          type: string
+                          nullable: true
+                        effective_date:
+                          type: string
+                          format: date
+                        updated_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+    put:
+      tags: [JATOC]
+      summary: Update daily operations
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_type]
+              properties:
+                item_type:
+                  type: string
+                  enum: [POTUS, SPACE]
+                content:
+                  type: string
+                updated_by:
+                  type: string
+      responses:
+        '200':
+          description: Success
+
+  /jatoc/faa_ops_plan:
+    get:
+      tags: [JATOC]
+      summary: Get FAA ops plan
+      description: Returns FAA operations plan data including space launches.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  space_launches:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                        name:
+                          type: string
+                        status:
+                          type: string
+                  ops_plan_url:
+                    type: string
+                    nullable: true
+                  source:
+                    type: string
+                  fetched_at:
+                    type: string
+                    format: date-time
+
+  /jatoc/personnel:
+    get:
+      tags: [JATOC]
+      summary: Get JATOC personnel
+      description: Returns JATOC personnel/duty roster.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        element:
+                          type: string
+                        initials:
+                          type: string
+                        name:
+                          type: string
+                        updated_at:
+                          type: string
+                          format: date-time
+    put:
+      tags: [JATOC]
+      summary: Update personnel
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [element]
+              properties:
+                element:
+                  type: string
+                initials:
+                  type: string
+                name:
+                  type: string
+                updated_by:
+                  type: string
+      responses:
+        '200':
+          description: Success
+
+  /jatoc/special_emphasis:
+    get:
+      tags: [JATOC]
+      summary: Get special emphasis areas
+      description: Returns special emphasis items.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        content:
+                          type: string
+                        priority:
+                          type: integer
+                        effective_start:
+                          type: string
+                          format: date
+                        effective_end:
+                          type: string
+                          format: date
+                        active:
+                          type: boolean
+    post:
+      tags: [JATOC]
+      summary: Create special emphasis item
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                priority:
+                  type: integer
+                  default: 0
+                effective_start:
+                  type: string
+                  format: date
+                effective_end:
+                  type: string
+                  format: date
+                created_by:
+                  type: string
+      responses:
+        '200':
+          description: Success
+    delete:
+      tags: [JATOC]
+      summary: Delete special emphasis item
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+
+  /jatoc/report:
+    get:
+      tags: [JATOC]
+      summary: Get JATOC report
+      description: Returns JATOC report in JSON, Markdown, or plain text format.
+      parameters:
+        - name: id
+          in: query
+          description: Incident ID
+          schema:
+            type: integer
+        - name: report
+          in: query
+          description: Report number
+          schema:
+            type: string
+        - name: format
+          in: query
+          description: Output format
+          schema:
+            type: string
+            enum: [json, markdown, text]
+            default: json
+        - name: section
+          in: query
+          description: Specific section
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  report:
+                    type: object
+            text/markdown:
+              schema:
+                type: string
+            text/plain:
+              schema:
+                type: string
+    post:
+      tags: [JATOC]
+      summary: Generate report
+      security:
+        - sessionAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [incident_id]
+              properties:
+                incident_id:
+                  type: integer
+                created_by:
+                  type: string
+      responses:
+        '200':
+          description: Success
+
+  /jatoc/vatusa_events:
+    get:
+      tags: [JATOC]
+      summary: Get VATUSA events
+      description: Returns upcoming VATUSA events.
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum events to return (1-100)
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                  count:
+                    type: integer
+                  fetched_at:
+                    type: string
+                    format: date-time
+
+# ==============================================================================
+# COMPONENTS
+# ==============================================================================
+
+components:
+  schemas:
+    FlightFull:
+      type: object
+      description: Complete flight record with all fields
+      properties:
+        flight_uid:
+          type: integer
+        flight_key:
+          type: string
+        callsign:
+          type: string
+        cid:
+          type: integer
+        phase:
+          type: string
+        flight_status:
+          type: string
+        is_active:
+          type: boolean
+        first_seen_utc:
+          type: string
+          format: date-time
+        last_seen_utc:
+          type: string
+          format: date-time
+        logon_time_utc:
+          type: string
+          format: date-time
+        snapshot_utc:
+          type: string
+          format: date-time
+        lat:
+          type: number
+          nullable: true
+        lon:
+          type: number
+          nullable: true
+        altitude_ft:
+          type: integer
+          nullable: true
+        altitude_assigned:
+          type: integer
+          nullable: true
+        groundspeed_kts:
+          type: integer
+          nullable: true
+        vertical_rate_fpm:
+          type: integer
+          nullable: true
+        heading_deg:
+          type: number
+          nullable: true
+        track_deg:
+          type: number
+          nullable: true
+        dist_to_dest_nm:
+          type: number
+          nullable: true
+        pct_complete:
+          type: number
+          nullable: true
+        fp_rule:
+          type: string
+          nullable: true
+        fp_dept_icao:
+          type: string
+        fp_dest_icao:
+          type: string
+        fp_alt_icao:
+          type: string
+          nullable: true
+        fp_dept_tracon:
+          type: string
+          nullable: true
+        fp_dept_artcc:
+          type: string
+          nullable: true
+        dfix:
+          type: string
+          nullable: true
+        dp_name:
+          type: string
+          nullable: true
+        fp_dest_tracon:
+          type: string
+          nullable: true
+        fp_dest_artcc:
+          type: string
+          nullable: true
+        afix:
+          type: string
+          nullable: true
+        star_name:
+          type: string
+          nullable: true
+        approach:
+          type: string
+          nullable: true
+        runway:
+          type: string
+          nullable: true
+        fp_route:
+          type: string
+          nullable: true
+        fp_route_expanded:
+          type: string
+          nullable: true
+        aircraft_type:
+          type: string
+          nullable: true
+        fp_dept_time_z:
+          type: string
+          nullable: true
+        fp_altitude_ft:
+          type: integer
+          nullable: true
+        fp_tas_kts:
+          type: integer
+          nullable: true
+        fp_enroute_minutes:
+          type: integer
+          nullable: true
+        fp_remarks:
+          type: string
+          nullable: true
+        gcd_nm:
+          type: number
+          nullable: true
+        artccs_traversed:
+          type: string
+          nullable: true
+        tracons_traversed:
+          type: string
+          nullable: true
+        waypoints_json:
+          type: array
+          items:
+            $ref: '#/components/schemas/Waypoint'
+        aircraft_icao:
+          type: string
+          nullable: true
+        weight_class:
+          type: string
+          nullable: true
+        engine_type:
+          type: string
+          nullable: true
+        wake_category:
+          type: string
+          nullable: true
+        airline_icao:
+          type: string
+          nullable: true
+        airline_name:
+          type: string
+          nullable: true
+        eta_runway_utc:
+          type: string
+          format: date-time
+          nullable: true
+        etd_runway_utc:
+          type: string
+          format: date-time
+          nullable: true
+        eta_epoch:
+          type: integer
+          nullable: true
+        etd_epoch:
+          type: integer
+          nullable: true
+        arrival_bucket_utc:
+          type: string
+          nullable: true
+        departure_bucket_utc:
+          type: string
+          nullable: true
+        ete_minutes:
+          type: integer
+          nullable: true
+
+    Waypoint:
+      type: object
+      properties:
+        seq:
+          type: integer
+        fix:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+        type:
+          type: string
+        source:
+          type: string
+        airway:
+          type: string
+          nullable: true
+        dp:
+          type: string
+          nullable: true
+        star:
+          type: string
+          nullable: true
+        alt_ft:
+          type: integer
+          nullable: true
+        is_toc:
+          type: boolean
+        is_tod:
+          type: boolean
+        is_step:
+          type: boolean
+        leg_type:
+          type: string
+          nullable: true
+        alt_restriction:
+          type: string
+          nullable: true
+
+    BoundaryListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        count:
+          type: integer
+        boundaries:
+          type: array
+          items:
+            type: object
+            properties:
+              boundary_id:
+                type: integer
+              boundary_type:
+                type: string
+              boundary_code:
+                type: string
+              boundary_name:
+                type: string
+              parent_artcc:
+                type: string
+                nullable: true
+              sector_number:
+                type: string
+                nullable: true
+              floor_altitude:
+                type: integer
+                nullable: true
+              ceiling_altitude:
+                type: integer
+                nullable: true
+
+    BoundaryContainsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        position:
+          type: object
+          properties:
+            lat:
+              type: number
+            lon:
+              type: number
+            alt:
+              type: integer
+              nullable: true
+        artcc:
+          type: object
+          nullable: true
+        sectors_low:
+          type: array
+          items:
+            type: object
+        sectors_high:
+          type: array
+          items:
+            type: object
+        sectors_superhigh:
+          type: array
+          items:
+            type: object
+        tracon:
+          type: object
+          nullable: true
+
+    BoundarySummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        summary:
+          type: array
+          items:
+            type: object
+            properties:
+              boundary_type:
+                type: string
+              total:
+                type: integer
+              active:
+                type: integer
+
+    BoundaryFlightResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        flight:
+          type: object
+          nullable: true
+          properties:
+            flight_uid:
+              type: integer
+            callsign:
+              type: string
+            position:
+              type: object
+            artcc:
+              type: object
+            sectors_low:
+              type: array
+              items:
+                type: string
+            sectors_high:
+              type: array
+              items:
+                type: string
+
+    CleanupQueueResponse:
+      type: object
+      properties:
+        dry_run:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+        before:
+          type: object
+          properties:
+            total:
+              type: integer
+            pending:
+              type: integer
+            processing:
+              type: integer
+            complete:
+              type: integer
+            failed:
+              type: integer
+        cleanup:
+          type: object
+          properties:
+            orphaned_inactive:
+              type: integer
+            stale_pending:
+              type: integer
+            old_failed:
+              type: integer
+            stuck_processing:
+              type: integer
+            total:
+              type: integer
+        deleted:
+          type: object
+          nullable: true
+        after:
+          type: object
+
+    GeoJSONFeatureCollection:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [Feature]
+              id:
+                type: integer
+              properties:
+                type: object
+              geometry:
+                type: object
+        timestamp:
+          type: string
+          format: date-time
+        count:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        sql_error:
+          type: string
+        message:
+          type: string
+
+  responses:
+    ServerError:
+      description: Server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: PHPSESSID
+      description: |
+        VATSIM session authentication. Login via VATSIM Connect OAuth
+        to obtain a session cookie. Required for management operations.

@@ -116,6 +116,12 @@ $filepath = "";
                 </a>
             </li>
 
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./api-docs" target="_blank">
+                    API Docs
+                </a>
+            </li>
+
             <?php if ($perm == true) { ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?= $filepath; ?>./schedule">
