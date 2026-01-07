@@ -114,27 +114,28 @@ BEGIN
         simbrief_cruise_mach DECIMAL(4,3) NULL;
     
     -- Get weighted average cruise speed from step climbs
-    -- Use the most common (or average) cruise speed from step climb entries
-    ;WITH StepClimbSpeeds AS (
-        SELECT 
-            sc.flight_uid,
-            -- Average TAS from step climbs (ignore NULL speeds)
-            AVG(sc.speed_kts) AS avg_speed_kts,
-            -- Average Mach from step climbs
-            AVG(sc.speed_mach) AS avg_speed_mach,
-            -- Max speed (typically final cruise)
-            MAX(sc.speed_kts) AS max_speed_kts,
-            MAX(sc.speed_mach) AS max_speed_mach
-        FROM dbo.adl_flight_stepclimbs sc
-        INNER JOIN #eta_work w ON w.flight_uid = sc.flight_uid
-        WHERE sc.speed_kts IS NOT NULL OR sc.speed_mach IS NOT NULL
-        GROUP BY sc.flight_uid
-    )
+    -- Use a temp table instead of CTE for compatibility
+    DROP TABLE IF EXISTS #step_speeds;
+    
+    SELECT 
+        sc.flight_uid,
+        AVG(sc.speed_kts) AS avg_speed_kts,
+        AVG(sc.speed_mach) AS avg_speed_mach,
+        MAX(sc.speed_kts) AS max_speed_kts,
+        MAX(sc.speed_mach) AS max_speed_mach
+    INTO #step_speeds
+    FROM dbo.adl_flight_stepclimbs sc
+    INNER JOIN #eta_work w ON w.flight_uid = sc.flight_uid
+    WHERE sc.speed_kts IS NOT NULL OR sc.speed_mach IS NOT NULL
+    GROUP BY sc.flight_uid;
+    
     UPDATE w
-    SET w.simbrief_cruise_kts = COALESCE(scs.max_speed_kts, scs.avg_speed_kts),
-        w.simbrief_cruise_mach = COALESCE(scs.max_speed_mach, scs.avg_speed_mach)
+    SET w.simbrief_cruise_kts = COALESCE(ss.max_speed_kts, ss.avg_speed_kts),
+        w.simbrief_cruise_mach = COALESCE(ss.max_speed_mach, ss.avg_speed_mach)
     FROM #eta_work w
-    INNER JOIN StepClimbSpeeds scs ON scs.flight_uid = w.flight_uid;
+    INNER JOIN #step_speeds ss ON ss.flight_uid = w.flight_uid;
+    
+    DROP TABLE IF EXISTS #step_speeds;
     
     IF @debug = 1
     BEGIN
@@ -189,7 +190,9 @@ BEGIN
     
     IF @debug = 1
     BEGIN
-        PRINT '  Performance lookup rows: ' + CAST((SELECT COUNT(*) FROM #perf_lookup) AS VARCHAR);
+        DECLARE @perf_lookup_count INT;
+        SELECT @perf_lookup_count = COUNT(*) FROM #perf_lookup;
+        PRINT '  Performance lookup rows: ' + CAST(@perf_lookup_count AS VARCHAR);
         PRINT '  Duration: ' + CAST(DATEDIFF(MILLISECOND, @step_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
     
@@ -462,8 +465,8 @@ BEGIN
         ef.tod_eta,
         -- V2: Track method for analysis
         CASE 
-            WHEN ef.is_simbrief = 1 AND ef.stepclimb_count > 0 THEN 'BATCH_V2_SIMBRIEF'
-            WHEN ef.speed_source = 'SIMBRIEF_TAS' OR ef.speed_source = 'SIMBRIEF_MACH' THEN 'BATCH_V2_SIMBRIEF'
+            WHEN ef.is_simbrief = 1 AND ef.stepclimb_count > 0 THEN 'BATCH_V2_SB'
+            WHEN ef.speed_source = 'SIMBRIEF_TAS' OR ef.speed_source = 'SIMBRIEF_MACH' THEN 'BATCH_V2_SB'
             ELSE 'BATCH_V2'
         END AS eta_method
     INTO #eta_results
@@ -471,7 +474,9 @@ BEGIN
     
     IF @debug = 1
     BEGIN
-        PRINT '  ETA results calculated: ' + CAST((SELECT COUNT(*) FROM #eta_results) AS VARCHAR);
+        DECLARE @eta_result_count INT;
+        SELECT @eta_result_count = COUNT(*) FROM #eta_results;
+        PRINT '  ETA results calculated: ' + CAST(@eta_result_count AS VARCHAR);
         SELECT eta_method, COUNT(*) AS flights FROM #eta_results GROUP BY eta_method;
         PRINT '  Duration: ' + CAST(DATEDIFF(MILLISECOND, @step_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
@@ -579,5 +584,5 @@ PRINT 'V2 Enhancements:';
 PRINT '  - Uses SimBrief final_alt_ft for accurate TOD calculation';
 PRINT '  - Integrates step climb cruise speeds (TAS/Mach)';
 PRINT '  - Higher confidence for SimBrief flights with step climbs';
-PRINT '  - Method tracking: BATCH_V2_SIMBRIEF vs BATCH_V2';
+PRINT '  - Method tracking: BATCH_V2_SB vs BATCH_V2';
 GO
