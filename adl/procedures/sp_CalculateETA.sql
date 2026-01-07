@@ -1,14 +1,34 @@
 -- ============================================================================
--- sp_CalculateETA.sql
+-- sp_CalculateETA.sql (v2 - Route Distance Support)
 -- Calculates sophisticated ETA for a flight based on route, performance,
 -- wind, weather, and TMI factors
 -- 
+-- v2 Changes (2026-01-07):
+--   - Uses route_dist_to_dest_nm when available (more accurate than GCD)
+--   - Falls back to dist_to_dest_nm (GCD) when route distance unavailable
+--   - Tracks distance source (ROUTE vs GCD) in eta_dist_source
+--   - Boosts confidence when using route distance
+--
 -- Part of the ETA & Trajectory Calculation System
 -- ============================================================================
 
 SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
+GO
+
+-- Add eta_dist_source column if not exists
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns 
+    WHERE object_id = OBJECT_ID(N'dbo.adl_flight_times') 
+    AND name = 'eta_dist_source'
+)
+BEGIN
+    ALTER TABLE dbo.adl_flight_times
+    ADD eta_dist_source NVARCHAR(8) NULL;
+    
+    PRINT 'Added eta_dist_source column to adl_flight_times';
+END
 GO
 
 IF OBJECT_ID('dbo.sp_CalculateETA', 'P') IS NOT NULL
@@ -35,13 +55,16 @@ BEGIN
     DECLARE @current_gs INT;
     DECLARE @vertical_rate INT;
     DECLARE @filed_alt INT;
-    DECLARE @dist_to_dest DECIMAL(10,2);
+    DECLARE @dist_to_dest DECIMAL(10,2);       -- GCD distance
+    DECLARE @route_dist_to_dest DECIMAL(10,2); -- Route distance (NEW!)
+    DECLARE @effective_dist DECIMAL(10,2);     -- Whichever we use
     DECLARE @dist_flown DECIMAL(10,2);
     DECLARE @dest_icao CHAR(4);
     DECLARE @dept_icao CHAR(4);
     DECLARE @aircraft_icao NVARCHAR(8);
     DECLARE @dest_elev INT;
     DECLARE @gcd_nm DECIMAL(10,2);
+    DECLARE @route_total_nm DECIMAL(10,2);     -- Total route distance (NEW!)
     
     -- TMI data
     DECLARE @has_edct BIT = 0;
@@ -56,8 +79,11 @@ BEGIN
     DECLARE @descent_speed INT;
     DECLARE @descent_angle DECIMAL(4,2);
     
+    -- Distance source tracking (NEW!)
+    DECLARE @dist_source NVARCHAR(8);  -- 'ROUTE' or 'GCD'
+    
     -- ========================================================================
-    -- Step 1: Gather flight data
+    -- Step 1: Gather flight data (updated to include route distance)
     -- ========================================================================
     
     SELECT 
@@ -66,12 +92,14 @@ BEGIN
         @current_gs = p.groundspeed_kts,
         @vertical_rate = ISNULL(p.vertical_rate_fpm, 0),
         @dist_to_dest = p.dist_to_dest_nm,
+        @route_dist_to_dest = p.route_dist_to_dest_nm,  -- NEW!
         @dist_flown = p.dist_flown_nm,
         @filed_alt = fp.fp_altitude_ft,
         @dest_icao = fp.fp_dest_icao,
         @dept_icao = fp.fp_dept_icao,
         @aircraft_icao = ac.aircraft_icao,
-        @gcd_nm = fp.gcd_nm
+        @gcd_nm = fp.gcd_nm,
+        @route_total_nm = fp.route_total_nm  -- NEW!
     FROM dbo.adl_flight_core c
     LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
@@ -82,6 +110,24 @@ BEGIN
     IF @phase IS NULL
         RETURN;
     
+    -- ========================================================================
+    -- NEW: Determine effective distance to use
+    -- Prefer route distance when available and reasonable
+    -- ========================================================================
+    
+    IF @route_dist_to_dest IS NOT NULL 
+       AND @route_dist_to_dest > 0
+       AND (@dist_to_dest IS NULL OR @route_dist_to_dest >= @dist_to_dest * 0.8)  -- Sanity check: route shouldn't be <80% of GCD
+    BEGIN
+        SET @effective_dist = @route_dist_to_dest;
+        SET @dist_source = 'ROUTE';
+    END
+    ELSE
+    BEGIN
+        SET @effective_dist = ISNULL(@dist_to_dest, @gcd_nm);
+        SET @dist_source = 'GCD';
+    END
+    
     -- Get destination elevation
     SELECT @dest_elev = ISNULL(CAST(ELEV AS INT), 0) 
     FROM dbo.apts 
@@ -89,7 +135,6 @@ BEGIN
     
     SET @dest_elev = ISNULL(@dest_elev, 0);
     SET @filed_alt = ISNULL(@filed_alt, 35000);
-    SET @dist_to_dest = ISNULL(@dist_to_dest, @gcd_nm);
     
     -- ========================================================================
     -- Step 2: Get TMI delays
@@ -133,6 +178,7 @@ BEGIN
     
     -- ========================================================================
     -- Step 4: Calculate ETA based on phase
+    -- (Using @effective_dist instead of @dist_to_dest)
     -- ========================================================================
     
     -- Calculate TOD distance (3nm per 1000ft standard)
@@ -148,38 +194,42 @@ BEGIN
         SET @eta_prefix = 'A';
         SET @confidence = 1.0;
     END
-    ELSE IF @phase IN ('descending') AND @dist_to_dest < 50
+    ELSE IF @phase IN ('descending') AND @effective_dist < 50
     BEGIN
         -- Final approach - simple distance/speed
-        SET @time_to_dest_min = @dist_to_dest / NULLIF(@current_gs, 0) * 60;
+        SET @time_to_dest_min = @effective_dist / NULLIF(@current_gs, 0) * 60;
         SET @eta_prefix = 'E';
         SET @confidence = 0.95;
+        -- Boost confidence if using route distance
+        IF @dist_source = 'ROUTE' SET @confidence = 0.97;
     END
     ELSE IF @phase IN ('descending')
     BEGIN
         -- In descent - use descent speed
-        SET @time_to_dest_min = @dist_to_dest / NULLIF(@descent_speed, 0) * 60;
+        SET @time_to_dest_min = @effective_dist / NULLIF(@descent_speed, 0) * 60;
         SET @eta_prefix = 'E';
         SET @confidence = 0.92;
+        IF @dist_source = 'ROUTE' SET @confidence = 0.94;
     END
     ELSE IF @phase IN ('enroute', 'cruise')
     BEGIN
         -- Cruise phase
-        IF @dist_to_dest <= @tod_dist
+        IF @effective_dist <= @tod_dist
         BEGIN
             -- Should be descending, use descent speed
-            SET @time_to_dest_min = @dist_to_dest / NULLIF(@descent_speed, 0) * 60;
+            SET @time_to_dest_min = @effective_dist / NULLIF(@descent_speed, 0) * 60;
         END
         ELSE
         BEGIN
             -- Cruise + descent
-            DECLARE @cruise_dist DECIMAL(10,2) = @dist_to_dest - @tod_dist;
+            DECLARE @cruise_dist DECIMAL(10,2) = @effective_dist - @tod_dist;
             DECLARE @cruise_time INT = @cruise_dist / NULLIF(@cruise_speed, 0) * 60;
             DECLARE @descent_time INT = @tod_dist / NULLIF(@descent_speed, 0) * 60;
             SET @time_to_dest_min = @cruise_time + @descent_time;
         END
         SET @eta_prefix = 'E';
         SET @confidence = 0.88;
+        IF @dist_source = 'ROUTE' SET @confidence = 0.90;
     END
     ELSE IF @phase IN ('departed', 'climbing')
     BEGIN
@@ -187,7 +237,7 @@ BEGIN
         DECLARE @toc_dist DECIMAL(10,2) = (@filed_alt - @current_alt) / 1000.0 * 2.0;
         DECLARE @climb_time INT = @toc_dist / NULLIF(@climb_speed, 0) * 60;
         
-        DECLARE @remaining_cruise DECIMAL(10,2) = @dist_to_dest - @toc_dist - @tod_dist;
+        DECLARE @remaining_cruise DECIMAL(10,2) = @effective_dist - @toc_dist - @tod_dist;
         IF @remaining_cruise < 0 SET @remaining_cruise = 0;
         
         SET @cruise_time = @remaining_cruise / NULLIF(@cruise_speed, 0) * 60;
@@ -196,15 +246,19 @@ BEGIN
         SET @time_to_dest_min = @climb_time + @cruise_time + @descent_time;
         SET @eta_prefix = 'E';
         SET @confidence = 0.82;
+        IF @dist_source = 'ROUTE' SET @confidence = 0.85;
     END
     ELSE IF @phase IN ('taxiing')
     BEGIN
         -- Taxiing - add taxi + full flight time
+        -- For pre-departure, use route_total if available
+        DECLARE @planning_dist DECIMAL(10,2) = COALESCE(@route_total_nm, @gcd_nm, @effective_dist);
+        
         DECLARE @taxi_out INT = 12;  -- Average taxi time
         DECLARE @full_climb DECIMAL(10,2) = (@filed_alt - @dest_elev) / 1000.0 * 2.0;
         DECLARE @full_climb_time INT = @full_climb / NULLIF(@climb_speed, 0) * 60;
         
-        SET @remaining_cruise = @dist_to_dest - @full_climb - @tod_dist;
+        SET @remaining_cruise = @planning_dist - @full_climb - @tod_dist;
         IF @remaining_cruise < 0 SET @remaining_cruise = 0;
         
         SET @cruise_time = @remaining_cruise / NULLIF(@cruise_speed, 0) * 60;
@@ -213,15 +267,19 @@ BEGIN
         SET @time_to_dest_min = @taxi_out + @full_climb_time + @cruise_time + @descent_time + @tmi_delay;
         SET @eta_prefix = CASE WHEN @has_edct = 1 THEN 'C' ELSE 'E' END;
         SET @confidence = 0.75;
+        IF @route_total_nm IS NOT NULL SET @confidence = 0.78;
     END
     ELSE
     BEGIN
         -- Pre-filed or unknown - full flight estimate
+        -- Use route_total if available
+        SET @planning_dist = COALESCE(@route_total_nm, @gcd_nm, @effective_dist);
+        
         DECLARE @taxi_estimate INT = 15;
         SET @full_climb = (@filed_alt - @dest_elev) / 1000.0 * 2.0;
         SET @full_climb_time = @full_climb / NULLIF(@climb_speed, 0) * 60;
         
-        SET @remaining_cruise = ISNULL(@dist_to_dest, @gcd_nm) - @full_climb - @tod_dist;
+        SET @remaining_cruise = @planning_dist - @full_climb - @tod_dist;
         IF @remaining_cruise < 0 SET @remaining_cruise = 0;
         
         SET @cruise_time = @remaining_cruise / NULLIF(@cruise_speed, 0) * 60;
@@ -233,6 +291,7 @@ BEGIN
             ELSE 'P'
         END;
         SET @confidence = 0.65;
+        IF @route_total_nm IS NOT NULL SET @confidence = 0.70;
     END
     
     -- ========================================================================
@@ -270,9 +329,9 @@ BEGIN
     
     -- Calculate TOD ETA
     DECLARE @tod_eta DATETIME2(0) = NULL;
-    IF @phase IN ('enroute', 'cruise', 'climbing', 'departed') AND @dist_to_dest > @tod_dist
+    IF @phase IN ('enroute', 'cruise', 'climbing', 'departed') AND @effective_dist > @tod_dist
     BEGIN
-        DECLARE @time_to_tod INT = (@dist_to_dest - @tod_dist) / NULLIF(@current_gs, 0) * 60;
+        DECLARE @time_to_tod INT = (@effective_dist - @tod_dist) / NULLIF(@current_gs, 0) * 60;
         IF @time_to_tod > 0
             SET @tod_eta = DATEADD(MINUTE, @time_to_tod, @now);
     END
@@ -283,7 +342,8 @@ BEGIN
         eta_utc = @eta_utc,
         eta_runway_utc = @eta_utc,
         eta_prefix = @eta_prefix,
-        eta_route_dist_nm = @dist_to_dest,
+        eta_route_dist_nm = @effective_dist,
+        eta_dist_source = @dist_source,  -- NEW: Track which distance source was used
         eta_wind_component_kts = @wind_component,
         eta_weather_delay_min = @weather_delay,
         eta_tmi_delay_min = @tmi_delay,
@@ -299,13 +359,13 @@ BEGIN
     BEGIN
         INSERT INTO dbo.adl_flight_times (
             flight_uid, eta_utc, eta_runway_utc, eta_prefix, 
-            eta_route_dist_nm, eta_wind_component_kts, eta_weather_delay_min,
+            eta_route_dist_nm, eta_dist_source, eta_wind_component_kts, eta_weather_delay_min,
             eta_tmi_delay_min, eta_confidence, eta_last_calc_utc,
             tod_dist_nm, tod_eta_utc
         )
         VALUES (
             @flight_uid, @eta_utc, @eta_utc, @eta_prefix,
-            @dist_to_dest, @wind_component, @weather_delay,
+            @effective_dist, @dist_source, @wind_component, @weather_delay,
             @tmi_delay, @confidence, @now,
             @tod_dist, @tod_eta
         );
@@ -314,5 +374,5 @@ BEGIN
 END
 GO
 
-PRINT 'Created stored procedure dbo.sp_CalculateETA';
+PRINT 'Created stored procedure dbo.sp_CalculateETA (v2 - Route Distance Support)';
 GO
