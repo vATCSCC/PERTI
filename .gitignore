@@ -14,3 +14,10 @@ scripts/*.lock
 *.swp
 *.swo
 *~
+
+# Navigation data CSV imports (regenerate from Navigraph)
+adl/php/nav_import/
+
+# Claude Code local settings and indexes
+.claude/settings.local.json
+assistant_codebase_index*.md
