@@ -2652,6 +2652,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             </div>
         </div>
 
+        </div><!-- End cat-infra-content -->
+
+        <!-- ============================================ -->
+        <!-- CATEGORY: DATA PROCESSING -->
+        <!-- ============================================ -->
+        <div class="category-header" id="cat-processing-header" onclick="toggleCategory('cat-processing')">
+            <span><i class="fas fa-cogs"></i>Data Processing</span>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="category-content" id="cat-processing-content">
+
         <!-- Processing Tier Tracking - Full Width Section -->
         <div class="row mb-4">
             <div class="col-12">
@@ -2929,6 +2940,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             </div>
         </div>
 
+        </div><!-- End cat-processing-content -->
+
+        <!-- ============================================ -->
+        <!-- CATEGORY: SYSTEM INTERNALS -->
+        <!-- ============================================ -->
+        <div class="category-header" id="cat-system-header" onclick="toggleCategory('cat-system')">
+            <span><i class="fas fa-microchip"></i>System Internals</span>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="category-content" id="cat-system-content">
+
         <!-- Bottom Info Row -->
         <div class="row">
             <div class="col-lg-4">
@@ -3031,6 +3053,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
             </div>
         </div>
+
+        </div><!-- End cat-system-content -->
+
+        <!-- ============================================ -->
+        <!-- CATEGORY: ANALYTICS & STATS -->
+        <!-- ============================================ -->
+        <div class="category-header" id="cat-analytics-header" onclick="toggleCategory('cat-analytics')">
+            <span><i class="fas fa-chart-bar"></i>Analytics & Stats</span>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="category-content" id="cat-analytics-content">
 
         <!-- Additional Stats Row -->
         <div class="row mb-4">
@@ -3250,6 +3283,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             </div>
         </div>
 
+        </div><!-- End cat-analytics-content -->
+
         <!-- Legend -->
         <div class="legend-section">
             <div class="legend-title">Status Legend</div>
@@ -3305,7 +3340,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         function saveUIState() {
             const state = {
                 collapsedSections: [],
-                collapsedTierSections: []
+                collapsedTierSections: [],
+                collapsedCategories: []
             };
             // Save main sections
             document.querySelectorAll('.tier-tracking-container').forEach(el => {
@@ -3319,6 +3355,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 const sectionId = el.id.replace('-content', '');
                 if (el.classList.contains('collapsed')) {
                     state.collapsedTierSections.push(sectionId);
+                }
+            });
+            // Save category states
+            document.querySelectorAll('.category-content').forEach(el => {
+                const categoryId = el.id.replace('-content', '');
+                if (el.classList.contains('collapsed')) {
+                    state.collapsedCategories.push(categoryId);
                 }
             });
             localStorage.setItem(UI_STATE_KEY, JSON.stringify(state));
@@ -3365,6 +3408,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 if (toggle) toggle.style.transform = 'rotate(0deg)';
                                 if (header) header.classList.remove('collapsed');
                             }
+                        }
+                    });
+                }
+                // Restore category states
+                if (state.collapsedCategories) {
+                    state.collapsedCategories.forEach(categoryId => {
+                        const content = document.getElementById(categoryId + '-content');
+                        const header = document.getElementById(categoryId + '-header');
+                        if (content && !content.classList.contains('collapsed')) {
+                            content.classList.add('collapsed');
+                            if (header) header.classList.add('collapsed');
                         }
                     });
                 }
