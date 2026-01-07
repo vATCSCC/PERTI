@@ -65,6 +65,46 @@ include("sessions/handler.php");
             margin-bottom: 10px;
             color: #495057;
         }
+        /* Config table styling */
+        #configs thead th {
+            font-size: 0.8rem;
+            padding: 4px 6px;
+        }
+        #configs tbody td {
+            font-size: 0.85rem;
+            padding: 4px 6px;
+        }
+        .vatsim-header {
+            background-color: #2a5298 !important;
+            color: white;
+        }
+        .vatsim-arr-header {
+            background-color: #3d6ab3 !important;
+            color: white;
+        }
+        .vatsim-dep-header {
+            background-color: #5580c7 !important;
+            color: white;
+        }
+        .rw-header {
+            background-color: #4a7c59 !important;
+            color: white;
+        }
+        .rw-arr-header {
+            background-color: #5c9a6e !important;
+            color: white;
+        }
+        .rw-dep-header {
+            background-color: #6eb583 !important;
+            color: white;
+        }
+        .weather-header {
+            font-size: 0.7rem !important;
+            font-weight: normal;
+        }
+        .section-divider {
+            border-left: 3px solid #dee2e6 !important;
+        }
     </style>
 
 </head>
@@ -108,36 +148,45 @@ include('load/nav.php');
 
             <table class="table table-sm table-striped table-bordered" id="configs" style="width: 100%;">
                 <thead class="table-dark text-light">
+                    <!-- Row 1: Main categories -->
                     <tr>
-                        <th rowspan="2" class="text-center align-middle">FAA</th>
-                        <th rowspan="2" class="text-center align-middle">ICAO</th>
-                        <th rowspan="2" class="text-center align-middle">Config</th>
-                        <th rowspan="2" class="text-center align-middle">ARR</th>
-                        <th rowspan="2" class="text-center align-middle">DEP</th>
-                        <th colspan="7" class="text-center" style="background-color: #2a5298;">VATSIM</th>
-                        <th colspan="6" class="text-center" style="background-color: #4a7c59;">Real-World</th>
+                        <th rowspan="3" class="text-center align-middle">FAA</th>
+                        <th rowspan="3" class="text-center align-middle">ICAO</th>
+                        <th rowspan="3" class="text-center align-middle">Config</th>
+                        <th rowspan="3" class="text-center align-middle">ARR<br>Rwys</th>
+                        <th rowspan="3" class="text-center align-middle">DEP<br>Rwys</th>
+                        <th colspan="7" class="text-center vatsim-header section-divider">VATSIM Rates</th>
+                        <th colspan="6" class="text-center rw-header section-divider">Real-World Rates</th>
                         <?php if ($perm == true) { ?>
-                            <th rowspan="2" class="align-middle"></th>
+                            <th rowspan="3" class="align-middle"></th>
                         <?php } ?>
                     </tr>
+                    <!-- Row 2: ARR/DEP categories -->
                     <tr>
-                        <!-- VATSIM Arrival Rates -->
-                        <th class="text-center" data-toggle="tooltip" title="VMC Arrival Rate">VA</th>
-                        <th class="text-center" data-toggle="tooltip" title="LVMC Arrival Rate">LVA</th>
-                        <th class="text-center" data-toggle="tooltip" title="IMC Arrival Rate">IA</th>
-                        <th class="text-center" data-toggle="tooltip" title="LIMC Arrival Rate">LIA</th>
-                        <th class="text-center" data-toggle="tooltip" title="VLIMC Arrival Rate">VLA</th>
-                        <!-- VATSIM Departure Rates -->
-                        <th class="text-center" data-toggle="tooltip" title="VMC Departure Rate">VD</th>
-                        <th class="text-center" data-toggle="tooltip" title="IMC Departure Rate">ID</th>
-                        <!-- Real-World Arrival Rates -->
-                        <th class="text-center" data-toggle="tooltip" title="VMC Arrival Rate">VA</th>
-                        <th class="text-center" data-toggle="tooltip" title="LVMC Arrival Rate">LVA</th>
-                        <th class="text-center" data-toggle="tooltip" title="IMC Arrival Rate">IA</th>
-                        <th class="text-center" data-toggle="tooltip" title="LIMC Arrival Rate">LIA</th>
-                        <!-- Real-World Departure Rates -->
-                        <th class="text-center" data-toggle="tooltip" title="VMC Departure Rate">VD</th>
-                        <th class="text-center" data-toggle="tooltip" title="IMC Departure Rate">ID</th>
+                        <th colspan="5" class="text-center vatsim-arr-header section-divider">AAR</th>
+                        <th colspan="2" class="text-center vatsim-dep-header">ADR</th>
+                        <th colspan="4" class="text-center rw-arr-header section-divider">AAR</th>
+                        <th colspan="2" class="text-center rw-dep-header">ADR</th>
+                    </tr>
+                    <!-- Row 3: Weather categories -->
+                    <tr>
+                        <!-- VATSIM AAR -->
+                        <th class="text-center weather-header vatsim-arr-header section-divider" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
+                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Low Visual Meteorological Conditions">LVMC</th>
+                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
+                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Low Instrument Meteorological Conditions">LIMC</th>
+                        <th class="text-center weather-header vatsim-arr-header" data-toggle="tooltip" title="Very Low Instrument Meteorological Conditions">VLIMC</th>
+                        <!-- VATSIM ADR -->
+                        <th class="text-center weather-header vatsim-dep-header" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
+                        <th class="text-center weather-header vatsim-dep-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
+                        <!-- RW AAR -->
+                        <th class="text-center weather-header rw-arr-header section-divider" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
+                        <th class="text-center weather-header rw-arr-header" data-toggle="tooltip" title="Low Visual Meteorological Conditions">LVMC</th>
+                        <th class="text-center weather-header rw-arr-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
+                        <th class="text-center weather-header rw-arr-header" data-toggle="tooltip" title="Low Instrument Meteorological Conditions">LIMC</th>
+                        <!-- RW ADR -->
+                        <th class="text-center weather-header rw-dep-header" data-toggle="tooltip" title="Visual Meteorological Conditions">VMC</th>
+                        <th class="text-center weather-header rw-dep-header" data-toggle="tooltip" title="Instrument Meteorological Conditions">IMC</th>
                     </tr>
                 </thead>
 

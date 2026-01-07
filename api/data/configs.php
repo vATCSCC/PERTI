@@ -47,11 +47,12 @@ function getRateColor($rate) {
 }
 
 // Helper: Output rate cell with color
-function rateCell($rate) {
+function rateCell($rate, $extraClass = '') {
     $color = getRateColor($rate);
     $style = $color ? " style=\"background-color: {$color}\"" : '';
     $val = ($rate !== null && $rate !== '') ? intval($rate) : '-';
-    echo "<td class=\"text-center\"{$style}>{$val}</td>";
+    $class = "text-center" . ($extraClass ? " $extraClass" : '');
+    echo "<td class=\"{$class}\"{$style}>{$val}</td>";
 }
 
 $search = isset($_GET['search']) ? strip_tags($_GET['search']) : '';
@@ -69,13 +70,20 @@ if (!$conn_adl) {
         echo '<td class="text-center">' . htmlspecialchars($data['arr']) . '</td>';
         echo '<td class="text-center">' . htmlspecialchars($data['dep']) . '</td>';
 
-        rateCell($data['vmc_aar']);
+        rateCell($data['vmc_aar'], 'section-divider');
         rateCell($data['lvmc_aar']);
         rateCell($data['imc_aar']);
         rateCell($data['limc_aar']);
         rateCell(null); // VLIMC not in legacy
         rateCell($data['vmc_adr']);
         rateCell($data['imc_adr']);
+        // RW rates not available in legacy
+        rateCell(null, 'section-divider');
+        rateCell(null);
+        rateCell(null);
+        rateCell(null);
+        rateCell(null);
+        rateCell(null);
 
         if ($perm == true) {
             echo '<td><center>';
@@ -168,7 +176,7 @@ if (!$conn_adl) {
             echo '<td class="text-center">' . htmlspecialchars($data['dep_runways'] ?? '-') . '</td>';
 
             // VATSIM Rates (ARR: VMC, LVMC, IMC, LIMC, VLIMC)
-            rateCell($data['vatsim_vmc_aar']);
+            rateCell($data['vatsim_vmc_aar'], 'section-divider');
             rateCell($data['vatsim_lvmc_aar']);
             rateCell($data['vatsim_imc_aar']);
             rateCell($data['vatsim_limc_aar']);
@@ -179,7 +187,7 @@ if (!$conn_adl) {
             rateCell($data['vatsim_imc_adr']);
 
             // Real-World Rates (ARR: VMC, LVMC, IMC, LIMC)
-            rateCell($data['rw_vmc_aar']);
+            rateCell($data['rw_vmc_aar'], 'section-divider');
             rateCell($data['rw_lvmc_aar']);
             rateCell($data['rw_imc_aar']);
             rateCell($data['rw_limc_aar']);
