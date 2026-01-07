@@ -1,61 +1,88 @@
 -- =====================================================
--- Phase 5E.1: Boundary Import Stored Procedure (v3 - Fixed)
+-- Phase 5E.1: Boundary Import Stored Procedure (v4 - Geometry-First)
 -- Migration: 050_boundary_import_procedure.sql
--- Description: Imports boundaries from WKT with polygon orientation fix
--- Fixes: Removed OUTPUT param, increased field lengths
+-- Description: Imports boundaries from WKT with robust geometry handling
+-- Fix: Parse as GEOMETRY first, MakeValid, then convert to GEOGRAPHY
 -- =====================================================
 
 -- Procedure to import a single boundary with proper polygon orientation
--- Note: Accepts WKT instead of GeoJSON (PHP converts GeoJSON->WKT before calling)
 CREATE OR ALTER PROCEDURE sp_ImportBoundary
     @boundary_type VARCHAR(20),
-    @boundary_code VARCHAR(50),           -- Increased from 20
-    @boundary_name NVARCHAR(255) = NULL,  -- Increased from 100, NVARCHAR for unicode
+    @boundary_code VARCHAR(50),
+    @boundary_name NVARCHAR(255) = NULL,
     @parent_artcc VARCHAR(10) = NULL,
-    @sector_number VARCHAR(20) = NULL,    -- Increased from 10
+    @sector_number VARCHAR(20) = NULL,
     @icao_code VARCHAR(10) = NULL,
-    @vatsim_region VARCHAR(50) = NULL,    -- Increased from 20
-    @vatsim_division VARCHAR(50) = NULL,  -- Increased from 20
-    @vatsim_subdivision VARCHAR(50) = NULL, -- Increased from 20
+    @vatsim_region VARCHAR(50) = NULL,
+    @vatsim_division VARCHAR(50) = NULL,
+    @vatsim_subdivision VARCHAR(50) = NULL,
     @is_oceanic BIT = 0,
     @floor_altitude INT = NULL,
     @ceiling_altitude INT = NULL,
     @label_lat DECIMAL(10,6) = NULL,
     @label_lon DECIMAL(11,6) = NULL,
-    @wkt_geometry NVARCHAR(MAX),          -- WKT format (POLYGON, MULTIPOLYGON)
-    @shape_length DECIMAL(18,10) = NULL,  -- Increased precision
-    @shape_area DECIMAL(18,10) = NULL,    -- Increased precision
+    @wkt_geometry NVARCHAR(MAX),
+    @shape_length DECIMAL(18,10) = NULL,
+    @shape_area DECIMAL(18,10) = NULL,
     @source_object_id INT = NULL,
     @source_fid INT = NULL,
-    @source_file VARCHAR(100) = NULL      -- Increased from 50
-    -- REMOVED: @boundary_id INT OUTPUT (use SELECT return instead)
+    @source_file VARCHAR(100) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     
+    DECLARE @geometry GEOMETRY;
     DECLARE @geography GEOGRAPHY;
     DECLARE @oriented_geography GEOGRAPHY;
     DECLARE @boundary_id INT;
     
     BEGIN TRY
-        -- Parse WKT to geography
-        SET @geography = GEOGRAPHY::STGeomFromText(@wkt_geometry, 4326);
+        -- Step 1: Parse as GEOMETRY first (more lenient than GEOGRAPHY)
+        SET @geometry = GEOMETRY::STGeomFromText(@wkt_geometry, 4326);
         
-        -- Apply MakeValid to fix any geometry issues
-        IF @geography.STIsValid() = 0
+        -- Step 2: Apply MakeValid on geometry to fix any issues
+        IF @geometry.STIsValid() = 0
         BEGIN
-            -- Convert to geometry, make valid, convert back
-            DECLARE @geom GEOMETRY = GEOMETRY::STGeomFromText(@wkt_geometry, 4326);
-            SET @geom = @geom.MakeValid();
-            SET @geography = GEOGRAPHY::STGeomFromText(@geom.STAsText(), 4326);
+            SET @geometry = @geometry.MakeValid();
         END
         
-        -- Apply polygon orientation fix
+        -- Step 3: Ensure we have a polygon-type geometry
+        -- MakeValid can sometimes return GeometryCollection, extract polygon part
+        IF @geometry.STGeometryType() = 'GeometryCollection'
+        BEGIN
+            DECLARE @i INT = 1;
+            DECLARE @polyGeom GEOMETRY = NULL;
+            WHILE @i <= @geometry.STNumGeometries()
+            BEGIN
+                DECLARE @part GEOMETRY = @geometry.STGeometryN(@i);
+                IF @part.STGeometryType() IN ('Polygon', 'MultiPolygon')
+                BEGIN
+                    IF @polyGeom IS NULL
+                        SET @polyGeom = @part;
+                    ELSE
+                        SET @polyGeom = @polyGeom.STUnion(@part);
+                END
+                SET @i = @i + 1;
+            END
+            IF @polyGeom IS NOT NULL
+                SET @geometry = @polyGeom;
+        END
+        
+        -- Step 4: Convert to geography
+        SET @geography = GEOGRAPHY::STGeomFromText(@geometry.STAsText(), 4326);
+        
+        -- Step 5: Check if geography is valid, apply MakeValid if needed
+        IF @geography.STIsValid() = 0
+        BEGIN
+            -- Re-parse through geometry to fix
+            SET @geometry = GEOMETRY::STGeomFromText(@geography.STAsText(), 4326).MakeValid();
+            SET @geography = GEOGRAPHY::STGeomFromText(@geometry.STAsText(), 4326);
+        END
+        
+        -- Step 6: Apply polygon orientation fix for large polygons
         -- SQL Server geography requires exterior rings to be counter-clockwise
-        -- Large polygons (>hemisphere) may be inverted without this fix
         IF @geography.STArea() > 255000000000000  -- ~255 trillion sq meters (half Earth)
         BEGIN
-            -- Reorient the polygon
             SET @oriented_geography = @geography.ReorientObject();
         END
         ELSE
@@ -63,12 +90,11 @@ BEGIN
             SET @oriented_geography = @geography;
         END
         
-        -- Ensure oriented geography is also valid
+        -- Step 7: Final validity check after reorientation
         IF @oriented_geography.STIsValid() = 0
         BEGIN
-            DECLARE @geom2 GEOMETRY = GEOMETRY::STGeomFromText(@oriented_geography.STAsText(), 4326);
-            SET @geom2 = @geom2.MakeValid();
-            SET @oriented_geography = GEOGRAPHY::STGeomFromText(@geom2.STAsText(), 4326);
+            SET @geometry = GEOMETRY::STGeomFromText(@oriented_geography.STAsText(), 4326).MakeValid();
+            SET @oriented_geography = GEOGRAPHY::STGeomFromText(@geometry.STAsText(), 4326);
         END
         
         -- Check for existing boundary with same type and code
@@ -137,7 +163,7 @@ BEGIN
         
     END TRY
     BEGIN CATCH
-        -- Log error but don't fail entirely - some geometries may be invalid
+        -- Log error but don't fail entirely
         PRINT 'Error importing boundary ' + @boundary_code + ': ' + ERROR_MESSAGE();
         SET @boundary_id = -1;
     END CATCH
@@ -171,7 +197,6 @@ BEGIN
       AND is_active = 1
       AND boundary_geography.STContains(@point) = 1
     ORDER BY 
-        -- Prefer non-oceanic, then by area (smaller = more specific)
         is_oceanic ASC,
         boundary_geography.STArea() ASC;
     
@@ -188,7 +213,7 @@ BEGIN
       AND (ceiling_altitude IS NULL OR @altitude IS NULL OR @altitude <= ceiling_altitude * 100)
     ORDER BY boundary_geography.STArea() ASC;
     
-    -- Find matching TRACON (only at lower altitudes, typically < FL180)
+    -- Find matching TRACON (only at lower altitudes)
     DECLARE @tracon_id INT, @tracon_code VARCHAR(50);
     IF @altitude IS NULL OR @altitude < 18000
     BEGIN
@@ -212,49 +237,29 @@ BEGIN
     WHERE flight_uid = @flight_uid;
     
     -- Log boundary transitions
-    -- ARTCC transition
     IF ISNULL(@prev_artcc_id, 0) <> ISNULL(@artcc_id, 0)
     BEGIN
-        -- Close previous ARTCC entry
         IF @prev_artcc_id IS NOT NULL
         BEGIN
             UPDATE adl_flight_boundary_log
-            SET exit_time = @now,
-                exit_lat = @latitude,
-                exit_lon = @longitude,
-                exit_altitude = @altitude
-            WHERE flight_id = @flight_uid
-              AND boundary_id = @prev_artcc_id
-              AND exit_time IS NULL;
+            SET exit_time = @now, exit_lat = @latitude, exit_lon = @longitude, exit_altitude = @altitude
+            WHERE flight_id = @flight_uid AND boundary_id = @prev_artcc_id AND exit_time IS NULL;
         END
         
-        -- Create new ARTCC entry
         IF @artcc_id IS NOT NULL
         BEGIN
-            INSERT INTO adl_flight_boundary_log (
-                flight_id, boundary_id, boundary_type, boundary_code,
-                entry_time, entry_lat, entry_lon, entry_altitude
-            )
-            VALUES (
-                @flight_uid, @artcc_id, 'ARTCC', @artcc_code,
-                @now, @latitude, @longitude, @altitude
-            );
+            INSERT INTO adl_flight_boundary_log (flight_id, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
+            VALUES (@flight_uid, @artcc_id, 'ARTCC', @artcc_code, @now, @latitude, @longitude, @altitude);
         END
     END
     
-    -- Sector transition
     IF ISNULL(@prev_sector_id, 0) <> ISNULL(@sector_id, 0)
     BEGIN
         IF @prev_sector_id IS NOT NULL
         BEGIN
             UPDATE adl_flight_boundary_log
-            SET exit_time = @now,
-                exit_lat = @latitude,
-                exit_lon = @longitude,
-                exit_altitude = @altitude
-            WHERE flight_id = @flight_uid
-              AND boundary_id = @prev_sector_id
-              AND exit_time IS NULL;
+            SET exit_time = @now, exit_lat = @latitude, exit_lon = @longitude, exit_altitude = @altitude
+            WHERE flight_id = @flight_uid AND boundary_id = @prev_sector_id AND exit_time IS NULL;
         END
         
         IF @sector_id IS NOT NULL
@@ -262,42 +267,24 @@ BEGIN
             DECLARE @sector_type VARCHAR(20);
             SELECT @sector_type = boundary_type FROM adl_boundary WHERE boundary_id = @sector_id;
             
-            INSERT INTO adl_flight_boundary_log (
-                flight_id, boundary_id, boundary_type, boundary_code,
-                entry_time, entry_lat, entry_lon, entry_altitude
-            )
-            VALUES (
-                @flight_uid, @sector_id, @sector_type, @sector_code,
-                @now, @latitude, @longitude, @altitude
-            );
+            INSERT INTO adl_flight_boundary_log (flight_id, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
+            VALUES (@flight_uid, @sector_id, @sector_type, @sector_code, @now, @latitude, @longitude, @altitude);
         END
     END
     
-    -- TRACON transition
     IF ISNULL(@prev_tracon_id, 0) <> ISNULL(@tracon_id, 0)
     BEGIN
         IF @prev_tracon_id IS NOT NULL
         BEGIN
             UPDATE adl_flight_boundary_log
-            SET exit_time = @now,
-                exit_lat = @latitude,
-                exit_lon = @longitude,
-                exit_altitude = @altitude
-            WHERE flight_id = @flight_uid
-              AND boundary_id = @prev_tracon_id
-              AND exit_time IS NULL;
+            SET exit_time = @now, exit_lat = @latitude, exit_lon = @longitude, exit_altitude = @altitude
+            WHERE flight_id = @flight_uid AND boundary_id = @prev_tracon_id AND exit_time IS NULL;
         END
         
         IF @tracon_id IS NOT NULL
         BEGIN
-            INSERT INTO adl_flight_boundary_log (
-                flight_id, boundary_id, boundary_type, boundary_code,
-                entry_time, entry_lat, entry_lon, entry_altitude
-            )
-            VALUES (
-                @flight_uid, @tracon_id, 'TRACON', @tracon_code,
-                @now, @latitude, @longitude, @altitude
-            );
+            INSERT INTO adl_flight_boundary_log (flight_id, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
+            VALUES (@flight_uid, @tracon_id, 'TRACON', @tracon_code, @now, @latitude, @longitude, @altitude);
         END
     END
     
@@ -333,7 +320,6 @@ BEGIN
     DECLARE @processed INT = 0;
     DECLARE @start_time DATETIME2 = GETUTCDATE();
     
-    -- Process each active flight with position data
     DECLARE @flight_uid BIGINT, @lat DECIMAL(10,7), @lon DECIMAL(11,7), @alt INT;
     
     DECLARE flight_cursor CURSOR FAST_FORWARD FOR
@@ -351,7 +337,6 @@ BEGIN
     BEGIN
         EXEC sp_DetectFlightBoundaries @flight_uid, @lat, @lon, @alt;
         SET @processed = @processed + 1;
-        
         FETCH NEXT FROM flight_cursor INTO @flight_uid, @lat, @lon, @alt;
     END
     
@@ -365,6 +350,5 @@ END;
 GO
 
 
-PRINT 'Phase 5E.1: Boundary import procedures created successfully (v3)';
-PRINT 'Procedures: sp_ImportBoundary, sp_DetectFlightBoundaries, sp_DetectAllFlightBoundaries';
+PRINT 'Phase 5E.1: Boundary import procedures created successfully (v4 - Geometry-First)';
 GO
