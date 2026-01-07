@@ -103,10 +103,16 @@ $filepath = "";
                     Demand
                 </a>
             </li>
-            
+
             <li class="nav-item">
                 <a class="nav-link" href="<?= $filepath; ?>./splits">
                     Splits
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="<?= $filepath; ?>./event-aar">
+                    Event AAR
                 </a>
             </li>
 
