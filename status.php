@@ -376,30 +376,17 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // -------------------------------------------------------------------------
-    // Daily Stats: Routes Parsed Today
-    // Uses adl_flight_plan.parse_utc for accurate cumulative counts
-    // Note: Queue cleanup deletes after 1hr, so tier breakdown uses current queue
+    // Daily Stats: Routes Parsed Today by Tier
+    // Queue cleanup retains 24h for full daily tier breakdown
     // -------------------------------------------------------------------------
     $liveData['daily_parsed_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0];
     $liveData['daily_parsed_total'] = 0;
 
-    // Get total parsed today from flight_plan (not affected by queue cleanup)
-    $sql = "SELECT COUNT(*) AS total_cnt
-            FROM dbo.adl_flight_plan
-            WHERE parse_status = 'COMPLETE'
-              AND parse_utc >= CAST(SYSUTCDATETIME() AS DATE)";
-    $stmt = @sqlsrv_query($conn_adl, $sql);
-    if ($stmt) {
-        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['daily_parsed_total'] = (int)($row['total_cnt'] ?? 0);
-        sqlsrv_free_stmt($stmt);
-    }
-
-    // Get tier breakdown from last 1h of completed queue entries (best available data)
+    // Get tier breakdown from today's completed queue entries
     $sql = "SELECT q.parse_tier, COUNT(*) AS cnt
             FROM dbo.adl_parse_queue q
             WHERE q.status = 'COMPLETE'
-              AND q.completed_utc >= DATEADD(HOUR, -1, SYSUTCDATETIME())
+              AND q.completed_utc >= CAST(SYSUTCDATETIME() AS DATE)
             GROUP BY q.parse_tier
             ORDER BY q.parse_tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
@@ -410,6 +397,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
             if (isset($liveData['daily_parsed_by_tier'][$tier])) {
                 $liveData['daily_parsed_by_tier'][$tier] = $cnt;
             }
+            $liveData['daily_parsed_total'] += $cnt;
         }
         sqlsrv_free_stmt($stmt);
     }
@@ -2736,7 +2724,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
                                             <span class="tier-group-title">Routes Parsed Today</span>
-                                            <span class="tier-group-desc">Total since 00:00Z (breakdown: last 1h)</span>
+                                            <span class="tier-group-desc">Completed parses since 00:00Z</span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['daily_parsed_total'] ?? 0) ?></span>
                                     </div>
