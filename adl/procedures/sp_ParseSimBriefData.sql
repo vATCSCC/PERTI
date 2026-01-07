@@ -1,5 +1,5 @@
 -- ============================================================================
--- sp_ParseSimBriefData.sql (v1.0)
+-- sp_ParseSimBriefData.sql (v1.1)
 -- SimBrief & ICAO Flight Plan Data Extraction
 --
 -- Parses VATSIM flight plan remarks and route strings to extract:
@@ -7,11 +7,16 @@
 --   2. ICAO Item 18 indicators (DOF, REG, OPR, PBN, etc.)
 --   3. Step climb waypoints with altitude/speed changes
 --   4. Runway hints from SID/STAR names
---   5. Cost Index (if present)
+--   5. Cost Index (CI) extraction (NEW in v1.1)
 --
 -- Data Sources:
 --   - Remarks field (ICAO Item 18)
 --   - Route string (speed/altitude changes at waypoints)
+--
+-- Changes in v1.1:
+--   - Added fn_ExtractCostIndex function
+--   - Updated sp_ParseSimBriefData to extract and save Cost Index
+--   - Added cost_index to batch result stats
 --
 -- Usage:
 --   EXEC sp_ParseSimBriefData @flight_uid = 12345, @debug = 1;
@@ -45,11 +50,6 @@ BEGIN
     
     DECLARE @clean NVARCHAR(MAX) = UPPER(LTRIM(RTRIM(@remarks)));
     
-    -- Common ICAO Item 18 indicators to extract
-    -- Format: INDICATOR/VALUE (space or end of string terminates value)
-    -- Some indicators: DOF, REG, OPR, PER, PBN, NAV, COM, DAT, SUR, DEP, DEST, 
-    --                  ALTN, RALT, TALT, EET, SEL, TYP, CODE, DLE, RVR, RMK, STS
-    
     DECLARE @indicators TABLE (ind NVARCHAR(16));
     INSERT INTO @indicators VALUES 
         ('DOF'), ('REG'), ('OPR'), ('PER'), ('PBN'), ('NAV'), ('COM'), ('DAT'), 
@@ -74,13 +74,10 @@ BEGIN
         
         IF @pos > 0
         BEGIN
-            -- Find end of value (next space or end of string)
             SET @end_pos = CHARINDEX(' ', @clean, @pos + LEN(@ind) + 1);
             IF @end_pos = 0 SET @end_pos = LEN(@clean) + 1;
             
             SET @val = SUBSTRING(@clean, @pos + LEN(@ind) + 1, @end_pos - @pos - LEN(@ind) - 1);
-            
-            -- Clean up value
             SET @val = LTRIM(RTRIM(@val));
             
             IF LEN(@val) > 0
@@ -94,6 +91,96 @@ BEGIN
     DEALLOCATE ind_cursor;
     
     RETURN;
+END;
+GO
+
+-- ============================================================================
+-- Helper Function: Extract Cost Index from Remarks
+-- 
+-- Patterns supported:
+--   - CI/50 or CI/100 (standard ICAO-style)
+--   - CI50 or CI100 (compact)
+--   - COST INDEX 50 or COSTINDEX50
+--   - Within RMK/ section
+--
+-- Returns: INT (0-999) or NULL if not found/invalid
+-- ============================================================================
+IF OBJECT_ID('dbo.fn_ExtractCostIndex', 'FN') IS NOT NULL
+    DROP FUNCTION dbo.fn_ExtractCostIndex;
+GO
+
+CREATE FUNCTION dbo.fn_ExtractCostIndex (
+    @remarks NVARCHAR(MAX)
+)
+RETURNS INT
+AS
+BEGIN
+    IF @remarks IS NULL OR LEN(LTRIM(RTRIM(@remarks))) = 0
+        RETURN NULL;
+    
+    DECLARE @upper NVARCHAR(MAX) = UPPER(LTRIM(RTRIM(@remarks)));
+    DECLARE @ci_value INT = NULL;
+    DECLARE @pos INT;
+    DECLARE @num_start INT;
+    DECLARE @num_end INT;
+    DECLARE @num_str NVARCHAR(8);
+    
+    -- Pattern 1: CI/nnn (most common SimBrief format)
+    SET @pos = PATINDEX('%CI/[0-9]%', @upper);
+    IF @pos > 0
+    BEGIN
+        SET @num_start = @pos + 3;
+        -- Find end of number
+        SET @num_end = @num_start;
+        WHILE @num_end <= LEN(@upper) AND SUBSTRING(@upper, @num_end, 1) LIKE '[0-9]'
+            SET @num_end = @num_end + 1;
+        
+        SET @num_str = SUBSTRING(@upper, @num_start, @num_end - @num_start);
+        SET @ci_value = TRY_CAST(@num_str AS INT);
+        
+        IF @ci_value IS NOT NULL AND @ci_value >= 0 AND @ci_value <= 999
+            RETURN @ci_value;
+    END
+    
+    -- Pattern 2: CI followed by number (no slash) - CInnn
+    -- Must be preceded by space or start of string, followed by space or end
+    SET @pos = PATINDEX('%[^A-Z]CI[0-9]%', ' ' + @upper);
+    IF @pos > 0
+    BEGIN
+        SET @num_start = @pos + 2;  -- Skip the space and CI
+        SET @num_end = @num_start;
+        WHILE @num_end <= LEN(@upper) AND SUBSTRING(@upper, @num_end, 1) LIKE '[0-9]'
+            SET @num_end = @num_end + 1;
+        
+        SET @num_str = SUBSTRING(@upper, @num_start, @num_end - @num_start);
+        SET @ci_value = TRY_CAST(@num_str AS INT);
+        
+        IF @ci_value IS NOT NULL AND @ci_value >= 0 AND @ci_value <= 999
+            RETURN @ci_value;
+    END
+    
+    -- Pattern 3: COST INDEX nnn or COSTINDEX/nnn
+    SET @pos = PATINDEX('%COST%INDEX%[0-9]%', @upper);
+    IF @pos > 0
+    BEGIN
+        -- Find the first digit after COST INDEX
+        SET @num_start = PATINDEX('%[0-9]%', SUBSTRING(@upper, @pos, LEN(@upper)));
+        IF @num_start > 0
+        BEGIN
+            SET @num_start = @pos + @num_start - 1;
+            SET @num_end = @num_start;
+            WHILE @num_end <= LEN(@upper) AND SUBSTRING(@upper, @num_end, 1) LIKE '[0-9]'
+                SET @num_end = @num_end + 1;
+            
+            SET @num_str = SUBSTRING(@upper, @num_start, @num_end - @num_start);
+            SET @ci_value = TRY_CAST(@num_str AS INT);
+            
+            IF @ci_value IS NOT NULL AND @ci_value >= 0 AND @ci_value <= 999
+                RETURN @ci_value;
+        END
+    END
+    
+    RETURN NULL;
 END;
 GO
 
@@ -125,26 +212,19 @@ BEGIN
         RETURN;
     
     DECLARE @clean NVARCHAR(MAX) = UPPER(LTRIM(RTRIM(@route)));
-    
-    -- Normalize separators
     SET @clean = REPLACE(@clean, '+', ' ');
     
-    -- Split into tokens
     DECLARE @tokens TABLE (seq INT IDENTITY(1,1), token NVARCHAR(128));
     INSERT INTO @tokens (token)
     SELECT value FROM STRING_SPLIT(@clean, ' ')
     WHERE LEN(LTRIM(RTRIM(value))) > 0;
     
-    -- Find tokens with speed/altitude specs (contain /)
-    -- Pattern: WAYPOINT/N0460F360 or WAYPOINT/M082F390 or WAYPOINT/F350
     DECLARE @seq INT;
     DECLARE @token NVARCHAR(128);
     DECLARE @slash_pos INT;
     DECLARE @waypoint NVARCHAR(64);
     DECLARE @spec NVARCHAR(64);
     DECLARE @step_seq INT = 0;
-    
-    -- Speed/Alt parsing vars
     DECLARE @alt_ft INT;
     DECLARE @fl INT;
     DECLARE @spd_kts INT;
@@ -163,41 +243,25 @@ BEGIN
         SET @waypoint = LEFT(@token, @slash_pos - 1);
         SET @spec = SUBSTRING(@token, @slash_pos + 1, LEN(@token));
         
-        -- Skip if waypoint looks like an indicator (DOF, REG, etc.)
-        IF @waypoint NOT IN ('DOF', 'REG', 'OPR', 'PBN', 'NAV', 'EET', 'RMK', 'STS', 'SEL', 'CODE', 'PER', 'N', 'K', 'M', 'A', 'F', 'S')
+        IF @waypoint NOT IN ('DOF', 'REG', 'OPR', 'PBN', 'NAV', 'EET', 'RMK', 'STS', 'SEL', 'CODE', 'PER', 'N', 'K', 'M', 'A', 'F', 'S', 'CI')
            AND LEN(@waypoint) >= 2 AND LEN(@waypoint) <= 12
-           AND @waypoint NOT LIKE '[0-9]%'  -- Skip pure numeric
+           AND @waypoint NOT LIKE '[0-9]%'
         BEGIN
-            -- Reset
-            SET @alt_ft = NULL;
-            SET @fl = NULL;
-            SET @spd_kts = NULL;
-            SET @spd_mach = NULL;
-            SET @spd_type = NULL;
+            SET @alt_ft = NULL; SET @fl = NULL; SET @spd_kts = NULL; SET @spd_mach = NULL; SET @spd_type = NULL;
             
-            -- Parse speed/altitude spec
-            -- N0460F360 = TAS 460kts, FL360
-            -- M082F390 = Mach 0.82, FL390
-            -- K0850S1200 = 850 km/h, 1200m (rare)
-            -- F350 = FL350 only
-            -- A050 = Altitude 5000ft
-            
-            -- TAS in knots: N0nnn
             IF @spec LIKE 'N0[0-9][0-9][0-9]%'
             BEGIN
                 SET @spd_kts = TRY_CAST(SUBSTRING(@spec, 3, 3) AS INT);
                 SET @spd_type = 'TAS';
                 SET @spec = SUBSTRING(@spec, 6, LEN(@spec));
             END
-            -- TAS in km/h: K0nnn (convert to kts)
             ELSE IF @spec LIKE 'K0[0-9][0-9][0-9]%'
             BEGIN
                 SET @spd_kts = TRY_CAST(SUBSTRING(@spec, 3, 3) AS INT);
-                IF @spd_kts IS NOT NULL SET @spd_kts = CAST(@spd_kts * 0.54 AS INT); -- km/h to kts
+                IF @spd_kts IS NOT NULL SET @spd_kts = CAST(@spd_kts * 0.54 AS INT);
                 SET @spd_type = 'TAS';
                 SET @spec = SUBSTRING(@spec, 6, LEN(@spec));
             END
-            -- Mach: M0nn
             ELSE IF @spec LIKE 'M0[0-9][0-9]%'
             BEGIN
                 SET @spd_mach = TRY_CAST(SUBSTRING(@spec, 2, 3) AS INT) / 100.0;
@@ -205,27 +269,23 @@ BEGIN
                 SET @spec = SUBSTRING(@spec, 5, LEN(@spec));
             END
             
-            -- Flight Level: Fnnn
             IF @spec LIKE 'F[0-9][0-9][0-9]%'
             BEGIN
                 SET @fl = TRY_CAST(SUBSTRING(@spec, 2, 3) AS INT);
                 IF @fl IS NOT NULL SET @alt_ft = @fl * 100;
             END
-            -- Altitude in 10m: Snnnn
             ELSE IF @spec LIKE 'S[0-9][0-9][0-9][0-9]%'
             BEGIN
                 DECLARE @meters INT = TRY_CAST(SUBSTRING(@spec, 2, 4) AS INT) * 10;
                 IF @meters IS NOT NULL SET @alt_ft = CAST(@meters * 3.28084 AS INT);
                 SET @fl = @alt_ft / 100;
             END
-            -- Altitude in 100ft: Annn
             ELSE IF @spec LIKE 'A[0-9][0-9][0-9]%'
             BEGIN
                 SET @alt_ft = TRY_CAST(SUBSTRING(@spec, 2, 3) AS INT) * 100;
                 SET @fl = @alt_ft / 100;
             END
             
-            -- Only insert if we got altitude data
             IF @alt_ft IS NOT NULL
             BEGIN
                 SET @step_seq = @step_seq + 1;
@@ -262,18 +322,10 @@ AS
 BEGIN
     DECLARE @upper_remarks NVARCHAR(MAX) = UPPER(ISNULL(@remarks, ''));
     
-    -- Explicit SimBrief markers
     IF @upper_remarks LIKE '%SIMBRIEF%' RETURN 1;
-    IF @upper_remarks LIKE '%SB/%' RETURN 1;  -- Some use SB/ shorthand
-    
-    -- SimBrief typically includes these together (strong indicator)
-    IF @upper_remarks LIKE '%PBN/%' AND @upper_remarks LIKE '%DOF/%' AND @upper_remarks LIKE '%RMK/%'
-        RETURN 1;
-    
-    -- SimBrief always includes TCAS in RMK
+    IF @upper_remarks LIKE '%SB/%' RETURN 1;
+    IF @upper_remarks LIKE '%PBN/%' AND @upper_remarks LIKE '%DOF/%' AND @upper_remarks LIKE '%RMK/%' RETURN 1;
     IF @upper_remarks LIKE '%RMK/TCAS%' RETURN 1;
-    
-    -- Check for detailed Item 18 pattern that's typical of SimBrief
     IF @upper_remarks LIKE '%PBN/A1B1%' AND @upper_remarks LIKE '%NAV/%' RETURN 1;
     
     RETURN 0;
@@ -282,8 +334,6 @@ GO
 
 -- ============================================================================
 -- Helper Function: Extract Runway from SID/STAR Name
--- Pattern: Procedure names often include runway (RNAV departures especially)
--- Examples: RNP28L, RNAV28R, ILS09L
 -- ============================================================================
 IF OBJECT_ID('dbo.fn_ExtractRunwayFromProcedure', 'FN') IS NOT NULL
     DROP FUNCTION dbo.fn_ExtractRunwayFromProcedure;
@@ -300,29 +350,22 @@ BEGIN
     DECLARE @upper NVARCHAR(32) = UPPER(LTRIM(RTRIM(@procedure)));
     DECLARE @runway NVARCHAR(4) = NULL;
     
-    -- Pattern: ends with runway number + optional L/C/R
-    -- Check for 2-digit runway at end
     IF @upper LIKE '%[0-3][0-9]' AND LEN(@upper) >= 2
     BEGIN
         SET @runway = RIGHT(@upper, 2);
-        -- Validate: runways are 01-36
         IF TRY_CAST(@runway AS INT) > 36 SET @runway = NULL;
     END
-    -- Check for runway + L/C/R
     ELSE IF @upper LIKE '%[0-3][0-9][LCR]' AND LEN(@upper) >= 3
     BEGIN
         SET @runway = RIGHT(@upper, 3);
-        -- Validate
         IF TRY_CAST(LEFT(@runway, 2) AS INT) > 36 SET @runway = NULL;
     END
-    -- Pattern: RWnn or RWnnX anywhere
     ELSE IF @upper LIKE '%RW[0-3][0-9]%'
     BEGIN
         DECLARE @rw_pos INT = PATINDEX('%RW[0-3][0-9]%', @upper);
         IF @rw_pos > 0
         BEGIN
             SET @runway = SUBSTRING(@upper, @rw_pos + 2, 2);
-            -- Check for L/C/R suffix
             IF LEN(@upper) >= @rw_pos + 4 AND SUBSTRING(@upper, @rw_pos + 4, 1) IN ('L', 'C', 'R')
                 SET @runway = @runway + SUBSTRING(@upper, @rw_pos + 4, 1);
         END
@@ -333,7 +376,7 @@ END;
 GO
 
 -- ============================================================================
--- Main Procedure: sp_ParseSimBriefData
+-- Main Procedure: sp_ParseSimBriefData (v1.1)
 -- ============================================================================
 IF OBJECT_ID('dbo.sp_ParseSimBriefData', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ParseSimBriefData;
@@ -354,7 +397,6 @@ BEGIN
     DECLARE @star_name NVARCHAR(16);
     DECLARE @approach NVARCHAR(16);
     
-    -- Get flight plan data
     SELECT 
         @route = fp_route,
         @remarks = fp_remarks,
@@ -386,11 +428,9 @@ BEGIN
     -- ========================================================================
     DECLARE @is_simbrief BIT = dbo.fn_IsSimBriefFlight(@remarks, @route);
     
-    -- Parse Item 18 indicators
     DECLARE @indicators TABLE (indicator NVARCHAR(16), value NVARCHAR(256));
     INSERT INTO @indicators SELECT * FROM dbo.fn_ParseICAORemarks(@remarks);
     
-    -- Extract specific values
     DECLARE @dof NVARCHAR(16) = NULL;
     DECLARE @reg NVARCHAR(32) = NULL;
     DECLARE @opr NVARCHAR(16) = NULL;
@@ -407,11 +447,21 @@ BEGIN
     SELECT @per = value FROM @indicators WHERE indicator = 'PER';
     SELECT @rmk = value FROM @indicators WHERE indicator = 'RMK';
     
+    -- ========================================================================
+    -- Step 1b: Extract Cost Index (NEW in v1.1)
+    -- ========================================================================
+    DECLARE @cost_index INT = dbo.fn_ExtractCostIndex(@remarks);
+    
+    -- If not in remarks, try the route (some pilots put it there)
+    IF @cost_index IS NULL
+        SET @cost_index = dbo.fn_ExtractCostIndex(@route);
+    
     IF @debug = 1
     BEGIN
         PRINT '';
         PRINT 'Item 18 Indicators:';
         PRINT '  Is SimBrief: ' + CASE WHEN @is_simbrief = 1 THEN 'YES' ELSE 'NO' END;
+        PRINT '  Cost Index:  ' + ISNULL(CAST(@cost_index AS VARCHAR), '(not found)');
         PRINT '  DOF: ' + ISNULL(@dof, '(null)');
         PRINT '  REG: ' + ISNULL(@reg, '(null)');
         PRINT '  OPR: ' + ISNULL(@opr, '(null)');
@@ -444,9 +494,7 @@ BEGIN
     
     IF @step_count > 0
     BEGIN
-        -- First altitude in route is initial cruise
         SELECT TOP 1 @initial_alt_ft = altitude_ft FROM @step_climbs ORDER BY sequence_num;
-        -- Last altitude is final cruise
         SELECT TOP 1 @final_alt_ft = altitude_ft FROM @step_climbs ORDER BY sequence_num DESC;
     END
     
@@ -468,11 +516,9 @@ BEGIN
     DECLARE @dep_runway NVARCHAR(4) = NULL;
     DECLARE @arr_runway NVARCHAR(4) = NULL;
     
-    -- Try to get runway from DP/SID name
     IF @dp_name IS NOT NULL
         SET @dep_runway = dbo.fn_ExtractRunwayFromProcedure(@dp_name);
     
-    -- Try to get runway from STAR or approach
     IF @star_name IS NOT NULL
         SET @arr_runway = dbo.fn_ExtractRunwayFromProcedure(@star_name);
     
@@ -488,12 +534,14 @@ BEGIN
     END
     
     -- ========================================================================
-    -- Step 4: Update adl_flight_plan
+    -- Step 4: Update adl_flight_plan (including Cost Index)
     -- ========================================================================
     UPDATE dbo.adl_flight_plan
     SET 
         is_simbrief = @is_simbrief,
-        -- Only update runways if we found them and they're not already set
+        -- Cost Index (NEW in v1.1)
+        cost_index = COALESCE(@cost_index, cost_index),
+        -- Runways
         dep_runway = COALESCE(dep_runway, @dep_runway),
         dep_runway_source = CASE WHEN dep_runway IS NULL AND @dep_runway IS NOT NULL THEN 'DP_PARSE' ELSE dep_runway_source END,
         arr_runway = COALESCE(arr_runway, @arr_runway),
@@ -509,26 +557,17 @@ BEGIN
     -- ========================================================================
     IF @step_count > 0
     BEGIN
-        -- Clear existing step climbs for this flight
         DELETE FROM dbo.adl_flight_stepclimbs WHERE flight_uid = @flight_uid;
         
-        -- Insert new step climbs
         INSERT INTO dbo.adl_flight_stepclimbs (
             flight_uid, step_sequence, waypoint_fix, waypoint_seq,
             altitude_ft, speed_kts, speed_mach, speed_type,
             source, raw_text
         )
         SELECT 
-            @flight_uid,
-            sequence_num,
-            waypoint_fix,
-            NULL,  -- waypoint_seq - would need to match against parsed waypoints
-            altitude_ft,
-            speed_kts,
-            speed_mach,
-            speed_type,
-            'ROUTE',
-            raw_text
+            @flight_uid, sequence_num, waypoint_fix, NULL,
+            altitude_ft, speed_kts, speed_mach, speed_type,
+            'ROUTE', raw_text
         FROM @step_climbs
         ORDER BY sequence_num;
         
@@ -537,11 +576,10 @@ BEGIN
     END
     
     -- ========================================================================
-    -- Step 6: Update waypoints with step climb flags (if route was parsed)
+    -- Step 6: Update waypoints with step climb flags
     -- ========================================================================
     IF @step_count > 0 AND EXISTS (SELECT 1 FROM dbo.adl_flight_waypoints WHERE flight_uid = @flight_uid)
     BEGIN
-        -- Mark waypoints that are step climb points
         UPDATE w
         SET w.is_step_climb_point = 1,
             w.planned_alt_ft = sc.altitude_ft,
@@ -567,7 +605,7 @@ END;
 GO
 
 -- ============================================================================
--- Batch Procedure: Process multiple flights
+-- Batch Procedure: Process multiple flights (v1.1)
 -- ============================================================================
 IF OBJECT_ID('dbo.sp_ParseSimBriefDataBatch', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ParseSimBriefDataBatch;
@@ -583,16 +621,14 @@ BEGIN
     DECLARE @processed INT = 0;
     DECLARE @simbrief_count INT = 0;
     DECLARE @stepclimb_count INT = 0;
+    DECLARE @costindex_count INT = 0;
     DECLARE @flight_uid BIGINT;
     DECLARE @start_time DATETIME2 = SYSUTCDATETIME();
     
-    -- Get batch of flights to process
     DECLARE @batch TABLE (flight_uid BIGINT, has_remarks BIT);
     
     IF @only_unparsed = 1
     BEGIN
-        -- Only process flights that haven't been analyzed yet
-        -- (is_simbrief IS NULL indicates not yet processed)
         INSERT INTO @batch (flight_uid, has_remarks)
         SELECT TOP (@batch_size) 
             fp.flight_uid,
@@ -606,7 +642,6 @@ BEGIN
     END
     ELSE
     BEGIN
-        -- Process all active flights
         INSERT INTO @batch (flight_uid, has_remarks)
         SELECT TOP (@batch_size) 
             fp.flight_uid,
@@ -618,7 +653,6 @@ BEGIN
         ORDER BY fp.flight_uid;
     END
     
-    -- Process each flight
     DECLARE batch_cursor CURSOR LOCAL FAST_FORWARD FOR
         SELECT flight_uid FROM @batch;
     
@@ -632,7 +666,6 @@ BEGIN
             SET @processed = @processed + 1;
         END TRY
         BEGIN CATCH
-            -- Log error but continue processing
             PRINT 'Error processing flight_uid ' + CAST(@flight_uid AS VARCHAR) + ': ' + ERROR_MESSAGE();
         END CATCH
         
@@ -648,28 +681,39 @@ BEGIN
     INNER JOIN @batch b ON fp.flight_uid = b.flight_uid
     WHERE fp.is_simbrief = 1;
     
-    SELECT @stepclimb_count = COUNT(DISTINCT flight_uid)
+    SELECT @stepclimb_count = COUNT(DISTINCT sc.flight_uid)
     FROM dbo.adl_flight_stepclimbs sc
     INNER JOIN @batch b ON sc.flight_uid = b.flight_uid;
     
-    -- Return summary
+    -- NEW: Count flights with Cost Index
+    SELECT @costindex_count = COUNT(*)
+    FROM dbo.adl_flight_plan fp
+    INNER JOIN @batch b ON fp.flight_uid = b.flight_uid
+    WHERE fp.cost_index IS NOT NULL;
+    
+    -- Return summary (added cost_index_flights)
     SELECT 
         @processed AS flights_processed,
         @simbrief_count AS simbrief_flights,
         @stepclimb_count AS flights_with_stepclimbs,
+        @costindex_count AS flights_with_costindex,
         DATEDIFF(MILLISECOND, @start_time, SYSUTCDATETIME()) AS elapsed_ms;
 END;
 GO
 
-PRINT 'SimBrief parsing procedures created successfully.';
+PRINT 'SimBrief parsing procedures v1.1 created successfully.';
+PRINT '';
+PRINT 'NEW in v1.1:';
+PRINT '  - fn_ExtractCostIndex: Extracts Cost Index from remarks/route';
+PRINT '  - sp_ParseSimBriefData: Now populates cost_index column';
+PRINT '  - sp_ParseSimBriefDataBatch: Returns flights_with_costindex count';
+PRINT '';
+PRINT 'Cost Index patterns supported:';
+PRINT '  - CI/50, CI/100 (standard)';
+PRINT '  - CI50, CI100 (compact)';
+PRINT '  - COST INDEX 50';
 PRINT '';
 PRINT 'Usage:';
-PRINT '  -- Parse single flight with debug:';
 PRINT '  EXEC sp_ParseSimBriefData @flight_uid = 12345, @debug = 1;';
-PRINT '';
-PRINT '  -- Batch process unparsed flights:';
 PRINT '  EXEC sp_ParseSimBriefDataBatch @batch_size = 100;';
-PRINT '';
-PRINT '  -- Reprocess all active flights:';
-PRINT '  EXEC sp_ParseSimBriefDataBatch @batch_size = 500, @only_unparsed = 0;';
 GO
