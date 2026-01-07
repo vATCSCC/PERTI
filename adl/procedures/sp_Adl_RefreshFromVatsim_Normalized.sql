@@ -403,7 +403,7 @@ BEGIN
             parse_status = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN 'PENDING' ELSE target.parse_status END,
             route_geometry = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN NULL ELSE target.route_geometry END,
             -- Reset SimBrief flag on route change (V8.5)
-            is_simbrief = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN NULL ELSE target.is_simbrief END
+            is_simbrief = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN 0 ELSE target.is_simbrief END
     WHEN NOT MATCHED THEN
         INSERT (flight_uid, fp_rule, fp_dept_icao, fp_dest_icao, fp_alt_icao,
                 fp_dept_artcc, fp_dept_tracon, fp_dest_artcc, fp_dest_tracon,
