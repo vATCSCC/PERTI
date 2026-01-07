@@ -120,6 +120,20 @@ $result['counts']['position_gap'] = ($result['counts']['active_in_core'] ?? 0) -
 // Report current query source
 $result['query_source'] = defined('ADL_QUERY_SOURCE') ? ADL_QUERY_SOURCE : 'view (default)';
 
+// Test the full normalized query count (to identify WHERE the filtering happens)
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c
+        LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+        LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        LEFT JOIN dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
+        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+        WHERE c.is_active = 1";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['full_join_count'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
 // Check ATIS data (last hour)
 $sql = "SELECT COUNT(*) AS cnt FROM dbo.vatsim_atis WHERE fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
 $stmt = @sqlsrv_query($conn_adl, $sql);
