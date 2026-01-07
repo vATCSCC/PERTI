@@ -35,14 +35,20 @@ echo "Real-World Rates Import\n";
 echo "===========================================\n\n";
 
 $dryRun = false;
-if ($isCLI && in_array('--dry-run', $argv ?? [])) {
-    $dryRun = true;
-} elseif (!$isCLI && isset($_GET['dry-run']) && $_GET['dry-run'] == '1') {
-    $dryRun = true;
+$verbose = false;
+if ($isCLI) {
+    $dryRun = in_array('--dry-run', $argv ?? []);
+    $verbose = in_array('--verbose', $argv ?? []) || in_array('-v', $argv ?? []);
+} else {
+    $dryRun = isset($_GET['dry-run']) && $_GET['dry-run'] == '1';
+    $verbose = isset($_GET['verbose']) && $_GET['verbose'] == '1';
 }
 
 if ($dryRun) {
     echo "** DRY RUN MODE - No data will be inserted **\n\n";
+}
+if ($verbose) {
+    echo "** VERBOSE MODE - Showing detailed matching info **\n\n";
 }
 
 $scriptDir = __DIR__;
@@ -92,6 +98,33 @@ if (!$csvPath) {
 }
 
 echo "Using CSV file: $csvPath\n\n";
+
+// Verify database has configs
+$checkSql = "SELECT COUNT(*) AS cnt FROM dbo.airport_config";
+$checkResult = sqlsrv_query($conn_adl, $checkSql);
+if ($checkResult) {
+    $row = sqlsrv_fetch_array($checkResult, SQLSRV_FETCH_ASSOC);
+    echo "Database has {$row['cnt']} airport configs.\n";
+    if ($row['cnt'] == 0) {
+        die("ERROR: No airport configs in database. Run the migration/import first.\n");
+    }
+    sqlsrv_free_stmt($checkResult);
+} else {
+    echo "WARNING: Could not check config count.\n";
+}
+
+// Sample some airport codes from database
+$sampleSql = "SELECT TOP 5 airport_faa, airport_icao FROM dbo.airport_config ORDER BY airport_faa";
+$sampleResult = sqlsrv_query($conn_adl, $sampleSql);
+if ($sampleResult) {
+    echo "Sample airports in DB: ";
+    $samples = [];
+    while ($s = sqlsrv_fetch_array($sampleResult, SQLSRV_FETCH_ASSOC)) {
+        $samples[] = $s['airport_faa'] . '/' . $s['airport_icao'];
+    }
+    echo implode(', ', $samples) . "\n\n";
+    sqlsrv_free_stmt($sampleResult);
+}
 
 // Read and parse CSV
 $handle = fopen($csvPath, 'r');
@@ -191,13 +224,13 @@ while (($row = fgetcsv($handle)) !== false) {
     // Normalize airport to FAA code
     $faaCode = normalizeToFaa($airport);
 
-    // Find matching config in ADL
-    // First try exact FAA match
+    // Find matching config in ADL - use LEFT JOIN so we get configs even without summary
     $findSql = "
         SELECT c.config_id, c.airport_faa, c.airport_icao, c.config_name,
-               s.arr_runways, s.dep_runways
+               ISNULL(s.arr_runways, '') AS arr_runways,
+               ISNULL(s.dep_runways, '') AS dep_runways
         FROM dbo.airport_config c
-        JOIN dbo.vw_airport_config_summary s ON c.config_id = s.config_id
+        LEFT JOIN dbo.vw_airport_config_summary s ON c.config_id = s.config_id
         WHERE c.airport_faa = ? OR c.airport_icao = ?
     ";
 
@@ -208,26 +241,56 @@ while (($row = fgetcsv($handle)) !== false) {
         continue;
     }
 
+    $configs = [];
+    while ($config = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $configs[] = $config;
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (empty($configs)) {
+        if ($verbose) {
+            echo "  No configs found for $faaCode\n";
+        }
+        $stats['skipped']++;
+        continue;
+    }
+
+    if ($verbose) {
+        echo "  $faaCode: Found " . count($configs) . " config(s), CSV runways: ARR=$arrRwys DEP=$depRwys\n";
+    }
+
     $matchedConfig = null;
     $normalizedCsvArr = normalizeRunways($arrRwys);
     $normalizedCsvDep = normalizeRunways($depRwys);
 
-    while ($config = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+    foreach ($configs as $config) {
         $dbArr = normalizeRunways($config['arr_runways'] ?? '');
         $dbDep = normalizeRunways($config['dep_runways'] ?? '');
 
-        // Try to match by runways (flexible matching)
-        if ($dbArr === $normalizedCsvArr || $dbDep === $normalizedCsvDep) {
-            $matchedConfig = $config;
-            break;
+        if ($verbose) {
+            echo "    Config {$config['config_id']} ({$config['config_name']}): DB ARR=$dbArr DEP=$dbDep\n";
         }
 
-        // If only one config exists for airport, use it
-        if ($matchedConfig === null) {
+        // Try to match by runways (flexible matching)
+        if ($dbArr === $normalizedCsvArr && $dbDep === $normalizedCsvDep) {
+            // Exact match
             $matchedConfig = $config;
+            if ($verbose) echo "      -> Exact match!\n";
+            break;
+        } elseif ($dbArr === $normalizedCsvArr || $dbDep === $normalizedCsvDep) {
+            // Partial match - use if no exact match found
+            if ($matchedConfig === null) {
+                $matchedConfig = $config;
+                if ($verbose) echo "      -> Partial match\n";
+            }
         }
     }
-    sqlsrv_free_stmt($stmt);
+
+    // If only one config exists for airport and no match yet, use it
+    if ($matchedConfig === null && count($configs) === 1) {
+        $matchedConfig = $configs[0];
+        if ($verbose) echo "    -> Using only available config\n";
+    }
 
     if (!$matchedConfig) {
         // No config found - skip (we only update existing configs)

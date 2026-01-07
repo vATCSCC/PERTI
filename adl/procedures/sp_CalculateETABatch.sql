@@ -1,16 +1,22 @@
 -- ============================================================================
--- sp_CalculateETABatch.sql (V2 - Step Climb Integration)
+-- sp_CalculateETABatch.sql (V3 - Route Distance Integration)
 -- Consolidated batch ETA calculation - Single Source of Truth
 -- 
+-- V3 Changes:
+--   - Uses parsed route_dist_nm when available (more accurate than GCD)
+--   - Falls back to gcd_nm when route not parsed
+--   - Tracks distance source for analysis
+--   - Method tracking: BATCH_V3_ROUTE, BATCH_V3_SB, BATCH_V3
+--
 -- V2 Changes:
 --   - Uses SimBrief step climb data when available
 --   - Uses final_alt_ft for more accurate TOD calculation
 --   - Integrates planned cruise speed from step climbs
---   - Enhanced method tracking ('BATCH_V2_SIMBRIEF' vs 'BATCH_V2')
 --
 -- Features:
 --   - Aircraft performance lookup via fn_GetAircraftPerformance
---   - Step climb speed/altitude integration (NEW)
+--   - Route distance integration (NEW in V3)
+--   - Step climb speed/altitude integration
 --   - TMI delay handling (EDCT/CTA)
 --   - Wind component estimation
 --   - Full phase handling
@@ -69,7 +75,15 @@ BEGIN
         fp.is_simbrief,
         fp.fp_dest_icao,
         fp.fp_dept_icao,
+        -- V3: Use route_dist_nm if available, else gcd_nm
+        fp.route_dist_nm,
         fp.gcd_nm,
+        COALESCE(fp.route_dist_nm, fp.gcd_nm) AS total_route_dist,
+        CASE 
+            WHEN fp.route_dist_nm IS NOT NULL THEN 'ROUTE'
+            WHEN fp.gcd_nm IS NOT NULL THEN 'GCD'
+            ELSE 'NONE'
+        END AS dist_source,
         ac.aircraft_icao,
         ISNULL(ac.weight_class, 'L') AS weight_class,
         ac.engine_type,

@@ -33,6 +33,7 @@ if (!file_exists($configPath)) {
 }
 
 require_once $configPath;
+require_once __DIR__ . '/atis_parser.php';
 
 // Verify ADL constants exist
 if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') || !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
@@ -66,6 +67,46 @@ $config = [
     // Performance thresholds (for warnings)
     'warn_sp_ms'      => 5000,   // Warn if SP takes >5s
     'critical_sp_ms'  => 10000,  // Critical if SP takes >10s
+
+    // ATIS processing with dynamic tiered intervals
+    'atis_enabled'    => true,
+
+    // Tier intervals (in 15-second cycles)
+    // Tier 0: every 15s (1 cycle)  - METAR update time / bad weather ASPM77
+    // Tier 1: every 1min (4 cycles) - ASPM77 normal weather
+    // Tier 2: every 5min (20 cycles) - Non-ASPM77 + Canada + LatAm + Caribbean
+    // Tier 3: every 30min (120 cycles) - All other airports
+    // Tier 4: every 60min (240 cycles) - Clear weather non-priority airports
+    'atis_tier_intervals' => [
+        0 => 1,    // every 15s
+        1 => 4,    // every 1min
+        2 => 20,   // every 5min
+        3 => 120,  // every 30min
+        4 => 240,  // every 60min
+    ],
+
+    // ASPM77 airports (FAA Aviation System Performance Metrics)
+    'aspm77' => [
+        'KABQ', 'KALB', 'PANC', 'KATL', 'KAUS', 'KBDL', 'KBHM', 'KBNA', 'KBOS', 'KBUF',
+        'KBUR', 'KBWI', 'KCHS', 'KCLE', 'KCLT', 'KCMH', 'KCVG', 'KDAL', 'KDCA', 'KDEN',
+        'KDFW', 'KDTW', 'KEWR', 'KFLL', 'PHNL', 'KHOU', 'KIAD', 'KIAH', 'KIND', 'KJAX',
+        'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KLGB', 'KMCI', 'KMCO', 'KMDW', 'KMEM', 'KMIA',
+        'KMKE', 'KMSP', 'KMSY', 'KOAK', 'PHOG', 'KOMA', 'KONT', 'KORD', 'KPBI', 'KPDX',
+        'KPHL', 'KPHX', 'KPIT', 'KPVD', 'KRDU', 'KRIC', 'KRSW', 'KSAN', 'KSAT', 'KSDF',
+        'KSEA', 'KSFO', 'KSJC', 'TJSJ', 'KSLC', 'KSMF', 'KSNA', 'KSTL', 'KTEB', 'KTPA',
+        'KTUS',
+    ],
+
+    // Regional prefixes for Tier 2 (Canada, Latin America, Caribbean)
+    'tier2_prefixes' => [
+        'C',  // Canada (CYYZ, CYVR, etc.)
+        'M',  // Mexico & Central America (MMMX, MMUN, etc.)
+        'S',  // South America (SBGR, SCEL, etc.)
+        'T',  // Caribbean (TNCM, TBPB, TFFR, etc.)
+    ],
+
+    // METAR update window (minutes before/after hour to boost to Tier 0)
+    'metar_window_mins' => 5,
 ];
 
 // ============================================================================
@@ -254,6 +295,290 @@ function executeRefreshSP($conn, string $jsonData, int $timeout): array {
 }
 
 // ============================================================================
+// ATIS PROCESSING FUNCTIONS
+// ============================================================================
+
+/**
+ * Extract ATIS controllers from VATSIM data.
+ */
+function extractAtisFromJson(array $data): array {
+    $atisList = [];
+
+    foreach ($data['atis'] ?? [] as $atis) {
+        $callsign = $atis['callsign'] ?? '';
+        if (strpos(strtoupper($callsign), '_ATIS') === false) {
+            continue;
+        }
+
+        // Parse airport and type from callsign
+        $airport = '';
+        $type = 'COMB';
+
+        if (preg_match('/^([A-Z]{3,4})_(?:D|DEP)_ATIS$/i', $callsign, $m)) {
+            $airport = strtoupper($m[1]);
+            $type = 'DEP';
+        } elseif (preg_match('/^([A-Z]{3,4})_(?:A|ARR)_ATIS$/i', $callsign, $m)) {
+            $airport = strtoupper($m[1]);
+            $type = 'ARR';
+        } elseif (preg_match('/^([A-Z]{3,4})_ATIS$/i', $callsign, $m)) {
+            $airport = strtoupper($m[1]);
+            $type = 'COMB';
+        }
+
+        if (empty($airport)) continue;
+
+        // Add K prefix for US 3-letter codes
+        if (strlen($airport) === 3 && !preg_match('/^[PK]/', $airport)) {
+            $airport = 'K' . $airport;
+        }
+
+        // Join text lines
+        $textLines = $atis['text_atis'] ?? [];
+        $text = is_array($textLines) ? implode(' ', $textLines) : '';
+
+        // Extract ATIS code
+        $code = null;
+        if (preg_match('/INFO(?:RMATION)?\s+([A-Z])\b/i', $text, $m)) {
+            $code = strtoupper($m[1]);
+        } elseif (!empty($atis['atis_code'])) {
+            $code = $atis['atis_code'];
+        }
+
+        $atisList[] = [
+            'airport_icao' => $airport,
+            'callsign' => $callsign,
+            'atis_type' => $type,
+            'atis_code' => $code,
+            'frequency' => $atis['frequency'] ?? null,
+            'atis_text' => $text,
+            'controller_cid' => $atis['cid'] ?? null,
+            'logon_time' => $atis['logon_time'] ?? null,
+        ];
+    }
+
+    return $atisList;
+}
+
+/**
+ * Detect weather conditions from ATIS text.
+ * Returns: 'bad', 'clear', or 'normal'
+ *
+ * Bad weather indicators:
+ * - Precipitation (RA, SN, TS, FZ, etc.)
+ * - Low visibility (<3SM or <5000m)
+ * - Low ceiling (BKN/OVC below 1000ft)
+ * - Strong winds (>20kt or gusts)
+ *
+ * Clear weather indicators:
+ * - SKC, CLR, CAVOK, FEW/SCT only
+ * - Visibility 10SM+ or 9999
+ * - No precipitation
+ */
+function detectWeatherCondition(string $atisText): string {
+    $text = strtoupper($atisText);
+
+    // Bad weather patterns
+    $badPatterns = [
+        // Precipitation
+        '/\b(?:RA|SN|DZ|GR|GS|PL|IC|UP|SG|SS|DS)\b/',  // Rain, snow, drizzle, hail, etc.
+        '/\b(?:\+|\-)?(?:TS|FZ|SH)/',  // Thunderstorm, freezing, showers
+        '/\bVC(?:SH|TS)/',  // Vicinity showers/thunderstorms
+        // Obscuration
+        '/\b(?:FG|BR|HZ|FU|VA|DU|SA)\b/',  // Fog, mist, haze, smoke, volcanic ash, dust, sand
+        // Low visibility (less than 3SM or 5000m)
+        '/\b[012]SM\b/',  // 0-2 SM
+        '/\b[0-4]\d{3}\b/',  // 0000-4999 meters
+        '/\bM?1\/[24]SM\b/',  // 1/4SM, 1/2SM
+        // Low ceiling
+        '/\b(?:BKN|OVC)0(?:0[1-9]|10)\b/',  // BKN/OVC 100-1000ft (001-010)
+        '/\bVV0(?:0[1-9]|10)\b/',  // Vertical visibility 100-1000ft
+        // Strong winds
+        '/\b\d{3}(?:2[5-9]|[3-9]\d)(?:G\d{2})?KT\b/',  // 25+ knots
+        '/\b\d{3}\d{2}G\d{2}KT\b/',  // Any gusts
+        // Specific conditions
+        '/\bWIND\s*SHEAR\b/',
+        '/\bMICROBURST\b/',
+        '/\bLLWS\b/',  // Low-level wind shear
+    ];
+
+    foreach ($badPatterns as $pattern) {
+        if (preg_match($pattern, $text)) {
+            return 'bad';
+        }
+    }
+
+    // Clear weather patterns (only if no bad weather found)
+    $clearPatterns = [
+        '/\b(?:SKC|CLR|CAVOK|NSC)\b/',  // Sky clear, CAVOK
+        '/\b(?:10SM|P6SM)\b/',  // Good visibility
+        '/\b9999\b/',  // CAVOK visibility
+    ];
+
+    // Check for only FEW/SCT clouds (no BKN/OVC)
+    $hasClear = false;
+    foreach ($clearPatterns as $pattern) {
+        if (preg_match($pattern, $text)) {
+            $hasClear = true;
+            break;
+        }
+    }
+
+    // If we have clear indicators AND no significant clouds
+    if ($hasClear && !preg_match('/\b(?:BKN|OVC)\d{3}\b/', $text)) {
+        return 'clear';
+    }
+
+    return 'normal';
+}
+
+/**
+ * Check if current time is near METAR update (around top of hour).
+ */
+function isNearMetarUpdate(int $windowMins = 5): bool {
+    $minute = (int)gmdate('i');
+    // METARs typically update around :53-:00
+    return ($minute >= (60 - $windowMins) || $minute <= $windowMins);
+}
+
+/**
+ * Determine base tier for an airport.
+ * Tier 1: ASPM77
+ * Tier 2: Non-ASPM77 US + Canada/LatAm/Caribbean
+ * Tier 3: All others (Europe, Asia, etc.)
+ */
+function getBaseTier(string $airport, array $config): int {
+    // Check ASPM77
+    if (in_array($airport, $config['aspm77'])) {
+        return 1;
+    }
+
+    // Check regional prefixes (Canada, LatAm, Caribbean)
+    $prefix = substr($airport, 0, 1);
+    if (in_array($prefix, $config['tier2_prefixes'])) {
+        return 2;
+    }
+
+    // Check if US airport (non-ASPM77)
+    if ($prefix === 'K' || $prefix === 'P') {
+        return 2;
+    }
+
+    // All others (Europe, Asia, etc.)
+    return 3;
+}
+
+/**
+ * Get effective tier with dynamic weather adjustments.
+ *
+ * Rules:
+ * - Near METAR update time: ASPM77 -> Tier 0
+ * - Bad weather + ASPM77: -> Tier 0
+ * - Bad weather + NOT ASPM77: -> Tier 1
+ * - Clear weather + Tier 3: -> Tier 4
+ */
+function getEffectiveTier(string $airport, string $atisText, array $config): int {
+    $baseTier = getBaseTier($airport, $config);
+    $weather = detectWeatherCondition($atisText);
+    $isMetarTime = isNearMetarUpdate($config['metar_window_mins'] ?? 5);
+    $isAspm77 = in_array($airport, $config['aspm77']);
+
+    // Near METAR update: boost ASPM77 airports to Tier 0
+    if ($isMetarTime && $isAspm77) {
+        return 0;
+    }
+
+    // Bad weather adjustments
+    if ($weather === 'bad') {
+        if ($isAspm77) {
+            return 0;  // ASPM77 with bad weather -> Tier 0
+        } else {
+            return min($baseTier, 1);  // Non-ASPM77 with bad weather -> at most Tier 1
+        }
+    }
+
+    // Clear weather: downgrade Tier 3 to Tier 4
+    if ($weather === 'clear' && $baseTier >= 3) {
+        return 4;
+    }
+
+    return $baseTier;
+}
+
+/**
+ * Get ATIS records to process for this cycle based on dynamic tiers.
+ */
+function getAtisForCycle(array $atisList, array $config, int $cycleNum): array {
+    $filtered = [];
+    $intervals = $config['atis_tier_intervals'];
+
+    foreach ($atisList as $atis) {
+        $airport = $atis['airport_icao'];
+        $text = $atis['atis_text'] ?? '';
+
+        // Determine effective tier for this airport
+        $tier = getEffectiveTier($airport, $text, $config);
+        $interval = $intervals[$tier] ?? $intervals[3];  // Default to Tier 3 interval
+
+        // Check if this cycle should process this tier
+        if ($cycleNum % $interval === 0) {
+            $atis['_tier'] = $tier;  // Add tier info for logging
+            $filtered[] = $atis;
+        }
+    }
+
+    return $filtered;
+}
+
+/**
+ * Process and import ATIS data.
+ */
+function processAtis($conn, array $atisList): array {
+    if (empty($atisList)) {
+        return ['imported' => 0, 'parsed' => 0];
+    }
+
+    $imported = 0;
+    $parsed = 0;
+
+    // Import ATIS records
+    $json = json_encode($atisList);
+    $sql = "EXEC dbo.sp_ImportVatsimAtis @json = ?";
+    $stmt = @sqlsrv_query($conn, $sql, [&$json]);
+
+    if ($stmt !== false) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_NUMERIC);
+        $imported = $row[0] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Parse pending ATIS
+    $sql = "EXEC dbo.sp_GetPendingAtis @limit = 100";
+    $stmt = @sqlsrv_query($conn, $sql);
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $atisId = $row['atis_id'];
+            $text = $row['atis_text'] ?? '';
+
+            $result = parseAtisRunways($text);
+            if (!empty($result['landing']) || !empty($result['departing'])) {
+                $runwaysJson = runwaysToJson($result['landing'], $result['departing'], $result['approaches']);
+
+                $sql2 = "EXEC dbo.sp_ImportRunwaysInUse @atis_id = ?, @runways_json = ?";
+                $stmt2 = @sqlsrv_query($conn, $sql2, [&$atisId, &$runwaysJson]);
+                if ($stmt2 !== false) {
+                    $parsed++;
+                    sqlsrv_free_stmt($stmt2);
+                }
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return ['imported' => $imported, 'parsed' => $parsed];
+}
+
+// ============================================================================
 // CONNECTION HEALTH CHECK (Fast)
 // ============================================================================
 
@@ -261,7 +586,7 @@ function isConnectionAlive($conn): bool {
     if ($conn === null || $conn === false) {
         return false;
     }
-    
+
     $stmt = @sqlsrv_query($conn, "SELECT 1");
     if ($stmt === false) {
         return false;
@@ -314,6 +639,8 @@ function runDaemon(array $config): void {
         'total_sp_ms'   => 0,
         'max_sp_ms'     => 0,
         'total_flights' => 0,
+        'total_atis'    => 0,
+        'total_parsed'  => 0,
         'started'       => time(),
     ];
     
@@ -360,22 +687,43 @@ function runDaemon(array $config): void {
             
             $jsonSizeKb = round(strlen($jsonData) / 1024);
             
-            // 4. Execute stored procedure
+            // 4. Execute stored procedure for flights
             $spResult = executeRefreshSP($conn, $jsonData, $config['sp_timeout']);
             $spMs = $spResult['elapsed_ms'];
-            
-            // Free memory immediately
+
+            // 5. Process ATIS (with dynamic tiered intervals)
+            $atisImported = 0;
+            $atisParsed = 0;
+            if ($config['atis_enabled']) {
+                // Decode JSON for ATIS extraction
+                $vatsimData = json_decode($jsonData, true);
+                if ($vatsimData) {
+                    $allAtis = extractAtisFromJson($vatsimData);
+                    $tieredAtis = getAtisForCycle($allAtis, $config, $stats['runs']);
+
+                    if (!empty($tieredAtis)) {
+                        $atisResult = processAtis($conn, $tieredAtis);
+                        $atisImported = $atisResult['imported'];
+                        $atisParsed = $atisResult['parsed'];
+                    }
+                }
+                unset($vatsimData);
+            }
+
+            // Free memory
             unset($jsonData);
-            
-            // 5. Update stats
+
+            // 6. Update stats
             $stats['successes']++;
             $stats['total_sp_ms'] += $spMs;
             $stats['total_flights'] += $pilotCount;
+            $stats['total_atis'] += $atisImported;
+            $stats['total_parsed'] += $atisParsed;
             if ($spMs > $stats['max_sp_ms']) {
                 $stats['max_sp_ms'] = $spMs;
             }
-            
-            // 6. Log with performance level
+
+            // 7. Log with performance level
             $logLevel = 'INFO';
             $perfNote = '';
             if ($spMs >= $config['critical_sp_ms']) {
@@ -386,12 +734,20 @@ function runDaemon(array $config): void {
                 $perfNote = ' [SLOW: >5s]';
             }
             
-            logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", [
+            $logContext = [
                 'pilots'   => $pilotCount,
                 'json_kb'  => $jsonSizeKb,
                 'fetch_ms' => $fetchMs,
                 'sp_ms'    => $spMs,
-            ]);
+            ];
+
+            // Add ATIS stats when processed this cycle
+            if ($atisImported > 0 || $atisParsed > 0) {
+                $logContext['atis'] = $atisImported;
+                $logContext['parsed'] = $atisParsed;
+            }
+
+            logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", $logContext);
             
         } catch (Exception $e) {
             $stats['failures']++;
@@ -414,13 +770,15 @@ function runDaemon(array $config): void {
             $avgFlights = $stats['successes'] > 0 ? round($stats['total_flights'] / $stats['successes']) : 0;
             $uptime = round((time() - $stats['started']) / 60);
             $successRate = $stats['runs'] > 0 ? round(($stats['successes'] / $stats['runs']) * 100, 1) : 0;
-            
+
             logInfo("=== Stats @ run {$stats['runs']} ===", [
                 'uptime_min'    => $uptime,
                 'success_rate'  => "{$successRate}%",
                 'avg_sp_ms'     => $avgSpMs,
                 'max_sp_ms'     => $stats['max_sp_ms'],
                 'avg_flights'   => $avgFlights,
+                'total_atis'    => $stats['total_atis'],
+                'atis_parsed'   => $stats['total_parsed'],
             ]);
         }
         
