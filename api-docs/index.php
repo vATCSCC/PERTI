@@ -85,12 +85,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        .swagger-ui .info .description p,
-        .swagger-ui .info .description,
-        .swagger-ui .info .description a {
-            color: #e0e0e0;
-        }
-
         .swagger-ui .scheme-container {
             background: var(--perti-bg-dark);
             box-shadow: none;
@@ -315,14 +309,6 @@
             color: #e0e0e0;
         }
 
-        /* Ensure all text is readable */
-        .swagger-ui,
-        .swagger-ui p,
-        .swagger-ui span,
-        .swagger-ui div {
-            color: #e0e0e0;
-        }
-
         /* JSON/Code highlighting */
         .swagger-ui .json-schema-form-item,
         .swagger-ui .json-schema-form-item-add {
@@ -393,9 +379,6 @@
         }
 
         /* Clear button */
-        .swagger-ui .btn-clear {
-            color: #fff;
-        }
 
         /* Server dropdown */
         .swagger-ui .servers > label {
@@ -414,7 +397,6 @@
 
         /* Try it out button */
         .swagger-ui .try-out__btn {
-            color: #fff;
             border-color: var(--perti-primary);
         }
 

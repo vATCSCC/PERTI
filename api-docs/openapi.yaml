@@ -14,7 +14,6 @@ info:
     ## Data Sources
     - **ADL Database**: Real-time flight tracking data (Azure SQL)
     - **PERTI Database**: Planning and configuration data (MySQL)
-    - **CRC Index**: Sector map data (SQLite)
 
     ## Response Types
     Most endpoints return JSON. Some legacy endpoints return HTML table rows
