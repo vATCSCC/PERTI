@@ -1464,6 +1464,64 @@ BEGIN
     ORDER BY seq;
     
     -- ========================================================================
+    -- Step 7b: Calculate segment and cumulative distances
+    -- ========================================================================
+    
+    -- Calculate segment_dist_nm (distance from previous waypoint)
+    ;WITH WaypointPairs AS (
+        SELECT 
+            w.waypoint_id,
+            w.sequence_num,
+            w.lat,
+            w.lon,
+            LAG(w.lat) OVER (ORDER BY w.sequence_num) AS prev_lat,
+            LAG(w.lon) OVER (ORDER BY w.sequence_num) AS prev_lon
+        FROM dbo.adl_flight_waypoints w
+        WHERE w.flight_uid = @flight_uid
+    )
+    UPDATE fw
+    SET segment_dist_nm = CASE 
+        WHEN wp.prev_lat IS NOT NULL AND wp.prev_lon IS NOT NULL 
+             AND wp.lat IS NOT NULL AND wp.lon IS NOT NULL
+        THEN CAST(
+            geography::Point(wp.prev_lat, wp.prev_lon, 4326).STDistance(
+                geography::Point(wp.lat, wp.lon, 4326)
+            ) / 1852.0 AS DECIMAL(10,2)
+        )
+        ELSE 0
+    END
+    FROM dbo.adl_flight_waypoints fw
+    INNER JOIN WaypointPairs wp ON wp.waypoint_id = fw.waypoint_id;
+    
+    -- Calculate cum_dist_nm (cumulative sum of segment distances)
+    ;WITH CumulativeCalc AS (
+        SELECT 
+            waypoint_id,
+            sequence_num,
+            SUM(ISNULL(segment_dist_nm, 0)) OVER (ORDER BY sequence_num) AS running_total
+        FROM dbo.adl_flight_waypoints
+        WHERE flight_uid = @flight_uid
+    )
+    UPDATE fw
+    SET cum_dist_nm = cc.running_total
+    FROM dbo.adl_flight_waypoints fw
+    INNER JOIN CumulativeCalc cc ON cc.waypoint_id = fw.waypoint_id;
+    
+    -- ========================================================================
+    -- Step 7c: Update route_total_nm in flight plan
+    -- ========================================================================
+    
+    DECLARE @route_total_nm DECIMAL(10,2);
+    
+    SELECT @route_total_nm = MAX(cum_dist_nm)
+    FROM dbo.adl_flight_waypoints
+    WHERE flight_uid = @flight_uid;
+    
+    UPDATE dbo.adl_flight_plan
+    SET route_total_nm = @route_total_nm
+    WHERE flight_uid = @flight_uid;
+    
+    -- ========================================================================
     -- Done
     -- ========================================================================
     IF @debug = 1
@@ -1476,6 +1534,7 @@ BEGIN
         PRINT 'Parse complete. Status: ' + @parse_status;
         PRINT 'Elapsed: ' + CAST(@elapsed_ms AS VARCHAR) + 'ms';
         PRINT 'Waypoints: ' + CAST(@wp_count AS VARCHAR);
+        PRINT 'Route Total: ' + ISNULL(CAST(@route_total_nm AS VARCHAR), 'NULL') + ' nm';
         PRINT '';
         PRINT 'Metadata:';
         PRINT '  DP Name:    ' + ISNULL(@dp_name, '(none)');
@@ -1486,7 +1545,9 @@ BEGIN
         PRINT '  STAR Trans: ' + ISNULL(@strsn, '(none)');
         PRINT '================================================';
         
-        SELECT sequence_num, fix_name, ROUND(lat, 4) as lat, ROUND(lon, 4) as lon, fix_type, source, on_airway, on_dp, on_star
+        SELECT sequence_num, fix_name, ROUND(lat, 4) as lat, ROUND(lon, 4) as lon, 
+               segment_dist_nm, cum_dist_nm,
+               fix_type, source, on_airway, on_dp, on_star
         FROM dbo.adl_flight_waypoints
         WHERE flight_uid = @flight_uid
         ORDER BY sequence_num;
