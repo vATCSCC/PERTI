@@ -104,30 +104,48 @@ $datasets = [
     'enroute' => [],
     'departed' => [],
     'taxiing' => [],
-    'prefile' => []
+    'prefile' => [],
+    'unknown' => []
 ];
+
+$emphasizeIndices = [];  // Indices for 00Z and 12Z labels
 
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $bucket = $row['bucket'];
     if ($bucket instanceof DateTime) {
-        $labels[] = $bucket->format('H:i');
+        $day = $bucket->format('d');
+        $hour = $bucket->format('H');
+        $minute = $bucket->format('i');
+        $labels[] = $day . '/' . $hour . $minute . 'Z';
+        // Track 00Z and 12Z for emphasis
+        if (($hour === '00' || $hour === '12') && $minute === '00') {
+            $emphasizeIndices[] = count($labels) - 1;
+        }
     } else {
-        $labels[] = substr($bucket, 11, 5); // Extract HH:MM from datetime string
+        // Parse from string: YYYY-MM-DD HH:MM:SS
+        $day = substr($bucket, 8, 2);
+        $hour = substr($bucket, 11, 2);
+        $minute = substr($bucket, 14, 2);
+        $labels[] = $day . '/' . $hour . $minute . 'Z';
+        if (($hour === '00' || $hour === '12') && $minute === '00') {
+            $emphasizeIndices[] = count($labels) - 1;
+        }
     }
 
-    // Stack order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile
+    // Stack order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
     $datasets['arrived'][] = (int)$row['arrived'];
     $datasets['descending'][] = (int)$row['descending'];
     $datasets['enroute'][] = (int)$row['enroute'];
     $datasets['departed'][] = (int)$row['departed'];
     $datasets['taxiing'][] = (int)$row['taxiing'];
     $datasets['prefile'][] = (int)$row['prefile'];
+    $datasets['unknown'][] = (int)$row['unknown'];
 }
 
 sqlsrv_free_stmt($stmt);
 
-// Get current time label for vertical line marker
-$currentTimeLabel = gmdate('H:i');
+// Get current time label for vertical line marker (dd/hhmmZ format)
+$currentTimeLabel = gmdate('d/Hi') . 'Z';
 
 // Get total snapshot count for debugging
 $countSql = "SELECT COUNT(*) AS cnt FROM dbo.flight_phase_snapshot WHERE snapshot_utc > DATEADD(HOUR, -?, SYSUTCDATETIME())";
@@ -140,6 +158,43 @@ if ($countStmt) {
 }
 
 sqlsrv_close($conn);
+
+// Calculate summary statistics for each phase
+function calcStats($arr) {
+    if (empty($arr)) return ['min' => 0, 'max' => 0, 'avg' => 0, 'median' => 0, 'sum' => 0];
+    sort($arr);
+    $count = count($arr);
+    $sum = array_sum($arr);
+    $median = $count % 2 === 0
+        ? ($arr[$count/2 - 1] + $arr[$count/2]) / 2
+        : $arr[floor($count/2)];
+    return [
+        'min' => min($arr),
+        'max' => max($arr),
+        'avg' => round($sum / $count, 1),
+        'median' => round($median, 1),
+        'sum' => $sum
+    ];
+}
+
+// Calculate total active (sum of all phases except prefile for each time point)
+$totalActive = [];
+for ($i = 0; $i < count($datasets['arrived']); $i++) {
+    $totalActive[] = $datasets['arrived'][$i] + $datasets['descending'][$i] +
+                     $datasets['enroute'][$i] + $datasets['departed'][$i] +
+                     $datasets['taxiing'][$i];
+}
+
+$summary = [
+    'prefile' => calcStats($datasets['prefile']),
+    'taxiing' => calcStats($datasets['taxiing']),
+    'departed' => calcStats($datasets['departed']),
+    'enroute' => calcStats($datasets['enroute']),
+    'descending' => calcStats($datasets['descending']),
+    'arrived' => calcStats($datasets['arrived']),
+    'unknown' => calcStats($datasets['unknown']),
+    'total_active' => calcStats($totalActive)
+];
 
 echo json_encode([
     "success" => true,
@@ -155,6 +210,8 @@ echo json_encode([
     ],
     "data" => [
         "labels" => $labels,
-        "datasets" => $datasets
-    ]
+        "datasets" => $datasets,
+        "emphasize_indices" => $emphasizeIndices
+    ],
+    "summary" => $summary
 ], JSON_PRETTY_PRINT);

@@ -1200,9 +1200,34 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     <div class="chart-header">
                         <span class="chart-title"><i class="fas fa-plane mr-1"></i> Flight Activity (24 Hours)</span>
                         <span class="runtime-badge"><?= number_format($liveData['active_flights']) ?> active</span>
+                        <label class="ml-3" style="font-size: 11px; cursor: pointer;">
+                            <input type="checkbox" id="phaseChartLogScale" style="margin-right: 4px;"> Log Scale
+                        </label>
                     </div>
-                    <div class="chart-wrapper" style="height: 200px;">
+                    <div class="chart-wrapper" style="height: 220px;">
                         <canvas id="phaseChart" class="chart-canvas"></canvas>
+                    </div>
+                    <!-- Collapsible 24-hour summary stats -->
+                    <div class="mt-2">
+                        <a data-toggle="collapse" href="#phaseSummaryStats" role="button" aria-expanded="false" aria-controls="phaseSummaryStats" style="font-size: 11px; color: #666;">
+                            <i class="fas fa-chevron-down mr-1"></i> 24-Hour Summary Statistics
+                        </a>
+                        <div class="collapse" id="phaseSummaryStats">
+                            <table class="table table-sm table-bordered mt-2" style="font-size: 10px;">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Phase</th>
+                                        <th>Min</th>
+                                        <th>Max</th>
+                                        <th>Avg</th>
+                                        <th>Median</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="phaseSummaryBody">
+                                    <tr><td colspan="5" class="text-center text-muted">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2104,6 +2129,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         if (result.success && result.data) {
                             const data = result.data;
                             const currentTimeLabel = result.current_time_label;
+                            const emphasizeIndices = data.emphasize_indices || [];
 
                             // Find index of current time in labels (or closest match)
                             let currentTimeIndex = data.labels.length - 1; // Default to last
@@ -2119,7 +2145,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 }
                             }
 
-                            new Chart(phaseCtx, {
+                            window.phaseChartInstance = new Chart(phaseCtx, {
                                 type: 'line',
                                 data: {
                                     labels: data.labels,
@@ -2173,7 +2199,19 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             label: 'Prefile',
                                             data: data.datasets.prefile,
                                             borderColor: '#06b6d4',
-                                            backgroundColor: 'rgba(6, 182, 212, 0.8)',
+                                            backgroundColor: 'transparent',
+                                            fill: false,
+                                            tension: 0.3,
+                                            pointRadius: 0,
+                                            borderDash: [5, 5],
+                                            borderWidth: 2,
+                                            yAxisID: 'y2'
+                                        },
+                                        {
+                                            label: 'Unknown',
+                                            data: data.datasets.unknown || [],
+                                            borderColor: '#eab308',
+                                            backgroundColor: 'rgba(234, 179, 8, 0.8)',
                                             fill: true,
                                             tension: 0.3,
                                             pointRadius: 0
@@ -2186,7 +2224,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     plugins: {
                                         legend: {
                                             display: true,
-                                            position: 'top',
+                                            position: 'bottom',
                                             labels: {
                                                 boxWidth: 12,
                                                 padding: 10,
@@ -2221,14 +2259,56 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     scales: {
                                         x: {
                                             display: true,
+                                            title: {
+                                                display: true,
+                                                text: 'Time (UTC)',
+                                                font: { size: 11, weight: 'bold' }
+                                            },
                                             grid: { display: false },
-                                            ticks: { font: { size: 9 }, maxRotation: 0 }
+                                            ticks: {
+                                                font: { size: 8 },
+                                                maxRotation: 45,
+                                                minRotation: 45,
+                                                callback: function(value, index) {
+                                                    const label = this.getLabelForValue(value);
+                                                    return label;
+                                                },
+                                                color: function(context) {
+                                                    return emphasizeIndices.includes(context.index) ? '#000000' : '#666666';
+                                                },
+                                                font: function(context) {
+                                                    if (emphasizeIndices.includes(context.index)) {
+                                                        return { size: 10, weight: 'bold' };
+                                                    }
+                                                    return { size: 8 };
+                                                }
+                                            }
                                         },
                                         y: {
                                             display: true,
                                             stacked: true,
+                                            position: 'left',
+                                            title: {
+                                                display: true,
+                                                text: 'Active Flights',
+                                                font: { size: 11, weight: 'bold' }
+                                            },
                                             grid: { color: '#f0f0f0' },
                                             ticks: { font: { size: 10 } },
+                                            beginAtZero: true
+                                        },
+                                        y2: {
+                                            display: true,
+                                            stacked: false,
+                                            position: 'right',
+                                            title: {
+                                                display: true,
+                                                text: 'Prefiles',
+                                                font: { size: 11, weight: 'bold' },
+                                                color: '#06b6d4'
+                                            },
+                                            grid: { display: false },
+                                            ticks: { font: { size: 10 }, color: '#06b6d4' },
                                             beginAtZero: true
                                         }
                                     },
@@ -2239,6 +2319,52 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     }
                                 }
                             });
+
+                            // Populate summary statistics table
+                            if (result.summary) {
+                                const s = result.summary;
+                                const phases = [
+                                    { key: 'total_active', label: 'Total Active', color: '#333' },
+                                    { key: 'prefile', label: 'Prefile', color: '#06b6d4' },
+                                    { key: 'taxiing', label: 'Taxiing', color: '#22c55e' },
+                                    { key: 'departed', label: 'Departed', color: '#f87171' },
+                                    { key: 'enroute', label: 'En Route', color: '#dc2626' },
+                                    { key: 'descending', label: 'Descending', color: '#991b1b' },
+                                    { key: 'arrived', label: 'Arrived', color: '#1a1a1a' },
+                                    { key: 'unknown', label: 'Unknown', color: '#eab308' }
+                                ];
+                                let tableHtml = '';
+                                phases.forEach(p => {
+                                    const stats = s[p.key] || {};
+                                    tableHtml += `<tr>
+                                        <td style="color: ${p.color}; font-weight: bold;">${p.label}</td>
+                                        <td>${stats.min || 0}</td>
+                                        <td>${stats.max || 0}</td>
+                                        <td>${stats.avg || 0}</td>
+                                        <td>${stats.median || 0}</td>
+                                    </tr>`;
+                                });
+                                document.getElementById('phaseSummaryBody').innerHTML = tableHtml;
+                            }
+
+                            // Log scale toggle
+                            const logToggle = document.getElementById('phaseChartLogScale');
+                            if (logToggle) {
+                                logToggle.addEventListener('change', function() {
+                                    if (!window.phaseChartInstance) return;
+                                    const isLog = this.checked;
+                                    window.phaseChartInstance.options.scales.y.type = isLog ? 'logarithmic' : 'linear';
+                                    window.phaseChartInstance.options.scales.y2.type = isLog ? 'logarithmic' : 'linear';
+                                    if (isLog) {
+                                        window.phaseChartInstance.options.scales.y.min = 1;
+                                        window.phaseChartInstance.options.scales.y2.min = 1;
+                                    } else {
+                                        delete window.phaseChartInstance.options.scales.y.min;
+                                        delete window.phaseChartInstance.options.scales.y2.min;
+                                    }
+                                    window.phaseChartInstance.update();
+                                });
+                            }
                         }
                     })
                     .catch(err => console.error('Failed to load phase history:', err));
