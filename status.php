@@ -2196,6 +2196,20 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             pointRadius: 0
                                         },
                                         {
+                                            label: 'Prefile (shadow)',
+                                            data: data.datasets.prefile,
+                                            borderColor: '#000000',
+                                            backgroundColor: 'transparent',
+                                            fill: false,
+                                            tension: 0.3,
+                                            pointRadius: 0,
+                                            borderDash: [5, 5],
+                                            borderWidth: 4,
+                                            yAxisID: 'y2',
+                                            hidden: false,
+                                            legend: { display: false }
+                                        },
+                                        {
                                             label: 'Prefile',
                                             data: data.datasets.prefile,
                                             borderColor: '#06b6d4',
@@ -2228,12 +2242,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             labels: {
                                                 boxWidth: 12,
                                                 padding: 10,
-                                                font: { size: 10 }
+                                                font: { size: 10 },
+                                                filter: function(item) {
+                                                    return !item.text.includes('shadow');
+                                                }
                                             }
                                         },
                                         tooltip: {
                                             mode: 'index',
-                                            intersect: false
+                                            intersect: false,
+                                            filter: function(item) {
+                                                return !item.dataset.label.includes('shadow');
+                                            }
                                         },
                                         annotation: {
                                             annotations: {
