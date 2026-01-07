@@ -287,7 +287,10 @@ BEGIN
             w.in_utc,
             w.ata_runway_utc,
             w.current_eta,
+            -- V3: Use total_route_dist instead of just gcd_nm
+            w.total_route_dist,
             w.gcd_nm,
+            w.dist_source,
             w.is_simbrief,
             w.stepclimb_count,
             w.speed_source,
@@ -370,15 +373,16 @@ BEGIN
                     + (e.filed_alt - e.dest_elev) / 1000.0 * 2.0 / NULLIF(e.climb_speed, 0) * 60
                     + CASE WHEN (e.dist_to_dest_nm - (e.filed_alt - e.dest_elev) / 1000.0 * 2.0 - e.tod_dist) > 0
                            THEN (e.dist_to_dest_nm - (e.filed_alt - e.dest_elev) / 1000.0 * 2.0 - e.tod_dist) / NULLIF(e.cruise_speed, 0) * 60
-                           ELSE ISNULL(e.gcd_nm, 500) / NULLIF(e.cruise_speed, 0) * 60
+                           -- V3: Use total_route_dist as fallback
+                           ELSE ISNULL(e.total_route_dist, 500) / NULLIF(e.cruise_speed, 0) * 60
                     END
                     + e.tod_dist / NULLIF(e.descent_speed, 0) * 60
                     + e.tmi_delay
                 
-                -- Pre-file
+                -- Pre-file: V3 uses total_route_dist
                 ELSE
                     15
-                    + ISNULL(e.dist_to_dest_nm, e.gcd_nm) / NULLIF(e.cruise_speed, 0) * 60 * 1.15
+                    + ISNULL(e.dist_to_dest_nm, e.total_route_dist) / NULLIF(e.cruise_speed, 0) * 60 * 1.15
                     + e.tmi_delay
                     
             END AS time_to_dest_min,
@@ -436,6 +440,7 @@ BEGIN
             et.is_simbrief,
             et.stepclimb_count,
             et.speed_source,
+            et.dist_source,  -- V3: Track distance source
             
             CASE 
                 WHEN et.is_arrived = 1 THEN et.actual_arrival
@@ -477,11 +482,13 @@ BEGIN
         ef.tmi_delay,
         ef.tod_dist,
         ef.tod_eta,
-        -- V2: Track method for analysis
+        -- V3: Track method with distance source
         CASE 
-            WHEN ef.is_simbrief = 1 AND ef.stepclimb_count > 0 THEN 'BATCH_V2_SB'
-            WHEN ef.speed_source = 'SIMBRIEF_TAS' OR ef.speed_source = 'SIMBRIEF_MACH' THEN 'BATCH_V2_SB'
-            ELSE 'BATCH_V2'
+            WHEN ef.dist_source = 'ROUTE' AND ef.is_simbrief = 1 THEN 'V3_ROUTE_SB'
+            WHEN ef.dist_source = 'ROUTE' THEN 'V3_ROUTE'
+            WHEN ef.is_simbrief = 1 AND ef.stepclimb_count > 0 THEN 'V3_SB'
+            WHEN ef.speed_source = 'SIMBRIEF_TAS' OR ef.speed_source = 'SIMBRIEF_MACH' THEN 'V3_SB'
+            ELSE 'V3'
         END AS eta_method
     INTO #eta_results
     FROM EtaFinal ef;
@@ -592,11 +599,14 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_CalculateETABatch V2 (Step Climb Integration)';
+PRINT 'Created sp_CalculateETABatch V3 (Route Distance Integration)';
 PRINT '';
-PRINT 'V2 Enhancements:';
-PRINT '  - Uses SimBrief final_alt_ft for accurate TOD calculation';
-PRINT '  - Integrates step climb cruise speeds (TAS/Mach)';
-PRINT '  - Higher confidence for SimBrief flights with step climbs';
-PRINT '  - Method tracking: BATCH_V2_SB vs BATCH_V2';
+PRINT 'V3 Enhancements:';
+PRINT '  - Uses parsed route_dist_nm when available (more accurate than GCD)';
+PRINT '  - Falls back to gcd_nm when route not parsed';
+PRINT '  - Method tracking: V3_ROUTE_SB, V3_ROUTE, V3_SB, V3';
+PRINT '';
+PRINT 'V2 Features retained:';
+PRINT '  - SimBrief step climb speed integration';
+PRINT '  - final_alt_ft for accurate TOD calculation';
 GO
