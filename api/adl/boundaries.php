@@ -1,9 +1,10 @@
 <?php
 /**
- * Phase 5E.1: Boundary API Endpoint
+ * Phase 5E.2: Boundary API Endpoint
  * /api/adl/boundaries.php
  * 
  * Provides boundary data for map display and flight tracking
+ * Updated: Multi-sector support with overlap detection
  */
 
 header('Content-Type: application/json');
@@ -170,8 +171,10 @@ switch ($action) {
         break;
     
     /**
-     * Get boundary containing a point
+     * Get all boundaries containing a point
      * GET /api/adl/boundaries.php?action=contains&lat=38.8977&lon=-77.0365
+     * 
+     * Returns ALL overlapping sectors by type
      */
     case 'contains':
         $lat = floatval($_GET['lat'] ?? 0);
@@ -183,7 +186,7 @@ switch ($action) {
             break;
         }
         
-        // Find ARTCC
+        // Find ARTCC (single, prefer non-oceanic)
         $sql = "SELECT TOP 1 
             boundary_id, boundary_code, boundary_name, is_oceanic
         FROM adl_boundary
@@ -195,20 +198,55 @@ switch ($action) {
         $stmt = sqlsrv_query($conn, $sql, [$lat, $lon]);
         $artcc = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         
-        // Find Sector
-        $sql = "SELECT TOP 1 
-            boundary_id, boundary_type, boundary_code, boundary_name, parent_artcc,
+        // Find ALL low sectors
+        $sql = "SELECT 
+            boundary_id, boundary_code, boundary_name, parent_artcc,
             floor_altitude, ceiling_altitude
         FROM adl_boundary
-        WHERE boundary_type IN ('SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH')
+        WHERE boundary_type = 'SECTOR_LOW'
           AND is_active = 1
           AND boundary_geography.STContains(geography::Point(?, ?, 4326)) = 1
-        ORDER BY boundary_geography.STArea() ASC";
+        ORDER BY boundary_code";
         
         $stmt = sqlsrv_query($conn, $sql, [$lat, $lon]);
-        $sector = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $sectors_low = [];
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $sectors_low[] = $row;
+        }
         
-        // Find TRACON
+        // Find ALL high sectors
+        $sql = "SELECT 
+            boundary_id, boundary_code, boundary_name, parent_artcc,
+            floor_altitude, ceiling_altitude
+        FROM adl_boundary
+        WHERE boundary_type = 'SECTOR_HIGH'
+          AND is_active = 1
+          AND boundary_geography.STContains(geography::Point(?, ?, 4326)) = 1
+        ORDER BY boundary_code";
+        
+        $stmt = sqlsrv_query($conn, $sql, [$lat, $lon]);
+        $sectors_high = [];
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $sectors_high[] = $row;
+        }
+        
+        // Find ALL superhigh sectors
+        $sql = "SELECT 
+            boundary_id, boundary_code, boundary_name, parent_artcc,
+            floor_altitude, ceiling_altitude
+        FROM adl_boundary
+        WHERE boundary_type = 'SECTOR_SUPERHIGH'
+          AND is_active = 1
+          AND boundary_geography.STContains(geography::Point(?, ?, 4326)) = 1
+        ORDER BY boundary_code";
+        
+        $stmt = sqlsrv_query($conn, $sql, [$lat, $lon]);
+        $sectors_superhigh = [];
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $sectors_superhigh[] = $row;
+        }
+        
+        // Find TRACON (below FL180 only)
         $tracon = null;
         if ($alt === null || $alt < 18000) {
             $sql = "SELECT TOP 1 
@@ -227,7 +265,9 @@ switch ($action) {
             'success' => true,
             'position' => ['lat' => $lat, 'lon' => $lon, 'alt' => $alt],
             'artcc' => $artcc ?: null,
-            'sector' => $sector ?: null,
+            'sectors_low' => $sectors_low,
+            'sectors_high' => $sectors_high,
+            'sectors_superhigh' => $sectors_superhigh,
             'tracon' => $tracon ?: null
         ]);
         break;
@@ -260,6 +300,8 @@ switch ($action) {
     /**
      * Get flight boundary status
      * GET /api/adl/boundaries.php?action=flight&callsign=AAL123
+     * 
+     * Returns multi-sector assignments
      */
     case 'flight':
         $flightUid = $_GET['uid'] ?? null;
@@ -270,10 +312,14 @@ switch ($action) {
             fc.callsign,
             fc.current_artcc,
             ab1.boundary_name as artcc_name,
-            fc.current_sector,
-            ab2.boundary_name as sector_name,
+            fc.current_sector_low,
+            fc.current_sector_low_ids,
+            fc.current_sector_high,
+            fc.current_sector_high_ids,
+            fc.current_sector_superhigh,
+            fc.current_sector_superhigh_ids,
             fc.current_tracon,
-            ab3.boundary_name as tracon_name,
+            ab2.boundary_name as tracon_name,
             fc.boundary_updated_at,
             fp.lat as latitude,
             fp.lon as longitude,
@@ -281,8 +327,7 @@ switch ($action) {
         FROM adl_flight_core fc
         LEFT JOIN adl_flight_position fp ON fc.flight_uid = fp.flight_uid
         LEFT JOIN adl_boundary ab1 ON fc.current_artcc_id = ab1.boundary_id
-        LEFT JOIN adl_boundary ab2 ON fc.current_sector_id = ab2.boundary_id
-        LEFT JOIN adl_boundary ab3 ON fc.current_tracon_id = ab3.boundary_id
+        LEFT JOIN adl_boundary ab2 ON fc.current_tracon_id = ab2.boundary_id
         WHERE ";
         
         $params = [];
@@ -298,12 +343,50 @@ switch ($action) {
         }
         
         $stmt = sqlsrv_query($conn, $sql, $params);
-        $flight = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         
-        echo json_encode([
-            'success' => true,
-            'flight' => $flight ?: null
-        ]);
+        if ($row) {
+            // Parse JSON IDs if present
+            $flight = [
+                'flight_uid' => (int)$row['flight_uid'],
+                'callsign' => $row['callsign'],
+                'position' => [
+                    'lat' => $row['latitude'] ? (float)$row['latitude'] : null,
+                    'lon' => $row['longitude'] ? (float)$row['longitude'] : null,
+                    'altitude' => $row['altitude'] ? (int)$row['altitude'] : null
+                ],
+                'artcc' => [
+                    'code' => $row['current_artcc'],
+                    'name' => $row['artcc_name']
+                ],
+                'sectors_low' => $row['current_sector_low'] 
+                    ? explode(',', $row['current_sector_low']) 
+                    : [],
+                'sectors_high' => $row['current_sector_high'] 
+                    ? explode(',', $row['current_sector_high']) 
+                    : [],
+                'sectors_superhigh' => $row['current_sector_superhigh'] 
+                    ? explode(',', $row['current_sector_superhigh']) 
+                    : [],
+                'tracon' => [
+                    'code' => $row['current_tracon'],
+                    'name' => $row['tracon_name']
+                ],
+                'boundary_updated_at' => $row['boundary_updated_at'] 
+                    ? $row['boundary_updated_at']->format('Y-m-d H:i:s') 
+                    : null
+            ];
+            
+            echo json_encode([
+                'success' => true,
+                'flight' => $flight
+            ]);
+        } else {
+            echo json_encode([
+                'success' => true,
+                'flight' => null
+            ]);
+        }
         break;
     
     default:

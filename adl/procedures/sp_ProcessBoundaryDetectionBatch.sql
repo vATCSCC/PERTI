@@ -2,8 +2,14 @@
 -- sp_ProcessBoundaryDetectionBatch.sql
 -- Phase 5E.2: Batch boundary detection for all active flights
 -- 
--- Detects ARTCC, sector, and TRACON boundaries for active flights
--- Called from the main refresh procedure
+-- Detects:
+--   - ARTCC (single value)
+--   - SECTOR_LOW (multiple overlapping)
+--   - SECTOR_HIGH (multiple overlapping)
+--   - SECTOR_SUPERHIGH (multiple overlapping)
+--   - TRACON (single value, below FL180 only)
+-- 
+-- Called from sp_Adl_RefreshFromVatsim_Normalized Step 10
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -35,11 +41,12 @@ BEGIN
         p.lat,
         p.lon,
         p.altitude_ft,
-        -- Current boundary assignments
+        -- Current assignments
         c.current_artcc,
         c.current_artcc_id,
-        c.current_sector,
-        c.current_sector_id,
+        c.current_sector_low,
+        c.current_sector_high,
+        c.current_sector_superhigh,
         c.current_tracon,
         c.current_tracon_id,
         -- Geography point for containment queries
@@ -56,15 +63,12 @@ BEGIN
     SET @flights_processed = @@ROWCOUNT;
     
     IF @flights_processed = 0
-    BEGIN
         RETURN;
-    END
     
-    -- Index for joins
     CREATE CLUSTERED INDEX IX_flights_uid ON #flights_to_check(flight_uid);
     
     -- ========================================================================
-    -- Step 2: Detect ARTCC boundaries (always check)
+    -- Step 2: Detect ARTCC boundaries
     -- ========================================================================
     
     SELECT 
@@ -74,7 +78,6 @@ BEGIN
         f.altitude_ft,
         f.current_artcc AS prev_artcc,
         f.current_artcc_id AS prev_artcc_id,
-        -- Find containing ARTCC (prefer non-oceanic, smallest area)
         (SELECT TOP 1 b.boundary_id
          FROM dbo.adl_boundary b
          WHERE b.boundary_type = 'ARTCC'
@@ -91,47 +94,126 @@ BEGIN
     FROM #flights_to_check f;
     
     -- ========================================================================
-    -- Step 3: Detect Sector boundaries (for flights in US airspace)
+    -- Step 3: Detect LOW sectors (all overlapping)
     -- ========================================================================
     
+    -- Get all matching low sectors per flight
+    SELECT 
+        f.flight_uid,
+        b.boundary_id,
+        b.boundary_code
+    INTO #low_sectors_raw
+    FROM #flights_to_check f
+    CROSS APPLY (
+        SELECT boundary_id, boundary_code
+        FROM dbo.adl_boundary b
+        WHERE b.boundary_type = 'SECTOR_LOW'
+          AND b.is_active = 1
+          AND b.boundary_geography.STContains(f.position_geo) = 1
+    ) b;
+    
+    -- Aggregate to comma-separated and JSON
     SELECT 
         f.flight_uid,
         f.lat,
         f.lon,
         f.altitude_ft,
-        f.current_sector AS prev_sector,
-        f.current_sector_id AS prev_sector_id,
-        -- Find containing sector (smallest area, altitude-appropriate)
-        (SELECT TOP 1 b.boundary_id
-         FROM dbo.adl_boundary b
-         WHERE b.boundary_type IN ('SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH')
-           AND b.is_active = 1
-           AND b.boundary_geography.STContains(f.position_geo) = 1
-           -- Altitude filtering: skip sectors where flight is clearly outside altitude range
-           AND (b.floor_altitude IS NULL OR f.altitude_ft >= b.floor_altitude * 100)
-           AND (b.ceiling_altitude IS NULL OR f.altitude_ft <= b.ceiling_altitude * 100)
-         ORDER BY b.boundary_geography.STArea() ASC) AS new_sector_id,
-        (SELECT TOP 1 b.boundary_code
-         FROM dbo.adl_boundary b
-         WHERE b.boundary_type IN ('SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH')
-           AND b.is_active = 1
-           AND b.boundary_geography.STContains(f.position_geo) = 1
-           AND (b.floor_altitude IS NULL OR f.altitude_ft >= b.floor_altitude * 100)
-           AND (b.ceiling_altitude IS NULL OR f.altitude_ft <= b.ceiling_altitude * 100)
-         ORDER BY b.boundary_geography.STArea() ASC) AS new_sector,
-        (SELECT TOP 1 b.boundary_type
-         FROM dbo.adl_boundary b
-         WHERE b.boundary_type IN ('SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH')
-           AND b.is_active = 1
-           AND b.boundary_geography.STContains(f.position_geo) = 1
-           AND (b.floor_altitude IS NULL OR f.altitude_ft >= b.floor_altitude * 100)
-           AND (b.ceiling_altitude IS NULL OR f.altitude_ft <= b.ceiling_altitude * 100)
-         ORDER BY b.boundary_geography.STArea() ASC) AS new_sector_type
-    INTO #sector_detection
+        f.current_sector_low AS prev_sector_low,
+        STUFF((
+            SELECT ',' + ls.boundary_code
+            FROM #low_sectors_raw ls
+            WHERE ls.flight_uid = f.flight_uid
+            ORDER BY ls.boundary_code
+            FOR XML PATH('')
+        ), 1, 1, '') AS new_sector_low,
+        (
+            SELECT ls.boundary_id AS id
+            FROM #low_sectors_raw ls
+            WHERE ls.flight_uid = f.flight_uid
+            ORDER BY ls.boundary_code
+            FOR JSON PATH
+        ) AS new_sector_low_ids
+    INTO #low_detection
     FROM #flights_to_check f;
     
     -- ========================================================================
-    -- Step 4: Detect TRACON boundaries (for low-altitude flights)
+    -- Step 4: Detect HIGH sectors (all overlapping)
+    -- ========================================================================
+    
+    SELECT 
+        f.flight_uid,
+        b.boundary_id,
+        b.boundary_code
+    INTO #high_sectors_raw
+    FROM #flights_to_check f
+    CROSS APPLY (
+        SELECT boundary_id, boundary_code
+        FROM dbo.adl_boundary b
+        WHERE b.boundary_type = 'SECTOR_HIGH'
+          AND b.is_active = 1
+          AND b.boundary_geography.STContains(f.position_geo) = 1
+    ) b;
+    
+    SELECT 
+        f.flight_uid,
+        f.current_sector_high AS prev_sector_high,
+        STUFF((
+            SELECT ',' + hs.boundary_code
+            FROM #high_sectors_raw hs
+            WHERE hs.flight_uid = f.flight_uid
+            ORDER BY hs.boundary_code
+            FOR XML PATH('')
+        ), 1, 1, '') AS new_sector_high,
+        (
+            SELECT hs.boundary_id AS id
+            FROM #high_sectors_raw hs
+            WHERE hs.flight_uid = f.flight_uid
+            ORDER BY hs.boundary_code
+            FOR JSON PATH
+        ) AS new_sector_high_ids
+    INTO #high_detection
+    FROM #flights_to_check f;
+    
+    -- ========================================================================
+    -- Step 5: Detect SUPERHIGH sectors (all overlapping)
+    -- ========================================================================
+    
+    SELECT 
+        f.flight_uid,
+        b.boundary_id,
+        b.boundary_code
+    INTO #superhigh_sectors_raw
+    FROM #flights_to_check f
+    CROSS APPLY (
+        SELECT boundary_id, boundary_code
+        FROM dbo.adl_boundary b
+        WHERE b.boundary_type = 'SECTOR_SUPERHIGH'
+          AND b.is_active = 1
+          AND b.boundary_geography.STContains(f.position_geo) = 1
+    ) b;
+    
+    SELECT 
+        f.flight_uid,
+        f.current_sector_superhigh AS prev_sector_superhigh,
+        STUFF((
+            SELECT ',' + sh.boundary_code
+            FROM #superhigh_sectors_raw sh
+            WHERE sh.flight_uid = f.flight_uid
+            ORDER BY sh.boundary_code
+            FOR XML PATH('')
+        ), 1, 1, '') AS new_sector_superhigh,
+        (
+            SELECT sh.boundary_id AS id
+            FROM #superhigh_sectors_raw sh
+            WHERE sh.flight_uid = f.flight_uid
+            ORDER BY sh.boundary_code
+            FOR JSON PATH
+        ) AS new_sector_superhigh_ids
+    INTO #superhigh_detection
+    FROM #flights_to_check f;
+    
+    -- ========================================================================
+    -- Step 6: Detect TRACON boundaries (below FL180)
     -- ========================================================================
     
     SELECT 
@@ -141,7 +223,6 @@ BEGIN
         f.altitude_ft,
         f.current_tracon AS prev_tracon,
         f.current_tracon_id AS prev_tracon_id,
-        -- Find containing TRACON (smallest area, only for low altitude)
         CASE WHEN f.altitude_ft < 18000 THEN
             (SELECT TOP 1 b.boundary_id
              FROM dbo.adl_boundary b
@@ -162,10 +243,10 @@ BEGIN
     FROM #flights_to_check f;
     
     -- ========================================================================
-    -- Step 5: Log ARTCC transitions
+    -- Step 7: Log ARTCC transitions
     -- ========================================================================
     
-    -- Close existing ARTCC entries where boundary changed
+    -- Close existing ARTCC entries
     UPDATE log
     SET exit_time = @now,
         exit_lat = a.lat,
@@ -194,22 +275,25 @@ BEGIN
     SET @transitions_detected = @transitions_detected + @@ROWCOUNT;
     
     -- ========================================================================
-    -- Step 6: Log Sector transitions
+    -- Step 8: Log LOW sector transitions (per individual sector)
     -- ========================================================================
     
-    -- Close existing sector entries where boundary changed
+    -- Close sectors we've left
     UPDATE log
     SET exit_time = @now,
-        exit_lat = s.lat,
-        exit_lon = s.lon,
-        exit_altitude = s.altitude_ft,
+        exit_lat = f.lat,
+        exit_lon = f.lon,
+        exit_altitude = f.altitude_ft,
         duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)
     FROM dbo.adl_flight_boundary_log log
-    JOIN #sector_detection s ON log.flight_uid = s.flight_uid
-    WHERE log.boundary_type IN ('SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH')
+    JOIN #flights_to_check f ON log.flight_uid = f.flight_uid
+    WHERE log.boundary_type = 'SECTOR_LOW'
       AND log.exit_time IS NULL
-      AND log.boundary_id = s.prev_sector_id
-      AND (s.new_sector_id IS NULL OR s.new_sector_id != s.prev_sector_id);
+      AND NOT EXISTS (
+          SELECT 1 FROM #low_sectors_raw ls 
+          WHERE ls.flight_uid = log.flight_uid 
+            AND ls.boundary_id = log.boundary_id
+      );
     
     -- Insert new sector entries
     INSERT INTO dbo.adl_flight_boundary_log (
@@ -217,19 +301,99 @@ BEGIN
         entry_time, entry_lat, entry_lon, entry_altitude
     )
     SELECT 
-        s.flight_uid, s.new_sector_id, s.new_sector_type, s.new_sector,
-        @now, s.lat, s.lon, s.altitude_ft
-    FROM #sector_detection s
-    WHERE s.new_sector_id IS NOT NULL
-      AND (s.prev_sector_id IS NULL OR s.new_sector_id != s.prev_sector_id);
+        ls.flight_uid, ls.boundary_id, 'SECTOR_LOW', ls.boundary_code,
+        @now, f.lat, f.lon, f.altitude_ft
+    FROM #low_sectors_raw ls
+    JOIN #flights_to_check f ON f.flight_uid = ls.flight_uid
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.adl_flight_boundary_log log
+        WHERE log.flight_uid = ls.flight_uid
+          AND log.boundary_id = ls.boundary_id
+          AND log.exit_time IS NULL
+    );
     
     SET @transitions_detected = @transitions_detected + @@ROWCOUNT;
     
     -- ========================================================================
-    -- Step 7: Log TRACON transitions
+    -- Step 9: Log HIGH sector transitions
     -- ========================================================================
     
-    -- Close existing TRACON entries where boundary changed
+    UPDATE log
+    SET exit_time = @now,
+        exit_lat = f.lat,
+        exit_lon = f.lon,
+        exit_altitude = f.altitude_ft,
+        duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)
+    FROM dbo.adl_flight_boundary_log log
+    JOIN #flights_to_check f ON log.flight_uid = f.flight_uid
+    WHERE log.boundary_type = 'SECTOR_HIGH'
+      AND log.exit_time IS NULL
+      AND NOT EXISTS (
+          SELECT 1 FROM #high_sectors_raw hs 
+          WHERE hs.flight_uid = log.flight_uid 
+            AND hs.boundary_id = log.boundary_id
+      );
+    
+    INSERT INTO dbo.adl_flight_boundary_log (
+        flight_uid, boundary_id, boundary_type, boundary_code,
+        entry_time, entry_lat, entry_lon, entry_altitude
+    )
+    SELECT 
+        hs.flight_uid, hs.boundary_id, 'SECTOR_HIGH', hs.boundary_code,
+        @now, f.lat, f.lon, f.altitude_ft
+    FROM #high_sectors_raw hs
+    JOIN #flights_to_check f ON f.flight_uid = hs.flight_uid
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.adl_flight_boundary_log log
+        WHERE log.flight_uid = hs.flight_uid
+          AND log.boundary_id = hs.boundary_id
+          AND log.exit_time IS NULL
+    );
+    
+    SET @transitions_detected = @transitions_detected + @@ROWCOUNT;
+    
+    -- ========================================================================
+    -- Step 10: Log SUPERHIGH sector transitions
+    -- ========================================================================
+    
+    UPDATE log
+    SET exit_time = @now,
+        exit_lat = f.lat,
+        exit_lon = f.lon,
+        exit_altitude = f.altitude_ft,
+        duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)
+    FROM dbo.adl_flight_boundary_log log
+    JOIN #flights_to_check f ON log.flight_uid = f.flight_uid
+    WHERE log.boundary_type = 'SECTOR_SUPERHIGH'
+      AND log.exit_time IS NULL
+      AND NOT EXISTS (
+          SELECT 1 FROM #superhigh_sectors_raw sh 
+          WHERE sh.flight_uid = log.flight_uid 
+            AND sh.boundary_id = log.boundary_id
+      );
+    
+    INSERT INTO dbo.adl_flight_boundary_log (
+        flight_uid, boundary_id, boundary_type, boundary_code,
+        entry_time, entry_lat, entry_lon, entry_altitude
+    )
+    SELECT 
+        sh.flight_uid, sh.boundary_id, 'SECTOR_SUPERHIGH', sh.boundary_code,
+        @now, f.lat, f.lon, f.altitude_ft
+    FROM #superhigh_sectors_raw sh
+    JOIN #flights_to_check f ON f.flight_uid = sh.flight_uid
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.adl_flight_boundary_log log
+        WHERE log.flight_uid = sh.flight_uid
+          AND log.boundary_id = sh.boundary_id
+          AND log.exit_time IS NULL
+    );
+    
+    SET @transitions_detected = @transitions_detected + @@ROWCOUNT;
+    
+    -- ========================================================================
+    -- Step 11: Log TRACON transitions
+    -- ========================================================================
+    
     UPDATE log
     SET exit_time = @now,
         exit_lat = t.lat,
@@ -243,7 +407,6 @@ BEGIN
       AND log.boundary_id = t.prev_tracon_id
       AND (t.new_tracon_id IS NULL OR t.new_tracon_id != t.prev_tracon_id);
     
-    -- Insert new TRACON entries
     INSERT INTO dbo.adl_flight_boundary_log (
         flight_uid, boundary_id, boundary_type, boundary_code,
         entry_time, entry_lat, entry_lon, entry_altitude
@@ -258,20 +421,26 @@ BEGIN
     SET @transitions_detected = @transitions_detected + @@ROWCOUNT;
     
     -- ========================================================================
-    -- Step 8: Update flight_core with current boundaries
+    -- Step 12: Update flight_core with current boundaries
     -- ========================================================================
     
     UPDATE c
     SET c.current_artcc = a.new_artcc,
         c.current_artcc_id = a.new_artcc_id,
-        c.current_sector = s.new_sector,
-        c.current_sector_id = s.new_sector_id,
+        c.current_sector_low = l.new_sector_low,
+        c.current_sector_low_ids = l.new_sector_low_ids,
+        c.current_sector_high = h.new_sector_high,
+        c.current_sector_high_ids = h.new_sector_high_ids,
+        c.current_sector_superhigh = s.new_sector_superhigh,
+        c.current_sector_superhigh_ids = s.new_sector_superhigh_ids,
         c.current_tracon = t.new_tracon,
         c.current_tracon_id = t.new_tracon_id,
         c.boundary_updated_at = @now
     FROM dbo.adl_flight_core c
     JOIN #artcc_detection a ON a.flight_uid = c.flight_uid
-    JOIN #sector_detection s ON s.flight_uid = c.flight_uid
+    JOIN #low_detection l ON l.flight_uid = c.flight_uid
+    JOIN #high_detection h ON h.flight_uid = c.flight_uid
+    JOIN #superhigh_detection s ON s.flight_uid = c.flight_uid
     JOIN #tracon_detection t ON t.flight_uid = c.flight_uid;
     
     -- ========================================================================
@@ -280,11 +449,18 @@ BEGIN
     
     DROP TABLE IF EXISTS #flights_to_check;
     DROP TABLE IF EXISTS #artcc_detection;
-    DROP TABLE IF EXISTS #sector_detection;
+    DROP TABLE IF EXISTS #low_sectors_raw;
+    DROP TABLE IF EXISTS #low_detection;
+    DROP TABLE IF EXISTS #high_sectors_raw;
+    DROP TABLE IF EXISTS #high_detection;
+    DROP TABLE IF EXISTS #superhigh_sectors_raw;
+    DROP TABLE IF EXISTS #superhigh_detection;
     DROP TABLE IF EXISTS #tracon_detection;
     
 END
 GO
 
 PRINT 'Created stored procedure dbo.sp_ProcessBoundaryDetectionBatch';
+PRINT 'Detects: ARTCC, SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH, TRACON';
+PRINT 'Supports multiple overlapping sectors per type';
 GO
