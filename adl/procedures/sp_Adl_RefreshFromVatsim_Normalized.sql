@@ -1,17 +1,23 @@
 -- ============================================================================
--- PATCH: sp_Adl_RefreshFromVatsim_Normalized V8.3 - Boundary Detection Integration
+-- PATCH: sp_Adl_RefreshFromVatsim_Normalized V8.4 - ETD/STD Calculation
 -- 
--- Changes from V8.2:
---   - Added Step 10: Boundary Detection for ARTCC/Sector/TRACON
---   - Returns boundary_transitions in final stats
--- Changes from V8.1:
---   - wake_category: Now uses single-letter codes (J/H/M/L) instead of full words
---   - aircraft_icao/aircraft_faa: Truncated to 8 chars on insert
--- Changes from V8:
---   - dept_artcc: NVARCHAR(4) -> NVARCHAR(8)
---   - dept_tracon: NVARCHAR(8) -> NVARCHAR(64)
---   - dest_artcc: NVARCHAR(4) -> NVARCHAR(8)
---   - dest_tracon: NVARCHAR(8) -> NVARCHAR(64)
+-- Changes from V8.3:
+--   - Added Step 4b: ETD/STD Calculation with phase-aware date logic
+--   - Populates etd_utc, std_utc, etd_source in adl_flight_times
+--   - Calculates departure_bucket_utc (15-min buckets)
+--   - Calculates ete_minutes from ETD + filed enroute time
+--   - Parses DOF (Date of Flight) from remarks field
+--   - Returns etd_count in final stats
+--
+-- ETD Logic (from original sp_Adl_RefreshFromVatsim):
+--   - D prefix: DOF-based (explicit Date of Flight)
+--   - N prefix: Prefile (flight hasn't departed yet)  
+--   - P prefix: Pilot-based (departed/enroute, using filed time)
+--
+-- ETD Date Resolution:
+--   - If DOF exists: Use DOF + deptime
+--   - If prefile/departed: Use NEXT occurrence (if today's time passed, use tomorrow)
+--   - If enroute: Use LAST occurrence (if today's time hasn't passed, use yesterday)
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -32,6 +38,7 @@ BEGIN
     
     DECLARE @start_time DATETIME2(3) = SYSUTCDATETIME();
     DECLARE @now DATETIME2(0) = @start_time;
+    DECLARE @today DATE = CAST(@now AS DATE);
     DECLARE @pilot_count INT = 0;
     DECLARE @new_flights INT = 0;
     DECLARE @updated_flights INT = 0;
@@ -39,6 +46,8 @@ BEGIN
     -- ETA/Trajectory counters
     DECLARE @eta_count INT = 0;
     DECLARE @traj_count INT = 0;
+    -- ETD counter (V8.4)
+    DECLARE @etd_count INT = 0;
     -- Zone detection counter
     DECLARE @zone_transitions INT = 0;
     -- Boundary detection counters (V8.3)
@@ -75,6 +84,7 @@ BEGIN
         CAST(fp.fuel_time AS NVARCHAR(8)) AS fuel_time_raw,
         CAST(fp.aircraft_faa AS NVARCHAR(32)) AS aircraft_faa_raw,
         CAST(fp.aircraft_short AS NVARCHAR(8)) AS aircraft_short,
+        CAST(fp.dof AS NVARCHAR(16)) AS fp_dof_raw,
         -- Derived: flight_key
         CAST(p.cid AS NVARCHAR) + '|' + CAST(p.callsign AS NVARCHAR(16)) + '|' + 
             ISNULL(CAST(fp.departure AS NVARCHAR(4)), '') + '|' + 
@@ -132,7 +142,8 @@ BEGIN
         enroute_time NVARCHAR(8),
         fuel_time NVARCHAR(8),
         aircraft_faa NVARCHAR(32),
-        aircraft_short NVARCHAR(8)
+        aircraft_short NVARCHAR(8),
+        dof NVARCHAR(16)
     ) AS fp;
     
     SET @pilot_count = @@ROWCOUNT;
@@ -306,21 +317,19 @@ BEGIN
             position_updated_utc = @now
     WHEN NOT MATCHED THEN
         INSERT (flight_uid, lat, lon, position_geo, altitude_ft, groundspeed_kts,
-                heading_deg, qnh_in_hg, qnh_mb, 
-                dist_to_dest_nm, dist_flown_nm, pct_complete,
-                position_updated_utc)
-        VALUES (source.flight_uid, source.lat, source.lon,
+                heading_deg, qnh_in_hg, qnh_mb, dist_to_dest_nm, dist_flown_nm, 
+                pct_complete, position_updated_utc)
+        VALUES (source.flight_uid, source.lat, source.lon, 
                 geography::Point(source.lat, source.lon, 4326),
                 source.altitude_ft, source.groundspeed_kts, source.heading_deg,
-                source.qnh_in_hg, source.qnh_mb,
-                source.dist_to_dest_nm, source.dist_flown_nm, source.pct_complete,
-                @now);
+                source.qnh_in_hg, source.qnh_mb, source.dist_to_dest_nm, 
+                source.dist_flown_nm, source.pct_complete, @now);
     
     -- ========================================================================
-    -- Step 4: Identify route changes and upsert adl_flight_plan
+    -- Step 4: Detect route changes
     -- ========================================================================
     
-    SELECT p.flight_uid, p.route, p.route_hash
+    SELECT p.flight_uid, p.route_hash
     INTO #route_changes
     FROM #pilots p
     LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = p.flight_uid
@@ -426,6 +435,194 @@ BEGIN
                 source.route, source.remarks, source.altitude_ft, source.tas_kts, source.dep_time_z,
                 source.enroute_minutes, source.fuel_minutes, source.aircraft_type, source.aircraft_equip,
                 source.gcd_nm, source.route_hash, @now, 'PENDING');
+    
+    -- ========================================================================
+    -- Step 4b: ETD/STD Calculation (V8.4)
+    --
+    -- Phase-aware ETD logic (ported from original sp_Adl_RefreshFromVatsim):
+    --   - D prefix: DOF-based (explicit Date of Flight)
+    --   - N prefix: Prefile (flight hasn't departed yet)
+    --   - P prefix: Pilot-based (departed/enroute, using filed time)
+    --
+    -- ETD Date Resolution:
+    --   - If DOF exists: Use DOF + deptime
+    --   - If prefile/departed/taxiing: Use NEXT occurrence (if today's time passed, use tomorrow)
+    --   - If enroute/descending: Use LAST occurrence (if today's time hasn't passed, use yesterday)
+    --
+    -- DOF Formats Supported:
+    --   - YYYY-MM-DD (10 chars) - ISO format
+    --   - YYYYMMDD (8 chars) - compact format
+    --   - YYMMDD (6 chars) - prefixed with '20'
+    --   - DOF/YYYYMMDD or DOF/YYMMDD in remarks
+    -- ========================================================================
+    
+    ;WITH ETDCalc AS (
+        SELECT 
+            p.flight_uid,
+            c.phase,
+            fp.fp_dept_time_z AS deptime,
+            fp.fp_enroute_minutes,
+            fp.fp_remarks AS remarks,
+            p.fp_dof_raw,  -- Raw DOF from JSON flight_plan.dof
+            
+            -- Parse DOF from explicit field or remarks (matching original sp logic)
+            COALESCE(
+                -- 1) Explicit fp_dof field from JSON
+                CASE
+                    WHEN p.fp_dof_raw IS NULL OR LTRIM(RTRIM(p.fp_dof_raw)) = '' THEN NULL
+                    -- YYYY-MM-DD format (10 chars)
+                    WHEN LEN(LTRIM(RTRIM(p.fp_dof_raw))) = 10 
+                    THEN TRY_CONVERT(DATE, LTRIM(RTRIM(p.fp_dof_raw)))
+                    -- YYYYMMDD format (8 chars, all digits)
+                    WHEN LEN(LTRIM(RTRIM(p.fp_dof_raw))) = 8 
+                         AND LTRIM(RTRIM(p.fp_dof_raw)) NOT LIKE '%[^0-9]%'
+                    THEN TRY_CONVERT(DATE, LTRIM(RTRIM(p.fp_dof_raw)), 112)
+                    -- YYMMDD format (6 chars, all digits) - prefix with '20'
+                    WHEN LEN(LTRIM(RTRIM(p.fp_dof_raw))) = 6 
+                         AND LTRIM(RTRIM(p.fp_dof_raw)) NOT LIKE '%[^0-9]%'
+                    THEN TRY_CONVERT(DATE, CONCAT('20', LTRIM(RTRIM(p.fp_dof_raw))), 112)
+                    ELSE NULL
+                END,
+                -- 2) Parse DOF/ from remarks
+                CASE
+                    WHEN fp.fp_remarks IS NULL OR CHARINDEX('DOF/', UPPER(fp.fp_remarks)) = 0 THEN NULL
+                    ELSE COALESCE(
+                        -- YYYYMMDD format (8 digits after DOF/)
+                        CASE
+                            WHEN SUBSTRING(fp.fp_remarks, CHARINDEX('DOF/', UPPER(fp.fp_remarks)) + 4, 8) NOT LIKE '%[^0-9]%'
+                            THEN TRY_CONVERT(DATE, SUBSTRING(fp.fp_remarks, CHARINDEX('DOF/', UPPER(fp.fp_remarks)) + 4, 8), 112)
+                            ELSE NULL
+                        END,
+                        -- YYMMDD format (6 digits after DOF/) - prefix with '20'
+                        CASE
+                            WHEN SUBSTRING(fp.fp_remarks, CHARINDEX('DOF/', UPPER(fp.fp_remarks)) + 4, 6) NOT LIKE '%[^0-9]%'
+                            THEN TRY_CONVERT(DATE, CONCAT('20', SUBSTRING(fp.fp_remarks, CHARINDEX('DOF/', UPPER(fp.fp_remarks)) + 4, 6)), 112)
+                            ELSE NULL
+                        END
+                    )
+                END
+            ) AS fp_dof_utc,
+            
+            -- Parse deptime as minutes since midnight
+            CASE 
+                WHEN fp.fp_dept_time_z IS NOT NULL 
+                     AND LEN(fp.fp_dept_time_z) = 4 
+                     AND fp.fp_dept_time_z NOT LIKE '%[^0-9]%'
+                THEN CONVERT(INT, LEFT(fp.fp_dept_time_z, 2)) * 60 + CONVERT(INT, RIGHT(fp.fp_dept_time_z, 2))
+                ELSE NULL
+            END AS deptime_minutes
+            
+        FROM #pilots p
+        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = p.flight_uid
+        LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = p.flight_uid
+        WHERE p.flight_uid IS NOT NULL
+    ),
+    ETDResolved AS (
+        SELECT
+            flight_uid,
+            phase,
+            deptime,
+            deptime_minutes,
+            fp_dof_utc,
+            fp_enroute_minutes,
+            
+            -- ETD Source/Prefix (matching original sp logic)
+            -- D = DOF-based, N = Prefile (Next occurrence), P = Pilot-based (Past occurrence)
+            CASE
+                WHEN fp_dof_utc IS NOT NULL
+                     AND deptime IS NOT NULL AND LEN(deptime) = 4 AND deptime NOT LIKE '%[^0-9]%'
+                THEN 'D'  -- DOF-based
+                WHEN phase = 'prefile' THEN 'N'  -- Prefile (even without valid deptime, mark as N)
+                WHEN phase <> 'prefile'
+                     AND deptime IS NOT NULL AND LEN(deptime) = 4 AND deptime NOT LIKE '%[^0-9]%'
+                THEN 'P'  -- Pilot-based (departed/enroute)
+                ELSE NULL
+            END AS etd_source,
+            
+            -- Calculate ETD with phase-aware date resolution (matching original sp logic)
+            CASE
+                WHEN deptime IS NULL 
+                     OR LEN(deptime) <> 4 
+                     OR deptime LIKE '%[^0-9]%' 
+                THEN NULL
+                
+                -- DOF-based: Use explicit date + time
+                WHEN fp_dof_utc IS NOT NULL
+                THEN DATEADD(MINUTE,
+                    CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)),
+                    CAST(fp_dof_utc AS DATETIME2(0))
+                )
+                
+                -- Prefile/departed/taxiing: Use NEXT occurrence
+                -- If (today + deptime) >= now, use today; else use tomorrow
+                WHEN phase IN ('prefile', 'departed', 'taxiing')
+                THEN CASE 
+                    WHEN DATEADD(MINUTE,
+                        CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)),
+                        CAST(@today AS DATETIME2(0))
+                    ) >= @now
+                    THEN DATEADD(MINUTE,
+                        CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)),
+                        CAST(@today AS DATETIME2(0))
+                    )
+                    ELSE DATEADD(DAY, 1, DATEADD(MINUTE,
+                        CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)),
+                        CAST(@today AS DATETIME2(0))
+                    ))
+                END
+                
+                -- Enroute/descending: Use LAST occurrence
+                -- If (today + deptime) <= now, use today; else use yesterday
+                ELSE CASE 
+                    WHEN DATEADD(MINUTE,
+                        CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)),
+                        CAST(@today AS DATETIME2(0))
+                    ) <= @now
+                    THEN DATEADD(MINUTE,
+                        CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)),
+                        CAST(@today AS DATETIME2(0))
+                    )
+                    ELSE DATEADD(DAY, -1, DATEADD(MINUTE,
+                        CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)),
+                        CAST(@today AS DATETIME2(0))
+                    ))
+                END
+            END AS etd_utc
+            
+        FROM ETDCalc
+    )
+    UPDATE ft
+    SET 
+        ft.etd_utc = er.etd_utc,
+        ft.std_utc = er.etd_utc,  -- For VATSIM, STD = filed time
+        ft.etd_source = er.etd_source,
+        ft.etd_epoch = CASE 
+            WHEN er.etd_utc IS NOT NULL 
+            THEN DATEDIFF(SECOND, '1970-01-01', er.etd_utc) 
+            ELSE NULL 
+        END,
+        ft.ete_minutes = er.fp_enroute_minutes,
+        -- Calculate departure bucket (15-min intervals) - same approach as original sp
+        ft.departure_bucket_utc = CASE 
+            WHEN er.etd_utc IS NOT NULL
+            THEN DATEADD(MINUTE,
+                CASE
+                    WHEN DATEPART(MINUTE, er.etd_utc) < 15 THEN 0
+                    WHEN DATEPART(MINUTE, er.etd_utc) < 30 THEN 15
+                    WHEN DATEPART(MINUTE, er.etd_utc) < 45 THEN 30
+                    ELSE 45
+                END,
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, er.etd_utc), 0)
+            )
+            ELSE NULL
+        END,
+        ft.times_updated_utc = @now
+    FROM dbo.adl_flight_times ft
+    INNER JOIN ETDResolved er ON er.flight_uid = ft.flight_uid
+    WHERE er.etd_utc IS NOT NULL
+      AND (ft.etd_utc IS NULL OR ft.etd_source NOT IN ('A', 'T', 'S'));  -- Don't overwrite SimTraffic actuals
+    
+    SET @etd_count = @@ROWCOUNT;
     
     -- ========================================================================
     -- Step 5: Queue routes for parsing
@@ -575,6 +772,33 @@ BEGIN
     END
     
     -- ========================================================================
+    -- Step 8b: Update arrival buckets from calculated ETA (V8.4)
+    -- ========================================================================
+    
+    UPDATE ft
+    SET ft.arrival_bucket_utc = CASE 
+            WHEN ft.eta_utc IS NOT NULL
+            THEN DATEADD(MINUTE,
+                CASE
+                    WHEN DATEPART(MINUTE, ft.eta_utc) < 15 THEN 0
+                    WHEN DATEPART(MINUTE, ft.eta_utc) < 30 THEN 15
+                    WHEN DATEPART(MINUTE, ft.eta_utc) < 45 THEN 30
+                    ELSE 45
+                END,
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, ft.eta_utc), 0)
+            )
+            ELSE NULL
+        END,
+        ft.eta_epoch = CASE 
+            WHEN ft.eta_utc IS NOT NULL 
+            THEN DATEDIFF(SECOND, '1970-01-01', ft.eta_utc) 
+            ELSE NULL 
+        END
+    FROM dbo.adl_flight_times ft
+    WHERE ft.eta_utc IS NOT NULL
+      AND ft.arrival_bucket_utc IS NULL;
+    
+    -- ========================================================================
     -- Step 9: Zone Detection for OOOI
     -- ========================================================================
     
@@ -611,6 +835,7 @@ BEGIN
         @new_flights AS new_flights,
         @updated_flights AS updated_flights,
         @routes_queued AS routes_queued,
+        @etd_count AS etds_calculated,
         @eta_count AS etas_calculated,
         @traj_count AS trajectories_logged,
         @zone_transitions AS zone_transitions,
@@ -620,7 +845,8 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.3 created successfully';
-PRINT 'Added: Step 10 - Boundary Detection for ARTCC/Sector/TRACON';
-PRINT 'Returns: boundary_transitions count in stats';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.4 created successfully';
+PRINT 'Added: Step 4b - ETD/STD Calculation with phase-aware date logic';
+PRINT 'Added: Step 8b - Arrival bucket calculation from ETA';
+PRINT 'Returns: etds_calculated count in stats';
 GO

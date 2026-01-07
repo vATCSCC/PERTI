@@ -657,7 +657,13 @@ BEGIN
         on_airway NVARCHAR(10),
         on_dp NVARCHAR(20),      -- DP/SID procedure name (e.g., SKORR5)
         on_star NVARCHAR(20),    -- STAR procedure name (e.g., ANJLL4)
-        original_token NVARCHAR(100)
+        original_token NVARCHAR(100),
+        -- CIFP leg-level constraints
+        leg_type CHAR(2),           -- TF, CF, IF, DF, VA, VM, etc.
+        alt_restriction CHAR(1),    -- +, -, B, @
+        altitude_1_ft INT,
+        altitude_2_ft INT,
+        speed_limit_kts SMALLINT
     );
     
     -- Add departure airport first
@@ -851,100 +857,144 @@ BEGIN
         END
         
         -- ====================================================================
-        -- SID: Expand from nav_procedures
+        -- SID: Expand from nav_procedures (with CIFP leg support)
         -- ====================================================================
         ELSE IF @t_type = 'SID'
         BEGIN
             DECLARE @sid_route NVARCHAR(MAX);
-            
+            DECLARE @sid_proc_id INT = NULL;
+            DECLARE @sid_has_legs BIT = 0;
+
             -- Try exact match first
-            SELECT TOP 1 @sid_route = full_route
+            SELECT TOP 1 @sid_route = full_route, @sid_proc_id = procedure_id, @sid_has_legs = ISNULL(has_leg_detail, 0)
             FROM dbo.nav_procedures
             WHERE computer_code = @t_token AND procedure_type = 'DP';
-            
+
             -- Try without transition if not found
             IF @sid_route IS NULL AND CHARINDEX('.', @t_token) > 0
             BEGIN
                 DECLARE @sid_base NVARCHAR(50) = LEFT(@t_token, CHARINDEX('.', @t_token) - 1);
-                SELECT TOP 1 @sid_route = full_route
+                SELECT TOP 1 @sid_route = full_route, @sid_proc_id = procedure_id, @sid_has_legs = ISNULL(has_leg_detail, 0)
                 FROM dbo.nav_procedures
                 WHERE computer_code LIKE @sid_base + '.%' AND procedure_type = 'DP';
             END
-            
-            IF @sid_route IS NOT NULL
-            BEGIN
-                IF @debug = 1 PRINT '  -> Expanding SID: ' + @sid_route;
-                
-                DECLARE @sid_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
-                INSERT INTO @sid_fixes (fix)
-                SELECT value FROM STRING_SPLIT(@sid_route, ' ')
-                WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';  -- Skip runway specs
 
-                INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
-                SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
-                FROM @sid_fixes sf
-                LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
-                WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'  -- Skip airport/runway
-                ORDER BY sf.pos;
-                
+            IF @sid_proc_id IS NOT NULL
+            BEGIN
+                -- Check if we have CIFP leg detail
+                IF @sid_has_legs = 1 AND EXISTS (SELECT 1 FROM dbo.nav_procedure_legs WHERE procedure_id = @sid_proc_id)
+                BEGIN
+                    IF @debug = 1 PRINT '  -> Expanding SID with CIFP legs: ' + @t_token;
+
+                    -- Use leg-level expansion with constraints
+                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token,
+                                           leg_type, alt_restriction, altitude_1_ft, altitude_2_ft, speed_limit_kts)
+                    SELECT pl.fix_name, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token,
+                           pl.leg_type, pl.alt_restriction, pl.altitude_1_ft, pl.altitude_2_ft, pl.speed_limit_kts
+                    FROM dbo.nav_procedure_legs pl
+                    LEFT JOIN #unique_fixes nf ON nf.fix_name = pl.fix_name
+                    WHERE pl.procedure_id = @sid_proc_id
+                      AND pl.fix_name IS NOT NULL  -- Skip VA/VM/CA legs
+                    ORDER BY pl.sequence_num;
+                END
+                ELSE IF @sid_route IS NOT NULL
+                BEGIN
+                    IF @debug = 1 PRINT '  -> Expanding SID (text route): ' + @sid_route;
+
+                    -- Fall back to STRING_SPLIT expansion
+                    DECLARE @sid_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
+                    INSERT INTO @sid_fixes (fix)
+                    SELECT value FROM STRING_SPLIT(@sid_route, ' ')
+                    WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
+
+                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
+                    SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
+                    FROM @sid_fixes sf
+                    LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
+                    WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
+                    ORDER BY sf.pos;
+                END
+
                 -- Update prev_fix to last SID fix
                 SELECT TOP 1 @prev_fix = fix_name, @prev_fix_lat = lat, @prev_fix_lon = lon
                 FROM @waypoints WHERE source = 'SID' ORDER BY seq DESC;
             END
             ELSE IF @debug = 1
                 PRINT '  -> SID not found in nav_procedures';
-            
+
             SET @pending_airway = NULL;
         END
         
         -- ====================================================================
-        -- STAR: Expand from nav_procedures
+        -- STAR: Expand from nav_procedures (with CIFP leg support)
         -- ====================================================================
         ELSE IF @t_type = 'STAR'
         BEGIN
             DECLARE @star_route NVARCHAR(MAX);
-            
+            DECLARE @star_proc_id INT = NULL;
+            DECLARE @star_has_legs BIT = 0;
+
             -- Try exact match first
-            SELECT TOP 1 @star_route = full_route
+            SELECT TOP 1 @star_route = full_route, @star_proc_id = procedure_id, @star_has_legs = ISNULL(has_leg_detail, 0)
             FROM dbo.nav_procedures
             WHERE computer_code = @t_token AND procedure_type = 'STAR';
-            
+
             -- Try without transition if not found
             IF @star_route IS NULL AND CHARINDEX('.', @t_token) > 0
             BEGIN
                 DECLARE @star_base NVARCHAR(50) = SUBSTRING(@t_token, CHARINDEX('.', @t_token) + 1, 100);
-                SELECT TOP 1 @star_route = full_route
+                SELECT TOP 1 @star_route = full_route, @star_proc_id = procedure_id, @star_has_legs = ISNULL(has_leg_detail, 0)
                 FROM dbo.nav_procedures
                 WHERE computer_code LIKE '%.' + @star_base AND procedure_type = 'STAR';
             END
-            
-            IF @star_route IS NOT NULL
+
+            IF @star_proc_id IS NOT NULL
             BEGIN
-                IF @debug = 1 PRINT '  -> Expanding STAR: ' + @star_route;
-                
                 -- Set STAR metadata
                 SET @star_name = @t_token;
                 SET @afix = @last_fix_before_star;
                 SET @strsn = @last_fix_before_star;
-                
-                DECLARE @star_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
-                INSERT INTO @star_fixes (fix)
-                SELECT value FROM STRING_SPLIT(@star_route, ' ')
-                WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
 
-                INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
-                SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
-                FROM @star_fixes sf
-                LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
-                WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
-                ORDER BY sf.pos;
-                
+                -- Check if we have CIFP leg detail
+                IF @star_has_legs = 1 AND EXISTS (SELECT 1 FROM dbo.nav_procedure_legs WHERE procedure_id = @star_proc_id)
+                BEGIN
+                    IF @debug = 1 PRINT '  -> Expanding STAR with CIFP legs: ' + @t_token;
+
+                    -- Use leg-level expansion with constraints
+                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token,
+                                           leg_type, alt_restriction, altitude_1_ft, altitude_2_ft, speed_limit_kts)
+                    SELECT pl.fix_name, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token,
+                           pl.leg_type, pl.alt_restriction, pl.altitude_1_ft, pl.altitude_2_ft, pl.speed_limit_kts
+                    FROM dbo.nav_procedure_legs pl
+                    LEFT JOIN #unique_fixes nf ON nf.fix_name = pl.fix_name
+                    WHERE pl.procedure_id = @star_proc_id
+                      AND pl.fix_name IS NOT NULL  -- Skip VA/VM/CA legs
+                    ORDER BY pl.sequence_num;
+                END
+                ELSE IF @star_route IS NOT NULL
+                BEGIN
+                    IF @debug = 1 PRINT '  -> Expanding STAR (text route): ' + @star_route;
+
+                    -- Fall back to STRING_SPLIT expansion
+                    DECLARE @star_fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
+                    INSERT INTO @star_fixes (fix)
+                    SELECT value FROM STRING_SPLIT(@star_route, ' ')
+                    WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
+
+                    INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
+                    SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
+                    FROM @star_fixes sf
+                    LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
+                    WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
+                    ORDER BY sf.pos;
+                END
+
                 SELECT TOP 1 @prev_fix = fix_name, @prev_fix_lat = lat, @prev_fix_lon = lon
                 FROM @waypoints WHERE source = 'STAR' ORDER BY seq DESC;
             END
             ELSE IF @debug = 1
                 PRINT '  -> STAR not found in nav_procedures';
-            
+
             SET @pending_airway = NULL;
         END
         
@@ -1247,7 +1297,8 @@ BEGIN
 
     INSERT INTO dbo.adl_flight_waypoints (
         flight_uid, sequence_num, fix_name, lat, lon, position_geo,
-        fix_type, source, on_airway, on_dp, on_star
+        fix_type, source, on_airway, on_dp, on_star,
+        leg_type, alt_restriction, altitude_1_ft, altitude_2_ft, speed_limit_kts
     )
     SELECT
         @flight_uid,
@@ -1262,7 +1313,12 @@ BEGIN
         source,
         on_airway,
         on_dp,
-        on_star
+        on_star,
+        leg_type,
+        alt_restriction,
+        altitude_1_ft,
+        altitude_2_ft,
+        speed_limit_kts
     FROM @waypoints
     ORDER BY seq;
     
