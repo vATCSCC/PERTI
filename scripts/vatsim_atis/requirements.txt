@@ -1,0 +1,9 @@
+# VATSIM ATIS Processing Dependencies
+#
+# Install with: pip install -r requirements.txt
+
+# SQL Server connectivity
+pyodbc>=4.0.39
+
+# Environment file support (optional)
+python-dotenv>=1.0.0
