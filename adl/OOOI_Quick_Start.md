@@ -32,7 +32,7 @@ Phase 4 (OOOI Zone Detection) code is **done**. You just need to:
 ### Step 1: Deploy Schema (5 min)
 Open SSMS, connect to VATSIM_ADL, run:
 ```
-adl/migrations/041_oooi_deploy.sql
+adl/migrations/oooi/002_oooi_deploy.sql
 ```
 
 This creates:
@@ -93,7 +93,7 @@ SELECT TOP 10 * FROM dbo.airport_geometry_import_log ORDER BY import_utc DESC;
 Use SQL-only fallback instead:
 ```sql
 -- Run in SSMS
-adl/migrations/042_seed_airport_zones.sql
+adl/migrations/oooi/003_seed_airport_zones.sql
 ```
 This creates basic concentric circle zones for all 201 airports.
 
@@ -114,9 +114,9 @@ If import was interrupted:
 
 ```
 PERTI/adl/
-├── migrations/
-│   ├── 041_oooi_deploy.sql          ← RUN THIS FIRST
-│   └── 042_seed_airport_zones.sql   ← Backup option
+├── migrations/oooi/
+│   ├── 002_oooi_deploy.sql          ← RUN THIS FIRST
+│   └── 003_seed_airport_zones.sql   ← Backup option
 ├── php/
 │   └── ImportOSM.ps1                ← RUN THIS SECOND
 ├── OOOI_Zone_Detection_Transition_Summary.md

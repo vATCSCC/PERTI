@@ -14,7 +14,7 @@ Scripts for importing EUROCONTROL BADA (Base of Aircraft Data) performance files
 
 ```sql
 -- In SSMS, run:
--- adl/migrations/046_bada_import_infrastructure.sql
+-- adl/migrations/performance/002_bada_import_infrastructure.sql
 ```
 
 ### Step 2: Parse PTF Files (Performance Tables)

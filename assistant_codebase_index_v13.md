@@ -595,33 +595,39 @@ Individual JSON files per ARTCC (ZAB, ZAN, ZAU, ZBW, ZDC, ZDV, ZFW, ZHN, ZHU, ZI
 
 ### 12.1 Azure SQL Migrations (`adl/migrations/`)
 
-| Migration | Description |
-|-----------|-------------|
-| 001-005 | Core ADL normalized schema |
-| 006 | Airlines table |
-| 030-031 | ETA trajectory system |
-| 040-043 | OOOI zone detection |
-| 044-048 | Weather alerts & impact |
-| 049-052 | Boundary detection & import |
-| 060-061 | CIFP procedure import |
+Organized into feature subdirectories:
 
-**Deployment Scripts:**
-- `DEPLOY_ETA_TRAJECTORY_SYSTEM.sql`
-- `031_eta_trajectory_deploy.sql`
-- `041_oooi_deploy.sql`
+| Subdirectory | Description |
+|--------------|-------------|
+| `core/` | Core ADL normalized schema (001-006) |
+| `eta/` | ETA trajectory system (001-011) |
+| `oooi/` | OOOI zone detection (001-008) |
+| `weather/` | Weather alerts & impact (001-004) |
+| `performance/` | Aircraft performance (001-003) |
+| `navdata/` | Navigation data (001-005) |
+| `boundaries/` | Boundary detection & import (001-007) |
+| `cifp/` | CIFP procedure import (001-002) |
+| `stats/` | Flight statistics (001-011) |
+
+**Key Deployment Scripts:**
+- `eta/009_deploy_eta_trajectory_system.sql`
+- `eta/008_eta_trajectory_deploy.sql`
+- `oooi/002_oooi_deploy.sql`
 
 ### 12.2 MySQL Migrations (`database/migrations/`)
 
-| Migration | Description |
-|-----------|-------------|
-| 001 | Reroute tables |
-| 003 | ADL history SP |
-| 004-005 | GDP tables |
-| 006 | Public routes |
-| 007 | Splits color column |
-| 008-010 | JATOC tables |
-| 011-012 | DCC/NOD advisories |
-| 014-016 | Initiative timeline |
+Organized into feature subdirectories:
+
+| Subdirectory | Description |
+|--------------|-------------|
+| `reroute/` | Reroute tables (001-002) |
+| `gdp/` | GDP tables (001-002) |
+| `jatoc/` | JATOC tables (001-003) |
+| `advisories/` | DCC/NOD advisories (001-003) |
+| `initiatives/` | Initiative timeline (001-004) |
+| `sua/` | SUA activations (001-003) |
+| `integration/` | External integrations (001-003) |
+| `schema/` | General schema changes (001-005) |
 
 ---
 
@@ -1048,7 +1054,7 @@ Track aircraft ground phase: OUT (left gate), OFF (airborne), ON (landed), IN (a
 ### 24.10 Documentation
 
 - `adl/OOOI_Zone_Detection_Transition_Summary.md` — Complete transition summary
-- `adl/migrations/043_oooi_verify.sql` — Verification queries
+- `adl/migrations/oooi/008_oooi_verify_v2.sql` — Verification queries
 
 ---
 

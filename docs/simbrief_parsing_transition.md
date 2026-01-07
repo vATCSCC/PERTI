@@ -84,7 +84,7 @@ IX_flight_plan_simbrief ON adl_flight_plan (is_simbrief) WHERE is_simbrief = 1
 | File | Location |
 |------|----------|
 | `sp_ParseSimBriefData.sql` | `adl/procedures/` |
-| `048_simbrief_parsing.sql` | `adl/migrations/` |
+| `002_simbrief_parsing.sql` | `adl/migrations/navdata/` |
 | `simbrief_parsing_summary.md` | `docs/` |
 
 ---

@@ -21,7 +21,7 @@ This improves ETA accuracy by 5-15% for routes that deviate significantly from g
 
 | File | Location |
 |------|----------|
-| `049_route_distance_columns.sql` | `adl/migrations/` |
+| `003_route_distance_columns.sql` | `adl/migrations/navdata/` |
 | `fn_CalculateRouteDistanceRemaining.sql` | `adl/procedures/` |
 | `sp_RouteDistanceBatch.sql` | `adl/procedures/` |
 
@@ -119,7 +119,7 @@ eta_dist_source  NVARCHAR(8)   -- 'ROUTE' or 'GCD' (which distance was used)
 ### Step 1: Run Migration
 ```sql
 -- Execute migration script
-:r adl/migrations/049_route_distance_columns.sql
+:r adl/migrations/navdata/003_route_distance_columns.sql
 ```
 
 ### Step 2: Create Functions

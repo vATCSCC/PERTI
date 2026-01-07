@@ -40,14 +40,14 @@ Detects ARTCC, sectors (LOW/HIGH/SUPERHIGH), and TRACON for each active flight. 
 
 | File | Purpose |
 |------|---------|
-| `adl/migrations/053_fix_boundary_log_schema.sql` | Schema updates + multi-sector columns |
+| `adl/migrations/boundaries/006_fix_boundary_log_schema.sql` | Schema updates + multi-sector columns |
 | `adl/procedures/sp_ProcessBoundaryDetectionBatch.sql` | Batch detection with overlap support |
 | `adl/procedures/sp_Adl_RefreshFromVatsim_Normalized.sql` (V8.3) | Integration |
 | `api/adl/boundaries.php` | Updated API with multi-sector response |
 
 ### Deployment Order
 ```
-1. Run: 053_fix_boundary_log_schema.sql
+1. Run: boundaries/006_fix_boundary_log_schema.sql
 2. Run: sp_ProcessBoundaryDetectionBatch.sql
 3. Run: sp_Adl_RefreshFromVatsim_Normalized.sql (V8.3)
 4. Deploy: api/adl/boundaries.php
