@@ -31,8 +31,8 @@ if (!defined('DEV')) {
 }
 
 if ($perm !== false) {
-    // Hardcoded protected CID - always allowed, cannot be deleted
-    $protected_cid = '1234727';
+    // Protected CID from config - always allowed, cannot be deleted
+    $protected_cid = defined('PROTECTED_CID') ? PROTECTED_CID : '';
     
     $query = mysqli_query($conn_sqli, ("SELECT * FROM users ORDER BY last_name DESC"));
 

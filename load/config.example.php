@@ -53,6 +53,9 @@ if (!defined("SQL_USERNAME")) {
 
     // Legacy: Discord Webhook for Advisory Posting (optional, bot is preferred)
     define("DISCORD_WEBHOOK_ADVISORIES", "");
+
+    // Protected CID - this user cannot be deleted from personnel management
+    define("PROTECTED_CID", "");
 }
 
 ?>
