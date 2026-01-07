@@ -2851,6 +2851,206 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             </div>
         </div>
 
+        <!-- Additional Stats Row -->
+        <div class="row mb-4">
+            <!-- Parse Success Rate & Queue Health -->
+            <div class="col-md-3">
+                <div class="status-section">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-check-circle mr-2"></i>Parse Health (24h)</span>
+                    </div>
+                    <div style="padding: 10px;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span style="font-size: 0.75rem; color: #666;">Success Rate</span>
+                            <span class="step-metric-value <?= $liveData['parse_success_rate'] >= 95 ? '' : ($liveData['parse_success_rate'] >= 80 ? 'warning' : 'error') ?>" style="font-size: 1.1rem;">
+                                <?= $liveData['parse_success_rate'] ?>%
+                            </span>
+                        </div>
+                        <div class="tier-bar-container" style="height: 8px; margin-bottom: 8px;">
+                            <div class="tier-bar tier-4" style="width: <?= min(100, $liveData['parse_success_rate']) ?>%;"></div>
+                        </div>
+                        <div class="d-flex justify-content-between" style="font-size: 0.65rem; color: #888;">
+                            <span><i class="fas fa-check text-success mr-1"></i><?= number_format($liveData['parse_success_24h']) ?> OK</span>
+                            <span><i class="fas fa-times text-danger mr-1"></i><?= number_format($liveData['parse_failed_24h']) ?> Failed</span>
+                        </div>
+                        <hr style="margin: 8px 0;">
+                        <div style="font-size: 0.7rem; font-weight: 600; margin-bottom: 6px;">Queue Age</div>
+                        <div class="d-flex justify-content-between" style="font-size: 0.65rem;">
+                            <span class="text-success">&lt;1m: <?= $liveData['queue_age']['under_1m'] ?></span>
+                            <span class="text-warning">1-5m: <?= $liveData['queue_age']['1_to_5m'] ?></span>
+                            <span class="text-danger">&gt;5m: <?= $liveData['queue_age']['over_5m'] ?></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Airports -->
+            <div class="col-md-3">
+                <div class="status-section">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-plane-departure mr-2"></i>Top Airports</span>
+                    </div>
+                    <div style="padding: 8px;">
+                        <?php if (!empty($liveData['top_airports'])): ?>
+                            <?php foreach ($liveData['top_airports'] as $i => $apt): ?>
+                            <div class="d-flex justify-content-between align-items-center" style="padding: 3px 0; <?= $i > 0 ? 'border-top: 1px solid #eee;' : '' ?>">
+                                <span style="font-family: 'Inconsolata', monospace; font-size: 0.8rem; font-weight: 600;"><?= htmlspecialchars($apt['icao']) ?></span>
+                                <span class="step-metric-value" style="font-size: 0.75rem; min-width: 35px;"><?= $apt['count'] ?></span>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="text-muted text-center" style="font-size: 0.75rem; padding: 10px;">No data</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SimBrief Stats -->
+            <div class="col-md-3">
+                <div class="status-section">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-clipboard-list mr-2"></i>SimBrief Stats</span>
+                    </div>
+                    <div style="padding: 10px;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span style="font-size: 0.7rem; color: #666;">Adoption Rate</span>
+                            <span style="font-family: 'Inconsolata', monospace; font-size: 1rem; font-weight: 700; color: #06b6d4;">
+                                <?= $liveData['simbrief_rate'] ?>%
+                            </span>
+                        </div>
+                        <div style="font-size: 0.65rem; color: #888; margin-bottom: 6px;">
+                            <?= number_format($liveData['simbrief_active']) ?> of <?= number_format($liveData['simbrief_total_active']) ?> active flights
+                        </div>
+                        <hr style="margin: 6px 0;">
+                        <div style="font-size: 0.65rem; margin-bottom: 4px;">
+                            <span style="color: #666;">Parse Success:</span>
+                        </div>
+                        <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
+                            <span><i class="fas fa-clipboard-check mr-1" style="color: #06b6d4;"></i>SimBrief: <strong><?= $liveData['simbrief_parse_success'] ?>%</strong></span>
+                            <span><i class="fas fa-edit mr-1" style="color: #888;"></i>Manual: <strong><?= $liveData['manual_parse_success'] ?>%</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Freshness & Errors -->
+            <div class="col-md-3">
+                <div class="status-section">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-clock mr-2"></i>Data Freshness</span>
+                    </div>
+                    <div style="padding: 8px;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span style="font-size: 0.7rem;">Oldest Queue Item</span>
+                            <?php
+                            $queueAge = $liveData['oldest_pending_queue'];
+                            $queueAgeClass = $queueAge === null ? '' : ($queueAge < 60 ? 'text-success' : ($queueAge < 300 ? 'text-warning' : 'text-danger'));
+                            $queueAgeStr = $queueAge === null ? 'Empty' : ($queueAge < 60 ? $queueAge . 's' : round($queueAge / 60, 1) . 'm');
+                            ?>
+                            <span class="<?= $queueAgeClass ?>" style="font-family: 'Inconsolata', monospace; font-weight: 600;"><?= $queueAgeStr ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span style="font-size: 0.7rem;">Last Trajectory</span>
+                            <?php
+                            $trajAge = $liveData['last_trajectory_age'];
+                            $trajAgeClass = $trajAge === null ? 'text-muted' : ($trajAge < 30 ? 'text-success' : ($trajAge < 120 ? 'text-warning' : 'text-danger'));
+                            $trajAgeStr = $trajAge === null ? 'N/A' : ($trajAge < 60 ? $trajAge . 's ago' : round($trajAge / 60, 1) . 'm ago');
+                            ?>
+                            <span class="<?= $trajAgeClass ?>" style="font-family: 'Inconsolata', monospace; font-weight: 600;"><?= $trajAgeStr ?></span>
+                        </div>
+                        <?php if (!empty($liveData['recent_errors'])): ?>
+                        <hr style="margin: 6px 0;">
+                        <div style="font-size: 0.65rem; color: #dc2626; font-weight: 600; margin-bottom: 4px;">Recent Errors</div>
+                        <?php foreach (array_slice($liveData['recent_errors'], 0, 2) as $err): ?>
+                        <div style="font-size: 0.6rem; color: #666; padding: 2px 0; border-bottom: 1px dotted #eee;">
+                            <span style="font-weight: 600;"><?= htmlspecialchars($err['callsign']) ?></span>
+                            <span style="color: #888;"><?= htmlspecialchars($err['time']) ?></span>
+                        </div>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boundary & Peak Hours Row -->
+        <div class="row mb-4">
+            <!-- Most Crossed Boundaries -->
+            <div class="col-md-4">
+                <div class="status-section">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-border-all mr-2"></i>Top Boundaries (1h)</span>
+                    </div>
+                    <div style="padding: 8px;">
+                        <?php if (!empty($liveData['top_boundaries'])): ?>
+                            <?php
+                            $maxBoundary = max(array_column($liveData['top_boundaries'], 'count'));
+                            foreach ($liveData['top_boundaries'] as $i => $boundary): ?>
+                            <div style="padding: 3px 0; <?= $i > 0 ? 'border-top: 1px solid #eee;' : '' ?>">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span style="font-family: 'Inconsolata', monospace; font-size: 0.75rem;"><?= htmlspecialchars($boundary['name']) ?></span>
+                                    <span style="font-size: 0.7rem; font-weight: 600;"><?= $boundary['count'] ?></span>
+                                </div>
+                                <div class="tier-bar-container" style="height: 4px; margin-top: 2px;">
+                                    <div class="tier-bar tier-3" style="width: <?= round(($boundary['count'] / $maxBoundary) * 100) ?>%;"></div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="text-muted text-center" style="font-size: 0.75rem; padding: 10px;">No crossings this hour</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Peak Hours Heatmap -->
+            <div class="col-md-8">
+                <div class="status-section">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-fire mr-2"></i>Peak Hours (7 Day Heatmap)</span>
+                    </div>
+                    <div style="padding: 8px; overflow-x: auto;">
+                        <?php
+                        // Build heatmap grid
+                        $heatmap = [];
+                        $maxCount = 1;
+                        foreach ($liveData['peak_hours'] as $ph) {
+                            $heatmap[$ph['day']][$ph['hour']] = $ph['count'];
+                            $maxCount = max($maxCount, $ph['count']);
+                        }
+                        $days = ['', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                        ?>
+                        <div style="display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 1px; font-size: 0.55rem;">
+                            <div></div>
+                            <?php for ($h = 0; $h < 24; $h++): ?>
+                            <div style="text-align: center; color: #888; font-weight: <?= $h % 6 === 0 ? '700' : '400' ?>;"><?= sprintf('%02d', $h) ?></div>
+                            <?php endfor; ?>
+                            <?php for ($d = 1; $d <= 7; $d++): ?>
+                            <div style="color: #666; font-weight: 600; line-height: 14px;"><?= $days[$d] ?></div>
+                            <?php for ($h = 0; $h < 24; $h++):
+                                $count = $heatmap[$d][$h] ?? 0;
+                                $intensity = $maxCount > 0 ? $count / $maxCount : 0;
+                                $bg = $intensity === 0 ? '#f0f0f0' :
+                                      ($intensity < 0.25 ? '#c6f6d5' :
+                                      ($intensity < 0.5 ? '#68d391' :
+                                      ($intensity < 0.75 ? '#f6ad55' : '#fc8181')));
+                            ?>
+                            <div style="height: 14px; background: <?= $bg ?>; border-radius: 1px;" title="<?= $days[$d] ?> <?= sprintf('%02d', $h) ?>:00 - <?= $count ?> flights"></div>
+                            <?php endfor; ?>
+                            <?php endfor; ?>
+                        </div>
+                        <div class="d-flex justify-content-end mt-1" style="font-size: 0.55rem; color: #888;">
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f0f0f0; margin-right: 2px;"></span>0
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Legend -->
         <div class="legend-section">
             <div class="legend-title">Status Legend</div>
@@ -3263,20 +3463,31 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             grid: { display: false },
                                             ticks: {
                                                 font: { size: 10 },
-                                                maxRotation: 45,
-                                                minRotation: 45,
+                                                maxRotation: 0,
+                                                minRotation: 0,
                                                 callback: function(value, index) {
                                                     const label = this.getLabelForValue(value);
-                                                    return label;
+                                                    // Format: dd/hhmmZ - extract hour and minute
+                                                    const parts = label.split('/');
+                                                    if (parts.length === 2) {
+                                                        const time = parts[1].replace('Z', '');
+                                                        const hour = time.substring(0, 2);
+                                                        const minute = time.substring(2, 4);
+                                                        // Only show labels on the hour (minute == 00)
+                                                        if (minute === '00') {
+                                                            return hour + 'Z';
+                                                        }
+                                                    }
+                                                    return '';  // Hide non-hour labels
                                                 },
                                                 color: function(context) {
                                                     return emphasizeIndices.includes(context.index) ? '#000000' : '#666666';
                                                 },
                                                 font: function(context) {
                                                     if (emphasizeIndices.includes(context.index)) {
-                                                        return { size: 12, weight: 'bold' };
+                                                        return { size: 13, weight: 'bold' };
                                                     }
-                                                    return { size: 10 };
+                                                    return { size: 11, weight: '500' };
                                                 }
                                             }
                                         },
