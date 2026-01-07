@@ -613,30 +613,54 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // -------------------------------------------------------------------------
-    // Most Crossed Boundaries (last hour)
+    // Most Crossed Boundaries (last hour) - by type
     // -------------------------------------------------------------------------
     $liveData['top_boundaries'] = [];
-    $sql = "SELECT TOP 5
-                b.boundary_name,
-                COUNT(*) AS crossing_cnt
-            FROM dbo.adl_flight_boundary_log bl
-            INNER JOIN dbo.adl_boundary b ON bl.boundary_id = b.boundary_id
-            WHERE bl.entry_time > DATEADD(HOUR, -1, SYSUTCDATETIME())
-            GROUP BY b.boundary_name
-            ORDER BY crossing_cnt DESC";
+    $liveData['top_boundaries_by_type'] = [
+        'ARTCC' => [], 'TRACON' => [], 'SECTOR_HIGH' => [], 'SECTOR_LOW' => [], 'SECTOR_SUPERHIGH' => []
+    ];
+
+    // Get top 3 boundaries per type using ROW_NUMBER
+    $sql = "WITH RankedBoundaries AS (
+                SELECT
+                    b.boundary_name,
+                    b.boundary_type,
+                    COUNT(*) AS crossing_cnt,
+                    ROW_NUMBER() OVER (PARTITION BY b.boundary_type ORDER BY COUNT(*) DESC) AS rn
+                FROM dbo.adl_flight_boundary_log bl
+                INNER JOIN dbo.adl_boundary b ON bl.boundary_id = b.boundary_id
+                WHERE bl.entry_time > DATEADD(HOUR, -1, SYSUTCDATETIME())
+                GROUP BY b.boundary_name, b.boundary_type
+            )
+            SELECT boundary_name, boundary_type, crossing_cnt
+            FROM RankedBoundaries
+            WHERE rn <= 5
+            ORDER BY boundary_type, crossing_cnt DESC";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $type = $row['boundary_type'];
+            if (isset($liveData['top_boundaries_by_type'][$type])) {
+                $liveData['top_boundaries_by_type'][$type][] = [
+                    'name' => $row['boundary_name'],
+                    'count' => (int)$row['crossing_cnt']
+                ];
+            }
+            // Also keep overall top for summary
             $liveData['top_boundaries'][] = [
                 'name' => $row['boundary_name'],
+                'type' => $type,
                 'count' => (int)$row['crossing_cnt']
             ];
         }
         sqlsrv_free_stmt($stmt);
+        // Sort overall by count and keep top 5
+        usort($liveData['top_boundaries'], fn($a, $b) => $b['count'] - $a['count']);
+        $liveData['top_boundaries'] = array_slice($liveData['top_boundaries'], 0, 5);
     }
 
-    // Boundary crossings by type (last hour) - minimal overhead, same table scan
-    $liveData['boundary_by_type'] = ['ARTCC' => 0, 'SECTOR_HIGH' => 0, 'SECTOR_LOW' => 0, 'SECTOR_SUPERHIGH' => 0, 'TRACON' => 0];
+    // Boundary crossings by type totals (last hour)
+    $liveData['boundary_by_type'] = ['ARTCC' => 0, 'TRACON' => 0, 'SECTOR_HIGH' => 0, 'SECTOR_LOW' => 0, 'SECTOR_SUPERHIGH' => 0];
     $sql = "SELECT b.boundary_type, COUNT(*) AS cnt
             FROM dbo.adl_flight_boundary_log bl
             INNER JOIN dbo.adl_boundary b ON bl.boundary_id = b.boundary_id
@@ -883,6 +907,30 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             justify-content: space-between;
             align-items: center;
         }
+
+        /* Category Section Headers */
+        .category-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%);
+            color: #fff;
+            padding: 10px 16px;
+            margin: 20px 0 12px 0;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .category-header:first-of-type { margin-top: 0; }
+        .category-header i { margin-right: 10px; }
+        .category-header .toggle-icon { transition: transform 0.2s; }
+        .category-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+        .category-content { transition: max-height 0.3s ease-out; }
+        .category-content.collapsed { display: none; }
 
         .status-section-header .cycle-badge {
             background: rgba(255,255,255,0.15);
@@ -1801,6 +1849,15 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         </div>
         <?php endif; ?>
 
+        <!-- ============================================ -->
+        <!-- CATEGORY: OVERVIEW & METRICS -->
+        <!-- ============================================ -->
+        <div class="category-header" id="cat-overview-header" onclick="toggleCategory('cat-overview')">
+            <span><i class="fas fa-tachometer-alt"></i>Overview & Metrics</span>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="category-content" id="cat-overview-content">
+
         <!-- Live Metrics Row -->
         <div class="metric-row">
             <div class="metric-card <?= $liveData['active_flights'] > 0 ? '' : 'warning' ?>">
@@ -1982,6 +2039,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 </div>
             </div>
         </div>
+
+        </div><!-- End cat-overview-content -->
+
+        <!-- ============================================ -->
+        <!-- CATEGORY: INFRASTRUCTURE & HEALTH -->
+        <!-- ============================================ -->
+        <div class="category-header" id="cat-infra-header" onclick="toggleCategory('cat-infra')">
+            <span><i class="fas fa-server"></i>Infrastructure & Health</span>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="category-content" id="cat-infra-content">
 
         <div class="row">
             <div class="col-lg-4">
@@ -3086,56 +3154,56 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             </div>
         </div>
 
-        <!-- Boundary & Peak Hours Row -->
+        <!-- Top Boundaries by Type - Full Width Row -->
         <div class="row mb-4">
-            <!-- Most Crossed Boundaries -->
-            <div class="col-md-4">
+            <div class="col-12">
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-border-all mr-2"></i>Top Boundaries (1h)</span>
+                        <span><i class="fas fa-border-all mr-2"></i>Top Boundaries by Type (1h)</span>
+                        <span class="cycle-badge"><?= number_format(array_sum($liveData['boundary_by_type'])) ?> crossings</span>
                     </div>
-                    <div style="padding: 8px;">
-                        <!-- Type Breakdown -->
+                    <div style="padding: 10px;">
                         <?php
-                        $typeLabels = ['ARTCC' => 'ARTCC', 'TRACON' => 'TRACON', 'SECTOR_HIGH' => 'High', 'SECTOR_LOW' => 'Low', 'SECTOR_SUPERHIGH' => 'Super'];
+                        $typeLabels = ['ARTCC' => 'ARTCC', 'TRACON' => 'TRACON', 'SECTOR_HIGH' => 'High Sectors', 'SECTOR_LOW' => 'Low Sectors', 'SECTOR_SUPERHIGH' => 'SuperHigh'];
                         $typeColors = ['ARTCC' => '#3b82f6', 'TRACON' => '#8b5cf6', 'SECTOR_HIGH' => '#ef4444', 'SECTOR_LOW' => '#22c55e', 'SECTOR_SUPERHIGH' => '#f97316'];
-                        $totalByType = array_sum($liveData['boundary_by_type']);
                         ?>
-                        <div style="display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap;">
-                            <?php foreach ($liveData['boundary_by_type'] as $type => $cnt): ?>
-                            <div style="flex: 1; min-width: 45px; text-align: center; padding: 3px 2px; background: <?= $typeColors[$type] ?? '#888' ?>15; border-radius: 3px; border-left: 2px solid <?= $typeColors[$type] ?? '#888' ?>;">
-                                <div style="font-size: 0.65rem; color: #666;"><?= $typeLabels[$type] ?? $type ?></div>
-                                <div style="font-size: 0.8rem; font-weight: 700;"><?= number_format($cnt) ?></div>
+                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
+                            <?php foreach ($liveData['top_boundaries_by_type'] as $type => $boundaries):
+                                $totalForType = $liveData['boundary_by_type'][$type] ?? 0;
+                                $maxForType = !empty($boundaries) ? max(array_column($boundaries, 'count')) : 1;
+                            ?>
+                            <div style="border-left: 3px solid <?= $typeColors[$type] ?? '#888' ?>; padding-left: 8px; background: <?= $typeColors[$type] ?? '#888' ?>08; border-radius: 0 4px 4px 0;">
+                                <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 6px; padding: 4px 0; border-bottom: 1px solid <?= $typeColors[$type] ?? '#888' ?>30;">
+                                    <span style="font-weight: 700; font-size: 0.75rem; color: <?= $typeColors[$type] ?? '#888' ?>;"><?= $typeLabels[$type] ?? $type ?></span>
+                                    <span style="font-size: 0.7rem; font-weight: 600; background: <?= $typeColors[$type] ?? '#888' ?>; color: #fff; padding: 1px 6px; border-radius: 3px;"><?= number_format($totalForType) ?></span>
+                                </div>
+                                <?php if (!empty($boundaries)): ?>
+                                    <?php foreach ($boundaries as $i => $boundary): ?>
+                                    <div style="padding: 2px 0; font-size: 0.7rem;">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span style="font-family: 'Inconsolata', monospace; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 85%;"><?= htmlspecialchars($boundary['name']) ?></span>
+                                            <span style="font-weight: 600; color: #666;"><?= $boundary['count'] ?></span>
+                                        </div>
+                                        <div style="height: 2px; background: #e0e0e0; border-radius: 1px; margin-top: 1px;">
+                                            <div style="height: 100%; background: <?= $typeColors[$type] ?? '#888' ?>; border-radius: 1px; width: <?= round(($boundary['count'] / $maxForType) * 100) ?>%;"></div>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <div style="font-size: 0.65rem; color: #999; text-align: center; padding: 10px 0;">No data</div>
+                                <?php endif; ?>
                             </div>
                             <?php endforeach; ?>
                         </div>
-                        <!-- Top Individual Boundaries -->
-                        <?php if (!empty($liveData['top_boundaries'])): ?>
-                            <div style="border-top: 1px solid #eee; padding-top: 6px; margin-top: 4px;">
-                            <div style="font-size: 0.6rem; color: #888; margin-bottom: 3px;">TOP INDIVIDUAL</div>
-                            <?php
-                            $maxBoundary = max(array_column($liveData['top_boundaries'], 'count'));
-                            foreach ($liveData['top_boundaries'] as $i => $boundary): ?>
-                            <div style="padding: 2px 0; <?= $i > 0 ? 'border-top: 1px solid #f0f0f0;' : '' ?>">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span style="font-family: 'Inconsolata', monospace; font-size: 0.7rem;"><?= htmlspecialchars($boundary['name']) ?></span>
-                                    <span style="font-size: 0.65rem; font-weight: 600;"><?= $boundary['count'] ?></span>
-                                </div>
-                                <div class="tier-bar-container" style="height: 3px; margin-top: 1px;">
-                                    <div class="tier-bar tier-3" style="width: <?= round(($boundary['count'] / $maxBoundary) * 100) ?>%;"></div>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                            </div>
-                        <?php elseif ($totalByType === 0): ?>
-                            <div class="text-muted text-center" style="font-size: 0.75rem; padding: 10px;">No crossings this hour</div>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- Peak Hours Heatmap Row -->
+        <div class="row mb-4">
             <!-- Peak Hours Heatmap -->
-            <div class="col-md-8">
+            <div class="col-12">
                 <div class="status-section">
                     <div class="status-section-header">
                         <span><i class="fas fa-fire mr-2"></i>Peak Hours (7 Day Heatmap)</span>
@@ -3311,6 +3379,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             if (content && toggle) {
                 content.classList.toggle('collapsed');
                 toggle.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
+                saveUIState();
+            }
+        }
+
+        // Toggle category visibility
+        function toggleCategory(categoryId) {
+            const content = document.getElementById(categoryId + '-content');
+            const header = document.getElementById(categoryId + '-header');
+            if (content && header) {
+                content.classList.toggle('collapsed');
+                header.classList.toggle('collapsed');
                 saveUIState();
             }
         }
