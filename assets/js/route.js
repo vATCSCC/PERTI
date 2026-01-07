@@ -7113,6 +7113,72 @@ advAddLabeledField(lines, 'NAME', advName);
             return closestIdx;
         }
 
+        /**
+         * Split a coordinate array at International Date Line crossings.
+         * Returns an array of coordinate arrays, each segment staying on one side of the IDL.
+         * This prevents Leaflet from drawing lines across the entire map.
+         * @param {Array} coords - Array of [lat, lon] coordinate pairs
+         * @returns {Array} Array of coordinate arrays
+         */
+        function splitAtIDL(coords) {
+            if (!coords || coords.length < 2) return [coords];
+
+            var segments = [];
+            var currentSegment = [coords[0]];
+
+            for (var i = 1; i < coords.length; i++) {
+                var prevLon = coords[i - 1][1];
+                var currLon = coords[i][1];
+
+                // Detect IDL crossing: large longitude jump (> 180 degrees difference)
+                var lonDiff = Math.abs(currLon - prevLon);
+
+                if (lonDiff > 180) {
+                    // This segment crosses the IDL - split here
+                    // Calculate where the line crosses the antimeridian
+                    var prevLat = coords[i - 1][0];
+                    var currLat = coords[i][0];
+
+                    // Normalize longitudes to handle the crossing
+                    var adjustedPrevLon = prevLon;
+                    var adjustedCurrLon = currLon;
+
+                    if (prevLon > 0 && currLon < 0) {
+                        // Crossing from east (positive) to west (negative)
+                        adjustedCurrLon = currLon + 360;
+                    } else if (prevLon < 0 && currLon > 0) {
+                        // Crossing from west (negative) to east (positive)
+                        adjustedPrevLon = prevLon + 360;
+                    }
+
+                    // Linear interpolation to find latitude at lon = 180 or -180
+                    var t = (180 - Math.min(adjustedPrevLon, adjustedCurrLon)) /
+                            (Math.max(adjustedPrevLon, adjustedCurrLon) - Math.min(adjustedPrevLon, adjustedCurrLon));
+                    if (t < 0) t = 0;
+                    if (t > 1) t = 1;
+                    var crossingLat = prevLat + t * (currLat - prevLat);
+
+                    // End current segment at the crossing point (on the correct side)
+                    var endLon = prevLon > 0 ? 180 : -180;
+                    currentSegment.push([crossingLat, endLon]);
+                    segments.push(currentSegment);
+
+                    // Start new segment from the crossing point (on the opposite side)
+                    var startLon = currLon > 0 ? 180 : -180;
+                    currentSegment = [[crossingLat, startLon], coords[i]];
+                } else {
+                    currentSegment.push(coords[i]);
+                }
+            }
+
+            // Add the final segment
+            if (currentSegment.length > 0) {
+                segments.push(currentSegment);
+            }
+
+            return segments;
+        }
+
         function toggleFlightRoute(flight) {
             var key = flight.flight_key || flight.callsign;
             console.log('[ADL] Toggle route for:', key);
@@ -7184,26 +7250,40 @@ advAddLabeledField(lines, 'NAME', advName);
             var behindLine = null;
             var aheadLine = null;
             var markers = [];
-            
-            // Draw behind segment (solid, thin)
+
+            // Draw behind segment (solid, thin) - split at IDL to avoid cross-map lines
             if (behindCoords.length >= 2) {
-                behindLine = L.polyline(behindCoords, {
-                    color: color,
-                    weight: 2,
-                    opacity: 0.7,
-                    className: 'adl-flight-route-behind'
+                var behindSegments = splitAtIDL(behindCoords);
+                behindLine = L.layerGroup();
+                behindSegments.forEach(function(segment) {
+                    if (segment && segment.length >= 2) {
+                        var line = L.polyline(segment, {
+                            color: color,
+                            weight: 2,
+                            opacity: 0.7,
+                            className: 'adl-flight-route-behind'
+                        });
+                        line.addTo(behindLine);
+                    }
                 });
                 behindLine.addTo(state.routeLayer);
             }
-            
-            // Draw ahead segment (dashed, thin)
+
+            // Draw ahead segment (dashed, thin) - split at IDL to avoid cross-map lines
             if (aheadCoords.length >= 2) {
-                aheadLine = L.polyline(aheadCoords, {
-                    color: color,
-                    weight: 2,
-                    opacity: 0.9,
-                    dashArray: '8, 6',
-                    className: 'adl-flight-route-ahead'
+                var aheadSegments = splitAtIDL(aheadCoords);
+                aheadLine = L.layerGroup();
+                aheadSegments.forEach(function(segment) {
+                    if (segment && segment.length >= 2) {
+                        var line = L.polyline(segment, {
+                            color: color,
+                            weight: 2,
+                            opacity: 0.9,
+                            dashArray: '8, 6',
+                            className: 'adl-flight-route-ahead'
+                        });
+                        line.addTo(aheadLine);
+                    }
                 });
                 aheadLine.addTo(state.routeLayer);
             }
@@ -7278,12 +7358,17 @@ advAddLabeledField(lines, 'NAME', advName);
                 if (flight) {
                     var newColor = getFlightColor(flight);
                     routeData.color = newColor;
-                    
-                    if (routeData.behindLine) {
-                        routeData.behindLine.setStyle({ color: newColor });
+
+                    // behindLine and aheadLine are layer groups containing polylines
+                    if (routeData.behindLine && routeData.behindLine.eachLayer) {
+                        routeData.behindLine.eachLayer(function(layer) {
+                            if (layer.setStyle) layer.setStyle({ color: newColor });
+                        });
                     }
-                    if (routeData.aheadLine) {
-                        routeData.aheadLine.setStyle({ color: newColor });
+                    if (routeData.aheadLine && routeData.aheadLine.eachLayer) {
+                        routeData.aheadLine.eachLayer(function(layer) {
+                            if (layer.setStyle) layer.setStyle({ color: newColor });
+                        });
                     }
                 }
             });
@@ -8192,11 +8277,17 @@ advAddLabeledField(lines, 'NAME', advName);
                                 var coords = feature.geometry.coordinates.map(function(c) {
                                     return [c[1], c[0]];
                                 });
-                                
-                                var polyline = L.polyline(coords, lineStyle);
-                                polyline._publicRouteData = route;
-                                polyline.bindPopup(createRoutePopup(route), { maxWidth: 300 });
-                                polyline.addTo(publicRoutesLayer);
+
+                                // Split at IDL to avoid cross-map lines
+                                var segments = splitAtIDL(coords);
+                                segments.forEach(function(segment) {
+                                    if (segment && segment.length >= 2) {
+                                        var polyline = L.polyline(segment, lineStyle);
+                                        polyline._publicRouteData = route;
+                                        polyline.bindPopup(createRoutePopup(route), { maxWidth: 300 });
+                                        polyline.addTo(publicRoutesLayer);
+                                    }
+                                });
 
                                 // Collect for label placement
                                 allCoords = allCoords.concat(coords);
@@ -8213,10 +8304,16 @@ advAddLabeledField(lines, 'NAME', advName);
                         return;
                     }
 
-                    var polyline = L.polyline(coords, lineStyle);
-                    polyline._publicRouteData = route;
-                    polyline.bindPopup(createRoutePopup(route), { maxWidth: 300 });
-                    polyline.addTo(publicRoutesLayer);
+                    // Split at IDL to avoid cross-map lines
+                    var segments = splitAtIDL(coords);
+                    segments.forEach(function(segment) {
+                        if (segment && segment.length >= 2) {
+                            var polyline = L.polyline(segment, lineStyle);
+                            polyline._publicRouteData = route;
+                            polyline.bindPopup(createRoutePopup(route), { maxWidth: 300 });
+                            polyline.addTo(publicRoutesLayer);
+                        }
+                    });
                     allCoords = coords;
                 }
 

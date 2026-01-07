@@ -930,12 +930,12 @@
             const features = state.map.queryRenderedFeatures(e.point, {
                 layers: clickableLayers.filter(l => state.map.getLayer(l))
             });
-            
+
             if (!features || features.length === 0) return;
-            
+
             // Deduplicate features (same feature can appear in multiple layers)
             const uniqueFeatures = deduplicateFeatures(features);
-            
+
             if (uniqueFeatures.length === 1) {
                 // Single feature - show popup directly
                 showFeaturePopup(uniqueFeatures[0], e.lngLat);
@@ -944,7 +944,26 @@
                 showFeaturePicker(uniqueFeatures, e.lngLat);
             }
         });
-        
+
+        // Right-click handler for detailed flight info
+        state.map.on('contextmenu', (e) => {
+            // Query for flight features at click point
+            const flightLayers = ['traffic-icons', 'traffic-circles-fallback'];
+            const features = state.map.queryRenderedFeatures(e.point, {
+                layers: flightLayers.filter(l => state.map.getLayer(l))
+            });
+
+            if (!features || features.length === 0) return;
+
+            e.preventDefault();
+
+            // Get the first flight feature
+            const feature = features[0];
+            if (feature && feature.properties) {
+                showDetailedFlightPopup(feature.properties, e.lngLat);
+            }
+        });
+
         // Cursor change on hover for all clickable layers
         clickableLayers.forEach(layerId => {
             if (state.map.getLayer(layerId)) {
@@ -4935,7 +4954,7 @@
                     <strong style="font-size:14px;">${escapeHtml(props.callsign || 'Unknown')}</strong>
                     <span title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
                 </div>
-                <div style="color:#aaa; font-size:10px; margin-bottom:4px;">
+                <div style="color:#777; font-size:10px; margin-bottom:4px;">
                     ${escapeHtml(props.ac_type || '---')} (${props.weight_class || '?'})
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
@@ -4963,7 +4982,7 @@
                 ${props.route ? `
                 <div style="margin-top:6px; padding-top:6px; border-top:1px solid #444;">
                     <div style="font-size:9px; color:#888; margin-bottom:2px;">FLIGHT PLAN:</div>
-                    <div style="font-size:9px; color:#ccc; word-break:break-all; max-height:60px; overflow-y:auto;">${escapeHtml(props.route)}</div>
+                    <div style="font-size:9px; color:#999; word-break:break-all; max-height:60px; overflow-y:auto;">${escapeHtml(props.route)}</div>
                 </div>` : ''}
                 ${statusIcon ? `<div style="margin-top:6px; text-align:center;">${statusIcon}</div>` : ''}
                 ${routeMatchHtml}
@@ -4981,6 +5000,155 @@
         state.lastPopupFlight = props;
 
         new maplibregl.Popup({ closeButton: false, offset: 15 })
+            .setLngLat(lngLat)
+            .setHTML(html)
+            .addTo(state.map);
+    }
+
+    /**
+     * Show detailed flight popup on right-click
+     * Displays comprehensive flight information including all available data
+     */
+    function showDetailedFlightPopup(props, lngLat) {
+        // Weight class symbols
+        const wcSymbols = {
+            'SUPER': '▬▬', 'J': '▬▬',
+            'HEAVY': '═', 'H': '═',
+            'LARGE': '✈', 'L': '✈',
+            'SMALL': '○', 'S': '○'
+        };
+        const wcSymbol = wcSymbols[props.weight_class] || '?';
+
+        // Format values
+        const hdg = props.heading ? `${String(props.heading).padStart(3, '0')}°` : '---';
+        const alt = props.altitude ? `FL${Math.round(props.altitude / 100)}` : '---';
+        const altFt = props.altitude ? `${props.altitude.toLocaleString()} ft` : '---';
+
+        // Status badges
+        let statusBadges = '';
+        if (props.gs_affected) statusBadges += '<span style="display:inline-block;margin:2px;padding:2px 6px;background:#dc3545;color:#fff;border-radius:3px;font-size:9px;">⛔ GS AFFECTED</span>';
+        if (props.gdp_affected) statusBadges += '<span style="display:inline-block;margin:2px;padding:2px 6px;background:#ffc107;color:#000;border-radius:3px;font-size:9px;">⏱ GDP AFFECTED</span>';
+        if (props.edct_issued) statusBadges += '<span style="display:inline-block;margin:2px;padding:2px 6px;background:#17a2b8;color:#fff;border-radius:3px;font-size:9px;">📋 EDCT ISSUED</span>';
+
+        // Matching routes
+        const matchingRoutes = getMatchingRoutes(props);
+        let routeMatchHtml = '';
+        if (matchingRoutes.length > 0) {
+            routeMatchHtml = `
+                <tr><td colspan="2" style="padding-top:8px;border-top:1px solid #444;">
+                    <div style="font-size:9px;color:#888;margin-bottom:4px;">MATCHING PUBLIC ROUTES:</div>
+                    ${matchingRoutes.map(r => `<span style="display:inline-block;margin:2px;padding:2px 6px;background:${r.color};color:#fff;border-radius:3px;font-size:9px;">${escapeHtml(r.name)}</span>`).join('')}
+                </td></tr>
+            `;
+        }
+
+        const html = `
+            <div style="font-family:'Consolas',monospace;font-size:12px;min-width:280px;max-width:350px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #444;">
+                    <div>
+                        <strong style="font-size:16px;color:#4a9eff;">${escapeHtml(props.callsign || 'Unknown')}</strong>
+                        <span style="margin-left:8px;font-size:12px;" title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
+                    </div>
+                    <span style="font-size:10px;color:#888;background:#333;padding:2px 6px;border-radius:3px;">DETAILED VIEW</span>
+                </div>
+
+                <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                    <tr style="border-bottom:1px solid #333;">
+                        <td colspan="2" style="padding:4px 0;"><strong style="color:#aaa;">Aircraft Information</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#666;padding:2px 0;">Type:</td>
+                        <td style="text-align:right;">${escapeHtml(props.ac_type || '---')}</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#666;padding:2px 0;">Weight Class:</td>
+                        <td style="text-align:right;">${props.weight_class || '---'}</td>
+                    </tr>
+                    ${props.aircraft_icao ? `<tr>
+                        <td style="color:#666;padding:2px 0;">ICAO Code:</td>
+                        <td style="text-align:right;">${escapeHtml(props.aircraft_icao)}</td>
+                    </tr>` : ''}
+
+                    <tr style="border-bottom:1px solid #333;">
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:#aaa;">Flight Data</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#666;padding:2px 0;">Route:</td>
+                        <td style="text-align:right;font-weight:bold;">${props.origin || '???'} → ${props.dest || '???'}</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#666;padding:2px 0;">Altitude:</td>
+                        <td style="text-align:right;">${alt} <span style="color:#666;font-size:10px;">(${altFt})</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#666;padding:2px 0;">Ground Speed:</td>
+                        <td style="text-align:right;">${props.speed || '---'} kts</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#666;padding:2px 0;">Heading:</td>
+                        <td style="text-align:right;">${hdg}</td>
+                    </tr>
+                    ${props.squawk ? `<tr>
+                        <td style="color:#666;padding:2px 0;">Squawk:</td>
+                        <td style="text-align:right;font-family:monospace;">${escapeHtml(props.squawk)}</td>
+                    </tr>` : ''}
+
+                    <tr style="border-bottom:1px solid #333;">
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:#aaa;">Position & Airspace</strong></td>
+                    </tr>
+                    ${props.current_artcc ? `<tr>
+                        <td style="color:#666;padding:2px 0;">Current ARTCC:</td>
+                        <td style="text-align:right;">${escapeHtml(props.current_artcc)}</td>
+                    </tr>` : ''}
+                    ${props.dep_artcc ? `<tr>
+                        <td style="color:#666;padding:2px 0;">Departure ARTCC:</td>
+                        <td style="text-align:right;">${escapeHtml(props.dep_artcc)}</td>
+                    </tr>` : ''}
+                    ${props.arr_artcc ? `<tr>
+                        <td style="color:#666;padding:2px 0;">Arrival ARTCC:</td>
+                        <td style="text-align:right;">${escapeHtml(props.arr_artcc)}</td>
+                    </tr>` : ''}
+                    <tr>
+                        <td style="color:#666;padding:2px 0;">Coordinates:</td>
+                        <td style="text-align:right;font-size:10px;">${props.lat?.toFixed(4) || '---'}, ${props.lng?.toFixed(4) || '---'}</td>
+                    </tr>
+
+                    ${props.route ? `
+                    <tr style="border-bottom:1px solid #333;">
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:#aaa;">Flight Plan Route</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="padding:4px 0;">
+                            <div style="font-size:10px;color:#888;background:#1a1a2e;padding:6px;border-radius:3px;word-break:break-all;max-height:80px;overflow-y:auto;">
+                                ${escapeHtml(props.route)}
+                            </div>
+                        </td>
+                    </tr>` : ''}
+
+                    ${statusBadges ? `
+                    <tr>
+                        <td colspan="2" style="padding:8px 0 4px 0;text-align:center;">
+                            ${statusBadges}
+                        </td>
+                    </tr>` : ''}
+
+                    ${routeMatchHtml}
+                </table>
+
+                <div style="margin-top:10px;padding-top:8px;border-top:1px solid #444;text-align:center;">
+                    <button class="btn btn-sm btn-outline-info show-route-btn"
+                            data-flight-key="${escapeHtml(props.flight_key || props.callsign)}"
+                            style="font-size:10px;padding:2px 10px;margin-right:4px;">
+                        ${isFlightRouteDisplayed(props) ? '✓ Hide Route' : '➤ Show Route'}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Store flight data for route toggle
+        state.lastPopupFlight = props;
+
+        new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 15, maxWidth: '400px' })
             .setLngLat(lngLat)
             .setHTML(html)
             .addTo(state.map);

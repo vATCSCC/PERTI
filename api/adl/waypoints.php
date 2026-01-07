@@ -202,7 +202,12 @@ $sql = "
         w.planned_alt_ft,
         w.is_step_climb_point,
         w.is_toc,
-        w.is_tod
+        w.is_tod,
+        w.leg_type,
+        w.alt_restriction,
+        w.altitude_1_ft,
+        w.altitude_2_ft,
+        w.speed_limit_kts
     FROM dbo.adl_flight_waypoints w
     WHERE w.flight_uid = ?
     ORDER BY w.sequence_num ASC
@@ -226,7 +231,7 @@ if ($stmt === false) {
 $waypoints = [];
 
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    $waypoints[] = [
+    $waypoint = [
         'seq' => (int)$row['sequence_num'],
         'fix' => $row['fix_name'],
         'lat' => (float)$row['lat'],
@@ -241,6 +246,21 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         'is_tod' => (bool)$row['is_tod'],
         'is_step' => (bool)$row['is_step_climb_point']
     ];
+
+    // CIFP procedure leg constraints (only include if present)
+    if ($row['leg_type'] !== null) {
+        $waypoint['leg_type'] = $row['leg_type'];
+    }
+    if ($row['alt_restriction'] !== null) {
+        $waypoint['alt_restriction'] = $row['alt_restriction'];
+        $waypoint['constraint_alt_1'] = $row['altitude_1_ft'] !== null ? (int)$row['altitude_1_ft'] : null;
+        $waypoint['constraint_alt_2'] = $row['altitude_2_ft'] !== null ? (int)$row['altitude_2_ft'] : null;
+    }
+    if ($row['speed_limit_kts'] !== null) {
+        $waypoint['speed_limit_kts'] = (int)$row['speed_limit_kts'];
+    }
+
+    $waypoints[] = $waypoint;
 }
 
 sqlsrv_free_stmt($stmt);
