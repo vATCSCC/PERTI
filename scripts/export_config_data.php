@@ -37,6 +37,62 @@ if (!$isCLI) {
     ob_implicit_flush(true);
 }
 
+/**
+ * Convert FAA code to ICAO code
+ */
+function faaToIcao($faa) {
+    $faa = strtoupper(trim($faa));
+
+    // Already 4 chars - likely already ICAO
+    if (strlen($faa) == 4) {
+        return $faa;
+    }
+
+    // 3-letter codes need prefix
+    if (strlen($faa) == 3) {
+        // Canadian airports: Y** -> CY**
+        if (preg_match('/^Y[A-Z]{2}$/', $faa)) {
+            return 'C' . $faa;
+        }
+
+        // Alaska airports
+        $alaskaAirports = ['ANC', 'FAI', 'JNU', 'BET', 'ADQ', 'AKN', 'CDV', 'DLG', 'GST',
+                          'HNS', 'HOM', 'KTN', 'OTZ', 'SCC', 'SIT', 'WRG', 'YAK', 'BRW',
+                          'OME', 'ADK', 'ENA', 'VDZ', 'SNP', 'AKI', 'ANI'];
+        if (in_array($faa, $alaskaAirports)) {
+            return 'PA' . $faa;
+        }
+
+        // Hawaii airports
+        $hawaiiAirports = ['HNL', 'OGG', 'LIH', 'KOA', 'ITO', 'MKK', 'LNY', 'JHM'];
+        if (in_array($faa, $hawaiiAirports)) {
+            return 'PH' . $faa;
+        }
+
+        // Guam
+        if ($faa === 'GUM') {
+            return 'PGUM';
+        }
+
+        // Puerto Rico
+        $puertoRicoAirports = ['SJU', 'BQN', 'PSE', 'MAZ', 'VQS'];
+        if (in_array($faa, $puertoRicoAirports)) {
+            return 'TJ' . $faa;
+        }
+
+        // US Virgin Islands
+        $usviAirports = ['STT', 'STX'];
+        if (in_array($faa, $usviAirports)) {
+            return 'TI' . $faa;
+        }
+
+        // Default: K prefix for CONUS
+        return 'K' . $faa;
+    }
+
+    return $faa;
+}
+
 echo "===========================================\n";
 echo "MySQL to ADL Config Export\n";
 echo "===========================================\n\n";
@@ -128,24 +184,18 @@ while ($row = mysqli_fetch_assoc($query)) {
 
     // Generate ICAO code
     $faaCode = strtoupper($airport);
-    if (strlen($faaCode) == 3) {
-        // Check for Canadian airports
-        if (preg_match('/^Y[A-Z]{2}$/', $faaCode)) {
-            $icaoCode = 'C' . $faaCode;
-        } else {
-            $icaoCode = 'K' . $faaCode;
-        }
-    } else {
-        $icaoCode = $faaCode;
-    }
+    $icaoCode = faaToIcao($faaCode);
 
-    // Generate config name from runways
+    // Generate config name from runways (truncate to 64 chars)
     $configName = "Default";
     if (!empty($arrRunways)) {
         $configName = $arrRunways;
         if (!empty($depRunways) && $depRunways !== $arrRunways) {
             $configName .= " / " . $depRunways;
         }
+    }
+    if (strlen($configName) > 64) {
+        $configName = substr($configName, 0, 61) . '...';
     }
 
     if ($dryRun) {
