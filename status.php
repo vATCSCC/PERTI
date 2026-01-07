@@ -299,6 +299,15 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
+    // Phase snapshots in last hour
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.flight_phase_snapshot WHERE snapshot_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['phase_snapshots_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
 } else {
     $statusIssues[] = 'ADL database connection unavailable';
     $overallStatus = 'degraded';
@@ -1183,6 +1192,21 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             </div>
         </div>
 
+        <!-- 24-Hour Flight Phase Chart -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <span class="chart-title"><i class="fas fa-plane mr-1"></i> Flight Activity (24 Hours)</span>
+                        <span class="runtime-badge"><?= number_format($liveData['active_flights']) ?> active</span>
+                    </div>
+                    <div class="chart-wrapper" style="height: 200px;">
+                        <canvas id="phaseChart" class="chart-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Live Charts Row -->
         <div class="row mb-4">
             <div class="col-md-4">
@@ -1813,6 +1837,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <span class="step-metric-label">logged/1h</span>
                             </div>
                         </div>
+                        <!-- Step 12 -->
+                        <div class="procedure-step">
+                            <span class="step-number">12</span>
+                            <div class="step-content">
+                                <div class="step-name">Capture Phase Snapshot <span class="step-category archive">Archive</span></div>
+                                <div class="step-desc">Store flight phase counts for 24hr chart</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value"><?= number_format($liveData['phase_snapshots_1h'] ?? 0) ?></span>
+                                <span class="step-metric-label">snaps/1h</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -2055,6 +2091,120 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         }
                     }
                 });
+            }
+
+            // 24-Hour Flight Phase Chart (stacked area)
+            const phaseCtx = document.getElementById('phaseChart');
+            if (phaseCtx) {
+                // Fetch data from API
+                fetch('/api/stats/flight_phase_history.php?hours=24&interval=15')
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success && result.data) {
+                            const data = result.data;
+                            new Chart(phaseCtx, {
+                                type: 'line',
+                                data: {
+                                    labels: data.labels,
+                                    datasets: [
+                                        {
+                                            label: 'Arrived',
+                                            data: data.datasets.arrived,
+                                            borderColor: '#1a1a1a',
+                                            backgroundColor: 'rgba(26, 26, 26, 0.8)',
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: 'Descending',
+                                            data: data.datasets.descending,
+                                            borderColor: '#991b1b',
+                                            backgroundColor: 'rgba(153, 27, 27, 0.8)',
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: 'En Route',
+                                            data: data.datasets.enroute,
+                                            borderColor: '#dc2626',
+                                            backgroundColor: 'rgba(220, 38, 38, 0.8)',
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: 'Departed',
+                                            data: data.datasets.departed,
+                                            borderColor: '#f87171',
+                                            backgroundColor: 'rgba(248, 113, 113, 0.8)',
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: 'Taxiing',
+                                            data: data.datasets.taxiing,
+                                            borderColor: '#22c55e',
+                                            backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: 'Prefile',
+                                            data: data.datasets.prefile,
+                                            borderColor: '#06b6d4',
+                                            backgroundColor: 'rgba(6, 182, 212, 0.8)',
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            display: true,
+                                            position: 'top',
+                                            labels: {
+                                                boxWidth: 12,
+                                                padding: 10,
+                                                font: { size: 10 }
+                                            }
+                                        },
+                                        tooltip: {
+                                            mode: 'index',
+                                            intersect: false
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            display: true,
+                                            grid: { display: false },
+                                            ticks: { font: { size: 9 }, maxRotation: 0 }
+                                        },
+                                        y: {
+                                            display: true,
+                                            stacked: true,
+                                            grid: { color: '#f0f0f0' },
+                                            ticks: { font: { size: 10 } },
+                                            beginAtZero: true
+                                        }
+                                    },
+                                    interaction: {
+                                        mode: 'nearest',
+                                        axis: 'x',
+                                        intersect: false
+                                    }
+                                }
+                            });
+                        }
+                    })
+                    .catch(err => console.error('Failed to load phase history:', err));
             }
         });
     </script>

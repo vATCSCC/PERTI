@@ -614,6 +614,15 @@ BEGIN
     EXEC dbo.sp_Log_Trajectory;
 
     -- ========================================================================
+    -- Step 12: Capture Phase Snapshot (for 24hr chart)
+    -- ========================================================================
+
+    IF OBJECT_ID('dbo.sp_CapturePhaseSnapshot', 'P') IS NOT NULL
+    BEGIN
+        EXEC dbo.sp_CapturePhaseSnapshot;
+    END
+
+    -- ========================================================================
     -- Cleanup and return stats
     -- ========================================================================
     
