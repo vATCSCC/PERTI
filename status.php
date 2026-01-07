@@ -248,7 +248,7 @@ if ($liveData['queue_failed_1h'] > 50) {
 
         .status-page-header {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 20px 0;
+            padding: 100px 0 20px 0;
             border-bottom: 3px solid var(--status-complete);
         }
 
