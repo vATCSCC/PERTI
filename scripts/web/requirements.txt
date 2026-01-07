@@ -1,0 +1,4 @@
+# VATUSA Event AAR/ADR Entry Web App
+flask>=2.0.0
+pyodbc>=4.0.0
+gunicorn>=20.0.0

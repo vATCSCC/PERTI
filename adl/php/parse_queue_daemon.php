@@ -15,7 +15,6 @@
 
 // Include the PERTI connection setup which provides $conn_adl
 require_once __DIR__ . '/../../load/connect.php';
-require_once __DIR__ . '/AdlFlightUpsert.php';
 
 // Configuration
 define('DEFAULT_BATCH_SIZE', 50);
@@ -25,7 +24,6 @@ define('MAX_ITERATIONS', 20);   // max batches per cycle
 class ParseQueueDaemon
 {
     private $conn;
-    private $adl;
     private $batchSize;
     private $interval;
     private $running = true;
@@ -33,7 +31,6 @@ class ParseQueueDaemon
     public function __construct($conn_adl, int $batchSize = DEFAULT_BATCH_SIZE, int $interval = DEFAULT_INTERVAL)
     {
         $this->conn = $conn_adl;
-        $this->adl = new AdlFlightUpsert($conn_adl);
         $this->batchSize = $batchSize;
         $this->interval = $interval;
         

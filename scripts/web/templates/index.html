@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VATUSA Event AAR/ADR Entry</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>VATUSA Event AAR/ADR Entry</h1>
+            <p class="subtitle">Events missing peak AAR data: <strong>{{ total_missing }}</strong></p>
+        </header>
+
+        {% if statsim_events %}
+        <section class="event-section">
+            <h2>STATSIM Events ({{ statsim_events|length }})</h2>
+            <p class="section-desc">Events imported from Statsim.net - need manual AAR/ADR entry</p>
+
+            <table class="event-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Airport</th>
+                        <th>Event Name</th>
+                        <th>Type</th>
+                        <th>Arrivals</th>
+                        <th>Departures</th>
+                        <th>Duration</th>
+                        <th>Calc AAR</th>
+                        <th>Hourly</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in statsim_events %}
+                    <tr>
+                        <td>{{ event.start_utc|datetime_format('%Y-%m-%d') }}</td>
+                        <td class="airport-code">{{ event.airport_icao }}</td>
+                        <td class="event-name" title="{{ event.event_name }}">{{ event.event_name[:50] }}{% if event.event_name|length > 50 %}...{% endif %}</td>
+                        <td>{{ event.event_type or '-' }}</td>
+                        <td class="numeric">{{ event.total_arrivals or 0 }}</td>
+                        <td class="numeric">{{ event.total_departures or 0 }}</td>
+                        <td class="numeric">{{ "%.1f"|format(event.duration_hours) if event.duration_hours else '-' }}h</td>
+                        <td class="numeric calc-rate">{{ "%.1f"|format(event.calc_avg_aar) if event.calc_avg_aar else '-' }}</td>
+                        <td class="numeric">
+                            {% if event.hourly_count > 0 %}
+                            <span class="hourly-badge">{{ event.hourly_count }}h</span>
+                            {% else %}
+                            <span class="hourly-badge empty">0h</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('edit_event', event_idx=event.event_idx, airport_icao=event.airport_icao) }}" class="btn btn-edit">Edit</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+
+        {% if excel_events %}
+        <section class="event-section">
+            <h2>EXCEL Events ({{ excel_events|length }})</h2>
+            <p class="section-desc">Historical events from Excel import - may need AAR/ADR corrections</p>
+
+            <table class="event-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Airport</th>
+                        <th>Event Name</th>
+                        <th>Type</th>
+                        <th>Arrivals</th>
+                        <th>Departures</th>
+                        <th>Duration</th>
+                        <th>Calc AAR</th>
+                        <th>Hourly</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in excel_events %}
+                    <tr>
+                        <td>{{ event.start_utc|datetime_format('%Y-%m-%d') }}</td>
+                        <td class="airport-code">{{ event.airport_icao }}</td>
+                        <td class="event-name" title="{{ event.event_name }}">{{ event.event_name[:50] }}{% if event.event_name|length > 50 %}...{% endif %}</td>
+                        <td>{{ event.event_type or '-' }}</td>
+                        <td class="numeric">{{ event.total_arrivals or 0 }}</td>
+                        <td class="numeric">{{ event.total_departures or 0 }}</td>
+                        <td class="numeric">{{ "%.1f"|format(event.duration_hours) if event.duration_hours else '-' }}h</td>
+                        <td class="numeric calc-rate">{{ "%.1f"|format(event.calc_avg_aar) if event.calc_avg_aar else '-' }}</td>
+                        <td class="numeric">
+                            {% if event.hourly_count > 0 %}
+                            <span class="hourly-badge">{{ event.hourly_count }}h</span>
+                            {% else %}
+                            <span class="hourly-badge empty">0h</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('edit_event', event_idx=event.event_idx, airport_icao=event.airport_icao) }}" class="btn btn-edit">Edit</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+
+        {% if not statsim_events and not excel_events %}
+        <section class="event-section">
+            <div class="no-events">
+                <h2>All Events Have AAR/ADR Data</h2>
+                <p>There are no events missing peak AAR data.</p>
+            </div>
+        </section>
+        {% endif %}
+
+        <footer>
+            <p>VATSIM ADL Event Statistics | AAR/ADR Manual Entry Tool</p>
+        </footer>
+    </div>
+</body>
+</html>
