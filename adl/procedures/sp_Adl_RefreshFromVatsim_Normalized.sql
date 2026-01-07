@@ -1,6 +1,9 @@
 -- ============================================================================
--- PATCH: sp_Adl_RefreshFromVatsim_Normalized V8.2 - Fixed Column Sizes + Wake Category
+-- PATCH: sp_Adl_RefreshFromVatsim_Normalized V8.3 - Boundary Detection Integration
 -- 
+-- Changes from V8.2:
+--   - Added Step 10: Boundary Detection for ARTCC/Sector/TRACON
+--   - Returns boundary_transitions in final stats
 -- Changes from V8.1:
 --   - wake_category: Now uses single-letter codes (J/H/M/L) instead of full words
 --   - aircraft_icao/aircraft_faa: Truncated to 8 chars on insert
@@ -38,6 +41,9 @@ BEGIN
     DECLARE @traj_count INT = 0;
     -- Zone detection counter
     DECLARE @zone_transitions INT = 0;
+    -- Boundary detection counters (V8.3)
+    DECLARE @boundary_transitions INT = 0;
+    DECLARE @boundary_flights INT = 0;
     
     -- ========================================================================
     -- Step 1: Parse JSON into temp table
@@ -580,6 +586,18 @@ BEGIN
     END
     
     -- ========================================================================
+    -- Step 10: Boundary Detection for ARTCC/Sector/TRACON (V8.3)
+    -- ========================================================================
+    
+    -- Only process if the procedure exists (graceful degradation)
+    IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
+    BEGIN
+        EXEC dbo.sp_ProcessBoundaryDetectionBatch
+            @transitions_detected = @boundary_transitions OUTPUT,
+            @flights_processed = @boundary_flights OUTPUT;
+    END
+    
+    -- ========================================================================
     -- Cleanup and return stats
     -- ========================================================================
     
@@ -596,12 +614,13 @@ BEGIN
         @eta_count AS etas_calculated,
         @traj_count AS trajectories_logged,
         @zone_transitions AS zone_transitions,
+        @boundary_transitions AS boundary_transitions,
         @elapsed_ms AS elapsed_ms;
     
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.2 created successfully';
-PRINT 'Fixed: TRACON columns expanded to NVARCHAR(64), ARTCC to NVARCHAR(8)';
-PRINT 'Fixed: wake_category now uses single-letter codes (J/H/M/L)';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.3 created successfully';
+PRINT 'Added: Step 10 - Boundary Detection for ARTCC/Sector/TRACON';
+PRINT 'Returns: boundary_transitions count in stats';
 GO
