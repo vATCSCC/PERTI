@@ -74,12 +74,26 @@ try {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Get active flight count
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flights WHERE is_active = 1";
+    // Get active flight count - use view which supports normalized schema
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.vw_adl_flights WHERE is_active = 1";
     $stmt = sqlsrv_query($conn_adl, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $response['active_flights'] = $row['cnt'];
         sqlsrv_free_stmt($stmt);
+    }
+
+    // Fallback: get last snapshot time from flights if run_log is empty
+    if ($response['last_refresh'] === null) {
+        $sql = "SELECT TOP 1 snapshot_utc, DATEDIFF(SECOND, snapshot_utc, SYSUTCDATETIME()) AS age_seconds
+                FROM dbo.vw_adl_flights ORDER BY snapshot_utc DESC";
+        $stmt = sqlsrv_query($conn_adl, $sql);
+        if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            if ($row['snapshot_utc'] instanceof DateTimeInterface) {
+                $response['last_refresh'] = $row['snapshot_utc']->format('Y-m-d\TH:i:s\Z');
+            }
+            $response['refresh_age_seconds'] = $row['age_seconds'];
+            sqlsrv_free_stmt($stmt);
+        }
     }
 
     // Get parse queue status
