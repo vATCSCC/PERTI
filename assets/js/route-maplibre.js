@@ -4290,6 +4290,23 @@ $(document).ready(function() {
             return minIdx;
         }
 
+        // Normalize coordinates for International Date Line crossing
+        function normalizeForIDL(coords) {
+            if (!coords || coords.length < 2) return coords;
+            const normalized = [[coords[0][0], coords[0][1]]];
+            for (let i = 1; i < coords.length; i++) {
+                let prevLon = normalized[i - 1][0];
+                let currLon = coords[i][0];
+                const currLat = coords[i][1];
+                const lonDiff = currLon - prevLon;
+                if (Math.abs(lonDiff) > 180) {
+                    currLon += (lonDiff > 0) ? -360 : 360;
+                }
+                normalized.push([currLon, currLat]);
+            }
+            return normalized;
+        }
+
         function toggleFlightRoute(flight) {
             const key = flight.flight_key || flight.callsign;
             console.log('[ADL-ML] Toggle route for:', key);
@@ -4313,14 +4330,18 @@ $(document).ready(function() {
             const splitIdx = findClosestSegmentIndex(coords, aircraftLat, aircraftLon);
 
             // Behind: from origin up to aircraft position
-            const behindCoords = coords.slice(0, splitIdx + 1).map(c => [c.lon, c.lat]);
-            behindCoords.push([aircraftLon, aircraftLat]);
+            const behindRaw = coords.slice(0, splitIdx + 1).map(c => [c.lon, c.lat]);
+            behindRaw.push([aircraftLon, aircraftLat]);
 
             // Ahead: from aircraft position to destination
-            const aheadCoords = [[aircraftLon, aircraftLat]];
+            const aheadRaw = [[aircraftLon, aircraftLat]];
             for (let i = splitIdx; i < coords.length; i++) {
-                aheadCoords.push([coords[i].lon, coords[i].lat]);
+                aheadRaw.push([coords[i].lon, coords[i].lat]);
             }
+
+            // Normalize for IDL crossing (prevents routes wrapping around globe)
+            const behindCoords = normalizeForIDL(behindRaw);
+            const aheadCoords = normalizeForIDL(aheadRaw);
 
             state.drawnRoutes.set(key, { color, behindCoords, aheadCoords, flight, fixes: coords });
             updateFlightRouteDisplay();
@@ -4708,14 +4729,17 @@ $(document).ready(function() {
                         const aircraftLon = parseFloat(flight.lon);
                         const splitIdx = findClosestSegmentIndex(coords, aircraftLat, aircraftLon);
 
-                        routeData.behindCoords = coords.slice(0, splitIdx + 1).map(c => [c.lon, c.lat]);
-                        routeData.behindCoords.push([aircraftLon, aircraftLat]);
+                        const behindRaw = coords.slice(0, splitIdx + 1).map(c => [c.lon, c.lat]);
+                        behindRaw.push([aircraftLon, aircraftLat]);
 
-                        routeData.aheadCoords = [[aircraftLon, aircraftLat]];
+                        const aheadRaw = [[aircraftLon, aircraftLat]];
                         for (let i = splitIdx; i < coords.length; i++) {
-                            routeData.aheadCoords.push([coords[i].lon, coords[i].lat]);
+                            aheadRaw.push([coords[i].lon, coords[i].lat]);
                         }
 
+                        // Normalize for IDL crossing
+                        routeData.behindCoords = normalizeForIDL(behindRaw);
+                        routeData.aheadCoords = normalizeForIDL(aheadRaw);
                         routeData.color = getFlightColor(flight);
                     }
                 }
