@@ -281,7 +281,11 @@ class NASRParser:
                             'LONG_DECIMAL': lon,
                             'ELEV': row.get('ELEV', '').strip(),
                             'RESP_ARTCC_ID': row.get('RESP_ARTCC_ID', '').strip(),
-                            # Additional fields can be added as needed
+                            # NASR military fields
+                            'OWNERSHIP_TYPE_CODE': row.get('OWNERSHIP_TYPE_CODE', '').strip(),
+                            'USE_CODE': row.get('USE_CODE', '').strip(),
+                            'MIL_SVC_CODE': row.get('MIL_SVC_CODE', '').strip(),
+                            'MIL_LAND_RIGHTS_CODE': row.get('MIL_LAND_RIGHTS_CODE', '').strip(),
                         }
                 except (ValueError, TypeError):
                     continue
@@ -913,14 +917,16 @@ class NavDataMerger:
 class NavDataIO:
     """Handles reading and writing navigation data files."""
     
-    # Native apts.csv header columns (27 columns)
+    # Native apts.csv header columns (31 columns - added military fields)
     APTS_HEADER = [
         'ARPT_ID', 'ICAO_ID', 'ARPT_NAME', 'LAT_DECIMAL', 'LONG_DECIMAL', 'ELEV',
         'RESP_ARTCC_ID', 'COMPUTER_ID', 'ARTCC_NAME', 'TWR_TYPE_CODE', 'DCC REGION',
         'ASPM77', 'OEP35', 'Core30', 'Tower', 'Approach', 'Secondary Approach',
         'Departure', 'Secondary Departure', 'Approach/Departure', 'Approach ID',
         'Secondary Approach ID', 'Departure ID', 'Secondary Departure ID',
-        'Approach/Departure ID', 'Consolidated Approach', 'Consolidated Approach ID'
+        'Approach/Departure ID', 'Consolidated Approach', 'Consolidated Approach ID',
+        # NASR military fields
+        'OWNERSHIP_TYPE_CODE', 'USE_CODE', 'MIL_SVC_CODE', 'MIL_LAND_RIGHTS_CODE'
     ]
     
     def __init__(self, data_dir: Path):
