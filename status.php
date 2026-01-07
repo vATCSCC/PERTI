@@ -1152,7 +1152,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         /* Tier Tracking Styles */
         .tier-tracking-container {
-            padding: 15px;
+            padding: 10px;
         }
 
         .tier-tracking-container.collapsed {
@@ -1167,8 +1167,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             background: #454660;
         }
 
+        .tier-group-total {
+            padding: 2px 8px;
+        }
+
         .tier-section {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
 
         .tier-section:last-child {
@@ -1179,10 +1183,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 12px;
+            padding: 6px 10px;
             background: #37384e;
             color: #fff;
-            border-radius: 6px 6px 0 0;
+            border-radius: 4px 4px 0 0;
             cursor: pointer;
             user-select: none;
         }
@@ -1193,7 +1197,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .tier-section-header .section-title {
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
 
         .tier-section-header .section-toggle {
@@ -1206,11 +1210,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .tier-section-content {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            padding: 15px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 10px;
             background: #f8f9fa;
-            border-radius: 0 0 6px 6px;
+            border-radius: 0 0 4px 4px;
             border: 1px solid #e0e0e0;
             border-top: none;
         }
@@ -1219,7 +1223,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             display: none;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1200px) {
+            .tier-section-content {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
             .tier-section-content {
                 grid-template-columns: 1fr;
             }
@@ -1227,9 +1237,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .tier-group {
             background: #fff;
-            border-radius: 6px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-radius: 4px;
+            padding: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
         }
 
         .tier-group.full-width {
@@ -1239,32 +1249,32 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .tier-group-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e0e0e0;
+            align-items: center;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #e8e8e8;
         }
 
         .tier-group-header-left {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 1px;
         }
 
         .tier-group-title {
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #333;
         }
 
         .tier-group-desc {
-            font-size: 0.7rem;
-            color: #888;
+            font-size: 0.65rem;
+            color: #999;
         }
 
         .tier-group-total {
             font-family: 'Inconsolata', monospace;
-            font-size: 1.1rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: var(--status-complete);
             background: rgba(22, 201, 149, 0.1);
@@ -1275,32 +1285,35 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .tier-bars {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 3px;
         }
 
         .tier-bar-row {
             display: grid;
-            grid-template-columns: 140px 1fr 60px;
+            grid-template-columns: 120px 1fr 45px;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .tier-label {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #555;
             font-family: 'Inconsolata', monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .tier-bar-container {
-            height: 16px;
-            background: #e0e0e0;
-            border-radius: 3px;
+            height: 12px;
+            background: #e8e8e8;
+            border-radius: 2px;
             overflow: hidden;
         }
 
         .tier-bar {
             height: 100%;
-            border-radius: 3px;
+            border-radius: 2px;
             transition: width 0.3s ease;
             min-width: 2px;
         }
@@ -1331,7 +1344,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .tier-count {
             font-family: 'Inconsolata', monospace;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-align: right;
             color: #333;
@@ -1340,45 +1353,52 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         /* ATIS Tier Info Grid */
         .tier-info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+
+        @media (max-width: 900px) {
+            .tier-info-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
         .tier-info-item {
-            display: grid;
-            grid-template-columns: 30px 1fr 45px;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 6px;
-            padding: 6px 8px;
-            background: #f8f9fa;
+            text-align: center;
+            gap: 2px;
+            padding: 6px 4px;
+            background: #fff;
             border-radius: 4px;
-            border-left: 3px solid #06b6d4;
+            border-top: 3px solid #06b6d4;
         }
 
-        .tier-info-item:nth-child(1) { border-left-color: #dc2626; }
-        .tier-info-item:nth-child(2) { border-left-color: #f97316; }
-        .tier-info-item:nth-child(3) { border-left-color: #eab308; }
-        .tier-info-item:nth-child(4) { border-left-color: #22c55e; }
-        .tier-info-item:nth-child(5) { border-left-color: #06b6d4; }
+        .tier-info-item:nth-child(1) { border-top-color: #dc2626; }
+        .tier-info-item:nth-child(2) { border-top-color: #f97316; }
+        .tier-info-item:nth-child(3) { border-top-color: #eab308; }
+        .tier-info-item:nth-child(4) { border-top-color: #22c55e; }
+        .tier-info-item:nth-child(5) { border-top-color: #06b6d4; }
 
         .tier-info-tier {
             font-family: 'Inconsolata', monospace;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             font-weight: 700;
-            color: #555;
+            color: #333;
         }
 
         .tier-info-desc {
-            font-size: 0.7rem;
-            color: #666;
+            font-size: 0.6rem;
+            color: #888;
+            line-height: 1.2;
         }
 
         .tier-info-interval {
             font-family: 'Inconsolata', monospace;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-align: right;
-            color: #333;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--status-complete);
         }
 
         /* Side-by-side comparison layout */
@@ -2362,13 +2382,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </div>
                         </div>
 
-                        <!-- Trajectory Logging Section -->
+                        <!-- Trajectory Logging Section (collapsed by default) -->
                         <div class="tier-section">
-                            <div class="tier-section-header" onclick="toggleTierSection('trajectoryLogging')">
+                            <div class="tier-section-header collapsed" onclick="toggleTierSection('trajectoryLogging')">
                                 <span class="section-title"><i class="fas fa-map-marker-alt mr-2"></i>Trajectory Logging</span>
-                                <i class="fas fa-chevron-down section-toggle" id="trajectoryLogging-toggle"></i>
+                                <i class="fas fa-chevron-down section-toggle" id="trajectoryLogging-toggle" style="transform: rotate(-90deg)"></i>
                             </div>
-                            <div class="tier-section-content" id="trajectoryLogging-content">
+                            <div class="tier-section-content collapsed" id="trajectoryLogging-content">
                                 <!-- Current Flight Tiers -->
                                 <div class="tier-group">
                                     <div class="tier-group-header">
@@ -2434,13 +2454,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </div>
                         </div>
 
-                        <!-- ATIS Refresh Section -->
+                        <!-- ATIS Refresh Section (collapsed by default) -->
                         <div class="tier-section">
-                            <div class="tier-section-header" onclick="toggleTierSection('atisRefresh')">
+                            <div class="tier-section-header collapsed" onclick="toggleTierSection('atisRefresh')">
                                 <span class="section-title"><i class="fas fa-broadcast-tower mr-2"></i>ATIS Refresh Intervals</span>
-                                <i class="fas fa-chevron-down section-toggle" id="atisRefresh-toggle"></i>
+                                <i class="fas fa-chevron-down section-toggle" id="atisRefresh-toggle" style="transform: rotate(-90deg)"></i>
                             </div>
-                            <div class="tier-section-content" id="atisRefresh-content">
+                            <div class="tier-section-content collapsed" id="atisRefresh-content">
                                 <div class="tier-group full-width">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
