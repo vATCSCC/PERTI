@@ -1,0 +1,48 @@
+NASR NavData Update Report
+============================================================
+
+Generated: 2026-01-07T01:45:48.436631
+AIRAC Cycles: 21008, 21009
+
+
+POINTS:
+  Added: 0
+  Modified: 0
+  Preserved: 269245
+  Renamed to _OLD: 0
+
+NAVAIDS:
+  Added: 0
+  Modified: 0
+  Preserved: 1874
+  Renamed to _OLD: 0
+
+AIRWAYS:
+  Added: 0
+  Modified: 0
+  Preserved: 1528
+  Renamed to _OLD: 0
+
+CDRS:
+  Added: 0
+  Modified: 0
+  Preserved: 44178
+  Renamed to _OLD: 0
+
+DPS:
+  Added: 0
+  Modified: 1746
+  Preserved: 2091
+  Renamed to _OLD: 0
+
+STARS:
+  Added: 0
+  Modified: 2726
+  Preserved: 2374
+  Renamed to _OLD: 0
+
+PLAYBOOK:
+  Added: 0
+  Modified: 0
+  Preserved: 0
+  Renamed to _OLD: 0
