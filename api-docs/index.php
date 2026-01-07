@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PERTI API Documentation</title>
-    <link rel="icon" type="image/png" href="assets/img/favicon.png">
+    <link rel="icon" type="image/png" href="../assets/img/favicon.png">
     <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
     <style>
         /* PERTI Theme Customization */
@@ -86,8 +86,9 @@
         }
 
         .swagger-ui .info .description p,
-        .swagger-ui .info .description {
-            color: #ccc;
+        .swagger-ui .info .description,
+        .swagger-ui .info .description a {
+            color: #e0e0e0;
         }
 
         .swagger-ui .scheme-container {
@@ -125,7 +126,7 @@
         }
 
         .swagger-ui .opblock .opblock-summary-description {
-            color: #aaa;
+            color: #d0d0d0;
         }
 
         .swagger-ui .opblock.opblock-get {
@@ -170,8 +171,14 @@
 
         .swagger-ui .opblock-description-wrapper p,
         .swagger-ui .opblock-external-docs-wrapper p,
-        .swagger-ui .opblock-title_normal p {
-            color: #ccc;
+        .swagger-ui .opblock-title_normal p,
+        .swagger-ui .opblock-description-wrapper,
+        .swagger-ui .opblock-section-header h4 {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .opblock-section-header {
+            background: rgba(0,0,0,0.2);
         }
 
         .swagger-ui .tab li {
@@ -183,7 +190,11 @@
         }
 
         .swagger-ui .response-col_description {
-            color: #ccc;
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .response-col_links {
+            color: #e0e0e0;
         }
 
         .swagger-ui table thead tr td,
@@ -198,7 +209,38 @@
         }
 
         .swagger-ui .parameter__in {
-            color: #888;
+            color: #a0a0a0;
+        }
+
+        .swagger-ui .parameter__deprecated {
+            color: #ff6b6b;
+        }
+
+        .swagger-ui table tbody tr td {
+            color: #e0e0e0;
+            border-color: #444;
+        }
+
+        .swagger-ui .parameters-col_description {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .parameters-col_description p {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .parameters-col_description input {
+            background: #2a2a4a;
+            color: #fff;
+            border: 1px solid #555;
+        }
+
+        .swagger-ui label {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .parameter__empty_value_toggle {
+            color: #a0a0a0;
         }
 
         .swagger-ui .model-title {
@@ -206,7 +248,19 @@
         }
 
         .swagger-ui .model {
-            color: #ccc;
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .model-toggle {
+            color: #fff;
+        }
+
+        .swagger-ui .model .property {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .model .property.primitive {
+            color: var(--perti-primary);
         }
 
         .swagger-ui .prop-type {
@@ -258,7 +312,127 @@
 
         .swagger-ui .microlight {
             background: #1e1e3f;
-            color: #ccc;
+            color: #e0e0e0;
+        }
+
+        /* Ensure all text is readable */
+        .swagger-ui,
+        .swagger-ui p,
+        .swagger-ui span,
+        .swagger-ui div {
+            color: #e0e0e0;
+        }
+
+        /* JSON/Code highlighting */
+        .swagger-ui .json-schema-form-item,
+        .swagger-ui .json-schema-form-item-add {
+            color: #e0e0e0;
+        }
+
+        /* Example values */
+        .swagger-ui .example {
+            color: #e0e0e0;
+            background: rgba(0,0,0,0.3);
+        }
+
+        /* Response bodies */
+        .swagger-ui .response-body pre {
+            background: #1e1e3f;
+            color: #e0e0e0;
+        }
+
+        /* Headers in tables */
+        .swagger-ui .col_header {
+            color: #fff !important;
+        }
+
+        /* Links should be visible */
+        .swagger-ui a {
+            color: var(--perti-primary);
+        }
+
+        .swagger-ui a:hover {
+            color: #4fc3f7;
+        }
+
+        /* Required badge */
+        .swagger-ui .parameter__name.required:after {
+            color: #ff6b6b;
+        }
+
+        /* Tab content */
+        .swagger-ui .tab-content {
+            background: rgba(0,0,0,0.2);
+        }
+
+        /* Response wrapper */
+        .swagger-ui .responses-wrapper {
+            background: transparent;
+        }
+
+        /* Live response */
+        .swagger-ui .live-responses-table tbody tr td {
+            color: #e0e0e0;
+        }
+
+        /* Copy button */
+        .swagger-ui .copy-to-clipboard {
+            background: var(--perti-bg-dark);
+        }
+
+        /* Curl command */
+        .swagger-ui .curl-command {
+            background: #1e1e3f;
+            color: #e0e0e0;
+        }
+
+        /* Download button */
+        .swagger-ui .download-contents {
+            color: #fff;
+            background: var(--perti-primary);
+        }
+
+        /* Clear button */
+        .swagger-ui .btn-clear {
+            color: #fff;
+        }
+
+        /* Server dropdown */
+        .swagger-ui .servers > label {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .servers select {
+            background: var(--perti-bg-dark);
+            color: #fff;
+        }
+
+        /* Scheme selector */
+        .swagger-ui .schemes > label {
+            color: #e0e0e0;
+        }
+
+        /* Try it out button */
+        .swagger-ui .try-out__btn {
+            color: #fff;
+            border-color: var(--perti-primary);
+        }
+
+        /* Request body */
+        .swagger-ui .body-param__text {
+            background: #2a2a4a;
+            color: #fff;
+        }
+
+        /* All SVG icons */
+        .swagger-ui svg.arrow,
+        .swagger-ui button svg {
+            fill: #e0e0e0;
+        }
+
+        /* Expand/collapse icons */
+        .swagger-ui .expand-operation svg {
+            fill: #fff;
         }
 
         .swagger-ui .markdown code,
@@ -342,11 +516,11 @@
 </head>
 <body>
     <div class="swagger-header">
-        <a href="./" class="logo">
-            <img src="assets/img/logo.png" alt="PERTI Logo">
+        <a href="../" class="logo">
+            <img src="../assets/img/logo.png" alt="PERTI Logo">
             <span>API Documentation</span>
         </a>
-        <a href="./" class="back-link">
+        <a href="../" class="back-link">
             &larr; Back to PERTI
         </a>
     </div>
@@ -358,7 +532,7 @@
     <script>
         window.onload = function() {
             const ui = SwaggerUIBundle({
-                url: "api-docs/openapi.yaml",
+                url: "openapi.yaml",
                 dom_id: '#swagger-ui',
                 deepLinking: true,
                 presets: [

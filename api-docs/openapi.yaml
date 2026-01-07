@@ -37,13 +37,15 @@ tags:
   - name: Demand
     description: Traffic demand analysis and forecasting
   - name: TMI
-    description: Traffic Management Initiatives - Reroutes, GDP, Ground Stops
-  - name: TMI-Reroutes
-    description: Reroute program management and compliance
+    description: Traffic Management Initiatives - GDP, Ground Stops
   - name: TMI-GDP
-    description: Ground Delay Program management
+    description: |
+      Ground Delay Program management. Preview/simulate endpoints are safe to test.
+      ⚠️ **Apply endpoints modify flight records** - use with caution.
   - name: TMI-GS
-    description: Ground Stop management
+    description: |
+      Ground Stop management. Preview/simulate endpoints are safe to test.
+      ⚠️ **Apply endpoints modify flight records** - use with caution.
   - name: Data
     description: Reference data and planning information
   - name: JATOC
@@ -57,7 +59,10 @@ tags:
   - name: Discord
     description: Discord integration
   - name: Management
-    description: CRUD operations for planning data (requires authentication)
+    description: |
+      ⚠️ **CAUTION: DATABASE MODIFICATION** - CRUD operations for planning data.
+      These endpoints directly modify production database records. Only use if you
+      understand the impact. Requires authentication.
   - name: User
     description: User-specific data and preferences
 
@@ -1324,6 +1329,10 @@ paths:
                               enum: [Polygon, MultiPolygon]
                             coordinates:
                               type: array
+                              items:
+                                type: array
+                                items:
+                                  type: number
                         centroid:
                           type: array
                           items:
@@ -1629,8 +1638,14 @@ paths:
                       type: object
                   bounds:
                     type: array
+                    items:
+                      type: array
+                      items:
+                        type: number
                   center:
                     type: array
+                    items:
+                      type: number
                   count:
                     type: integer
         '400':
@@ -1942,525 +1957,6 @@ paths:
                       type: string
 
   # ============================================================================
-  # TMI-REROUTES ENDPOINTS
-  # ============================================================================
-
-  /tmi/rr_flight_search:
-    get:
-      tags: [TMI-Reroutes]
-      summary: Search flights for reroute
-      description: Searches for flights that may be candidates for rerouting.
-      parameters:
-        - name: q
-          in: query
-          required: true
-          description: Search query (callsign or flight_key, min 2 chars)
-          schema:
-            type: string
-            minLength: 2
-        - name: limit
-          in: query
-          description: Maximum results (1-50)
-          schema:
-            type: integer
-            default: 20
-            maximum: 50
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum: [ok, error]
-                  query:
-                    type: string
-                  count:
-                    type: integer
-                  flights:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        flight_key:
-                          type: string
-                        callsign:
-                          type: string
-                        fp_dept_icao:
-                          type: string
-                        fp_dest_icao:
-                          type: string
-                        fp_dept_artcc:
-                          type: string
-                        fp_dest_artcc:
-                          type: string
-                        ac_cat:
-                          type: string
-                        aircraft_type:
-                          type: string
-                        major_carrier:
-                          type: string
-                        fp_altitude_ft:
-                          type: integer
-                        fp_route:
-                          type: string
-                        etd_runway_utc:
-                          type: string
-                          format: date-time
-                        eta_runway_utc:
-                          type: string
-                          format: date-time
-                        ete_minutes:
-                          type: integer
-                        gcd_nm:
-                          type: number
-                        lat:
-                          type: number
-                        lon:
-                          type: number
-                        altitude_ft:
-                          type: integer
-                        phase:
-                          type: string
-
-  /tmi/rr_preview:
-    post:
-      tags: [TMI-Reroutes]
-      summary: Preview reroute candidates
-      description: Previews flights that match reroute criteria before assignment.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                origin_airports:
-                  type: string
-                  description: Comma-separated origin airports
-                origin_centers:
-                  type: string
-                  description: Comma-separated origin ARTCCs
-                origin_tracons:
-                  type: string
-                dest_airports:
-                  type: string
-                dest_centers:
-                  type: string
-                dest_tracons:
-                  type: string
-                departure_fix:
-                  type: string
-                arrival_fix:
-                  type: string
-                thru_fixes:
-                  type: string
-                include_ac_cat:
-                  type: string
-                  default: ALL
-                include_carriers:
-                  type: string
-                altitude_min:
-                  type: integer
-                altitude_max:
-                  type: integer
-                airborne_filter:
-                  type: string
-                  default: NOT_AIRBORNE
-                time_basis:
-                  type: string
-                  enum: [ETD, ETA]
-                  default: ETD
-                start_utc:
-                  type: string
-                  format: date-time
-                end_utc:
-                  type: string
-                  format: date-time
-                exempt_airports:
-                  type: string
-                exempt_carriers:
-                  type: string
-                exempt_flights:
-                  type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-                  flights:
-                    type: array
-                    items:
-                      type: object
-                  exempt_count:
-                    type: integer
-
-  /tmi/rr_assign:
-    post:
-      tags: [TMI-Reroutes]
-      summary: Assign flights to reroute
-      description: Assigns flights to a reroute program.
-      security:
-        - sessionAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reroute_id]
-              properties:
-                reroute_id:
-                  type: integer
-                flights:
-                  type: array
-                  items:
-                    type: object
-                mode:
-                  type: string
-                  enum: [add, replace]
-                  default: add
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  reroute_id:
-                    type: integer
-                  mode:
-                    type: string
-                  assigned:
-                    type: integer
-                  skipped_duplicates:
-                    type: integer
-                  exempt:
-                    type: integer
-                  total_now:
-                    type: integer
-        '401':
-          description: Unauthorized
-        '404':
-          description: Reroute not found
-
-  /tmi/rr_assign_manual:
-    post:
-      tags: [TMI-Reroutes]
-      summary: Manually add/remove flights from reroute
-      security:
-        - sessionAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reroute_id, action, flights]
-              properties:
-                reroute_id:
-                  type: integer
-                action:
-                  type: string
-                  enum: [add, remove]
-                flights:
-                  type: array
-                  items:
-                    type: object
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  action:
-                    type: string
-                  affected:
-                    type: integer
-                  total_flights:
-                    type: integer
-
-  /tmi/rr_stats:
-    get:
-      tags: [TMI-Reroutes]
-      summary: Get reroute statistics
-      description: Returns compliance and performance statistics for a reroute.
-      parameters:
-        - name: id
-          in: query
-          required: true
-          description: Reroute ID
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  reroute_id:
-                    type: integer
-                  statistics:
-                    type: object
-                    properties:
-                      total_flights:
-                        type: integer
-                      compliant:
-                        type: integer
-                      partial:
-                        type: integer
-                      non_compliant:
-                        type: integer
-                      monitoring:
-                        type: integer
-                      pending:
-                        type: integer
-                      exempt:
-                        type: integer
-                      avg_compliance_pct:
-                        type: number
-                      compliance_rate:
-                        type: number
-                  by_origin:
-                    type: array
-                    items:
-                      type: object
-                  by_destination:
-                    type: array
-                    items:
-                      type: object
-                  by_hour:
-                    type: array
-                    items:
-                      type: object
-
-  /tmi/rr_compliance_history:
-    get:
-      tags: [TMI-Reroutes]
-      summary: Get flight compliance history
-      description: Returns compliance tracking history for a specific flight.
-      parameters:
-        - name: flight_id
-          in: query
-          required: true
-          description: Flight ID
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          description: Maximum history entries (1-500)
-          schema:
-            type: integer
-            default: 100
-            maximum: 500
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  flight:
-                    type: object
-                    properties:
-                      id:
-                        type: integer
-                      flight_key:
-                        type: string
-                      callsign:
-                        type: string
-                      compliance_status:
-                        type: string
-                      assigned_utc:
-                        type: string
-                        format: date-time
-                      reroute_name:
-                        type: string
-                  history:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        snapshot_utc:
-                          type: string
-                          format: date-time
-                        compliance_status:
-                          type: string
-                        compliance_pct:
-                          type: number
-                        lat:
-                          type: number
-                        lon:
-                          type: number
-                        altitude:
-                          type: integer
-                  track:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        lat:
-                          type: number
-                        lon:
-                          type: number
-                        alt:
-                          type: integer
-                        time:
-                          type: string
-                          format: date-time
-                        status:
-                          type: string
-
-  /tmi/rr_compliance_override:
-    post:
-      tags: [TMI-Reroutes]
-      summary: Override flight compliance status
-      security:
-        - sessionAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [flight_id, status, reason]
-              properties:
-                flight_id:
-                  type: integer
-                status:
-                  type: string
-                  enum: [PENDING, MONITORING, COMPLIANT, PARTIAL, NON_COMPLIANT, EXEMPT, UNKNOWN]
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  flight_id:
-                    type: integer
-                  callsign:
-                    type: string
-                  old_status:
-                    type: string
-                  new_status:
-                    type: string
-                  override_by:
-                    type: integer
-
-  /tmi/rr_compliance_refresh:
-    post:
-      tags: [TMI-Reroutes]
-      summary: Refresh compliance status
-      security:
-        - sessionAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reroute_id]
-              properties:
-                reroute_id:
-                  type: integer
-                flight_ids:
-                  type: array
-                  items:
-                    type: integer
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-                  updated:
-                    type: integer
-
-  /tmi/rr_export:
-    get:
-      tags: [TMI-Reroutes]
-      summary: Export reroute data
-      description: Exports reroute data as JSON or CSV.
-      parameters:
-        - name: id
-          in: query
-          required: true
-          description: Reroute ID
-          schema:
-            type: integer
-        - name: format
-          in: query
-          description: Export format
-          schema:
-            type: string
-            enum: [json, csv]
-            default: json
-        - name: type
-          in: query
-          description: Export type
-          schema:
-            type: string
-            enum: [flights, summary, history]
-            default: flights
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  reroute_id:
-                    type: integer
-                  reroute_name:
-                    type: string
-                  export_type:
-                    type: string
-                  export_time:
-                    type: string
-                    format: date-time
-                  record_count:
-                    type: integer
-                  data:
-                    type: array
-            text/csv:
-              schema:
-                type: string
-
-  # ============================================================================
   # TMI-GDP ENDPOINTS
   # ============================================================================
 
@@ -2537,8 +2033,12 @@ paths:
                         type: object
                   flights:
                     type: array
+                    items:
+                      type: object
                   exempt_flights:
                     type: array
+                    items:
+                      type: object
 
   /tmi/gdp_simulate:
     post:
@@ -2631,8 +2131,12 @@ paths:
                         type: integer
                   flights:
                     type: array
+                    items:
+                      type: object
                   slots:
                     type: array
+                    items:
+                      type: object
 
   /tmi/gdp_apply:
     post:
@@ -2724,6 +2228,8 @@ paths:
                         type: number
                   flights:
                     type: array
+                    items:
+                      type: object
 
   /tmi/gdp_purge:
     post:
@@ -2849,6 +2355,8 @@ paths:
                     type: object
                   flights:
                     type: array
+                    items:
+                      type: object
 
   /tmi/gs_simulate:
     post:
@@ -2906,6 +2414,8 @@ paths:
                         nullable: true
                   flights:
                     type: array
+                    items:
+                      type: object
 
   /tmi/gs_apply:
     post:
@@ -2947,6 +2457,8 @@ paths:
                     properties:
                       flights:
                         type: array
+                        items:
+                          type: object
                       total:
                         type: integer
                       total_delay:
@@ -3167,6 +2679,8 @@ paths:
                     type: integer
                   features:
                     type: array
+                    items:
+                      type: object
                   note:
                     type: string
 
@@ -3204,6 +2718,8 @@ paths:
                     type: integer
                   features:
                     type: array
+                    items:
+                      type: object
 
   /data/sigmets:
     get:
@@ -3303,6 +2819,8 @@ paths:
                         type: string
                       frames:
                         type: array
+                        items:
+                          type: object
                   stations:
                     type: array
                     items:
@@ -3322,6 +2840,9 @@ paths:
                     type: object
                   timestamps:
                     type: array
+                    items:
+                      type: string
+                      format: date-time
 
   /data/weather_impacts:
     get:
@@ -4171,6 +3692,8 @@ paths:
                     type: boolean
                   data:
                     type: array
+                    items:
+                      type: object
                   count:
                     type: integer
                   fetched_at:
