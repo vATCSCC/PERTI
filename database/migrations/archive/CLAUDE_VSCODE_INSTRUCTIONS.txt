@@ -1,0 +1,86 @@
+Deploy the ADL Archive System to the VATSIM_ADL Azure SQL database.
+
+## Connection Details
+Server: vatsim.database.windows.net
+Database: VATSIM_ADL  
+Username: adl_api_user
+Password: CAMRN@11000
+
+## What to Do
+
+1. First, install pymssql:
+   pip install pymssql
+
+2. The SQL deployment file is at: PERTI/database/migrations/archive/ADL_Archive_FULL_DEPLOYMENT.sql
+   (If it's not there, download it from the claude.ai outputs and place it there)
+
+3. Create a Python script called deploy_archive.py with this content and run it:
+
+```python
+import pymssql
+import re
+
+server = 'vatsim.database.windows.net'
+database = 'VATSIM_ADL'
+username = 'adl_api_user'
+password = 'CAMRN@11000'
+
+# Read SQL file
+with open('PERTI/database/migrations/archive/ADL_Archive_FULL_DEPLOYMENT.sql', 'r', encoding='utf-8') as f:
+    sql = f.read()
+
+# Split on GO statements
+batches = re.split(r'\nGO\s*\n|\nGO\s*$', sql, flags=re.IGNORECASE)
+batches = [b.strip() for b in batches if b.strip()]
+
+print(f"Connecting to {database}...")
+conn = pymssql.connect(server=server, user=username, password=password, database=database)
+cursor = conn.cursor()
+print(f"Connected! Running {len(batches)} batches...\n")
+
+success = 0
+for i, batch in enumerate(batches):
+    if not batch: continue
+    try:
+        cursor.execute(batch)
+        conn.commit()
+        success += 1
+        # Show progress for key items
+        if 'CREATE TABLE' in batch or 'CREATE OR ALTER PROCEDURE' in batch:
+            print(f"✓ Batch {i+1}: Created object")
+    except Exception as e:
+        print(f"✗ Batch {i+1}: {str(e)[:80]}")
+
+print(f"\n{success}/{len(batches)} batches succeeded")
+
+# Verify
+print("\n=== Verification ===")
+cursor.execute("SELECT name FROM sys.tables WHERE name LIKE 'adl_%archive%' OR name = 'adl_archive_config' ORDER BY name")
+print(f"Tables: {[r[0] for r in cursor.fetchall()]}")
+
+cursor.execute("SELECT COUNT(*) FROM dbo.adl_archive_config")
+print(f"Config entries: {cursor.fetchone()[0]}")
+
+print("\nTesting trajectory logging...")
+cursor.execute("EXEC dbo.sp_Log_Trajectory @force_log = 1")
+result = cursor.fetchone()
+print(f"Logged {result[0]} positions")
+
+conn.close()
+print("\nDeployment complete!")
+```
+
+4. After successful deployment, modify sp_Adl_RefreshFromVatsim_Normalized to add this line at the END (before final END;):
+   
+   EXEC dbo.sp_Log_Trajectory;
+
+## Expected Results
+- 4 tables: adl_archive_config, adl_archive_log, adl_flight_archive, adl_trajectory_archive
+- 9+ stored procedures for archiving
+- 10 config entries
+- Trajectory logging should show number of positions logged
+
+## Verify with:
+SELECT * FROM dbo.v_archive_stats;
+SELECT * FROM dbo.adl_archive_config;
+EXEC dbo.sp_Trajectory_Stats;
