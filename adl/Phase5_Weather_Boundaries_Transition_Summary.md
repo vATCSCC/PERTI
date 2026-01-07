@@ -116,10 +116,10 @@ ROMEO_1       22,082      330       430         47.60        -112.67
 ### Database Migrations
 | File | Purpose |
 |------|---------|
-| `adl/migrations/044_weather_alerts_schema.sql` | Schema + initial procedures |
-| `adl/migrations/045_weather_impact_detection.sql` | Detection procedures |
-| `adl/migrations/046_weather_refresh_integration.sql` | Refresh integration |
-| `adl/migrations/047_fix_weather_polygon_orientation.sql` | Polygon orientation fix |
+| `adl/migrations/weather/001_weather_alerts_schema.sql` | Schema + initial procedures |
+| `adl/migrations/weather/002_weather_impact_detection.sql` | Detection procedures |
+| `adl/migrations/weather/003_weather_refresh_integration.sql` | Refresh integration |
+| `adl/migrations/weather/004_fix_weather_polygon_orientation.sql` | Polygon orientation fix |
 
 ### API Endpoints
 | File | Purpose |

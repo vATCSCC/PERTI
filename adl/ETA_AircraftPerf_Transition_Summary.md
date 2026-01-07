@@ -35,10 +35,10 @@
 
 **Files Created**:
 ```
-adl/migrations/044_eta_batch_consolidation.sql  # Original (has errors)
-adl/migrations/044b_eta_batch_fix.sql           # Fix deployment ✅
-adl/procedures/sp_CalculateETABatch.sql         # Standalone procedure
-adl/eta_consolidation_analysis.md               # Design analysis
+adl/migrations/eta/010_eta_batch_consolidation.sql  # Original (has errors)
+adl/migrations/eta/011_eta_batch_fix.sql            # Fix deployment ✅
+adl/procedures/sp_CalculateETABatch.sql             # Standalone procedure
+adl/eta_consolidation_analysis.md                   # Design analysis
 ```
 
 **Performance Results (509 active flights)**:
@@ -87,11 +87,11 @@ adl/eta_consolidation_analysis.md               # Design analysis
 
 **Files Created**:
 ```
-adl/migrations/045_aircraft_performance_seed.sql    # 115 aircraft profiles
-adl/migrations/046_bada_import_infrastructure.sql   # BADA tables & procs
-scripts/bada/bada_ptf_parser.py                     # Parse PTF files → SQL
-scripts/bada/bada_apf_parser.py                     # Parse APF files → SQL
-scripts/bada/README.md                              # Usage instructions
+adl/migrations/performance/001_aircraft_performance_seed.sql    # 115 aircraft profiles
+adl/migrations/performance/002_bada_import_infrastructure.sql   # BADA tables & procs
+scripts/bada/bada_ptf_parser.py                                 # Parse PTF files → SQL
+scripts/bada/bada_apf_parser.py                                 # Parse APF files → SQL
+scripts/bada/README.md                                          # Usage instructions
 ```
 
 ### 3. EUROCONTROL BADA License - APPLIED
@@ -158,10 +158,10 @@ Expected: Mostly `BATCH_V1` after consolidation.
 
 ### Migrations (Run Order)
 ```
-044_eta_batch_consolidation.sql   # ETA batch (has errors, skip)
-044b_eta_batch_fix.sql            # ETA batch fix ✅ DEPLOYED
-045_aircraft_performance_seed.sql # 115 aircraft profiles ✅ DEPLOYED
-046_bada_import_infrastructure.sql # BADA tables/procs ⏳ READY
+adl/migrations/eta/010_eta_batch_consolidation.sql      # ETA batch (has errors, skip)
+adl/migrations/eta/011_eta_batch_fix.sql                # ETA batch fix ✅ DEPLOYED
+adl/migrations/performance/001_aircraft_performance_seed.sql  # 115 aircraft profiles ✅ DEPLOYED
+adl/migrations/performance/002_bada_import_infrastructure.sql # BADA tables/procs ⏳ READY
 ```
 
 ### Procedures

@@ -302,8 +302,8 @@ EXEC dbo.sp_ProcessZoneDetectionBatch @zone_transitions OUTPUT;
 
 | File | Purpose |
 |------|---------|
-| `adl/migrations/041_oooi_deploy.sql` | Complete schema + procedures |
-| `adl/migrations/042_seed_airport_zones.sql` | SQL-only fallback seeding |
+| `adl/migrations/oooi/002_oooi_deploy.sql` | Complete schema + procedures |
+| `adl/migrations/oooi/003_seed_airport_zones.sql` | SQL-only fallback seeding |
 | `adl/php/ImportOSM.ps1` | PowerShell OSM importer |
 | `adl/OOOI_Zone_Detection_Transition_Summary.md` | Transition documentation |
 

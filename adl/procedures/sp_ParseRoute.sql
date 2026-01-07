@@ -457,8 +457,9 @@ BEGIN
                 IF @proc_type = 'DP'
                 BEGIN
                     SET @dp_name = @t_token;
+                    -- For SIDs, expand but cap at 15 waypoints to avoid bloat
                     INSERT INTO @waypoints (fix_name, fix_type, source, on_dp, original_token)
-                    SELECT value, 'WAYPOINT', 'SID', @t_token, @t_token
+                    SELECT TOP 15 value, 'WAYPOINT', 'SID', @t_token, @t_token
                     FROM STRING_SPLIT(@proc_route, ' ')
                     WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
                     
@@ -466,14 +467,14 @@ BEGIN
                 END
                 ELSE
                 BEGIN
+                    -- For STARs, DON'T expand - full_route contains all transitions
+                    -- which causes massive bloat (e.g., 65+ waypoints for DSNEE6)
+                    -- Just record the STAR name, the route already has entry fix
                     SET @star_name = @t_token;
                     SET @afix = @last_fix_for_star;
-                    INSERT INTO @waypoints (fix_name, fix_type, source, on_star, original_token)
-                    SELECT value, 'WAYPOINT', 'STAR', @t_token, @t_token
-                    FROM STRING_SPLIT(@proc_route, ' ')
-                    WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
-                    
-                    SELECT TOP 1 @prev_fix_name = fix_name FROM @waypoints WHERE on_star = @t_token ORDER BY seq DESC;
+                    -- Don't insert any waypoints - destination will be added later
+                    IF @debug = 1
+                        PRINT 'STAR detected: ' + @t_token + ' (not expanding)';
                 END
             END
             ELSE
@@ -588,11 +589,13 @@ BEGIN
     DECLARE @prev_lat FLOAT = NULL, @prev_lon FLOAT = NULL;
     DECLARE @resolved_lat FLOAT, @resolved_lon FLOAT, @resolved_type NVARCHAR(20);
     
-    -- Get origin coordinates first
+    -- Get origin coordinates first (prioritize AIRPORT type)
     SELECT TOP 1 @prev_lat = lat, @prev_lon = lon
     FROM dbo.nav_fixes
     WHERE fix_name = @dept_icao OR fix_name = 'K' + @dept_icao
-    ORDER BY CASE WHEN fix_name = @dept_icao THEN 0 ELSE 1 END;
+    ORDER BY 
+        CASE WHEN fix_type = 'AIRPORT' THEN 0 ELSE 1 END,
+        CASE WHEN fix_name = @dept_icao THEN 0 ELSE 1 END;
     
     -- Update origin in waypoints
     UPDATE @waypoints SET lat = @prev_lat, lon = @prev_lon WHERE source = 'ORIGIN';
@@ -680,13 +683,15 @@ BEGIN
     CLOSE resolve_cursor;
     DEALLOCATE resolve_cursor;
     
-    -- Resolve destination
+    -- Resolve destination (prioritize AIRPORT type)
     IF @dest_icao IS NOT NULL
     BEGIN
         SELECT TOP 1 @resolved_lat = lat, @resolved_lon = lon
         FROM dbo.nav_fixes
         WHERE fix_name = @dest_icao OR fix_name = 'K' + @dest_icao
-        ORDER BY CASE WHEN fix_name = @dest_icao THEN 0 ELSE 1 END;
+        ORDER BY 
+            CASE WHEN fix_type = 'AIRPORT' THEN 0 ELSE 1 END,
+            CASE WHEN fix_name = @dest_icao THEN 0 ELSE 1 END;
         
         UPDATE @waypoints SET lat = @resolved_lat, lon = @resolved_lon WHERE source = 'DESTINATION';
     END

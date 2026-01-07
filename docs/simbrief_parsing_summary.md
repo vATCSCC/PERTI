@@ -164,16 +164,16 @@ SimBrief data provides:
 | File | Description |
 |------|-------------|
 | `adl/procedures/sp_ParseSimBriefData.sql` | Full procedure source |
-| `adl/migrations/048_simbrief_parsing.sql` | Deployment migration |
+| `adl/migrations/navdata/002_simbrief_parsing.sql` | Deployment migration |
 
 ---
 
 ## Deployment
 
-1. Run migration 048:
+1. Run migration:
    ```sql
    -- In SSMS connected to VATSIM_ADL
-   :r 048_simbrief_parsing.sql
+   :r adl/migrations/navdata/002_simbrief_parsing.sql
    ```
 
 2. Test with debug mode:

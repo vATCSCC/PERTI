@@ -40,7 +40,7 @@ This downloads data from GitHub and generates a SQL file.
 
 ```sql
 -- In SSMS, run the generated file:
--- adl/migrations/047_openap_aircraft_import.sql
+-- adl/migrations/performance/003_openap_aircraft_import.sql
 ```
 
 ## Command Line Options

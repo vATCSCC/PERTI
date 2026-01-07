@@ -260,13 +260,15 @@ flight_time_min = DATEDIFF(MINUTE, off_utc, on_utc)
 
 ### Migrations
 ```
-adl/migrations/
-├── 040_oooi_schema.sql          # Schema definitions (reference)
-├── 041_oooi_deploy.sql          # Complete deployment script
-├── 042_oooi_batch_v2.sql        # V2 batch processor (superseded)
-├── 042_oooi_verify.sql          # V2 verification queries
-├── 043_oooi_batch_v3.sql        # V3 batch processor (CURRENT)
-└── 043_oooi_verify.sql          # V3 verification queries
+adl/migrations/oooi/
+├── 001_oooi_schema.sql          # Schema definitions (reference)
+├── 002_oooi_deploy.sql          # Complete deployment script
+├── 003_seed_airport_zones.sql   # Airport zone seeding
+├── 004_oooi_batch_v2.sql        # V2 batch processor (superseded)
+├── 005_oooi_verify.sql          # V2 verification queries
+├── 006_zone_detection_arrival_fix.sql  # Arrival fixes
+├── 007_oooi_batch_v3.sql        # V3 batch processor (CURRENT)
+└── 008_oooi_verify_v2.sql       # V3 verification queries
 ```
 
 ### Functions & Procedures
@@ -296,13 +298,13 @@ adl/php/
 **Step 1: Deploy Schema & Procedures**
 ```sql
 -- Execute in SSMS against VATSIM_ADL
-adl/migrations/041_oooi_deploy.sql
+adl/migrations/oooi/002_oooi_deploy.sql
 ```
 
 **Step 2: Deploy V3 Batch Processor**
 ```sql
 -- Replaces default batch processor with V3
-adl/migrations/043_oooi_batch_v3.sql
+adl/migrations/oooi/007_oooi_batch_v3.sql
 ```
 
 **Step 3: Import OSM Geometry**
@@ -319,7 +321,7 @@ Already integrated at Step 9 of `sp_Adl_RefreshFromVatsim_Normalized`.
 If V1 or V2 is already deployed:
 ```sql
 -- This replaces the procedure and runs immediate catchup
-adl/migrations/043_oooi_batch_v3.sql
+adl/migrations/oooi/007_oooi_batch_v3.sql
 ```
 
 ---
@@ -368,7 +370,7 @@ FROM dbo.airport_geometry;
 ```
 
 ### Full Verification
-Run `adl/migrations/043_oooi_verify.sql` for comprehensive verification.
+Run `adl/migrations/oooi/008_oooi_verify_v2.sql` for comprehensive verification.
 
 ---
 

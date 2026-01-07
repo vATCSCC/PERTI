@@ -7,7 +7,7 @@ include("sessions/handler.php");
         ob_start();
     }
     // Session Start (E)
-    
+
     include("load/config.php");
     include("load/connect.php");
 
@@ -18,13 +18,13 @@ include("sessions/handler.php");
 
             // Getting CID Value
             $cid = strip_tags($_SESSION['VATSIM_CID']);
-    
+
             $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-    
+
             if ($p_check) {
                 $perm = true;
             }
-    
+
         }
     } else {
         $perm = true;
@@ -42,6 +42,30 @@ include("sessions/handler.php");
     <?php
         include("load/header.php");
     ?>
+
+    <style>
+        .rate-grid {
+            font-size: 0.85rem;
+        }
+        .rate-grid input {
+            width: 60px;
+            text-align: center;
+        }
+        .rate-grid th, .rate-grid td {
+            padding: 4px 8px;
+            vertical-align: middle;
+        }
+        .rate-section {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .rate-section h6 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+    </style>
 
 </head>
 
@@ -84,15 +108,16 @@ include('load/nav.php');
 
             <table class="table table-sm table-striped table-bordered w-75" id="configs">
                 <thead class="table-dark text-light">
-                    <th class="text-center" style="width: 10%;">Airport</th>
-                    <th class="text-center" style="width: 25%;" data-toggle="tooltip" title="Arrival Runway(s)">ARR</th>
-                    <th class="text-center" style="width: 25%;" data-toggle="tooltip" title="Departure Runway(s)">DEP</th>
+                    <th class="text-center" style="width: 6%;">Airport</th>
+                    <th class="text-center" style="width: 12%;">Config</th>
+                    <th class="text-center" style="width: 15%;" data-toggle="tooltip" title="Arrival Runway(s)">ARR</th>
+                    <th class="text-center" style="width: 15%;" data-toggle="tooltip" title="Departure Runway(s)">DEP</th>
                     <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="VMC Average Arrival Rate">VA</th>
                     <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="LVMC Average Arrival Rate">LVA</th>
                     <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="IMC Average Arrival Rate">IA</th>
                     <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="LIMC Average Arrival Rate">LIA</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="VMC/LVMC Average Departure Rate">VD</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="IMC/LIMC Average Departure Rate">ID</th>
+                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="VMC Average Departure Rate">VD</th>
+                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="IMC Average Departure Rate">ID</th>
 
                     <?php if ($perm == true) { ?>
                         <th></th>
@@ -104,17 +129,17 @@ include('load/nav.php');
         </center>
     </div>
 
-    
+
 <?php include('load/footer.php'); ?>
 
 
 <!-- Add Config Modal -->
 <div class="modal fade" id="addconfigModal" tabindex="-1" role="dialog" aria-labelledby="addconfigModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addconfigModalLabel">Add Config</h5>
+                <h5 class="modal-title" id="addconfigModalLabel">Add Configuration</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -124,40 +149,124 @@ include('load/nav.php');
 
                 <div class="modal-body">
 
-                    Airport:
-                    <input type="text" class="form-control" name="airport" maxlength="4" placeholder="DTW" required><br>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label>Airport (FAA):</label>
+                            <input type="text" class="form-control" name="airport_faa" id="add_airport_faa" maxlength="4" placeholder="DTW" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Airport (ICAO):</label>
+                            <input type="text" class="form-control" name="airport_icao" id="add_airport_icao" maxlength="4" placeholder="KDTW" readonly>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Config Code:</label>
+                            <input type="text" class="form-control" name="config_code" maxlength="16" placeholder="SF">
+                        </div>
+                    </div>
 
-                    Arrival Runways:
-                    <input type="text" class="form-control" name="arr" maxlength="32" placeholder="21L/22R" required><br>
-
-                    Departure Runways:
-                    <input type="text" class="form-control" name="dep" maxlength="32" placeholder="22L/21R" required>
+                    <div class="row mt-2">
+                        <div class="col-md-12">
+                            <label>Config Name:</label>
+                            <input type="text" class="form-control" name="config_name" maxlength="32" placeholder="South Flow" required>
+                        </div>
+                    </div>
 
                     <hr>
 
-                    <b>VMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="vmc_aar" maxlength="3" placeholder="76" required><br>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label>Arrival Runways:</label>
+                            <input type="text" class="form-control" name="arr_runways" maxlength="32" placeholder="21L/22R" required>
+                            <small class="text-muted">Separate with / in priority order</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Departure Runways:</label>
+                            <input type="text" class="form-control" name="dep_runways" maxlength="32" placeholder="22L/21R" required>
+                            <small class="text-muted">Separate with / in priority order</small>
+                        </div>
+                    </div>
 
-                    <b>LVMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="lvmc_aar" maxlength="3" placeholder="70" required><br>
-
-                    <b>IMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="imc_aar" maxlength="3" placeholder="64" required><br>
-
-                    <b>LIMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="limc_aar" maxlength="3" placeholder="60" required>
-                    
                     <hr>
 
-                    <b>VMC</b> Average Departure Rate:
-                    <input type="text" class="form-control" name="vmc_adr" maxlength="3" placeholder="60" required><br>
+                    <!-- VATSIM Rates -->
+                    <div class="rate-section">
+                        <h6><i class="fas fa-plane"></i> VATSIM Rates</h6>
+                        <table class="table table-sm rate-grid mb-0">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th class="text-center">VMC</th>
+                                    <th class="text-center">LVMC</th>
+                                    <th class="text-center">IMC</th>
+                                    <th class="text-center">LIMC</th>
+                                    <th class="text-center">VLIMC</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>ARR</strong></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vmc_aar" placeholder="76"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_lvmc_aar" placeholder="70"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_imc_aar" placeholder="64"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_limc_aar" placeholder="60"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vlimc_aar" placeholder="50"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DEP</strong></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vmc_adr" placeholder="60"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_lvmc_adr" placeholder="55"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_imc_adr" placeholder="48"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_limc_adr" placeholder="44"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vlimc_adr" placeholder="40"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-                    <b>IMC</b> Average Departure Rate:
-                    <input type="text" class="form-control" name="imc_adr" maxlength="3" placeholder="48" required>                   
+                    <!-- Real-World Rates (Collapsible) -->
+                    <div class="rate-section">
+                        <h6>
+                            <a data-toggle="collapse" href="#addRwRates" role="button" aria-expanded="false">
+                                <i class="fas fa-globe"></i> Real-World Rates <small class="text-muted">(click to expand)</small>
+                            </a>
+                        </h6>
+                        <div class="collapse" id="addRwRates">
+                            <table class="table table-sm rate-grid mb-0">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th class="text-center">VMC</th>
+                                        <th class="text-center">LVMC</th>
+                                        <th class="text-center">IMC</th>
+                                        <th class="text-center">LIMC</th>
+                                        <th class="text-center">VLIMC</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>ARR</strong></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vmc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_lvmc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_imc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_limc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vlimc_aar"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>DEP</strong></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vmc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_lvmc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_imc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_limc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vlimc_adr"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
+                    <input type="submit" class="btn btn-sm btn-success" value="Add Config">
                     <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
                 </div>
         </div>
@@ -170,10 +279,10 @@ include('load/nav.php');
 <!-- Update Config Modal -->
 <div class="modal fade" id="updateconfigModal" tabindex="-1" role="dialog" aria-labelledby="updateconfigModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="updateconfigModalLabel">Update Config</h5>
+                <h5 class="modal-title" id="updateconfigModalLabel">Update Configuration</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -183,38 +292,122 @@ include('load/nav.php');
 
                 <div class="modal-body">
 
-                    <input type="hidden" name="id" id="id" required>
+                    <input type="hidden" name="config_id" id="config_id" required>
 
-                    Airport:
-                    <input type="text" class="form-control" name="airport" id="airport" maxlength="4" placeholder="DTW" required><br>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label>Airport (FAA):</label>
+                            <input type="text" class="form-control" name="airport_faa" id="airport_faa" maxlength="4" placeholder="DTW" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Airport (ICAO):</label>
+                            <input type="text" class="form-control" name="airport_icao" id="airport_icao" maxlength="4" placeholder="KDTW" readonly>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Config Code:</label>
+                            <input type="text" class="form-control" name="config_code" id="config_code" maxlength="16" placeholder="SF">
+                        </div>
+                    </div>
 
-                    Arrival Runways:
-                    <input type="text" class="form-control" name="arr" id="arr" maxlength="32" placeholder="21L/22R" required><br>
-
-                    Departure Runways:
-                    <input type="text" class="form-control" name="dep" id="dep" maxlength="32" placeholder="22L/21R" required>
+                    <div class="row mt-2">
+                        <div class="col-md-12">
+                            <label>Config Name:</label>
+                            <input type="text" class="form-control" name="config_name" id="config_name" maxlength="32" placeholder="South Flow" required>
+                        </div>
+                    </div>
 
                     <hr>
 
-                    <b>VMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="vmc_aar" id="vmc_aar" maxlength="3" placeholder="76" required><br>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label>Arrival Runways:</label>
+                            <input type="text" class="form-control" name="arr_runways" id="arr_runways" maxlength="32" placeholder="21L/22R" required>
+                            <small class="text-muted">Separate with / in priority order</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Departure Runways:</label>
+                            <input type="text" class="form-control" name="dep_runways" id="dep_runways" maxlength="32" placeholder="22L/21R" required>
+                            <small class="text-muted">Separate with / in priority order</small>
+                        </div>
+                    </div>
 
-                    <b>LVMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="lvmc_aar" id="lvmc_aar" maxlength="3" placeholder="70" required><br>
-
-                    <b>IMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="imc_aar" id="imc_aar" maxlength="3" placeholder="64" required><br>
-
-                    <b>LIMC</b> Average Arrival Rate:
-                    <input type="text" class="form-control" name="limc_aar" id="limc_aar" maxlength="3" placeholder="60" required>
-                    
                     <hr>
 
-                    <b>VMC</b> Average Departure Rate:
-                    <input type="text" class="form-control" name="vmc_adr" id="vmc_adr" maxlength="3" placeholder="60" required><br>
+                    <!-- VATSIM Rates -->
+                    <div class="rate-section">
+                        <h6><i class="fas fa-plane"></i> VATSIM Rates</h6>
+                        <table class="table table-sm rate-grid mb-0">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th class="text-center">VMC</th>
+                                    <th class="text-center">LVMC</th>
+                                    <th class="text-center">IMC</th>
+                                    <th class="text-center">LIMC</th>
+                                    <th class="text-center">VLIMC</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>ARR</strong></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vmc_aar" id="vatsim_vmc_aar"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_lvmc_aar" id="vatsim_lvmc_aar"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_imc_aar" id="vatsim_imc_aar"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_limc_aar" id="vatsim_limc_aar"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vlimc_aar" id="vatsim_vlimc_aar"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DEP</strong></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vmc_adr" id="vatsim_vmc_adr"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_lvmc_adr" id="vatsim_lvmc_adr"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_imc_adr" id="vatsim_imc_adr"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_limc_adr" id="vatsim_limc_adr"></td>
+                                    <td><input type="number" class="form-control form-control-sm" name="vatsim_vlimc_adr" id="vatsim_vlimc_adr"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-                    <b>IMC</b> Average Departure Rate:
-                    <input type="text" class="form-control" name="imc_adr" id="imc_adr" maxlength="3" placeholder="48" required>                   
+                    <!-- Real-World Rates -->
+                    <div class="rate-section">
+                        <h6>
+                            <a data-toggle="collapse" href="#updateRwRates" role="button" aria-expanded="false">
+                                <i class="fas fa-globe"></i> Real-World Rates <small class="text-muted">(click to expand)</small>
+                            </a>
+                        </h6>
+                        <div class="collapse" id="updateRwRates">
+                            <table class="table table-sm rate-grid mb-0">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th class="text-center">VMC</th>
+                                        <th class="text-center">LVMC</th>
+                                        <th class="text-center">IMC</th>
+                                        <th class="text-center">LIMC</th>
+                                        <th class="text-center">VLIMC</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>ARR</strong></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vmc_aar" id="rw_vmc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_lvmc_aar" id="rw_lvmc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_imc_aar" id="rw_imc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_limc_aar" id="rw_limc_aar"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vlimc_aar" id="rw_vlimc_aar"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>DEP</strong></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vmc_adr" id="rw_vmc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_lvmc_adr" id="rw_lvmc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_imc_adr" id="rw_imc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_limc_adr" id="rw_limc_adr"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="rw_vlimc_adr" id="rw_vlimc_adr"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
                 </div>
                 <div class="modal-footer">
@@ -236,7 +429,7 @@ include('load/nav.php');
 
             $(function () {
                 $('[data-toggle="tooltip"]').tooltip()
-            }); 
+            });
         }
 
         function loadData(search) {
@@ -244,7 +437,7 @@ include('load/nav.php');
             $.get(`api/data/configs?search=${search}`).done(function(data) {
                 $('#configs_table').html(data);
 
-                tooltips();           
+                tooltips();
             });
         }
 
@@ -253,7 +446,7 @@ include('load/nav.php');
             $.ajax({
                 type:   'POST',
                 url:    'api/mgt/config_data/delete',
-                data:   {id: id},
+                data:   {config_id: id},
                 success:function(data) {
                     Swal.fire({
                         toast:      true,
@@ -276,22 +469,46 @@ include('load/nav.php');
                 }
             });
         }
-        
-        $(document).ready(function() {
-            loadData($('#search').val());     
 
-            // Init: Date Time Picker
-            $('#date').datetimepicker({
-                format: 'Y-m-d',
-                inline: false,
-                minDate: '<?= date('Y-m-d'); ?>',
-                timepicker: false
+        // Auto-fill ICAO from FAA code
+        function updateIcao(faaInput, icaoInput) {
+            var faa = $(faaInput).val().toUpperCase();
+            if (faa.length >= 3) {
+                // US airports: prepend K (except for Alaska/Hawaii which start with P)
+                if (faa.charAt(0) === 'P' || faa.length === 4) {
+                    $(icaoInput).val(faa);
+                } else {
+                    $(icaoInput).val('K' + faa);
+                }
+            } else {
+                $(icaoInput).val('');
+            }
+        }
+
+        $(document).ready(function() {
+            loadData($('#search').val());
+
+            // Auto-fill ICAO for Add modal
+            $('#add_airport_faa').on('input', function() {
+                updateIcao('#add_airport_faa', '#add_airport_icao');
             });
 
-            // 
+            // Auto-fill ICAO for Update modal
+            $('#airport_faa').on('input', function() {
+                updateIcao('#airport_faa', '#airport_icao');
+            });
+
+            // Search button
             $('#searchBtn').click(function() {
                 loadData($('#search').val());
-            })
+            });
+
+            // Enter key in search
+            $('#search').keypress(function(e) {
+                if (e.which === 13) {
+                    loadData($('#search').val());
+                }
+            });
 
             // AJAX: #addconfig POST
             $("#addconfig").submit(function(e) {
@@ -302,7 +519,7 @@ include('load/nav.php');
                 $.ajax({
                     type:   'POST',
                     url:    url,
-                    data:   $(this).serialize().replace(/'/g, "`"),
+                    data:   $(this).serialize(),
                     success:function(data) {
                         Swal.fire({
                             toast:      true,
@@ -316,6 +533,7 @@ include('load/nav.php');
 
                         loadData($('#search').val());
                         $('#addconfigModal').modal('hide');
+                        $('#addconfig')[0].reset();
                         $('.modal-backdrop').remove();
                     },
                     error:function(data) {
@@ -328,26 +546,45 @@ include('load/nav.php');
                 });
             });
 
-            // Update Config Modal
+            // Update Config Modal - populate fields
             $('#updateconfigModal').on('show.bs.modal', function(event) {
                 var button = $(event.relatedTarget);
+                var modal = $(this);
 
-                var modal= $(this);
+                modal.find('#config_id').val(button.data('config_id'));
+                modal.find('#airport_faa').val(button.data('airport_faa'));
+                modal.find('#airport_icao').val(button.data('airport_icao'));
+                modal.find('#config_name').val(button.data('config_name'));
+                modal.find('#config_code').val(button.data('config_code'));
+                modal.find('#arr_runways').val(button.data('arr_runways'));
+                modal.find('#dep_runways').val(button.data('dep_runways'));
 
-                modal.find('.modal-body #id').val(button.data('id'));
-                modal.find('.modal-body #airport').val(button.data('airport'));
-                modal.find('.modal-body #arr').val(button.data('arr'));
-                modal.find('.modal-body #dep').val(button.data('dep'));
-                modal.find('.modal-body #vmc_aar').val(button.data('vmc_aar'));
-                modal.find('.modal-body #lvmc_aar').val(button.data('lvmc_aar'));
-                modal.find('.modal-body #imc_aar').val(button.data('imc_aar'));
-                modal.find('.modal-body #limc_aar').val(button.data('limc_aar'));
-                modal.find('.modal-body #vmc_adr').val(button.data('vmc_adr'));
-                modal.find('.modal-body #imc_adr').val(button.data('imc_adr'));
+                // VATSIM rates
+                modal.find('#vatsim_vmc_aar').val(button.data('vatsim_vmc_aar'));
+                modal.find('#vatsim_lvmc_aar').val(button.data('vatsim_lvmc_aar'));
+                modal.find('#vatsim_imc_aar').val(button.data('vatsim_imc_aar'));
+                modal.find('#vatsim_limc_aar').val(button.data('vatsim_limc_aar'));
+                modal.find('#vatsim_vlimc_aar').val(button.data('vatsim_vlimc_aar'));
+                modal.find('#vatsim_vmc_adr').val(button.data('vatsim_vmc_adr'));
+                modal.find('#vatsim_lvmc_adr').val(button.data('vatsim_lvmc_adr'));
+                modal.find('#vatsim_imc_adr').val(button.data('vatsim_imc_adr'));
+                modal.find('#vatsim_limc_adr').val(button.data('vatsim_limc_adr'));
+                modal.find('#vatsim_vlimc_adr').val(button.data('vatsim_vlimc_adr'));
 
+                // Real-world rates
+                modal.find('#rw_vmc_aar').val(button.data('rw_vmc_aar'));
+                modal.find('#rw_lvmc_aar').val(button.data('rw_lvmc_aar'));
+                modal.find('#rw_imc_aar').val(button.data('rw_imc_aar'));
+                modal.find('#rw_limc_aar').val(button.data('rw_limc_aar'));
+                modal.find('#rw_vlimc_aar').val(button.data('rw_vlimc_aar'));
+                modal.find('#rw_vmc_adr').val(button.data('rw_vmc_adr'));
+                modal.find('#rw_lvmc_adr').val(button.data('rw_lvmc_adr'));
+                modal.find('#rw_imc_adr').val(button.data('rw_imc_adr'));
+                modal.find('#rw_limc_adr').val(button.data('rw_limc_adr'));
+                modal.find('#rw_vlimc_adr').val(button.data('rw_vlimc_adr'));
             });
 
-            // AJAX: #editplan POST
+            // AJAX: #updateconfig POST
             $("#updateconfig").submit(function(e) {
                 e.preventDefault();
 
@@ -356,7 +593,7 @@ include('load/nav.php');
                 $.ajax({
                     type:   'POST',
                     url:    url,
-                    data:   $(this).serialize().replace(/'/g, "`"),
+                    data:   $(this).serialize(),
                     success:function(data) {
                         Swal.fire({
                             toast:      true,
