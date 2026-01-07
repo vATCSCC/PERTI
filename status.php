@@ -350,18 +350,18 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // -------------------------------------------------------------------------
-    // Tier Tracking: Parse Queue by Priority Tier
+    // Tier Tracking: Parse Queue by Parse Tier
     // -------------------------------------------------------------------------
     $liveData['queue_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0];
-    $sql = "SELECT priority_tier, COUNT(*) AS cnt
+    $sql = "SELECT parse_tier, COUNT(*) AS cnt
             FROM dbo.adl_parse_queue
             WHERE status = 'PENDING'
-            GROUP BY priority_tier
-            ORDER BY priority_tier";
+            GROUP BY parse_tier
+            ORDER BY parse_tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $tier = (int)$row['priority_tier'];
+            $tier = (int)$row['parse_tier'];
             if (isset($liveData['queue_by_tier'][$tier])) {
                 $liveData['queue_by_tier'][$tier] = (int)$row['cnt'];
             }
@@ -374,16 +374,16 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     // -------------------------------------------------------------------------
     $liveData['daily_parsed_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0];
     $liveData['daily_parsed_total'] = 0;
-    $sql = "SELECT priority_tier, COUNT(*) AS cnt
+    $sql = "SELECT parse_tier, COUNT(*) AS cnt
             FROM dbo.adl_parse_queue
             WHERE status = 'COMPLETE'
               AND completed_utc >= CAST(SYSUTCDATETIME() AS DATE)
-            GROUP BY priority_tier
-            ORDER BY priority_tier";
+            GROUP BY parse_tier
+            ORDER BY parse_tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $tier = (int)$row['priority_tier'];
+            $tier = (int)$row['parse_tier'];
             $cnt = (int)$row['cnt'];
             if (isset($liveData['daily_parsed_by_tier'][$tier])) {
                 $liveData['daily_parsed_by_tier'][$tier] = $cnt;
@@ -412,6 +412,244 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
                 $liveData['daily_trajectory_by_tier'][$tier] = $cnt;
             }
             $liveData['daily_trajectory_total'] += $cnt;
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Parse Success Rate (24h)
+    // -------------------------------------------------------------------------
+    $liveData['parse_success_24h'] = 0;
+    $liveData['parse_failed_24h'] = 0;
+    $liveData['parse_success_rate'] = 0;
+    $sql = "SELECT
+                COUNT(CASE WHEN status = 'COMPLETE' THEN 1 END) AS success_cnt,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed_cnt
+            FROM dbo.adl_parse_queue
+            WHERE queued_utc > DATEADD(HOUR, -24, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['parse_success_24h'] = (int)($row['success_cnt'] ?? 0);
+        $liveData['parse_failed_24h'] = (int)($row['failed_cnt'] ?? 0);
+        $total = $liveData['parse_success_24h'] + $liveData['parse_failed_24h'];
+        if ($total > 0) {
+            $liveData['parse_success_rate'] = round(($liveData['parse_success_24h'] / $total) * 100, 1);
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Top Active Airports (departures + arrivals for active flights)
+    // -------------------------------------------------------------------------
+    $liveData['top_airports'] = [];
+    $sql = "SELECT TOP 5 airport, SUM(cnt) AS total
+            FROM (
+                SELECT fp.fp_dept_icao AS airport, COUNT(*) AS cnt
+                FROM dbo.adl_flight_core c
+                INNER JOIN dbo.adl_flight_plan fp ON c.flight_uid = fp.flight_uid
+                WHERE c.is_active = 1 AND fp.fp_dept_icao IS NOT NULL
+                GROUP BY fp.fp_dept_icao
+                UNION ALL
+                SELECT fp.fp_dest_icao AS airport, COUNT(*) AS cnt
+                FROM dbo.adl_flight_core c
+                INNER JOIN dbo.adl_flight_plan fp ON c.flight_uid = fp.flight_uid
+                WHERE c.is_active = 1 AND fp.fp_dest_icao IS NOT NULL
+                GROUP BY fp.fp_dest_icao
+            ) combined
+            GROUP BY airport
+            ORDER BY total DESC";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $liveData['top_airports'][] = [
+                'icao' => $row['airport'],
+                'count' => (int)$row['total']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Queue Age Breakdown
+    // -------------------------------------------------------------------------
+    $liveData['queue_age'] = ['under_1m' => 0, '1_to_5m' => 0, 'over_5m' => 0];
+    $sql = "SELECT
+                COUNT(CASE WHEN DATEDIFF(SECOND, queued_utc, SYSUTCDATETIME()) < 60 THEN 1 END) AS under_1m,
+                COUNT(CASE WHEN DATEDIFF(SECOND, queued_utc, SYSUTCDATETIME()) BETWEEN 60 AND 300 THEN 1 END) AS m1_to_5,
+                COUNT(CASE WHEN DATEDIFF(SECOND, queued_utc, SYSUTCDATETIME()) > 300 THEN 1 END) AS over_5m
+            FROM dbo.adl_parse_queue
+            WHERE status = 'PENDING'";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['queue_age']['under_1m'] = (int)($row['under_1m'] ?? 0);
+        $liveData['queue_age']['1_to_5m'] = (int)($row['m1_to_5'] ?? 0);
+        $liveData['queue_age']['over_5m'] = (int)($row['over_5m'] ?? 0);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // SimBrief Stats
+    // -------------------------------------------------------------------------
+    $liveData['simbrief_active'] = 0;
+    $liveData['simbrief_total_active'] = 0;
+    $liveData['simbrief_rate'] = 0;
+    $sql = "SELECT
+                COUNT(CASE WHEN fp.is_simbrief = 1 THEN 1 END) AS simbrief_cnt,
+                COUNT(*) AS total_cnt
+            FROM dbo.adl_flight_core c
+            LEFT JOIN dbo.adl_flight_plan fp ON c.flight_uid = fp.flight_uid
+            WHERE c.is_active = 1";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['simbrief_active'] = (int)($row['simbrief_cnt'] ?? 0);
+        $liveData['simbrief_total_active'] = (int)($row['total_cnt'] ?? 0);
+        if ($liveData['simbrief_total_active'] > 0) {
+            $liveData['simbrief_rate'] = round(($liveData['simbrief_active'] / $liveData['simbrief_total_active']) * 100, 1);
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // SimBrief parse success comparison
+    $liveData['simbrief_parse_success'] = 0;
+    $liveData['manual_parse_success'] = 0;
+    $sql = "SELECT
+                fp.is_simbrief,
+                COUNT(CASE WHEN pq.status = 'COMPLETE' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) AS success_rate
+            FROM dbo.adl_parse_queue pq
+            INNER JOIN dbo.adl_flight_plan fp ON pq.flight_uid = fp.flight_uid
+            WHERE pq.queued_utc > DATEADD(HOUR, -24, SYSUTCDATETIME())
+              AND pq.status IN ('COMPLETE', 'FAILED')
+            GROUP BY fp.is_simbrief";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            if ($row['is_simbrief'] == 1) {
+                $liveData['simbrief_parse_success'] = round($row['success_rate'] ?? 0, 1);
+            } else {
+                $liveData['manual_parse_success'] = round($row['success_rate'] ?? 0, 1);
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // SimBrief today vs yesterday
+    $liveData['simbrief_today'] = 0;
+    $liveData['simbrief_yesterday'] = 0;
+    $sql = "SELECT
+                COUNT(CASE WHEN c.first_seen_utc >= CAST(SYSUTCDATETIME() AS DATE) THEN 1 END) AS today_cnt,
+                COUNT(CASE WHEN c.first_seen_utc >= DATEADD(DAY, -1, CAST(SYSUTCDATETIME() AS DATE))
+                           AND c.first_seen_utc < CAST(SYSUTCDATETIME() AS DATE) THEN 1 END) AS yesterday_cnt
+            FROM dbo.adl_flight_core c
+            INNER JOIN dbo.adl_flight_plan fp ON c.flight_uid = fp.flight_uid
+            WHERE fp.is_simbrief = 1
+              AND c.first_seen_utc >= DATEADD(DAY, -1, CAST(SYSUTCDATETIME() AS DATE))";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['simbrief_today'] = (int)($row['today_cnt'] ?? 0);
+        $liveData['simbrief_yesterday'] = (int)($row['yesterday_cnt'] ?? 0);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Data Freshness Indicators
+    // -------------------------------------------------------------------------
+    $liveData['oldest_pending_queue'] = null;
+    $sql = "SELECT TOP 1 DATEDIFF(SECOND, queued_utc, SYSUTCDATETIME()) AS age_seconds
+            FROM dbo.adl_parse_queue
+            WHERE status = 'PENDING'
+            ORDER BY queued_utc ASC";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['oldest_pending_queue'] = $row['age_seconds'] ?? null;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    $liveData['last_trajectory_age'] = null;
+    $sql = "SELECT TOP 1 DATEDIFF(SECOND, recorded_utc, SYSUTCDATETIME()) AS age_seconds
+            FROM dbo.adl_flight_trajectory
+            ORDER BY recorded_utc DESC";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['last_trajectory_age'] = $row['age_seconds'] ?? null;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Recent Parse Errors (last 5)
+    // -------------------------------------------------------------------------
+    $liveData['recent_errors'] = [];
+    $sql = "SELECT TOP 5
+                pq.flight_uid,
+                c.callsign,
+                pq.error_message,
+                pq.completed_utc
+            FROM dbo.adl_parse_queue pq
+            LEFT JOIN dbo.adl_flight_core c ON pq.flight_uid = c.flight_uid
+            WHERE pq.status = 'FAILED'
+            ORDER BY pq.completed_utc DESC";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $dt = $row['completed_utc'];
+            $timeStr = ($dt instanceof DateTimeInterface) ? $dt->format('H:i:s') : substr($dt, 11, 8);
+            $liveData['recent_errors'][] = [
+                'callsign' => $row['callsign'] ?? 'Unknown',
+                'error' => substr($row['error_message'] ?? 'No message', 0, 50),
+                'time' => $timeStr
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Most Crossed Boundaries (last hour)
+    // -------------------------------------------------------------------------
+    $liveData['top_boundaries'] = [];
+    $sql = "SELECT TOP 5
+                b.boundary_name,
+                COUNT(*) AS crossing_cnt
+            FROM dbo.adl_flight_boundary_log bl
+            INNER JOIN dbo.adl_boundary b ON bl.boundary_id = b.boundary_id
+            WHERE bl.entry_time > DATEADD(HOUR, -1, SYSUTCDATETIME())
+            GROUP BY b.boundary_name
+            ORDER BY crossing_cnt DESC";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $liveData['top_boundaries'][] = [
+                'name' => $row['boundary_name'],
+                'count' => (int)$row['crossing_cnt']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Peak Hour Heatmap Data (flights by hour, last 7 days)
+    // -------------------------------------------------------------------------
+    $liveData['peak_hours'] = [];
+    $sql = "SELECT
+                DATEPART(WEEKDAY, first_seen_utc) AS day_of_week,
+                DATEPART(HOUR, first_seen_utc) AS hour_of_day,
+                COUNT(*) AS flight_cnt
+            FROM dbo.adl_flight_core
+            WHERE first_seen_utc > DATEADD(DAY, -7, SYSUTCDATETIME())
+            GROUP BY DATEPART(WEEKDAY, first_seen_utc), DATEPART(HOUR, first_seen_utc)
+            ORDER BY day_of_week, hour_of_day";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $liveData['peak_hours'][] = [
+                'day' => (int)$row['day_of_week'],
+                'hour' => (int)$row['hour_of_day'],
+                'count' => (int)$row['flight_cnt']
+            ];
         }
         sqlsrv_free_stmt($stmt);
     }
