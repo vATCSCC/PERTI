@@ -117,7 +117,7 @@ $filepath = "";
             </li>
 
             <li class="nav-item">
-                <a class="nav-link" href="<?= $filepath; ?>./api-docs" target="_blank">
+                <a class="nav-link" href="<?= $filepath; ?>./api-docs/" target="_blank">
                     API Docs
                 </a>
             </li>
