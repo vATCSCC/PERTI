@@ -180,13 +180,9 @@ class AdlQueryHelper {
                 fp.artccs_traversed,
                 fp.tracons_traversed,
 
-                -- Pre-parsed route data (for client-side rendering without re-parsing)
-                fp.route_geometry.STAsText() AS route_geometry_wkt,
-                (SELECT w.fix_name, w.lat, w.lon, w.sequence_num
-                 FROM dbo.adl_flight_waypoints w
-                 WHERE w.flight_uid = c.flight_uid
-                 ORDER BY w.sequence_num
-                 FOR JSON PATH) AS waypoints_json,
+                -- Pre-parsed route data (use pre-computed columns for performance)
+                -- Note: route_geometry_wkt removed - use /api/adl/flight.php for geometry
+                fp.waypoints_json,
 
                 -- Aircraft fields
                 ac.aircraft_icao,
