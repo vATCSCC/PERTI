@@ -7203,9 +7203,24 @@ advAddLabeledField(lines, 'NAME', advName);
                 return false;
             }
             
-            // Build route coordinates
-            var coords = buildRouteCoords(flight);
-            
+            // Build route coordinates - use pre-parsed ADL data if available
+            var coords;
+            if (flight.waypoints_json && Array.isArray(flight.waypoints_json) && flight.waypoints_json.length >= 2) {
+                // Use pre-parsed waypoints from ADL (no client-side parsing needed)
+                coords = flight.waypoints_json.map(function(wp) {
+                    return {
+                        lat: parseFloat(wp.lat),
+                        lon: parseFloat(wp.lon),
+                        name: wp.fix_name || ''
+                    };
+                });
+                console.log('[ADL] Using pre-parsed waypoints:', coords.length, 'points');
+            } else {
+                // Fallback: parse route client-side (for user-entered routes or missing ADL data)
+                coords = buildRouteCoords(flight);
+                console.log('[ADL] Using client-side parsed route:', coords.length, 'points');
+            }
+
             if (coords.length < 2) {
                 console.log('[ADL] Not enough coords to draw route');
                 return false;
