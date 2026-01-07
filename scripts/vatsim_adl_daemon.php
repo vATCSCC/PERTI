@@ -72,20 +72,62 @@ $config = [
 // LOGGING
 // ============================================================================
 
+/**
+ * Rotate log file if it exceeds max size.
+ * Keeps up to 3 rotated logs (.1, .2, .3)
+ */
+function rotateLogIfNeeded(string $logFile, int $maxSizeBytes = 10485760): void {
+    if (!file_exists($logFile)) {
+        return;
+    }
+
+    $size = @filesize($logFile);
+    if ($size === false || $size < $maxSizeBytes) {
+        return;
+    }
+
+    // Rotate: .3 -> delete, .2 -> .3, .1 -> .2, current -> .1
+    $rotated3 = $logFile . '.3';
+    $rotated2 = $logFile . '.2';
+    $rotated1 = $logFile . '.1';
+
+    if (file_exists($rotated3)) {
+        @unlink($rotated3);
+    }
+    if (file_exists($rotated2)) {
+        @rename($rotated2, $rotated3);
+    }
+    if (file_exists($rotated1)) {
+        @rename($rotated1, $rotated2);
+    }
+    @rename($logFile, $rotated1);
+
+    // Create new empty log
+    @file_put_contents($logFile, '');
+}
+
 function logMessage(string $level, string $message, array $context = []): void {
     global $config;
-    
+    static $writeCount = 0;
+
     $timestamp = gmdate('Y-m-d H:i:s');
     $contextStr = !empty($context) ? ' ' . json_encode($context, JSON_UNESCAPED_SLASHES) : '';
     $line = "[{$timestamp}Z] [{$level}] {$message}{$contextStr}\n";
-    
+
     if ($config['log_to_stdout']) {
         echo $line;
         flush();
     }
-    
+
     if ($config['log_to_file'] && !empty($config['log_file'])) {
         @file_put_contents($config['log_file'], $line, FILE_APPEND | LOCK_EX);
+
+        // Check for rotation every 100 writes to avoid stat() on every log
+        $writeCount++;
+        if ($writeCount >= 100) {
+            $writeCount = 0;
+            rotateLogIfNeeded($config['log_file'], 10485760);  // 10 MB max
+        }
     }
 }
 
