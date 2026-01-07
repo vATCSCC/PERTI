@@ -50,9 +50,10 @@ GO
 CREATE TABLE dbo.airport_config_runway (
     id              BIGINT IDENTITY(1,1) PRIMARY KEY,
     config_id       INT NOT NULL,
-    runway_id       VARCHAR(4) NOT NULL,           -- "27L", "28R", "09"
+    runway_id       VARCHAR(16) NOT NULL,          -- "27L", "28R", "09"
     runway_use      VARCHAR(4) NOT NULL,           -- 'ARR', 'DEP', 'BOTH'
     priority        TINYINT DEFAULT 1,             -- 1 = primary runway
+    approach_type   VARCHAR(16) NULL,              -- "ILS", "VOR", "RNAV", "LDA"
 
     CONSTRAINT FK_config_runway_config FOREIGN KEY (config_id)
         REFERENCES dbo.airport_config(config_id) ON DELETE CASCADE,
