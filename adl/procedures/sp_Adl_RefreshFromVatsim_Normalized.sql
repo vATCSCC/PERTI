@@ -1,12 +1,10 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.5 - SimBrief Integration
+-- sp_Adl_RefreshFromVatsim_Normalized V8.6 - Waypoint ETA Integration
 -- 
--- Changes from V8.4:
---   - Added Step 4c: SimBrief/ICAO Flight Plan Parsing
---   - Processes up to 50 unparsed flights per cycle
---   - Extracts: is_simbrief flag, step climbs, runway hints, ICAO Item 18
---   - Resets is_simbrief on route change (re-parse needed)
---   - Returns simbrief_parsed count in stats
+-- Changes from V8.5:
+--   - Added Step 8c: Waypoint ETA Calculation
+--   - Calculates ETA at each waypoint for sector entry prediction
+--   - Returns waypoint_etas count in stats
 --
 -- Full Step List:
 --   1    - Parse JSON into temp table
@@ -16,12 +14,13 @@
 --   3    - Upsert adl_flight_position
 --   4    - Detect route changes, upsert flight plans
 --   4b   - ETD/STD Calculation (V8.4)
---   4c   - SimBrief/ICAO Flight Plan Parsing (V8.5) <-- NEW
+--   4c   - SimBrief/ICAO Flight Plan Parsing (V8.5)
 --   5    - Queue routes for parsing
 --   6    - Upsert adl_flight_aircraft
 --   7    - Mark inactive flights
 --   8    - Process Trajectory & ETA Calculations
 --   8b   - Update arrival buckets
+--   8c   - Waypoint ETA Calculation (V8.6) <-- NEW
 --   9    - Zone Detection for OOOI
 --   10   - Boundary Detection for ARTCC/Sector/TRACON
 -- ============================================================================
@@ -56,6 +55,8 @@ BEGIN
     DECLARE @etd_count INT = 0;
     -- SimBrief counter (V8.5)
     DECLARE @simbrief_parsed INT = 0;
+    -- Waypoint ETA counter (V8.6)
+    DECLARE @waypoint_etas INT = 0;
     -- Zone detection counter
     DECLARE @zone_transitions INT = 0;
     -- Boundary detection counters (V8.3)
@@ -580,6 +581,15 @@ BEGIN
     FROM dbo.adl_flight_times ft WHERE ft.eta_utc IS NOT NULL AND ft.arrival_bucket_utc IS NULL;
     
     -- ========================================================================
+    -- Step 8c: Waypoint ETA Calculation (V8.6)
+    -- ========================================================================
+    
+    IF OBJECT_ID('dbo.sp_CalculateWaypointETABatch', 'P') IS NOT NULL
+    BEGIN
+        EXEC dbo.sp_CalculateWaypointETABatch @waypoint_count = @waypoint_etas OUTPUT;
+    END
+    
+    -- ========================================================================
     -- Step 9: Zone Detection for OOOI
     -- ========================================================================
     
@@ -614,6 +624,7 @@ BEGIN
         @etd_count AS etds_calculated,
         @simbrief_parsed AS simbrief_parsed,
         @eta_count AS etas_calculated,
+        @waypoint_etas AS waypoint_etas,
         @traj_count AS trajectories_logged,
         @zone_transitions AS zone_transitions,
         @boundary_transitions AS boundary_transitions,
@@ -622,8 +633,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.5 created successfully';
-PRINT 'Added: Step 4c - SimBrief/ICAO Flight Plan Parsing';
-PRINT 'Added: Reset is_simbrief on route change';
-PRINT 'Returns: simbrief_parsed count in stats';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.6 created successfully';
+PRINT 'Added: Step 8c - Waypoint ETA Calculation';
+PRINT 'Returns: waypoint_etas count in stats';
 GO
