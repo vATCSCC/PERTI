@@ -155,9 +155,9 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
 
     // Trajectory counts
     $sql = "SELECT
-                COUNT(CASE WHEN logged_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS cnt_1h,
+                COUNT(CASE WHEN timestamp_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS cnt_1h,
                 COUNT(*) AS cnt_total
-            FROM dbo.adl_trajectories";
+            FROM dbo.adl_flight_trajectory";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -167,7 +167,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // Waypoints count (parsed route data)
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_waypoints";
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_waypoints";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
