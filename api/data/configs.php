@@ -57,6 +57,34 @@ function rateCell($rate, $extraClass = '') {
 
 $search = isset($_GET['search']) ? strip_tags($_GET['search']) : '';
 
+// Auto-create rate history table if it doesn't exist
+if ($conn_adl) {
+    $checkTable = sqlsrv_query($conn_adl, "SELECT 1 FROM sys.tables WHERE name = 'airport_config_rate_history'");
+    if ($checkTable && !sqlsrv_fetch($checkTable)) {
+        // Create the history table
+        $createSql = "
+            CREATE TABLE dbo.airport_config_rate_history (
+                history_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+                config_id INT NOT NULL,
+                source VARCHAR(8) NOT NULL,
+                weather VARCHAR(8) NOT NULL,
+                rate_type VARCHAR(4) NOT NULL,
+                old_value SMALLINT NULL,
+                new_value SMALLINT NULL,
+                change_type VARCHAR(8) NOT NULL,
+                changed_by_cid INT NULL,
+                changed_utc DATETIME2 DEFAULT GETUTCDATE(),
+                notes VARCHAR(256) NULL,
+                CONSTRAINT FK_rate_history_config FOREIGN KEY (config_id)
+                    REFERENCES dbo.airport_config(config_id) ON DELETE CASCADE,
+                INDEX IX_rate_history_config (config_id),
+                INDEX IX_rate_history_changed (changed_utc DESC)
+            )
+        ";
+        sqlsrv_query($conn_adl, $createSql);
+    }
+}
+
 // Check if ADL connection is available
 if (!$conn_adl) {
     // Fallback to MySQL (legacy)
