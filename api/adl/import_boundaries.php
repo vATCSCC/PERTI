@@ -181,7 +181,7 @@ function ensureWindingOrder($ring, $isExterior = true) {
 }
 
 /**
- * Ensure ring is closed
+ * Ensure ring is closed - uses same rounding as WKT output
  */
 function closeRing($ring) {
     if (count($ring) < 3) return $ring;
@@ -189,10 +189,18 @@ function closeRing($ring) {
     $first = $ring[0];
     $last = $ring[count($ring) - 1];
     
-    if (abs($first[0] - $last[0]) > 0.000001 || abs($first[1] - $last[1]) > 0.000001) {
-        $ring[] = $first;
+    // Round to 6 decimals (same as WKT output) for comparison
+    $firstRounded = [round($first[0], 6), round($first[1], 6)];
+    $lastRounded = [round($last[0], 6), round($last[1], 6)];
+    
+    if ($firstRounded[0] === $lastRounded[0] && $firstRounded[1] === $lastRounded[1]) {
+        // They're the same after rounding - ensure raw values match exactly
+        $ring[count($ring) - 1] = $first;
+        return $ring;
     }
     
+    // They're different after rounding, add the first point
+    $ring[] = $first;
     return $ring;
 }
 
