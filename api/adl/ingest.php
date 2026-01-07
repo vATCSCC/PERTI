@@ -72,15 +72,25 @@ $result['controllers_in_feed'] = count($data['controllers'] ?? []);
 
 // Call the stored procedure
 $procStart = microtime(true);
+$result['json_length'] = strlen($json);
+$result['json_preview'] = substr($json, 0, 500) . '...';
+
 $sql = "EXEC dbo.sp_Adl_RefreshFromVatsim_Normalized @Json = ?";
-$stmt = sqlsrv_query($conn_adl, $sql, [$json]);
+$params = [$json];
+$stmt = sqlsrv_query($conn_adl, $sql, $params);
 
 if ($stmt === false) {
     $errors = sqlsrv_errors();
-    $result['error'] = 'Database error';
+    $result['error'] = 'Database error executing procedure';
     $result['sql_errors'] = $errors;
     echo json_encode($result, JSON_PRETTY_PRINT);
     exit;
+}
+
+// Check for warnings/info messages
+$warnings = sqlsrv_errors(SQLSRV_ERR_ALL);
+if ($warnings) {
+    $result['sql_warnings'] = $warnings;
 }
 
 // Get result stats
