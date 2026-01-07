@@ -211,6 +211,94 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
+    // ADL Refresh Procedure Step Metrics
+    // Step 2: New flights in last 15 minutes
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core WHERE first_seen_utc > DATEADD(MINUTE, -15, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['new_flights_15m'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 2: Updated flights in last 15 minutes
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core WHERE last_seen_utc > DATEADD(MINUTE, -15, SYSUTCDATETIME()) AND first_seen_utc < DATEADD(MINUTE, -15, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['updated_flights_15m'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 4: Routes queued in last 15 minutes
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_parse_queue WHERE queued_utc > DATEADD(MINUTE, -15, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['routes_queued_15m'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 4b: ETDs calculated (flights with etd_utc set recently)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_times WHERE times_updated_utc > DATEADD(MINUTE, -15, SYSUTCDATETIME()) AND etd_utc IS NOT NULL";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['etds_calculated_15m'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 4c: SimBrief parsed flights
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_plan WHERE is_simbrief = 1";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['simbrief_flights'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 8: ETAs calculated in last 15 minutes
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_times WHERE times_updated_utc > DATEADD(MINUTE, -15, SYSUTCDATETIME()) AND eta_utc IS NOT NULL";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['etas_calculated_15m'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 8c: Waypoint ETAs (total waypoints with ETA)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_waypoints WHERE eta_utc IS NOT NULL";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['waypoint_etas_total'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 7: Inactive flights marked recently
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core WHERE is_active = 0 AND last_seen_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['inactive_flights_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Last refresh timestamp from snapshot
+    $sql = "SELECT MAX(snapshot_utc) AS last_refresh FROM dbo.adl_flight_core WHERE is_active = 1";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row && isset($row['last_refresh'])) {
+            $dt = $row['last_refresh'];
+            if ($dt instanceof DateTimeInterface) {
+                $liveData['last_refresh_utc'] = $dt->format('H:i:s');
+                $liveData['last_refresh_ago'] = round((time() - $dt->getTimestamp()));
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
 } else {
     $statusIssues[] = 'ADL database connection unavailable';
     $overallStatus = 'degraded';
@@ -785,6 +873,166 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             font-size: 1.1rem;
             font-weight: 600;
         }
+
+        /* ADL Refresh Procedure Styles */
+        .procedure-steps {
+            padding: 0;
+        }
+
+        .procedure-step {
+            display: flex;
+            align-items: flex-start;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+
+        .procedure-step:hover {
+            background: #f8f9fa;
+        }
+
+        .procedure-step:last-child {
+            border-bottom: none;
+        }
+
+        .procedure-step.sub-step {
+            padding-left: 35px;
+            background: #fafbfc;
+        }
+
+        .procedure-step.sub-step:hover {
+            background: #f0f2f4;
+        }
+
+        .step-number {
+            min-width: 36px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #37384e;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            font-family: 'Inconsolata', monospace;
+            margin-right: 12px;
+        }
+
+        .procedure-step.sub-step .step-number {
+            background: #6c757d;
+            font-size: 0.65rem;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #333;
+            margin-bottom: 2px;
+        }
+
+        .step-desc {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .step-output {
+            font-family: 'Inconsolata', monospace;
+            font-size: 0.7rem;
+            color: var(--status-running);
+            margin-top: 2px;
+        }
+
+        .step-category {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-left: 8px;
+        }
+
+        .step-category.ingest { background: rgba(106, 155, 244, 0.2); color: #4a7fd4; }
+        .step-category.core { background: rgba(118, 109, 244, 0.2); color: #5a51d4; }
+        .step-category.route { background: rgba(255, 177, 92, 0.2); color: #b87a00; }
+        .step-category.time { background: rgba(22, 201, 149, 0.2); color: #0f9d6e; }
+        .step-category.detect { background: rgba(247, 79, 120, 0.2); color: #d43a5c; }
+        .step-category.archive { background: rgba(142, 142, 147, 0.2); color: #666; }
+
+        .step-metric {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            padding-left: 10px;
+        }
+
+        .step-metric-value {
+            font-family: 'Inconsolata', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--status-complete);
+            background: rgba(22, 201, 149, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .step-metric-value.zero {
+            color: #aaa;
+            background: #f0f0f0;
+        }
+
+        .step-metric-value.high {
+            color: var(--status-running);
+            background: rgba(106, 155, 244, 0.1);
+        }
+
+        .step-metric-label {
+            font-size: 0.65rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .procedure-header-stats {
+            display: flex;
+            gap: 15px;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            font-size: 0.8rem;
+        }
+
+        .procedure-header-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .procedure-header-stat .value {
+            font-family: 'Inconsolata', monospace;
+            font-weight: 700;
+            color: var(--status-complete);
+        }
+
+        .procedure-header-stat .label {
+            color: #666;
+        }
+
+        .refresh-pulse {
+            width: 8px;
+            height: 8px;
+            background: var(--status-complete);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
     </style>
 
     <!-- Chart.js for live graphs -->
@@ -1353,6 +1601,220 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- ADL Refresh Procedure Steps -->
+                <div class="status-section">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-sync-alt mr-2"></i>ADL Refresh Procedure</span>
+                        <span class="cycle-badge">V8.6 &bull; 15s Cycle</span>
+                    </div>
+                    <!-- Live Stats Header -->
+                    <div class="procedure-header-stats">
+                        <div class="procedure-header-stat">
+                            <span class="refresh-pulse"></span>
+                            <span class="label">Last:</span>
+                            <span class="value"><?= $liveData['last_refresh_utc'] ?? 'N/A' ?> UTC</span>
+                        </div>
+                        <div class="procedure-header-stat">
+                            <span class="label">Active:</span>
+                            <span class="value"><?= number_format($liveData['active_flights']) ?></span>
+                        </div>
+                        <div class="procedure-header-stat">
+                            <span class="label">Queue:</span>
+                            <span class="value"><?= number_format($liveData['queue_pending']) ?></span>
+                        </div>
+                    </div>
+                    <div class="procedure-steps">
+                        <!-- Step 1 -->
+                        <div class="procedure-step">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <div class="step-name">Parse JSON into Temp Table <span class="step-category ingest">Ingest</span></div>
+                                <div class="step-desc">Extract pilot/flight data from VATSIM JSON feed</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= $liveData['active_flights'] > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['active_flights']) ?></span>
+                                <span class="step-metric-label">pilots</span>
+                            </div>
+                        </div>
+                        <!-- Step 1b -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">1b</span>
+                            <div class="step-content">
+                                <div class="step-name">Enrich with Airport Data</div>
+                                <div class="step-desc">Add coordinates, ARTCC, TRACON, GCD calculations</div>
+                            </div>
+                        </div>
+                        <!-- Step 2 -->
+                        <div class="procedure-step">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <div class="step-name">Upsert adl_flight_core <span class="step-category core">Core</span></div>
+                                <div class="step-desc">Insert new flights, update existing flight status/phase</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['new_flights_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['new_flights_15m'] ?? 0) ?></span>
+                                <span class="step-metric-label">new/15m</span>
+                            </div>
+                        </div>
+                        <!-- Step 2b -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">2b</span>
+                            <div class="step-content">
+                                <div class="step-name">Create adl_flight_times</div>
+                                <div class="step-desc">Initialize time tracking for new flights</div>
+                            </div>
+                        </div>
+                        <!-- Step 3 -->
+                        <div class="procedure-step">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <div class="step-name">Upsert adl_flight_position <span class="step-category core">Core</span></div>
+                                <div class="step-desc">Update lat/lon, altitude, groundspeed, heading</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['updated_flights_15m'] ?? 0) > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['updated_flights_15m'] ?? 0) ?></span>
+                                <span class="step-metric-label">upd/15m</span>
+                            </div>
+                        </div>
+                        <!-- Step 4 -->
+                        <div class="procedure-step">
+                            <span class="step-number">4</span>
+                            <div class="step-content">
+                                <div class="step-name">Detect Route Changes <span class="step-category route">Route</span></div>
+                                <div class="step-desc">Hash route for change detection, upsert flight plans</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['routes_queued_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['routes_queued_15m'] ?? 0) ?></span>
+                                <span class="step-metric-label">queued/15m</span>
+                            </div>
+                        </div>
+                        <!-- Step 4b -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">4b</span>
+                            <div class="step-content">
+                                <div class="step-name">ETD/STD Calculation</div>
+                                <div class="step-desc">Calculate estimated/scheduled departure times</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['etds_calculated_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['etds_calculated_15m'] ?? 0) ?></span>
+                                <span class="step-metric-label">etd/15m</span>
+                            </div>
+                        </div>
+                        <!-- Step 4c -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">4c</span>
+                            <div class="step-content">
+                                <div class="step-name">SimBrief/ICAO Parsing</div>
+                                <div class="step-desc">Parse step climbs, cost index from flight plans</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['simbrief_flights'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['simbrief_flights'] ?? 0) ?></span>
+                                <span class="step-metric-label">simbrief</span>
+                            </div>
+                        </div>
+                        <!-- Step 5 -->
+                        <div class="procedure-step">
+                            <span class="step-number">5</span>
+                            <div class="step-content">
+                                <div class="step-name">Queue Routes for Parsing <span class="step-category route">Route</span></div>
+                                <div class="step-desc">Add changed routes to parse queue with tier priority</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= $liveData['queue_pending'] > 0 ? '' : 'zero' ?>"><?= number_format($liveData['queue_pending']) ?></span>
+                                <span class="step-metric-label">pending</span>
+                            </div>
+                        </div>
+                        <!-- Step 6 -->
+                        <div class="procedure-step">
+                            <span class="step-number">6</span>
+                            <div class="step-content">
+                                <div class="step-name">Upsert adl_flight_aircraft <span class="step-category core">Core</span></div>
+                                <div class="step-desc">Update aircraft type, weight class, engine info</div>
+                            </div>
+                        </div>
+                        <!-- Step 7 -->
+                        <div class="procedure-step">
+                            <span class="step-number">7</span>
+                            <div class="step-content">
+                                <div class="step-name">Mark Inactive Flights <span class="step-category core">Core</span></div>
+                                <div class="step-desc">Flag flights not seen in 5+ minutes as inactive</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['inactive_flights_1h'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['inactive_flights_1h'] ?? 0) ?></span>
+                                <span class="step-metric-label">marked/1h</span>
+                            </div>
+                        </div>
+                        <!-- Step 8 -->
+                        <div class="procedure-step">
+                            <span class="step-number">8</span>
+                            <div class="step-content">
+                                <div class="step-name">Process Trajectory & ETA <span class="step-category time">Time</span></div>
+                                <div class="step-desc">Calculate estimated arrival times from trajectory</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['etas_calculated_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['etas_calculated_15m'] ?? 0) ?></span>
+                                <span class="step-metric-label">eta/15m</span>
+                            </div>
+                        </div>
+                        <!-- Step 8b -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">8b</span>
+                            <div class="step-content">
+                                <div class="step-name">Update Arrival Buckets</div>
+                                <div class="step-desc">Calculate 15-minute arrival time buckets</div>
+                            </div>
+                        </div>
+                        <!-- Step 8c -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">8c</span>
+                            <div class="step-content">
+                                <div class="step-name">Waypoint ETA Calculation</div>
+                                <div class="step-desc">Calculate ETA at each route waypoint</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['waypoint_etas_total'] ?? 0) > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['waypoint_etas_total'] ?? 0) ?></span>
+                                <span class="step-metric-label">w/eta</span>
+                            </div>
+                        </div>
+                        <!-- Step 9 -->
+                        <div class="procedure-step">
+                            <span class="step-number">9</span>
+                            <div class="step-content">
+                                <div class="step-name">Zone Detection (OOOI) <span class="step-category detect">Detect</span></div>
+                                <div class="step-desc">Detect Out/Off/On/In state transitions</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= $liveData['zone_transitions_1h'] > 0 ? '' : 'zero' ?>"><?= number_format($liveData['zone_transitions_1h']) ?></span>
+                                <span class="step-metric-label">trans/1h</span>
+                            </div>
+                        </div>
+                        <!-- Step 10 -->
+                        <div class="procedure-step">
+                            <span class="step-number">10</span>
+                            <div class="step-content">
+                                <div class="step-name">Boundary Detection <span class="step-category detect">Detect</span></div>
+                                <div class="step-desc">Detect ARTCC/Sector/TRACON boundary crossings</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= $liveData['boundary_crossings_1h'] > 0 ? '' : 'zero' ?>"><?= number_format($liveData['boundary_crossings_1h']) ?></span>
+                                <span class="step-metric-label">cross/1h</span>
+                            </div>
+                        </div>
+                        <!-- Step 11 -->
+                        <div class="procedure-step">
+                            <span class="step-number">11</span>
+                            <div class="step-content">
+                                <div class="step-name">Log Trajectory Positions <span class="step-category archive">Archive</span></div>
+                                <div class="step-desc">Archive flight positions to trajectory history</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= $liveData['trajectories_1h'] > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['trajectories_1h']) ?></span>
+                                <span class="step-metric-label">logged/1h</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Stored Procedures Summary -->
