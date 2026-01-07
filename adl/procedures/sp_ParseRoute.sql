@@ -185,12 +185,23 @@ BEGIN
     IF @upper = 'DCT' OR @upper = 'DIRECT' RETURN 'SKIP';
     IF @upper = 'IFR' OR @upper = 'VFR' RETURN 'SKIP';
     
-    -- Speed/Altitude specs
+    -- Speed/Altitude specs (but NOT A-airways which can look similar)
+    -- A### is altitude only if <= A450 (45000ft max realistic)
     IF @upper LIKE 'N0[0-9][0-9][0-9]%' OR @upper LIKE '/N0%' OR @upper LIKE 'M0[0-9][0-9]%' OR
        @upper LIKE 'K0[0-9][0-9][0-9]%' OR @upper LIKE 'F[0-9][0-9][0-9]' OR 
-       @upper LIKE 'FL[0-9][0-9][0-9]' OR @upper LIKE 'A[0-9][0-9][0-9]' OR 
+       @upper LIKE 'FL[0-9][0-9][0-9]' OR 
        @upper LIKE 'S[0-9][0-9][0-9][0-9]' OR @upper LIKE 'VFR/[0-9]%' OR @upper LIKE 'IFR/[0-9]%'
         RETURN 'SPEED_ALT';
+    
+    -- A### - only altitude if exactly 4 chars and number <= 450
+    IF @upper LIKE 'A[0-9][0-9][0-9]' AND LEN(@upper) = 4
+    BEGIN
+        DECLARE @alt_num INT = CAST(SUBSTRING(@upper, 2, 3) AS INT);
+        IF @alt_num <= 450
+            RETURN 'SPEED_ALT';
+        -- Otherwise it's an airway (A501, etc)
+        RETURN 'AIRWAY';
+    END
     
     -- SID/STAR with dot
     IF @upper LIKE '%.%' AND LEN(@upper) >= 5
@@ -214,8 +225,12 @@ BEGIN
         RETURN 'LATLON';
     
     -- Airways (comprehensive)
+    -- A-airways: A1-A9 (2 chars), A10-A99 (3 chars), A100+ (4+ chars but handled above if 3-digit)
     IF @upper LIKE 'J[0-9]%' OR @upper LIKE 'V[0-9]%' OR @upper LIKE 'Q[0-9]%' OR @upper LIKE 'T[0-9]%' OR
-       @upper LIKE 'A[0-9][0-9]%' OR @upper LIKE 'L[0-9]%' OR @upper LIKE 'M[0-9]%' OR @upper LIKE 'N[0-9]%' OR
+       (@upper LIKE 'A[0-9]' AND LEN(@upper) = 2) OR  -- A1-A9
+       (@upper LIKE 'A[0-9][0-9]' AND LEN(@upper) = 3) OR  -- A10-A99
+       (@upper LIKE 'A[0-9][0-9][0-9][0-9]%') OR  -- A1000+ (rare but exists)
+       @upper LIKE 'L[0-9]%' OR @upper LIKE 'M[0-9]%' OR @upper LIKE 'N[0-9]%' OR
        @upper LIKE 'B[0-9]%' OR @upper LIKE 'G[0-9]%' OR @upper LIKE 'R[0-9]%' OR @upper LIKE 'H[0-9]%' OR 
        @upper LIKE 'W[0-9]%' OR @upper LIKE 'Y[0-9]%' OR @upper LIKE 'Z[0-9]%' OR @upper LIKE 'P[0-9]%' OR
        @upper LIKE 'UL[0-9]%' OR @upper LIKE 'UM[0-9]%' OR @upper LIKE 'UN[0-9]%' OR @upper LIKE 'UP[0-9]%' OR 
@@ -288,6 +303,19 @@ BEGIN
     
     DECLARE @clean_route NVARCHAR(MAX) = UPPER(LTRIM(RTRIM(@route)));
     SET @clean_route = REPLACE(REPLACE(REPLACE(REPLACE(@clean_route, '+', ' '), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' ');
+    
+    -- Strip speed/altitude suffixes from fix names (e.g., ERGOM/N0481F330 -> ERGOM)
+    -- Pattern: FIX/N0xxxFxxx or FIX/MxxxFxxx
+    WHILE PATINDEX('%[A-Z]/[NMK]0[0-9][0-9][0-9]%', @clean_route) > 0
+    BEGIN
+        DECLARE @slash_pos INT = PATINDEX('%[A-Z]/[NMK]0[0-9][0-9][0-9]%', @clean_route) + 1;
+        DECLARE @suffix_end INT = @slash_pos;
+        -- Find end of suffix (next space or end of string)
+        WHILE @suffix_end <= LEN(@clean_route) AND SUBSTRING(@clean_route, @suffix_end, 1) != ' '
+            SET @suffix_end = @suffix_end + 1;
+        -- Remove the suffix
+        SET @clean_route = LEFT(@clean_route, @slash_pos - 1) + SUBSTRING(@clean_route, @suffix_end, LEN(@clean_route));
+    END
     
     -- Handle dots (preserve SID/STAR format)
     DECLARE @i INT = 1;
