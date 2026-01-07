@@ -60,7 +60,7 @@ echo "Import Run ID: $runId\n\n";
 
 $geojsonDir = __DIR__ . '/../../assets/geojson/';
 
-$debugBoundaries = ['KZAK', 'NZZO', 'PAZA', 'NFFF', 'NZCM', 'UBBA', 'UHMM', 'D01', 'EUG', 'GEG', 'CPTL'];
+$debugBoundaries = ['GMAC-O', 'GMAC-OS', 'GMAC-W', 'GMAC-WS', 'GMMM-NE'];
 
 $stats = [
     'artcc' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'normalized' => 0],
