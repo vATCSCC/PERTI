@@ -96,6 +96,37 @@ if ($stmt) {
     sqlsrv_free_stmt($stmt);
 }
 
+// Check ATIS data (last hour)
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.vatsim_atis WHERE fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+$stmt = @sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['atis_last_hour'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
+// Check last flight update time
+$sql = "SELECT TOP 1 snapshot_utc FROM dbo.adl_flight_core WHERE is_active = 1 ORDER BY snapshot_utc DESC";
+$stmt = @sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    if ($row && $row['snapshot_utc'] instanceof DateTimeInterface) {
+        $result['last_flight_update'] = $row['snapshot_utc']->format('Y-m-d H:i:s') . ' UTC';
+    }
+    sqlsrv_free_stmt($stmt);
+}
+
+// Check last ATIS update time
+$sql = "SELECT TOP 1 fetched_utc FROM dbo.vatsim_atis ORDER BY fetched_utc DESC";
+$stmt = @sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    if ($row && $row['fetched_utc'] instanceof DateTimeInterface) {
+        $result['last_atis_update'] = $row['fetched_utc']->format('Y-m-d H:i:s') . ' UTC';
+    }
+    sqlsrv_free_stmt($stmt);
+}
+
 // Test a simple insert/select to verify write permissions
 $result['write_test'] = 'NOT_TESTED';
 
