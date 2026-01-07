@@ -556,18 +556,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .status-section {
             background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            margin-bottom: 12px;
             overflow: hidden;
         }
 
         .status-section-header {
             background: #37384e;
             color: #fff;
-            padding: 12px 16px;
+            padding: 8px 12px;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             display: flex;
@@ -577,31 +577,31 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .status-section-header .cycle-badge {
             background: rgba(255,255,255,0.15);
-            padding: 3px 10px;
+            padding: 2px 8px;
             border-radius: 3px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
         }
 
         .status-table {
             width: 100%;
             margin: 0;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
 
         .status-table thead th {
             background: #f8f9fa;
-            padding: 10px 12px;
+            padding: 6px 10px;
             font-weight: 600;
             text-transform: uppercase;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             letter-spacing: 0.5px;
             color: #666;
-            border-bottom: 2px solid #dee2e6;
+            border-bottom: 1px solid #dee2e6;
         }
 
         .status-table tbody td {
-            padding: 10px 12px;
+            padding: 6px 10px;
             border-bottom: 1px solid #eee;
             vertical-align: middle;
         }
@@ -617,19 +617,20 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .component-name {
             font-family: 'Inconsolata', monospace;
             font-weight: 600;
+            font-size: 0.8rem;
             color: #333;
         }
 
         .component-desc {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: #666;
         }
 
         .status-badge {
             display: inline-block;
-            padding: 3px 8px;
+            padding: 2px 6px;
             border-radius: 3px;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.3px;
@@ -661,20 +662,20 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .metric-row {
             display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 12px;
             flex-wrap: wrap;
         }
 
         .metric-card {
             flex: 1;
-            min-width: 140px;
+            min-width: 110px;
             background: #fff;
-            border-radius: 8px;
-            padding: 20px;
+            border-radius: 6px;
+            padding: 10px 8px;
             text-align: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-left: 4px solid var(--status-complete);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            border-left: 3px solid var(--status-complete);
         }
 
         .metric-card.warning { border-left-color: var(--status-warning); }
@@ -683,7 +684,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .metric-card.error { border-left-color: var(--status-error); }
 
         .metric-value {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: #333;
             line-height: 1;
@@ -691,44 +692,44 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .metric-label {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             color: #888;
-            margin-top: 8px;
+            margin-top: 4px;
         }
 
         .metric-sublabel {
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             color: #aaa;
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
         .legend-section {
             background: #f8f9fa;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 20px;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-top: 12px;
         }
 
         .legend-title {
             font-weight: 600;
-            font-size: 0.85rem;
-            margin-bottom: 12px;
+            font-size: 0.75rem;
+            margin-bottom: 8px;
             color: #333;
         }
 
         .legend-items {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 0.8rem;
+            gap: 4px;
+            font-size: 0.7rem;
             color: #666;
         }
 
@@ -776,10 +777,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         /* Resource Tree Styles */
         .resource-tree {
-            padding: 15px;
+            padding: 10px;
             font-family: 'Inconsolata', monospace;
-            font-size: 0.85rem;
-            line-height: 1.6;
+            font-size: 0.75rem;
+            line-height: 1.4;
         }
 
         .tree-node {
@@ -787,22 +788,23 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .tree-node .tree-node {
-            margin-left: 20px;
+            margin-left: 14px;
             border-left: 1px dashed #ccc;
-            padding-left: 15px;
+            padding-left: 10px;
         }
 
         .tree-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 4px 0;
+            gap: 6px;
+            padding: 2px 0;
         }
 
         .tree-icon {
-            width: 18px;
+            width: 14px;
             text-align: center;
             color: #666;
+            font-size: 0.7rem;
         }
 
         .tree-icon.folder { color: var(--status-warning); }
@@ -816,7 +818,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .tree-status {
-            font-size: 0.7rem;
+            font-size: 0.6rem;
         }
 
         .issues-list {
@@ -856,10 +858,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         /* Data Pipeline Visualization */
         .pipeline-container {
             background: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
+            border-radius: 6px;
+            padding: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            margin-bottom: 12px;
             overflow-x: auto;
         }
 
@@ -867,16 +869,16 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            min-width: 800px;
-            gap: 8px;
+            min-width: 700px;
+            gap: 6px;
         }
 
         .pipeline-stage {
             flex: 1;
             text-align: center;
-            padding: 15px 10px;
+            padding: 10px 6px;
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 8px;
+            border-radius: 6px;
             border: 2px solid #dee2e6;
             position: relative;
         }
@@ -900,30 +902,35 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .pipeline-stage.active .pipeline-stage-icon { color: var(--status-complete); }
         .pipeline-stage.processing .pipeline-stage-icon { color: var(--status-running); }
 
+        .pipeline-stage-icon {
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+        }
+
         .pipeline-stage-name {
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.65rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             color: #333;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .pipeline-stage-count {
             font-family: 'Inconsolata', monospace;
-            font-size: 1.4rem;
+            font-size: 1.1rem;
             font-weight: 700;
             color: #333;
         }
 
         .pipeline-stage-label {
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             color: #888;
         }
 
         .pipeline-arrow {
             color: #ccc;
-            font-size: 1.2rem;
+            font-size: 1rem;
             flex-shrink: 0;
         }
 
@@ -945,10 +952,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         /* Chart container */
         .chart-container {
             background: #fff;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
+            border-radius: 6px;
+            padding: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            margin-bottom: 12px;
             overflow: hidden;
         }
 
@@ -956,18 +963,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
         .chart-title {
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #333;
         }
 
         .chart-wrapper {
             position: relative;
-            height: 120px;
+            height: 100px;
             width: 100%;
         }
 
@@ -998,7 +1005,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .procedure-step {
             display: flex;
             align-items: flex-start;
-            padding: 10px 15px;
+            padding: 6px 10px;
             border-bottom: 1px solid #eee;
             transition: background-color 0.2s;
         }
@@ -1012,7 +1019,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .procedure-step.sub-step {
-            padding-left: 35px;
+            padding-left: 26px;
             background: #fafbfc;
         }
 
@@ -1021,23 +1028,23 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .step-number {
-            min-width: 36px;
-            height: 24px;
+            min-width: 28px;
+            height: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
             background: #37384e;
             color: #fff;
-            border-radius: 4px;
-            font-size: 0.7rem;
+            border-radius: 3px;
+            font-size: 0.6rem;
             font-weight: 700;
             font-family: 'Inconsolata', monospace;
-            margin-right: 12px;
+            margin-right: 8px;
         }
 
         .procedure-step.sub-step .step-number {
             background: #6c757d;
-            font-size: 0.65rem;
+            font-size: 0.55rem;
         }
 
         .step-content {
@@ -1046,32 +1053,32 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .step-name {
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #333;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .step-desc {
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             color: #888;
         }
 
         .step-output {
             font-family: 'Inconsolata', monospace;
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             color: var(--status-running);
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
         .step-category {
             display: inline-block;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.6rem;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 0.55rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
-            margin-left: 8px;
+            letter-spacing: 0.2px;
+            margin-left: 6px;
         }
 
         .step-category.ingest { background: rgba(106, 155, 244, 0.2); color: #4a7fd4; }
@@ -1084,20 +1091,20 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .step-metric {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             margin-left: auto;
-            padding-left: 10px;
+            padding-left: 8px;
         }
 
         .step-metric-value {
             font-family: 'Inconsolata', monospace;
-            font-size: 0.9rem;
+            font-size: 0.75rem;
             font-weight: 700;
             color: var(--status-complete);
             background: rgba(22, 201, 149, 0.1);
-            padding: 2px 8px;
-            border-radius: 4px;
-            min-width: 50px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            min-width: 40px;
             text-align: center;
         }
 
@@ -1112,24 +1119,24 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .step-metric-label {
-            font-size: 0.65rem;
+            font-size: 0.55rem;
             color: #888;
             text-transform: uppercase;
         }
 
         .procedure-header-stats {
             display: flex;
-            gap: 15px;
-            padding: 10px 15px;
+            gap: 10px;
+            padding: 6px 10px;
             background: #f8f9fa;
             border-bottom: 1px solid #eee;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
         }
 
         .procedure-header-stat {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
         }
 
         .procedure-header-stat .value {
@@ -1143,8 +1150,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .refresh-pulse {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             background: var(--status-complete);
             border-radius: 50%;
             animation: pulse 2s infinite;
@@ -1211,12 +1218,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .tier-section-content {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            padding: 10px;
+            gap: 8px;
+            padding: 8px;
             background: #f8f9fa;
             border-radius: 0 0 4px 4px;
             border: 1px solid #e0e0e0;
             border-top: none;
+            align-items: stretch;
         }
 
         .tier-section-content.collapsed {
@@ -1240,6 +1248,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             border-radius: 4px;
             padding: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
         }
 
         .tier-group.full-width {
@@ -1296,12 +1306,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .tier-label {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #555;
             font-family: 'Inconsolata', monospace;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .tier-bar-container {
@@ -2654,12 +2661,88 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
     <script>
         // Toggle main section visibility
+        // LocalStorage key for saving UI state
+        const UI_STATE_KEY = 'perti_status_page_state';
+
+        // Save current UI state to localStorage
+        function saveUIState() {
+            const state = {
+                collapsedSections: [],
+                collapsedTierSections: []
+            };
+            // Save main sections
+            document.querySelectorAll('.tier-tracking-container').forEach(el => {
+                const sectionId = el.id.replace('-content', '');
+                if (el.classList.contains('collapsed')) {
+                    state.collapsedSections.push(sectionId);
+                }
+            });
+            // Save tier subsections
+            document.querySelectorAll('.tier-section-content').forEach(el => {
+                const sectionId = el.id.replace('-content', '');
+                if (el.classList.contains('collapsed')) {
+                    state.collapsedTierSections.push(sectionId);
+                }
+            });
+            localStorage.setItem(UI_STATE_KEY, JSON.stringify(state));
+        }
+
+        // Restore UI state from localStorage
+        function restoreUIState() {
+            try {
+                const saved = localStorage.getItem(UI_STATE_KEY);
+                if (!saved) return;
+                const state = JSON.parse(saved);
+
+                // Restore main sections
+                if (state.collapsedSections) {
+                    state.collapsedSections.forEach(sectionId => {
+                        const content = document.getElementById(sectionId + '-content');
+                        const toggle = document.getElementById(sectionId + '-toggle');
+                        if (content && !content.classList.contains('collapsed')) {
+                            content.classList.add('collapsed');
+                            if (toggle) toggle.style.transform = 'rotate(-90deg)';
+                        }
+                    });
+                }
+                // Restore tier subsections
+                if (state.collapsedTierSections) {
+                    state.collapsedTierSections.forEach(sectionId => {
+                        const content = document.getElementById(sectionId + '-content');
+                        const toggle = document.getElementById(sectionId + '-toggle');
+                        const header = content?.previousElementSibling;
+                        if (content && !content.classList.contains('collapsed')) {
+                            content.classList.add('collapsed');
+                            if (toggle) toggle.style.transform = 'rotate(-90deg)';
+                            if (header) header.classList.add('collapsed');
+                        }
+                    });
+                    // Also handle sections that should be expanded (were collapsed by default)
+                    document.querySelectorAll('.tier-section-content').forEach(el => {
+                        const sectionId = el.id.replace('-content', '');
+                        if (!state.collapsedTierSections.includes(sectionId)) {
+                            const toggle = document.getElementById(sectionId + '-toggle');
+                            const header = el.previousElementSibling;
+                            if (el.classList.contains('collapsed')) {
+                                el.classList.remove('collapsed');
+                                if (toggle) toggle.style.transform = 'rotate(0deg)';
+                                if (header) header.classList.remove('collapsed');
+                            }
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to restore UI state:', e);
+            }
+        }
+
         function toggleSection(sectionId) {
             const content = document.getElementById(sectionId + '-content');
             const toggle = document.getElementById(sectionId + '-toggle');
             if (content && toggle) {
                 content.classList.toggle('collapsed');
                 toggle.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
+                saveUIState();
             }
         }
 
@@ -2672,8 +2755,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 content.classList.toggle('collapsed');
                 toggle.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
                 if (header) header.classList.toggle('collapsed');
+                saveUIState();
             }
         }
+
+        // Restore UI state on page load
+        document.addEventListener('DOMContentLoaded', restoreUIState);
 
         // Auto-refresh every 60 seconds
         setTimeout(function() {
@@ -2933,11 +3020,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             title: {
                                                 display: true,
                                                 text: 'Time (UTC)',
-                                                font: { size: 11, weight: 'bold' }
+                                                font: { size: 12, weight: 'bold' }
                                             },
                                             grid: { display: false },
                                             ticks: {
-                                                font: { size: 8 },
+                                                font: { size: 10 },
                                                 maxRotation: 45,
                                                 minRotation: 45,
                                                 callback: function(value, index) {
@@ -2949,9 +3036,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                                 },
                                                 font: function(context) {
                                                     if (emphasizeIndices.includes(context.index)) {
-                                                        return { size: 10, weight: 'bold' };
+                                                        return { size: 12, weight: 'bold' };
                                                     }
-                                                    return { size: 8 };
+                                                    return { size: 10 };
                                                 }
                                             }
                                         },
