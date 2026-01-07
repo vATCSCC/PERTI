@@ -73,10 +73,10 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
         
         .nod-container {
             display: flex;
-            height: calc(100vh - 76px); /* Account for navbar */
+            height: calc(100vh - 60px); /* Account for navbar */
             width: 100%;
             position: relative;
-            margin-top: 76px; /* Push below fixed navbar */
+            margin-top: 60px; /* Push below fixed navbar */
         }
         
         /* Map Container */
