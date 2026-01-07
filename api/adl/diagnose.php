@@ -134,6 +134,39 @@ if ($stmt) {
     sqlsrv_free_stmt($stmt);
 }
 
+// Check how many active flights have times records (the ORDER BY uses times)
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c
+        INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+        WHERE c.is_active = 1";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['with_times'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
+// Check how many have flight plans
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c
+        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        WHERE c.is_active = 1";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['with_plan'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
+// Check how many have aircraft records
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c
+        INNER JOIN dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
+        WHERE c.is_active = 1";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['with_aircraft'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
 // Check ATIS data (last hour)
 $sql = "SELECT COUNT(*) AS cnt FROM dbo.vatsim_atis WHERE fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
 $stmt = @sqlsrv_query($conn_adl, $sql);
