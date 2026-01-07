@@ -178,6 +178,16 @@ if (!$conn_adl) {
             rateCell($data['vatsim_vmc_adr']);
             rateCell($data['vatsim_imc_adr']);
 
+            // Real-World Rates (ARR: VMC, LVMC, IMC, LIMC)
+            rateCell($data['rw_vmc_aar']);
+            rateCell($data['rw_lvmc_aar']);
+            rateCell($data['rw_imc_aar']);
+            rateCell($data['rw_limc_aar']);
+
+            // Real-World Rates (DEP: VMC, IMC)
+            rateCell($data['rw_vmc_adr']);
+            rateCell($data['rw_imc_adr']);
+
             // Actions
             if ($perm == true) {
                 echo '<td><center>';

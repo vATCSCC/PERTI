@@ -106,24 +106,39 @@ include('load/nav.php');
                 <button class="mt-2 mb-2 btn btn-success btn-sm" data-target="#addconfigModal" data-toggle="modal"><i class="fas fa-plus"></i> Add Config</button>
             <?php } ?>
 
-            <table class="table table-sm table-striped table-bordered w-75" id="configs">
+            <table class="table table-sm table-striped table-bordered" id="configs" style="width: 100%;">
                 <thead class="table-dark text-light">
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="FAA Code">FAA</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="ICAO Code">ICAO</th>
-                    <th class="text-center" style="width: 10%;">Config</th>
-                    <th class="text-center" style="width: 10%;" data-toggle="tooltip" title="Arrival Runway(s)">ARR</th>
-                    <th class="text-center" style="width: 10%;" data-toggle="tooltip" title="Departure Runway(s)">DEP</th>
-                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="VMC Average Arrival Rate">VA</th>
-                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="LVMC Average Arrival Rate">LVA</th>
-                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="IMC Average Arrival Rate">IA</th>
-                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="LIMC Average Arrival Rate">LIA</th>
-                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="VLIMC Average Arrival Rate">VLA</th>
-                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="VMC Average Departure Rate">VD</th>
-                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="IMC Average Departure Rate">ID</th>
-
-                    <?php if ($perm == true) { ?>
-                        <th></th>
-                    <?php } ?>
+                    <tr>
+                        <th rowspan="2" class="text-center align-middle">FAA</th>
+                        <th rowspan="2" class="text-center align-middle">ICAO</th>
+                        <th rowspan="2" class="text-center align-middle">Config</th>
+                        <th rowspan="2" class="text-center align-middle">ARR</th>
+                        <th rowspan="2" class="text-center align-middle">DEP</th>
+                        <th colspan="7" class="text-center" style="background-color: #2a5298;">VATSIM</th>
+                        <th colspan="6" class="text-center" style="background-color: #4a7c59;">Real-World</th>
+                        <?php if ($perm == true) { ?>
+                            <th rowspan="2" class="align-middle"></th>
+                        <?php } ?>
+                    </tr>
+                    <tr>
+                        <!-- VATSIM Arrival Rates -->
+                        <th class="text-center" data-toggle="tooltip" title="VMC Arrival Rate">VA</th>
+                        <th class="text-center" data-toggle="tooltip" title="LVMC Arrival Rate">LVA</th>
+                        <th class="text-center" data-toggle="tooltip" title="IMC Arrival Rate">IA</th>
+                        <th class="text-center" data-toggle="tooltip" title="LIMC Arrival Rate">LIA</th>
+                        <th class="text-center" data-toggle="tooltip" title="VLIMC Arrival Rate">VLA</th>
+                        <!-- VATSIM Departure Rates -->
+                        <th class="text-center" data-toggle="tooltip" title="VMC Departure Rate">VD</th>
+                        <th class="text-center" data-toggle="tooltip" title="IMC Departure Rate">ID</th>
+                        <!-- Real-World Arrival Rates -->
+                        <th class="text-center" data-toggle="tooltip" title="VMC Arrival Rate">VA</th>
+                        <th class="text-center" data-toggle="tooltip" title="LVMC Arrival Rate">LVA</th>
+                        <th class="text-center" data-toggle="tooltip" title="IMC Arrival Rate">IA</th>
+                        <th class="text-center" data-toggle="tooltip" title="LIMC Arrival Rate">LIA</th>
+                        <!-- Real-World Departure Rates -->
+                        <th class="text-center" data-toggle="tooltip" title="VMC Departure Rate">VD</th>
+                        <th class="text-center" data-toggle="tooltip" title="IMC Departure Rate">ID</th>
+                    </tr>
                 </thead>
 
                 <tbody id="configs_table"></tbody>
