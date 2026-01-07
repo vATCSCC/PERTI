@@ -315,14 +315,15 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
 
     // -------------------------------------------------------------------------
     // Tier Tracking: Parse Tiers (0-4) for route parsing priority
+    // Uses adl_parse_queue which has the actual tier assignments
     // -------------------------------------------------------------------------
     $liveData['parse_tiers'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0];
-    $sql = "SELECT parse_tier, COUNT(*) AS cnt
-            FROM dbo.adl_flight_plan fp
-            INNER JOIN dbo.adl_flight_core c ON fp.flight_uid = c.flight_uid
-            WHERE c.is_active = 1 AND fp.parse_tier IS NOT NULL
-            GROUP BY parse_tier
-            ORDER BY parse_tier";
+    $sql = "SELECT q.parse_tier, COUNT(*) AS cnt
+            FROM dbo.adl_parse_queue q
+            INNER JOIN dbo.adl_flight_core c ON q.flight_uid = c.flight_uid
+            WHERE c.is_active = 1 AND q.parse_tier IS NOT NULL
+            GROUP BY q.parse_tier
+            ORDER BY q.parse_tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -375,16 +376,32 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // -------------------------------------------------------------------------
-    // Daily Stats: Routes Parsed Today by Tier
+    // Daily Stats: Routes Parsed Today
+    // Uses adl_flight_plan.parse_utc for accurate cumulative counts
+    // Note: Queue cleanup deletes after 1hr, so tier breakdown uses current queue
     // -------------------------------------------------------------------------
     $liveData['daily_parsed_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0];
     $liveData['daily_parsed_total'] = 0;
-    $sql = "SELECT parse_tier, COUNT(*) AS cnt
-            FROM dbo.adl_parse_queue
-            WHERE status = 'COMPLETE'
-              AND completed_utc >= CAST(SYSUTCDATETIME() AS DATE)
-            GROUP BY parse_tier
-            ORDER BY parse_tier";
+
+    // Get total parsed today from flight_plan (not affected by queue cleanup)
+    $sql = "SELECT COUNT(*) AS total_cnt
+            FROM dbo.adl_flight_plan
+            WHERE parse_status = 'COMPLETE'
+              AND parse_utc >= CAST(SYSUTCDATETIME() AS DATE)";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['daily_parsed_total'] = (int)($row['total_cnt'] ?? 0);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Get tier breakdown from last 1h of completed queue entries (best available data)
+    $sql = "SELECT q.parse_tier, COUNT(*) AS cnt
+            FROM dbo.adl_parse_queue q
+            WHERE q.status = 'COMPLETE'
+              AND q.completed_utc >= DATEADD(HOUR, -1, SYSUTCDATETIME())
+            GROUP BY q.parse_tier
+            ORDER BY q.parse_tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -393,7 +410,6 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
             if (isset($liveData['daily_parsed_by_tier'][$tier])) {
                 $liveData['daily_parsed_by_tier'][$tier] = $cnt;
             }
-            $liveData['daily_parsed_total'] += $cnt;
         }
         sqlsrv_free_stmt($stmt);
     }
@@ -403,15 +419,15 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     // -------------------------------------------------------------------------
     $liveData['daily_trajectory_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0];
     $liveData['daily_trajectory_total'] = 0;
-    $sql = "SELECT trajectory_tier, COUNT(*) AS cnt
+    $sql = "SELECT tier, COUNT(*) AS cnt
             FROM dbo.adl_flight_trajectory
             WHERE recorded_utc >= CAST(SYSUTCDATETIME() AS DATE)
-            GROUP BY trajectory_tier
-            ORDER BY trajectory_tier";
+            GROUP BY tier
+            ORDER BY tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $tier = (int)$row['trajectory_tier'];
+            $tier = (int)$row['tier'];
             $cnt = (int)$row['cnt'];
             if (isset($liveData['daily_trajectory_by_tier'][$tier])) {
                 $liveData['daily_trajectory_by_tier'][$tier] = $cnt;
@@ -2720,7 +2736,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
                                             <span class="tier-group-title">Routes Parsed Today</span>
-                                            <span class="tier-group-desc">Completed parses since 00:00Z</span>
+                                            <span class="tier-group-desc">Total since 00:00Z (breakdown: last 1h)</span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['daily_parsed_total'] ?? 0) ?></span>
                                     </div>
@@ -3734,14 +3750,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                                     return this.getLabelForValue(value);  // Keep dd/hhmmZ format
                                                 },
                                                 color: function(context) {
-                                                    const label = context.chart.data.labels[context.index] || '';
-                                                    // Emphasize hour marks (ends with 00Z)
+                                                    // Use tick.value to get actual data index, not display index
+                                                    const dataIndex = context.tick?.value ?? context.index;
+                                                    const label = context.chart.data.labels[dataIndex] || '';
+                                                    // Emphasize hour marks (ends with 00Z like 07/1200Z, 07/1300Z)
                                                     if (label.endsWith('00Z')) return '#000000';
                                                     return '#999999';
                                                 },
                                                 font: function(context) {
-                                                    const label = context.chart.data.labels[context.index] || '';
-                                                    // Emphasize hour marks (ends with 00Z)
+                                                    // Use tick.value to get actual data index, not display index
+                                                    const dataIndex = context.tick?.value ?? context.index;
+                                                    const label = context.chart.data.labels[dataIndex] || '';
+                                                    // Emphasize hour marks (ends with 00Z like 07/1200Z, 07/1300Z)
                                                     if (label.endsWith('00Z')) return { size: 11, weight: 'bold' };
                                                     return { size: 9 };
                                                 }
