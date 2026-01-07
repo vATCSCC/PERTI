@@ -40,6 +40,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
+        $page_title = "PERTI Planning";
         include("load/header.php");
     ?>
 

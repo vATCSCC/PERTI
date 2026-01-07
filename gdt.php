@@ -14,9 +14,7 @@ include("load/connect.php");
 <html lang="en">
 <head>
 
-    <?php include("load/header.php"); ?>
-
-    <title>Ground Delay Tool | PERTI</title>
+    <?php $page_title = "vATCSCC Ground Delay Tool"; include("load/header.php"); ?>
 
     <!-- Info Bar Shared Styles -->
     <link rel="stylesheet" href="assets/css/info-bar.css">

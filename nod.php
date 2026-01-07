@@ -28,9 +28,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
 <html lang="en">
 <head>
     <!-- Import CSS from shared header -->
-    <?php include("load/header.php"); ?>
-    
-    <title>NAS Operations Dashboard | vATCSCC PERTI</title>
+    <?php $page_title = "vATCSCC NOD"; include("load/header.php"); ?>
     
     <!-- MapLibre GL CSS (additional for NOD) -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">

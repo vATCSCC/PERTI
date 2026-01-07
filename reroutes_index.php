@@ -4,6 +4,7 @@
  */
 require_once 'sessions/handler.php';
 require_once 'load/connect.php';
+$page_title = "vATCSCC Reroutes";
 require_once 'load/header.php';
 require_once 'load/nav.php';
 ?>

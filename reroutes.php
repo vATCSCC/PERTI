@@ -35,6 +35,7 @@ $STATUS_LABELS = [
     5 => ['label' => 'CANCELLED', 'class' => 'danger']
 ];
 
+$page_title = "vATCSCC Reroutes";
 require_once 'load/header.php';
 require_once 'load/nav.php';
 ?>

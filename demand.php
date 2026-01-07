@@ -14,9 +14,7 @@ include("load/connect.php");
 <html lang="en">
 <head>
 
-    <?php include("load/header.php"); ?>
-
-    <title>Demand Visualization | PERTI</title>
+    <?php $page_title = "vATCSCC Demand"; include("load/header.php"); ?>
 
     <!-- Info Bar Shared Styles -->
     <link rel="stylesheet" href="assets/css/info-bar.css">

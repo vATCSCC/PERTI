@@ -54,6 +54,7 @@
 
     <!-- Import CSS -->
     <?php
+        $page_title = "vATCSCC Admin";
         include("load/header.php");
     ?>
 

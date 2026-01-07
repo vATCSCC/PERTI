@@ -29,7 +29,7 @@ $filepath = "";
 <meta name="theme-color" content="#ffffff">
 
 <!-- Title -->
-<title>PERTI Planning - vATCSCC</title>
+<title><?= isset($page_title) ? $page_title : 'PERTI Planning - vATCSCC'; ?></title>
 
 
 <!-- Load Initial Bootstrap Source --> 

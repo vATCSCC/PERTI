@@ -162,7 +162,7 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 <!DOCTYPE html>
 <html>
 <head>
-    <?php include("load/header.php"); ?>
+    <?php $page_title = "vATCSCC Events Catch-Up"; include("load/header.php"); ?>
     <style>
         .hourly-grid {
             border: 1px solid #dee2e6;

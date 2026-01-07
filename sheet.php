@@ -44,6 +44,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
+        $page_title = "PERTI Planning Sheet";
         include("load/header.php");
     ?>
 
@@ -62,7 +63,6 @@ include("sessions/handler.php");
 
 <?php
 include('load/nav.php');
-include("load/header.php");
 ?>
 
     <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 250px" data-jarallax data-speed="0.3" style="pointer-events: all;">

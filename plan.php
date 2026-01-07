@@ -44,6 +44,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
+        $page_title = "PERTI Plan";
         include("load/header.php");
     ?>
     <link rel="stylesheet" href="assets/css/initiative_timeline.css">
