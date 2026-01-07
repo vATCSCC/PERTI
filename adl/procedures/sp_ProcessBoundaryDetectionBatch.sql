@@ -428,14 +428,17 @@ BEGIN
     SET @elapsed_ms = DATEDIFF(MILLISECOND, @start_time, SYSUTCDATETIME());
 
     -- Log slow executions (>5 seconds) for investigation
-    IF @elapsed_ms > 5000
+    -- Uses dynamic SQL to avoid compile-time validation of optional table
+    IF @elapsed_ms > 5000 AND OBJECT_ID('dbo.adl_system_log', 'U') IS NOT NULL
     BEGIN
-        INSERT INTO dbo.adl_system_log (log_type, log_message, created_at)
-        SELECT 'BOUNDARY_SLOW',
-               'Boundary detection took ' + CAST(@elapsed_ms AS VARCHAR) + 'ms for ' +
-               CAST(@flights_processed AS VARCHAR) + ' flights',
-               @now
-        WHERE EXISTS (SELECT 1 FROM sys.tables WHERE name = 'adl_system_log');
+        EXEC sp_executesql N'
+            INSERT INTO dbo.adl_system_log (log_type, log_message, created_at)
+            VALUES (@type, @msg, @time)',
+            N'@type VARCHAR(20), @msg VARCHAR(200), @time DATETIME2(0)',
+            @type = 'BOUNDARY_SLOW',
+            @msg = 'Boundary detection took ' + CAST(@elapsed_ms AS VARCHAR) + 'ms for ' +
+                   CAST(@flights_processed AS VARCHAR) + ' flights',
+            @time = @now;
     END
 END
 GO
