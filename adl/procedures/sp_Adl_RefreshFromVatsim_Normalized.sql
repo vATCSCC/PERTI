@@ -409,12 +409,12 @@ BEGIN
                 fp_dept_artcc, fp_dept_tracon, fp_dest_artcc, fp_dest_tracon,
                 fp_route, fp_remarks, fp_altitude_ft, fp_tas_kts, fp_dept_time_z,
                 fp_enroute_minutes, fp_fuel_minutes, aircraft_type, aircraft_equip,
-                gcd_nm, fp_hash, fp_updated_utc, parse_status)
+                gcd_nm, fp_hash, fp_updated_utc, parse_status, is_simbrief)
         VALUES (source.flight_uid, source.fp_rule, source.dept_icao, source.dest_icao, source.alt_icao,
                 source.dept_artcc, source.dept_tracon, source.dest_artcc, source.dest_tracon,
                 source.route, source.remarks, source.altitude_ft, source.tas_kts, source.dep_time_z,
                 source.enroute_minutes, source.fuel_minutes, source.aircraft_type, source.aircraft_equip,
-                source.gcd_nm, source.route_hash, @now, 'PENDING');
+                source.gcd_nm, source.route_hash, @now, 'PENDING', 0);
     
     -- ========================================================================
     -- Step 4b: ETD/STD Calculation (V8.4)
