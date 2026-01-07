@@ -85,6 +85,35 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
+        .swagger-ui .info p,
+        .swagger-ui .info li,
+        .swagger-ui .info table,
+        .swagger-ui .info a {
+            color: #fff;
+        }
+
+        .swagger-ui .info h1,
+        .swagger-ui .info h2,
+        .swagger-ui .info h3,
+        .swagger-ui .info h4,
+        .swagger-ui .info h5 {
+            color: #fff;
+        }
+
+        .swagger-ui .responses-inner h4,
+        .swagger-ui .responses-inner h5 {
+            color: #fff;
+        }
+
+        .swagger-ui .btn.cancel {
+            color: #fff;
+        }
+
+        .swagger-ui .try-out__btn {
+            color: #fff;
+            border-color: var(--perti-primary);
+        }
+
         .swagger-ui .scheme-container {
             background: var(--perti-bg-dark);
             box-shadow: none;
@@ -393,11 +422,6 @@
         /* Scheme selector */
         .swagger-ui .schemes > label {
             color: #e0e0e0;
-        }
-
-        /* Try it out button */
-        .swagger-ui .try-out__btn {
-            border-color: var(--perti-primary);
         }
 
         /* Request body */
