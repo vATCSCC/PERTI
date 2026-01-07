@@ -1,7 +1,12 @@
 -- ============================================================================
--- sp_ParseRoute.sql (v2 - Full Expansion)
+-- sp_ParseRoute.sql (v3 - Full Expansion with Deduplication)
 -- Full GIS Route Parsing for ADL Normalized Schema
--- 
+--
+-- v3 Changes (2026-01-06):
+--   - Added fix deduplication to handle multiple sources (points.csv, XPLANE)
+--   - Uses temp table #unique_fixes to prevent duplicate waypoints
+--   - Priority: points.csv > navaids.csv > XPLANE > other
+--
 -- Parses flight plan route strings into:
 --   1. Geographic LineString (route_geometry in adl_flight_plan)
 --   2. Individual waypoint records (adl_flight_waypoints)
@@ -400,6 +405,7 @@ GO
 -- ============================================================================
 -- Helper Function: Expand airway between two fixes
 -- Returns the sequence of fixes on the airway between entry and exit
+-- NOTE: Uses ROW_NUMBER() to deduplicate fixes from multiple sources
 -- ============================================================================
 IF OBJECT_ID('dbo.fn_ExpandAirway', 'TF') IS NOT NULL
     DROP FUNCTION dbo.fn_ExpandAirway;
@@ -420,40 +426,47 @@ AS
 BEGIN
     DECLARE @fix_sequence NVARCHAR(MAX);
     DECLARE @fixes TABLE (pos INT IDENTITY(1,1), fix NVARCHAR(50));
-    
+
     -- Get the airway's fix sequence
     SELECT TOP 1 @fix_sequence = fix_sequence
     FROM dbo.airways
     WHERE airway_name = @airway_name;
-    
+
     IF @fix_sequence IS NULL
         RETURN;
-    
+
     -- Split into individual fixes
     INSERT INTO @fixes (fix)
     SELECT value FROM STRING_SPLIT(@fix_sequence, ' ') WHERE LEN(LTRIM(RTRIM(value))) > 0;
-    
+
     -- Find entry and exit positions
     DECLARE @entry_pos INT, @exit_pos INT;
     SELECT @entry_pos = MIN(pos) FROM @fixes WHERE fix = @entry_fix;
     SELECT @exit_pos = MIN(pos) FROM @fixes WHERE fix = @exit_fix;
-    
+
     -- If either not found, try reverse direction
     IF @entry_pos IS NULL OR @exit_pos IS NULL
         RETURN;
-    
+
     -- Determine direction and extract segment
+    -- Use subquery with ROW_NUMBER to get only one fix per name (prefer points.csv > navaids.csv > XPLANE)
     IF @entry_pos < @exit_pos
     BEGIN
         -- Forward direction
         INSERT INTO @result (seq, fix_name, lat, lon)
-        SELECT 
+        SELECT
             ROW_NUMBER() OVER (ORDER BY f.pos),
             f.fix,
-            nf.lat,
-            nf.lon
+            uf.lat,
+            uf.lon
         FROM @fixes f
-        LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = f.fix
+        LEFT JOIN (
+            SELECT fix_name, lat, lon,
+                   ROW_NUMBER() OVER (PARTITION BY fix_name ORDER BY
+                       CASE source WHEN 'points.csv' THEN 1 WHEN 'navaids.csv' THEN 2 WHEN 'XPLANE' THEN 3 ELSE 4 END,
+                       fix_id) AS rn
+            FROM dbo.nav_fixes
+        ) uf ON uf.fix_name = f.fix AND uf.rn = 1
         WHERE f.pos >= @entry_pos AND f.pos <= @exit_pos
         ORDER BY f.pos;
     END
@@ -461,17 +474,23 @@ BEGIN
     BEGIN
         -- Reverse direction
         INSERT INTO @result (seq, fix_name, lat, lon)
-        SELECT 
+        SELECT
             ROW_NUMBER() OVER (ORDER BY f.pos DESC),
             f.fix,
-            nf.lat,
-            nf.lon
+            uf.lat,
+            uf.lon
         FROM @fixes f
-        LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = f.fix
+        LEFT JOIN (
+            SELECT fix_name, lat, lon,
+                   ROW_NUMBER() OVER (PARTITION BY fix_name ORDER BY
+                       CASE source WHEN 'points.csv' THEN 1 WHEN 'navaids.csv' THEN 2 WHEN 'XPLANE' THEN 3 ELSE 4 END,
+                       fix_id) AS rn
+            FROM dbo.nav_fixes
+        ) uf ON uf.fix_name = f.fix AND uf.rn = 1
         WHERE f.pos >= @exit_pos AND f.pos <= @entry_pos
         ORDER BY f.pos DESC;
     END
-    
+
     RETURN;
 END;
 GO
@@ -489,12 +508,38 @@ CREATE PROCEDURE dbo.sp_ParseRoute
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     DECLARE @route NVARCHAR(MAX);
     DECLARE @dept_icao NVARCHAR(10);
     DECLARE @dest_icao NVARCHAR(10);
     DECLARE @parse_start DATETIME2 = SYSUTCDATETIME();
-    
+
+    -- ========================================================================
+    -- Create temp table with deduplicated fixes (one per fix_name)
+    -- Priority: points.csv > navaids.csv > XPLANE
+    -- This prevents duplicate waypoints when nav_fixes has multiple sources
+    -- ========================================================================
+    IF OBJECT_ID('tempdb..#unique_fixes') IS NOT NULL
+        DROP TABLE #unique_fixes;
+
+    ;WITH ranked_fixes AS (
+        SELECT fix_name, lat, lon, fix_type,
+               ROW_NUMBER() OVER (PARTITION BY fix_name ORDER BY
+                   CASE source WHEN 'points.csv' THEN 1 WHEN 'navaids.csv' THEN 2 WHEN 'XPLANE' THEN 3 ELSE 4 END,
+                   fix_id) AS rn
+        FROM dbo.nav_fixes
+    )
+    SELECT fix_name, lat, lon, fix_type
+    INTO #unique_fixes
+    FROM ranked_fixes
+    WHERE rn = 1;
+
+    -- Index for fast lookups
+    CREATE NONCLUSTERED INDEX IX_unique_fixes_name ON #unique_fixes(fix_name);
+
+    IF @debug = 1
+        PRINT 'Created #unique_fixes temp table with ' + CAST(@@ROWCOUNT AS VARCHAR) + ' deduplicated fixes';
+
     -- Get flight plan data
     SELECT 
         @route = fp_route,
@@ -838,7 +883,7 @@ BEGIN
                 INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
                 SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
                 FROM @sid_fixes sf
-                LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = sf.fix
+                LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
                 WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'  -- Skip airport/runway
                 ORDER BY sf.pos;
                 
@@ -890,7 +935,7 @@ BEGIN
                 INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
                 SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
                 FROM @star_fixes sf
-                LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = sf.fix
+                LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
                 WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
                 ORDER BY sf.pos;
                 
@@ -1016,7 +1061,7 @@ BEGIN
                     INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_dp, original_token)
                     SELECT df.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'SID', @t_token, @t_token
                     FROM @dp_fixes df
-                    LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = df.fix
+                    LEFT JOIN #unique_fixes nf ON nf.fix_name = df.fix
                     WHERE df.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
                     ORDER BY df.pos;
                     
@@ -1041,7 +1086,7 @@ BEGIN
                     INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, on_star, original_token)
                     SELECT sf.fix, nf.lat, nf.lon, ISNULL(nf.fix_type, 'WAYPOINT'), 'STAR', @t_token, @t_token
                     FROM @star_fixes2 sf
-                    LEFT JOIN dbo.nav_fixes nf ON nf.fix_name = sf.fix
+                    LEFT JOIN #unique_fixes nf ON nf.fix_name = sf.fix
                     WHERE sf.fix NOT LIKE '[A-Z][A-Z][A-Z]/%'
                     ORDER BY sf.pos;
                     
