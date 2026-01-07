@@ -569,8 +569,26 @@ BEGIN
                             OR (a.Approach_Departure_ID IS NOT NULL AND LEN(RTRIM(LTRIM(a.Approach_Departure_ID))) BETWEEN 2 AND 4)
                         ) THEN 1 ELSE 0 END
                     WHEN 'MIL_TRACON' THEN
-                        -- Airport has military ATC (RAPCON, CERAP, etc.)
-                        CASE WHEN a.TWR_TYPE_CODE IN ('RAPCON', 'CERAP', 'RATCF', 'ARAC', 'NON-ATCT-MIL')
+                        -- Airport is military based on name patterns or TWR_TYPE_CODE
+                        -- Run 076_apts_military_columns.sql + NASR import for better detection via IS_MILITARY
+                        CASE WHEN (
+                            -- Military name patterns
+                            a.ARPT_NAME LIKE '%AFB%'
+                            OR a.ARPT_NAME LIKE '%AIR FORCE%'
+                            OR a.ARPT_NAME LIKE '%NAS %'
+                            OR a.ARPT_NAME LIKE '% NAS'
+                            OR a.ARPT_NAME LIKE '%NAVAL AIR%'
+                            OR a.ARPT_NAME LIKE '%MCAS%'
+                            OR a.ARPT_NAME LIKE '%MARINE CORPS%'
+                            OR a.ARPT_NAME LIKE '%AAF%'
+                            OR a.ARPT_NAME LIKE '%ARMY%'
+                            OR a.ARPT_NAME LIKE '%NATIONAL GUARD%'
+                            OR a.ARPT_NAME LIKE '%JRB%'
+                            OR a.ARPT_NAME LIKE '%JOINT RESERVE%'
+                            OR a.ARPT_NAME LIKE '%JOINT BASE%'
+                            -- TWR_TYPE_CODE patterns
+                            OR a.TWR_TYPE_CODE IN ('RAPCON', 'CERAP', 'RATCF', 'ARAC', 'NON-ATCT-MIL')
+                        )
                         THEN 1 ELSE 0 END
                     ELSE 1
                 END = 1
