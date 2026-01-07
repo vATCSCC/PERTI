@@ -1081,12 +1081,53 @@ class NavDataIO:
         filepath = self.data_dir / filename
         if not filepath.exists():
             return
-        
+
         backup_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_path = backup_dir / f"{filepath.stem}_{timestamp}{filepath.suffix}"
         shutil.copy2(filepath, backup_path)
         logger.debug(f"Backed up {filename} to {backup_path}")
+
+    def cleanup_old_backups(self, backup_dir: Path, keep_count: int = 2):
+        """
+        Remove old backup files, keeping only the most recent N sets.
+
+        Groups backups by base filename (before timestamp) and keeps
+        the most recent `keep_count` backups of each type.
+        """
+        if not backup_dir.exists():
+            return
+
+        # Group backup files by base name (filename without timestamp)
+        backup_groups = defaultdict(list)
+        timestamp_pattern = re.compile(r'^(.+)_(\d{8}_\d{6})(\..+)$')
+
+        for backup_file in backup_dir.glob('*'):
+            if not backup_file.is_file():
+                continue
+            match = timestamp_pattern.match(backup_file.name)
+            if match:
+                base_name = match.group(1)
+                timestamp = match.group(2)
+                backup_groups[base_name].append((timestamp, backup_file))
+
+        # For each group, keep only the most recent N backups
+        total_removed = 0
+        for base_name, backups in backup_groups.items():
+            # Sort by timestamp (newest first)
+            backups.sort(key=lambda x: x[0], reverse=True)
+
+            # Remove old backups beyond keep_count
+            for timestamp, backup_path in backups[keep_count:]:
+                try:
+                    backup_path.unlink()
+                    total_removed += 1
+                    logger.debug(f"Removed old backup: {backup_path.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove old backup {backup_path.name}: {e}")
+
+        if total_removed > 0:
+            logger.info(f"Cleaned up {total_removed} old backup files (keeping {keep_count} most recent of each type)")
 
 
 class JSFileUpdater:
@@ -1390,10 +1431,12 @@ class NASRNavDataUpdater:
         if not self.no_backup:
             logger.info("\nCreating backups...")
             backup_dir = self.output_dir / 'backups'
-            backup_files = ['points.csv', 'navaids.csv', 'awys.csv', 
+            backup_files = ['points.csv', 'navaids.csv', 'awys.csv',
                            'cdrs.csv', 'dp_full_routes.csv', 'star_full_routes.csv']
             for filename in backup_files:
                 self.io.backup_file(filename, backup_dir)
+            # Clean up old backups, keeping only the 2 most recent of each type
+            self.io.cleanup_old_backups(backup_dir, keep_count=2)
         
         # Read existing data
         logger.info("\nReading existing data...")

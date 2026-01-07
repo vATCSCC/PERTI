@@ -261,6 +261,7 @@ BEGIN
         EXEC dbo.sp_GenerateFlightStats_Citypair @target_date;
         EXEC dbo.sp_GenerateFlightStats_Aircraft @target_date;
         EXEC dbo.sp_GenerateFlightStats_TMI @target_date;
+        EXEC dbo.sp_GenerateFlightStats_ARTCC @target_date;
 
         -- Run cleanup for expired retention
         EXEC dbo.sp_CleanupFlightStats;
