@@ -39,6 +39,7 @@ if (!$isCLI) {
 
 /**
  * Convert FAA code to ICAO code
+ * Uses lookup table for non-CONUS airports where FAA != ICAO suffix
  */
 function faaToIcao($faa) {
     $faa = strtoupper(trim($faa));
@@ -48,42 +49,73 @@ function faaToIcao($faa) {
         return $faa;
     }
 
+    // Special mappings for non-CONUS airports (FAA -> ICAO)
+    // ICAO codes are always 4 characters
+    $specialMappings = [
+        // Alaska (PA prefix)
+        'ANC' => 'PANC', // Anchorage
+        'FAI' => 'PAFA', // Fairbanks
+        'JNU' => 'PAJN', // Juneau
+        'BET' => 'PABE', // Bethel
+        'ADQ' => 'PADQ', // Kodiak
+        'AKN' => 'PAKN', // King Salmon
+        'CDV' => 'PACV', // Cordova
+        'DLG' => 'PADL', // Dillingham
+        'GST' => 'PAGS', // Gustavus
+        'HNS' => 'PAHN', // Haines
+        'HOM' => 'PAHO', // Homer
+        'KTN' => 'PAKT', // Ketchikan
+        'OTZ' => 'PAOT', // Kotzebue
+        'SCC' => 'PASC', // Prudhoe Bay
+        'SIT' => 'PASI', // Sitka
+        'WRG' => 'PAWG', // Wrangell
+        'YAK' => 'PAYA', // Yakutat
+        'BRW' => 'PABR', // Barrow/Utqiagvik
+        'OME' => 'PAOM', // Nome
+        'ADK' => 'PADK', // Adak
+        'ENA' => 'PAEN', // Kenai
+        'VDZ' => 'PAVD', // Valdez
+        'SNP' => 'PASN', // St Paul Island
+        'MRI' => 'PAMR', // Merrill Field
+        'LHD' => 'PALH', // Lake Hood
+        'AKW' => 'PAKW', // Klawock
+
+        // Hawaii (PH prefix)
+        'HNL' => 'PHNL', // Honolulu
+        'OGG' => 'PHOG', // Maui/Kahului
+        'LIH' => 'PHLI', // Lihue
+        'KOA' => 'PHKO', // Kona
+        'ITO' => 'PHTO', // Hilo
+        'MKK' => 'PHMK', // Molokai
+        'LNY' => 'PHNY', // Lanai
+        'JHM' => 'PHJH', // Kapalua
+
+        // Guam/Pacific (PG prefix)
+        'GUM' => 'PGUM', // Guam
+        'SPN' => 'PGSN', // Saipan
+
+        // Puerto Rico (TJ prefix)
+        'SJU' => 'TJSJ', // San Juan
+        'BQN' => 'TJBQ', // Aguadilla
+        'PSE' => 'TJPS', // Ponce
+        'MAZ' => 'TJMZ', // Mayaguez
+        'VQS' => 'TJVQ', // Vieques
+
+        // US Virgin Islands (TI prefix)
+        'STT' => 'TIST', // St Thomas
+        'STX' => 'TISX', // St Croix
+    ];
+
+    // Check lookup table first
+    if (isset($specialMappings[$faa])) {
+        return $specialMappings[$faa];
+    }
+
     // 3-letter codes need prefix
     if (strlen($faa) == 3) {
         // Canadian airports: Y** -> CY**
         if (preg_match('/^Y[A-Z]{2}$/', $faa)) {
             return 'C' . $faa;
-        }
-
-        // Alaska airports
-        $alaskaAirports = ['ANC', 'FAI', 'JNU', 'BET', 'ADQ', 'AKN', 'CDV', 'DLG', 'GST',
-                          'HNS', 'HOM', 'KTN', 'OTZ', 'SCC', 'SIT', 'WRG', 'YAK', 'BRW',
-                          'OME', 'ADK', 'ENA', 'VDZ', 'SNP', 'AKI', 'ANI'];
-        if (in_array($faa, $alaskaAirports)) {
-            return 'PA' . $faa;
-        }
-
-        // Hawaii airports
-        $hawaiiAirports = ['HNL', 'OGG', 'LIH', 'KOA', 'ITO', 'MKK', 'LNY', 'JHM'];
-        if (in_array($faa, $hawaiiAirports)) {
-            return 'PH' . $faa;
-        }
-
-        // Guam
-        if ($faa === 'GUM') {
-            return 'PGUM';
-        }
-
-        // Puerto Rico
-        $puertoRicoAirports = ['SJU', 'BQN', 'PSE', 'MAZ', 'VQS'];
-        if (in_array($faa, $puertoRicoAirports)) {
-            return 'TJ' . $faa;
-        }
-
-        // US Virgin Islands
-        $usviAirports = ['STT', 'STX'];
-        if (in_array($faa, $usviAirports)) {
-            return 'TI' . $faa;
         }
 
         // Default: K prefix for CONUS
