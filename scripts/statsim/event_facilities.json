@@ -1,0 +1,40 @@
+{
+  "description": "Event-to-airports mapping for VATUSA event statistics",
+  "usage": [
+    "Match events by vatusa_event_id (exact) or name_match (substring, case-insensitive)",
+    "Specify airports as array of ICAO codes",
+    "Optional category for event classification"
+  ],
+  "events": [
+    {
+      "_comment": "Example: Match by exact event ID from VATUSA API",
+      "vatusa_event_id": 4976,
+      "airports": ["KORF", "KRIC", "KIAD"],
+      "category": "FNO"
+    },
+    {
+      "_comment": "Example: Match by event name pattern",
+      "name_match": "Northeast Corridor",
+      "airports": ["KJFK", "KLGA", "KEWR", "KPHL", "KBOS"],
+      "category": "CTP"
+    },
+    {
+      "_comment": "Example: Friday Night Ops at Chicago",
+      "name_match": "Chicago Friday",
+      "airports": ["KORD", "KMDW"],
+      "category": "FNO"
+    },
+    {
+      "_comment": "Example: Cross the Pond events",
+      "name_match": "Cross the Pond",
+      "airports": ["KJFK", "KBOS", "KIAD", "KPHL", "KMIA"],
+      "category": "CTP"
+    },
+    {
+      "_comment": "Example: SoCal regional event",
+      "name_match": "Southern California",
+      "airports": ["KLAX", "KSAN", "KONT", "KBURB", "KSNA"],
+      "category": "REG"
+    }
+  ]
+}

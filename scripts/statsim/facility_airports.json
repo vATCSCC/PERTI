@@ -1,0 +1,106 @@
+{
+  "description": "VATUSA ARTCC facility to primary airports mapping",
+  "usage": "Used as fallback when event title mentions facility but no specific airports",
+
+  "ZAB": {
+    "name": "Albuquerque ARTCC",
+    "airports": ["KPHX", "KABQ", "KTUS", "KELP"]
+  },
+  "ZAU": {
+    "name": "Chicago ARTCC",
+    "airports": ["KORD", "KMDW", "KMKE", "KIND", "KSDF"]
+  },
+  "ZBW": {
+    "name": "Boston ARTCC",
+    "airports": ["KBOS", "KPVD", "KBDL", "KMHT"]
+  },
+  "ZDC": {
+    "name": "Washington ARTCC",
+    "airports": ["KIAD", "KDCA", "KBWI", "KRIC", "KORF", "KRDU"]
+  },
+  "ZDV": {
+    "name": "Denver ARTCC",
+    "airports": ["KDEN", "KCOS", "KASE", "KGJT"]
+  },
+  "ZFW": {
+    "name": "Fort Worth ARTCC",
+    "airports": ["KDFW", "KSAT", "KAUS", "KHOU", "KIAH"]
+  },
+  "ZHU": {
+    "name": "Houston ARTCC",
+    "airports": ["KIAH", "KHOU", "KMSY", "KBTR"]
+  },
+  "ZID": {
+    "name": "Indianapolis ARTCC",
+    "airports": ["KIND", "KCVG", "KCMH", "KDAY", "KLUK"]
+  },
+  "ZJX": {
+    "name": "Jacksonville ARTCC",
+    "airports": ["KJAX", "KMCO", "KTPA", "KPBI", "KFLL", "KMIA"]
+  },
+  "ZKC": {
+    "name": "Kansas City ARTCC",
+    "airports": ["KMCI", "KSTL", "KSGF", "KICT"]
+  },
+  "ZLA": {
+    "name": "Los Angeles ARTCC",
+    "airports": ["KLAX", "KSAN", "KLAS", "KONT", "KBURB", "KSNA", "KPSP"]
+  },
+  "ZLC": {
+    "name": "Salt Lake City ARTCC",
+    "airports": ["KSLC", "KBOI", "KIDA"]
+  },
+  "ZMA": {
+    "name": "Miami ARTCC",
+    "airports": ["KMIA", "KFLL", "KPBI", "KEYW"]
+  },
+  "ZME": {
+    "name": "Memphis ARTCC",
+    "airports": ["KMEM", "KBNA", "KLIT", "KJAN"]
+  },
+  "ZMP": {
+    "name": "Minneapolis ARTCC",
+    "airports": ["KMSP", "KFAR", "KDSM"]
+  },
+  "ZNY": {
+    "name": "New York ARTCC",
+    "airports": ["KJFK", "KLGA", "KEWR", "KTEB", "KSWF", "KHPN"]
+  },
+  "ZOA": {
+    "name": "Oakland ARTCC",
+    "airports": ["KSFO", "KOAK", "KSJC", "KSMF", "KRNO"]
+  },
+  "ZOB": {
+    "name": "Cleveland ARTCC",
+    "airports": ["KCLE", "KPIT", "KBUF", "KERI", "KYNG"]
+  },
+  "ZSE": {
+    "name": "Seattle ARTCC",
+    "airports": ["KSEA", "KPDX", "KGEG", "KBFI"]
+  },
+  "ZTL": {
+    "name": "Atlanta ARTCC",
+    "airports": ["KATL", "KCLT", "KGSP", "KCHS"]
+  },
+
+  "vZAB": { "airports": ["KPHX", "KABQ", "KTUS", "KELP"] },
+  "vZAU": { "airports": ["KORD", "KMDW", "KMKE", "KIND", "KSDF"] },
+  "vZBW": { "airports": ["KBOS", "KPVD", "KBDL", "KMHT"] },
+  "vZDC": { "airports": ["KIAD", "KDCA", "KBWI", "KRIC", "KORF", "KRDU"] },
+  "vZDV": { "airports": ["KDEN", "KCOS", "KASE", "KGJT"] },
+  "vZFW": { "airports": ["KDFW", "KSAT", "KAUS", "KHOU", "KIAH"] },
+  "vZHU": { "airports": ["KIAH", "KHOU", "KMSY", "KBTR"] },
+  "vZID": { "airports": ["KIND", "KCVG", "KCMH", "KDAY", "KLUK"] },
+  "vZJX": { "airports": ["KJAX", "KMCO", "KTPA", "KPBI", "KFLL", "KMIA"] },
+  "vZKC": { "airports": ["KMCI", "KSTL", "KSGF", "KICT"] },
+  "vZLA": { "airports": ["KLAX", "KSAN", "KLAS", "KONT", "KBURB", "KSNA", "KPSP"] },
+  "vZLC": { "airports": ["KSLC", "KBOI", "KIDA"] },
+  "vZMA": { "airports": ["KMIA", "KFLL", "KPBI", "KEYW"] },
+  "vZME": { "airports": ["KMEM", "KBNA", "KLIT", "KJAN"] },
+  "vZMP": { "airports": ["KMSP", "KFAR", "KDSM"] },
+  "vZNY": { "airports": ["KJFK", "KLGA", "KEWR", "KTEB", "KSWF", "KHPN"] },
+  "vZOA": { "airports": ["KSFO", "KOAK", "KSJC", "KSMF", "KRNO"] },
+  "vZOB": { "airports": ["KCLE", "KPIT", "KBUF", "KERI", "KYNG"] },
+  "vZSE": { "airports": ["KSEA", "KPDX", "KGEG", "KBFI"] },
+  "vZTL": { "airports": ["KATL", "KCLT", "KGSP", "KCHS"] }
+}
