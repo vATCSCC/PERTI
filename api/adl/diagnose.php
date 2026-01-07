@@ -87,14 +87,38 @@ foreach ($countTables as $table) {
     }
 }
 
-// Check active flights
+// Check active flights in core
 $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core WHERE is_active = 1";
 $stmt = sqlsrv_query($conn_adl, $sql);
 if ($stmt) {
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    $result['counts']['active_flights'] = $row['cnt'];
+    $result['counts']['active_in_core'] = $row['cnt'];
     sqlsrv_free_stmt($stmt);
 }
+
+// Check active flights WITH position (INNER JOIN - what normalized API returns)
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid WHERE c.is_active = 1";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['active_with_position'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
+// Check active flights MISSING position (the gap)
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid WHERE c.is_active = 1 AND p.flight_uid IS NULL";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['missing_position'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
+// Calculate gap
+$result['counts']['position_gap'] = ($result['counts']['active_in_core'] ?? 0) - ($result['counts']['active_with_position'] ?? 0);
+
+// Report current query source
+$result['query_source'] = defined('ADL_QUERY_SOURCE') ? ADL_QUERY_SOURCE : 'view (default)';
 
 // Check ATIS data (last hour)
 $sql = "SELECT COUNT(*) AS cnt FROM dbo.vatsim_atis WHERE fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";

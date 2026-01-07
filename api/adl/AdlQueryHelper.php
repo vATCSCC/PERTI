@@ -206,7 +206,7 @@ class AdlQueryHelper {
                 t.ete_minutes
 
             FROM dbo.adl_flight_core c
-            INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+            LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
             LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
             LEFT JOIN dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
