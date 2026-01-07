@@ -55,12 +55,43 @@ if (!$conn_adl) {
     die("ERROR: ADL connection not available.\n");
 }
 
-// CSV file path
-$csvPath = 'C:/Users/jerem.DESKTOP-T926IG8/OneDrive - Virtual Air Traffic Control System Command Center/Documents - Virtual Air Traffic Control System Command Center/DCC/ATCSCC Advisory Builder.csv';
+// CSV file path - check multiple possible locations
+$possiblePaths = [
+    'C:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\DCC\\ATCSCC Advisory Builder.csv',
+    $baseDir . '/../../../DCC/ATCSCC Advisory Builder.csv',
+    $baseDir . '/assets/data/ATCSCC Advisory Builder.csv',
+];
 
-if (!file_exists($csvPath)) {
-    die("ERROR: CSV file not found at: $csvPath\n");
+// Allow override via GET or CLI argument
+if (!$isCLI && isset($_GET['csv'])) {
+    array_unshift($possiblePaths, $_GET['csv']);
+} elseif ($isCLI) {
+    foreach ($argv as $i => $arg) {
+        if ($arg === '--csv' && isset($argv[$i + 1])) {
+            array_unshift($possiblePaths, $argv[$i + 1]);
+            break;
+        }
+    }
 }
+
+$csvPath = null;
+foreach ($possiblePaths as $path) {
+    $normalizedPath = realpath($path);
+    if ($normalizedPath && file_exists($normalizedPath)) {
+        $csvPath = $normalizedPath;
+        break;
+    }
+}
+
+if (!$csvPath) {
+    echo "ERROR: CSV file not found. Checked paths:\n";
+    foreach ($possiblePaths as $p) {
+        echo "  - $p\n";
+    }
+    die("\nUse ?csv=PATH or --csv PATH to specify the file location.\n");
+}
+
+echo "Using CSV file: $csvPath\n\n";
 
 // Read and parse CSV
 $handle = fopen($csvPath, 'r');
