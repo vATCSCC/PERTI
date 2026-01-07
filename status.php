@@ -155,7 +155,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
 
     // Trajectory counts
     $sql = "SELECT
-                COUNT(CASE WHEN timestamp_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS cnt_1h,
+                COUNT(CASE WHEN recorded_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS cnt_1h,
                 COUNT(*) AS cnt_total
             FROM dbo.adl_flight_trajectory";
     $stmt = @sqlsrv_query($conn_adl, $sql);
@@ -376,8 +376,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php include("load/header.php"); ?>
-    <title>System Status | PERTI</title>
+    <?php $page_title = "PERTI Status"; include("load/header.php"); ?>
 
     <style>
         :root {
