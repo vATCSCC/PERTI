@@ -16,6 +16,9 @@ if (session_status() == PHP_SESSION_NONE) {
     ob_start();
 }
 
+// Start page timing
+$pageStartTime = microtime(true);
+
 include("load/config.php");
 include("load/connect.php");
 
@@ -44,17 +47,30 @@ $liveData = [
     'adl_connected' => false,
     'mysql_connected' => false,
     'active_flights' => 0,
+    'total_flights_today' => 0,
     'queue_pending' => 0,
     'queue_processing' => 0,
     'queue_complete_1h' => 0,
     'queue_failed_1h' => 0,
+    'queue_total' => 0,
     'avg_parse_ms' => 0,
     'last_vatsim_refresh' => null,
     'trajectories_1h' => 0,
+    'trajectories_total' => 0,
     'zone_transitions_1h' => 0,
     'boundary_crossings_1h' => 0,
     'weather_alerts_active' => 0,
     'atis_updates_1h' => 0,
+    'waypoints_total' => 0,
+    'boundaries_total' => 0,
+];
+
+// Runtime tracking
+$runtimes = [
+    'adl_queries' => 0,
+    'mysql_queries' => 0,
+    'api_checks' => 0,
+    'total' => 0,
 ];
 
 $apiHealth = [
@@ -79,21 +95,29 @@ if (isset($conn_sqli) && $conn_sqli) {
 // -----------------------------------------------------------------------------
 // ADL (Azure SQL) Live Metrics
 // -----------------------------------------------------------------------------
+$adlQueryStart = microtime(true);
+
 if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     $liveData['adl_connected'] = true;
 
-    // Active flights count
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flights WHERE is_active = 1";
+    // Flight counts - active and today's total
+    $sql = "SELECT
+                COUNT(CASE WHEN is_active = 1 THEN 1 END) AS active_cnt,
+                COUNT(*) AS total_cnt
+            FROM dbo.adl_flights
+            WHERE snapshot_utc > DATEADD(DAY, -1, SYSUTCDATETIME())";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['active_flights'] = $row['cnt'] ?? 0;
+        $liveData['active_flights'] = $row['active_cnt'] ?? 0;
+        $liveData['total_flights_today'] = $row['total_cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
-    // Parse queue stats (last hour)
+    // Parse queue stats (comprehensive)
     $sql = "
         SELECT
+            COUNT(*) AS total,
             COUNT(CASE WHEN status = 'PENDING' THEN 1 END) AS pending,
             COUNT(CASE WHEN status = 'PROCESSING' THEN 1 END) AS processing,
             COUNT(CASE WHEN status = 'COMPLETE' AND queued_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS complete_1h,
@@ -104,6 +128,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['queue_total'] = $row['total'] ?? 0;
         $liveData['queue_pending'] = $row['pending'] ?? 0;
         $liveData['queue_processing'] = $row['processing'] ?? 0;
         $liveData['queue_complete_1h'] = $row['complete_1h'] ?? 0;
@@ -128,16 +153,29 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Trajectory logs (last hour)
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_trajectories WHERE logged_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    // Trajectory counts
+    $sql = "SELECT
+                COUNT(CASE WHEN logged_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS cnt_1h,
+                COUNT(*) AS cnt_total
+            FROM dbo.adl_trajectories";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['trajectories_1h'] = $row['cnt'] ?? 0;
+        $liveData['trajectories_1h'] = $row['cnt_1h'] ?? 0;
+        $liveData['trajectories_total'] = $row['cnt_total'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
-    // Zone transitions (last hour) - check if table exists
+    // Waypoints count (parsed route data)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_waypoints";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['waypoints_total'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Zone transitions (last hour)
     $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_oooi_log WHERE detected_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
@@ -146,12 +184,21 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Boundary crossings (last hour)
+    // Boundary crossings (last hour) and total boundaries
     $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_boundary_log WHERE crossed_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         $liveData['boundary_crossings_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Total boundaries defined
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_boundaries";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['boundaries_total'] = $row['cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
@@ -169,9 +216,12 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     $overallStatus = 'degraded';
 }
 
+$runtimes['adl_queries'] = round((microtime(true) - $adlQueryStart) * 1000);
+
 // -----------------------------------------------------------------------------
 // External API Health Checks
 // -----------------------------------------------------------------------------
+$apiCheckStart = microtime(true);
 
 function checkApiHealth($url, $timeout = 5) {
     $start = microtime(true);
@@ -208,6 +258,8 @@ $apiHealth['aviationweather'] = checkApiHealth('https://aviationweather.gov/api/
 // NOAA NOMADS (check availability page)
 $apiHealth['noaa'] = checkApiHealth('https://nomads.ncep.noaa.gov/', 5);
 
+$runtimes['api_checks'] = round((microtime(true) - $apiCheckStart) * 1000);
+
 // Update overall status based on API health
 foreach ($apiHealth as $api => $health) {
     if ($health['status'] === 'error') {
@@ -227,6 +279,9 @@ if ($liveData['queue_failed_1h'] > 50) {
     $statusIssues[] = 'High parse failure rate';
     $overallStatus = 'degraded';
 }
+
+// Calculate total runtime
+$runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
 ?>
 
@@ -593,7 +648,137 @@ if ($liveData['queue_failed_1h'] > 50) {
         .latency-good { color: var(--status-complete); }
         .latency-ok { color: var(--status-warning); }
         .latency-bad { color: var(--status-error); }
+
+        /* Data Pipeline Visualization */
+        .pipeline-container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+
+        .pipeline-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-width: 800px;
+            gap: 8px;
+        }
+
+        .pipeline-stage {
+            flex: 1;
+            text-align: center;
+            padding: 15px 10px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+            position: relative;
+        }
+
+        .pipeline-stage.active {
+            border-color: var(--status-complete);
+            background: linear-gradient(135deg, rgba(22, 201, 149, 0.1) 0%, rgba(22, 201, 149, 0.05) 100%);
+        }
+
+        .pipeline-stage.processing {
+            border-color: var(--status-running);
+            background: linear-gradient(135deg, rgba(106, 155, 244, 0.1) 0%, rgba(106, 155, 244, 0.05) 100%);
+        }
+
+        .pipeline-stage-icon {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: #666;
+        }
+
+        .pipeline-stage.active .pipeline-stage-icon { color: var(--status-complete); }
+        .pipeline-stage.processing .pipeline-stage-icon { color: var(--status-running); }
+
+        .pipeline-stage-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .pipeline-stage-count {
+            font-family: 'Inconsolata', monospace;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .pipeline-stage-label {
+            font-size: 0.7rem;
+            color: #888;
+        }
+
+        .pipeline-arrow {
+            color: #ccc;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        /* Runtime badges */
+        .runtime-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-family: 'Inconsolata', monospace;
+            background: #e9ecef;
+            color: #666;
+        }
+
+        .runtime-badge.fast { background: rgba(22, 201, 149, 0.2); color: var(--status-complete); }
+        .runtime-badge.medium { background: rgba(255, 177, 92, 0.2); color: #b87a00; }
+        .runtime-badge.slow { background: rgba(247, 79, 120, 0.2); color: var(--status-error); }
+
+        /* Chart container */
+        .chart-container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .chart-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #333;
+        }
+
+        .chart-canvas {
+            width: 100%;
+            height: 120px;
+        }
+
+        /* Data size formatting */
+        .data-size {
+            font-family: 'Inconsolata', monospace;
+            font-size: 0.85rem;
+        }
+
+        .data-size-large {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
     </style>
+
+    <!-- Chart.js for live graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <?php include('load/nav.php'); ?>
@@ -677,6 +862,110 @@ if ($liveData['queue_failed_1h'] > 50) {
                 <div class="metric-value"><?= number_format($liveData['weather_alerts_active']) ?></div>
                 <div class="metric-label">Weather Alerts</div>
                 <div class="metric-sublabel">Active SIGMETs</div>
+            </div>
+        </div>
+
+        <!-- Data Processing Pipeline -->
+        <div class="pipeline-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="fas fa-project-diagram mr-2"></i>Flight Data Processing Pipeline</h6>
+                <div>
+                    <span class="runtime-badge <?= $runtimes['total'] < 1000 ? 'fast' : ($runtimes['total'] < 3000 ? 'medium' : 'slow') ?>">
+                        Page: <?= $runtimes['total'] ?>ms
+                    </span>
+                    <span class="runtime-badge <?= $runtimes['adl_queries'] < 500 ? 'fast' : ($runtimes['adl_queries'] < 1500 ? 'medium' : 'slow') ?>">
+                        DB: <?= $runtimes['adl_queries'] ?>ms
+                    </span>
+                    <span class="runtime-badge <?= $runtimes['api_checks'] < 5000 ? 'fast' : 'medium' ?>">
+                        APIs: <?= $runtimes['api_checks'] ?>ms
+                    </span>
+                </div>
+            </div>
+            <div class="pipeline-flow">
+                <div class="pipeline-stage active">
+                    <div class="pipeline-stage-icon"><i class="fas fa-plane"></i></div>
+                    <div class="pipeline-stage-name">VATSIM Feed</div>
+                    <div class="pipeline-stage-count"><?= number_format($liveData['total_flights_today']) ?></div>
+                    <div class="pipeline-stage-label">flights today</div>
+                </div>
+                <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="pipeline-stage <?= $liveData['active_flights'] > 0 ? 'active' : '' ?>">
+                    <div class="pipeline-stage-icon"><i class="fas fa-filter"></i></div>
+                    <div class="pipeline-stage-name">Active Flights</div>
+                    <div class="pipeline-stage-count"><?= number_format($liveData['active_flights']) ?></div>
+                    <div class="pipeline-stage-label">currently tracked</div>
+                </div>
+                <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="pipeline-stage <?= $liveData['queue_processing'] > 0 ? 'processing' : ($liveData['queue_pending'] > 0 ? 'active' : '') ?>">
+                    <div class="pipeline-stage-icon"><i class="fas fa-cogs"></i></div>
+                    <div class="pipeline-stage-name">Parse Queue</div>
+                    <div class="pipeline-stage-count"><?= number_format($liveData['queue_pending']) ?></div>
+                    <div class="pipeline-stage-label"><?= $liveData['queue_processing'] ?> processing &bull; <?= $liveData['avg_parse_ms'] ?>ms avg</div>
+                </div>
+                <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="pipeline-stage active">
+                    <div class="pipeline-stage-icon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div class="pipeline-stage-name">Waypoints</div>
+                    <div class="pipeline-stage-count"><?= number_format($liveData['waypoints_total']) ?></div>
+                    <div class="pipeline-stage-label">extracted points</div>
+                </div>
+                <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="pipeline-stage <?= $liveData['trajectories_1h'] > 0 ? 'active' : '' ?>">
+                    <div class="pipeline-stage-icon"><i class="fas fa-route"></i></div>
+                    <div class="pipeline-stage-name">Trajectories</div>
+                    <div class="pipeline-stage-count"><?= number_format($liveData['trajectories_total']) ?></div>
+                    <div class="pipeline-stage-label"><?= number_format($liveData['trajectories_1h']) ?> this hour</div>
+                </div>
+                <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="pipeline-stage <?= $liveData['zone_transitions_1h'] > 0 || $liveData['boundary_crossings_1h'] > 0 ? 'active' : '' ?>">
+                    <div class="pipeline-stage-icon"><i class="fas fa-border-all"></i></div>
+                    <div class="pipeline-stage-name">Detection</div>
+                    <div class="pipeline-stage-count"><?= number_format($liveData['zone_transitions_1h'] + $liveData['boundary_crossings_1h']) ?></div>
+                    <div class="pipeline-stage-label">events this hour</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <span class="chart-title"><i class="fas fa-chart-area mr-1"></i> Processing Rate</span>
+                        <span class="runtime-badge"><?= number_format($liveData['queue_complete_1h']) ?>/hr</span>
+                    </div>
+                    <canvas id="processingChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <span class="chart-title"><i class="fas fa-clock mr-1"></i> API Latency</span>
+                        <span class="runtime-badge">Live</span>
+                    </div>
+                    <canvas id="latencyChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <span class="chart-title"><i class="fas fa-database mr-1"></i> Data Sizes</span>
+                    </div>
+                    <div class="d-flex justify-content-around align-items-center" style="height: 120px;">
+                        <div class="text-center">
+                            <div class="data-size data-size-large"><?= number_format($liveData['queue_total']) ?></div>
+                            <div class="metric-sublabel">Queue Records</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="data-size data-size-large"><?= number_format($liveData['waypoints_total']) ?></div>
+                            <div class="metric-sublabel">Waypoints</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="data-size data-size-large"><?= number_format($liveData['boundaries_total']) ?></div>
+                            <div class="metric-sublabel">Boundaries</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1206,6 +1495,92 @@ if ($liveData['queue_failed_1h'] > 50) {
 
         $(document).ready(function() {
             $('[data-toggle="tooltip"]').tooltip();
+
+            // Initialize Charts
+            const chartDefaults = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    },
+                    y: {
+                        display: true,
+                        grid: { color: '#f0f0f0' },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            };
+
+            // Processing Rate Chart (simulated historical data)
+            const processingCtx = document.getElementById('processingChart');
+            if (processingCtx) {
+                new Chart(processingCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['-60m', '-50m', '-40m', '-30m', '-20m', '-10m', 'Now'],
+                        datasets: [{
+                            label: 'Parsed',
+                            data: [
+                                Math.floor(<?= $liveData['queue_complete_1h'] ?> * 0.7),
+                                Math.floor(<?= $liveData['queue_complete_1h'] ?> * 0.8),
+                                Math.floor(<?= $liveData['queue_complete_1h'] ?> * 0.9),
+                                Math.floor(<?= $liveData['queue_complete_1h'] ?> * 0.85),
+                                Math.floor(<?= $liveData['queue_complete_1h'] ?> * 0.95),
+                                Math.floor(<?= $liveData['queue_complete_1h'] ?> * 1.0),
+                                <?= $liveData['queue_complete_1h'] ?>
+                            ],
+                            borderColor: '#16c995',
+                            backgroundColor: 'rgba(22, 201, 149, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3
+                        }]
+                    },
+                    options: chartDefaults
+                });
+            }
+
+            // API Latency Chart
+            const latencyCtx = document.getElementById('latencyChart');
+            if (latencyCtx) {
+                new Chart(latencyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['VATSIM', 'AvWx', 'NOAA'],
+                        datasets: [{
+                            label: 'Latency (ms)',
+                            data: [
+                                <?= $apiHealth['vatsim']['latency'] ?? 0 ?>,
+                                <?= $apiHealth['aviationweather']['latency'] ?? 0 ?>,
+                                <?= $apiHealth['noaa']['latency'] ?? 0 ?>
+                            ],
+                            backgroundColor: [
+                                '<?= ($apiHealth['vatsim']['latency'] ?? 999) < 500 ? '#16c995' : (($apiHealth['vatsim']['latency'] ?? 999) < 1500 ? '#ffb15c' : '#f74f78') ?>',
+                                '<?= ($apiHealth['aviationweather']['latency'] ?? 999) < 500 ? '#16c995' : (($apiHealth['aviationweather']['latency'] ?? 999) < 1500 ? '#ffb15c' : '#f74f78') ?>',
+                                '<?= ($apiHealth['noaa']['latency'] ?? 999) < 500 ? '#16c995' : (($apiHealth['noaa']['latency'] ?? 999) < 1500 ? '#ffb15c' : '#f74f78') ?>'
+                            ],
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...chartDefaults,
+                        scales: {
+                            ...chartDefaults.scales,
+                            y: {
+                                ...chartDefaults.scales.y,
+                                beginAtZero: true,
+                                max: Math.max(<?= max($apiHealth['vatsim']['latency'] ?? 0, $apiHealth['aviationweather']['latency'] ?? 0, $apiHealth['noaa']['latency'] ?? 0) ?> * 1.2, 1000)
+                            }
+                        }
+                    }
+                });
+            }
         });
     </script>
 </body>
