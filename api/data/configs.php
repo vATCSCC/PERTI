@@ -185,13 +185,13 @@ if (!$conn_adl) {
                 // Build data attributes for modal
                 echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Update Field Configuration">';
                 echo '<span class="badge badge-warning" data-toggle="modal" data-target="#updateconfigModal" ';
-                echo 'data-id="' . $data['config_id'] . '" ';
-                echo 'data-airport="' . htmlspecialchars($data['airport_faa']) . '" ';
-                echo 'data-icao="' . htmlspecialchars($data['airport_icao']) . '" ';
+                echo 'data-config_id="' . $data['config_id'] . '" ';
+                echo 'data-airport_faa="' . htmlspecialchars($data['airport_faa']) . '" ';
+                echo 'data-airport_icao="' . htmlspecialchars($data['airport_icao']) . '" ';
                 echo 'data-config_name="' . htmlspecialchars($data['config_name']) . '" ';
                 echo 'data-config_code="' . htmlspecialchars($data['config_code'] ?? '') . '" ';
-                echo 'data-arr="' . htmlspecialchars($data['arr_runways'] ?? '') . '" ';
-                echo 'data-dep="' . htmlspecialchars($data['dep_runways'] ?? '') . '" ';
+                echo 'data-arr_runways="' . htmlspecialchars($data['arr_runways'] ?? '') . '" ';
+                echo 'data-dep_runways="' . htmlspecialchars($data['dep_runways'] ?? '') . '" ';
 
                 // VATSIM rates
                 echo 'data-vatsim_vmc_aar="' . ($data['vatsim_vmc_aar'] ?? '') . '" ';

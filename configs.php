@@ -108,16 +108,18 @@ include('load/nav.php');
 
             <table class="table table-sm table-striped table-bordered w-75" id="configs">
                 <thead class="table-dark text-light">
-                    <th class="text-center" style="width: 6%;">Airport</th>
-                    <th class="text-center" style="width: 12%;">Config</th>
-                    <th class="text-center" style="width: 15%;" data-toggle="tooltip" title="Arrival Runway(s)">ARR</th>
-                    <th class="text-center" style="width: 15%;" data-toggle="tooltip" title="Departure Runway(s)">DEP</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="VMC Average Arrival Rate">VA</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="LVMC Average Arrival Rate">LVA</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="IMC Average Arrival Rate">IA</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="LIMC Average Arrival Rate">LIA</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="VMC Average Departure Rate">VD</th>
-                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="IMC Average Departure Rate">ID</th>
+                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="FAA Code">FAA</th>
+                    <th class="text-center" style="width: 5%;" data-toggle="tooltip" title="ICAO Code">ICAO</th>
+                    <th class="text-center" style="width: 10%;">Config</th>
+                    <th class="text-center" style="width: 10%;" data-toggle="tooltip" title="Arrival Runway(s)">ARR</th>
+                    <th class="text-center" style="width: 10%;" data-toggle="tooltip" title="Departure Runway(s)">DEP</th>
+                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="VMC Average Arrival Rate">VA</th>
+                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="LVMC Average Arrival Rate">LVA</th>
+                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="IMC Average Arrival Rate">IA</th>
+                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="LIMC Average Arrival Rate">LIA</th>
+                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="VLIMC Average Arrival Rate">VLA</th>
+                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="VMC Average Departure Rate">VD</th>
+                    <th class="text-center" style="width: 4%;" data-toggle="tooltip" title="IMC Average Departure Rate">ID</th>
 
                     <?php if ($perm == true) { ?>
                         <th></th>
