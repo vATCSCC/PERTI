@@ -745,6 +745,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             padding: 15px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             margin-bottom: 20px;
+            overflow: hidden;
         }
 
         .chart-header {
@@ -760,9 +761,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             color: #333;
         }
 
-        .chart-canvas {
-            width: 100%;
+        .chart-wrapper {
+            position: relative;
             height: 120px;
+            width: 100%;
+        }
+
+        .chart-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
         }
 
         /* Data size formatting */
@@ -934,7 +944,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <span class="chart-title"><i class="fas fa-chart-area mr-1"></i> Processing Rate</span>
                         <span class="runtime-badge"><?= number_format($liveData['queue_complete_1h']) ?>/hr</span>
                     </div>
-                    <canvas id="processingChart" class="chart-canvas"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="processingChart" class="chart-canvas"></canvas>
+                    </div>
                 </div>
             </div>
             <div class="col-md-4">
@@ -943,7 +955,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <span class="chart-title"><i class="fas fa-clock mr-1"></i> API Latency</span>
                         <span class="runtime-badge">Live</span>
                     </div>
-                    <canvas id="latencyChart" class="chart-canvas"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="latencyChart" class="chart-canvas"></canvas>
+                    </div>
                 </div>
             </div>
             <div class="col-md-4">
