@@ -105,6 +105,81 @@ include("sessions/handler.php");
         .section-divider {
             border-left: 3px solid #dee2e6 !important;
         }
+
+        /* Sticky header for scrolling */
+        #configs-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        #configs thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        #configs thead tr:nth-child(1) th {
+            position: sticky;
+            top: 0;
+            z-index: 11;
+        }
+        #configs thead tr:nth-child(2) th {
+            position: sticky;
+            top: 28px; /* Height of first row */
+            z-index: 10;
+        }
+        #configs thead tr:nth-child(3) th {
+            position: sticky;
+            top: 52px; /* Height of first two rows */
+            z-index: 9;
+        }
+
+        /* Rate comparison indicators */
+        .rate-higher {
+            position: relative;
+        }
+        .rate-higher::after {
+            content: "▲";
+            font-size: 0.6rem;
+            color: #28a745;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+        }
+        .rate-lower {
+            position: relative;
+        }
+        .rate-lower::after {
+            content: "▼";
+            font-size: 0.6rem;
+            color: #dc3545;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+        }
+        .no-rw-data {
+            opacity: 0.5;
+        }
+
+        /* Stats summary styling */
+        .config-stats {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .config-stats .stat-item {
+            text-align: center;
+            padding: 10px;
+        }
+        .config-stats .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2a5298;
+        }
+        .config-stats .stat-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
     </style>
 
 </head>
@@ -132,20 +207,63 @@ include('load/nav.php');
 
     <div class="container-fluid">
 
-        <div class="input-group ml-5 mt-2" style="width: 10%;">
-            <input type="text" class="form-control" id="search" placeholder="FAA Code" maxlength="4">
-                <div class="input-group-append">
-                    <button class="btn btn-info btn-sm" id="searchBtn"><i class="fas fa-search"></i></button>
+        <!-- Stats Summary -->
+        <div class="config-stats mt-3" id="config-stats">
+            <div class="row">
+                <div class="col-md-2 stat-item">
+                    <div class="stat-value" id="stat-total">-</div>
+                    <div class="stat-label">Total Configs</div>
                 </div>
+                <div class="col-md-2 stat-item">
+                    <div class="stat-value" id="stat-airports">-</div>
+                    <div class="stat-label">Airports</div>
+                </div>
+                <div class="col-md-2 stat-item">
+                    <div class="stat-value" id="stat-with-vatsim">-</div>
+                    <div class="stat-label">With VATSIM Rates</div>
+                </div>
+                <div class="col-md-2 stat-item">
+                    <div class="stat-value" id="stat-with-rw">-</div>
+                    <div class="stat-label">With RW Rates</div>
+                </div>
+                <div class="col-md-2 stat-item">
+                    <div class="stat-value text-success" id="stat-vatsim-higher">-</div>
+                    <div class="stat-label">VATSIM > RW</div>
+                </div>
+                <div class="col-md-2 stat-item">
+                    <div class="stat-value text-danger" id="stat-vatsim-lower">-</div>
+                    <div class="stat-label">VATSIM < RW</div>
+                </div>
+            </div>
         </div>
 
-        <center>
-            <hr>
+        <div class="row mb-2">
+            <div class="col-md-3">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="search" placeholder="Search FAA/ICAO/Config..." maxlength="10">
+                    <div class="input-group-append">
+                        <button class="btn btn-info btn-sm" id="searchBtn"><i class="fas fa-search"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-control form-control-sm" id="filterRates">
+                    <option value="">All Configs</option>
+                    <option value="has-rw">Has Real-World Rates</option>
+                    <option value="no-rw">Missing Real-World Rates</option>
+                    <option value="vatsim-higher">VATSIM Higher than RW</option>
+                    <option value="vatsim-lower">VATSIM Lower than RW</option>
+                </select>
+            </div>
+            <div class="col-md-6 text-right">
+                <?php if ($perm == true) { ?>
+                    <button class="btn btn-success btn-sm" data-target="#addconfigModal" data-toggle="modal"><i class="fas fa-plus"></i> Add Config</button>
+                <?php } ?>
+                <button class="btn btn-secondary btn-sm" id="exportBtn" data-toggle="tooltip" title="Export to CSV"><i class="fas fa-download"></i> Export</button>
+            </div>
+        </div>
 
-            <?php if ($perm == true) { ?>
-                <button class="mt-2 mb-2 btn btn-success btn-sm" data-target="#addconfigModal" data-toggle="modal"><i class="fas fa-plus"></i> Add Config</button>
-            <?php } ?>
-
+        <div id="configs-container">
             <table class="table table-sm table-striped table-bordered" id="configs" style="width: 100%;">
                 <thead class="table-dark text-light">
                     <!-- Row 1: Main categories -->
@@ -192,7 +310,7 @@ include('load/nav.php');
 
                 <tbody id="configs_table"></tbody>
             </table>
-        </center>
+        </div><!-- /configs-container -->
     </div>
 
 
@@ -490,6 +608,8 @@ include('load/nav.php');
 
     <!-- Scripts -->
     <script async type="text/javascript">
+        var configData = []; // Store loaded config data for filtering/export
+
         function tooltips() {
             $('[data-toggle="tooltip"]').tooltip('dispose');
 
@@ -498,12 +618,138 @@ include('load/nav.php');
             });
         }
 
+        function updateStats() {
+            var rows = $('#configs_table tr');
+            var total = rows.length;
+            var airports = new Set();
+            var withVatsim = 0;
+            var withRw = 0;
+            var vatsimHigher = 0;
+            var vatsimLower = 0;
+
+            rows.each(function() {
+                var cells = $(this).find('td');
+                if (cells.length > 0) {
+                    var faa = cells.eq(0).text().trim();
+                    airports.add(faa);
+
+                    // Check VATSIM rates (columns 5-11)
+                    var hasVatsim = false;
+                    for (var i = 5; i <= 11; i++) {
+                        if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
+                            hasVatsim = true;
+                            break;
+                        }
+                    }
+                    if (hasVatsim) withVatsim++;
+
+                    // Check RW rates (columns 12-17)
+                    var hasRw = false;
+                    for (var i = 12; i <= 17; i++) {
+                        if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
+                            hasRw = true;
+                            break;
+                        }
+                    }
+                    if (hasRw) withRw++;
+
+                    // Compare VMC AAR (VATSIM col 5 vs RW col 12)
+                    var vatsimVmc = parseInt(cells.eq(5).text()) || 0;
+                    var rwVmc = parseInt(cells.eq(12).text()) || 0;
+                    if (vatsimVmc > 0 && rwVmc > 0) {
+                        if (vatsimVmc > rwVmc) vatsimHigher++;
+                        else if (vatsimVmc < rwVmc) vatsimLower++;
+                    }
+                }
+            });
+
+            $('#stat-total').text(total);
+            $('#stat-airports').text(airports.size);
+            $('#stat-with-vatsim').text(withVatsim);
+            $('#stat-with-rw').text(withRw);
+            $('#stat-vatsim-higher').text(vatsimHigher);
+            $('#stat-vatsim-lower').text(vatsimLower);
+        }
+
+        function applyFilter(filter) {
+            var rows = $('#configs_table tr');
+            rows.each(function() {
+                var row = $(this);
+                var cells = row.find('td');
+                if (cells.length === 0) return;
+
+                var show = true;
+
+                // Check RW rates (columns 12-17)
+                var hasRw = false;
+                for (var i = 12; i <= 17; i++) {
+                    if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
+                        hasRw = true;
+                        break;
+                    }
+                }
+
+                // Compare VMC AAR
+                var vatsimVmc = parseInt(cells.eq(5).text()) || 0;
+                var rwVmc = parseInt(cells.eq(12).text()) || 0;
+
+                switch (filter) {
+                    case 'has-rw':
+                        show = hasRw;
+                        break;
+                    case 'no-rw':
+                        show = !hasRw;
+                        break;
+                    case 'vatsim-higher':
+                        show = (vatsimVmc > 0 && rwVmc > 0 && vatsimVmc > rwVmc);
+                        break;
+                    case 'vatsim-lower':
+                        show = (vatsimVmc > 0 && rwVmc > 0 && vatsimVmc < rwVmc);
+                        break;
+                }
+
+                row.toggle(show);
+            });
+        }
+
+        function exportToCSV() {
+            var csv = [];
+            var headers = ['FAA', 'ICAO', 'Config', 'ARR Rwys', 'DEP Rwys',
+                'VATSIM VMC AAR', 'VATSIM LVMC AAR', 'VATSIM IMC AAR', 'VATSIM LIMC AAR', 'VATSIM VLIMC AAR',
+                'VATSIM VMC ADR', 'VATSIM IMC ADR',
+                'RW VMC AAR', 'RW LVMC AAR', 'RW IMC AAR', 'RW LIMC AAR',
+                'RW VMC ADR', 'RW IMC ADR'];
+            csv.push(headers.join(','));
+
+            $('#configs_table tr:visible').each(function() {
+                var row = [];
+                $(this).find('td').each(function(i) {
+                    if (i < 18) { // Skip action column
+                        var text = $(this).text().trim().replace(/"/g, '""');
+                        row.push('"' + text + '"');
+                    }
+                });
+                if (row.length > 0) csv.push(row.join(','));
+            });
+
+            var blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'airport_configs_' + new Date().toISOString().slice(0,10) + '.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         function loadData(search) {
-            // Plans
             $.get(`api/data/configs?search=${search}`).done(function(data) {
                 $('#configs_table').html(data);
-
                 tooltips();
+                updateStats();
+
+                // Re-apply filter if one is selected
+                var filter = $('#filterRates').val();
+                if (filter) applyFilter(filter);
             });
         }
 
@@ -574,6 +820,16 @@ include('load/nav.php');
                 if (e.which === 13) {
                     loadData($('#search').val());
                 }
+            });
+
+            // Filter dropdown
+            $('#filterRates').change(function() {
+                applyFilter($(this).val());
+            });
+
+            // Export button
+            $('#exportBtn').click(function() {
+                exportToCSV();
             });
 
             // AJAX: #addconfig POST
