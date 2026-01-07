@@ -13,19 +13,19 @@ $LogFile = Join-Path $ScriptDir "scripts\vatsim_atis.log"
 
 function Get-AtisPid {
     if (Test-Path $PidFile) {
-        $pid = Get-Content $PidFile -ErrorAction SilentlyContinue
-        if ($pid -and (Get-Process -Id $pid -ErrorAction SilentlyContinue)) {
-            return [int]$pid
+        $procId = Get-Content $PidFile -ErrorAction SilentlyContinue
+        if ($procId -and (Get-Process -Id $procId -ErrorAction SilentlyContinue)) {
+            return [int]$procId
         }
     }
     return $null
 }
 
 function Stop-AtisService {
-    $pid = Get-AtisPid
-    if ($pid) {
-        Write-Host "Stopping ATIS daemon (PID: $pid)..."
-        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    $procId = Get-AtisPid
+    if ($procId) {
+        Write-Host "Stopping ATIS daemon (PID: $procId)..."
+        Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
         Remove-Item $PidFile -ErrorAction SilentlyContinue
         Write-Host "Stopped."
     } else {
@@ -34,13 +34,13 @@ function Stop-AtisService {
 }
 
 function Get-AtisStatus {
-    $pid = Get-AtisPid
-    if ($pid) {
-        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    $procId = Get-AtisPid
+    if ($procId) {
+        $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
         if ($proc) {
             $runtime = (Get-Date) - $proc.StartTime
             Write-Host "ATIS daemon is RUNNING"
-            Write-Host "  PID: $pid"
+            Write-Host "  PID: $procId"
             Write-Host "  Runtime: $($runtime.ToString('hh\:mm\:ss'))"
             Write-Host "  Memory: $([math]::Round($proc.WorkingSet64/1MB, 1)) MB"
             return
@@ -68,8 +68,7 @@ function Start-AtisService {
         -WorkingDirectory $scriptPath `
         -WindowStyle Hidden `
         -PassThru `
-        -RedirectStandardOutput $LogFile `
-        -RedirectStandardError $LogFile
+        -RedirectStandardOutput $LogFile
 
     # Save PID
     $proc.Id | Out-File $PidFile -Encoding ASCII
