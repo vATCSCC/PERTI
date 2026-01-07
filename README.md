@@ -241,11 +241,29 @@ Example config template: `load/config.example.php`
 
 ## 📚 Documentation
 
-For detailed technical documentation, see:
-- `assistant_codebase_index_v13.md` - Comprehensive codebase index
-- `scripts/README.md` - Script documentation
-- `scripts/README_boundaries.md` - Boundary refresh documentation
-- Database migrations in `database/migrations/`
+### Codebase Index
+
+**[assistant_codebase_index_v13.md](assistant_codebase_index_v13.md)** - Comprehensive technical reference including:
+
+- Complete API endpoint documentation (120+ endpoints)
+- Database schema reference (Azure SQL + MySQL)
+- Stored procedures and functions
+- JavaScript module documentation
+- Subsystem architecture (JATOC, NOD, GDT, Splits, etc.)
+- Background jobs and daemons
+- External data source integrations
+
+### Additional Documentation
+
+| Document | Description |
+| -------- | ----------- |
+| `adl/README.md` | ADL database implementation guide |
+| `adl/ARCHITECTURE.md` | Detailed ADL architecture |
+| `adl/DAEMON_SETUP.md` | Daemon configuration |
+| `adl/NAVDATA_IMPORT.md` | Navigation data import |
+| `scripts/README.md` | Script documentation |
+| `scripts/README_boundaries.md` | Boundary refresh docs |
+| `database/migrations/` | SQL migration scripts |
 
 ---
 
@@ -267,4 +285,4 @@ For issues or questions about PERTI, contact the vATCSCC development team.
 
 ---
 
-*Last updated: 2026-01-05*
+*Last updated: 2026-01-06*
