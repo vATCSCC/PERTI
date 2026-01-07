@@ -203,7 +203,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // Active weather alerts
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_weather_alerts WHERE valid_time_to > SYSUTCDATETIME()";
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.weather_alerts WHERE valid_time_to > SYSUTCDATETIME()";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -267,7 +267,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // Step 8c: Waypoint ETAs (total waypoints with ETA)
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_waypoints WHERE eta_utc IS NOT NULL";
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_waypoints WHERE eta_utc IS NOT NULL";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
