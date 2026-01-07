@@ -125,13 +125,17 @@ BEGIN
 
     DELETE FROM dbo.flight_stats_carrier WHERE stats_date = @target_date;
 
+    -- Note: airline_icao is in adl_flight_aircraft table
+    -- If not populated, extract from callsign (first 3 chars if alpha)
     ;WITH CarrierFlights AS (
         SELECT
-            p.airline_icao AS carrier_icao,
+            COALESCE(ac.airline_icao,
+                CASE WHEN c.callsign LIKE '[A-Z][A-Z][A-Z]%'
+                     THEN LEFT(c.callsign, 3) END) AS carrier_icao,
             c.flight_uid,
             p.fp_dept_icao,
             p.fp_dest_icao,
-            p.aircraft_type,
+            COALESCE(ac.aircraft_icao, p.aircraft_type) AS aircraft_type,
             t.out_utc, t.off_utc, t.on_utc, t.in_utc,
             tmi.ctl_type,
             tmi.delay_minutes,
@@ -147,10 +151,11 @@ BEGIN
             DATEPART(HOUR, t.on_utc) AS arr_hour
         FROM dbo.adl_flight_core c
         JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
+        LEFT JOIN dbo.adl_flight_aircraft ac ON c.flight_uid = ac.flight_uid
         LEFT JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
         LEFT JOIN dbo.adl_flight_tmi tmi ON c.flight_uid = tmi.flight_uid
-        WHERE p.airline_icao IS NOT NULL
-          AND LEN(p.airline_icao) = 3
+        WHERE ((ac.airline_icao IS NOT NULL AND LEN(ac.airline_icao) = 3)
+               OR c.callsign LIKE '[A-Z][A-Z][A-Z]%')
           AND ((t.off_utc >= @day_start AND t.off_utc < @day_end)
                OR (t.on_utc >= @day_start AND t.on_utc < @day_end))
     ),
