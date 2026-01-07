@@ -100,11 +100,11 @@ $adlQueryStart = microtime(true);
 if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     $liveData['adl_connected'] = true;
 
-    // Flight counts - active and today's total
+    // Flight counts - active and today's total (use view for normalized schema)
     $sql = "SELECT
                 COUNT(CASE WHEN is_active = 1 THEN 1 END) AS active_cnt,
                 COUNT(*) AS total_cnt
-            FROM dbo.adl_flights
+            FROM dbo.vw_adl_flights
             WHERE snapshot_utc > DATEADD(DAY, -1, SYSUTCDATETIME())";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
@@ -137,8 +137,8 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Last VATSIM refresh time
-    $sql = "SELECT TOP 1 snapshot_utc FROM dbo.adl_flights ORDER BY snapshot_utc DESC";
+    // Last VATSIM refresh time (use view for normalized schema)
+    $sql = "SELECT TOP 1 snapshot_utc FROM dbo.vw_adl_flights ORDER BY snapshot_utc DESC";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
