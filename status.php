@@ -369,6 +369,53 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
+    // -------------------------------------------------------------------------
+    // Daily Stats: Routes Parsed Today by Tier
+    // -------------------------------------------------------------------------
+    $liveData['daily_parsed_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0];
+    $liveData['daily_parsed_total'] = 0;
+    $sql = "SELECT priority_tier, COUNT(*) AS cnt
+            FROM dbo.adl_parse_queue
+            WHERE status = 'COMPLETE'
+              AND completed_utc >= CAST(SYSUTCDATETIME() AS DATE)
+            GROUP BY priority_tier
+            ORDER BY priority_tier";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $tier = (int)$row['priority_tier'];
+            $cnt = (int)$row['cnt'];
+            if (isset($liveData['daily_parsed_by_tier'][$tier])) {
+                $liveData['daily_parsed_by_tier'][$tier] = $cnt;
+            }
+            $liveData['daily_parsed_total'] += $cnt;
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Daily Stats: Trajectory Points Logged Today by Tier
+    // -------------------------------------------------------------------------
+    $liveData['daily_trajectory_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0];
+    $liveData['daily_trajectory_total'] = 0;
+    $sql = "SELECT trajectory_tier, COUNT(*) AS cnt
+            FROM dbo.adl_flight_trajectory
+            WHERE recorded_utc >= CAST(SYSUTCDATETIME() AS DATE)
+            GROUP BY trajectory_tier
+            ORDER BY trajectory_tier";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $tier = (int)$row['trajectory_tier'];
+            $cnt = (int)$row['cnt'];
+            if (isset($liveData['daily_trajectory_by_tier'][$tier])) {
+                $liveData['daily_trajectory_by_tier'][$tier] = $cnt;
+            }
+            $liveData['daily_trajectory_total'] += $cnt;
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
 } else {
     $statusIssues[] = 'ADL database connection unavailable';
     $overallStatus = 'degraded';
@@ -1105,25 +1152,103 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         /* Tier Tracking Styles */
         .tier-tracking-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 15px;
             padding: 15px;
         }
 
-        .tier-group {
+        .tier-tracking-container.collapsed {
+            display: none;
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+        }
+
+        .collapsible-header:hover {
+            background: #454660;
+        }
+
+        .tier-section {
+            margin-bottom: 20px;
+        }
+
+        .tier-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .tier-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: #37384e;
+            color: #fff;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tier-section-header:hover {
+            background: #454660;
+        }
+
+        .tier-section-header .section-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .tier-section-header .section-toggle {
+            transition: transform 0.2s ease;
+        }
+
+        .tier-section-header.collapsed .section-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .tier-section-content {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding: 15px;
             background: #f8f9fa;
+            border-radius: 0 0 6px 6px;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+        }
+
+        .tier-section-content.collapsed {
+            display: none;
+        }
+
+        @media (max-width: 900px) {
+            .tier-section-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tier-group {
+            background: #fff;
             border-radius: 6px;
             padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .tier-group.full-width {
+            grid-column: 1 / -1;
         }
 
         .tier-group-header {
             display: flex;
-            flex-direction: column;
-            gap: 2px;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 10px;
             padding-bottom: 8px;
             border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tier-group-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
         .tier-group-title {
@@ -1137,6 +1262,16 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             color: #888;
         }
 
+        .tier-group-total {
+            font-family: 'Inconsolata', monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--status-complete);
+            background: rgba(22, 201, 149, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
         .tier-bars {
             display: flex;
             flex-direction: column;
@@ -1145,7 +1280,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .tier-bar-row {
             display: grid;
-            grid-template-columns: 130px 1fr 50px;
+            grid-template-columns: 140px 1fr 60px;
             align-items: center;
             gap: 8px;
         }
@@ -1204,18 +1339,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         /* ATIS Tier Info Grid */
         .tier-info-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
         }
 
         .tier-info-item {
             display: grid;
-            grid-template-columns: 30px 1fr 50px;
+            grid-template-columns: 30px 1fr 45px;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             padding: 6px 8px;
-            background: #fff;
+            background: #f8f9fa;
             border-radius: 4px;
             border-left: 3px solid #06b6d4;
         }
@@ -1234,7 +1369,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         }
 
         .tier-info-desc {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #666;
         }
 
@@ -1244,6 +1379,34 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             font-weight: 600;
             text-align: right;
             color: #333;
+        }
+
+        /* Side-by-side comparison layout */
+        .tier-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .tier-comparison-side {
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .tier-comparison-side .side-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 600px) {
+            .tier-comparison {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 
@@ -2082,146 +2245,247 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     </div>
                 </div>
 
-                <!-- Tier Tracking -->
+            </div>
+        </div>
+
+        <!-- Processing Tier Tracking - Full Width Section -->
+        <div class="row mb-4">
+            <div class="col-12">
                 <div class="status-section">
-                    <div class="status-section-header">
+                    <div class="status-section-header collapsible-header" onclick="toggleSection('tierTracking')">
                         <span><i class="fas fa-layer-group mr-2"></i>Processing Tier Tracking</span>
-                        <span class="cycle-badge">Real-time</span>
+                        <span>
+                            <span class="cycle-badge mr-2">Real-time + Daily</span>
+                            <i class="fas fa-chevron-down section-toggle" id="tierTracking-toggle"></i>
+                        </span>
                     </div>
-                    <div class="tier-tracking-container">
-                        <!-- Parse Tiers -->
-                        <div class="tier-group">
-                            <div class="tier-group-header">
-                                <span class="tier-group-title"><i class="fas fa-route mr-1"></i> Route Parse Tiers</span>
-                                <span class="tier-group-desc">Priority for route parsing queue</span>
+                    <div class="tier-tracking-container" id="tierTracking-content">
+                        <!-- Route Parsing Section -->
+                        <div class="tier-section">
+                            <div class="tier-section-header" onclick="toggleTierSection('routeParsing')">
+                                <span class="section-title"><i class="fas fa-route mr-2"></i>Route Parsing</span>
+                                <i class="fas fa-chevron-down section-toggle" id="routeParsing-toggle"></i>
                             </div>
-                            <div class="tier-bars">
-                                <?php
-                                $parseTiers = $liveData['parse_tiers'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0];
-                                $parseMax = max(1, max($parseTiers));
-                                $parseTierLabels = [
-                                    0 => 'T0: ASPM77 Deps',
-                                    1 => 'T1: ASPM77 Arrs',
-                                    2 => 'T2: CAN/MEX/CAR',
-                                    3 => 'T3: Other Intl',
-                                    4 => 'T4: Remote/Low Pri'
-                                ];
-                                foreach ($parseTiers as $tier => $count):
-                                    $pct = ($count / $parseMax) * 100;
-                                ?>
-                                <div class="tier-bar-row">
-                                    <span class="tier-label"><?= $parseTierLabels[$tier] ?? "Tier $tier" ?></span>
-                                    <div class="tier-bar-container">
-                                        <div class="tier-bar tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                            <div class="tier-section-content" id="routeParsing-content">
+                                <!-- Current Flight Distribution -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Current Flights by Parse Tier</span>
+                                            <span class="tier-group-desc">Active flights distribution</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format(array_sum($liveData['parse_tiers'] ?? [])) ?></span>
                                     </div>
-                                    <span class="tier-count"><?= number_format($count) ?></span>
+                                    <div class="tier-bars">
+                                        <?php
+                                        $parseTiers = $liveData['parse_tiers'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0];
+                                        $parseMax = max(1, max($parseTiers));
+                                        $parseTierLabels = [
+                                            0 => 'T0: ASPM77 Deps',
+                                            1 => 'T1: ASPM77 Arrs',
+                                            2 => 'T2: CAN/MEX/CAR',
+                                            3 => 'T3: Other Intl',
+                                            4 => 'T4: Remote/Low Pri'
+                                        ];
+                                        foreach ($parseTiers as $tier => $count):
+                                            $pct = ($count / $parseMax) * 100;
+                                        ?>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label"><?= $parseTierLabels[$tier] ?? "Tier $tier" ?></span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                                            </div>
+                                            <span class="tier-count"><?= number_format($count) ?></span>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
-                                <?php endforeach; ?>
+                                <!-- Daily Routes Parsed -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Routes Parsed Today</span>
+                                            <span class="tier-group-desc">Completed parses since 00:00Z</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format($liveData['daily_parsed_total'] ?? 0) ?></span>
+                                    </div>
+                                    <div class="tier-bars">
+                                        <?php
+                                        $dailyParsed = $liveData['daily_parsed_by_tier'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0];
+                                        $dailyMax = max(1, max($dailyParsed));
+                                        foreach ($dailyParsed as $tier => $count):
+                                            $pct = ($count / $dailyMax) * 100;
+                                        ?>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label"><?= $parseTierLabels[$tier] ?? "Tier $tier" ?></span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                                            </div>
+                                            <span class="tier-count"><?= number_format($count) ?></span>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <!-- Pending Queue -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Parse Queue (Pending)</span>
+                                            <span class="tier-group-desc">Awaiting processing</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format(array_sum($liveData['queue_by_tier'] ?? [])) ?></span>
+                                    </div>
+                                    <div class="tier-bars">
+                                        <?php
+                                        $queueTiers = $liveData['queue_by_tier'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0];
+                                        $queueMax = max(1, max($queueTiers));
+                                        $queueTierLabels = [
+                                            0 => 'T0: Immediate',
+                                            1 => 'T1: High',
+                                            2 => 'T2: Normal',
+                                            3 => 'T3: Low',
+                                            4 => 'T4: Background'
+                                        ];
+                                        foreach ($queueTiers as $tier => $count):
+                                            $pct = ($count / $queueMax) * 100;
+                                        ?>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label"><?= $queueTierLabels[$tier] ?? "Tier $tier" ?></span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar queue-tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                                            </div>
+                                            <span class="tier-count"><?= number_format($count) ?></span>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Trajectory Tiers -->
-                        <div class="tier-group">
-                            <div class="tier-group-header">
-                                <span class="tier-group-title"><i class="fas fa-map-marker-alt mr-1"></i> Trajectory Logging Tiers</span>
-                                <span class="tier-group-desc">Position logging frequency</span>
+                        <!-- Trajectory Logging Section -->
+                        <div class="tier-section">
+                            <div class="tier-section-header" onclick="toggleTierSection('trajectoryLogging')">
+                                <span class="section-title"><i class="fas fa-map-marker-alt mr-2"></i>Trajectory Logging</span>
+                                <i class="fas fa-chevron-down section-toggle" id="trajectoryLogging-toggle"></i>
                             </div>
-                            <div class="tier-bars">
-                                <?php
-                                $trajTiers = $liveData['trajectory_tiers'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0,5=>0,6=>0,7=>0];
-                                $trajMax = max(1, max($trajTiers));
-                                $trajTierLabels = [
-                                    0 => 'T0: 15s (Terminal)',
-                                    1 => 'T1: 30s (Climb/Desc)',
-                                    2 => 'T2: 1m (Active Enrt)',
-                                    3 => 'T3: 2m (Stable Enrt)',
-                                    4 => 'T4: 3m (Oceanic)',
-                                    5 => 'T5: 5m (Prefile)',
-                                    6 => 'T6: 10m (Parked)',
-                                    7 => 'T7: 15m (Inactive)'
-                                ];
-                                foreach ($trajTiers as $tier => $count):
-                                    $pct = ($count / $trajMax) * 100;
-                                ?>
-                                <div class="tier-bar-row">
-                                    <span class="tier-label"><?= $trajTierLabels[$tier] ?? "Tier $tier" ?></span>
-                                    <div class="tier-bar-container">
-                                        <div class="tier-bar traj-tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                            <div class="tier-section-content" id="trajectoryLogging-content">
+                                <!-- Current Flight Tiers -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Current Flights by Logging Tier</span>
+                                            <span class="tier-group-desc">Active flight logging frequency</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format(array_sum($liveData['trajectory_tiers'] ?? [])) ?></span>
                                     </div>
-                                    <span class="tier-count"><?= number_format($count) ?></span>
+                                    <div class="tier-bars">
+                                        <?php
+                                        $trajTiers = $liveData['trajectory_tiers'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0,5=>0,6=>0,7=>0];
+                                        $trajMax = max(1, max($trajTiers));
+                                        $trajTierLabels = [
+                                            0 => 'T0: 15s (Terminal)',
+                                            1 => 'T1: 30s (Climb/Desc)',
+                                            2 => 'T2: 1m (Active Enrt)',
+                                            3 => 'T3: 2m (Stable Enrt)',
+                                            4 => 'T4: 3m (Oceanic)',
+                                            5 => 'T5: 5m (Prefile)',
+                                            6 => 'T6: 10m (Parked)',
+                                            7 => 'T7: 15m (Inactive)'
+                                        ];
+                                        foreach ($trajTiers as $tier => $count):
+                                            $pct = ($count / $trajMax) * 100;
+                                        ?>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label"><?= $trajTierLabels[$tier] ?? "Tier $tier" ?></span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar traj-tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                                            </div>
+                                            <span class="tier-count"><?= number_format($count) ?></span>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
-                                <?php endforeach; ?>
+                                <!-- Daily Points Logged -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Trajectory Points Today</span>
+                                            <span class="tier-group-desc">Positions logged since 00:00Z</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format($liveData['daily_trajectory_total'] ?? 0) ?></span>
+                                    </div>
+                                    <div class="tier-bars">
+                                        <?php
+                                        $dailyTraj = $liveData['daily_trajectory_by_tier'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0,5=>0,6=>0,7=>0];
+                                        $dailyTrajMax = max(1, max($dailyTraj));
+                                        foreach ($dailyTraj as $tier => $count):
+                                            $pct = ($count / $dailyTrajMax) * 100;
+                                        ?>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label"><?= $trajTierLabels[$tier] ?? "Tier $tier" ?></span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar traj-tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                                            </div>
+                                            <span class="tier-count"><?= number_format($count) ?></span>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Parse Queue by Tier -->
-                        <div class="tier-group">
-                            <div class="tier-group-header">
-                                <span class="tier-group-title"><i class="fas fa-list-ol mr-1"></i> Parse Queue by Tier</span>
-                                <span class="tier-group-desc">Pending routes awaiting parsing</span>
+                        <!-- ATIS Refresh Section -->
+                        <div class="tier-section">
+                            <div class="tier-section-header" onclick="toggleTierSection('atisRefresh')">
+                                <span class="section-title"><i class="fas fa-broadcast-tower mr-2"></i>ATIS Refresh Intervals</span>
+                                <i class="fas fa-chevron-down section-toggle" id="atisRefresh-toggle"></i>
                             </div>
-                            <div class="tier-bars">
-                                <?php
-                                $queueTiers = $liveData['queue_by_tier'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0];
-                                $queueMax = max(1, max($queueTiers));
-                                $queueTierLabels = [
-                                    0 => 'T0: Immediate',
-                                    1 => 'T1: High',
-                                    2 => 'T2: Normal',
-                                    3 => 'T3: Low',
-                                    4 => 'T4: Background'
-                                ];
-                                foreach ($queueTiers as $tier => $count):
-                                    $pct = ($count / $queueMax) * 100;
-                                ?>
-                                <div class="tier-bar-row">
-                                    <span class="tier-label"><?= $queueTierLabels[$tier] ?? "Tier $tier" ?></span>
-                                    <div class="tier-bar-container">
-                                        <div class="tier-bar queue-tier-<?= $tier ?>" style="width: <?= $pct ?>%"></div>
+                            <div class="tier-section-content" id="atisRefresh-content">
+                                <div class="tier-group full-width">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Daemon-Managed ATIS Update Tiers</span>
+                                            <span class="tier-group-desc">Airport ATIS polling frequency based on priority and weather</span>
+                                        </div>
                                     </div>
-                                    <span class="tier-count"><?= number_format($count) ?></span>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
-                        <!-- ATIS Refresh Tiers (Informational - Dynamic in Daemon) -->
-                        <div class="tier-group">
-                            <div class="tier-group-header">
-                                <span class="tier-group-title"><i class="fas fa-broadcast-tower mr-1"></i> ATIS Refresh Tiers</span>
-                                <span class="tier-group-desc">Airport ATIS update intervals (daemon-managed)</span>
-                            </div>
-                            <div class="tier-info-grid">
-                                <div class="tier-info-item">
-                                    <span class="tier-info-tier">T0</span>
-                                    <span class="tier-info-desc">METAR Update / Bad Wx</span>
-                                    <span class="tier-info-interval">15s</span>
-                                </div>
-                                <div class="tier-info-item">
-                                    <span class="tier-info-tier">T1</span>
-                                    <span class="tier-info-desc">ASPM77 Normal Wx</span>
-                                    <span class="tier-info-interval">1min</span>
-                                </div>
-                                <div class="tier-info-item">
-                                    <span class="tier-info-tier">T2</span>
-                                    <span class="tier-info-desc">Non-ASPM77 + CAN/LAT/CAR</span>
-                                    <span class="tier-info-interval">5min</span>
-                                </div>
-                                <div class="tier-info-item">
-                                    <span class="tier-info-tier">T3</span>
-                                    <span class="tier-info-desc">Other Airports</span>
-                                    <span class="tier-info-interval">30min</span>
-                                </div>
-                                <div class="tier-info-item">
-                                    <span class="tier-info-tier">T4</span>
-                                    <span class="tier-info-desc">Clear Wx Non-Priority</span>
-                                    <span class="tier-info-interval">60min</span>
+                                    <div class="tier-info-grid">
+                                        <div class="tier-info-item">
+                                            <span class="tier-info-tier">T0</span>
+                                            <span class="tier-info-desc">METAR Update / Bad Wx</span>
+                                            <span class="tier-info-interval">15s</span>
+                                        </div>
+                                        <div class="tier-info-item">
+                                            <span class="tier-info-tier">T1</span>
+                                            <span class="tier-info-desc">ASPM77 Normal Wx</span>
+                                            <span class="tier-info-interval">1min</span>
+                                        </div>
+                                        <div class="tier-info-item">
+                                            <span class="tier-info-tier">T2</span>
+                                            <span class="tier-info-desc">Non-ASPM77 + CAN/LAT/CAR</span>
+                                            <span class="tier-info-interval">5min</span>
+                                        </div>
+                                        <div class="tier-info-item">
+                                            <span class="tier-info-tier">T3</span>
+                                            <span class="tier-info-desc">Other Airports</span>
+                                            <span class="tier-info-interval">30min</span>
+                                        </div>
+                                        <div class="tier-info-item">
+                                            <span class="tier-info-tier">T4</span>
+                                            <span class="tier-info-desc">Clear Wx Non-Priority</span>
+                                            <span class="tier-info-interval">60min</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
+        <!-- Bottom Info Row -->
+        <div class="row">
+            <div class="col-lg-4">
                 <!-- Stored Procedures Summary -->
                 <div class="status-section">
                     <div class="status-section-header">
@@ -2369,6 +2633,28 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
     <?php include('load/footer.php'); ?>
 
     <script>
+        // Toggle main section visibility
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId + '-content');
+            const toggle = document.getElementById(sectionId + '-toggle');
+            if (content && toggle) {
+                content.classList.toggle('collapsed');
+                toggle.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
+            }
+        }
+
+        // Toggle tier subsection visibility
+        function toggleTierSection(sectionId) {
+            const content = document.getElementById(sectionId + '-content');
+            const toggle = document.getElementById(sectionId + '-toggle');
+            const header = content?.previousElementSibling;
+            if (content && toggle) {
+                content.classList.toggle('collapsed');
+                toggle.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
+                if (header) header.classList.toggle('collapsed');
+            }
+        }
+
         // Auto-refresh every 60 seconds
         setTimeout(function() {
             location.reload();
