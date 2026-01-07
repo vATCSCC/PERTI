@@ -167,6 +167,28 @@ if ($stmt) {
     sqlsrv_free_stmt($stmt);
 }
 
+// Check how many have route_geometry (the STAsText() call)
+$sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c
+        LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        WHERE c.is_active = 1 AND fp.route_geometry IS NOT NULL";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['with_geometry'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
+// Check how many have waypoints
+$sql = "SELECT COUNT(DISTINCT c.flight_uid) AS cnt FROM dbo.adl_flight_core c
+        INNER JOIN dbo.adl_flight_waypoints w ON w.flight_uid = c.flight_uid
+        WHERE c.is_active = 1";
+$stmt = sqlsrv_query($conn_adl, $sql);
+if ($stmt) {
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $result['counts']['with_waypoints'] = $row['cnt'];
+    sqlsrv_free_stmt($stmt);
+}
+
 // Check ATIS data (last hour)
 $sql = "SELECT COUNT(*) AS cnt FROM dbo.vatsim_atis WHERE fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())";
 $stmt = @sqlsrv_query($conn_adl, $sql);
