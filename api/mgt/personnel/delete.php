@@ -43,8 +43,8 @@ if ($perm == true) {
 
 $id = strip_tags($_REQUEST['id']);
 
-// Hardcoded protected CID - always allowed, cannot be deleted
-$protected_cid = '1234727';
+// Protected CID from config - always allowed, cannot be deleted
+$protected_cid = defined('PROTECTED_CID') ? PROTECTED_CID : '';
 
 // Check if the user being deleted has the protected CID
 $check_protected = $conn_sqli->query("SELECT cid FROM users WHERE id=$id");
