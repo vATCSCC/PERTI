@@ -133,6 +133,11 @@ $filepath = "";
                         SUA
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?= $filepath; ?>./airspace-elements">
+                        Crossings
+                    </a>
+                </li>
             <?php } ?>
         </ul>
     </div>

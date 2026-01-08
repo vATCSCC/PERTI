@@ -360,14 +360,22 @@
             map.setPaintProperty(layerId, 'circle-stroke-color', fixes.strokeColor || '#000000');
         });
         
-        // Fix labels (route-fixes-labels and route-fix-labels layer)
-        ['route-fixes-labels', 'route-fix-labels'].forEach(layerId => {
-            if (!map.getLayer(layerId)) return;
-            
+        // Fix labels (route-fixes-labels layer - route-fix-labels was removed as it doesn't exist)
+        const labelLayerIds = ['route-fixes-labels'];
+        const labelsVisible = fixes.visible && (fixes.labelsVisible !== false);
+        console.log('[DEBUG-LABELS] Symbology applying to label layers:', labelLayerIds);
+        console.log('[DEBUG-LABELS] fixes.visible:', fixes.visible, 'fixes.labelsVisible:', fixes.labelsVisible, '-> labelsVisible:', labelsVisible);
+
+        labelLayerIds.forEach(layerId => {
+            if (!map.getLayer(layerId)) {
+                console.warn('[DEBUG-LABELS] Symbology: Layer NOT FOUND:', layerId);
+                return;
+            }
+
             // Visibility
-            const labelsVisible = fixes.visible && (fixes.labelsVisible !== false);
             map.setLayoutProperty(layerId, 'visibility', labelsVisible ? 'visible' : 'none');
-            
+            console.log('[DEBUG-LABELS] Symbology: Set', layerId, 'visibility to:', labelsVisible ? 'visible' : 'none');
+
             // Text size
             const baseSize = fixes.labelSize || 10;
             map.setLayoutProperty(layerId, 'text-size', [
@@ -377,7 +385,7 @@
                 12, baseSize * 1.1,
                 16, baseSize * 1.2
             ]);
-            
+
             // Text color
             if (global.color) {
                 map.setPaintProperty(layerId, 'text-color', global.color);
@@ -386,7 +394,7 @@
             } else {
                 map.setPaintProperty(layerId, 'text-color', ['get', 'color']);
             }
-            
+
             // Halo
             map.setPaintProperty(layerId, 'text-halo-width', fixes.labelHaloWidth ?? 3);
             map.setPaintProperty(layerId, 'text-halo-color', fixes.labelHaloColor || '#000000');
@@ -520,11 +528,13 @@
         // Fix symbology controls
         $panel.on('change', '#symb-fixes-visible', function() {
             const visible = $(this).prop('checked');
+            console.log('[DEBUG-LABELS] Symbology checkbox #symb-fixes-visible changed to:', visible);
             setTypeDefaults('fixes', { visible });
         });
 
         $panel.on('change', '#symb-fixes-labels-visible', function() {
             const labelsVisible = $(this).prop('checked');
+            console.log('[DEBUG-LABELS] Symbology checkbox #symb-fixes-labels-visible changed to:', labelsVisible);
             setTypeDefaults('fixes', { labelsVisible });
         });
 
