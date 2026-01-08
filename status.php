@@ -3733,9 +3733,22 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                                 maxRotation: 45,
                                                 minRotation: 45,
                                                 autoSkip: true,
-                                                maxTicksLimit: 32,
-                                                callback: function(value, index) {
-                                                    return this.getLabelForValue(value);  // Keep dd/hhmmZ format
+                                                autoSkipPadding: 10,
+                                                maxTicksLimit: 24,
+                                                includeBounds: true,
+                                                callback: function(value, index, ticks) {
+                                                    const labels = this.chart.data.labels;
+                                                    const label = labels[value];
+                                                    // Always show first and last labels
+                                                    if (value === 0 || value === labels.length - 1) {
+                                                        return label;
+                                                    }
+                                                    // Show hour marks (ends with 00Z)
+                                                    if (label && label.endsWith('00Z')) {
+                                                        return label;
+                                                    }
+                                                    // Let autoSkip handle the rest
+                                                    return label;
                                                 },
                                                 color: function(context) {
                                                     // Use tick.value to get actual data index, not display index

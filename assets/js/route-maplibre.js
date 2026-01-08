@@ -1814,11 +1814,19 @@ $(document).ready(function() {
     }
 
     function toggleLayer(layerKey, visible) {
+        console.log('[DEBUG-LABELS] toggleLayer() called - key:', layerKey, 'visible:', visible);
         const cfg = layerConfig[layerKey];
-        if (!cfg) return;
+        if (!cfg) {
+            console.warn('[DEBUG-LABELS] No config found for layerKey:', layerKey);
+            return;
+        }
+        console.log('[DEBUG-LABELS] Layer IDs to toggle:', cfg.layerIds);
         cfg.layerIds.forEach(layerId => {
             if (graphic_map.getLayer(layerId)) {
                 graphic_map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                console.log('[DEBUG-LABELS] Set', layerId, 'visibility to:', visible ? 'visible' : 'none');
+            } else {
+                console.warn('[DEBUG-LABELS] Layer NOT FOUND:', layerId);
             }
         });
         
@@ -2837,11 +2845,16 @@ $(document).ready(function() {
     }
     
     function updateRouteLabelDisplay() {
-        if (!graphic_map) return;
-        
+        console.log('[DEBUG-LABELS] updateRouteLabelDisplay() called');
+        if (!graphic_map) {
+            console.warn('[DEBUG-LABELS] graphic_map is null, aborting');
+            return;
+        }
+        console.log('[DEBUG-LABELS] routeLabelsVisible:', Array.from(routeLabelsVisible));
+
         // Build features for visible route fixes with deduplication
         const uniqueFixes = new Map();
-        
+
         routeLabelsVisible.forEach(routeId => {
             const fixes = routeFixesByRouteId[routeId];
             if (!fixes) return;
@@ -2936,37 +2949,46 @@ $(document).ready(function() {
             }
         });
         
+        console.log('[DEBUG-LABELS] Feature counts - points:', pointFeatures.length, 'labels:', labelFeatures.length, 'leaders:', leaderFeatures.length);
+
         // Update point source (circles - always at original positions)
         if (graphic_map.getSource('route-fix-points')) {
-            graphic_map.getSource('route-fix-points').setData({ 
-                type: 'FeatureCollection', 
-                features: pointFeatures 
+            graphic_map.getSource('route-fix-points').setData({
+                type: 'FeatureCollection',
+                features: pointFeatures
             });
+            console.log('[DEBUG-LABELS] Updated route-fix-points source');
+        } else {
+            console.warn('[DEBUG-LABELS] Source route-fix-points NOT FOUND');
         }
-        
+
         // Update label source (text - can be moved)
         if (graphic_map.getSource('route-fix-labels')) {
-            graphic_map.getSource('route-fix-labels').setData({ 
-                type: 'FeatureCollection', 
-                features: labelFeatures 
+            graphic_map.getSource('route-fix-labels').setData({
+                type: 'FeatureCollection',
+                features: labelFeatures
             });
+            console.log('[DEBUG-LABELS] Updated route-fix-labels source');
+        } else {
+            console.warn('[DEBUG-LABELS] Source route-fix-labels NOT FOUND');
         }
-        
+
         // Update leader lines source
         if (graphic_map.getSource('route-fix-leaders')) {
-            graphic_map.getSource('route-fix-leaders').setData({ 
-                type: 'FeatureCollection', 
-                features: leaderFeatures 
+            graphic_map.getSource('route-fix-leaders').setData({
+                type: 'FeatureCollection',
+                features: leaderFeatures
             });
         }
-        
+
         // Legacy compatibility
         if (graphic_map.getSource('route-fixes')) {
-            graphic_map.getSource('route-fixes').setData({ 
-                type: 'FeatureCollection', 
-                features: pointFeatures 
+            graphic_map.getSource('route-fixes').setData({
+                type: 'FeatureCollection',
+                features: pointFeatures
             });
         }
+        console.log('[DEBUG-LABELS] updateRouteLabelDisplay() complete');
     }
     
     // Reset all label positions to original
@@ -2978,9 +3000,14 @@ $(document).ready(function() {
     
     // Toggle ALL route labels on/off (for Toggle Labels button)
     function toggleAllLabels() {
+        console.log('[DEBUG-LABELS] toggleAllLabels() called');
+        console.log('[DEBUG-LABELS] routeLabelsVisible size BEFORE:', routeLabelsVisible.size);
+        console.log('[DEBUG-LABELS] routeFixesByRouteId keys:', Object.keys(routeFixesByRouteId));
+
         try {
             const anyVisible = routeLabelsVisible.size > 0;
-            
+            console.log('[DEBUG-LABELS] anyVisible:', anyVisible, '-> will', anyVisible ? 'HIDE' : 'SHOW', 'labels');
+
             if (anyVisible) {
                 // Hide all labels
                 routeLabelsVisible.clear();
@@ -2992,7 +3019,8 @@ $(document).ready(function() {
                 });
                 console.log('[MAPLIBRE] All labels shown');
             }
-            
+
+            console.log('[DEBUG-LABELS] routeLabelsVisible size AFTER:', routeLabelsVisible.size);
             updateRouteLabelDisplay();
         } catch (e) {
             console.error('[MAPLIBRE] toggleAllLabels error:', e);

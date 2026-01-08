@@ -1,10 +1,10 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.6 - Waypoint ETA Integration
--- 
--- Changes from V8.5:
---   - Added Step 8c: Waypoint ETA Calculation
---   - Calculates ETA at each waypoint for sector entry prediction
---   - Returns waypoint_etas count in stats
+-- sp_Adl_RefreshFromVatsim_Normalized V8.7 - Planned Crossings Integration
+--
+-- Changes from V8.6:
+--   - Added Step 11: Planned Crossings Calculation
+--   - Detects regional flights and calculates boundary crossings
+--   - Returns crossings_calculated count in stats
 --
 -- Full Step List:
 --   1    - Parse JSON into temp table
@@ -20,9 +20,10 @@
 --   7    - Mark inactive flights
 --   8    - Process Trajectory & ETA Calculations
 --   8b   - Update arrival buckets
---   8c   - Waypoint ETA Calculation (V8.6) <-- NEW
+--   8c   - Waypoint ETA Calculation (V8.6)
 --   9    - Zone Detection for OOOI
 --   10   - Boundary Detection for ARTCC/Sector/TRACON
+--   11   - Planned Crossings Calculation (V8.7) <-- NEW
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -30,11 +31,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-IF OBJECT_ID('dbo.sp_Adl_RefreshFromVatsim_Normalized', 'P') IS NOT NULL
-    DROP PROCEDURE dbo.sp_Adl_RefreshFromVatsim_Normalized;
-GO
-
-CREATE PROCEDURE dbo.sp_Adl_RefreshFromVatsim_Normalized
+CREATE OR ALTER PROCEDURE dbo.sp_Adl_RefreshFromVatsim_Normalized
     @Json NVARCHAR(MAX)
 AS
 BEGIN
@@ -62,6 +59,8 @@ BEGIN
     -- Boundary detection counters (V8.3)
     DECLARE @boundary_transitions INT = 0;
     DECLARE @boundary_flights INT = 0;
+    -- Planned crossings counter (V8.7)
+    DECLARE @crossings_calculated INT = 0;
     
     -- ========================================================================
     -- Step 1: Parse JSON into temp table
@@ -601,20 +600,44 @@ BEGIN
     -- ========================================================================
     -- Step 10: Boundary Detection for ARTCC/Sector/TRACON
     -- ========================================================================
-    
+
     IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
     END
 
     -- ========================================================================
-    -- Step 11: Log Trajectory Positions (Archive System)
+    -- Step 11: Planned Crossings Calculation (V8.7)
+    -- Detects regional flights and calculates boundary crossings for TMI analysis
+    -- ========================================================================
+
+    IF OBJECT_ID('dbo.sp_DetectRegionalFlight', 'P') IS NOT NULL
+    BEGIN
+        -- Detect region flags for flights that don't have them yet
+        EXEC dbo.sp_DetectRegionalFlight @batch_mode = 1;
+    END
+
+    IF OBJECT_ID('dbo.sp_CalculatePlannedCrossingsBatch', 'P') IS NOT NULL
+    BEGIN
+        DECLARE @crossing_result TABLE (
+            processed_at DATETIME2, cycle INT, minute INT,
+            tier1_new_recalc INT, tier2_tracon INT, tier3_artcc INT,
+            tier4_level INT, tier5_intl INT, tier6_transit INT, tier7_outside INT,
+            total_flights INT, crossings_calculated INT, elapsed_ms INT
+        );
+        INSERT INTO @crossing_result
+        EXEC dbo.sp_CalculatePlannedCrossingsBatch @max_flights_per_batch = 200, @debug = 1;
+        SELECT @crossings_calculated = crossings_calculated FROM @crossing_result;
+    END
+
+    -- ========================================================================
+    -- Step 12: Log Trajectory Positions (Archive System)
     -- ========================================================================
 
     EXEC dbo.sp_Log_Trajectory;
 
     -- ========================================================================
-    -- Step 12: Capture Phase Snapshot (for 24hr chart)
+    -- Step 13: Capture Phase Snapshot (for 24hr chart)
     -- ========================================================================
 
     IF OBJECT_ID('dbo.sp_CapturePhaseSnapshot', 'P') IS NOT NULL
@@ -631,7 +654,7 @@ BEGIN
     
     DECLARE @elapsed_ms INT = DATEDIFF(MILLISECOND, @start_time, SYSUTCDATETIME());
     
-    SELECT 
+    SELECT
         @pilot_count AS pilots_received,
         @new_flights AS new_flights,
         @updated_flights AS updated_flights,
@@ -643,12 +666,13 @@ BEGIN
         @traj_count AS trajectories_logged,
         @zone_transitions AS zone_transitions,
         @boundary_transitions AS boundary_transitions,
+        @crossings_calculated AS crossings_calculated,
         @elapsed_ms AS elapsed_ms;
     
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.6 created successfully';
-PRINT 'Added: Step 8c - Waypoint ETA Calculation';
-PRINT 'Returns: waypoint_etas count in stats';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.7 created successfully';
+PRINT 'Added: Step 11 - Planned Crossings Calculation';
+PRINT 'Returns: crossings_calculated count in stats';
 GO
