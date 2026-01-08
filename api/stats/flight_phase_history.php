@@ -97,7 +97,8 @@ if ($stmt === false) {
     exit;
 }
 
-$labels = [];
+$labels = [];        // ISO timestamps for time axis
+$displayLabels = []; // Human-readable labels (dd/HHmmZ)
 $datasets = [
     'arrived' => [],
     'descending' => [],
@@ -108,28 +109,19 @@ $datasets = [
     'unknown' => []
 ];
 
-$emphasizeIndices = [];  // Indices for 00Z and 12Z labels
-
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $bucket = $row['bucket'];
     if ($bucket instanceof DateTime) {
-        $day = $bucket->format('d');
-        $hour = $bucket->format('H');
-        $minute = $bucket->format('i');
-        $labels[] = $day . '/' . $hour . $minute . 'Z';
-        // Track 00Z and 12Z for emphasis
-        if (($hour === '00' || $hour === '12') && $minute === '00') {
-            $emphasizeIndices[] = count($labels) - 1;
-        }
+        // ISO 8601 format for Chart.js time axis
+        $labels[] = $bucket->format('Y-m-d\TH:i:s\Z');
+        $displayLabels[] = $bucket->format('d/Hi') . 'Z';
     } else {
         // Parse from string: YYYY-MM-DD HH:MM:SS
+        $labels[] = str_replace(' ', 'T', $bucket) . 'Z';
         $day = substr($bucket, 8, 2);
         $hour = substr($bucket, 11, 2);
         $minute = substr($bucket, 14, 2);
-        $labels[] = $day . '/' . $hour . $minute . 'Z';
-        if (($hour === '00' || $hour === '12') && $minute === '00') {
-            $emphasizeIndices[] = count($labels) - 1;
-        }
+        $displayLabels[] = $day . '/' . $hour . $minute . 'Z';
     }
 
     // Stack order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
@@ -199,7 +191,7 @@ $summary = [
 echo json_encode([
     "success" => true,
     "timestamp_utc" => gmdate('Y-m-d\TH:i:s\Z'),
-    "current_time_label" => $currentTimeLabel,
+    "current_time_iso" => gmdate('Y-m-d\TH:i:s\Z'),
     "parameters" => [
         "hours" => $hours,
         "interval_minutes" => $interval
@@ -209,9 +201,9 @@ echo json_encode([
         "bucket_count" => count($labels)
     ],
     "data" => [
-        "labels" => $labels,
-        "datasets" => $datasets,
-        "emphasize_indices" => $emphasizeIndices
+        "labels" => $labels,              // ISO timestamps for time axis
+        "display_labels" => $displayLabels, // Human-readable dd/HHmmZ
+        "datasets" => $datasets
     ],
     "summary" => $summary
 ], JSON_PRETTY_PRINT);

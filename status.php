@@ -3571,31 +3571,21 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     .then(result => {
                         if (result.success && result.data) {
                             const data = result.data;
-                            const currentTimeLabel = result.current_time_label;
-                            const emphasizeIndices = data.emphasize_indices || [];
+                            const currentTimeIso = result.current_time_iso;
+                            const displayLabels = data.display_labels || [];
 
-                            // Find index of current time in labels (or closest match)
-                            let currentTimeIndex = data.labels.length - 1; // Default to last
-                            for (let i = 0; i < data.labels.length; i++) {
-                                if (data.labels[i] === currentTimeLabel) {
-                                    currentTimeIndex = i;
-                                    break;
-                                }
-                                // Find closest match if exact not found
-                                if (data.labels[i] > currentTimeLabel && i > 0) {
-                                    currentTimeIndex = i - 1;
-                                    break;
-                                }
-                            }
+                            // Convert data to {x, y} format for time axis
+                            const makeTimeData = (values) => {
+                                return data.labels.map((ts, i) => ({ x: ts, y: values[i] }));
+                            };
 
                             window.phaseChartInstance = new Chart(phaseCtx, {
                                 type: 'line',
                                 data: {
-                                    labels: data.labels,
                                     datasets: [
                                         {
                                             label: 'Arrived',
-                                            data: data.datasets.arrived,
+                                            data: makeTimeData(data.datasets.arrived),
                                             borderColor: '#1a1a1a',
                                             backgroundColor: 'rgba(26, 26, 26, 0.8)',
                                             fill: true,
@@ -3604,7 +3594,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Descending',
-                                            data: data.datasets.descending,
+                                            data: makeTimeData(data.datasets.descending),
                                             borderColor: '#991b1b',
                                             backgroundColor: 'rgba(153, 27, 27, 0.8)',
                                             fill: true,
@@ -3613,7 +3603,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'En Route',
-                                            data: data.datasets.enroute,
+                                            data: makeTimeData(data.datasets.enroute),
                                             borderColor: '#dc2626',
                                             backgroundColor: 'rgba(220, 38, 38, 0.8)',
                                             fill: true,
@@ -3622,7 +3612,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Departed',
-                                            data: data.datasets.departed,
+                                            data: makeTimeData(data.datasets.departed),
                                             borderColor: '#f87171',
                                             backgroundColor: 'rgba(248, 113, 113, 0.8)',
                                             fill: true,
@@ -3631,7 +3621,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Taxiing',
-                                            data: data.datasets.taxiing,
+                                            data: makeTimeData(data.datasets.taxiing),
                                             borderColor: '#22c55e',
                                             backgroundColor: 'rgba(34, 197, 94, 0.8)',
                                             fill: true,
@@ -3640,7 +3630,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Unknown',
-                                            data: data.datasets.unknown || [],
+                                            data: makeTimeData(data.datasets.unknown || []),
                                             borderColor: '#eab308',
                                             backgroundColor: 'rgba(234, 179, 8, 0.8)',
                                             fill: true,
@@ -3649,7 +3639,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Prefile (shadow)',
-                                            data: data.datasets.prefile,
+                                            data: makeTimeData(data.datasets.prefile),
                                             borderColor: '#000000',
                                             backgroundColor: 'transparent',
                                             fill: false,
@@ -3663,7 +3653,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Prefile',
-                                            data: data.datasets.prefile,
+                                            data: makeTimeData(data.datasets.prefile),
                                             borderColor: '#06b6d4',
                                             backgroundColor: 'transparent',
                                             fill: false,
@@ -3697,14 +3687,26 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             intersect: false,
                                             filter: function(item) {
                                                 return !item.dataset.label.includes('shadow');
+                                            },
+                                            callbacks: {
+                                                title: function(items) {
+                                                    if (items.length > 0) {
+                                                        const d = new Date(items[0].parsed.x);
+                                                        const day = String(d.getUTCDate()).padStart(2, '0');
+                                                        const hr = String(d.getUTCHours()).padStart(2, '0');
+                                                        const mn = String(d.getUTCMinutes()).padStart(2, '0');
+                                                        return day + '/' + hr + mn + 'Z';
+                                                    }
+                                                    return '';
+                                                }
                                             }
                                         },
                                         annotation: {
                                             annotations: {
                                                 currentTimeLine: {
                                                     type: 'line',
-                                                    xMin: currentTimeIndex,
-                                                    xMax: currentTimeIndex,
+                                                    xMin: currentTimeIso,
+                                                    xMax: currentTimeIso,
                                                     borderColor: '#000000',
                                                     borderWidth: 2,
                                                     borderDash: [5, 5],
@@ -3722,49 +3724,49 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     },
                                     scales: {
                                         x: {
+                                            type: 'time',
                                             display: true,
                                             title: {
                                                 display: true,
                                                 text: 'Time (UTC)',
                                                 font: { size: 12, weight: 'bold' }
                                             },
+                                            time: {
+                                                unit: 'hour',
+                                                displayFormats: {
+                                                    hour: 'dd/HH\'Z\'',
+                                                    minute: 'dd/HHmm\'Z\''
+                                                },
+                                                tooltipFormat: 'dd/HHmm\'Z\''
+                                            },
                                             grid: { display: false },
                                             ticks: {
                                                 maxRotation: 45,
                                                 minRotation: 45,
                                                 autoSkip: true,
-                                                autoSkipPadding: 10,
-                                                maxTicksLimit: 24,
-                                                includeBounds: true,
+                                                maxTicksLimit: 25,
+                                                font: { size: 10 },
                                                 callback: function(value, index, ticks) {
-                                                    const labels = this.chart.data.labels;
-                                                    const label = labels[value];
-                                                    // Always show first and last labels
-                                                    if (value === 0 || value === labels.length - 1) {
-                                                        return label;
-                                                    }
-                                                    // Show hour marks (ends with 00Z)
-                                                    if (label && label.endsWith('00Z')) {
-                                                        return label;
-                                                    }
-                                                    // Let autoSkip handle the rest
-                                                    return label;
+                                                    const d = new Date(value);
+                                                    const day = String(d.getUTCDate()).padStart(2, '0');
+                                                    const hr = String(d.getUTCHours()).padStart(2, '0');
+                                                    const mn = String(d.getUTCMinutes()).padStart(2, '0');
+                                                    return day + '/' + hr + mn + 'Z';
                                                 },
                                                 color: function(context) {
-                                                    // Use tick.value to get actual data index, not display index
-                                                    const dataIndex = context.tick?.value ?? context.index;
-                                                    const label = context.chart.data.labels[dataIndex] || '';
-                                                    // Emphasize hour marks (ends with 00Z like 07/1200Z, 07/1300Z)
-                                                    if (label.endsWith('00Z')) return '#000000';
-                                                    return '#999999';
+                                                    const d = new Date(context.tick.value);
+                                                    // Bold for 00Z and 12Z
+                                                    if (d.getUTCMinutes() === 0 && (d.getUTCHours() === 0 || d.getUTCHours() === 12)) {
+                                                        return '#000000';
+                                                    }
+                                                    return '#666666';
                                                 },
                                                 font: function(context) {
-                                                    // Use tick.value to get actual data index, not display index
-                                                    const dataIndex = context.tick?.value ?? context.index;
-                                                    const label = context.chart.data.labels[dataIndex] || '';
-                                                    // Emphasize hour marks (ends with 00Z like 07/1200Z, 07/1300Z)
-                                                    if (label.endsWith('00Z')) return { size: 11, weight: 'bold' };
-                                                    return { size: 9 };
+                                                    const d = new Date(context.tick.value);
+                                                    if (d.getUTCMinutes() === 0 && (d.getUTCHours() === 0 || d.getUTCHours() === 12)) {
+                                                        return { size: 11, weight: 'bold' };
+                                                    }
+                                                    return { size: 10 };
                                                 }
                                             }
                                         },
