@@ -1757,29 +1757,28 @@
                 if (flight.gs_affected || flight.ground_stop_affected) return '#dc3545';  // Red - Ground stopped
                 if (flight.gdp_affected || flight.edct_issued) return '#ffc107';  // Yellow - EDCT
 
-                // Get flight status - supports both single-char codes and full words
-                // ADL normalized uses: PROPOSED, DEPARTING, ACTIVE, ARRIVING, COMPLETED
-                const flightStatus = (flight.flight_status || flight.status || '').toUpperCase();
+                // Get flight phase - ADL uses: prefile, taxiing, departed, enroute, descending, arrived
+                const phase = (flight.phase || flight.status || '').toLowerCase();
 
-                // Airborne/Active/Enroute - single char 'A' or full words
-                if (flightStatus === 'A' || flightStatus === 'AIRBORNE' || flightStatus === 'ACTIVE' || flightStatus === 'ENROUTE') {
-                    return '#28a745';  // Green - Airborne/Enroute
+                // Airborne/Enroute
+                if (phase === 'enroute') {
+                    return '#28a745';  // Green - Enroute
                 }
                 // Departing/Taxiing - on ground at origin
-                if (flightStatus === 'D' || flightStatus === 'DEPARTED' || flightStatus === 'DEPARTING' || flightStatus === 'TAXIING' || flightStatus === 'TAXIED') {
+                if (phase === 'departed' || phase === 'taxiing') {
                     return '#17a2b8';  // Cyan - Departing/Taxiing
                 }
-                // Arriving - approaching destination (ADL: pct_complete >= 90)
-                if (flightStatus === 'ARRIVING' || flightStatus === 'DESCENDING') {
-                    return '#f28e2b';  // Orange - Arriving
+                // Descending - approaching destination
+                if (phase === 'descending') {
+                    return '#f28e2b';  // Orange - Descending
                 }
-                // Landed/Arrived/Completed - on ground at destination or disconnected
-                if (flightStatus === 'L' || flightStatus === 'LANDED' || flightStatus === 'ARRIVED' || flightStatus === 'COMPLETED') {
-                    return '#6c757d';  // Gray - Arrived/Completed
+                // Arrived - on ground at destination or disconnected
+                if (phase === 'arrived') {
+                    return '#6c757d';  // Gray - Arrived
                 }
                 // Proposed/Prefile - no position yet
-                if (flightStatus === 'PROPOSED' || flightStatus === 'PREFILE' || flightStatus === '' || !flightStatus) {
-                    return '#b07aa1';  // Purple - Proposed/Prefile
+                if (phase === 'prefile' || phase === 'unknown' || phase === '' || !phase) {
+                    return '#b07aa1';  // Purple - Prefile
                 }
                 return '#ffffff';
                 

@@ -165,6 +165,7 @@ if ($direction === 'arr' || $direction === 'both') {
             "total" => (int)$row['total'],
             "breakdown" => [
                 "arrived" => (int)$row['arrived'],
+                "disconnected" => (int)$row['disconnected'],
                 "descending" => (int)$row['descending'],
                 "enroute" => (int)$row['enroute'],
                 "departed" => (int)$row['departed'],
@@ -211,6 +212,7 @@ if ($direction === 'dep' || $direction === 'both') {
             "total" => (int)$row['total'],
             "breakdown" => [
                 "arrived" => (int)$row['arrived'],
+                "disconnected" => (int)$row['disconnected'],
                 "descending" => (int)$row['descending'],
                 "enroute" => (int)$row['enroute'],
                 "departed" => (int)$row['departed'],
