@@ -3823,7 +3823,21 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         axis: 'x',
                                         intersect: false
                                     }
-                                }
+                                },
+                                plugins: [{
+                                    id: 'syncY2Axis',
+                                    afterLayout: function(chart) {
+                                        // Sync y2 axis to use same scale as y axis
+                                        const y = chart.scales.y;
+                                        const y2 = chart.scales.y2;
+                                        if (y && y2 && (y2.max !== y.max || y2.min !== y.min)) {
+                                            y2.max = y.max;
+                                            y2.min = y.min;
+                                            y2.buildTicks();
+                                            y2.configure();
+                                        }
+                                    }
+                                }]
                             });
 
                             // Populate summary statistics table
