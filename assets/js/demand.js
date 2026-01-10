@@ -23,7 +23,9 @@ let DEMAND_STATE = {
     currentEnd: null,
     chartView: 'status', // 'status' or 'origin'
     originBreakdown: null, // Store origin ARTCC breakdown data
-    lastDemandData: null // Store last demand response for view switching
+    lastDemandData: null, // Store last demand response for view switching
+    rateData: null, // Store rate suggestion data from API
+    showRateLines: true // Toggle for rate line visibility
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -422,36 +424,89 @@ function loadDemandData() {
     DEMAND_STATE.currentStart = start.toISOString();
     DEMAND_STATE.currentEnd = end.toISOString();
 
-    $.getJSON(`api/demand/airport.php?${params.toString()}`)
-        .done(function(response) {
-            if (response.success) {
+    // Fetch demand data and rate suggestions in parallel
+    const demandPromise = $.getJSON(`api/demand/airport.php?${params.toString()}`);
+    const ratesPromise = $.getJSON(`api/demand/rates.php?airport=${encodeURIComponent(airport)}`);
+
+    Promise.all([demandPromise, ratesPromise])
+        .then(function([demandResponse, ratesResponse]) {
+            if (demandResponse.success) {
                 DEMAND_STATE.lastUpdate = new Date();
-                DEMAND_STATE.lastDemandData = response; // Store for view switching
+                DEMAND_STATE.lastDemandData = demandResponse; // Store for view switching
+
+                // Store rate data
+                if (ratesResponse && ratesResponse.success) {
+                    DEMAND_STATE.rateData = ratesResponse;
+                    updateRateInfoDisplay(ratesResponse);
+                } else {
+                    DEMAND_STATE.rateData = null;
+                }
 
                 // Render based on current view mode
                 if (DEMAND_STATE.chartView === 'origin') {
                     // Load origin data first, then render
                     loadFlightSummary(true);
                 } else {
-                    renderChart(response);
+                    renderChart(demandResponse);
                 }
 
-                updateInfoBarStats(response);
-                updateLastUpdateDisplay(response.last_adl_update);
+                updateInfoBarStats(demandResponse);
+                updateLastUpdateDisplay(demandResponse.last_adl_update);
 
                 // Load flight summary data (for tables)
                 if (DEMAND_STATE.chartView !== 'origin') {
                     loadFlightSummary(false);
                 }
             } else {
-                console.error('API error:', response.error);
-                showError('Failed to load demand data: ' + response.error);
+                console.error('API error:', demandResponse.error);
+                showError('Failed to load demand data: ' + demandResponse.error);
             }
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Request failed:', err);
             showError('Error connecting to server');
         });
+}
+
+/**
+ * Update rate info display in the info bar
+ */
+function updateRateInfoDisplay(rateData) {
+    if (!rateData) {
+        $('#rate_config_name').text('--');
+        $('#rate_weather_category').text('--').removeClass().addClass('badge');
+        $('#rate_display').text('--/--');
+        $('#rate_match_score').text('');
+        return;
+    }
+
+    // Config name
+    $('#rate_config_name').text(rateData.config_name || '--');
+
+    // Weather category with color
+    const weatherCat = rateData.weather_category || 'VMC';
+    const $weatherBadge = $('#rate_weather_category');
+    $weatherBadge.text(weatherCat);
+
+    // Apply weather color from config if available
+    if (typeof RATE_LINE_CONFIG !== 'undefined' && RATE_LINE_CONFIG.weatherColors) {
+        $weatherBadge.css('background-color', RATE_LINE_CONFIG.weatherColors[weatherCat] || '#6b7280');
+        $weatherBadge.css('color', '#fff');
+    }
+
+    // Rates display (AAR/ADR)
+    const aar = rateData.rates?.vatsim_aar;
+    const adr = rateData.rates?.vatsim_adr;
+    const rateStr = (aar || '--') + '/' + (adr || '--');
+    $('#rate_display').text(rateStr);
+
+    // Match confidence
+    if (rateData.match_score) {
+        const scoreText = rateData.is_suggested ? '(suggested)' : `(${rateData.match_score}% match)`;
+        $('#rate_match_score').text(scoreText);
+    } else {
+        $('#rate_match_score').text('');
+    }
 }
 
 /**
@@ -500,7 +555,7 @@ function renderChart(data) {
         phaseOrder.forEach(phase => {
             const suffix = direction === 'both' ? ' (Arr)' : '';
             series.push(
-                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals')
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction)
             );
         });
     }
@@ -514,15 +569,35 @@ function renderChart(data) {
         phaseOrder.forEach(phase => {
             const suffix = direction === 'both' ? ' (Dep)' : '';
             series.push(
-                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures')
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction)
             );
         });
     }
 
-    // Add current time marker to first series
+    // Add current time marker and rate lines to first series
     const timeMarkLine = getCurrentTimeMarkLineForTimeAxis();
-    if (series.length > 0 && timeMarkLine) {
-        series[0].markLine = timeMarkLine;
+    const rateMarkLines = buildRateMarkLinesForChart();
+
+    if (series.length > 0) {
+        const markLineData = [];
+
+        // Add time marker
+        if (timeMarkLine && timeMarkLine.data) {
+            markLineData.push(...timeMarkLine.data);
+        }
+
+        // Add rate lines
+        if (rateMarkLines && rateMarkLines.length > 0) {
+            markLineData.push(...rateMarkLines);
+        }
+
+        if (markLineData.length > 0) {
+            series[0].markLine = {
+                silent: true,
+                symbol: ['none', 'none'],
+                data: markLineData
+            };
+        }
     }
 
     // Calculate interval for x-axis bounds
@@ -730,14 +805,17 @@ function renderOriginChart() {
 
     // Calculate interval in milliseconds
     const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const halfInterval = intervalMs / 2;
 
     // Build series for each ARTCC with TRUE TIME AXIS data format
+    // Shift by half interval so bars are centered on the time period
     const series = artccList.map(artcc => {
         const seriesData = timeBins.map(bin => {
             const binData = originBreakdown[normalizeTimeBin(bin)] || originBreakdown[bin] || [];
             const artccEntry = Array.isArray(binData) ? binData.find(item => item.artcc === artcc) : null;
             const value = artccEntry ? artccEntry.count : 0;
-            return [new Date(bin).getTime(), value];
+            // Center the bar on the time period (start + half interval)
+            return [new Date(bin).getTime() + halfInterval, value];
         });
 
         return {
@@ -1015,26 +1093,45 @@ function buildStatusSeries(name, timeBins, dataByBin, status, type) {
  * FSM/TBFM style:
  * - Arrivals: solid bars on the left side of each time bin
  * - Departures: hatched/diagonal pattern bars on the right side
+ * - Bars are centered on the time period (shifted by half interval)
+ *
+ * @param {string} name - Series name for legend
+ * @param {Array} timeBins - Array of ISO time bin strings
+ * @param {Object} dataByBin - Lookup map of breakdown data by time bin
+ * @param {string} phase - Phase name (arrived, enroute, etc.)
+ * @param {string} type - 'arrivals' or 'departures'
+ * @param {string} viewDirection - 'both', 'arr', or 'dep' - controls bar width
  */
-function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type) {
+function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type, viewDirection) {
+    // Calculate interval for centering bars on time period
+    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const halfInterval = intervalMs / 2;
+
     // Build data as [timestamp, value] pairs for time axis
+    // Shift by half interval so bar is centered on the time period
     const data = timeBins.map(bin => {
         const breakdown = dataByBin[bin];
         const value = breakdown ? (breakdown[phase] || 0) : 0;
-        return [new Date(bin).getTime(), value];
+        // Center the bar on the time period (start + half interval)
+        return [new Date(bin).getTime() + halfInterval, value];
     });
 
     // Get phase color from individual phase palette
     const color = FSM_PHASE_COLORS[phase] || '#999';
+
+    // Determine bar width based on whether showing both directions or just one
+    // When showing both: narrower bars side-by-side (35%)
+    // When showing single direction: wider bars (70%)
+    const isSingleDirection = viewDirection === 'arr' || viewDirection === 'dep';
+    const barWidth = isSingleDirection ? '70%' : '35%';
 
     // Base series config
     const seriesConfig = {
         name: name,
         type: 'bar',
         stack: type,
-        // FSM style: arrivals and departures side by side within each time bin
-        barWidth: '35%',  // Each stack takes ~35% of the bin width
-        barGap: '10%',    // Small gap between arrival and departure bars
+        barWidth: barWidth,
+        barGap: '10%',    // Small gap between arrival and departure bars (when both shown)
         emphasis: {
             focus: 'series',
             itemStyle: {
@@ -1108,19 +1205,25 @@ function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
 
 /**
  * Format timestamp for tooltip display - FAA AADC style
+ * Note: Timestamps are centered on the bin (shifted by half interval),
+ * so we subtract half to get the actual bin start time.
  */
 function formatTimeLabelFromTimestamp(timestamp) {
-    const d = new Date(timestamp);
+    // Calculate interval and adjust timestamp back to bin start
+    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const halfInterval = intervalMs / 2;
+    const binStart = timestamp - halfInterval;
+
+    const d = new Date(binStart);
     const hours = d.getUTCHours().toString().padStart(2, '0');
     const minutes = d.getUTCMinutes().toString().padStart(2, '0');
 
-    // Calculate end time based on granularity
-    const intervalMinutes = DEMAND_STATE.granularity === '15min' ? 15 : 60;
-    const endTime = new Date(timestamp + intervalMinutes * 60 * 1000);
+    // Calculate end time (bin start + interval)
+    const endTime = new Date(binStart + intervalMs);
     const endHours = endTime.getUTCHours().toString().padStart(2, '0');
     const endMinutes = endTime.getUTCMinutes().toString().padStart(2, '0');
 
-    // AADC style: "1400" or "1400 - 1500"
+    // AADC style: "1400 - 1500"
     return `${hours}${minutes} - ${endHours}${endMinutes}`;
 }
 
@@ -1161,6 +1264,89 @@ function getCurrentTimeMarkLineForTimeAxis() {
             xAxis: now.getTime()
         }]
     };
+}
+
+/**
+ * Build rate mark lines for the demand chart
+ * Uses RATE_LINE_CONFIG from rate-colors.js for styling
+ */
+function buildRateMarkLinesForChart() {
+    // Check if rate lines are enabled and we have rate data
+    if (!DEMAND_STATE.showRateLines || !DEMAND_STATE.rateData) {
+        return [];
+    }
+
+    const rateData = DEMAND_STATE.rateData;
+    const rates = rateData.rates;
+    if (!rates) return [];
+
+    const lines = [];
+    const direction = DEMAND_STATE.direction;
+
+    // Use config if available, otherwise use defaults
+    const cfg = (typeof RATE_LINE_CONFIG !== 'undefined') ? RATE_LINE_CONFIG : {
+        active: {
+            vatsim: { color: '#FFFFFF' },
+            rw: { color: '#00FFFF' }
+        },
+        suggested: {
+            vatsim: { color: '#888888' },
+            rw: { color: '#008080' }
+        },
+        lineStyle: {
+            aar: { type: 'solid', width: 2 },
+            adr: { type: 'dashed', width: 2 }
+        },
+        label: {
+            position: 'end',
+            fontSize: 10,
+            fontWeight: 'bold'
+        }
+    };
+
+    const styleKey = rateData.is_suggested ? 'suggested' : 'active';
+
+    // Helper to create a rate line
+    const addLine = (value, source, rateType, label) => {
+        if (!value) return;
+
+        const sourceStyle = cfg[styleKey][source];
+        const lineTypeStyle = cfg.lineStyle[rateType];
+
+        lines.push({
+            yAxis: value,
+            lineStyle: {
+                color: sourceStyle.color,
+                width: lineTypeStyle.width,
+                type: lineTypeStyle.type
+            },
+            label: {
+                show: true,
+                formatter: `${label} ${value}`,
+                position: cfg.label.position || 'end',
+                color: sourceStyle.color,
+                fontSize: cfg.label.fontSize || 10,
+                fontWeight: cfg.label.fontWeight || 'bold',
+                fontFamily: '"Roboto Mono", monospace',
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                padding: [2, 4],
+                borderRadius: 2
+            }
+        });
+    };
+
+    // Add lines based on direction filter
+    if (direction === 'both' || direction === 'arr') {
+        addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');
+        addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');
+    }
+
+    if (direction === 'both' || direction === 'dep') {
+        addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
+        addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
+    }
+
+    return lines;
 }
 
 /**
@@ -1478,20 +1664,28 @@ function updateTopCarriers(carriers) {
 
 /**
  * Show flight details for a specific time bin (drill-down)
+ * Note: timeBin is centered on the period (shifted by half interval),
+ * so we adjust it back to get the actual bin start time.
  */
 function showFlightDetails(timeBin) {
     const airport = DEMAND_STATE.selectedAirport;
     if (!airport) return;
 
+    // Adjust timestamp back to bin start (subtract half interval)
+    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const halfInterval = intervalMs / 2;
+    const binStartMs = new Date(timeBin).getTime() - halfInterval;
+    const actualTimeBin = new Date(binStartMs).toISOString();
+
     const params = new URLSearchParams({
         airport: airport,
-        time_bin: timeBin,
+        time_bin: actualTimeBin,
         direction: DEMAND_STATE.direction
     });
 
     // Show loading in modal
-    const timeLabel = formatTimeLabel(timeBin);
-    const endTime = new Date(new Date(timeBin).getTime() + 60 * 60 * 1000);
+    const timeLabel = formatTimeLabel(actualTimeBin);
+    const endTime = new Date(binStartMs + intervalMs);
     const endLabel = formatTimeLabel(endTime.toISOString());
 
     Swal.fire({

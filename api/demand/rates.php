@@ -100,13 +100,24 @@ if (!$row) {
         "airport_icao" => $airport,
         "has_atis" => false,
         "atis_code" => null,
+        "atis_age_mins" => null,
         "flight_category" => null,
         "weather_category" => "VMC",
+        "weather_impact_category" => 0,
         "config_matched" => false,
         "config_id" => null,
         "config_name" => null,
+        "match_type" => null,
+        "match_score" => 0,
         "arr_runways" => null,
         "dep_runways" => null,
+        "weather" => [
+            "wind_dir_deg" => null,
+            "wind_speed_kt" => null,
+            "wind_gust_kt" => null,
+            "visibility_sm" => null,
+            "ceiling_ft" => null
+        ],
         "rates" => [
             "vatsim_aar" => null,
             "vatsim_adr" => null,
@@ -114,6 +125,7 @@ if (!$row) {
             "rw_adr" => null
         ],
         "is_suggested" => true,
+        "rate_source" => null,
         "effective_utc" => gmdate('Y-m-d\TH:i:s\Z')
     ]);
     exit;
@@ -125,19 +137,30 @@ if ($effectiveUtc instanceof DateTime) {
     $effectiveUtc = $effectiveUtc->format('Y-m-d\TH:i:s\Z');
 }
 
-// Build response
+// Build response with enhanced fields
 $response = [
     "success" => true,
     "airport_icao" => $row['airport_icao'],
     "has_atis" => (bool)$row['has_atis'],
     "atis_code" => $row['atis_code'],
+    "atis_age_mins" => $row['atis_age_mins'] !== null ? (int)$row['atis_age_mins'] : null,
     "flight_category" => $row['flight_category'],
     "weather_category" => $row['weather_category'] ?? 'VMC',
+    "weather_impact_category" => (int)($row['weather_impact_category'] ?? 0),
     "config_matched" => (bool)$row['config_matched'],
     "config_id" => $row['config_id'],
     "config_name" => $row['config_name'],
+    "match_type" => $row['match_type'],
+    "match_score" => (int)($row['match_score'] ?? 0),
     "arr_runways" => $row['arr_runways'],
     "dep_runways" => $row['dep_runways'],
+    "weather" => [
+        "wind_dir_deg" => $row['wind_dir_deg'] !== null ? (int)$row['wind_dir_deg'] : null,
+        "wind_speed_kt" => $row['wind_speed_kt'] !== null ? (int)$row['wind_speed_kt'] : null,
+        "wind_gust_kt" => $row['wind_gust_kt'] !== null ? (int)$row['wind_gust_kt'] : null,
+        "visibility_sm" => $row['visibility_sm'] !== null ? (float)$row['visibility_sm'] : null,
+        "ceiling_ft" => $row['ceiling_ft'] !== null ? (int)$row['ceiling_ft'] : null
+    ],
     "rates" => [
         "vatsim_aar" => $row['vatsim_aar'] !== null ? (int)$row['vatsim_aar'] : null,
         "vatsim_adr" => $row['vatsim_adr'] !== null ? (int)$row['vatsim_adr'] : null,
@@ -145,6 +168,7 @@ $response = [
         "rw_adr" => $row['rw_adr'] !== null ? (int)$row['rw_adr'] : null
     ],
     "is_suggested" => (bool)$row['is_suggested'],
+    "rate_source" => $row['rate_source'],
     "effective_utc" => $effectiveUtc
 ];
 
