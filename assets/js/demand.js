@@ -26,14 +26,14 @@ let DEMAND_STATE = {
     lastDemandData: null // Store last demand response for view switching
 };
 
-// AADC/FSM/TFMS style status colors - matches FAA AADC exactly
+// Phase-based status colors - matches status.php color scheme
 const FSM_STATUS_COLORS = {
-    'active': '#FF0000',      // Bright Red - Flight Active (airborne)
-    'arrived': '#000000',     // Black - Arrived/Past Dept Time
-    'departed': '#000000',    // Black - Departed
-    'scheduled': '#00FF00',   // Bright Lime Green - Departing/Scheduled
-    'proposed': '#90EE90',    // Light Green - Proposed (slightly lighter)
-    'dep_past_etd': '#8B4513' // Brown - Dep Past ETD (EDCT Issued)
+    'active': '#dc2626',      // Red - Flight Active/Airborne (enroute, departed, descending phases)
+    'arrived': '#1a1a1a',     // Black - Arrived at destination
+    'departed': '#22c55e',    // Green - Taxiing (ground movement)
+    'scheduled': '#06b6d4',   // Cyan - Prefile with is_active=1
+    'proposed': '#67e8f9',    // Light Cyan - Prefile with is_active=0
+    'unknown': '#eab308'      // Yellow - Unknown phase
 };
 
 // ARTCC colors for origin breakdown visualization

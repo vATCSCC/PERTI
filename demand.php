@@ -510,7 +510,7 @@ include("load/connect.php");
                 </div>
             </div>
 
-            <!-- Legend Card - TBFM/FSM Style -->
+            <!-- Legend Card - Phase-based colors matching status.php -->
             <div class="card shadow-sm mt-3">
                 <div class="card-header tbfm-card-header">
                     <span class="demand-section-title">
@@ -519,25 +519,32 @@ include("load/connect.php");
                 </div>
                 <div class="card-body py-3">
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #FF0000;"></span>
-                        <strong>Flight Active</strong>
+                        <span class="demand-legend-color" style="background-color: #dc2626;"></span>
+                        <strong>Active</strong>
+                        <small class="text-muted ml-1">(airborne)</small>
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #00FF00;"></span>
-                        <strong>Departing</strong>
+                        <span class="demand-legend-color" style="background-color: #22c55e;"></span>
+                        <strong>Taxiing</strong>
+                        <small class="text-muted ml-1">(ground)</small>
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #90EE90;"></span>
+                        <span class="demand-legend-color" style="background-color: #06b6d4;"></span>
+                        <strong>Scheduled</strong>
+                        <small class="text-muted ml-1">(prefile)</small>
+                    </div>
+                    <div class="demand-legend-item">
+                        <span class="demand-legend-color" style="background-color: #67e8f9;"></span>
                         <strong>Proposed</strong>
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #000000;"></span>
+                        <span class="demand-legend-color" style="background-color: #1a1a1a;"></span>
                         <strong>Arrived</strong>
                     </div>
                     <hr class="my-2">
                     <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
                         <i class="fas fa-info-circle mr-1"></i>
-                        Based on FAA AADC display style
+                        Phase-based colors matching status.php
                     </small>
                 </div>
             </div>
