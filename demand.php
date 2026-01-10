@@ -368,43 +368,59 @@ include("load/connect.php");
                 </div>
             </div>
 
-            <!-- Selected Airport -->
+            <!-- Selected Airport (compact) -->
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card perti-card-global h-100">
-                    <div class="card-body">
-                        <div class="perti-info-label mb-1">Selected Airport</div>
+                    <div class="card-body py-2 px-3">
+                        <div class="perti-info-label" style="font-size: 0.6rem;">Airport</div>
                         <div class="d-flex align-items-center">
-                            <span id="demand_selected_airport" class="perti-clock-display perti-clock-display-lg text-info">----</span>
-                            <span id="demand_airport_name" class="ml-2 text-muted small" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Select an airport</span>
+                            <span id="demand_selected_airport" class="perti-stat-value text-info" style="font-size: 1.1rem;">----</span>
+                            <span id="demand_airport_name" class="ml-2 text-muted" style="font-size: 0.65rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Select airport</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Rate Info (Config + Weather + AAR/ADR) -->
+            <!-- Rate Info (Config with runway layout + Weather + AAR/ADR) -->
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card h-100" style="border-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);">
-                    <div class="card-body">
-                        <div class="perti-info-label mb-1 d-flex align-items-center" style="color: #4f46e5;">
-                            <i class="fas fa-tachometer-alt mr-1"></i> Rates
-                            <span id="rate_weather_category" class="badge ml-1" style="background-color: #22c55e; color: #fff; font-size: 0.7rem;">--</span>
-                            <span id="rate_override_badge" class="badge badge-warning ml-1" style="display: none; font-size: 0.65rem;">OVERRIDE</span>
-                            <button type="button" class="btn btn-link btn-sm ml-auto p-0" id="rate_override_btn" title="Set manual rate override" style="font-size: 0.7rem; color: #6366f1;">
+                    <div class="card-body py-2">
+                        <div class="perti-info-label mb-1 d-flex align-items-center" style="color: #4f46e5; font-size: 0.6rem;">
+                            <i class="fas fa-tachometer-alt mr-1"></i> Suggested Config
+                            <span id="rate_weather_category" class="badge ml-1" style="background-color: #22c55e; color: #fff; font-size: 0.65rem;">--</span>
+                            <span id="rate_override_badge" class="badge badge-warning ml-1" style="display: none; font-size: 0.6rem;">OVR</span>
+                            <button type="button" class="btn btn-link btn-sm ml-auto p-0" id="rate_override_btn" title="Set manual rate override" style="font-size: 0.65rem; color: #6366f1;">
                                 <i class="fas fa-edit"></i>
                             </button>
                         </div>
-                        <div class="d-flex align-items-start" style="gap: 12px;">
-                            <div class="perti-stat-item">
-                                <div class="perti-stat-category">Config</div>
-                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.75rem; cursor: help;" title="">--</div>
+                        <div class="d-flex align-items-start" style="gap: 10px;">
+                            <!-- Runway Configuration (dep on top, arr below) -->
+                            <div class="perti-stat-item" style="min-width: 70px;">
+                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <i class="fas fa-plane-departure" style="font-size: 0.55rem; color: #d97706; width: 12px;"></i>
+                                        <span id="rate_dep_runways" class="perti-stat-value" style="font-size: 0.75rem; color: #d97706;">--</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <i class="fas fa-plane-arrival" style="font-size: 0.55rem; color: #059669; width: 12px;"></i>
+                                        <span id="rate_arr_runways" class="perti-stat-value" style="font-size: 0.75rem; color: #059669;">--</span>
+                                    </div>
+                                </div>
                             </div>
+                            <!-- Config name -->
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">AAR/ADR</div>
-                                <div id="rate_display" class="perti-stat-value" style="color: #4f46e5; font-size: 1rem;">--/--</div>
+                                <div class="perti-stat-category" style="font-size: 0.55rem;">Config</div>
+                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.7rem; cursor: help;" title="">--</div>
                             </div>
+                            <!-- AAR/ADR -->
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Source</div>
-                                <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.7rem;">--</div>
+                                <div class="perti-stat-category" style="font-size: 0.55rem;">AAR/ADR</div>
+                                <div id="rate_display" class="perti-stat-value" style="color: #4f46e5; font-size: 0.9rem;">--/--</div>
+                            </div>
+                            <!-- Source -->
+                            <div class="perti-stat-item">
+                                <div class="perti-stat-category" style="font-size: 0.55rem;">Source</div>
+                                <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.65rem;">--</div>
                             </div>
                         </div>
                     </div>

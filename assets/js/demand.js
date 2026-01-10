@@ -1187,6 +1187,8 @@ function updateRateInfoDisplay(rateData) {
         $('#rate_display').text('--/--');
         $('#rate_source').text('--');
         $('#rate_override_badge').hide();
+        $('#rate_arr_runways').text('--');
+        $('#rate_dep_runways').text('--');
         return;
     }
 
@@ -1194,6 +1196,12 @@ function updateRateInfoDisplay(rateData) {
     const configName = rateData.config_name || '--';
     const $configEl = $('#rate_config_name');
     $configEl.text(configName);
+
+    // Populate runway display fields (dep on top, arr below)
+    const arrRunways = rateData.arr_runways || '--';
+    const depRunways = rateData.dep_runways || '--';
+    $('#rate_arr_runways').text(arrRunways.replace(/\//g, ' / '));
+    $('#rate_dep_runways').text(depRunways.replace(/\//g, ' / '));
 
     // Build tooltip with runway info if available
     let tooltip = configName;

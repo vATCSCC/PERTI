@@ -27,7 +27,10 @@ function parseAtisRunways(string $atisText): array {
 
     // Pattern helpers
     $rwyNum = '([0-3]?\d[LRC]?)';
-    $rwyList = '([0-3]?\d[LRC]?(?:\s*(?:AND|,|\/|&)\s+[0-3]?\d?[LRC]?|\s+[0-3]\d[LRC]?)*)';  // Added & and space separators
+    // $rwyList captures runway lists like "27L AND 28R" or "24R AND RWY 25L" or "24, 25, 26"
+    // Now handles optional RWY/RUNWAY prefix before each runway in the list
+    // Fixed: \s* (optional space) after separators to handle "12L/12R" (no space)
+    $rwyList = '((?:RWYS?\s+)?[0-3]?\d[LRC]?(?:\s*(?:AND|,|\/|&)\s*(?:RWYS?\s+)?[0-3]?\d?[LRC]?|\s+\d{1,2}[LRC]?)*)';
 
     // Pattern 1: US standard - "LDG RWY 27L", "DEP RWY 28R"
     if (preg_match_all('/(?:LDG|LNDG|LANDING|ARR(?:IV(?:ING|AL))?)\s+(?:RWYS?\s+)?'.$rwyList.'/i', $text, $m)) {
@@ -51,17 +54,28 @@ function parseAtisRunways(string $atisText): array {
         }
     }
 
-    // Pattern 3: RUNWAY(S) IN USE
+    // Pattern 3: RUNWAY(S) IN USE - check context before AND after
     if (preg_match_all('/RUNWAYS?\s+IN\s+USE\s+'.$rwyList.'/i', $text, $m, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
         foreach ($m as $match) {
             $rwys = extractRunwayNumbers($match[1][0]);
-            $context = substr($text, max(0, $match[0][1] - 100), 100);
+            $matchEnd = $match[0][1] + strlen($match[0][0]);
+            $beforeContext = substr($text, max(0, $match[0][1] - 100), 100);
+            $afterContext = substr($text, $matchEnd, 100);
+            $fullContext = $beforeContext . ' ' . $afterContext;
 
-            if (stripos($context, 'ARRIVAL') !== false || stripos($context, 'ARR ') !== false) {
+            $hasArrival = stripos($fullContext, 'ARRIVAL') !== false || stripos($fullContext, 'ARR ') !== false;
+            $hasDeparture = stripos($fullContext, 'DEPARTURE') !== false || stripos($fullContext, 'DEP ') !== false;
+
+            if ($hasArrival && $hasDeparture) {
+                // Both mentioned - assign to both
                 $landing = array_merge($landing, $rwys);
-            } elseif (stripos($context, 'DEPARTURE') !== false || stripos($context, 'DEP ') !== false) {
+                $departing = array_merge($departing, $rwys);
+            } elseif ($hasArrival) {
+                $landing = array_merge($landing, $rwys);
+            } elseif ($hasDeparture) {
                 $departing = array_merge($departing, $rwys);
             } else {
+                // No context - assume both
                 $landing = array_merge($landing, $rwys);
                 $departing = array_merge($departing, $rwys);
             }
@@ -86,17 +100,22 @@ function parseAtisRunways(string $atisText): array {
         }
     }
 
-    // Pattern 5: Australian bracket format [RWY] 11
-    if (preg_match_all('/\[RWY\]\s*'.$rwyNum.'/i', $text, $m, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+    // Pattern 5: Australian bracket format [RWY] 11 ARR or [RWY] 11 DEP
+    // Look AFTER the runway number for ARR/DEP indicator
+    if (preg_match_all('/\[RWY\]\s*'.$rwyNum.'\s*(ARR|DEP)?/i', $text, $m, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
         foreach ($m as $match) {
             $rwys = extractRunwayNumbers($match[1][0]);
-            $context = substr($text, max(0, $match[0][1] - 50), 50);
+            // Check context after the runway (e.g., "[RWY] 16R ARR")
+            $afterContext = isset($match[2]) ? strtoupper($match[2][0]) : '';
+            // Also check before context for fallback
+            $beforeContext = substr($text, max(0, $match[0][1] - 50), 50);
 
-            if (stripos($context, 'ARR') !== false || stripos($context, 'APCH') !== false) {
+            if ($afterContext === 'ARR' || (empty($afterContext) && stripos($beforeContext, 'ARR') !== false)) {
                 $landing = array_merge($landing, $rwys);
-            } elseif (stripos($context, 'DEP') !== false) {
+            } elseif ($afterContext === 'DEP' || (empty($afterContext) && stripos($beforeContext, 'DEP') !== false)) {
                 $departing = array_merge($departing, $rwys);
             } else {
+                // Default to both if no context
                 $landing = array_merge($landing, $rwys);
                 $departing = array_merge($departing, $rwys);
             }
@@ -120,8 +139,26 @@ function parseAtisRunways(string $atisText): array {
         }
     }
 
-    // Pattern 8: SIMUL ... IN USE RWY
-    if (preg_match_all('/SIMUL(?:TANEOUS)?\s+(?:VIS\s+)?(?:APCHS?|APPROACHES?|DEPS?|DEPARTURES?)\s+IN\s+USE\s+(?:RWY\s+)?'.$rwyList.'/i', $text, $m, PREG_SET_ORDER)) {
+    // Pattern 7b: Combined "LANDING AND DEPARTING RUNWAY XX" or "ARR AND DEP RWY XX"
+    if (preg_match_all('/(?:LAND(?:ING)?|ARR(?:IVAL)?)\s+AND\s+(?:DEPART(?:ING|URE)?|DEP)\s+(?:RWYS?|RUNWAYS?)\s*'.$rwyList.'/i', $text, $m)) {
+        foreach ($m[1] as $rwyText) {
+            $rwys = extractRunwayNumbers($rwyText);
+            $landing = array_merge($landing, $rwys);
+            $departing = array_merge($departing, $rwys);
+        }
+    }
+
+    // Pattern 7c: "ARR/DEP RWY XX" format (slash separator)
+    if (preg_match_all('/(?:ARR|LDG)\s*\/\s*(?:DEP|DEPTG)\s+(?:RWYS?|RUNWAYS?)?\s*'.$rwyList.'/i', $text, $m)) {
+        foreach ($m[1] as $rwyText) {
+            $rwys = extractRunwayNumbers($rwyText);
+            $landing = array_merge($landing, $rwys);
+            $departing = array_merge($departing, $rwys);
+        }
+    }
+
+    // Pattern 8: SIMUL ... IN USE/PROG RWY
+    if (preg_match_all('/SIMUL(?:TANEOUS)?\s+(?:VIS\s+)?(?:APCHS?|APPROACHES?|DEPS?|DEPARTURES?)\s+(?:IN\s+(?:USE|PROG(?:RESS)?)|(?:ARE\s+)?IN\s+PROG)\s+(?:RWYS?\s+)?'.$rwyList.'/i', $text, $m, PREG_SET_ORDER)) {
         foreach ($m as $match) {
             $rwys = extractRunwayNumbers($match[1]);
             if (stripos($match[0], 'APCH') !== false || stripos($match[0], 'APPROACH') !== false) {
@@ -132,6 +169,33 @@ function parseAtisRunways(string $atisText): array {
                 $landing = array_merge($landing, $rwys);
                 $departing = array_merge($departing, $rwys);
             }
+        }
+    }
+
+    // Pattern 8b: SIMUL ... DEPARTURES IN PROG RWYS (LAX style - "SIMUL INSTR DEPARTURES IN PROG RWYS 24 AND 25")
+    if (preg_match_all('/SIMUL(?:TANEOUS)?\s+(?:INSTR|VISUAL)?\s*DEPARTURES?\s+(?:IN\s+PROG(?:RESS)?|ARE\s+IN\s+PROG)\s+RWYS?\s*'.$rwyList.'/i', $text, $m)) {
+        foreach ($m[1] as $rwyText) {
+            $departing = array_merge($departing, extractRunwayNumbers($rwyText));
+        }
+    }
+
+    // Pattern 8c: SIMUL VISUAL APCHS TO ALL RWYS ARE IN PROG (LAX style)
+    if (preg_match_all('/SIMUL(?:TANEOUS)?\s+VISUAL\s+APCHS?\s+(?:TO\s+ALL\s+RWYS\s+)?ARE\s+IN\s+PROG/i', $text, $m)) {
+        // This indicates visual approaches to all runways - don't add specific runways
+        // as they should already be captured by other patterns
+    }
+
+    // Pattern 8d: APCHS IN PROG RWY (LAX style - "INST APCHS AND RNAV RNP APCHS IN PROG RWY 24R AND RWY 25L")
+    if (preg_match_all('/(?:INST|RNAV|RNP|ILS|VISUAL)?\s*APCHS?\s+(?:AND\s+)?(?:RNAV\s+RNP\s+)?APCHS?\s+IN\s+PROG\s+RWYS?\s*'.$rwyList.'/i', $text, $m)) {
+        foreach ($m[1] as $rwyText) {
+            $landing = array_merge($landing, extractRunwayNumbers($rwyText));
+        }
+    }
+
+    // Pattern 8e: Generic "IN PROG RWY" for approaches (handles "APCHS IN PROG RWY XX")
+    if (preg_match_all('/APCHS?\s+IN\s+PROG\s+RWYS?\s*'.$rwyList.'/i', $text, $m)) {
+        foreach ($m[1] as $rwyText) {
+            $landing = array_merge($landing, extractRunwayNumbers($rwyText));
         }
     }
 
@@ -194,15 +258,61 @@ function parseAtisRunways(string $atisText): array {
         }
     }
 
-    // Pattern 17: Simple "ARRIVAL ... RUNWAY XX" or "ARRIVAL RWY XX"
-    if (preg_match_all('/ARRIVALS?\s+(?:FOR\s+)?(?:.*?\s+)?RUNWAY\s+'.$rwyNum.'/i', $text, $m)) {
+    // Pattern 17: Simple "ARRIVAL(S) RUNWAY XX" - don't cross sentence boundaries
+    if (preg_match_all('/ARRIVALS?\s+(?:RWYS?|RUNWAYS?)\s+'.$rwyList.'/i', $text, $m)) {
         foreach ($m[1] as $rwy) {
             $landing = array_merge($landing, extractRunwayNumbers($rwy));
         }
     }
 
-    // Extract approach types
+    // Pattern 17b: "DEPARTURES RUNWAY XX"
+    if (preg_match_all('/DEPARTURES?\s+(?:RWYS?|RUNWAYS?)\s+'.$rwyList.'/i', $text, $m)) {
+        foreach ($m[1] as $rwy) {
+            $departing = array_merge($departing, extractRunwayNumbers($rwy));
+        }
+    }
+
+    // Extract approach types - Standard format: "ILS RWY 24R", "RNAV APPROACH RWY 25L"
     if (preg_match_all('/(ILS|RNAV|GPS|RNP|VISUAL|VOR|NDB|LOC|LDA)\s+(?:APPROACH(?:ES)?\s+)?(?:RWY\s+)?'.$rwyNum.'/i', $text, $m)) {
+        for ($i = 0; $i < count($m[0]); $i++) {
+            $type = strtoupper($m[1][$i]);
+            $rwy = normalizeRunway($m[2][$i]);
+            if (!isset($approaches[$rwy])) {
+                $approaches[$rwy] = [];
+            }
+            if (!in_array($type, $approaches[$rwy])) {
+                $approaches[$rwy][] = $type;
+            }
+        }
+    }
+
+    // LAX style: "INST APCHS AND RNAV RNP APCHS IN PROG RWY 24R AND RWY 25L"
+    // First, find approaches with "IN PROG" and extract runways
+    if (preg_match('/(?:APCHS?|APPROACHES?)\s+IN\s+PROG\s+RWYS?\s*'.$rwyList.'/i', $text, $rwyMatch)) {
+        $rwysForApproaches = extractRunwayNumbers($rwyMatch[1]);
+
+        // Now extract all approach types mentioned before "IN PROG"
+        $beforeInProg = substr($text, 0, strpos(strtoupper($text), 'IN PROG'));
+        if (preg_match_all('/(ILS|INST|RNAV\s*RNP|RNAV|GPS|RNP|VISUAL|VOR|LOC|NDB|LDA)\s+(?:APCHS?|APPROACHES?)/i', $beforeInProg, $typeMatches)) {
+            foreach ($typeMatches[1] as $typeMatch) {
+                $type = strtoupper(trim(preg_replace('/\s+/', ' ', $typeMatch)));
+                if ($type === 'INST') $type = 'ILS';  // Normalize INST to ILS
+                if ($type === 'RNAV RNP') $type = 'RNAV';  // Normalize RNAV RNP to RNAV
+
+                foreach ($rwysForApproaches as $rwy) {
+                    if (!isset($approaches[$rwy])) {
+                        $approaches[$rwy] = [];
+                    }
+                    if (!in_array($type, $approaches[$rwy])) {
+                        $approaches[$rwy][] = $type;
+                    }
+                }
+            }
+        }
+    }
+
+    // Also check for "EXPECT ... APPROACH RWY XX" pattern for approach type
+    if (preg_match_all('/EXPECT\s+(ILS|RNAV|GPS|RNP|VISUAL|VOR|NDB|LOC|LDA)\s+.*?APPROACH.*?RWY\s*'.$rwyNum.'/i', $text, $m)) {
         for ($i = 0; $i < count($m[0]); $i++) {
             $type = strtoupper($m[1][$i]);
             $rwy = normalizeRunway($m[2][$i]);
@@ -263,11 +373,17 @@ function extractRunwayNumbers(string $text): array {
         $part = trim($part);
         if (empty($part)) continue;
 
+        // Strip RWY/RUNWAY prefix from each part (handles "RWY 25L" within list)
+        $part = preg_replace('/^(?:RWYS?|RUNWAYS?)\s*/', '', $part);
+
         // Handle space-separated runways within a part (e.g., "27 36")
         $subParts = preg_split('/\s+/', $part);
         foreach ($subParts as $subPart) {
             $subPart = trim($subPart);
             if (empty($subPart)) continue;
+
+            // Skip if it's just "RWY" or "RUNWAY" with no number
+            if (preg_match('/^(?:RWYS?|RUNWAYS?)$/i', $subPart)) continue;
 
             if (preg_match('/^([0-3]?\d)\s*(L(?:EFT)?|R(?:IGHT)?|C(?:ENTER)?)?$/', $subPart, $m)) {
                 $runway = normalizeRunway($m[1] . ($m[2] ?? ''));
