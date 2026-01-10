@@ -1,5 +1,9 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.8 - Phase Detection & Prefile Fix
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9 - Step Timing Instrumentation
+--
+-- Changes from V8.8:
+--   - Added step-by-step timing instrumentation for performance diagnosis
+--   - Returns step*_ms columns showing each step's execution time
 --
 -- Changes from V8.7:
 --   - Fixed phase detection: added 'arrived' phase (GS<50 + pct>85%)
@@ -67,11 +71,20 @@ BEGIN
     DECLARE @boundary_flights INT = 0;
     -- Planned crossings counter (V8.7)
     DECLARE @crossings_calculated INT = 0;
+
+    -- Step timing instrumentation (V8.9)
+    DECLARE @step_start DATETIME2(3);
+    DECLARE @step1_ms INT = 0, @step1b_ms INT = 0, @step2_ms INT = 0, @step2a_ms INT = 0;
+    DECLARE @step2b_ms INT = 0, @step3_ms INT = 0, @step4_ms INT = 0, @step4b_ms INT = 0;
+    DECLARE @step4c_ms INT = 0, @step5_ms INT = 0, @step6_ms INT = 0, @step7_ms INT = 0;
+    DECLARE @step8_ms INT = 0, @step8b_ms INT = 0, @step8c_ms INT = 0, @step9_ms INT = 0;
+    DECLARE @step10_ms INT = 0, @step11_ms INT = 0, @step12_ms INT = 0, @step13_ms INT = 0;
     
     -- ========================================================================
     -- Step 1: Parse JSON into temp table
     -- ========================================================================
-    
+    SET @step_start = SYSUTCDATETIME();
+
     SELECT
         CAST(p.cid AS INT) AS cid,
         CAST(p.callsign AS NVARCHAR(16)) AS callsign,
@@ -166,10 +179,13 @@ BEGIN
     CREATE CLUSTERED INDEX IX_pilots_key ON #pilots (flight_key);
     CREATE NONCLUSTERED INDEX IX_pilots_dept ON #pilots (dept_icao) WHERE dept_icao IS NOT NULL;
     CREATE NONCLUSTERED INDEX IX_pilots_dest ON #pilots (dest_icao) WHERE dest_icao IS NOT NULL;
-    
+
+    SET @step1_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 1b: Enrich with airport data
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     UPDATE p
     SET p.dept_lat = a.LAT_DECIMAL,
@@ -212,19 +228,22 @@ BEGIN
     WHERE lat IS NOT NULL;
     
     UPDATE #pilots
-    SET pct_complete = CASE 
+    SET pct_complete = CASE
         WHEN gcd_nm > 10 AND dist_flown_nm IS NOT NULL
-        THEN CASE 
+        THEN CASE
             WHEN (dist_flown_nm / gcd_nm) * 100.0 > 100.0 THEN 100.0
             ELSE CAST((dist_flown_nm / gcd_nm) * 100.0 AS DECIMAL(5,2))
         END
         ELSE NULL
     END
     WHERE gcd_nm IS NOT NULL;
-    
+
+    SET @step1b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 2: Upsert adl_flight_core
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     INSERT INTO dbo.adl_flight_core (
         flight_key, cid, callsign, flight_id,
@@ -289,9 +308,12 @@ BEGIN
     FROM #pilots p
     INNER JOIN dbo.adl_flight_core c ON c.flight_key = p.flight_key;
 
+    SET @step2_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 2a: Process VATSIM prefiles (filed but not yet connected)
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
 
     ;WITH prefiles AS (
         SELECT
@@ -362,19 +384,25 @@ BEGIN
                 ISNULL(CAST(fp.deptime AS NVARCHAR(4)), '') = c.flight_key
       );
 
+    SET @step2a_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 2b: Create adl_flight_times rows for new flights
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     INSERT INTO dbo.adl_flight_times (flight_uid)
     SELECT c.flight_uid
     FROM dbo.adl_flight_core c
     WHERE c.is_active = 1
       AND NOT EXISTS (SELECT 1 FROM dbo.adl_flight_times ft WHERE ft.flight_uid = c.flight_uid);
-    
+
+    SET @step2b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 3: Upsert adl_flight_position
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     MERGE dbo.adl_flight_position AS target
     USING (
@@ -408,10 +436,13 @@ BEGIN
                 source.altitude_ft, source.groundspeed_kts, source.heading_deg,
                 source.qnh_in_hg, source.qnh_mb, source.dist_to_dest_nm, 
                 source.dist_flown_nm, source.pct_complete, @now);
-    
+
+    SET @step3_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 4: Detect route changes and upsert flight plans
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     SELECT p.flight_uid, p.route_hash
     INTO #route_changes
@@ -497,10 +528,13 @@ BEGIN
                 source.route, source.remarks, source.altitude_ft, source.tas_kts, source.dep_time_z,
                 source.enroute_minutes, source.fuel_minutes, source.aircraft_type, source.aircraft_equip,
                 source.gcd_nm, source.route_hash, @now, 'PENDING', 0);
-    
+
+    SET @step4_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 4b: ETD/STD Calculation (V8.4)
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     ;WITH ETDCalc AS (
         SELECT 
@@ -570,12 +604,14 @@ BEGIN
     FROM dbo.adl_flight_times ft
     INNER JOIN ETDResolved er ON er.flight_uid = ft.flight_uid
     WHERE er.etd_utc IS NOT NULL AND (ft.etd_utc IS NULL OR ft.etd_source NOT IN ('A', 'T', 'S'));
-    
+
     SET @etd_count = @@ROWCOUNT;
-    
+    SET @step4b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 4c: SimBrief/ICAO Flight Plan Parsing (V8.5)
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     IF OBJECT_ID('dbo.sp_ParseSimBriefDataBatch', 'P') IS NOT NULL
     BEGIN
@@ -583,10 +619,13 @@ BEGIN
         INSERT INTO @sb_result EXEC dbo.sp_ParseSimBriefDataBatch @batch_size = 50, @only_unparsed = 1;
         SELECT @simbrief_parsed = flights_processed FROM @sb_result;
     END
-    
+
+    SET @step4c_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 5: Queue routes for parsing
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     MERGE dbo.adl_parse_queue AS target
     USING (
@@ -599,10 +638,13 @@ BEGIN
     WHEN NOT MATCHED THEN
         INSERT (flight_uid, parse_tier, route_hash, status, queued_utc, next_eligible_utc)
         VALUES (source.flight_uid, source.parse_tier, source.route_hash, 'PENDING', @now, @now);
-    
+
+    SET @step5_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 6: Upsert adl_flight_aircraft
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     MERGE dbo.adl_flight_aircraft AS target
     USING (
@@ -637,62 +679,83 @@ BEGIN
     WHEN NOT MATCHED THEN
         INSERT (flight_uid, aircraft_icao, aircraft_faa, weight_class, engine_type, engine_count, cruise_tas_kts, ceiling_ft, wake_category, airline_icao, airline_name, aircraft_updated_utc)
         VALUES (source.flight_uid, LEFT(source.aircraft_icao, 8), LEFT(source.aircraft_faa, 8), source.weight_class, source.engine_type, source.engine_count, source.cruise_tas_kts, source.ceiling_ft, source.wake_category, source.airline_icao, source.airline_name, @now);
-    
+
+    SET @step6_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 7: Mark inactive flights
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     UPDATE dbo.adl_flight_core SET is_active = 0, phase = 'arrived', flight_status = 'COMPLETED' WHERE is_active = 1 AND last_seen_utc < DATEADD(MINUTE, -5, @now);
-    
+
+    SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 8: Process Trajectory & ETA Calculations
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     IF OBJECT_ID('dbo.sp_ProcessTrajectoryBatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 1, @process_trajectory = 1, @eta_count = @eta_count OUTPUT, @traj_count = @traj_count OUTPUT;
     END
-    
+
+    SET @step8_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 8b: Update arrival buckets from calculated ETA
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     UPDATE ft SET ft.arrival_bucket_utc = CASE WHEN ft.eta_utc IS NOT NULL
         THEN DATEADD(MINUTE, CASE WHEN DATEPART(MINUTE, ft.eta_utc) < 15 THEN 0 WHEN DATEPART(MINUTE, ft.eta_utc) < 30 THEN 15 WHEN DATEPART(MINUTE, ft.eta_utc) < 45 THEN 30 ELSE 45 END, DATEADD(HOUR, DATEDIFF(HOUR, 0, ft.eta_utc), 0)) ELSE NULL END,
         ft.eta_epoch = CASE WHEN ft.eta_utc IS NOT NULL THEN DATEDIFF(SECOND, '1970-01-01', ft.eta_utc) ELSE NULL END
     FROM dbo.adl_flight_times ft WHERE ft.eta_utc IS NOT NULL AND ft.arrival_bucket_utc IS NULL;
-    
+
+    SET @step8b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 8c: Waypoint ETA Calculation (V8.6)
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     IF OBJECT_ID('dbo.sp_CalculateWaypointETABatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_CalculateWaypointETABatch @waypoint_count = @waypoint_etas OUTPUT;
     END
-    
+
+    SET @step8c_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 9: Zone Detection for OOOI
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
     
     IF OBJECT_ID('dbo.sp_ProcessZoneDetectionBatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_ProcessZoneDetectionBatch @transitions_detected = @zone_transitions OUTPUT;
     END
-    
+
+    SET @step9_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 10: Boundary Detection for ARTCC/Sector/TRACON
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
 
     IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
     END
 
+    SET @step10_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 11: Planned Crossings Calculation (V8.7)
     -- Detects regional flights and calculates boundary crossings for TMI analysis
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
 
     IF OBJECT_ID('dbo.sp_DetectRegionalFlight', 'P') IS NOT NULL
     BEGIN
@@ -713,20 +776,28 @@ BEGIN
         SELECT @crossings_calculated = crossings_calculated FROM @crossing_result;
     END
 
+    SET @step11_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
     -- ========================================================================
     -- Step 12: Log Trajectory Positions (Archive System)
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
 
     EXEC dbo.sp_Log_Trajectory;
+
+    SET @step12_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
     -- Step 13: Capture Phase Snapshot (for 24hr chart)
     -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
 
     IF OBJECT_ID('dbo.sp_CapturePhaseSnapshot', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_CapturePhaseSnapshot;
     END
+
+    SET @step13_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
     -- Cleanup and return stats
@@ -750,12 +821,33 @@ BEGIN
         @zone_transitions AS zone_transitions,
         @boundary_transitions AS boundary_transitions,
         @crossings_calculated AS crossings_calculated,
-        @elapsed_ms AS elapsed_ms;
+        @elapsed_ms AS elapsed_ms,
+        -- Step timings (V8.9 instrumentation)
+        @step1_ms AS step1_json_ms,
+        @step1b_ms AS step1b_enrich_ms,
+        @step2_ms AS step2_core_ms,
+        @step2a_ms AS step2a_prefile_ms,
+        @step2b_ms AS step2b_times_ms,
+        @step3_ms AS step3_position_ms,
+        @step4_ms AS step4_flightplan_ms,
+        @step4b_ms AS step4b_etd_ms,
+        @step4c_ms AS step4c_simbrief_ms,
+        @step5_ms AS step5_queue_ms,
+        @step6_ms AS step6_aircraft_ms,
+        @step7_ms AS step7_inactive_ms,
+        @step8_ms AS step8_trajectory_ms,
+        @step8b_ms AS step8b_bucket_ms,
+        @step8c_ms AS step8c_waypoint_ms,
+        @step9_ms AS step9_zone_ms,
+        @step10_ms AS step10_boundary_ms,
+        @step11_ms AS step11_crossings_ms,
+        @step12_ms AS step12_log_ms,
+        @step13_ms AS step13_snapshot_ms;
     
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.7 created successfully';
-PRINT 'Added: Step 11 - Planned Crossings Calculation';
-PRINT 'Returns: crossings_calculated count in stats';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9 created successfully';
+PRINT 'Added: Step timing instrumentation (step*_ms columns)';
+PRINT 'Use step timings to identify slow steps in refresh procedure';
 GO
