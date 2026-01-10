@@ -254,11 +254,11 @@ BEGIN
     SET c.last_seen_utc = @now,
         c.snapshot_utc = @now,
         c.last_source = 'vatsim',
-        c.phase = CASE 
+        c.phase = CASE
             WHEN p.lat IS NULL THEN 'prefile'
             WHEN p.groundspeed_kts < 50 THEN 'taxiing'
-            WHEN p.altitude_ft < 10000 AND p.altitude_ft > ISNULL(pos.altitude_ft, 0) THEN 'departed'
-            WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) > 50 THEN 'descending'
+            WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) < 15 THEN 'departed'
+            WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) > 85 THEN 'descending'
             ELSE 'enroute'
         END,
         c.flight_status = CASE 
@@ -269,8 +269,7 @@ BEGIN
         END,
         c.flight_id = COALESCE(p.flight_server, c.flight_id)
     FROM dbo.adl_flight_core c
-    INNER JOIN #pilots p ON c.flight_key = p.flight_key
-    LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid;
+    INNER JOIN #pilots p ON c.flight_key = p.flight_key;
     
     SET @updated_flights = @@ROWCOUNT;
     
