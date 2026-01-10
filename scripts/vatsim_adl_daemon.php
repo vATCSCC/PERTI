@@ -110,9 +110,9 @@ $config = [
 
     // Boundary & Crossings background processing
     'boundary_enabled'       => true,
-    'boundary_interval'      => 4,    // Run every N cycles (4 = every 60 seconds)
-    'boundary_max_flights'   => 100,  // Max flights per run
-    'boundary_timeout'       => 60,   // SP timeout in seconds
+    'boundary_interval'      => 4,    // Run every N cycles (4 = every 60 seconds, matches tier schedule)
+    'boundary_max_flights'   => 500,  // Max flights per run (grid-optimized, should be fast)
+    'boundary_timeout'       => 90,   // SP timeout in seconds
 ];
 
 // ============================================================================
