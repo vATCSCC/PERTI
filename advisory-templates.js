@@ -249,7 +249,7 @@ const AdvisoryTemplates = (function() {
         const sigTime = formatSignatureTime(issueDate);
         const generatedTmiId = tmiId || generateTMIId(facility, advisoryNumber);
 
-        let output = `vATCSCC ADVZY ${advNum} ${facility} ${headerDate} ${type} - ${action}${flSuffix}\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${facility} ${headerDate} ${type} - ${action}${flSuffix}\n`;
         output += `IMPACTED AREA: ${impactedArea || ''}\n`;
         output += `REASON: ${reason || ''}\n`;
         output += `INCLUDE TRAFFIC: ${includeTraffic || ''}\n`;
@@ -308,7 +308,7 @@ const AdvisoryTemplates = (function() {
             ? `${impactingCondition} ${impactingText}`
             : impactingCondition;
 
-        let output = `vATCSCC ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GROUND STOP\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GROUND STOP\n`;
         output += `CTL ELEMENT: ${airport}\n`;
         output += `ELEMENT TYPE: APT\n`;
         output += `ADL TIME: ${adlTimeStr}\n`;
@@ -350,7 +350,7 @@ const AdvisoryTemplates = (function() {
         const validEnd = formatTimeDDHHMM(cnxEnd);
         const sigTime = formatSignatureTime(issueDate);
 
-        let output = `vATCSCC ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GS CNX\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GS CNX\n`;
         output += `CTL ELEMENT: ${airport}\n`;
         output += `ELEMENT TYPE: APT\n`;
         output += `ADL TIME: ${adlTimeStr}\n`;
@@ -408,7 +408,7 @@ const AdvisoryTemplates = (function() {
             ? `${impactingCondition} ${impactingText}`
             : impactingCondition;
 
-        let output = `vATCSCC ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GROUND DELAY PROGRAM\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GROUND DELAY PROGRAM\n`;
         output += `CTL ELEMENT: ${airport}\n`;
         output += `ELEMENT TYPE: APT\n`;
         output += `ADL TIME: ${adlTimeStr}\n`;
@@ -462,7 +462,7 @@ const AdvisoryTemplates = (function() {
         const validEnd = formatTimeDDHHMM(cnxEnd);
         const sigTime = formatSignatureTime(issueDate);
 
-        let output = `vATCSCC ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GROUND DELAY PROGRAM CNX\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${airport}/${artcc} ${headerDate} CDM GROUND DELAY PROGRAM CNX\n`;
         output += `CTL ELEMENT: ${airport}\n`;
         output += `ELEMENT TYPE: APT\n`;
         output += `ADL TIME: ${adlTimeStr}\n`;
@@ -510,7 +510,7 @@ const AdvisoryTemplates = (function() {
         const endDay = String(new Date(validEnd).getUTCDate()).padStart(2, '0');
         const endHHMM = formatTimeDDHHMM(validEnd).slice(2);
 
-        let output = `vATCSCC ADVZY ${advNum} ${facility} ${headerDate} ${hotlineName} - FYI\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${facility} ${headerDate} ${hotlineName} - FYI\n`;
         output += `VALID FOR ${startTime} THROUGH ${endTime}\n`;
         output += `CONSTRAINED FACILITIES: ${constrainedFacilities.join('/')}\n`;
 
@@ -560,7 +560,7 @@ const AdvisoryTemplates = (function() {
         // Word-wrap the body text
         const wrappedBody = wordWrap(bodyText, MAX_LINE_LENGTH);
 
-        let output = `vATCSCC ADVZY ${advNum} ${facility} ${headerDate} INFORMATIONAL\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${facility} ${headerDate} INFORMATIONAL\n`;
         output += `VALID FOR ${startTime} THROUGH ${endTime}\n`;
         output += `\n`;
         output += `${wrappedBody}\n`;
@@ -600,7 +600,7 @@ const AdvisoryTemplates = (function() {
         const endTime = formatTimeDDHHMM(validEnd);
         const sigTime = formatSignatureTime(issueDate);
 
-        let output = `vATCSCC ADVZY ${advNum} ${facility} ${headerDate} ${swapName} - FYI\n`;
+        let output = `${AdvisoryConfig.getPrefix()} ADVZY ${advNum} ${facility} ${headerDate} ${swapName} - FYI\n`;
         output += `VALID FOR ${startTime} THROUGH ${endTime}\n`;
         output += `CONSTRAINED FACILITIES: ${constrainedFacilities.join('/')}\n`;
         output += `\n`;

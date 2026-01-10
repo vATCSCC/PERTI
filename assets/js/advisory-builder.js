@@ -354,7 +354,7 @@
         const artcc = data.gdpScopeCenters ?
             (Array.isArray(data.gdpScopeCenters) ? data.gdpScopeCenters[0] : data.gdpScopeCenters.split(' ')[0]) :
             data.facility;
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${ctlElement}/${artcc} ${data.dateHeader} CDM GROUND DELAY PROGRAM`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${ctlElement}/${artcc} ${data.dateHeader} CDM GROUND DELAY PROGRAM`);
         lines.push('');
 
         // CTL ELEMENT and ELEMENT TYPE per TFMS spec
@@ -409,7 +409,7 @@
         const artcc = data.gsScopeCenters ?
             (Array.isArray(data.gsScopeCenters) ? data.gsScopeCenters[0] : data.gsScopeCenters.split(' ')[0]) :
             data.facility;
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${ctlElement}/${artcc} ${data.dateHeader} CDM GROUND STOP`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${ctlElement}/${artcc} ${data.dateHeader} CDM GROUND STOP`);
         lines.push('');
 
         // CTL ELEMENT and ELEMENT TYPE per TFMS spec
@@ -455,7 +455,7 @@
 
         // Header line per TFMS spec: ATCSCC ADVZY ### FCAxxxx MM/DD/YYYY CDM AIRSPACE FLOW PROGRAM
         const fcaId = data.afpFca || 'FCA001';
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${fcaId} ${data.dateHeader} CDM AIRSPACE FLOW PROGRAM`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${fcaId} ${data.dateHeader} CDM AIRSPACE FLOW PROGRAM`);
         lines.push('');
 
         // CTL ELEMENT (FCA) and ELEMENT TYPE per TFMS spec
@@ -498,7 +498,7 @@
 
         // Header line per TFMS spec: ATCSCC ADVZY ### CTPxxx MM/DD/YYYY ACTUAL CTOP
         const ctopName = data.ctopName || 'CTP001';
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${ctopName} ${data.dateHeader} ACTUAL CTOP`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${ctopName} ${data.dateHeader} ACTUAL CTOP`);
         lines.push('');
 
         // CTL ELEMENT and ELEMENT TYPE per TFMS spec
@@ -538,7 +538,7 @@
 
         // Header line per TFMS spec for reroutes
         const routeName = data.rerouteName || 'RTE001';
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${routeName} ${data.dateHeader} PLAYBOOK ROUTE`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${routeName} ${data.dateHeader} PLAYBOOK ROUTE`);
         lines.push('');
 
         // Route identification
@@ -592,7 +592,7 @@
         const lines = [];
 
         // Header line per TFMS spec for general messages
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.dateHeader} GENERAL MESSAGE`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${data.facility} ${data.dateHeader} GENERAL MESSAGE`);
         lines.push('');
 
         // Subject
@@ -632,7 +632,7 @@
         // Header line per TFMS spec for MIT/MINIT restrictions
         const type = data.mitType || 'MIT';
         const facility = data.mitFacility || 'TBD';
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${facility} ${data.dateHeader} ${type}`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${facility} ${data.dateHeader} ${type}`);
         lines.push('');
 
         // Facility and restriction type
@@ -670,7 +670,7 @@
 
         // Header line per TFMS spec for cancellation
         const refType = data.cnxRefType || 'GDP';
-        lines.push(`vATCSCC ADVZY ${data.advNumber} ${data.facility} ${data.dateHeader} ${refType} CANCELLATION`);
+        lines.push(`${AdvisoryConfig.getPrefix()} ADVZY ${data.advNumber} ${data.facility} ${data.dateHeader} ${refType} CANCELLATION`);
         lines.push('');
 
         // Reference to original advisory

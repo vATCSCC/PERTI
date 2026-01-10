@@ -53,8 +53,11 @@ while ($data = mysqli_fetch_array($query)) {
     // Get badge abbreviation for hotline
     $hotline_badge = $hotline_badges[$data['hotline']] ?? $data['hotline'][0];
 
+    // Add Canadian flag for Canada hotline events
+    $flag_prefix = ($data['hotline'] === 'Canada') ? '🇨🇦 ' : '';
+
     echo '<tr>';
-    echo '<td>'.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$hotline_badge.'</span></td>';
+    echo '<td>'.$flag_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$hotline_badge.'</span></td>';
     
     // Start Date
     echo '<td class="text-center">'.$data['event_date'].'</td>';

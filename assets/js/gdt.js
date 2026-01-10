@@ -640,8 +640,8 @@ function buildAdvisory() {
 
     var lines = [];
 
-    // Header: vATCSCC ADVZY {ADVZY_NUM} {CTL_ELEMENT} MM/DD/YYYY CDM GROUND STOP
-    lines.push("vATCSCC ADVZY " + advNum + " " + ctlElement + " " + headerDate + " CDM GROUND STOP");
+    // Header: {ORG_PREFIX} ADVZY {ADVZY_NUM} {CTL_ELEMENT} MM/DD/YYYY CDM GROUND STOP
+    lines.push(AdvisoryConfig.getPrefix() + " ADVZY " + advNum + " " + ctlElement + " " + headerDate + " CDM GROUND STOP");
 
     // Standard lines with hanging-indent wrapping at 68 characters
     lines = lines.concat(wrapAdvisoryLabelValue("CTL ELEMENT:", ctlElement));
@@ -879,8 +879,8 @@ return {
 
         // Try multiple common field-name patterns to be flexible with the ADL API
         var callsign = (f.callsign || f.CALLSIGN || "").toUpperCase();
-        var dep = (f.fp_dept_icao || f.dep_icao || f.dep || f.departure || f.origin || "").toUpperCase();
-        var arr = (f.fp_dest_icao || f.arr_icao || f.arr || f.arrival || f.destination || "").toUpperCase();
+        var dep = (f.fp_dept_icao || f.orig || f.dep_icao || f.dep || f.departure || f.origin || "").toUpperCase();
+        var arr = (f.fp_dest_icao || f.dest || f.arr_icao || f.arr || f.arrival || f.destination || "").toUpperCase();
         var alt = f.fp_altitude_ft || f.filed_altitude || f.altitude || f.alt || "";
         var icao = (f.aircraft_icao || f.aircraft || f.acft || "").toUpperCase();
         var route = f.fp_route || f.route || f.route_string || f.filed_route || "";
@@ -6626,8 +6626,8 @@ function updateDelayStats(visibleRows) {
         var carrier = extractCarrier(acid);
         var orig = f.orig || f.fp_dept_icao || "";
         var dest = f.dest || f.fp_dest_icao || "";
-        var dcenter = f.dcenter || f.dep_center || "";
-        var acenter = f.acenter || f.arr_center || "";
+        var dcenter = f.dcenter || f.dep_center || f.fp_dept_artcc || "";
+        var acenter = f.acenter || f.arr_center || f.fp_dest_artcc || "";
         
         // Original times (OETD/OETA)
         var oetdText = f.oetd_utc ? formatZuluFromIso(f.oetd_utc) : (f.etd_utc ? formatZuluFromIso(f.etd_utc) : "");
@@ -7237,10 +7237,10 @@ function updateDelayStats(visibleRows) {
 
             return {
                 acid: f.callsign || f.CALLSIGN || "",
-                orig: f.fp_dept_icao || f.FP_DEPT_ICAO || f.dep_icao || "",
-                dest: f.fp_dest_icao || f.FP_DEST_ICAO || f.arr_icao || "",
-                dcenter: f.dep_center || f.fp_dept_artcc || f.FP_DEPT_ARTCC || "",
-                acenter: f.arr_center || f.fp_dest_artcc || f.FP_DEST_ARTCC || "",
+                orig: f.orig || f.fp_dept_icao || f.FP_DEPT_ICAO || f.dep_icao || "",
+                dest: f.dest || f.fp_dest_icao || f.FP_DEST_ICAO || f.arr_icao || "",
+                dcenter: f.dcenter || f.dep_center || f.fp_dept_artcc || f.FP_DEPT_ARTCC || "",
+                acenter: f.acenter || f.arr_center || f.fp_dest_artcc || f.FP_DEST_ARTCC || "",
                 // Original times (before GS control)
                 oetd_utc: f.oetd_utc || f.OETD_UTC || f.orig_etd_utc || f.ORIG_ETD_UTC || f.etd_runway_utc || "",
                 oeta_utc: f.oeta_utc || f.OETA_UTC || f.orig_eta_utc || f.ORIG_ETA_UTC || f.eta_runway_utc || "",

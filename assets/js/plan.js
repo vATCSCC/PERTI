@@ -2734,7 +2734,7 @@ function opsPlanUpdateMessage() {
 
     // HEADER + NARRATIVE (no blank lines around narrative)
     var headerLines = [];
-    headerLines.push('vATCSCC ADVZY ' + opsPlanUpper(headerAdvNum) + ' DCC ' + headerDate + ' OPERATIONS PLAN');
+    headerLines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + opsPlanUpper(headerAdvNum) + ' ' + AdvisoryConfig.getFacility() + ' ' + headerDate + ' OPERATIONS PLAN');
     headerLines.push('EVENT TIME: ' + opsPlanUpper((startDay || '__') + '/' + (startTime || '____') + ' - ' + (endDay || '__') + '/' + (endTime || '____')));
     headerLines.push('____________________________________________________________________');
     headerLines.push(opsPlanUpper(narrative || '[Add narrative here]'));
