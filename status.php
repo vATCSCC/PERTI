@@ -514,17 +514,17 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // -------------------------------------------------------------------------
-    // Daily Stats: Routes Parsed Today by Tier
+    // Daily Stats: Routes Parsed in Last 24 Hours by Tier
     // Queue cleanup retains 24h for full daily tier breakdown
     // -------------------------------------------------------------------------
     $liveData['daily_parsed_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0];
     $liveData['daily_parsed_total'] = 0;
 
-    // Get tier breakdown from today's completed queue entries
+    // Get tier breakdown from last 24 hours of completed queue entries
     $sql = "SELECT q.parse_tier, COUNT(*) AS cnt
             FROM dbo.adl_parse_queue q
             WHERE q.status = 'COMPLETE'
-              AND q.completed_utc >= CAST(SYSUTCDATETIME() AS DATE)
+              AND q.completed_utc >= DATEADD(HOUR, -24, SYSUTCDATETIME())
             GROUP BY q.parse_tier
             ORDER BY q.parse_tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
@@ -2096,9 +2096,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             </div>
         </div>
 
-        <!-- 24-Hour Flight Phase Chart -->
+        <!-- 24-Hour Flight Phase Chart + Peak Hours Heatmap Row -->
         <div class="row mb-4">
-            <div class="col-12">
+            <div class="col-lg-7">
                 <div class="chart-container">
                     <div class="chart-header">
                         <span class="chart-title"><i class="fas fa-plane mr-1"></i> Flight Activity (24 Hours)</span>
@@ -2130,6 +2130,52 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <tr><td colspan="5" class="text-center text-muted">Loading...</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Peak Hours Heatmap -->
+            <div class="col-lg-5">
+                <div class="status-section h-100">
+                    <div class="status-section-header">
+                        <span><i class="fas fa-fire mr-2"></i>Peak Hours (7 Day Heatmap)</span>
+                    </div>
+                    <div style="padding: 8px; overflow-x: auto;">
+                        <?php
+                        // Build heatmap grid
+                        $heatmap = [];
+                        $maxCount = 1;
+                        foreach ($liveData['peak_hours'] as $ph) {
+                            $heatmap[$ph['day']][$ph['hour']] = $ph['count'];
+                            $maxCount = max($maxCount, $ph['count']);
+                        }
+                        $days = ['', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                        ?>
+                        <div style="display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 1px; font-size: 0.55rem;">
+                            <div></div>
+                            <?php for ($h = 0; $h < 24; $h++): ?>
+                            <div style="text-align: center; color: #888; font-weight: <?= $h % 6 === 0 ? '700' : '400' ?>;"><?= sprintf('%02d', $h) ?></div>
+                            <?php endfor; ?>
+                            <?php for ($d = 1; $d <= 7; $d++): ?>
+                            <div style="color: #666; font-weight: 600; line-height: 14px;"><?= $days[$d] ?></div>
+                            <?php for ($h = 0; $h < 24; $h++):
+                                $count = $heatmap[$d][$h] ?? 0;
+                                $intensity = $maxCount > 0 ? $count / $maxCount : 0;
+                                $bg = $intensity === 0 ? '#f0f0f0' :
+                                      ($intensity < 0.25 ? '#c6f6d5' :
+                                      ($intensity < 0.5 ? '#68d391' :
+                                      ($intensity < 0.75 ? '#f6ad55' : '#fc8181')));
+                            ?>
+                            <div style="height: 14px; background: <?= $bg ?>; border-radius: 1px;" title="<?= $days[$d] ?> <?= sprintf('%02d', $h) ?>:00 - <?= $count ?> flights"></div>
+                            <?php endfor; ?>
+                            <?php endfor; ?>
+                        </div>
+                        <div class="d-flex justify-content-end mt-1" style="font-size: 0.55rem; color: #888;">
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f0f0f0; margin-right: 2px;"></span>0
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak
                         </div>
                     </div>
                 </div>
@@ -2924,8 +2970,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Routes Parsed Today</span>
-                                            <span class="tier-group-desc">Completed parses since 00:00Z</span>
+                                            <span class="tier-group-title">Routes Parsed (24h)</span>
+                                            <span class="tier-group-desc">Completed parses in last 24 hours</span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['daily_parsed_total'] ?? 0) ?></span>
                                     </div>
@@ -3432,56 +3478,6 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <?php endif; ?>
                             </div>
                             <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Peak Hours Heatmap Row -->
-        <div class="row mb-4">
-            <!-- Peak Hours Heatmap -->
-            <div class="col-12">
-                <div class="status-section">
-                    <div class="status-section-header">
-                        <span><i class="fas fa-fire mr-2"></i>Peak Hours (7 Day Heatmap)</span>
-                    </div>
-                    <div style="padding: 8px; overflow-x: auto;">
-                        <?php
-                        // Build heatmap grid
-                        $heatmap = [];
-                        $maxCount = 1;
-                        foreach ($liveData['peak_hours'] as $ph) {
-                            $heatmap[$ph['day']][$ph['hour']] = $ph['count'];
-                            $maxCount = max($maxCount, $ph['count']);
-                        }
-                        $days = ['', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                        ?>
-                        <div style="display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 1px; font-size: 0.55rem;">
-                            <div></div>
-                            <?php for ($h = 0; $h < 24; $h++): ?>
-                            <div style="text-align: center; color: #888; font-weight: <?= $h % 6 === 0 ? '700' : '400' ?>;"><?= sprintf('%02d', $h) ?></div>
-                            <?php endfor; ?>
-                            <?php for ($d = 1; $d <= 7; $d++): ?>
-                            <div style="color: #666; font-weight: 600; line-height: 14px;"><?= $days[$d] ?></div>
-                            <?php for ($h = 0; $h < 24; $h++):
-                                $count = $heatmap[$d][$h] ?? 0;
-                                $intensity = $maxCount > 0 ? $count / $maxCount : 0;
-                                $bg = $intensity === 0 ? '#f0f0f0' :
-                                      ($intensity < 0.25 ? '#c6f6d5' :
-                                      ($intensity < 0.5 ? '#68d391' :
-                                      ($intensity < 0.75 ? '#f6ad55' : '#fc8181')));
-                            ?>
-                            <div style="height: 14px; background: <?= $bg ?>; border-radius: 1px;" title="<?= $days[$d] ?> <?= sprintf('%02d', $h) ?>:00 - <?= $count ?> flights"></div>
-                            <?php endfor; ?>
-                            <?php endfor; ?>
-                        </div>
-                        <div class="d-flex justify-content-end mt-1" style="font-size: 0.55rem; color: #888;">
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #f0f0f0; margin-right: 2px;"></span>0
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak
                         </div>
                     </div>
                 </div>
