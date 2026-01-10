@@ -462,10 +462,13 @@ function renderChart(data) {
     DEMAND_STATE.timeBins = timeBins;
 
     // Create lookup maps for data by time bin (normalized to match generated bins)
+    // Note: PHP formats as "Y-m-d\TH:i:s\Z" (no milliseconds), JS toISOString includes .000Z
+    // So we need to normalize both to the same format
     const normalizeTimeBin = (bin) => {
         const d = new Date(bin);
         d.setUTCSeconds(0, 0);
-        return d.toISOString();
+        // Return format matching PHP: "2026-01-10T14:00:00Z" (no milliseconds)
+        return d.toISOString().replace('.000Z', 'Z');
     };
 
     // Build series based on direction
@@ -689,11 +692,11 @@ function renderOriginChart() {
     // Store for drill-down
     DEMAND_STATE.timeBins = timeBins;
 
-    // Normalize time bin helper for lookup
+    // Normalize time bin helper for lookup (match PHP format without milliseconds)
     const normalizeTimeBin = (bin) => {
         const d = new Date(bin);
         d.setUTCSeconds(0, 0);
-        return d.toISOString();
+        return d.toISOString().replace('.000Z', 'Z');
     };
 
     // Collect all unique ARTCCs
@@ -1136,7 +1139,8 @@ function generateAllTimeBins() {
     const current = new Date(start);
 
     while (current <= end) {
-        timeBins.push(current.toISOString());
+        // Format without milliseconds to match PHP's format: "2026-01-10T14:00:00Z"
+        timeBins.push(current.toISOString().replace('.000Z', 'Z'));
         current.setUTCMinutes(current.getUTCMinutes() + intervalMinutes);
     }
 
