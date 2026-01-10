@@ -425,46 +425,59 @@ function loadDemandData() {
     DEMAND_STATE.currentEnd = end.toISOString();
 
     // Fetch demand data and rate suggestions in parallel
+    // Use Promise.allSettled so rate API failures don't block demand data
     const demandPromise = $.getJSON(`api/demand/airport.php?${params.toString()}`);
     const ratesPromise = $.getJSON(`api/demand/rates.php?airport=${encodeURIComponent(airport)}`);
 
-    Promise.all([demandPromise, ratesPromise])
-        .then(function([demandResponse, ratesResponse]) {
-            if (demandResponse.success) {
-                DEMAND_STATE.lastUpdate = new Date();
-                DEMAND_STATE.lastDemandData = demandResponse; // Store for view switching
+    Promise.allSettled([demandPromise, ratesPromise])
+        .then(function(results) {
+            const [demandResult, ratesResult] = results;
 
-                // Store rate data
-                if (ratesResponse && ratesResponse.success) {
-                    DEMAND_STATE.rateData = ratesResponse;
-                    updateRateInfoDisplay(ratesResponse);
-                } else {
-                    DEMAND_STATE.rateData = null;
-                }
+            // Handle demand data (required)
+            if (demandResult.status === 'rejected') {
+                console.error('Demand API failed:', demandResult.reason);
+                showError('Error connecting to server');
+                return;
+            }
 
-                // Render based on current view mode
-                if (DEMAND_STATE.chartView === 'origin') {
-                    // Load origin data first, then render
-                    loadFlightSummary(true);
-                } else {
-                    renderChart(demandResponse);
-                }
-
-                updateInfoBarStats(demandResponse);
-                updateLastUpdateDisplay(demandResponse.last_adl_update);
-
-                // Load flight summary data (for tables)
-                if (DEMAND_STATE.chartView !== 'origin') {
-                    loadFlightSummary(false);
-                }
-            } else {
+            const demandResponse = demandResult.value;
+            if (!demandResponse.success) {
                 console.error('API error:', demandResponse.error);
                 showError('Failed to load demand data: ' + demandResponse.error);
+                return;
             }
-        })
-        .catch(function(err) {
-            console.error('Request failed:', err);
-            showError('Error connecting to server');
+
+            DEMAND_STATE.lastUpdate = new Date();
+            DEMAND_STATE.lastDemandData = demandResponse; // Store for view switching
+
+            // Handle rate data (optional - don't fail if unavailable)
+            if (ratesResult.status === 'fulfilled' && ratesResult.value && ratesResult.value.success) {
+                DEMAND_STATE.rateData = ratesResult.value;
+                updateRateInfoDisplay(ratesResult.value);
+            } else {
+                // Rates API failed or returned error - just clear rate display
+                DEMAND_STATE.rateData = null;
+                updateRateInfoDisplay(null);
+                if (ratesResult.status === 'rejected') {
+                    console.warn('Rates API unavailable:', ratesResult.reason);
+                }
+            }
+
+            // Render based on current view mode
+            if (DEMAND_STATE.chartView === 'origin') {
+                // Load origin data first, then render
+                loadFlightSummary(true);
+            } else {
+                renderChart(demandResponse);
+            }
+
+            updateInfoBarStats(demandResponse);
+            updateLastUpdateDisplay(demandResponse.last_adl_update);
+
+            // Load flight summary data (for tables)
+            if (DEMAND_STATE.chartView !== 'origin') {
+                loadFlightSummary(false);
+            }
         });
 }
 
