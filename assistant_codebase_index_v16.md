@@ -915,6 +915,8 @@ Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
 | `api/demand/rates.php` | GET | Acceptance/departure rates by airport |
 | `api/demand/summary.php` | GET | Overall demand summary |
 | `api/demand/override.php` | POST/GET | Manual rate override management |
+| `api/demand/configs.php` | GET | Available runway configs for an airport (for rate override selection) |
+| `api/demand/atis.php` | GET | Latest ATIS info with runway configuration and approach types |
 
 ### Features
 

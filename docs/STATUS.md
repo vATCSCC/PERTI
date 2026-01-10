@@ -374,10 +374,12 @@ python atis_daemon.py
 |------|--------|-------|
 | `demand.php` | [OK] Created | Airport demand analysis page |
 | `api/demand/airports.php` | [OK] Created | Airport list API |
+| `api/demand/airport.php` | [OK] Created | Single airport demand details |
 | `api/demand/rates.php` | [OK] Created | Rate data API |
 | `api/demand/summary.php` | [OK] Created | Demand summary API |
 | `api/demand/override.php` | [OK] Created | Manual rate override API |
-| `api/demand/config.php` | [OK] Created | Airport config API |
+| `api/demand/configs.php` | [OK] Created | Available runway configs API |
+| `api/demand/atis.php` | [OK] Created | ATIS info with runway config |
 | `adl/migrations/080-091_*.sql` | [OK] Created | Airport config & ATIS schema |
 | `assets/js/demand.js` | [OK] Created | Demand page frontend |
 
