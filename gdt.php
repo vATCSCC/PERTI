@@ -1644,8 +1644,8 @@ include("load/connect.php");
 <script src="assets/js/config/phase-colors.js"></script>
 <!-- Rate Line Color Configuration -->
 <script src="assets/js/config/rate-colors.js"></script>
-<!-- Shared Demand Chart Module -->
-<script src="assets/js/demand-chart.js"></script>
+<!-- Shared Demand Chart Core (from demand.js) -->
+<script src="assets/js/demand.js"></script>
 
 <?php include("load/footer.php"); ?>
 

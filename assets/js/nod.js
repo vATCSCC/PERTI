@@ -1757,30 +1757,18 @@
                 if (flight.gs_affected || flight.ground_stop_affected) return '#dc3545';  // Red - Ground stopped
                 if (flight.gdp_affected || flight.edct_issued) return '#ffc107';  // Yellow - EDCT
 
-                // Get flight phase - ADL uses: prefile, taxiing, departed, enroute, descending, arrived
+                // Get flight phase - ADL uses: prefile, taxiing, departed, enroute, descending, arrived, disconnected
                 const phase = (flight.phase || flight.status || '').toLowerCase();
 
-                // Airborne/Enroute
-                if (phase === 'enroute') {
-                    return '#28a745';  // Green - Enroute
+                // Use consolidated PHASE_COLORS from phase-colors.js
+                if (typeof PHASE_COLORS !== 'undefined' && PHASE_COLORS[phase]) {
+                    return PHASE_COLORS[phase];
                 }
-                // Departing/Taxiing - on ground at origin
-                if (phase === 'departed' || phase === 'taxiing') {
-                    return '#17a2b8';  // Cyan - Departing/Taxiing
+                // Fallback for unknown phases
+                if (!phase) {
+                    return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#eab308';
                 }
-                // Descending - approaching destination
-                if (phase === 'descending') {
-                    return '#f28e2b';  // Orange - Descending
-                }
-                // Arrived or Disconnected - flight has ended
-                if (phase === 'arrived' || phase === 'disconnected') {
-                    return '#6c757d';  // Gray - Arrived/Disconnected
-                }
-                // Proposed/Prefile - no position yet
-                if (phase === 'prefile' || phase === 'unknown' || phase === '' || !phase) {
-                    return '#b07aa1';  // Purple - Prefile
-                }
-                return '#ffffff';
+                return '#999999';
                 
             case 'altitude':
                 return getAltitudeBlockColor(flight.altitude_ft || flight.altitude);
@@ -4437,16 +4425,22 @@
                 ];
                 break;
             case 'status':
-                // ADL flight statuses: PROPOSED, DEPARTING, ACTIVE, ARRIVING, COMPLETED
-                items = [
-                    { color: '#b07aa1', label: 'Proposed' },
-                    { color: '#17a2b8', label: 'Departing' },
-                    { color: '#28a745', label: 'Airborne' },
-                    { color: '#f28e2b', label: 'Arriving' },
-                    { color: '#6c757d', label: 'Arrived' },
-                    { color: '#dc3545', label: 'GS Affected' },
-                    { color: '#ffc107', label: 'EDCT' }
-                ];
+                // Flight phases from phase-colors.js + TMI flags
+                items = (function() {
+                    const PC = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {};
+                    const PL = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {};
+                    return [
+                        { color: PC['prefile'] || '#3b82f6', label: PL['prefile'] || 'Prefile' },
+                        { color: PC['taxiing'] || '#22c55e', label: PL['taxiing'] || 'Taxiing' },
+                        { color: PC['departed'] || '#f87171', label: PL['departed'] || 'Departed' },
+                        { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || 'Enroute' },
+                        { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
+                        { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
+                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
+                        { color: '#dc3545', label: 'GS Affected' },
+                        { color: '#ffc107', label: 'EDCT' }
+                    ];
+                })();
                 break;
             case 'arr_dep':
                 items = [
@@ -4654,16 +4648,22 @@
                 ];
                 break;
             case 'status':
-                // ADL flight statuses: PROPOSED, DEPARTING, ACTIVE, ARRIVING, COMPLETED
-                items = [
-                    { color: '#b07aa1', label: 'Proposed' },
-                    { color: '#17a2b8', label: 'Departing' },
-                    { color: '#28a745', label: 'Airborne' },
-                    { color: '#f28e2b', label: 'Arriving' },
-                    { color: '#6c757d', label: 'Arrived' },
-                    { color: '#dc3545', label: 'GS Affected' },
-                    { color: '#ffc107', label: 'EDCT' }
-                ];
+                // Flight phases from phase-colors.js + TMI flags
+                items = (function() {
+                    const PC = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {};
+                    const PL = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {};
+                    return [
+                        { color: PC['prefile'] || '#3b82f6', label: PL['prefile'] || 'Prefile' },
+                        { color: PC['taxiing'] || '#22c55e', label: PL['taxiing'] || 'Taxiing' },
+                        { color: PC['departed'] || '#f87171', label: PL['departed'] || 'Departed' },
+                        { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || 'Enroute' },
+                        { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
+                        { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
+                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
+                        { color: '#dc3545', label: 'GS Affected' },
+                        { color: '#ffc107', label: 'EDCT' }
+                    ];
+                })();
                 break;
             case 'arr_dep':
                 items = [

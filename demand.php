@@ -718,7 +718,7 @@ include("load/connect.php");
     updateDemandClock();
 
     // Rate Override Modal Handler
-    $('#rate_override_btn').on('click', function() {
+    $('#rate_override_btn').on('click', async function() {
         const airport = DEMAND_STATE.selectedAirport;
         if (!airport) {
             Swal.fire({
@@ -733,9 +733,31 @@ include("load/connect.php");
             return;
         }
 
+        // Show loading while fetching configs
+        Swal.fire({
+            title: 'Loading configurations...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        // Fetch available configs for the airport
+        let configs = [];
+        let weatherCategory = 'VMC';
+        try {
+            const response = await fetch(`api/demand/configs.php?airport=${encodeURIComponent(airport)}`);
+            const data = await response.json();
+            if (data.success) {
+                configs = data.configs || [];
+                weatherCategory = data.weather_category || 'VMC';
+            }
+        } catch (err) {
+            console.error('Failed to fetch configs:', err);
+        }
+
         const rateData = DEMAND_STATE.rateData || {};
         const currentAAR = rateData.rates?.vatsim_aar || '';
         const currentADR = rateData.rates?.vatsim_adr || '';
+        const currentConfigId = rateData.config_id || null;
         const hasOverride = rateData.has_override || false;
 
         // Calculate default times (now to +4 hours)
@@ -743,22 +765,55 @@ include("load/connect.php");
         const startDefault = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
         const endDefault = new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString().slice(0, 16);
 
+        // Build config options HTML
+        let configOptions = '<option value="">-- Select Configuration --</option>';
+        configs.forEach(cfg => {
+            const rateInfo = cfg.current_aar || cfg.current_adr
+                ? ` (AAR: ${cfg.current_aar || '-'} / ADR: ${cfg.current_adr || '-'})`
+                : '';
+            const selected = cfg.config_id === currentConfigId ? 'selected' : '';
+            configOptions += `<option value="${cfg.config_id}" data-aar="${cfg.current_aar || ''}" data-adr="${cfg.current_adr || ''}" ${selected}>${cfg.config_name}${rateInfo}</option>`;
+        });
+        configOptions += '<option value="custom">Custom Rates...</option>';
+
         Swal.fire({
             title: `<i class="fas fa-edit mr-2"></i> Rate Override: ${airport}`,
             html: `
                 <div class="text-left">
                     ${hasOverride ? '<div class="alert alert-warning py-2 mb-3"><i class="fas fa-exclamation-triangle mr-1"></i> An override is already active. Creating a new one will replace it.</div>' : ''}
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="form-group">
-                                <label class="small font-weight-bold">AAR (Arrival Rate)</label>
-                                <input type="number" id="swal_aar" class="form-control form-control-sm" value="${currentAAR}" min="0" max="200" placeholder="e.g. 44">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Configuration <span class="badge badge-info ml-1">${weatherCategory}</span></label>
+                        <select id="swal_config" class="form-control form-control-sm">
+                            ${configOptions}
+                        </select>
+                        <small class="text-muted">Select a config or choose Custom for rates without a config.</small>
+                    </div>
+                    <div id="rates_section">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-group mb-2">
+                                    <label class="small font-weight-bold d-flex justify-content-between align-items-center">
+                                        <span>AAR <span id="aar_type_label" class="text-muted font-weight-normal">(Dynamic)</span></span>
+                                        <span id="strat_aar_display" class="badge badge-secondary" style="display: none; font-size: 0.7rem;">Strat: --</span>
+                                    </label>
+                                    <input type="number" id="swal_aar" class="form-control form-control-sm" value="${currentAAR}" min="0" max="200" placeholder="e.g. 44">
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group mb-2">
+                                    <label class="small font-weight-bold d-flex justify-content-between align-items-center">
+                                        <span>ADR <span id="adr_type_label" class="text-muted font-weight-normal">(Dynamic)</span></span>
+                                        <span id="strat_adr_display" class="badge badge-secondary" style="display: none; font-size: 0.7rem;">Strat: --</span>
+                                    </label>
+                                    <input type="number" id="swal_adr" class="form-control form-control-sm" value="${currentADR}" min="0" max="200" placeholder="e.g. 48">
+                                </div>
                             </div>
                         </div>
-                        <div class="col-6">
-                            <div class="form-group">
-                                <label class="small font-weight-bold">ADR (Departure Rate)</label>
-                                <input type="number" id="swal_adr" class="form-control form-control-sm" value="${currentADR}" min="0" max="200" placeholder="e.g. 48">
+                        <div class="row mb-2">
+                            <div class="col-12">
+                                <button type="button" id="reset_to_strat" class="btn btn-outline-secondary btn-sm" style="display: none; font-size: 0.7rem;">
+                                    <i class="fas fa-undo mr-1"></i> Reset to Strategic Rates
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -783,7 +838,7 @@ include("load/connect.php");
                     <small class="text-muted">Override will take effect immediately and show on the chart.</small>
                 </div>
             `,
-            width: 500,
+            width: 520,
             showCancelButton: true,
             confirmButtonText: '<i class="fas fa-check mr-1"></i> Set Override',
             cancelButtonText: 'Cancel',
@@ -795,15 +850,107 @@ include("load/connect.php");
                 cancelButton: 'btn btn-secondary',
                 denyButton: 'btn btn-danger'
             },
+            didOpen: () => {
+                // Handle config selection to populate rates
+                const configSelect = document.getElementById('swal_config');
+                const aarInput = document.getElementById('swal_aar');
+                const adrInput = document.getElementById('swal_adr');
+                const stratAarDisplay = document.getElementById('strat_aar_display');
+                const stratAdrDisplay = document.getElementById('strat_adr_display');
+                const aarTypeLabel = document.getElementById('aar_type_label');
+                const adrTypeLabel = document.getElementById('adr_type_label');
+                const resetBtn = document.getElementById('reset_to_strat');
+
+                let stratAAR = null;
+                let stratADR = null;
+
+                // Update display when rates differ from strategic
+                function updateRateLabels() {
+                    if (stratAAR !== null) {
+                        const isDynAAR = aarInput.value && parseInt(aarInput.value) !== stratAAR;
+                        aarTypeLabel.textContent = isDynAAR ? '(Dynamic)' : '(Strategic)';
+                        aarTypeLabel.className = isDynAAR ? 'text-warning font-weight-normal' : 'text-muted font-weight-normal';
+                        aarInput.style.borderColor = isDynAAR ? '#ffc107' : '';
+                    }
+                    if (stratADR !== null) {
+                        const isDynADR = adrInput.value && parseInt(adrInput.value) !== stratADR;
+                        adrTypeLabel.textContent = isDynADR ? '(Dynamic)' : '(Strategic)';
+                        adrTypeLabel.className = isDynADR ? 'text-warning font-weight-normal' : 'text-muted font-weight-normal';
+                        adrInput.style.borderColor = isDynADR ? '#ffc107' : '';
+                    }
+                    // Show reset button if either rate differs
+                    const showReset = (stratAAR !== null && aarInput.value && parseInt(aarInput.value) !== stratAAR) ||
+                                     (stratADR !== null && adrInput.value && parseInt(adrInput.value) !== stratADR);
+                    resetBtn.style.display = showReset ? 'inline-block' : 'none';
+                }
+
+                // Config selection handler
+                configSelect.addEventListener('change', function() {
+                    const selected = this.options[this.selectedIndex];
+                    if (this.value && this.value !== 'custom') {
+                        // Config selected - populate rates as defaults, but keep editable
+                        stratAAR = selected.dataset.aar ? parseInt(selected.dataset.aar) : null;
+                        stratADR = selected.dataset.adr ? parseInt(selected.dataset.adr) : null;
+                        aarInput.value = stratAAR || '';
+                        adrInput.value = stratADR || '';
+                        // Show strategic rate badges
+                        stratAarDisplay.textContent = stratAAR ? `Strat: ${stratAAR}` : 'Strat: --';
+                        stratAdrDisplay.textContent = stratADR ? `Strat: ${stratADR}` : 'Strat: --';
+                        stratAarDisplay.style.display = 'inline-block';
+                        stratAdrDisplay.style.display = 'inline-block';
+                        updateRateLabels();
+                    } else {
+                        // Custom or no selection
+                        stratAAR = null;
+                        stratADR = null;
+                        stratAarDisplay.style.display = 'none';
+                        stratAdrDisplay.style.display = 'none';
+                        aarTypeLabel.textContent = '(Custom)';
+                        adrTypeLabel.textContent = '(Custom)';
+                        aarTypeLabel.className = 'text-muted font-weight-normal';
+                        adrTypeLabel.className = 'text-muted font-weight-normal';
+                        aarInput.style.borderColor = '';
+                        adrInput.style.borderColor = '';
+                        resetBtn.style.display = 'none';
+                        if (this.value === 'custom') {
+                            aarInput.value = '';
+                            adrInput.value = '';
+                            aarInput.focus();
+                        }
+                    }
+                });
+
+                // Listen for rate changes to update labels
+                aarInput.addEventListener('input', updateRateLabels);
+                adrInput.addEventListener('input', updateRateLabels);
+
+                // Reset to strategic rates button
+                resetBtn.addEventListener('click', function() {
+                    if (stratAAR !== null) aarInput.value = stratAAR;
+                    if (stratADR !== null) adrInput.value = stratADR;
+                    updateRateLabels();
+                });
+
+                // Trigger initial state if a config is pre-selected
+                if (configSelect.value && configSelect.value !== 'custom') {
+                    configSelect.dispatchEvent(new Event('change'));
+                }
+            },
             preConfirm: () => {
+                const configId = document.getElementById('swal_config').value;
                 const aar = document.getElementById('swal_aar').value;
                 const adr = document.getElementById('swal_adr').value;
                 const start = document.getElementById('swal_start').value;
                 const end = document.getElementById('swal_end').value;
                 const reason = document.getElementById('swal_reason').value;
 
-                if (!aar && !adr) {
-                    Swal.showValidationMessage('Please enter at least AAR or ADR');
+                if (!configId && !aar && !adr) {
+                    Swal.showValidationMessage('Please select a configuration or enter custom rates');
+                    return false;
+                }
+
+                if (configId === 'custom' && !aar && !adr) {
+                    Swal.showValidationMessage('Please enter at least AAR or ADR for custom rates');
                     return false;
                 }
 
@@ -817,7 +964,14 @@ include("load/connect.php");
                     return false;
                 }
 
-                return { aar, adr, start, end, reason };
+                return {
+                    config_id: configId && configId !== 'custom' ? parseInt(configId) : null,
+                    aar,
+                    adr,
+                    start,
+                    end,
+                    reason
+                };
             }
         }).then((result) => {
             if (result.isConfirmed && result.value) {
@@ -838,6 +992,7 @@ include("load/connect.php");
             end_utc: new Date(data.end).toISOString(),
             aar: data.aar ? parseInt(data.aar) : null,
             adr: data.adr ? parseInt(data.adr) : null,
+            config_id: data.config_id || null,
             reason: data.reason || null
         };
 

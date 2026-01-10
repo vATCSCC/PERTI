@@ -2008,6 +2008,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <!-- Shared Phase Color Configuration -->
+    <script src="assets/js/config/phase-colors.js"></script>
 </head>
 <body>
     <?php include('load/nav.php'); ?>
@@ -3986,9 +3988,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 return data.labels.map((ts, i) => ({ x: ts, y: values[i] }));
                             };
 
-                            // Calculate combined max for synced y-axes
-                            // For stacked chart, max is sum of all stacked values at each point
-                            const stackedPhases = ['arrived', 'descending', 'enroute', 'departed', 'taxiing', 'unknown'];
+                            // Calculate combined max for stacked chart
+                            // Use same order as PHASE_STACK_ORDER from phase-colors.js (all phases stacked)
+                            const stackedPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
                             let rawMax = 0;
                             for (let i = 0; i < data.labels.length; i++) {
                                 let stackSum = 0;
@@ -3997,98 +3999,108 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         stackSum += data.datasets[phase][i];
                                     }
                                 });
-                                // Also check prefile values
-                                const prefileVal = data.datasets.prefile ? data.datasets.prefile[i] : 0;
-                                rawMax = Math.max(rawMax, stackSum, prefileVal);
+                                rawMax = Math.max(rawMax, stackSum);
                             }
                             // Round up to nice interval (500 for values < 5000, 1000 for larger)
                             const interval = rawMax < 5000 ? 500 : 1000;
                             const yMax = Math.ceil(rawMax * 1.05 / interval) * interval;
 
+                            // Helper to convert hex color to rgba with alpha
+                            const hexToRgba = (hex, alpha) => {
+                                const r = parseInt(hex.slice(1, 3), 16);
+                                const g = parseInt(hex.slice(3, 5), 16);
+                                const b = parseInt(hex.slice(5, 7), 16);
+                                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                            };
+
+                            // Use shared PHASE_COLORS config (from phase-colors.js)
+                            const colors = typeof PHASE_COLORS !== 'undefined' ? PHASE_COLORS : {
+                                arrived: '#1a1a1a', disconnected: '#f97316', descending: '#991b1b',
+                                enroute: '#dc2626', departed: '#f87171', taxiing: '#22c55e',
+                                prefile: '#3b82f6', unknown: '#eab308'
+                            };
+                            const labels = typeof PHASE_LABELS !== 'undefined' ? PHASE_LABELS : {
+                                arrived: 'Arrived', disconnected: 'Disconnected', descending: 'Descending',
+                                enroute: 'Enroute', departed: 'Departed', taxiing: 'Taxiing',
+                                prefile: 'Prefile', unknown: 'Unknown'
+                            };
+
                             window.phaseChartInstance = new Chart(phaseCtx, {
                                 type: 'line',
                                 data: {
                                     datasets: [
+                                        // Stacked phases in order (bottom to top): arrived, disconnected, descending, enroute, departed, taxiing, prefile, unknown
                                         {
-                                            label: 'Arrived',
+                                            label: labels.arrived,
                                             data: makeTimeData(data.datasets.arrived),
-                                            borderColor: '#1a1a1a',
-                                            backgroundColor: 'rgba(26, 26, 26, 0.8)',
+                                            borderColor: colors.arrived,
+                                            backgroundColor: hexToRgba(colors.arrived, 0.8),
                                             fill: true,
                                             tension: 0.3,
                                             pointRadius: 0
                                         },
                                         {
-                                            label: 'Descending',
+                                            label: labels.disconnected,
+                                            data: makeTimeData(data.datasets.disconnected || []),
+                                            borderColor: colors.disconnected,
+                                            backgroundColor: hexToRgba(colors.disconnected, 0.8),
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: labels.descending,
                                             data: makeTimeData(data.datasets.descending),
-                                            borderColor: '#991b1b',
-                                            backgroundColor: 'rgba(153, 27, 27, 0.8)',
+                                            borderColor: colors.descending,
+                                            backgroundColor: hexToRgba(colors.descending, 0.8),
                                             fill: true,
                                             tension: 0.3,
                                             pointRadius: 0
                                         },
                                         {
-                                            label: 'En Route',
+                                            label: labels.enroute,
                                             data: makeTimeData(data.datasets.enroute),
-                                            borderColor: '#dc2626',
-                                            backgroundColor: 'rgba(220, 38, 38, 0.8)',
+                                            borderColor: colors.enroute,
+                                            backgroundColor: hexToRgba(colors.enroute, 0.8),
                                             fill: true,
                                             tension: 0.3,
                                             pointRadius: 0
                                         },
                                         {
-                                            label: 'Departed',
+                                            label: labels.departed,
                                             data: makeTimeData(data.datasets.departed),
-                                            borderColor: '#f87171',
-                                            backgroundColor: 'rgba(248, 113, 113, 0.8)',
+                                            borderColor: colors.departed,
+                                            backgroundColor: hexToRgba(colors.departed, 0.8),
                                             fill: true,
                                             tension: 0.3,
                                             pointRadius: 0
                                         },
                                         {
-                                            label: 'Taxiing',
+                                            label: labels.taxiing,
                                             data: makeTimeData(data.datasets.taxiing),
-                                            borderColor: '#22c55e',
-                                            backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                                            borderColor: colors.taxiing,
+                                            backgroundColor: hexToRgba(colors.taxiing, 0.8),
                                             fill: true,
                                             tension: 0.3,
                                             pointRadius: 0
                                         },
                                         {
-                                            label: 'Unknown',
+                                            label: labels.prefile,
+                                            data: makeTimeData(data.datasets.prefile || []),
+                                            borderColor: colors.prefile,
+                                            backgroundColor: hexToRgba(colors.prefile, 0.8),
+                                            fill: true,
+                                            tension: 0.3,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: labels.unknown,
                                             data: makeTimeData(data.datasets.unknown || []),
-                                            borderColor: '#eab308',
-                                            backgroundColor: 'rgba(234, 179, 8, 0.8)',
+                                            borderColor: colors.unknown,
+                                            backgroundColor: hexToRgba(colors.unknown, 0.8),
                                             fill: true,
                                             tension: 0.3,
                                             pointRadius: 0
-                                        },
-                                        {
-                                            label: 'Prefile (shadow)',
-                                            data: makeTimeData(data.datasets.prefile || []),
-                                            borderColor: '#000000',
-                                            backgroundColor: 'transparent',
-                                            fill: false,
-                                            tension: 0.3,
-                                            pointRadius: 0,
-                                            borderDash: [5, 5],
-                                            borderWidth: 4,
-                                            yAxisID: 'y2',
-                                            hidden: false,
-                                            order: -2
-                                        },
-                                        {
-                                            label: 'Prefile',
-                                            data: makeTimeData(data.datasets.prefile || []),
-                                            borderColor: '#06b6d4',
-                                            backgroundColor: 'transparent',
-                                            fill: false,
-                                            tension: 0.3,
-                                            pointRadius: 0,
-                                            borderDash: [5, 5],
-                                            borderWidth: 2,
-                                            yAxisID: 'y2',
-                                            order: -1
                                         }
                                     ]
                                 },
@@ -4102,18 +4114,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             labels: {
                                                 boxWidth: 12,
                                                 padding: 10,
-                                                font: { size: 10 },
-                                                filter: function(item) {
-                                                    return !item.text.includes('shadow');
-                                                }
+                                                font: { size: 10 }
                                             }
                                         },
                                         tooltip: {
                                             mode: 'index',
                                             intersect: false,
-                                            filter: function(item) {
-                                                return !item.dataset.label.includes('shadow');
-                                            },
                                             callbacks: {
                                                 title: function(items) {
                                                     if (items.length > 0) {
@@ -4211,24 +4217,6 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             ticks: { font: { size: 10 } },
                                             min: 0,
                                             max: yMax
-                                        },
-                                        y2: {
-                                            display: true,
-                                            stacked: false,
-                                            position: 'right',
-                                            title: {
-                                                display: true,
-                                                text: 'Prefiles',
-                                                font: { size: 11, weight: 'bold' },
-                                                color: '#06b6d4'
-                                            },
-                                            grid: { display: false },
-                                            ticks: {
-                                                font: { size: 10 },
-                                                color: '#06b6d4'
-                                            },
-                                            min: 0,
-                                            max: yMax
                                         }
                                     },
                                     interaction: {
@@ -4239,22 +4227,28 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 }
                             });
 
-                            // Populate summary statistics table
+                            // Populate summary statistics table using shared PHASE_COLORS
                             if (result.summary) {
                                 const s = result.summary;
+                                // Use shared colors/labels, with fallback
+                                const c = typeof PHASE_COLORS !== 'undefined' ? PHASE_COLORS : colors;
+                                const l = typeof PHASE_LABELS !== 'undefined' ? PHASE_LABELS : labels;
                                 const phases = [
                                     { key: 'total_active', label: 'Total Active', color: '#333' },
-                                    { key: 'prefile', label: 'Prefile', color: '#06b6d4' },
-                                    { key: 'taxiing', label: 'Taxiing', color: '#22c55e' },
-                                    { key: 'departed', label: 'Departed', color: '#f87171' },
-                                    { key: 'enroute', label: 'En Route', color: '#dc2626' },
-                                    { key: 'descending', label: 'Descending', color: '#991b1b' },
-                                    { key: 'arrived', label: 'Arrived', color: '#1a1a1a' },
-                                    { key: 'unknown', label: 'Unknown', color: '#eab308' }
+                                    { key: 'prefile', label: l.prefile, color: c.prefile },
+                                    { key: 'taxiing', label: l.taxiing, color: c.taxiing },
+                                    { key: 'departed', label: l.departed, color: c.departed },
+                                    { key: 'enroute', label: l.enroute, color: c.enroute },
+                                    { key: 'descending', label: l.descending, color: c.descending },
+                                    { key: 'disconnected', label: l.disconnected, color: c.disconnected },
+                                    { key: 'arrived', label: l.arrived, color: c.arrived },
+                                    { key: 'unknown', label: l.unknown, color: c.unknown }
                                 ];
                                 let tableHtml = '';
                                 phases.forEach(p => {
                                     const stats = s[p.key] || {};
+                                    // Skip phases with no data
+                                    if (p.key !== 'total_active' && !stats.max && !stats.avg) return;
                                     tableHtml += `<tr>
                                         <td style="color: ${p.color}; font-weight: bold;">${p.label}</td>
                                         <td>${stats.min || 0}</td>
@@ -4273,10 +4267,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     if (!window.phaseChartInstance) return;
                                     const isLog = this.checked;
                                     window.phaseChartInstance.options.scales.y.type = isLog ? 'logarithmic' : 'linear';
-                                    window.phaseChartInstance.options.scales.y2.type = isLog ? 'logarithmic' : 'linear';
                                     // Set min to 1 for log scale (can't have 0), 0 for linear
                                     window.phaseChartInstance.options.scales.y.min = isLog ? 1 : 0;
-                                    window.phaseChartInstance.options.scales.y2.min = isLog ? 1 : 0;
                                     // Keep max the same (yMax was computed at creation)
                                     window.phaseChartInstance.update();
                                 });

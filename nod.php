@@ -1496,6 +1496,9 @@ document.addEventListener('DOMContentLoaded', updateNavbarHeight);
 window.addEventListener('resize', updateNavbarHeight);
 </script>
 
+<!-- Phase Colors Configuration -->
+<script src="assets/js/config/phase-colors.js"></script>
+
 <!-- NOD Module -->
 <script src="assets/js/nod.js"></script>
 

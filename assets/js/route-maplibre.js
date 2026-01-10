@@ -3950,14 +3950,16 @@ $(document).ready(function() {
                 case 'reroute_match':
                     return getRerouteMatchColor(flight);
                 case 'status':
-                    // Phase-based coloring aligned with demand chart phases
+                    // Phase-based coloring from phase-colors.js
                     const phase = (flight.phase || '').toLowerCase();
-                    if (phase === 'enroute') return '#28a745';           // Green - Enroute
-                    if (phase === 'departed' || phase === 'taxiing') return '#17a2b8';  // Cyan - Departing/Taxiing
-                    if (phase === 'descending') return '#f28e2b';        // Orange - Descending
-                    if (phase === 'arrived' || phase === 'disconnected') return '#6c757d';  // Gray - Arrived/Disconnected
-                    if (phase === 'prefile' || phase === 'unknown' || !phase) return '#b07aa1';  // Purple - Prefile
-                    return '#ffffff';
+                    if (typeof PHASE_COLORS !== 'undefined' && PHASE_COLORS[phase]) {
+                        return PHASE_COLORS[phase];
+                    }
+                    // Fallback for unknown phases
+                    if (!phase) {
+                        return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#eab308';
+                    }
+                    return '#999999';
                 default:
                     return '#ffffff';
             }
@@ -4252,12 +4254,17 @@ $(document).ready(function() {
                     items.push({ color: '#666666', label: 'No Match' });
                     break;
                 case 'status':
+                    // Flight phases from phase-colors.js
+                    const PC = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {};
+                    const PL = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {};
                     items = [
-                        { color: '#28a745', label: 'Enroute' },
-                        { color: '#17a2b8', label: 'Departed/Taxi' },
-                        { color: '#f28e2b', label: 'Descending' },
-                        { color: '#6c757d', label: 'Arrived/Disconn' },
-                        { color: '#b07aa1', label: 'Prefile' }
+                        { color: PC['prefile'] || '#3b82f6', label: PL['prefile'] || 'Prefile' },
+                        { color: PC['taxiing'] || '#22c55e', label: PL['taxiing'] || 'Taxiing' },
+                        { color: PC['departed'] || '#f87171', label: PL['departed'] || 'Departed' },
+                        { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || 'Enroute' },
+                        { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
+                        { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
+                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' }
                     ];
                     break;
                 default:

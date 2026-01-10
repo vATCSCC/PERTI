@@ -3,6 +3,632 @@
  * Core client-side logic for demand charts and filtering
  */
 
+// ============================================================================
+// DemandChartCore - Reusable chart rendering functions
+// Used by both demand.php and gdt.php
+// ============================================================================
+window.DemandChartCore = (function() {
+    'use strict';
+
+    // Phase colors - use shared config from phase-colors.js if available
+    const PHASE_COLORS = (typeof window.PHASE_COLORS !== 'undefined') ? window.PHASE_COLORS : {
+        'arrived': '#1a1a1a',
+        'disconnected': '#f97316',
+        'descending': '#991b1b',
+        'enroute': '#dc2626',
+        'departed': '#f87171',
+        'taxiing': '#22c55e',
+        'prefile': '#3b82f6',
+        'unknown': '#eab308'
+    };
+
+    // Phase labels - use shared config if available
+    const PHASE_LABELS = (typeof window.PHASE_LABELS !== 'undefined') ? window.PHASE_LABELS : {
+        'arrived': 'Arrived',
+        'disconnected': 'Disconnected',
+        'descending': 'Descending',
+        'enroute': 'Enroute',
+        'departed': 'Departed',
+        'taxiing': 'Taxiing',
+        'prefile': 'Prefile',
+        'unknown': 'Unknown'
+    };
+
+    // Phase stacking order (bottom to top)
+    const PHASE_ORDER = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+
+    /**
+     * Get granularity in minutes
+     * @param {string} granularity - 'hourly', '30min', or '15min'
+     * @returns {number} Minutes per bin
+     */
+    function getGranularityMinutes(granularity) {
+        switch (granularity) {
+            case '15min': return 15;
+            case '30min': return 30;
+            case 'hourly':
+            default: return 60;
+        }
+    }
+
+    /**
+     * Generate all time bins for a time range
+     * @param {string} granularity - 'hourly', '30min', or '15min'
+     * @param {number} startHours - Hours before now (negative)
+     * @param {number} endHours - Hours after now (positive)
+     * @returns {Array} Array of ISO time strings
+     */
+    function generateAllTimeBins(granularity, startHours, endHours) {
+        const now = new Date();
+        const start = new Date(now.getTime() + startHours * 60 * 60 * 1000);
+        const end = new Date(now.getTime() + endHours * 60 * 60 * 1000);
+        const intervalMinutes = getGranularityMinutes(granularity);
+
+        // Round start down to nearest interval
+        const startMinutes = start.getUTCMinutes();
+        const roundedStartMinutes = Math.floor(startMinutes / intervalMinutes) * intervalMinutes;
+        start.setUTCMinutes(roundedStartMinutes, 0, 0);
+
+        // Round end up to nearest interval
+        const endMinutes = end.getUTCMinutes();
+        const roundedEndMinutes = Math.ceil(endMinutes / intervalMinutes) * intervalMinutes;
+        if (roundedEndMinutes >= 60) {
+            end.setUTCHours(end.getUTCHours() + 1);
+            end.setUTCMinutes(0, 0, 0);
+        } else {
+            end.setUTCMinutes(roundedEndMinutes, 0, 0);
+        }
+
+        const timeBins = [];
+        const current = new Date(start);
+
+        while (current <= end) {
+            // Format without milliseconds to match PHP's format
+            timeBins.push(current.toISOString().replace('.000Z', 'Z'));
+            current.setUTCMinutes(current.getUTCMinutes() + intervalMinutes);
+        }
+
+        return timeBins;
+    }
+
+    /**
+     * Normalize a time bin string (remove milliseconds)
+     * @param {string} bin - ISO time string
+     * @returns {string} Normalized time string
+     */
+    function normalizeTimeBin(bin) {
+        const d = new Date(bin);
+        d.setUTCSeconds(0, 0);
+        return d.toISOString().replace('.000Z', 'Z');
+    }
+
+    /**
+     * Build a series for a specific phase - TBFM/FSM style with TRUE TIME AXIS
+     * @param {string} name - Series name for legend
+     * @param {Array} timeBins - Array of ISO time bin strings
+     * @param {Object} dataByBin - Lookup map of breakdown data by time bin
+     * @param {string} phase - Phase name (arrived, enroute, etc.)
+     * @param {string} type - 'arrivals' or 'departures'
+     * @param {string} viewDirection - 'both', 'arr', or 'dep' - controls bar width
+     * @param {string} granularity - 'hourly', '30min', or '15min'
+     * @returns {Object} ECharts series configuration
+     */
+    function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type, viewDirection, granularity) {
+        const intervalMs = getGranularityMinutes(granularity) * 60 * 1000;
+        const halfInterval = intervalMs / 2;
+
+        // Build data as [timestamp, value] pairs for time axis
+        const data = timeBins.map(bin => {
+            const normalizedBin = normalizeTimeBin(bin);
+            const breakdown = dataByBin[normalizedBin] || dataByBin[bin];
+            const value = breakdown ? (breakdown[phase] || 0) : 0;
+            return [new Date(bin).getTime() + halfInterval, value];
+        });
+
+        const color = PHASE_COLORS[phase] || '#999';
+        const isSingleDirection = viewDirection === 'arr' || viewDirection === 'dep';
+        const barWidth = isSingleDirection ? '70%' : '35%';
+
+        const seriesConfig = {
+            name: name,
+            type: 'bar',
+            stack: type,
+            barWidth: barWidth,
+            barGap: '10%',
+            emphasis: {
+                focus: 'series',
+                itemStyle: {
+                    shadowBlur: 2,
+                    shadowColor: 'rgba(0,0,0,0.2)'
+                }
+            },
+            itemStyle: {
+                color: color,
+                borderColor: type === 'departures' ? 'rgba(255,255,255,0.5)' : 'transparent',
+                borderWidth: type === 'departures' ? 1 : 0
+            },
+            data: data
+        };
+
+        // Add diagonal hatching pattern for departures (FSM/TBFM style)
+        if (type === 'departures') {
+            seriesConfig.itemStyle.decal = {
+                symbol: 'rect',
+                symbolSize: 1,
+                rotation: Math.PI / 4,
+                color: 'rgba(255,255,255,0.4)',
+                dashArrayX: [1, 0],
+                dashArrayY: [3, 5]
+            };
+        }
+
+        return seriesConfig;
+    }
+
+    /**
+     * Get current time markLine data item - FAA AADC style
+     * @returns {Object} ECharts markLine data item
+     */
+    function getCurrentTimeMarkLineForTimeAxis() {
+        const now = new Date();
+        const hours = now.getUTCHours().toString().padStart(2, '0');
+        const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+        const markerColor = '#f59e0b';
+
+        return {
+            xAxis: now.getTime(),
+            lineStyle: {
+                color: markerColor,
+                width: 2,
+                type: 'solid'
+            },
+            label: {
+                show: true,
+                formatter: `${hours}${minutes}z`,
+                position: 'end',
+                color: markerColor,
+                fontWeight: 'bold',
+                fontSize: 10,
+                fontFamily: '"Inconsolata", monospace',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                padding: [2, 6],
+                borderRadius: 2,
+                borderColor: markerColor,
+                borderWidth: 1
+            }
+        };
+    }
+
+    /**
+     * Build rate mark lines for the demand chart
+     * @param {Object} rateData - Rate data from API
+     * @param {string} direction - 'both', 'arr', or 'dep'
+     * @param {boolean} showRateLines - Whether to show rate lines
+     * @returns {Array} Array of ECharts markLine data items
+     */
+    function buildRateMarkLinesForChart(rateData, direction, showRateLines) {
+        if (!showRateLines || !rateData || !rateData.rates) {
+            return [];
+        }
+
+        const rates = rateData.rates;
+        const lines = [];
+
+        // Use config if available, otherwise use defaults
+        const cfg = (typeof window.RATE_LINE_CONFIG !== 'undefined') ? window.RATE_LINE_CONFIG : {
+            active: { vatsim: { color: '#FFFFFF' }, rw: { color: '#00FFFF' } },
+            suggested: { vatsim: { color: '#888888' }, rw: { color: '#008080' } },
+            lineStyle: { aar: { type: 'solid', width: 2 }, adr: { type: 'dashed', width: 2 } },
+            label: { position: 'end', fontSize: 10, fontWeight: 'bold' }
+        };
+
+        const styleKey = rateData.is_suggested ? 'suggested' : 'active';
+
+        const addLine = function(value, source, rateType, label) {
+            if (!value) return;
+
+            const sourceStyle = cfg[styleKey][source];
+            const lineTypeStyle = cfg.lineStyle[rateType];
+
+            lines.push({
+                yAxis: value,
+                lineStyle: {
+                    color: sourceStyle.color,
+                    width: lineTypeStyle.width,
+                    type: lineTypeStyle.type
+                },
+                label: {
+                    show: true,
+                    formatter: `${label} ${value}`,
+                    position: 'insideEndTop',
+                    color: sourceStyle.color,
+                    fontSize: cfg.label.fontSize || 10,
+                    fontWeight: cfg.label.fontWeight || 'bold',
+                    fontFamily: '"Roboto Mono", monospace',
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    padding: [2, 6],
+                    borderRadius: 2
+                }
+            });
+        };
+
+        if (direction === 'both' || direction === 'arr') {
+            addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');
+            addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');
+        }
+
+        if (direction === 'both' || direction === 'dep') {
+            addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
+            addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
+        }
+
+        return lines;
+    }
+
+    /**
+     * Format timestamp for tooltip display - FAA AADC style
+     * @param {number} timestamp - Unix timestamp in milliseconds
+     * @param {string} granularity - 'hourly', '30min', or '15min'
+     * @returns {string} Formatted time range string
+     */
+    function formatTimeLabelFromTimestamp(timestamp, granularity) {
+        const intervalMs = getGranularityMinutes(granularity) * 60 * 1000;
+        const halfInterval = intervalMs / 2;
+        const binStart = timestamp - halfInterval;
+
+        const d = new Date(binStart);
+        const hours = d.getUTCHours().toString().padStart(2, '0');
+        const minutes = d.getUTCMinutes().toString().padStart(2, '0');
+
+        const endTime = new Date(binStart + intervalMs);
+        const endHours = endTime.getUTCHours().toString().padStart(2, '0');
+        const endMinutes = endTime.getUTCMinutes().toString().padStart(2, '0');
+
+        return `${hours}${minutes} - ${endHours}${endMinutes}`;
+    }
+
+    /**
+     * Build chart title in FSM/TBFM style
+     * @param {string} airport - Airport ICAO code
+     * @param {string|Date} lastAdlUpdate - Last ADL update timestamp
+     * @returns {string} Formatted chart title
+     */
+    function buildChartTitle(airport, lastAdlUpdate) {
+        let dateStr = '--/--/----';
+        let timeStr = '--:--Z';
+
+        if (lastAdlUpdate) {
+            const adlDate = new Date(lastAdlUpdate);
+            const month = (adlDate.getUTCMonth() + 1).toString().padStart(2, '0');
+            const day = adlDate.getUTCDate().toString().padStart(2, '0');
+            const year = adlDate.getUTCFullYear();
+            dateStr = `${month}/${day}/${year}`;
+
+            const hours = adlDate.getUTCHours().toString().padStart(2, '0');
+            const mins = adlDate.getUTCMinutes().toString().padStart(2, '0');
+            timeStr = `${hours}:${mins}Z`;
+        }
+
+        return `${airport}          ${dateStr}          ${timeStr}`;
+    }
+
+    /**
+     * Get X-axis label based on granularity
+     * @param {string} granularity - 'hourly', '30min', or '15min'
+     * @returns {string} X-axis label
+     */
+    function getXAxisLabel(granularity) {
+        const minutes = getGranularityMinutes(granularity);
+        return `Time in ${minutes}-Minute Increments`;
+    }
+
+    /**
+     * Create a demand chart instance with a simple API
+     * @param {HTMLElement|string} container - DOM element or element ID
+     * @param {Object} options - Chart options
+     * @returns {Object} Chart controller instance
+     */
+    function createChart(container, options) {
+        options = options || {};
+        const el = typeof container === 'string' ? document.getElementById(container) : container;
+        if (!el) {
+            console.error('DemandChartCore: container not found');
+            return null;
+        }
+
+        const chart = echarts.init(el);
+        const state = {
+            chart: chart,
+            airport: null,
+            direction: options.direction || 'both',
+            granularity: options.granularity || 'hourly',
+            timeRangeStart: options.timeRangeStart !== undefined ? options.timeRangeStart : -2,
+            timeRangeEnd: options.timeRangeEnd !== undefined ? options.timeRangeEnd : 14,
+            lastData: null,
+            rateData: null,
+            showRateLines: options.showRateLines !== false
+        };
+
+        // Handle window resize
+        var resizeHandler = function() {
+            if (state.chart) state.chart.resize();
+        };
+        window.addEventListener('resize', resizeHandler);
+
+        return {
+            load: function(airport, opts) {
+                opts = opts || {};
+                if (!airport) {
+                    this.clear();
+                    return Promise.resolve({ success: false, error: 'No airport specified' });
+                }
+
+                state.airport = airport;
+                if (opts.direction) state.direction = opts.direction;
+                if (opts.granularity) state.granularity = opts.granularity;
+                if (opts.timeRangeStart !== undefined) state.timeRangeStart = opts.timeRangeStart;
+                if (opts.timeRangeEnd !== undefined) state.timeRangeEnd = opts.timeRangeEnd;
+
+                var now = new Date();
+                var start = new Date(now.getTime() + state.timeRangeStart * 60 * 60 * 1000);
+                var end = new Date(now.getTime() + state.timeRangeEnd * 60 * 60 * 1000);
+
+                var params = new URLSearchParams({
+                    airport: airport,
+                    granularity: state.granularity,
+                    direction: state.direction,
+                    start: start.toISOString(),
+                    end: end.toISOString()
+                });
+
+                state.chart.showLoading({ text: 'Loading...', maskColor: 'rgba(255,255,255,0.8)', textColor: '#333' });
+
+                var self = this;
+                var demandPromise = fetch('api/demand/airport.php?' + params.toString()).then(function(r) { return r.json(); });
+                var ratesPromise = fetch('api/demand/rates.php?airport=' + encodeURIComponent(airport)).then(function(r) { return r.json(); }).catch(function() { return null; });
+
+                return Promise.all([demandPromise, ratesPromise]).then(function(results) {
+                    var demandResponse = results[0];
+                    var ratesResponse = results[1];
+                    state.chart.hideLoading();
+
+                    if (!demandResponse.success) {
+                        console.error('Demand API error:', demandResponse.error);
+                        return { success: false, error: demandResponse.error };
+                    }
+
+                    state.lastData = demandResponse;
+                    state.rateData = (ratesResponse && ratesResponse.success) ? ratesResponse : null;
+
+                    self.render();
+                    return { success: true, data: demandResponse, rates: state.rateData };
+                }).catch(function(err) {
+                    state.chart.hideLoading();
+                    console.error('DemandChartCore load error:', err);
+                    return { success: false, error: err.message };
+                });
+            },
+
+            render: function() {
+                if (!state.chart || !state.lastData) return;
+
+                var data = state.lastData;
+                var arrivals = data.data.arrivals || [];
+                var departures = data.data.departures || [];
+                var direction = state.direction;
+
+                var timeBins = generateAllTimeBins(state.granularity, state.timeRangeStart, state.timeRangeEnd);
+
+                var arrivalsByBin = {};
+                arrivals.forEach(function(d) { arrivalsByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+
+                var departuresByBin = {};
+                departures.forEach(function(d) { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+
+                var series = [];
+
+                if (direction === 'arr' || direction === 'both') {
+                    PHASE_ORDER.forEach(function(phase) {
+                        var suffix = direction === 'both' ? ' (Arr)' : '';
+                        series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction, state.granularity));
+                    });
+                }
+
+                if (direction === 'dep' || direction === 'both') {
+                    PHASE_ORDER.forEach(function(phase) {
+                        var suffix = direction === 'both' ? ' (Dep)' : '';
+                        series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction, state.granularity));
+                    });
+                }
+
+                var timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
+                var rateMarkLines = buildRateMarkLinesForChart(state.rateData, direction, state.showRateLines);
+
+                if (series.length > 0) {
+                    var markLineData = [];
+                    if (timeMarkLineData) markLineData.push(timeMarkLineData);
+                    if (rateMarkLines && rateMarkLines.length > 0) markLineData.push.apply(markLineData, rateMarkLines);
+
+                    if (markLineData.length > 0) {
+                        series[0].markLine = { silent: true, symbol: ['none', 'none'], data: markLineData };
+                    }
+                }
+
+                var intervalMs = getGranularityMinutes(state.granularity) * 60 * 1000;
+                var chartTitle = buildChartTitle(data.airport, data.last_adl_update);
+                var gran = state.granularity;
+
+                var option = {
+                    backgroundColor: '#ffffff',
+                    title: {
+                        text: chartTitle,
+                        left: 'center',
+                        top: 10,
+                        textStyle: { fontSize: 13, fontWeight: 'bold', color: '#333', fontFamily: '"Inconsolata", "SF Mono", monospace' }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'shadow' },
+                        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                        borderColor: '#ccc',
+                        borderWidth: 1,
+                        padding: [8, 12],
+                        textStyle: { color: '#333', fontSize: 11 },
+                        formatter: function(params) {
+                            if (!params || params.length === 0) return '';
+                            var timestamp = params[0].value[0];
+                            var timeStr = formatTimeLabelFromTimestamp(timestamp, gran);
+                            var tooltip = '<strong style="font-size:12px;">' + timeStr + '</strong><br/>';
+                            var total = 0;
+                            params.forEach(function(p) {
+                                var val = p.value[1] || 0;
+                                if (val > 0) {
+                                    tooltip += p.marker + ' ' + p.seriesName + ': <strong>' + val + '</strong><br/>';
+                                    total += val;
+                                }
+                            });
+                            tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ' + total + '</strong>';
+                            return tooltip;
+                        }
+                    },
+                    legend: {
+                        bottom: 5,
+                        left: 'center',
+                        type: 'scroll',
+                        itemWidth: 12,
+                        itemHeight: 8,
+                        textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' }
+                    },
+                    grid: { left: 50, right: 20, bottom: 70, top: 45, containLabel: false },
+                    xAxis: {
+                        type: 'time',
+                        name: getXAxisLabel(state.granularity),
+                        nameLocation: 'middle',
+                        nameGap: 25,
+                        nameTextStyle: { fontSize: 10, color: '#333', fontWeight: 500 },
+                        maxInterval: 3600 * 1000,
+                        axisLine: { lineStyle: { color: '#333', width: 1 } },
+                        axisTick: { alignWithLabel: true, lineStyle: { color: '#666' } },
+                        axisLabel: {
+                            fontSize: 10,
+                            color: '#333',
+                            fontFamily: '"Inconsolata", "SF Mono", monospace',
+                            formatter: function(value) {
+                                var d = new Date(value);
+                                return d.getUTCHours().toString().padStart(2, '0') + d.getUTCMinutes().toString().padStart(2, '0') + 'z';
+                            }
+                        },
+                        splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
+                        min: new Date(timeBins[0]).getTime(),
+                        max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: 'Demand',
+                        nameLocation: 'middle',
+                        nameGap: 35,
+                        nameTextStyle: { fontSize: 11, color: '#333', fontWeight: 500 },
+                        minInterval: 1,
+                        axisLine: { show: true, lineStyle: { color: '#333', width: 1 } },
+                        axisTick: { show: true, lineStyle: { color: '#666' } },
+                        axisLabel: { fontSize: 10, color: '#333', fontFamily: '"Inconsolata", monospace' },
+                        splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } }
+                    },
+                    series: series
+                };
+
+                state.chart.setOption(option, true);
+            },
+
+            update: function(opts) {
+                var needsReload = false;
+                var needsRender = false;
+
+                if (opts.direction && opts.direction !== state.direction) {
+                    state.direction = opts.direction;
+                    needsRender = true;
+                }
+                if (opts.granularity && opts.granularity !== state.granularity) {
+                    state.granularity = opts.granularity;
+                    needsReload = true;
+                }
+                if (opts.timeRangeStart !== undefined && opts.timeRangeStart !== state.timeRangeStart) {
+                    state.timeRangeStart = opts.timeRangeStart;
+                    needsReload = true;
+                }
+                if (opts.timeRangeEnd !== undefined && opts.timeRangeEnd !== state.timeRangeEnd) {
+                    state.timeRangeEnd = opts.timeRangeEnd;
+                    needsReload = true;
+                }
+
+                if (needsReload && state.airport) {
+                    return this.load(state.airport);
+                } else if (needsRender && state.lastData) {
+                    this.render();
+                }
+                return Promise.resolve();
+            },
+
+            clear: function() {
+                state.lastData = null;
+                state.rateData = null;
+                state.airport = null;
+                if (state.chart) state.chart.clear();
+            },
+
+            getRateData: function() { return state.rateData; },
+            getState: function() {
+                return {
+                    airport: state.airport,
+                    direction: state.direction,
+                    granularity: state.granularity,
+                    timeRangeStart: state.timeRangeStart,
+                    timeRangeEnd: state.timeRangeEnd
+                };
+            },
+            dispose: function() {
+                window.removeEventListener('resize', resizeHandler);
+                if (state.chart) { state.chart.dispose(); state.chart = null; }
+            },
+            resize: function() { if (state.chart) state.chart.resize(); }
+        };
+    }
+
+    // Public API
+    return {
+        // Core utility functions
+        getGranularityMinutes: getGranularityMinutes,
+        generateAllTimeBins: generateAllTimeBins,
+        normalizeTimeBin: normalizeTimeBin,
+        buildPhaseSeriesTimeAxis: buildPhaseSeriesTimeAxis,
+        getCurrentTimeMarkLineForTimeAxis: getCurrentTimeMarkLineForTimeAxis,
+        buildRateMarkLinesForChart: buildRateMarkLinesForChart,
+        formatTimeLabelFromTimestamp: formatTimeLabelFromTimestamp,
+        buildChartTitle: buildChartTitle,
+        getXAxisLabel: getXAxisLabel,
+
+        // Chart factory
+        createChart: createChart,
+
+        // Constants
+        PHASE_COLORS: PHASE_COLORS,
+        PHASE_LABELS: PHASE_LABELS,
+        PHASE_ORDER: PHASE_ORDER
+    };
+})();
+
+// Alias for backwards compatibility with demand-chart.js API
+window.DemandChart = {
+    create: window.DemandChartCore.createChart,
+    PHASE_COLORS: window.DemandChartCore.PHASE_COLORS,
+    PHASE_LABELS: window.DemandChartCore.PHASE_LABELS,
+    PHASE_ORDER: window.DemandChartCore.PHASE_ORDER
+};
+
+// ============================================================================
+// Page-specific demand visualization code (demand.php only)
+// ============================================================================
+
 // Global state
 let DEMAND_STATE = {
     selectedAirport: null,
@@ -1950,7 +2576,11 @@ function getStatusBadgeClass(status) {
     }
 }
 
-// Initialize when document is ready
+// Initialize when document is ready (only on demand.php page)
 $(document).ready(function() {
-    initDemand();
+    // Only initialize demand.php-specific code if we're on that page
+    // Check for the demand chart container which only exists on demand.php
+    if (document.getElementById('demand_chart')) {
+        initDemand();
+    }
 });

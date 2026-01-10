@@ -1701,6 +1701,7 @@ ROUTE2</pre>
                                             <option value="altitude">Altitude Block</option>
                                             <option value="speed">Speed (±250kts)</option>
                                             <option value="arr_dep">Arrival / Departure</option>
+                                            <option value="status">Flight Phase</option>
                                             <option value="eta_relative">ETA (Relative)</option>
                                             <option value="eta_hour">ETA (Hour)</option>
                                         </optgroup>
@@ -2397,6 +2398,9 @@ ROUTE2</pre>
 <?php
 include('load/footer.php');
 ?>
+
+<!-- Phase Colors Configuration -->
+<script src="assets/js/config/phase-colors.js"></script>
 
 <!-- Graphical Map Generation (Leaflet or MapLibre) -->
 <script src="assets/js/awys.js"></script>
