@@ -1594,7 +1594,7 @@
                         raw_weight_class: flight.weight_class || '',
                         weight_class: weightClass,
                         heading: parseInt(flight.heading_deg) || 0,
-                        status: flight.flight_status || flight.status,
+                        status: flight.phase || flight.status,
                         dep_artcc: flight.fp_dept_artcc || flight.dep_artcc,
                         arr_artcc: flight.fp_dest_artcc || flight.arr_artcc,
                         current_artcc: flight.current_artcc,

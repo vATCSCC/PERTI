@@ -892,8 +892,8 @@ if (!status) {
 }
 var source = (f.source || "ADL").toUpperCase();
 
-// Flight status (FSM) from ADL if available
-var flightStatus = (f.flight_status || f.FLIGHT_STATUS || "").toUpperCase();
+// Flight phase from ADL if available
+var flightStatus = (f.phase || f.PHASE || "").toUpperCase();
 if (!flightStatus) {
     flightStatus = status;
 }

@@ -7779,7 +7779,7 @@ advAddLabeledField(lines, 'NAME', advName);
                 '<div class="detail-row"><span class="detail-label">Speed</span><span class="detail-value">' + spd + '</span></div>' +
                 '<div class="detail-row"><span class="detail-label">Heading</span><span class="detail-value">' + hdg + '</span></div>' +
                 '<div class="detail-row"><span class="detail-label">ETA</span><span class="detail-value">' + eta + '</span></div>' +
-                '<div class="detail-row"><span class="detail-label">Phase</span><span class="detail-value">' + (flight.phase || flight.flight_status || '--') + '</span></div>' +
+                '<div class="detail-row"><span class="detail-label">Phase</span><span class="detail-value">' + (flight.phase || '--') + '</span></div>' +
                 '</div>';
             
             L.popup({ closeButton: true, className: 'adl-flight-popup' })
@@ -7877,7 +7877,6 @@ advAddLabeledField(lines, 'NAME', advName);
             $('#adl_detail_weight').text(getWeightClass(flight));
             $('#adl_detail_carrier').text(flight.airline_icao || flight.airline_name || '--');
             $('#adl_detail_phase').text(flight.phase || '--');
-            $('#adl_detail_status').text(flight.flight_status || '--');
             $('#adl_detail_position').text(
                 (flight.lat && flight.lon) ? 
                 parseFloat(flight.lat).toFixed(3) + ', ' + parseFloat(flight.lon).toFixed(3) : '--'

@@ -154,8 +154,8 @@ function is_flight_exempt($flight, $exemptions) {
     
     // Airborne exemption - flights already in the air
     if (!empty($exemptions['airborne'])) {
-        $status = strtoupper($flight['flight_status'] ?? '');
-        if ($status === 'A' || $status === 'AIRBORNE') {
+        $phase = strtolower($flight['phase'] ?? '');
+        if (in_array($phase, ['departed', 'enroute', 'descending'])) {
             return true;
         }
     }
@@ -297,8 +297,8 @@ if (count($carriers) > 0) {
 }
 
 // Exclude flights that have already landed
-// flight_status: NULL/empty = not departed, 'A' = airborne, 'D' = departed, 'L' = landed
-$where[] = "(flight_status IS NULL OR flight_status NOT IN ('L'))";
+// phase values: prefile, taxiing, departed, enroute, descending, arrived
+$where[] = "(phase IS NULL OR phase != 'arrived')";
 
 // -------------------------------
 // Distance-based scope (if specified)

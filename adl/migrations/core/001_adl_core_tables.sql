@@ -35,7 +35,6 @@ BEGIN
         
         -- Lifecycle State
         phase               NVARCHAR(16) NOT NULL DEFAULT 'unknown',  -- prefile, taxiing, departed, enroute, descending, arrived, unknown
-        flight_status       NVARCHAR(32) NULL,               -- Additional status info
         last_source         NVARCHAR(16) NOT NULL DEFAULT 'vatsim',   -- vatsim, prefile, simtraffic
         is_active           BIT NOT NULL DEFAULT 1,
         

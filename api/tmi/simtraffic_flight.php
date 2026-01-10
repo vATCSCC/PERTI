@@ -543,7 +543,7 @@ function adl_apply_simtraffic_row($row, $cols, $data) {
         $flags['etd_changed'] = true;
     }
 
-    // ETD prefix + flight_status
+    // ETD prefix + phase
     if ($col('etd_prefix')) {
         $desiredEtdPrefix = null;
         if ($takeoffDt) $desiredEtdPrefix = 'A';
@@ -558,16 +558,16 @@ function adl_apply_simtraffic_row($row, $cols, $data) {
         }
     }
 
-    if ($col('flight_status')) {
-        $desiredStatus = null;
-        if ($arrived && $etaDt) $desiredStatus = 'Arrived';
-        else if ($takeoffDt) $desiredStatus = 'Active';
-        else if ($pushDt || $taxiDt) $desiredStatus = 'Taxied';
+    if ($col('phase')) {
+        $desiredPhase = null;
+        if ($arrived && $etaDt) $desiredPhase = 'arrived';
+        else if ($takeoffDt) $desiredPhase = 'enroute';
+        else if ($pushDt || $taxiDt) $desiredPhase = 'taxiing';
 
-        if ($desiredStatus !== null) {
-            $cur = st_get($row, 'flight_status');
-            if ($cur !== $desiredStatus) {
-                $updates['flight_status'] = $desiredStatus;
+        if ($desiredPhase !== null) {
+            $cur = st_get($row, 'phase');
+            if ($cur !== $desiredPhase) {
+                $updates['phase'] = $desiredPhase;
             }
         }
     }

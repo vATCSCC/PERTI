@@ -93,8 +93,8 @@ function is_flight_exempt($flight, $exemptions) {
     if (!empty($exemptions['type_jet']) && strtoupper($flight['ac_cat'] ?? '') === 'JET') return true;
     if (!empty($exemptions['type_prop']) && strtoupper($flight['ac_cat'] ?? '') === 'PROP') return true;
     if (!empty($exemptions['airborne'])) {
-        $status = strtoupper($flight['flight_status'] ?? '');
-        if ($status === 'A' || $status === 'AIRBORNE') return true;
+        $phase = strtolower($flight['phase'] ?? '');
+        if (in_array($phase, ['departed', 'enroute', 'descending'])) return true;
     }
     
     return false;
@@ -300,7 +300,7 @@ if (count($carriers) > 0) {
 }
 
 // Exclude landed flights
-$where[] = "(flight_status IS NULL OR flight_status NOT IN ('L'))";
+$where[] = "(phase IS NULL OR phase != 'arrived')";
 
 // Distance-based scope (if specified)
 if ($distance_nm > 0) {

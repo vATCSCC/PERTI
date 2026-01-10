@@ -41,7 +41,6 @@ SELECT
     
     -- Lifecycle
     c.phase,
-    c.flight_status,
     c.last_source,
     c.is_active,
     
