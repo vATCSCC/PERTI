@@ -37,6 +37,7 @@ $response = [
         'total_1h' => 0,
         'parsed_1h' => 0,
         'pending' => 0,
+        'failed' => 0,
     ],
     'health' => 'critical',
     'issues' => [],
@@ -117,9 +118,10 @@ try {
 
     // Get ATIS status
     $sql = "SELECT
-                COUNT(CASE WHEN received_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS total_1h,
-                COUNT(CASE WHEN parse_status = 'PARSED' AND received_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS parsed_1h,
-                COUNT(CASE WHEN parse_status = 'PENDING' THEN 1 END) AS pending
+                COUNT(CASE WHEN fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS total_1h,
+                COUNT(CASE WHEN parse_status = 'PARSED' AND fetched_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS parsed_1h,
+                COUNT(CASE WHEN parse_status = 'PENDING' THEN 1 END) AS pending,
+                COUNT(CASE WHEN parse_status = 'FAILED' THEN 1 END) AS failed
             FROM dbo.vatsim_atis";
 
     $stmt = sqlsrv_query($conn_adl, $sql);
@@ -128,6 +130,7 @@ try {
             'total_1h' => $row['total_1h'],
             'parsed_1h' => $row['parsed_1h'],
             'pending' => $row['pending'],
+            'failed' => $row['failed'],
         ];
         sqlsrv_free_stmt($stmt);
     }
