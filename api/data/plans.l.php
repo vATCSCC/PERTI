@@ -42,7 +42,8 @@ $hotline_badges = [
     'Texas' => 'TEX',
     'East Coast' => 'EC',
     'West Coast' => 'WC',
-    'Canada' => 'CAN'
+    'Canada East' => 'CANE',
+    'Canada West' => 'CANW'
 ];
 
 while ($data = mysqli_fetch_array($query)) {
@@ -54,7 +55,7 @@ while ($data = mysqli_fetch_array($query)) {
     $hotline_badge = $hotline_badges[$data['hotline']] ?? $data['hotline'][0];
 
     // Add Canadian flag for Canada hotline events
-    $flag_prefix = ($data['hotline'] === 'Canada') ? '<img src="https://flagcdn.com/16x12/ca.png" alt="Canada" style="vertical-align: middle; margin-right: 4px;">' : '';
+    $flag_prefix = (str_starts_with($data['hotline'], 'Canada')) ? '<img src="https://flagcdn.com/16x12/ca.png" alt="Canada" style="vertical-align: middle; margin-right: 4px;">' : '';
 
     echo '<tr>';
     echo '<td>'.$flag_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$hotline_badge.'</span></td>';
