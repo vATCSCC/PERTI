@@ -60,6 +60,7 @@ $liveData = [
     'zone_transitions_1h' => 0,
     // Boundary Detection (Background Job)
     'boundary_crossings_1h' => 0,
+    'boundary_crossings_24h' => 0,
     'boundary_artcc_1h' => 0,
     'boundary_tracon_1h' => 0,
     'boundary_pending' => 0,           // Flights needing boundary detection
@@ -68,10 +69,15 @@ $liveData = [
     'flights_with_tracon' => 0,
     // Planned Crossings (Background Job)
     'planned_crossings_1h' => 0,
+    'planned_crossings_24h' => 0,
     'crossings_pending' => 0,          // Flights with needs_recalc or no calc
     'last_crossing_calc' => null,
     'flights_with_crossings' => 0,
     'crossing_tiers' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0],
+    // ETA Calculation Stats
+    'etas_calculated_24h' => 0,
+    'etas_pending' => 0,
+    'flights_with_eta' => 0,
     'weather_alerts_active' => 0,
     'atis_updates_1h' => 0,
     'atis_pending' => 0,
@@ -228,6 +234,15 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
+    // Boundary crossings (last 24 hours)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_boundary_log WHERE entry_time > DATEADD(HOUR, -24, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['boundary_crossings_24h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
     // Flights pending boundary detection (grid changed or no ARTCC)
     $sql = "SELECT COUNT(*) AS cnt
             FROM dbo.adl_flight_core c
@@ -281,6 +296,15 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         $liveData['planned_crossings_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Planned crossings calculated (last 24 hours)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_planned_crossings WHERE calculated_at > DATEADD(HOUR, -24, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['planned_crossings_24h'] = $row['cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
@@ -406,6 +430,37 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         $liveData['etas_calculated_15m'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // ETAs calculated in last 24 hours
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_times WHERE times_updated_utc > DATEADD(HOUR, -24, SYSUTCDATETIME()) AND eta_utc IS NOT NULL";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['etas_calculated_24h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Flights with ETA (active flights that have eta_utc calculated)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_times t
+            JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+            WHERE c.is_active = 1 AND t.eta_utc IS NOT NULL";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['flights_with_eta'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Flights pending ETA calculation (active flights without eta_utc)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_core c
+            LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+            WHERE c.is_active = 1 AND (t.eta_utc IS NULL OR t.flight_uid IS NULL)";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['etas_pending'] = $row['cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
@@ -541,13 +596,13 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     }
 
     // -------------------------------------------------------------------------
-    // Daily Stats: Trajectory Points Logged Today by Tier
+    // Daily Stats: Trajectory Points Logged in Last 24 Hours by Tier
     // -------------------------------------------------------------------------
     $liveData['daily_trajectory_by_tier'] = [0 => 0, 1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0];
     $liveData['daily_trajectory_total'] = 0;
     $sql = "SELECT tier, COUNT(*) AS cnt
             FROM dbo.adl_flight_trajectory
-            WHERE recorded_utc >= CAST(SYSUTCDATETIME() AS DATE)
+            WHERE recorded_utc >= DATEADD(HOUR, -24, SYSUTCDATETIME())
             GROUP BY tier
             ORDER BY tier";
     $stmt = @sqlsrv_query($conn_adl, $sql);
@@ -2177,10 +2232,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         </div>
                         <div class="d-flex justify-content-end mt-1" style="font-size: 0.55rem; color: #888;">
                             <span style="display: inline-block; width: 10px; height: 10px; background: #f0f0f0; margin-right: 2px;"></span>0
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>1-<?= $thresh25 ?>
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span><?= $thresh25+1 ?>-<?= $thresh50 ?>
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span><?= $thresh50+1 ?>-<?= $thresh75 ?>
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span><?= $thresh75+1 ?>+
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low (1-<?= $thresh25 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med (<?= $thresh25+1 ?>-<?= $thresh50 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High (<?= $thresh50+1 ?>-<?= $thresh75 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak (<?= $thresh75+1 ?>+)
                         </div>
                     </div>
                 </div>
@@ -3080,8 +3135,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Trajectory Points Today</span>
-                                            <span class="tier-group-desc">Positions logged since 00:00Z</span>
+                                            <span class="tier-group-title">Trajectory Points (24h)</span>
+                                            <span class="tier-group-desc">Positions logged in last 24 hours</span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['daily_trajectory_total'] ?? 0) ?></span>
                                     </div>
@@ -3100,6 +3155,121 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             <span class="tier-count"><?= number_format($count) ?></span>
                                         </div>
                                         <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Background Processing Stats Section -->
+                        <div class="tier-section">
+                            <div class="tier-section-header collapsed" onclick="toggleTierSection('backgroundProcessing')">
+                                <span class="section-title"><i class="fas fa-cogs mr-2"></i>Background Processing Stats</span>
+                                <i class="fas fa-chevron-down section-toggle" id="backgroundProcessing-toggle" style="transform: rotate(-90deg)"></i>
+                            </div>
+                            <div class="tier-section-content collapsed" id="backgroundProcessing-content">
+                                <!-- Boundary Detection Stats -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Boundary Detection</span>
+                                            <span class="tier-group-desc">ARTCC/TRACON boundary crossing detection</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format($liveData['boundary_crossings_24h'] ?? 0) ?> (24h)</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap" style="gap: 8px; padding: 8px 0;">
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_artcc'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">w/ ARTCC</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_tracon'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">w/ TRACON</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['boundary_crossings_1h'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">crossings/hr</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: <?= ($liveData['boundary_pending'] ?? 0) > 0 ? '#fff3cd' : '#f8f9fa' ?>; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: <?= ($liveData['boundary_pending'] ?? 0) > 0 ? '#856404' : '#333' ?>;"><?= number_format($liveData['boundary_pending'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">pending</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Planned Crossings Stats -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">Planned Crossings</span>
+                                            <span class="tier-group-desc">Route-based FIR/boundary crossing predictions</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format($liveData['planned_crossings_24h'] ?? 0) ?> (24h)</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap" style="gap: 8px; padding: 8px 0;">
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_crossings'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">w/ crossings</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['planned_crossings_1h'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">calc/hr</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: <?= ($liveData['crossings_pending'] ?? 0) > 0 ? '#fff3cd' : '#f8f9fa' ?>; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: <?= ($liveData['crossings_pending'] ?? 0) > 0 ? '#856404' : '#333' ?>;"><?= number_format($liveData['crossings_pending'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">pending</div>
+                                        </div>
+                                    </div>
+                                    <div class="tier-bars mt-2">
+                                        <?php
+                                        $crossingTiers = $liveData['crossing_tiers'] ?? [1=>0,2=>0,3=>0,4=>0,5=>0,6=>0,7=>0];
+                                        $crossingMax = max(1, max($crossingTiers));
+                                        $crossingTierLabels = [
+                                            1 => 'T1: High Priority',
+                                            2 => 'T2: Active Enroute',
+                                            3 => 'T3: Stable Enroute',
+                                            4 => 'T4: Oceanic',
+                                            5 => 'T5: Prefile',
+                                            6 => 'T6: Parked',
+                                            7 => 'T7: Background'
+                                        ];
+                                        foreach ($crossingTiers as $tier => $count):
+                                            $pct = ($count / $crossingMax) * 100;
+                                        ?>
+                                        <div class="tier-bar-row">
+                                            <span class="tier-label"><?= $crossingTierLabels[$tier] ?? "Tier $tier" ?></span>
+                                            <div class="tier-bar-container">
+                                                <div class="tier-bar tier-<?= min($tier, 4) ?>" style="width: <?= $pct ?>%"></div>
+                                            </div>
+                                            <span class="tier-count"><?= number_format($count) ?></span>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <!-- ETA Calculation Stats -->
+                                <div class="tier-group">
+                                    <div class="tier-group-header">
+                                        <div class="tier-group-header-left">
+                                            <span class="tier-group-title">ETA Calculation</span>
+                                            <span class="tier-group-desc">Estimated time of arrival calculations</span>
+                                        </div>
+                                        <span class="tier-group-total"><?= number_format($liveData['etas_calculated_24h'] ?? 0) ?> (24h)</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap" style="gap: 8px; padding: 8px 0;">
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_eta'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">w/ ETA</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['etas_calculated_15m'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">calc/15m</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['waypoint_etas_total'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">waypoint ETAs</div>
+                                        </div>
+                                        <div class="stat-box" style="flex: 1; min-width: 100px; background: <?= ($liveData['etas_pending'] ?? 0) > 0 ? '#fff3cd' : '#f8f9fa' ?>; border-radius: 4px; padding: 8px; text-align: center;">
+                                            <div style="font-size: 18px; font-weight: 600; color: <?= ($liveData['etas_pending'] ?? 0) > 0 ? '#856404' : '#333' ?>;"><?= number_format($liveData['etas_pending'] ?? 0) ?></div>
+                                            <div style="font-size: 10px; color: #666;">pending</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
