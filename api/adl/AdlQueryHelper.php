@@ -601,13 +601,16 @@ class AdlQueryHelper {
             : 'COALESCE(etd_runway_utc, etd_utc)';
 
         // Individual phase breakdown for detailed demand visualization:
-        //   - arrived: landed at destination
+        //   - arrived: landed at destination (ONLY for past time bins - can't arrive in the future)
         //   - descending: on approach to destination
         //   - enroute: cruising
         //   - departed: just took off from origin
         //   - taxiing: taxiing at origin airport
         //   - prefile: filed flight plan, not yet taxiing
         //   - unknown: catch-all for other/null phases
+        //
+        // IMPORTANT: Flights with phase='arrived' but time_bin in the future are excluded entirely.
+        // These are flights that landed early and won't be arriving at their original ETA.
         $sql = "
             SELECT
                 {$timeBinSQL} AS time_bin,
@@ -624,6 +627,7 @@ class AdlQueryHelper {
               AND {$timeCol} IS NOT NULL
               AND {$timeCol} >= ?
               AND {$timeCol} < ?
+              AND (phase != 'arrived' OR {$timeBinSQL} < GETUTCDATE())
             GROUP BY {$timeBinSQL}
             ORDER BY time_bin
         ";
@@ -637,13 +641,16 @@ class AdlQueryHelper {
         $timeCol = $timeExpr ?? ($direction === 'arr' ? 't.eta_runway_utc' : 't.etd_runway_utc');
 
         // Individual phase breakdown for detailed demand visualization:
-        //   - arrived: landed at destination
+        //   - arrived: landed at destination (ONLY for past time bins - can't arrive in the future)
         //   - descending: on approach to destination
         //   - enroute: cruising
         //   - departed: just took off from origin
         //   - taxiing: taxiing at origin airport
         //   - prefile: filed flight plan, not yet taxiing
         //   - unknown: catch-all for other/null phases
+        //
+        // IMPORTANT: Flights with phase='arrived' but time_bin in the future are excluded entirely.
+        // These are flights that landed early and won't be arriving at their original ETA.
         $sql = "
             SELECT
                 {$timeBinSQL} AS time_bin,
@@ -662,6 +669,7 @@ class AdlQueryHelper {
               AND {$timeCol} IS NOT NULL
               AND {$timeCol} >= ?
               AND {$timeCol} < ?
+              AND (c.phase != 'arrived' OR {$timeBinSQL} < GETUTCDATE())
             GROUP BY {$timeBinSQL}
             ORDER BY time_bin
         ";

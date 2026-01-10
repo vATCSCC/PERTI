@@ -91,20 +91,27 @@ BEGIN
 
         -- Update config history for changed configurations
         -- Group by airport to get combined runway config
-        ;WITH NewConfigs AS (
-            SELECT
+        ;WITH RunwayData AS (
+            SELECT DISTINCT
                 ab.airport_icao,
-                STRING_AGG(CASE WHEN JSON_VALUE(rwy.value, '$.runway_use') IN ('ARR', 'BOTH')
-                           THEN JSON_VALUE(rwy.value, '$.runway_id') END, '/')
-                    WITHIN GROUP (ORDER BY JSON_VALUE(rwy.value, '$.runway_id')) AS arr_runways,
-                STRING_AGG(CASE WHEN JSON_VALUE(rwy.value, '$.runway_use') IN ('DEP', 'BOTH')
-                           THEN JSON_VALUE(rwy.value, '$.runway_id') END, '/')
-                    WITHIN GROUP (ORDER BY JSON_VALUE(rwy.value, '$.runway_id')) AS dep_runways,
-                STRING_AGG(DISTINCT JSON_VALUE(rwy.value, '$.approach_type'), '/') AS approach_types
+                JSON_VALUE(rwy.value, '$.runway_id') AS runway_id,
+                JSON_VALUE(rwy.value, '$.runway_use') AS runway_use,
+                JSON_VALUE(rwy.value, '$.approach_type') AS approach_type
             FROM #atis_batch ab
             CROSS APPLY OPENJSON(ab.runways_json) rwy
             WHERE ab.has_runways = 1
-            GROUP BY ab.airport_icao
+        ),
+        NewConfigs AS (
+            SELECT
+                airport_icao,
+                STRING_AGG(CASE WHEN runway_use IN ('ARR', 'BOTH') THEN runway_id END, '/')
+                    WITHIN GROUP (ORDER BY runway_id) AS arr_runways,
+                STRING_AGG(CASE WHEN runway_use IN ('DEP', 'BOTH') THEN runway_id END, '/')
+                    WITHIN GROUP (ORDER BY runway_id) AS dep_runways,
+                STRING_AGG(approach_type, '/')
+                    WITHIN GROUP (ORDER BY approach_type) AS approach_types
+            FROM RunwayData
+            GROUP BY airport_icao
         )
         INSERT INTO dbo.atis_config_history (airport_icao, arr_runways, dep_runways, approach_types, effective_utc)
         SELECT
