@@ -226,10 +226,9 @@ BEGIN
     
     -- Identify affected flights using normalized ADL tables
     ;WITH candidate_flights AS (
-        SELECT 
+        SELECT
             c.flight_uid,
             c.callsign,
-            c.flight_status,
             c.phase,
             c.first_seen_utc,
             fp.fp_dept_icao,
@@ -242,9 +241,8 @@ BEGIN
             pos.lat AS current_lat,
             pos.lon AS current_lon,
             -- Determine if airborne
-            CASE 
+            CASE
                 WHEN c.phase IN ('departed', 'enroute', 'descending') THEN 1
-                WHEN c.flight_status = 'A' THEN 1
                 ELSE 0
             END AS is_airborne,
             -- Minutes until ETD
@@ -606,12 +604,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    SELECT 
+    SELECT
         c.flight_uid,
         c.callsign,
-        c.flight_status,
         c.phase,
-        
+
         -- Origin/Destination
         fp.fp_dept_icao AS orig,
         fp.fp_dest_icao AS dest,

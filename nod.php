@@ -1498,6 +1498,8 @@ window.addEventListener('resize', updateNavbarHeight);
 
 <!-- Phase Colors Configuration -->
 <script src="assets/js/config/phase-colors.js"></script>
+<!-- Filter Colors Configuration -->
+<script src="assets/js/config/filter-colors.js"></script>
 
 <!-- NOD Module -->
 <script src="assets/js/nod.js"></script>

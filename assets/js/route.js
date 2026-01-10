@@ -6075,8 +6075,10 @@ advAddLabeledField(lines, 'NAME', advName);
             '': '#ffffff'        // White - Unknown
         };
         
-        // Carrier coloring - expanded list with distinct colors
-        const CARRIER_COLORS = {
+        // Carrier coloring - use FILTER_CONFIG if available, fallback to local
+        const CARRIER_COLORS = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier)
+            ? Object.assign({}, FILTER_CONFIG.carrier.colors, { '': FILTER_CONFIG.carrier.colors['OTHER'] || '#6c757d' })
+            : {
             // US Majors
             'AAL': '#0078d2',    // American - Royal Blue
             'UAL': '#0033a0',    // United - Dark Blue
@@ -6162,24 +6164,43 @@ advAddLabeledField(lines, 'NAME', advName);
             '': '#6c757d'        // Unknown - Gray
         };
         
-        // DCC Region coloring (Domestic Contingency Coordination)
-        const DCC_REGION_COLORS = {
-            'WEST': '#3cb44b',      // West - Green
-            'CENTRAL': '#f58231',   // Central - Orange
-            'EAST': '#4363d8',      // East - Blue
-            '': '#6c757d'           // Unknown - Gray
+        // DCC Region coloring - use FILTER_CONFIG if available
+        const DCC_REGION_COLORS = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.dccRegion)
+            ? Object.assign({}, FILTER_CONFIG.dccRegion.colors, { '': FILTER_CONFIG.dccRegion.colors['OTHER'] || '#6c757d' })
+            : {
+            'WEST': '#dc3545',           // West - Red
+            'SOUTH_CENTRAL': '#fd7e14',  // South Central - Orange
+            'MIDWEST': '#28a745',        // Midwest - Green
+            'SOUTHEAST': '#ffc107',      // Southeast - Yellow
+            'NORTHEAST': '#007bff',      // Northeast - Blue
+            'CANADA_EAST': '#9b59b6',    // Canada East - Purple
+            'CANADA_WEST': '#ff69b4',    // Canada West - Pink
+            '': '#6c757d'                // Unknown - Gray
         };
-        
-        // Map ARTCCs to DCC regions
-        const ARTCC_TO_DCC = {
-            // West
-            'ZSE': 'WEST', 'ZOA': 'WEST', 'ZLA': 'WEST', 'ZLC': 'WEST', 'ZDV': 'WEST', 'ZAB': 'WEST',
-            // Central  
-            'ZMP': 'CENTRAL', 'ZAU': 'CENTRAL', 'ZKC': 'CENTRAL', 'ZME': 'CENTRAL', 
-            'ZFW': 'CENTRAL', 'ZHU': 'CENTRAL', 'ZID': 'CENTRAL',
-            // East
-            'ZBW': 'EAST', 'ZNY': 'EAST', 'ZOB': 'EAST', 'ZDC': 'EAST', 
-            'ZTL': 'EAST', 'ZJX': 'EAST', 'ZMA': 'EAST'
+
+        // Map ARTCCs to DCC regions - use FILTER_CONFIG if available
+        const ARTCC_TO_DCC = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.dccRegion && FILTER_CONFIG.dccRegion.mapping)
+            ? FILTER_CONFIG.dccRegion.mapping
+            : {
+            // DCC West (Red)
+            'ZAK': 'WEST', 'ZAN': 'WEST', 'ZHN': 'WEST', 'ZLA': 'WEST',
+            'ZLC': 'WEST', 'ZOA': 'WEST', 'ZSE': 'WEST',
+            // DCC South Central (Orange)
+            'ZAB': 'SOUTH_CENTRAL', 'ZFW': 'SOUTH_CENTRAL', 'ZHO': 'SOUTH_CENTRAL',
+            'ZHU': 'SOUTH_CENTRAL', 'ZME': 'SOUTH_CENTRAL',
+            // DCC Midwest (Green)
+            'ZAU': 'MIDWEST', 'ZDV': 'MIDWEST', 'ZKC': 'MIDWEST', 'ZMP': 'MIDWEST',
+            // DCC Southeast (Yellow)
+            'ZID': 'SOUTHEAST', 'ZJX': 'SOUTHEAST', 'ZMA': 'SOUTHEAST',
+            'ZMO': 'SOUTHEAST', 'ZTL': 'SOUTHEAST',
+            // DCC Northeast (Blue)
+            'ZBW': 'NORTHEAST', 'ZDC': 'NORTHEAST', 'ZNY': 'NORTHEAST',
+            'ZOB': 'NORTHEAST', 'ZWY': 'NORTHEAST',
+            // Canada East (Purple)
+            'CZYZ': 'CANADA_EAST', 'CZUL': 'CANADA_EAST', 'CZZV': 'CANADA_EAST',
+            'CZQM': 'CANADA_EAST', 'CZQX': 'CANADA_EAST', 'CZQO': 'CANADA_EAST',
+            // Canada West (Pink)
+            'CZWG': 'CANADA_WEST', 'CZEG': 'CANADA_WEST', 'CZVR': 'CANADA_WEST'
         };
         
         // TRACON coloring - major TRACONs
@@ -6260,12 +6281,14 @@ advAddLabeledField(lines, 'NAME', advName);
             '': '#6c757d'         // Unknown - Gray
         };
         
-        // Aircraft type colors - by family
-        const AIRCRAFT_TYPE_COLORS = {
+        // Aircraft type colors - use FILTER_CONFIG if available, fallback to local
+        const AIRCRAFT_TYPE_COLORS = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.equipment && FILTER_CONFIG.equipment.colors)
+            ? Object.assign({}, FILTER_CONFIG.equipment.colors, { '': FILTER_CONFIG.equipment.colors['OTHER'] || '#6c757d' })
+            : {
             // Boeing Narrowbody
             'B737': '#0078d2', 'B738': '#0078d2', 'B739': '#0078d2', 'B38M': '#0078d2', 'B39M': '#0078d2',
             'B752': '#0055a5', 'B753': '#0055a5',
-            // Boeing Widebody  
+            // Boeing Widebody
             'B763': '#4169e1', 'B764': '#4169e1',
             'B772': '#1e90ff', 'B773': '#1e90ff', 'B77W': '#1e90ff', 'B77L': '#1e90ff',
             'B788': '#00bfff', 'B789': '#00bfff', 'B78X': '#00bfff',
@@ -6278,7 +6301,7 @@ advAddLabeledField(lines, 'NAME', advName);
             'A359': '#ff4500', 'A35K': '#ff4500',
             'A388': '#ff6347',
             // Embraer
-            'E170': '#228b22', 'E75S': '#228b22', 'E75L': '#228b22', 
+            'E170': '#228b22', 'E75S': '#228b22', 'E75L': '#228b22',
             'E190': '#32cd32', 'E195': '#32cd32', 'E290': '#32cd32', 'E295': '#32cd32',
             // CRJ
             'CRJ2': '#8b4513', 'CRJ7': '#a0522d', 'CRJ9': '#cd853f', 'CRJX': '#deb887',

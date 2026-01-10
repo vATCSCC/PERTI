@@ -2401,6 +2401,8 @@ include('load/footer.php');
 
 <!-- Phase Colors Configuration -->
 <script src="assets/js/config/phase-colors.js"></script>
+<!-- Filter Colors Configuration -->
+<script src="assets/js/config/filter-colors.js"></script>
 
 <!-- Graphical Map Generation (Leaflet or MapLibre) -->
 <script src="assets/js/awys.js"></script>

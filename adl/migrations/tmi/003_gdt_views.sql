@@ -21,7 +21,6 @@ SELECT
     c.flight_uid,
     c.callsign,
     c.cid,
-    c.flight_status,
     c.phase,
     c.is_active,
     c.first_seen_utc,
@@ -119,9 +118,8 @@ SELECT
     pos.pct_complete,
     
     -- Derived fields
-    CASE 
+    CASE
         WHEN c.phase IN ('departed', 'enroute', 'descending') THEN 1
-        WHEN c.flight_status = 'A' THEN 1
         ELSE 0
     END AS is_airborne,
     

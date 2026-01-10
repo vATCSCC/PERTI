@@ -216,19 +216,29 @@ window.DemandChartCore = (function() {
 
         // Use config if available, otherwise use defaults
         const cfg = (typeof window.RATE_LINE_CONFIG !== 'undefined') ? window.RATE_LINE_CONFIG : {
-            active: { vatsim: { color: '#FFFFFF' }, rw: { color: '#00FFFF' } },
-            suggested: { vatsim: { color: '#888888' }, rw: { color: '#008080' } },
-            lineStyle: { aar: { type: 'solid', width: 2 }, adr: { type: 'dashed', width: 2 } },
+            active: { vatsim: { color: '#000000' }, rw: { color: '#00FFFF' } },
+            suggested: { vatsim: { color: '#6b7280' }, rw: { color: '#0d9488' } },
+            custom: { vatsim: { color: '#000000' }, rw: { color: '#00FFFF' } },
+            lineStyle: {
+                aar: { type: 'solid', width: 2 },
+                adr: { type: 'dashed', width: 2 },
+                aar_custom: { type: 'dotted', width: 2 },
+                adr_custom: { type: 'dotted', width: 2 }
+            },
             label: { position: 'end', fontSize: 10, fontWeight: 'bold' }
         };
 
-        const styleKey = rateData.is_suggested ? 'suggested' : 'active';
+        // Determine style: custom (override), suggested, or active
+        const isCustom = rateData.has_override;
+        const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
 
         const addLine = function(value, source, rateType, label) {
             if (!value) return;
 
             const sourceStyle = cfg[styleKey][source];
-            const lineTypeStyle = cfg.lineStyle[rateType];
+            // Use dotted line style for custom/dynamic rates
+            const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
+            const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
 
             lines.push({
                 yAxis: value,
@@ -647,11 +657,21 @@ let DEMAND_STATE = {
     timeBins: [], // Store time bins for drill-down
     currentStart: null,
     currentEnd: null,
-    chartView: 'status', // 'status' or 'origin'
+    chartView: 'status', // 'status', 'origin', 'dest', 'carrier', 'weight', 'equipment', 'rule', 'dep_fix', 'arr_fix', 'dp', 'star'
     originBreakdown: null, // Store origin ARTCC breakdown data
+    destBreakdown: null, // Store dest ARTCC breakdown data
+    weightBreakdown: null, // Store weight class breakdown data
+    carrierBreakdown: null, // Store carrier breakdown data
+    equipmentBreakdown: null, // Store equipment breakdown data
+    ruleBreakdown: null, // Store flight rule breakdown data
+    depFixBreakdown: null, // Store departure fix breakdown data
+    arrFixBreakdown: null, // Store arrival fix breakdown data
+    dpBreakdown: null, // Store DP/SID breakdown data
+    starBreakdown: null, // Store STAR breakdown data
     lastDemandData: null, // Store last demand response for view switching
     rateData: null, // Store rate suggestion data from API
-    showRateLines: true // Toggle for rate line visibility
+    showRateLines: true, // Toggle for rate line visibility
+    atisData: null // Store ATIS data from API
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -941,17 +961,51 @@ function setupEventHandlers() {
         }
     });
 
-    // Chart view toggle (Status vs Origin)
+    // Chart view toggle (Status, Origin, Dest, Carrier, Weight, Equipment, Rule, etc.)
     $('input[name="demand_chart_view"]').on('change', function() {
         DEMAND_STATE.chartView = $(this).val();
         if (DEMAND_STATE.selectedAirport && DEMAND_STATE.lastDemandData) {
-            // Re-render with stored data
-            if (DEMAND_STATE.chartView === 'origin') {
-                renderOriginChart();
-            } else {
-                renderChart(DEMAND_STATE.lastDemandData);
+            // Re-render with stored data based on selected view
+            switch (DEMAND_STATE.chartView) {
+                case 'origin':
+                    renderOriginChart();
+                    break;
+                case 'dest':
+                    renderDestChart();
+                    break;
+                case 'carrier':
+                    renderCarrierChart();
+                    break;
+                case 'weight':
+                    renderWeightChart();
+                    break;
+                case 'equipment':
+                    renderEquipmentChart();
+                    break;
+                case 'rule':
+                    renderRuleChart();
+                    break;
+                case 'dep_fix':
+                    renderDepFixChart();
+                    break;
+                case 'arr_fix':
+                    renderArrFixChart();
+                    break;
+                case 'dp':
+                    renderDPChart();
+                    break;
+                case 'star':
+                    renderSTARChart();
+                    break;
+                default:
+                    renderChart(DEMAND_STATE.lastDemandData);
             }
         }
+    });
+
+    // ATIS details button click handler
+    $('#atis_details_btn').on('click', function() {
+        showAtisModal();
     });
 }
 
@@ -1008,6 +1062,10 @@ function showSelectAirportPrompt() {
     $('#demand_flight_count').text('0 flights');
 
     $('#demand_last_update').text('--');
+
+    // Hide ATIS card
+    $('#atis_card_container').hide();
+    DEMAND_STATE.atisData = null;
 }
 
 /**
@@ -1050,14 +1108,15 @@ function loadDemandData() {
     DEMAND_STATE.currentStart = start.toISOString();
     DEMAND_STATE.currentEnd = end.toISOString();
 
-    // Fetch demand data and rate suggestions in parallel
-    // Use Promise.allSettled so rate API failures don't block demand data
+    // Fetch demand data, rate suggestions, and ATIS in parallel
+    // Use Promise.allSettled so optional API failures don't block demand data
     const demandPromise = $.getJSON(`api/demand/airport.php?${params.toString()}`);
     const ratesPromise = $.getJSON(`api/demand/rates.php?airport=${encodeURIComponent(airport)}`);
+    const atisPromise = $.getJSON(`api/demand/atis.php?airport=${encodeURIComponent(airport)}`);
 
-    Promise.allSettled([demandPromise, ratesPromise])
+    Promise.allSettled([demandPromise, ratesPromise, atisPromise])
         .then(function(results) {
-            const [demandResult, ratesResult] = results;
+            const [demandResult, ratesResult, atisResult] = results;
 
             // Handle demand data (required)
             if (demandResult.status === 'rejected') {
@@ -1089,21 +1148,32 @@ function loadDemandData() {
                 }
             }
 
-            // Render based on current view mode
-            if (DEMAND_STATE.chartView === 'origin') {
-                // Load origin data first, then render
-                loadFlightSummary(true);
+            // Handle ATIS data (optional - don't fail if unavailable)
+            if (atisResult.status === 'fulfilled' && atisResult.value && atisResult.value.success) {
+                DEMAND_STATE.atisData = atisResult.value;
+                updateAtisDisplay(atisResult.value);
             } else {
+                // ATIS API failed or returned error - just hide ATIS card
+                DEMAND_STATE.atisData = null;
+                updateAtisDisplay(null);
+                if (atisResult.status === 'rejected') {
+                    console.warn('ATIS API unavailable:', atisResult.reason);
+                }
+            }
+
+            // Render based on current view mode
+            if (DEMAND_STATE.chartView === 'status') {
+                // Status view - render immediately with demand data
                 renderChart(demandResponse);
+                // Load flight summary data (for tables, not chart)
+                loadFlightSummary(false);
+            } else {
+                // Any breakdown view - load breakdown data first, then render
+                loadFlightSummary(true);
             }
 
             updateInfoBarStats(demandResponse);
             updateLastUpdateDisplay(demandResponse.last_adl_update);
-
-            // Load flight summary data (for tables)
-            if (DEMAND_STATE.chartView !== 'origin') {
-                loadFlightSummary(false);
-            }
         });
 }
 
@@ -1198,6 +1268,141 @@ function updateRateInfoDisplay(rateData) {
         sourceText = 'Suggested';
     }
     $('#rate_source').text(sourceText);
+}
+
+/**
+ * Update ATIS display in the info bar
+ */
+function updateAtisDisplay(atisData) {
+    const $container = $('#atis_card_container');
+
+    if (!atisData || !atisData.has_atis) {
+        // No ATIS available - hide the card
+        $container.hide();
+        return;
+    }
+
+    // Show the card
+    $container.show();
+
+    const atis = atisData.atis;
+    const runways = atisData.runways;
+
+    // ATIS code badge (e.g., "A" for Information Alpha)
+    const atisCode = atis.atis_code || '--';
+    const $codeBadge = $('#atis_code_badge');
+    $codeBadge.text(atisCode);
+
+    // Age badge with color coding
+    const ageMins = atis.age_mins || 0;
+    const $ageBadge = $('#atis_age_badge');
+    let ageText = '';
+    let ageBgColor = '#6b7280'; // gray
+
+    if (ageMins < 1) {
+        ageText = '<1m';
+        ageBgColor = '#10b981'; // green - fresh
+    } else if (ageMins < 15) {
+        ageText = ageMins + 'm';
+        ageBgColor = '#10b981'; // green - fresh
+    } else if (ageMins < 30) {
+        ageText = ageMins + 'm';
+        ageBgColor = '#f59e0b'; // amber - getting stale
+    } else if (ageMins < 60) {
+        ageText = ageMins + 'm';
+        ageBgColor = '#ef4444'; // red - stale
+    } else {
+        ageText = Math.floor(ageMins / 60) + 'h';
+        ageBgColor = '#ef4444'; // red - very stale
+    }
+    $ageBadge.text(ageText).css('background-color', ageBgColor);
+
+    // Runway configuration
+    const arrRunways = runways?.arr_runways || '--';
+    const depRunways = runways?.dep_runways || '--';
+    const approachInfo = runways?.approach_info || '--';
+
+    $('#atis_arr_runways').text(arrRunways);
+    $('#atis_dep_runways').text(depRunways);
+
+    // Approach info with tooltip for full text
+    const $approachEl = $('#atis_approach');
+    $approachEl.text(approachInfo !== '--' ? approachInfo.split(',')[0].trim() : '--');
+    $approachEl.attr('title', approachInfo);
+}
+
+/**
+ * Show ATIS details modal with full ATIS text
+ */
+function showAtisModal() {
+    const atisData = DEMAND_STATE.atisData;
+
+    if (!atisData || !atisData.has_atis) {
+        Swal.fire({
+            icon: 'info',
+            title: 'No ATIS Available',
+            text: 'No ATIS information is currently available for this airport.',
+            timer: 3000,
+            showConfirmButton: false
+        });
+        return;
+    }
+
+    const atis = atisData.atis;
+    const runways = atisData.runways;
+
+    // Format fetched time
+    let fetchedTime = '--';
+    if (atis.fetched_utc) {
+        const d = new Date(atis.fetched_utc);
+        fetchedTime = d.getUTCHours().toString().padStart(2, '0') + ':' +
+                      d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+    }
+
+    // Build runway details HTML
+    let runwayDetailsHtml = '';
+    if (runways && runways.details && runways.details.length > 0) {
+        runwayDetailsHtml = '<div class="mt-3"><strong>Runway Details:</strong><ul class="mb-0 pl-3">';
+        runways.details.forEach(rwy => {
+            const useLabel = rwy.runway_use === 'ARR' ? 'Arrivals' : (rwy.runway_use === 'DEP' ? 'Departures' : 'Both');
+            const approach = rwy.approach_type ? ` (${rwy.approach_type})` : '';
+            runwayDetailsHtml += `<li><strong>${rwy.runway_id}</strong>: ${useLabel}${approach}</li>`;
+        });
+        runwayDetailsHtml += '</ul></div>';
+    }
+
+    Swal.fire({
+        title: `<i class="fas fa-broadcast-tower mr-2"></i> ${atisData.airport_icao} ATIS ${atis.atis_code || ''}`,
+        html: `
+            <div class="text-left">
+                <div class="mb-2">
+                    <span class="badge badge-secondary">${atis.callsign || 'Unknown'}</span>
+                    <span class="badge badge-info ml-1">${atis.atis_type || 'COMB'}</span>
+                    <span class="badge badge-dark ml-1">${fetchedTime}</span>
+                    <span class="text-muted small ml-1">(${atis.age_mins || 0}m ago)</span>
+                </div>
+                <div class="mb-3">
+                    <strong>Arrival Runways:</strong> ${runways?.arr_runways || 'N/A'}<br>
+                    <strong>Departure Runways:</strong> ${runways?.dep_runways || 'N/A'}<br>
+                    <strong>Approaches:</strong> ${runways?.approach_info || 'N/A'}
+                </div>
+                ${runwayDetailsHtml}
+                <hr>
+                <div class="mt-2">
+                    <strong>Full ATIS Text:</strong>
+                    <div class="border rounded p-2 mt-1" style="background: #f8f9fa; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; max-height: 200px; overflow-y: auto;">
+${atis.atis_text || 'No ATIS text available'}
+                    </div>
+                </div>
+            </div>
+        `,
+        width: 600,
+        showCloseButton: true,
+        showConfirmButton: false,
+        customClass: {
+            popup: 'text-left'
+        }
+    });
 }
 
 /**
@@ -1296,6 +1501,23 @@ function renderChart(data) {
 
     // Build chart title - FSM/TBFM style: Airport (left) | Date (center) | Time (right)
     const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
+
+    // Calculate y-axis max to ensure rate lines are visible
+    // Get the maximum rate value and add padding
+    let yAxisMax = null; // null = auto-scale
+    if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
+        const rates = DEMAND_STATE.rateData.rates;
+        const maxRate = Math.max(
+            rates.vatsim_aar || 0,
+            rates.vatsim_adr || 0,
+            rates.rw_aar || 0,
+            rates.rw_adr || 0
+        );
+        if (maxRate > 0) {
+            // Set y-axis max to at least the max rate + 10% padding
+            yAxisMax = Math.ceil(maxRate * 1.1);
+        }
+    }
 
     // Chart options - TBFM/FSM/AADC style with TRUE TIME AXIS
     const option = {
@@ -1422,6 +1644,8 @@ function renderChart(data) {
                 fontWeight: 500
             },
             minInterval: 1,
+            min: 0,
+            max: yAxisMax, // Will be null (auto) if no rates, or calculated to fit rate lines
             axisLine: {
                 show: true,
                 lineStyle: {
@@ -1560,6 +1784,19 @@ function renderOriginChart() {
     // Build chart title - FSM/TBFM style: Airport (left) | Date (center) | Time (right)
     const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
 
+    // Calculate y-axis max to ensure rate lines are visible
+    let yAxisMax = null; // null = auto-scale
+    if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
+        const rates = DEMAND_STATE.rateData.rates;
+        const maxRate = Math.max(
+            rates.vatsim_aar || 0,
+            rates.rw_aar || 0
+        );
+        if (maxRate > 0) {
+            yAxisMax = Math.ceil(maxRate * 1.1);
+        }
+    }
+
     // Chart options - TBFM/FSM/AADC style with TRUE TIME AXIS
     const option = {
         backgroundColor: '#ffffff',
@@ -1691,6 +1928,8 @@ function renderOriginChart() {
                 fontWeight: 500
             },
             minInterval: 1,
+            min: 0,
+            max: yAxisMax, // Will be null (auto) if no rates, or calculated to fit rate lines
             axisLine: {
                 show: true,
                 lineStyle: {
@@ -1733,6 +1972,505 @@ function renderOriginChart() {
             }
         }
     });
+}
+
+/**
+ * Generic render function for breakdown charts
+ * Used by renderDestChart, renderCarrierChart, renderWeightChart, etc.
+ * @param {Object} breakdownData - Breakdown data by time bin
+ * @param {string} subtitle - Chart subtitle (e.g., "Arrivals by Carrier")
+ * @param {string} stackName - Stack name for series
+ * @param {string} categoryKey - Key in breakdown items for category name
+ * @param {Function} colorFn - Function to get color for a category
+ * @param {Function} labelFn - Optional function to get display label
+ * @param {Array} order - Optional array specifying category order
+ */
+function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, colorFn, labelFn, order) {
+    if (!DEMAND_STATE.chart) {
+        console.error('Chart not initialized');
+        return;
+    }
+
+    DEMAND_STATE.chart.hideLoading();
+
+    const breakdown = breakdownData || {};
+    const data = DEMAND_STATE.lastDemandData;
+
+    if (!data) {
+        console.error('No demand data available');
+        return;
+    }
+
+    // Generate complete time bins
+    const timeBins = generateAllTimeBins();
+    DEMAND_STATE.timeBins = timeBins;
+
+    // Normalize time bin helper
+    const normalizeTimeBin = (bin) => {
+        const d = new Date(bin);
+        d.setUTCSeconds(0, 0);
+        return d.toISOString().replace('.000Z', 'Z');
+    };
+
+    // Collect all unique categories
+    const allCategories = new Set();
+    for (const bin in breakdown) {
+        const catData = breakdown[bin];
+        if (Array.isArray(catData)) {
+            catData.forEach(item => allCategories.add(item[categoryKey]));
+        }
+    }
+
+    // Sort categories - use order if provided, otherwise alphabetical
+    let categoryList;
+    if (order && order.length > 0) {
+        categoryList = order.filter(cat => allCategories.has(cat));
+        // Add any categories not in order
+        allCategories.forEach(cat => {
+            if (!categoryList.includes(cat)) categoryList.push(cat);
+        });
+    } else {
+        categoryList = Array.from(allCategories).sort();
+    }
+
+    // Calculate interval
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
+    const halfInterval = intervalMs / 2;
+
+    // Build series
+    const series = categoryList.map(category => {
+        const seriesData = timeBins.map(bin => {
+            const binData = breakdown[normalizeTimeBin(bin)] || breakdown[bin] || [];
+            const catEntry = Array.isArray(binData) ? binData.find(item => item[categoryKey] === category) : null;
+            const value = catEntry ? catEntry.count : 0;
+            return [new Date(bin).getTime() + halfInterval, value];
+        });
+
+        const displayLabel = labelFn ? labelFn(category) : category;
+
+        return {
+            name: displayLabel,
+            type: 'bar',
+            stack: stackName,
+            barWidth: '70%',
+            barGap: '0%',
+            emphasis: {
+                focus: 'series',
+                itemStyle: {
+                    shadowBlur: 2,
+                    shadowColor: 'rgba(0,0,0,0.2)'
+                }
+            },
+            itemStyle: {
+                color: colorFn(category),
+                borderColor: 'transparent',
+                borderWidth: 0
+            },
+            data: seriesData
+        };
+    });
+
+    // Add time marker
+    const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
+    if (series.length > 0 && timeMarkLineData) {
+        series[0].markLine = {
+            silent: true,
+            symbol: ['none', 'none'],
+            data: [timeMarkLineData]
+        };
+    }
+
+    // Build chart title
+    const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
+
+    // Calculate y-axis max
+    let yAxisMax = null;
+    if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
+        const rates = DEMAND_STATE.rateData.rates;
+        const maxRate = Math.max(
+            rates.vatsim_aar || 0,
+            rates.rw_aar || 0
+        );
+        if (maxRate > 0) {
+            yAxisMax = Math.ceil(maxRate * 1.1);
+        }
+    }
+
+    const option = {
+        backgroundColor: '#ffffff',
+        title: {
+            text: chartTitle,
+            subtext: subtitle,
+            left: 'center',
+            top: 5,
+            textStyle: {
+                fontSize: 14,
+                fontWeight: 'bold',
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace'
+            },
+            subtextStyle: {
+                fontSize: 11,
+                color: '#666'
+            }
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            borderColor: '#ccc',
+            borderWidth: 1,
+            padding: [8, 12],
+            textStyle: { color: '#333', fontSize: 12 },
+            formatter: function(params) {
+                if (!params || params.length === 0) return '';
+                const timestamp = params[0].value[0];
+                const timeStr = formatTimeLabelFromTimestamp(timestamp);
+                let tooltip = `<strong style="font-size:13px;">${timeStr}</strong><br/>`;
+                let total = 0;
+                const sorted = [...params].sort((a, b) => (b.value[1] || 0) - (a.value[1] || 0));
+                sorted.forEach(p => {
+                    const val = p.value[1] || 0;
+                    if (val > 0) {
+                        tooltip += `${p.marker} ${p.seriesName}: <strong>${val}</strong><br/>`;
+                        total += val;
+                    }
+                });
+                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
+                return tooltip;
+            }
+        },
+        legend: {
+            bottom: 5,
+            left: 'center',
+            type: 'scroll',
+            itemWidth: 14,
+            itemHeight: 10,
+            textStyle: {
+                fontSize: 11,
+                fontFamily: '"Segoe UI", sans-serif'
+            }
+        },
+        grid: {
+            left: 55,
+            right: 25,
+            bottom: 90,
+            top: 55,
+            containLabel: false
+        },
+        xAxis: {
+            type: 'time',
+            name: getXAxisLabel(),
+            nameLocation: 'middle',
+            nameGap: 30,
+            nameTextStyle: { fontSize: 11, color: '#333', fontWeight: 500 },
+            maxInterval: 3600 * 1000,
+            axisLine: { lineStyle: { color: '#333', width: 1 } },
+            axisTick: { lineStyle: { color: '#666' } },
+            axisLabel: {
+                fontSize: 11,
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+                fontWeight: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours();
+                    return (h === 0 || h === 12) ? 'bold' : 500;
+                },
+                formatter: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours().toString().padStart(2, '0');
+                    const m = d.getUTCMinutes().toString().padStart(2, '0');
+                    return h + m + 'z';
+                }
+            },
+            splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
+            min: new Date(timeBins[0]).getTime(),
+            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs
+        },
+        yAxis: {
+            type: 'value',
+            name: 'Demand',
+            nameLocation: 'middle',
+            nameGap: 40,
+            nameTextStyle: { fontSize: 12, color: '#333', fontWeight: 500 },
+            minInterval: 1,
+            min: 0,
+            max: yAxisMax,
+            axisLine: { show: true, lineStyle: { color: '#333', width: 1 } },
+            axisTick: { show: true, lineStyle: { color: '#666' } },
+            axisLabel: { fontSize: 11, color: '#333', fontFamily: '"Inconsolata", monospace' },
+            splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } }
+        },
+        series: series
+    };
+
+    DEMAND_STATE.chart.setOption(option, true);
+
+    // Add click handler
+    DEMAND_STATE.chart.off('click');
+    DEMAND_STATE.chart.on('click', function(params) {
+        if (params.componentType === 'series' && params.value) {
+            const timestamp = params.value[0];
+            const timeBin = new Date(timestamp).toISOString();
+            if (timeBin) {
+                showFlightDetails(timeBin);
+            }
+        }
+    });
+}
+
+/**
+ * Render chart with destination ARTCC breakdown
+ */
+function renderDestChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    renderBreakdownChart(
+        DEMAND_STATE.destBreakdown,
+        `${dirLabel} by Destination ARTCC`,
+        'dest',
+        'artcc',
+        (artcc) => typeof getDCCRegionColor === 'function' ? getDCCRegionColor(artcc) : getARTCCColor(artcc),
+        null,
+        null
+    );
+}
+
+/**
+ * Render chart with carrier breakdown (top carriers + OTHER)
+ */
+function renderCarrierChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    renderBreakdownChart(
+        DEMAND_STATE.carrierBreakdown,
+        `${dirLabel} by Carrier`,
+        'carrier',
+        'carrier',
+        (carrier) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier && FILTER_CONFIG.carrier.colors) {
+                return FILTER_CONFIG.carrier.colors[carrier] || FILTER_CONFIG.carrier.colors['OTHER'] || '#6c757d';
+            }
+            return '#6c757d';
+        },
+        (carrier) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier && FILTER_CONFIG.carrier.labels) {
+                return FILTER_CONFIG.carrier.labels[carrier] || carrier;
+            }
+            return carrier;
+        },
+        null
+    );
+}
+
+/**
+ * Render chart with weight class breakdown (S/L/H/J)
+ */
+function renderWeightChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    let order = ['J', 'H', 'L', 'S', 'UNKNOWN'];
+    if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.weightClass && FILTER_CONFIG.weightClass.order) {
+        order = FILTER_CONFIG.weightClass.order;
+    }
+
+    renderBreakdownChart(
+        DEMAND_STATE.weightBreakdown,
+        `${dirLabel} by Weight Class`,
+        'weight',
+        'weight_class',
+        (wc) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.weightClass && FILTER_CONFIG.weightClass.colors) {
+                return FILTER_CONFIG.weightClass.colors[wc] || FILTER_CONFIG.weightClass.colors['UNKNOWN'] || '#6c757d';
+            }
+            // Fallback colors
+            const fallback = { 'J': '#ffc107', 'H': '#dc3545', 'L': '#28a745', 'S': '#17a2b8' };
+            return fallback[wc] || '#6c757d';
+        },
+        (wc) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.weightClass && FILTER_CONFIG.weightClass.labels) {
+                return FILTER_CONFIG.weightClass.labels[wc] || wc;
+            }
+            const labels = { 'J': 'Super', 'H': 'Heavy', 'L': 'Large', 'S': 'Small' };
+            return labels[wc] || wc;
+        },
+        order
+    );
+}
+
+/**
+ * Render chart with equipment/aircraft type breakdown
+ */
+function renderEquipmentChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    renderBreakdownChart(
+        DEMAND_STATE.equipmentBreakdown,
+        `${dirLabel} by Aircraft Type`,
+        'equipment',
+        'aircraft_type',
+        (acType) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.equipment && FILTER_CONFIG.equipment.colors) {
+                return FILTER_CONFIG.equipment.colors[acType] || FILTER_CONFIG.equipment.colors['OTHER'] || '#6c757d';
+            }
+            return '#6c757d';
+        },
+        null,
+        null
+    );
+}
+
+/**
+ * Render chart with flight rule breakdown (IFR/VFR)
+ */
+function renderRuleChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    let order = ['I', 'V'];
+    if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.flightRule && FILTER_CONFIG.flightRule.order) {
+        order = FILTER_CONFIG.flightRule.order;
+    }
+
+    renderBreakdownChart(
+        DEMAND_STATE.ruleBreakdown,
+        `${dirLabel} by Flight Rule`,
+        'rule',
+        'fp_rule',
+        (rule) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.flightRule && FILTER_CONFIG.flightRule.colors) {
+                return FILTER_CONFIG.flightRule.colors[rule] || '#6c757d';
+            }
+            // Fallback colors
+            const fallback = { 'I': '#007bff', 'V': '#28a745' };
+            return fallback[rule] || '#6c757d';
+        },
+        (rule) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.flightRule && FILTER_CONFIG.flightRule.labels) {
+                return FILTER_CONFIG.flightRule.labels[rule] || rule;
+            }
+            const labels = { 'I': 'IFR', 'V': 'VFR' };
+            return labels[rule] || rule;
+        },
+        order
+    );
+}
+
+/**
+ * Render chart with departure fix breakdown
+ */
+function renderDepFixChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    renderBreakdownChart(
+        DEMAND_STATE.depFixBreakdown,
+        `${dirLabel} by Departure Fix`,
+        'dep_fix',
+        'dfix',
+        (fix) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
+                return FILTER_CONFIG.fix.getColor(fix);
+            }
+            // Fallback: generate color from hash
+            if (!fix) return '#6c757d';
+            let hash = 0;
+            for (let i = 0; i < fix.length; i++) {
+                hash = fix.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash % 360);
+            return `hsl(${hue}, 65%, 45%)`;
+        },
+        null,
+        null
+    );
+}
+
+/**
+ * Render chart with arrival fix breakdown
+ */
+function renderArrFixChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    renderBreakdownChart(
+        DEMAND_STATE.arrFixBreakdown,
+        `${dirLabel} by Arrival Fix`,
+        'arr_fix',
+        'afix',
+        (fix) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
+                return FILTER_CONFIG.fix.getColor(fix);
+            }
+            // Fallback: generate color from hash
+            if (!fix) return '#6c757d';
+            let hash = 0;
+            for (let i = 0; i < fix.length; i++) {
+                hash = fix.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash % 360);
+            return `hsl(${hue}, 65%, 45%)`;
+        },
+        null,
+        null
+    );
+}
+
+/**
+ * Render chart with DP/SID breakdown
+ */
+function renderDPChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    renderBreakdownChart(
+        DEMAND_STATE.dpBreakdown,
+        `${dirLabel} by Departure Procedure (SID)`,
+        'dp',
+        'dp_name',
+        (dp) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
+                return FILTER_CONFIG.procedure.getColor(dp);
+            }
+            // Fallback: generate color from hash
+            if (!dp) return '#6c757d';
+            let hash = 0;
+            for (let i = 0; i < dp.length; i++) {
+                hash = dp.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash % 360);
+            return `hsl(${hue}, 70%, 50%)`;
+        },
+        null,
+        null
+    );
+}
+
+/**
+ * Render chart with STAR breakdown
+ */
+function renderSTARChart() {
+    const direction = DEMAND_STATE.direction;
+    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    renderBreakdownChart(
+        DEMAND_STATE.starBreakdown,
+        `${dirLabel} by STAR`,
+        'star',
+        'star_name',
+        (star) => {
+            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
+                return FILTER_CONFIG.procedure.getColor(star);
+            }
+            // Fallback: generate color from hash
+            if (!star) return '#6c757d';
+            let hash = 0;
+            for (let i = 0; i < star.length; i++) {
+                hash = star.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash % 360);
+            return `hsl(${hue}, 70%, 50%)`;
+        },
+        null,
+        null
+    );
 }
 
 /**
@@ -2017,16 +2755,22 @@ function buildRateMarkLinesForChart() {
     // Use config if available, otherwise use defaults
     const cfg = (typeof RATE_LINE_CONFIG !== 'undefined') ? RATE_LINE_CONFIG : {
         active: {
-            vatsim: { color: '#FFFFFF' },
+            vatsim: { color: '#000000' },
             rw: { color: '#00FFFF' }
         },
         suggested: {
-            vatsim: { color: '#888888' },
-            rw: { color: '#008080' }
+            vatsim: { color: '#6b7280' },
+            rw: { color: '#0d9488' }
+        },
+        custom: {
+            vatsim: { color: '#000000' },
+            rw: { color: '#00FFFF' }
         },
         lineStyle: {
             aar: { type: 'solid', width: 2 },
-            adr: { type: 'dashed', width: 2 }
+            adr: { type: 'dashed', width: 2 },
+            aar_custom: { type: 'dotted', width: 2 },
+            adr_custom: { type: 'dotted', width: 2 }
         },
         label: {
             position: 'end',
@@ -2035,14 +2779,18 @@ function buildRateMarkLinesForChart() {
         }
     };
 
-    const styleKey = rateData.is_suggested ? 'suggested' : 'active';
+    // Determine style: custom (override), suggested, or active
+    const isCustom = rateData.has_override;
+    const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
 
     // Helper to create a rate line
     const addLine = (value, source, rateType, label) => {
         if (!value) return;
 
         const sourceStyle = cfg[styleKey][source];
-        const lineTypeStyle = cfg.lineStyle[rateType];
+        // Use dotted line style for custom/dynamic rates
+        const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
+        const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
 
         lines.push({
             yAxis: value,
@@ -2370,8 +3118,17 @@ function loadFlightSummary(renderOriginChartAfter) {
                 updateTopOrigins(response.top_origins || []);
                 updateTopCarriers(response.top_carriers || []);
 
-                // Store origin breakdown for chart
+                // Store breakdown data for chart views
                 DEMAND_STATE.originBreakdown = response.origin_artcc_breakdown || {};
+                DEMAND_STATE.destBreakdown = response.dest_artcc_breakdown || {};
+                DEMAND_STATE.weightBreakdown = response.weight_breakdown || {};
+                DEMAND_STATE.carrierBreakdown = response.carrier_breakdown || {};
+                DEMAND_STATE.equipmentBreakdown = response.equipment_breakdown || {};
+                DEMAND_STATE.ruleBreakdown = response.rule_breakdown || {};
+                DEMAND_STATE.depFixBreakdown = response.dep_fix_breakdown || {};
+                DEMAND_STATE.arrFixBreakdown = response.arr_fix_breakdown || {};
+                DEMAND_STATE.dpBreakdown = response.dp_breakdown || {};
+                DEMAND_STATE.starBreakdown = response.star_breakdown || {};
 
                 // Auto-expand the summary section if it has data
                 const hasData = (response.top_origins && response.top_origins.length > 0) ||
@@ -2385,9 +3142,21 @@ function loadFlightSummary(renderOriginChartAfter) {
                     }
                 }
 
-                // Render origin chart if requested
-                if (renderOriginChartAfter) {
-                    renderOriginChart();
+                // Render breakdown chart if requested (based on current view)
+                if (renderOriginChartAfter && DEMAND_STATE.chartView !== 'status') {
+                    // Re-render the appropriate breakdown chart
+                    switch (DEMAND_STATE.chartView) {
+                        case 'origin': renderOriginChart(); break;
+                        case 'dest': renderDestChart(); break;
+                        case 'carrier': renderCarrierChart(); break;
+                        case 'weight': renderWeightChart(); break;
+                        case 'equipment': renderEquipmentChart(); break;
+                        case 'rule': renderRuleChart(); break;
+                        case 'dep_fix': renderDepFixChart(); break;
+                        case 'arr_fix': renderArrFixChart(); break;
+                        case 'dp': renderDPChart(); break;
+                        case 'star': renderSTARChart(); break;
+                    }
                 }
             }
         })

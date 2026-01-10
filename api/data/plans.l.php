@@ -32,13 +32,29 @@ if (!defined('DEV')) {
 
 $query = mysqli_query($conn_sqli, ("SELECT * FROM p_plans ORDER BY event_date DESC LIMIT 15"));
 
+// Hotline badge abbreviations
+$hotline_badges = [
+    'NY Metro' => 'NYC',
+    'DC Metro' => 'DC',
+    'Chicago' => 'CHI',
+    'Atlanta' => 'ATL',
+    'Florida' => 'FLA',
+    'Texas' => 'TEX',
+    'East Coast' => 'EC',
+    'West Coast' => 'WC',
+    'Canada' => 'CAN'
+];
+
 while ($data = mysqli_fetch_array($query)) {
     // Handle nullable end date/time values
     $event_end_date = $data['event_end_date'] ?? '';
     $event_end_time = $data['event_end_time'] ?? '';
-    
+
+    // Get badge abbreviation for hotline
+    $hotline_badge = $hotline_badges[$data['hotline']] ?? $data['hotline'][0];
+
     echo '<tr>';
-    echo '<td>'.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$data['hotline'][0].'</span></td>';
+    echo '<td>'.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$hotline_badge.'</span></td>';
     
     // Start Date
     echo '<td class="text-center">'.$data['event_date'].'</td>';
