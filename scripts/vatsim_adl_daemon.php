@@ -287,47 +287,52 @@ function executeRefreshSP($conn, string $jsonData, int $timeout): array {
         'steps'      => null,
     ];
 
-    // Fetch first result set (SP stats and step timings)
-    if ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        $result['stats'] = [
-            'pilots'      => $row['pilots_received'] ?? 0,
-            'new'         => $row['new_flights'] ?? 0,
-            'updated'     => $row['updated_flights'] ?? 0,
-            'routes'      => $row['routes_queued'] ?? 0,
-            'etds'        => $row['etds_calculated'] ?? 0,
-            'etas'        => $row['etas_calculated'] ?? 0,
-            'traj'        => $row['trajectories_logged'] ?? 0,
-            'zones'       => $row['zone_transitions'] ?? 0,
-            'boundaries'  => $row['boundary_transitions'] ?? 0,
-            'crossings'   => $row['crossings_calculated'] ?? 0,
-        ];
+    // Sub-procedures may return result sets before the main SP's final SELECT.
+    // Iterate through all result sets and find the one with step timing columns.
+    do {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row && isset($row['pilots_received']) && isset($row['step1_json_ms'])) {
+            // This is the V8.9 result set with step timings
+            $result['stats'] = [
+                'pilots'      => $row['pilots_received'] ?? 0,
+                'new'         => $row['new_flights'] ?? 0,
+                'updated'     => $row['updated_flights'] ?? 0,
+                'routes'      => $row['routes_queued'] ?? 0,
+                'etds'        => $row['etds_calculated'] ?? 0,
+                'etas'        => $row['etas_calculated'] ?? 0,
+                'traj'        => $row['trajectories_logged'] ?? 0,
+                'zones'       => $row['zone_transitions'] ?? 0,
+                'boundaries'  => $row['boundary_transitions'] ?? 0,
+                'crossings'   => $row['crossings_calculated'] ?? 0,
+            ];
 
-        // V8.9 step timings
-        $result['steps'] = [
-            '1_json'      => $row['step1_json_ms'] ?? 0,
-            '1b_enrich'   => $row['step1b_enrich_ms'] ?? 0,
-            '2_core'      => $row['step2_core_ms'] ?? 0,
-            '2a_prefile'  => $row['step2a_prefile_ms'] ?? 0,
-            '2b_times'    => $row['step2b_times_ms'] ?? 0,
-            '3_position'  => $row['step3_position_ms'] ?? 0,
-            '4_flightplan'=> $row['step4_flightplan_ms'] ?? 0,
-            '4b_etd'      => $row['step4b_etd_ms'] ?? 0,
-            '4c_simbrief' => $row['step4c_simbrief_ms'] ?? 0,
-            '5_queue'     => $row['step5_queue_ms'] ?? 0,
-            '6_aircraft'  => $row['step6_aircraft_ms'] ?? 0,
-            '7_inactive'  => $row['step7_inactive_ms'] ?? 0,
-            '8_trajectory'=> $row['step8_trajectory_ms'] ?? 0,
-            '8b_bucket'   => $row['step8b_bucket_ms'] ?? 0,
-            '8c_waypoint' => $row['step8c_waypoint_ms'] ?? 0,
-            '9_zone'      => $row['step9_zone_ms'] ?? 0,
-            '10_boundary' => $row['step10_boundary_ms'] ?? 0,
-            '11_crossings'=> $row['step11_crossings_ms'] ?? 0,
-            '12_log'      => $row['step12_log_ms'] ?? 0,
-            '13_snapshot' => $row['step13_snapshot_ms'] ?? 0,
-        ];
+            $result['steps'] = [
+                '1_json'      => $row['step1_json_ms'] ?? 0,
+                '1b_enrich'   => $row['step1b_enrich_ms'] ?? 0,
+                '2_core'      => $row['step2_core_ms'] ?? 0,
+                '2a_prefile'  => $row['step2a_prefile_ms'] ?? 0,
+                '2b_times'    => $row['step2b_times_ms'] ?? 0,
+                '3_position'  => $row['step3_position_ms'] ?? 0,
+                '4_flightplan'=> $row['step4_flightplan_ms'] ?? 0,
+                '4b_etd'      => $row['step4b_etd_ms'] ?? 0,
+                '4c_simbrief' => $row['step4c_simbrief_ms'] ?? 0,
+                '5_queue'     => $row['step5_queue_ms'] ?? 0,
+                '6_aircraft'  => $row['step6_aircraft_ms'] ?? 0,
+                '7_inactive'  => $row['step7_inactive_ms'] ?? 0,
+                '8_trajectory'=> $row['step8_trajectory_ms'] ?? 0,
+                '8b_bucket'   => $row['step8b_bucket_ms'] ?? 0,
+                '8c_waypoint' => $row['step8c_waypoint_ms'] ?? 0,
+                '9_zone'      => $row['step9_zone_ms'] ?? 0,
+                '10_boundary' => $row['step10_boundary_ms'] ?? 0,
+                '11_crossings'=> $row['step11_crossings_ms'] ?? 0,
+                '12_log'      => $row['step12_log_ms'] ?? 0,
+                '13_snapshot' => $row['step13_snapshot_ms'] ?? 0,
+            ];
 
-        $result['elapsed_ms'] = $row['elapsed_ms'] ?? 0;
-    }
+            $result['elapsed_ms'] = $row['elapsed_ms'] ?? 0;
+            break;  // Found it, stop looking
+        }
+    } while (sqlsrv_next_result($stmt));
 
     // Drain any remaining result sets
     while (sqlsrv_next_result($stmt)) {

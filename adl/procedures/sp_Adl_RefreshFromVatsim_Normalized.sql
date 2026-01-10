@@ -1,5 +1,9 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9 - Step Timing Instrumentation
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.1 - Disabled Steps 10 & 11
+--
+-- Changes from V8.9:
+--   - TEMPORARILY DISABLED Steps 10 & 11 (boundary/crossings) for diagnosis
+--   - These are suspected to cause 60-120s execution times
 --
 -- Changes from V8.8:
 --   - Added step-by-step timing instrumentation for performance diagnosis
@@ -741,40 +745,42 @@ BEGIN
 
     -- ========================================================================
     -- Step 10: Boundary Detection for ARTCC/Sector/TRACON
+    -- TEMPORARILY DISABLED for performance diagnosis (V8.9.1)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
-    BEGIN
-        EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
-    END
+    -- DISABLED: Taking too long, suspected culprit
+    -- IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
+    -- BEGIN
+    --     EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
+    -- END
 
     SET @step10_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
     -- Step 11: Planned Crossings Calculation (V8.7)
-    -- Detects regional flights and calculates boundary crossings for TMI analysis
+    -- TEMPORARILY DISABLED for performance diagnosis (V8.9.1)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    IF OBJECT_ID('dbo.sp_DetectRegionalFlight', 'P') IS NOT NULL
-    BEGIN
-        -- Detect region flags for flights that don't have them yet
-        EXEC dbo.sp_DetectRegionalFlight @batch_mode = 1;
-    END
-
-    IF OBJECT_ID('dbo.sp_CalculatePlannedCrossingsBatch', 'P') IS NOT NULL
-    BEGIN
-        DECLARE @crossing_result TABLE (
-            processed_at DATETIME2, cycle INT, minute INT,
-            tier1_new_recalc INT, tier2_tracon INT, tier3_artcc INT,
-            tier4_level INT, tier5_intl INT, tier6_transit INT, tier7_outside INT,
-            total_flights INT, crossings_calculated INT, elapsed_ms INT
-        );
-        INSERT INTO @crossing_result
-        EXEC dbo.sp_CalculatePlannedCrossingsBatch @max_flights_per_batch = 200, @debug = 1;
-        SELECT @crossings_calculated = crossings_calculated FROM @crossing_result;
-    END
+    -- DISABLED: Taking too long, suspected culprit
+    -- IF OBJECT_ID('dbo.sp_DetectRegionalFlight', 'P') IS NOT NULL
+    -- BEGIN
+    --     EXEC dbo.sp_DetectRegionalFlight @batch_mode = 1;
+    -- END
+    --
+    -- IF OBJECT_ID('dbo.sp_CalculatePlannedCrossingsBatch', 'P') IS NOT NULL
+    -- BEGIN
+    --     DECLARE @crossing_result TABLE (
+    --         processed_at DATETIME2, cycle INT, minute INT,
+    --         tier1_new_recalc INT, tier2_tracon INT, tier3_artcc INT,
+    --         tier4_level INT, tier5_intl INT, tier6_transit INT, tier7_outside INT,
+    --         total_flights INT, crossings_calculated INT, elapsed_ms INT
+    --     );
+    --     INSERT INTO @crossing_result
+    --     EXEC dbo.sp_CalculatePlannedCrossingsBatch @max_flights_per_batch = 200, @debug = 1;
+    --     SELECT @crossings_calculated = crossings_calculated FROM @crossing_result;
+    -- END
 
     SET @step11_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
@@ -847,7 +853,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9 created successfully';
-PRINT 'Added: Step timing instrumentation (step*_ms columns)';
-PRINT 'Use step timings to identify slow steps in refresh procedure';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.1 created successfully';
+PRINT 'DISABLED: Steps 10 (boundary) and 11 (crossings) for performance diagnosis';
+PRINT 'Re-enable after fixing the slow sub-procedures';
 GO
