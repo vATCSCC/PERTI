@@ -1,6 +1,6 @@
 // assets/js/gdt.js
 // Ground Delay Tool - Ground Stop builder and VATSIM previewer with Tier-based scope and airport coloring
-// Tier/group data is loaded at runtime from assets/data/TierInfo.csv
+// Tier/group data is loaded at runtime from the database via api/tiers.php
 
 (function() {
     "use strict";
@@ -4534,9 +4534,9 @@ loadSimTrafficLocalCache(); {
     }
 
 function loadTierInfo() {
-        // Load TierInfo.csv from assets/data/TierInfo.csv
+        // Load tier data from API (database-backed, returns CSV format)
         // Expected header columns: code, facility, select, departureFacilitiesIncluded
-        return fetch("assets/data/TierInfo.csv", { cache: "no-cache" })
+        return fetch("api/tiers.php?format=csv", { cache: "no-cache" })
             .then(function(res) { return res.text(); })
             .then(function(text) {
                 TMI_TIER_INFO = [];
@@ -4593,7 +4593,7 @@ function loadTierInfo() {
                 TMI_UNIQUE_FACILITIES = Array.from(facSet).sort();
             })
             .catch(function(err) {
-                console.error("Error loading TierInfo.csv", err);
+                console.error("Error loading tier data from API", err);
             });
     }
 

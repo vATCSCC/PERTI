@@ -927,114 +927,231 @@ class AdlQueryHelper {
      * Build query for weight class breakdown by time bin
      */
     public function buildWeightClassBreakdownQuery($airport, $direction, $startSQL, $endSQL) {
-        $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
-        $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
-
         if ($this->source === self::SOURCE_VIEW) {
-            $sql = "
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
-                    COALESCE(weight_class, 'UNKNOWN') AS weight_class,
-                    COUNT(*) AS count
-                FROM dbo.vw_adl_flights
-                WHERE $airportCol = ?
-                  AND $timeCol IS NOT NULL
-                  AND $timeCol >= ?
-                  AND $timeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0), COALESCE(weight_class, 'UNKNOWN')
-                ORDER BY time_bin, count DESC
-            ";
+            if ($direction === 'both') {
+                // Combined arrivals and departures
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, weight_class
+                        FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, weight_class
+                        FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        COALESCE(weight_class, 'UNKNOWN') AS weight_class,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0), COALESCE(weight_class, 'UNKNOWN')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL]];
+            } else {
+                $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
+                $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
+                $sql = "
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
+                        COALESCE(weight_class, 'UNKNOWN') AS weight_class,
+                        COUNT(*) AS count
+                    FROM dbo.vw_adl_flights
+                    WHERE $airportCol = ?
+                      AND $timeCol IS NOT NULL
+                      AND $timeCol >= ?
+                      AND $timeCol < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0), COALESCE(weight_class, 'UNKNOWN')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL]];
+            }
         } else {
-            $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
-            $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
-            $sql = "
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
-                    COALESCE(a.weight_class, 'UNKNOWN') AS weight_class,
-                    COUNT(*) AS count
-                FROM dbo.adl_flight_core c
-                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-                LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
-                WHERE $fpAirportCol = ?
-                  AND $tTimeCol IS NOT NULL
-                  AND $tTimeCol >= ?
-                  AND $tTimeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0), COALESCE(a.weight_class, 'UNKNOWN')
-                ORDER BY time_bin, count DESC
-            ";
+            if ($direction === 'both') {
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, a.weight_class
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
+                        WHERE fp.fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, a.weight_class
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
+                        WHERE fp.fp_dept_icao = ?
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        COALESCE(weight_class, 'UNKNOWN') AS weight_class,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0), COALESCE(weight_class, 'UNKNOWN')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL]];
+            } else {
+                $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
+                $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
+                $sql = "
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
+                        COALESCE(a.weight_class, 'UNKNOWN') AS weight_class,
+                        COUNT(*) AS count
+                    FROM dbo.adl_flight_core c
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                    LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
+                    WHERE $fpAirportCol = ?
+                      AND $tTimeCol IS NOT NULL
+                      AND $tTimeCol >= ?
+                      AND $tTimeCol < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0), COALESCE(a.weight_class, 'UNKNOWN')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL]];
+            }
         }
-
-        return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL]];
     }
 
     /**
      * Build query for carrier/airline breakdown by time bin (top N + other)
      */
     public function buildCarrierBreakdownQuery($airport, $direction, $startSQL, $endSQL, $topN = 10) {
-        $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
-        $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
-
         if ($this->source === self::SOURCE_VIEW) {
-            $sql = "
-                WITH TopCarriers AS (
-                    SELECT TOP $topN airline_icao
+            if ($direction === 'both') {
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, airline_icao
+                        FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, airline_icao
+                        FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
+                    ),
+                    TopCarriers AS (
+                        SELECT TOP $topN airline_icao
+                        FROM Combined
+                        WHERE op_time >= ? AND op_time < ?
+                          AND airline_icao IS NOT NULL AND airline_icao != ''
+                        GROUP BY airline_icao
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END AS carrier,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0),
+                             CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL, $startSQL, $endSQL]];
+            } else {
+                $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
+                $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
+                $sql = "
+                    WITH TopCarriers AS (
+                        SELECT TOP $topN airline_icao
+                        FROM dbo.vw_adl_flights
+                        WHERE $airportCol = ?
+                          AND $timeCol >= ?
+                          AND $timeCol < ?
+                          AND airline_icao IS NOT NULL AND airline_icao != ''
+                        GROUP BY airline_icao
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
+                        CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END AS carrier,
+                        COUNT(*) AS count
                     FROM dbo.vw_adl_flights
                     WHERE $airportCol = ?
+                      AND $timeCol IS NOT NULL
                       AND $timeCol >= ?
                       AND $timeCol < ?
-                      AND airline_icao IS NOT NULL AND airline_icao != ''
-                    GROUP BY airline_icao
-                    ORDER BY COUNT(*) DESC
-                )
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
-                    CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END AS carrier,
-                    COUNT(*) AS count
-                FROM dbo.vw_adl_flights
-                WHERE $airportCol = ?
-                  AND $timeCol IS NOT NULL
-                  AND $timeCol >= ?
-                  AND $timeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0),
-                         CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END
-                ORDER BY time_bin, count DESC
-            ";
-            return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0),
+                             CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+            }
         } else {
-            $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
-            $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
-            $sql = "
-                WITH TopCarriers AS (
-                    SELECT TOP $topN a.airline_icao
+            if ($direction === 'both') {
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, a.airline_icao
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
+                        WHERE fp.fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, a.airline_icao
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
+                        WHERE fp.fp_dept_icao = ?
+                    ),
+                    TopCarriers AS (
+                        SELECT TOP $topN airline_icao
+                        FROM Combined
+                        WHERE op_time >= ? AND op_time < ?
+                          AND airline_icao IS NOT NULL AND airline_icao != ''
+                        GROUP BY airline_icao
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END AS carrier,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0),
+                             CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL, $startSQL, $endSQL]];
+            } else {
+                $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
+                $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
+                $sql = "
+                    WITH TopCarriers AS (
+                        SELECT TOP $topN a.airline_icao
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
+                        WHERE $fpAirportCol = ?
+                          AND $tTimeCol >= ?
+                          AND $tTimeCol < ?
+                          AND a.airline_icao IS NOT NULL AND a.airline_icao != ''
+                        GROUP BY a.airline_icao
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
+                        CASE WHEN a.airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN a.airline_icao ELSE 'OTHER' END AS carrier,
+                        COUNT(*) AS count
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
                     WHERE $fpAirportCol = ?
+                      AND $tTimeCol IS NOT NULL
                       AND $tTimeCol >= ?
                       AND $tTimeCol < ?
-                      AND a.airline_icao IS NOT NULL AND a.airline_icao != ''
-                    GROUP BY a.airline_icao
-                    ORDER BY COUNT(*) DESC
-                )
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
-                    CASE WHEN a.airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN a.airline_icao ELSE 'OTHER' END AS carrier,
-                    COUNT(*) AS count
-                FROM dbo.adl_flight_core c
-                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-                LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
-                WHERE $fpAirportCol = ?
-                  AND $tTimeCol IS NOT NULL
-                  AND $tTimeCol >= ?
-                  AND $tTimeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0),
-                         CASE WHEN a.airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN a.airline_icao ELSE 'OTHER' END
-                ORDER BY time_bin, count DESC
-            ";
-            return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0),
+                             CASE WHEN a.airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN a.airline_icao ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+            }
         }
     }
 
@@ -1042,67 +1159,132 @@ class AdlQueryHelper {
      * Build query for equipment/aircraft type breakdown by time bin (top N + other)
      */
     public function buildEquipmentBreakdownQuery($airport, $direction, $startSQL, $endSQL, $topN = 10) {
-        $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
-        $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
-
         if ($this->source === self::SOURCE_VIEW) {
-            $sql = "
-                WITH TopEquipment AS (
-                    SELECT TOP $topN aircraft_type
+            if ($direction === 'both') {
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, aircraft_type
+                        FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, aircraft_type
+                        FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
+                    ),
+                    TopEquipment AS (
+                        SELECT TOP $topN aircraft_type
+                        FROM Combined
+                        WHERE op_time >= ? AND op_time < ?
+                          AND aircraft_type IS NOT NULL AND aircraft_type != ''
+                        GROUP BY aircraft_type
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END AS equipment,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0),
+                             CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL, $startSQL, $endSQL]];
+            } else {
+                $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
+                $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
+                $sql = "
+                    WITH TopEquipment AS (
+                        SELECT TOP $topN aircraft_type
+                        FROM dbo.vw_adl_flights
+                        WHERE $airportCol = ?
+                          AND $timeCol >= ?
+                          AND $timeCol < ?
+                          AND aircraft_type IS NOT NULL AND aircraft_type != ''
+                        GROUP BY aircraft_type
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
+                        CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END AS equipment,
+                        COUNT(*) AS count
                     FROM dbo.vw_adl_flights
                     WHERE $airportCol = ?
+                      AND $timeCol IS NOT NULL
                       AND $timeCol >= ?
                       AND $timeCol < ?
-                      AND aircraft_type IS NOT NULL AND aircraft_type != ''
-                    GROUP BY aircraft_type
-                    ORDER BY COUNT(*) DESC
-                )
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
-                    CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END AS equipment,
-                    COUNT(*) AS count
-                FROM dbo.vw_adl_flights
-                WHERE $airportCol = ?
-                  AND $timeCol IS NOT NULL
-                  AND $timeCol >= ?
-                  AND $timeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0),
-                         CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END
-                ORDER BY time_bin, count DESC
-            ";
-            return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0),
+                             CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+            }
         } else {
-            $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
-            $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
-            $sql = "
-                WITH TopEquipment AS (
-                    SELECT TOP $topN fp.aircraft_type
+            if ($direction === 'both') {
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, fp.aircraft_type
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        WHERE fp.fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, fp.aircraft_type
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        WHERE fp.fp_dept_icao = ?
+                    ),
+                    TopEquipment AS (
+                        SELECT TOP $topN aircraft_type
+                        FROM Combined
+                        WHERE op_time >= ? AND op_time < ?
+                          AND aircraft_type IS NOT NULL AND aircraft_type != ''
+                        GROUP BY aircraft_type
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END AS equipment,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0),
+                             CASE WHEN aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN aircraft_type ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL, $startSQL, $endSQL]];
+            } else {
+                $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
+                $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
+                $sql = "
+                    WITH TopEquipment AS (
+                        SELECT TOP $topN fp.aircraft_type
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        WHERE $fpAirportCol = ?
+                          AND $tTimeCol >= ?
+                          AND $tTimeCol < ?
+                          AND fp.aircraft_type IS NOT NULL AND fp.aircraft_type != ''
+                        GROUP BY fp.aircraft_type
+                        ORDER BY COUNT(*) DESC
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
+                        CASE WHEN fp.aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN fp.aircraft_type ELSE 'OTHER' END AS equipment,
+                        COUNT(*) AS count
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                     WHERE $fpAirportCol = ?
+                      AND $tTimeCol IS NOT NULL
                       AND $tTimeCol >= ?
                       AND $tTimeCol < ?
-                      AND fp.aircraft_type IS NOT NULL AND fp.aircraft_type != ''
-                    GROUP BY fp.aircraft_type
-                    ORDER BY COUNT(*) DESC
-                )
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
-                    CASE WHEN fp.aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN fp.aircraft_type ELSE 'OTHER' END AS equipment,
-                    COUNT(*) AS count
-                FROM dbo.adl_flight_core c
-                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-                WHERE $fpAirportCol = ?
-                  AND $tTimeCol IS NOT NULL
-                  AND $tTimeCol >= ?
-                  AND $tTimeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0),
-                         CASE WHEN fp.aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN fp.aircraft_type ELSE 'OTHER' END
-                ORDER BY time_bin, count DESC
-            ";
-            return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0),
+                             CASE WHEN fp.aircraft_type IN (SELECT aircraft_type FROM TopEquipment) THEN fp.aircraft_type ELSE 'OTHER' END
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
+            }
         }
     }
 
@@ -1110,44 +1292,91 @@ class AdlQueryHelper {
      * Build query for flight rule (IFR/VFR) breakdown by time bin
      */
     public function buildFlightRuleBreakdownQuery($airport, $direction, $startSQL, $endSQL) {
-        $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
-        $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
-
         if ($this->source === self::SOURCE_VIEW) {
-            $sql = "
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
-                    COALESCE(fp_rule, 'I') AS rule,
-                    COUNT(*) AS count
-                FROM dbo.vw_adl_flights
-                WHERE $airportCol = ?
-                  AND $timeCol IS NOT NULL
-                  AND $timeCol >= ?
-                  AND $timeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0), COALESCE(fp_rule, 'I')
-                ORDER BY time_bin, count DESC
-            ";
+            if ($direction === 'both') {
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, fp_rule
+                        FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, fp_rule
+                        FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        COALESCE(fp_rule, 'I') AS rule,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0), COALESCE(fp_rule, 'I')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL]];
+            } else {
+                $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' : 'COALESCE(etd_runway_utc, etd_utc)';
+                $airportCol = $direction === 'arr' ? 'fp_dest_icao' : 'fp_dept_icao';
+                $sql = "
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
+                        COALESCE(fp_rule, 'I') AS rule,
+                        COUNT(*) AS count
+                    FROM dbo.vw_adl_flights
+                    WHERE $airportCol = ?
+                      AND $timeCol IS NOT NULL
+                      AND $timeCol >= ?
+                      AND $timeCol < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0), COALESCE(fp_rule, 'I')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL]];
+            }
         } else {
-            $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
-            $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
-            $sql = "
-                SELECT
-                    DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
-                    COALESCE(fp.fp_rule, 'I') AS rule,
-                    COUNT(*) AS count
-                FROM dbo.adl_flight_core c
-                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-                LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-                WHERE $fpAirportCol = ?
-                  AND $tTimeCol IS NOT NULL
-                  AND $tTimeCol >= ?
-                  AND $tTimeCol < ?
-                GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0), COALESCE(fp.fp_rule, 'I')
-                ORDER BY time_bin, count DESC
-            ";
+            if ($direction === 'both') {
+                $sql = "
+                    WITH Combined AS (
+                        SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, fp.fp_rule
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        WHERE fp.fp_dest_icao = ?
+                        UNION ALL
+                        SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, fp.fp_rule
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        WHERE fp.fp_dept_icao = ?
+                    )
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                        COALESCE(fp_rule, 'I') AS rule,
+                        COUNT(*) AS count
+                    FROM Combined
+                    WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0), COALESCE(fp_rule, 'I')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $airport, $startSQL, $endSQL]];
+            } else {
+                $tTimeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
+                $fpAirportCol = $direction === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
+                $sql = "
+                    SELECT
+                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
+                        COALESCE(fp.fp_rule, 'I') AS rule,
+                        COUNT(*) AS count
+                    FROM dbo.adl_flight_core c
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                    WHERE $fpAirportCol = ?
+                      AND $tTimeCol IS NOT NULL
+                      AND $tTimeCol >= ?
+                      AND $tTimeCol < ?
+                    GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0), COALESCE(fp.fp_rule, 'I')
+                    ORDER BY time_bin, count DESC
+                ";
+                return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL]];
+            }
         }
-
-        return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL]];
     }
 
     /**

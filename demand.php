@@ -268,6 +268,7 @@ include("load/connect.php");
         }
 
         .tbfm-card-header .demand-toggle-group .btn-outline-light {
+            background-color: transparent;
             border-color: rgba(255,255,255,0.5);
             color: rgba(255,255,255,0.9);
         }
@@ -281,6 +282,34 @@ include("load/connect.php");
             background-color: #5dade2 !important;
             border-color: #5dade2 !important;
             color: #fff !important;
+        }
+
+        /* Chart view toggle buttons (individual, not in btn-group) */
+        .tbfm-card-header .demand-view-btn {
+            font-size: 0.72rem;
+            padding: 4px 10px;
+            border-radius: 3px;
+            background-color: transparent;
+            border-color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.9);
+        }
+
+        .tbfm-card-header .demand-view-btn:hover {
+            background-color: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.7);
+        }
+
+        .tbfm-card-header .demand-view-btn.active {
+            background-color: #5dade2 !important;
+            border-color: #5dade2 !important;
+            color: #fff !important;
+        }
+
+        /* Hide radio buttons inside view labels */
+        .tbfm-card-header .demand-view-btn input[type="radio"] {
+            position: absolute;
+            clip: rect(0,0,0,0);
+            pointer-events: none;
         }
 
         /* TBFM/FSM Info card stat values */
@@ -322,8 +351,8 @@ include("load/connect.php");
 
 <div class="container-fluid mt-3 mb-5" id="demand_section">
     <!-- Info Bar: UTC Clock, Airport Stats -->
-    <div class="perti-info-bar mb-3">
-        <div class="row d-flex flex-wrap align-items-stretch" style="gap: 8px; margin: 0 -4px;">
+    <div class="perti-info-bar mb-3" style="overflow-x: auto;">
+        <div class="row d-flex flex-nowrap align-items-stretch" style="gap: 8px; margin: 0 -4px; min-width: max-content;">
             <!-- Current Time (UTC) - TBFM Style -->
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card perti-card-utc h-100">
@@ -638,48 +667,48 @@ include("load/connect.php");
         <!-- Right: Chart -->
         <div class="col-lg-9 mb-4">
             <div class="card shadow-sm tbfm-chart-card">
-                <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
-                    <span class="demand-section-title">
-                        <i class="fas fa-chart-bar mr-1"></i> Demand Chart
-                    </span>
-                    <div class="d-flex align-items-center">
-                        <!-- Chart View Toggle -->
-                        <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group flex-wrap mr-3" data-toggle="buttons" role="group">
-                            <label class="btn btn-outline-light active" title="Show by flight status">
-                                <input type="radio" name="demand_chart_view" id="view_status" value="status" autocomplete="off" checked> Status
-                            </label>
-                            <label class="btn btn-outline-light" title="Show arrivals by origin ARTCC">
-                                <input type="radio" name="demand_chart_view" id="view_origin" value="origin" autocomplete="off"> Origin
-                            </label>
-                            <label class="btn btn-outline-light" title="Show departures by destination ARTCC">
-                                <input type="radio" name="demand_chart_view" id="view_dest" value="dest" autocomplete="off"> Dest
-                            </label>
-                            <label class="btn btn-outline-light" title="Show by carrier">
-                                <input type="radio" name="demand_chart_view" id="view_carrier" value="carrier" autocomplete="off"> Carrier
-                            </label>
-                            <label class="btn btn-outline-light" title="Show by weight class">
-                                <input type="radio" name="demand_chart_view" id="view_weight" value="weight" autocomplete="off"> Weight
-                            </label>
-                            <label class="btn btn-outline-light" title="Show by aircraft type">
-                                <input type="radio" name="demand_chart_view" id="view_equipment" value="equipment" autocomplete="off"> Equip
-                            </label>
-                            <label class="btn btn-outline-light" title="Show by IFR/VFR">
-                                <input type="radio" name="demand_chart_view" id="view_rule" value="rule" autocomplete="off"> Rule
-                            </label>
-                            <label class="btn btn-outline-light" title="Show departures by departure fix">
-                                <input type="radio" name="demand_chart_view" id="view_dep_fix" value="dep_fix" autocomplete="off"> Dep Fix
-                            </label>
-                            <label class="btn btn-outline-light" title="Show arrivals by arrival fix">
-                                <input type="radio" name="demand_chart_view" id="view_arr_fix" value="arr_fix" autocomplete="off"> Arr Fix
-                            </label>
-                            <label class="btn btn-outline-light" title="Show departures by SID">
-                                <input type="radio" name="demand_chart_view" id="view_dp" value="dp" autocomplete="off"> DP
-                            </label>
-                            <label class="btn btn-outline-light" title="Show arrivals by STAR">
-                                <input type="radio" name="demand_chart_view" id="view_star" value="star" autocomplete="off"> STAR
-                            </label>
-                        </div>
+                <div class="card-header tbfm-card-header">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="demand-section-title">
+                            <i class="fas fa-chart-bar mr-1"></i> Demand Chart
+                        </span>
                         <span class="text-light small" id="demand_last_update" style="opacity: 0.8;">--</span>
+                    </div>
+                    <!-- Chart View Toggle - on its own row for space -->
+                    <div class="d-flex flex-wrap" style="gap: 4px;">
+                        <label class="btn btn-outline-light btn-sm demand-view-btn active" title="Show by flight status">
+                            <input type="radio" name="demand_chart_view" id="view_status" value="status" autocomplete="off" checked> Status
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show arrivals by origin ARTCC">
+                            <input type="radio" name="demand_chart_view" id="view_origin" value="origin" autocomplete="off"> Origin
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show departures by destination ARTCC">
+                            <input type="radio" name="demand_chart_view" id="view_dest" value="dest" autocomplete="off"> Dest
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by carrier">
+                            <input type="radio" name="demand_chart_view" id="view_carrier" value="carrier" autocomplete="off"> Carrier
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by weight class">
+                            <input type="radio" name="demand_chart_view" id="view_weight" value="weight" autocomplete="off"> Weight
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by aircraft type">
+                            <input type="radio" name="demand_chart_view" id="view_equipment" value="equipment" autocomplete="off"> Equip
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by IFR/VFR">
+                            <input type="radio" name="demand_chart_view" id="view_rule" value="rule" autocomplete="off"> Rule
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show departures by departure fix">
+                            <input type="radio" name="demand_chart_view" id="view_dep_fix" value="dep_fix" autocomplete="off"> Dep Fix
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show arrivals by arrival fix">
+                            <input type="radio" name="demand_chart_view" id="view_arr_fix" value="arr_fix" autocomplete="off"> Arr Fix
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show departures by SID">
+                            <input type="radio" name="demand_chart_view" id="view_dp" value="dp" autocomplete="off"> DP
+                        </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show arrivals by STAR">
+                            <input type="radio" name="demand_chart_view" id="view_star" value="star" autocomplete="off"> STAR
+                        </label>
                     </div>
                 </div>
                 <div class="card-body p-2">
@@ -749,6 +778,16 @@ include("load/connect.php");
 <script src="assets/js/demand.js"></script>
 
 <script>
+    // Chart view toggle button handler
+    $('.demand-view-btn').on('click', function() {
+        // Remove active class from all buttons
+        $('.demand-view-btn').removeClass('active');
+        // Add active class to clicked button
+        $(this).addClass('active');
+        // Check the radio input
+        $(this).find('input[type="radio"]').prop('checked', true).trigger('change');
+    });
+
     // Update refresh status indicator when toggle changes
     $('#demand_auto_refresh').on('change', function() {
         const statusEl = $('#refresh_status');

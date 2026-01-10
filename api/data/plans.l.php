@@ -43,7 +43,9 @@ $hotline_badges = [
     'East Coast' => 'EC',
     'West Coast' => 'WC',
     'Canada East' => 'CANE',
-    'Canada West' => 'CANW'
+    'Canada West' => 'CANW',
+    'Mexico' => 'MEX',
+    'Caribbean' => 'CAR'
 ];
 
 while ($data = mysqli_fetch_array($query)) {
@@ -54,11 +56,18 @@ while ($data = mysqli_fetch_array($query)) {
     // Get badge abbreviation for hotline
     $hotline_badge = $hotline_badges[$data['hotline']] ?? $data['hotline'][0];
 
-    // Add Canadian flag for Canada hotline events
-    $flag_prefix = (str_starts_with($data['hotline'], 'Canada')) ? '<img src="https://flagcdn.com/16x12/ca.png" alt="Canada" style="vertical-align: middle; margin-right: 4px;">' : '';
+    // Add region icons for international hotline events
+    $icon_prefix = '';
+    if (str_starts_with($data['hotline'], 'Canada')) {
+        $icon_prefix = '<img src="https://flagcdn.com/20x15/ca.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
+    } elseif ($data['hotline'] === 'Mexico') {
+        $icon_prefix = '<img src="https://flagcdn.com/20x15/mx.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
+    } elseif ($data['hotline'] === 'Caribbean') {
+        $icon_prefix = '<i class="fas fa-tree fa-sm text-success" style="margin-right: 4px;"></i>';
+    }
 
     echo '<tr>';
-    echo '<td>'.$flag_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$hotline_badge.'</span></td>';
+    echo '<td>'.$icon_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$hotline_badge.'</span></td>';
     
     // Start Date
     echo '<td class="text-center">'.$data['event_date'].'</td>';

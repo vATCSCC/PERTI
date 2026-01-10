@@ -63,9 +63,9 @@ USING (VALUES
     ('CZX', 'Gander Domestic (Short)', 'FIR', 'CA'),
     ('CZO', 'Gander Oceanic (Short)', 'OCEANIC', 'CA'),
     -- US Oceanic
-    ('KZAK', 'Oakland Oceanic', 'OCEANIC', 'US'),
-    ('KZWY', 'New York Oceanic', 'OCEANIC', 'US'),
-    ('KZAN', 'Anchorage ARTCC', 'ARTCC', 'US'),
+    ('ZAK', 'Oakland Oceanic', 'OCEANIC', 'US'),
+    ('ZWY', 'New York Oceanic', 'OCEANIC', 'US'),
+    ('ZAN', 'Anchorage ARTCC', 'ARTCC', 'US'),
     -- North Atlantic (for reference)
     ('BGGL', 'Greenland (Sondrestrom)', 'OCEANIC', 'GL'),
     ('BIRD', 'Reykjavik FIR', 'OCEANIC', 'IS'),
@@ -275,23 +275,29 @@ FROM (VALUES
 INNER JOIN dbo.artcc_tier_groups tg ON tg.tier_group_code = v.group_code
 INNER JOIN dbo.artcc_facilities f ON f.facility_code = v.facility_code;
 
--- Insert ALL US ARTCCs members
+-- Insert ALL US ARTCCs members (20 CONUS ARTCCs, excluding ZAN Alaska)
 INSERT INTO dbo.artcc_tier_group_members (tier_group_id, facility_id, display_order)
 SELECT tg.tier_group_id, f.facility_id, ROW_NUMBER() OVER (ORDER BY f.facility_code)
 FROM dbo.artcc_tier_groups tg
 CROSS JOIN dbo.artcc_facilities f
 WHERE tg.tier_group_code = 'ALL'
   AND f.facility_type = 'ARTCC'
-  AND f.country_code = 'US';
+  AND f.country_code = 'US'
+  AND f.facility_code <> 'ZAN';  -- Exclude Alaska (not CONUS)
 
--- Insert ALL+CANADA members (US ARTCCs + Canadian domestic FIRs)
+-- Insert ALL+CANADA members (20 CONUS ARTCCs + 6 Canadian domestic FIRs with full codes)
 INSERT INTO dbo.artcc_tier_group_members (tier_group_id, facility_id, display_order)
 SELECT tg.tier_group_id, f.facility_id, ROW_NUMBER() OVER (ORDER BY f.facility_code)
 FROM dbo.artcc_tier_groups tg
 CROSS JOIN dbo.artcc_facilities f
 WHERE tg.tier_group_code = 'ALL+CANADA'
-  AND ((f.facility_type = 'ARTCC' AND f.country_code = 'US')
-       OR (f.facility_type = 'FIR' AND f.country_code = 'CA'));
+  AND (
+    -- 20 CONUS ARTCCs (excluding Alaska)
+    (f.facility_type = 'ARTCC' AND f.country_code = 'US' AND f.facility_code <> 'ZAN')
+    OR
+    -- 6 Canadian FIRs (full codes only, excluding short codes and oceanic)
+    (f.facility_code IN ('CZVR', 'CZEG', 'CZWG', 'CZYZ', 'CZUL', 'CZQM'))
+  );
 
 PRINT 'Seeded tier group members';
 GO
@@ -316,13 +322,13 @@ CREATE TABLE #Adjacencies (
 -- Canadian FIR adjacencies (based on provided data)
 INSERT INTO #Adjacencies VALUES
 -- CZVR (Vancouver) borders
-('CZVR', 'KZAN', 'LATERAL', NULL),
-('CZVR', 'KZAK', 'OCEANIC', NULL),
+('CZVR', 'ZAN', 'LATERAL', NULL),
+('CZVR', 'ZAK', 'OCEANIC', NULL),
 ('CZVR', 'CZEG', 'LATERAL', NULL),
 ('CZVR', 'ZSE', 'LATERAL', NULL),
 
 -- CZEG (Edmonton) borders
-('CZEG', 'KZAN', 'LATERAL', NULL),
+('CZEG', 'ZAN', 'LATERAL', NULL),
 ('CZEG', 'CZVR', 'LATERAL', NULL),
 ('CZEG', 'CZWG', 'LATERAL', NULL),
 ('CZEG', 'ZSE', 'LATERAL', NULL),
@@ -358,7 +364,7 @@ INSERT INTO #Adjacencies VALUES
 
 -- CZQM (Moncton) borders
 ('CZQM', 'ZBW', 'LATERAL', NULL),
-('CZQM', 'KZWY', 'OCEANIC', NULL),
+('CZQM', 'ZWY', 'OCEANIC', NULL),
 ('CZQM', 'CZUL', 'LATERAL', NULL),
 ('CZQM', 'CZQX', 'OCEANIC', NULL),
 
@@ -366,14 +372,14 @@ INSERT INTO #Adjacencies VALUES
 ('CZQX', 'CZQO', 'OCEANIC', NULL),
 ('CZQX', 'CZUL', 'OCEANIC', NULL),
 ('CZQX', 'CZQM', 'OCEANIC', NULL),
-('CZQX', 'KZWY', 'OCEANIC', NULL),
+('CZQX', 'ZWY', 'OCEANIC', NULL),
 
 -- CZQO (Arctic/Polar) borders
 ('CZQO', 'CZQX', 'OCEANIC', NULL),
 ('CZQO', 'CZUL', 'OCEANIC', NULL),
 ('CZQO', 'CZEG', 'OCEANIC', NULL),
 ('CZQO', 'BGGL', 'OCEANIC', NULL),
-('CZQO', 'KZWY', 'OCEANIC', NULL),
+('CZQO', 'ZWY', 'OCEANIC', NULL),
 ('CZQO', 'LPPO', 'OCEANIC', NULL),
 ('CZQO', 'EGGX', 'OCEANIC', NULL),
 ('CZQO', 'BIRD', 'OCEANIC', NULL),

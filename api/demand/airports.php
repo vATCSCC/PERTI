@@ -65,14 +65,50 @@ $artcc = isset($_GET['artcc']) ? strtoupper(trim($_GET['artcc'])) : '';
 $tier = isset($_GET['tier']) ? trim($_GET['tier']) : '';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Load tier data if tier filter is specified
+// Load tier data if tier filter is specified (from database)
 $tierARTCCs = [];
 if (!empty($tier) && $tier !== 'all' && !empty($artcc)) {
-    $tierJsonPath = realpath(__DIR__ . '/../../assets/data/artcc_tiers.json');
-    if ($tierJsonPath && file_exists($tierJsonPath)) {
-        $tierData = json_decode(file_get_contents($tierJsonPath), true);
-        if ($tierData && isset($tierData['byFacility'][$artcc][$tier])) {
-            $tierARTCCs = $tierData['byFacility'][$artcc][$tier]['artccs'] ?? [];
+    // First get the config to check if it references a tier group
+    $tierSql = "
+        SELECT fc.config_id, fc.tier_group_id
+        FROM dbo.facility_tier_configs fc
+        INNER JOIN dbo.artcc_facilities ff ON fc.facility_id = ff.facility_id
+        WHERE fc.config_code = ? AND ff.facility_code = ? AND fc.is_active = 1
+    ";
+    $tierStmt = sqlsrv_query($conn, $tierSql, [$tier, $artcc]);
+    if ($tierStmt !== false) {
+        $configRow = sqlsrv_fetch_array($tierStmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($tierStmt);
+
+        if ($configRow) {
+            if (!empty($configRow['tier_group_id'])) {
+                // Get ARTCCs from tier group
+                $memberSql = "
+                    SELECT f.facility_code
+                    FROM dbo.artcc_tier_group_members tgm
+                    INNER JOIN dbo.artcc_facilities f ON tgm.facility_id = f.facility_id
+                    WHERE tgm.tier_group_id = ? AND f.is_active = 1
+                    ORDER BY tgm.display_order
+                ";
+                $memberStmt = sqlsrv_query($conn, $memberSql, [$configRow['tier_group_id']]);
+            } else {
+                // Get ARTCCs from config members
+                $memberSql = "
+                    SELECT f.facility_code
+                    FROM dbo.facility_tier_config_members fcm
+                    INNER JOIN dbo.artcc_facilities f ON fcm.facility_id = f.facility_id
+                    WHERE fcm.config_id = ? AND f.is_active = 1
+                    ORDER BY fcm.display_order
+                ";
+                $memberStmt = sqlsrv_query($conn, $memberSql, [$configRow['config_id']]);
+            }
+
+            if ($memberStmt !== false) {
+                while ($memberRow = sqlsrv_fetch_array($memberStmt, SQLSRV_FETCH_ASSOC)) {
+                    $tierARTCCs[] = $memberRow['facility_code'];
+                }
+                sqlsrv_free_stmt($memberStmt);
+            }
         }
     }
 }
