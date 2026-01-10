@@ -237,6 +237,8 @@ include('load/nav.php');
                                     <option>West Coast</option>
                                     <option>Canada East</option>
                                     <option>Canada West</option>
+                                    <option>Mexico</option>
+                                    <option>Caribbean</option>
                                 </select>
                             </div>
                         </div>
@@ -349,6 +351,8 @@ include('load/nav.php');
                                     <option>West Coast</option>
                                     <option>Canada East</option>
                                     <option>Canada West</option>
+                                    <option>Mexico</option>
+                                    <option>Caribbean</option>
                                 </select>
                             </div>
                         </div>

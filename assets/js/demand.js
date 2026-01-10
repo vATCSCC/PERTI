@@ -762,14 +762,14 @@ function initDemand() {
 }
 
 /**
- * Load ARTCC tier data from JSON file
+ * Load ARTCC tier data from API (database-backed)
  */
 function loadTierData() {
-    $.getJSON('assets/data/artcc_tiers.json')
+    $.getJSON('api/tiers.php?format=legacy')
         .done(function(data) {
             ARTCC_TIERS = data;
             populateARTCCDropdown();
-            console.log('ARTCC tier data loaded.');
+            console.log('ARTCC tier data loaded from database.');
         })
         .fail(function(err) {
             console.error('Failed to load ARTCC tier data:', err);
