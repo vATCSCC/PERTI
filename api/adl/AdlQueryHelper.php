@@ -410,7 +410,6 @@ class AdlQueryHelper {
                 c.cid,
                 c.flight_id,
                 c.phase,
-                c.flight_status,
                 c.last_source,
                 c.is_active,
                 c.first_seen_utc,
@@ -601,6 +600,7 @@ class AdlQueryHelper {
 
         // Individual phase breakdown for detailed demand visualization:
         //   - arrived: landed at destination (ONLY for past time bins - can't arrive in the future)
+        //   - disconnected: disconnected mid-flight (never arrived)
         //   - descending: on approach to destination
         //   - enroute: cruising
         //   - departed: just took off from origin
@@ -615,12 +615,13 @@ class AdlQueryHelper {
                 {$timeBinSQL} AS time_bin,
                 COUNT(*) AS total,
                 SUM(CASE WHEN phase = 'arrived' THEN 1 ELSE 0 END) AS arrived,
+                SUM(CASE WHEN phase = 'disconnected' THEN 1 ELSE 0 END) AS disconnected,
                 SUM(CASE WHEN phase = 'descending' THEN 1 ELSE 0 END) AS descending,
                 SUM(CASE WHEN phase = 'enroute' THEN 1 ELSE 0 END) AS enroute,
                 SUM(CASE WHEN phase = 'departed' THEN 1 ELSE 0 END) AS departed,
                 SUM(CASE WHEN phase = 'taxiing' THEN 1 ELSE 0 END) AS taxiing,
                 SUM(CASE WHEN phase = 'prefile' THEN 1 ELSE 0 END) AS prefile,
-                SUM(CASE WHEN phase NOT IN ('arrived', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR phase IS NULL THEN 1 ELSE 0 END) AS unknown
+                SUM(CASE WHEN phase NOT IN ('arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR phase IS NULL THEN 1 ELSE 0 END) AS unknown
             FROM dbo.vw_adl_flights
             WHERE {$airportCol} = ?
               AND {$timeCol} IS NOT NULL
@@ -641,6 +642,7 @@ class AdlQueryHelper {
 
         // Individual phase breakdown for detailed demand visualization:
         //   - arrived: landed at destination (ONLY for past time bins - can't arrive in the future)
+        //   - disconnected: disconnected mid-flight (never arrived)
         //   - descending: on approach to destination
         //   - enroute: cruising
         //   - departed: just took off from origin
@@ -655,12 +657,13 @@ class AdlQueryHelper {
                 {$timeBinSQL} AS time_bin,
                 COUNT(*) AS total,
                 SUM(CASE WHEN c.phase = 'arrived' THEN 1 ELSE 0 END) AS arrived,
+                SUM(CASE WHEN c.phase = 'disconnected' THEN 1 ELSE 0 END) AS disconnected,
                 SUM(CASE WHEN c.phase = 'descending' THEN 1 ELSE 0 END) AS descending,
                 SUM(CASE WHEN c.phase = 'enroute' THEN 1 ELSE 0 END) AS enroute,
                 SUM(CASE WHEN c.phase = 'departed' THEN 1 ELSE 0 END) AS departed,
                 SUM(CASE WHEN c.phase = 'taxiing' THEN 1 ELSE 0 END) AS taxiing,
                 SUM(CASE WHEN c.phase = 'prefile' THEN 1 ELSE 0 END) AS prefile,
-                SUM(CASE WHEN c.phase NOT IN ('arrived', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR c.phase IS NULL THEN 1 ELSE 0 END) AS unknown
+                SUM(CASE WHEN c.phase NOT IN ('arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR c.phase IS NULL THEN 1 ELSE 0 END) AS unknown
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid

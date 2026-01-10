@@ -26,21 +26,23 @@ let DEMAND_STATE = {
     lastDemandData: null // Store last demand response for view switching
 };
 
-// Individual phase colors for demand visualization
-// Stacking order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
-const FSM_PHASE_COLORS = {
-    'arrived': '#1a1a1a',     // Black - Landed at destination (bottom)
-    'descending': '#991b1b',  // Dark Red - On approach to destination
-    'enroute': '#dc2626',     // Red - Cruising
-    'departed': '#f87171',    // Light Red - Just took off from origin
-    'taxiing': '#22c55e',     // Green - Taxiing at origin airport
-    'prefile': '#06b6d4',     // Cyan - Filed flight plan
-    'unknown': '#eab308'      // Yellow - Unknown/other phase (top)
+// Phase colors - use shared config from phase-colors.js
+// Fallback definitions if config not loaded (for backwards compatibility)
+const FSM_PHASE_COLORS = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {
+    'arrived': '#1a1a1a',       // Black - Landed at destination (bottom)
+    'disconnected': '#f97316',  // Bright Orange - Disconnected mid-flight
+    'descending': '#991b1b',    // Dark Red - On approach to destination
+    'enroute': '#dc2626',       // Red - Cruising
+    'departed': '#f87171',      // Light Red - Just took off from origin
+    'taxiing': '#22c55e',       // Green - Taxiing at origin airport
+    'prefile': '#06b6d4',       // Cyan - Filed flight plan
+    'unknown': '#eab308'        // Yellow - Unknown/other phase (top)
 };
 
-// Phase display names for legend/tooltips
-const PHASE_LABELS = {
+// Phase labels - use shared config if available
+const FSM_PHASE_LABELS = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {
     'arrived': 'Arrived',
+    'disconnected': 'Disconnected',
     'descending': 'Descending',
     'enroute': 'Enroute',
     'departed': 'Departed',
@@ -487,7 +489,7 @@ function renderChart(data) {
     // Build series based on direction
     // Phase stacking order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
     const series = [];
-    const phaseOrder = ['arrived', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    const phaseOrder = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
 
     if (direction === 'arr' || direction === 'both') {
         // Build arrival series by phase (normalize time bins for lookup)
@@ -498,7 +500,7 @@ function renderChart(data) {
         phaseOrder.forEach(phase => {
             const suffix = direction === 'both' ? ' (Arr)' : '';
             series.push(
-                buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals')
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals')
             );
         });
     }
@@ -512,7 +514,7 @@ function renderChart(data) {
         phaseOrder.forEach(phase => {
             const suffix = direction === 'both' ? ' (Dep)' : '';
             series.push(
-                buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures')
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures')
             );
         });
     }
@@ -1123,7 +1125,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
         label: {
             show: true,
             formatter: `${hours}${minutes}z`,
-            position: 'start',
+            position: 'end',
             color: '#0066CC',
             fontWeight: 'bold',
             fontSize: 10,
@@ -1564,6 +1566,7 @@ function getStatusBadgeClass(status) {
     switch (status) {
         // Individual phases
         case 'arrived': return 'badge-dark';
+        case 'disconnected': return 'badge-secondary';
         case 'descending': return 'badge-danger';
         case 'enroute': return 'badge-danger';
         case 'departed': return 'badge-danger';

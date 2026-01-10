@@ -107,7 +107,7 @@ $results['tests'][] = runTest($conn_adl, '6_geometry_and_waypoints',
 // Test 7: The actual complex query from AdlQueryHelper (abridged)
 $results['tests'][] = runTest($conn_adl, '7_actual_query',
     "SELECT TOP 10000
-        c.flight_uid, c.flight_key, c.callsign, c.cid, c.phase, c.flight_status, c.is_active,
+        c.flight_uid, c.flight_key, c.callsign, c.cid, c.phase, c.is_active,
         c.first_seen_utc, c.last_seen_utc, c.logon_time_utc, c.snapshot_utc,
         p.lat, p.lon, p.altitude_ft, p.groundspeed_kts, p.heading_deg,
         fp.fp_rule, fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_route, fp.gcd_nm,

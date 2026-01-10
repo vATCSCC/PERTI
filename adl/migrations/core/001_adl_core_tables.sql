@@ -34,7 +34,7 @@ BEGIN
         flight_id           NVARCHAR(32) NULL,               -- VATSIM flight ID if available
         
         -- Lifecycle State
-        phase               NVARCHAR(16) NOT NULL DEFAULT 'unknown',  -- prefile, taxiing, departed, enroute, descending, arrived, unknown
+        phase               NVARCHAR(16) NOT NULL DEFAULT 'unknown',  -- prefile, taxiing, departed, enroute, descending, arrived, disconnected, unknown
         last_source         NVARCHAR(16) NOT NULL DEFAULT 'vatsim',   -- vatsim, prefile, simtraffic
         is_active           BIT NOT NULL DEFAULT 1,
         

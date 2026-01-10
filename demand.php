@@ -22,6 +22,9 @@ include("load/connect.php");
     <!-- ECharts CDN -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
+    <!-- Shared Phase Color Configuration -->
+    <script src="assets/js/config/phase-colors.js"></script>
+
     <style>
         /* ═══════════════════════════════════════════════════════════════════════════
            TBFM/FSM STYLE - Airport Demand Visualization
@@ -517,46 +520,44 @@ include("load/connect.php");
                         <i class="fas fa-palette mr-1"></i> Legend
                     </span>
                 </div>
-                <div class="card-body py-3">
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #1a1a1a;"></span>
-                        <strong>Arrived</strong>
-                        <small class="text-muted ml-1">(landed)</small>
-                    </div>
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #991b1b;"></span>
-                        <strong>Descending</strong>
-                        <small class="text-muted ml-1">(approach)</small>
-                    </div>
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #dc2626;"></span>
-                        <strong>Enroute</strong>
-                        <small class="text-muted ml-1">(cruising)</small>
-                    </div>
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #f87171;"></span>
-                        <strong>Departed</strong>
-                        <small class="text-muted ml-1">(climbing)</small>
-                    </div>
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #22c55e;"></span>
-                        <strong>Taxiing</strong>
-                        <small class="text-muted ml-1">(at origin)</small>
-                    </div>
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #06b6d4;"></span>
-                        <strong>Prefile</strong>
-                        <small class="text-muted ml-1">(filed)</small>
-                    </div>
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #eab308;"></span>
-                        <strong>Unknown</strong>
-                    </div>
-                    <hr class="my-2">
-                    <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Current phase of flight at query time
-                    </small>
+                <div class="card-body py-3" id="phase-legend-container">
+                    <!-- Legend items will be generated from phase-colors.js -->
+                    <script>
+                        // Generate legend from shared phase config
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const container = document.getElementById('phase-legend-container');
+                            if (typeof PHASE_ORDER !== 'undefined') {
+                                let html = '';
+                                PHASE_ORDER.forEach(phase => {
+                                    const color = PHASE_COLORS[phase] || '#999';
+                                    const label = PHASE_LABELS[phase] || phase;
+                                    const desc = PHASE_DESCRIPTIONS[phase] || '';
+                                    html += `<div class="demand-legend-item">
+                                        <span class="demand-legend-color" style="background-color: ${color};"></span>
+                                        <strong>${label}</strong>
+                                        ${desc ? `<small class="text-muted ml-1">(${desc})</small>` : ''}
+                                    </div>`;
+                                });
+                                html += `<hr class="my-2">
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Current phase of flight at query time
+                                    </small>`;
+                                container.innerHTML = html;
+                            }
+                        });
+                    </script>
+                    <!-- Fallback if JS doesn't load -->
+                    <noscript>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #1a1a1a;"></span><strong>Arrived</strong></div>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f97316;"></span><strong>Disconnected</strong></div>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #991b1b;"></span><strong>Descending</strong></div>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #dc2626;"></span><strong>Enroute</strong></div>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f87171;"></span><strong>Departed</strong></div>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #22c55e;"></span><strong>Taxiing</strong></div>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #06b6d4;"></span><strong>Prefile</strong></div>
+                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #eab308;"></span><strong>Unknown</strong></div>
+                    </noscript>
                 </div>
             </div>
         </div>
