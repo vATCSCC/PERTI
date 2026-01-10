@@ -37,7 +37,7 @@ const FSM_PHASE_COLORS = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : 
     'enroute': '#dc2626',       // Red - Cruising
     'departed': '#f87171',      // Light Red - Just took off from origin
     'taxiing': '#22c55e',       // Green - Taxiing at origin airport
-    'prefile': '#06b6d4',       // Cyan - Filed flight plan
+    'prefile': '#3b82f6',       // Blue - Filed flight plan
     'unknown': '#eab308'        // Yellow - Unknown/other phase (top)
 };
 
@@ -588,15 +588,15 @@ function renderChart(data) {
     }
 
     // Add current time marker and rate lines to first series
-    const timeMarkLine = getCurrentTimeMarkLineForTimeAxis();
+    const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = buildRateMarkLinesForChart();
 
     if (series.length > 0) {
         const markLineData = [];
 
-        // Add time marker
-        if (timeMarkLine && timeMarkLine.data) {
-            markLineData.push(...timeMarkLine.data);
+        // Add time marker (now returns a single data item with embedded label)
+        if (timeMarkLineData) {
+            markLineData.push(timeMarkLineData);
         }
 
         // Add rate lines
@@ -614,20 +614,23 @@ function renderChart(data) {
     }
 
     // Calculate interval for x-axis bounds
-    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
+
+    // Build chart title - FSM/TBFM style: Airport (left) | Date (center) | Time (right)
+    const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
 
     // Chart options - TBFM/FSM/AADC style with TRUE TIME AXIS
     const option = {
         backgroundColor: '#ffffff',
         title: {
-            text: `${data.airport} ${getDirectionLabel()}`,
+            text: chartTitle,
             left: 'center',
             top: 10,
             textStyle: {
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: 'bold',
                 color: '#333',
-                fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                fontFamily: '"Inconsolata", "SF Mono", monospace'
             }
         },
         tooltip: {
@@ -675,12 +678,20 @@ function renderChart(data) {
         grid: {
             left: 55,
             right: 25,
-            bottom: 70,
+            bottom: 90,
             top: 55,
             containLabel: false
         },
         xAxis: {
             type: 'time',
+            name: getXAxisLabel(),
+            nameLocation: 'middle',
+            nameGap: 30,
+            nameTextStyle: {
+                fontSize: 11,
+                color: '#333',
+                fontWeight: 500
+            },
             maxInterval: 3600 * 1000,  // Maximum 1 hour between labels
             axisLine: {
                 lineStyle: {
@@ -698,13 +709,18 @@ function renderChart(data) {
                 fontSize: 11,
                 color: '#333',
                 fontFamily: '"Inconsolata", "SF Mono", monospace',
-                fontWeight: 500,
+                fontWeight: function(value) {
+                    // Emphasize 00Z and 12Z with bold
+                    const d = new Date(value);
+                    const h = d.getUTCHours();
+                    return (h === 0 || h === 12) ? 'bold' : 500;
+                },
                 formatter: function(value) {
                     const d = new Date(value);
                     const h = d.getUTCHours().toString().padStart(2, '0');
                     const m = d.getUTCMinutes().toString().padStart(2, '0');
-                    // AADC style: "1200", "1300", "1330" etc. (no colon, no Z)
-                    return h + m;
+                    // AADC style: "1200z", "1300z", etc.
+                    return h + m + 'z';
                 }
             },
             splitLine: {
@@ -719,7 +735,7 @@ function renderChart(data) {
         },
         yAxis: {
             type: 'value',
-            name: 'Flights',
+            name: 'Demand',
             nameLocation: 'middle',
             nameGap: 40,
             nameTextStyle: {
@@ -817,7 +833,7 @@ function renderOriginChart() {
     const artccList = Array.from(allARTCCs).sort();
 
     // Calculate interval in milliseconds
-    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
     const halfInterval = intervalMs / 2;
 
     // Build series for each ARTCC with TRUE TIME AXIS data format
@@ -854,23 +870,35 @@ function renderOriginChart() {
     });
 
     // Add current time marker to first series
-    const timeMarkLine = getCurrentTimeMarkLineForTimeAxis();
-    if (series.length > 0 && timeMarkLine) {
-        series[0].markLine = timeMarkLine;
+    const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
+    if (series.length > 0 && timeMarkLineData) {
+        series[0].markLine = {
+            silent: true,
+            symbol: ['none', 'none'],
+            data: [timeMarkLineData]
+        };
     }
+
+    // Build chart title - FSM/TBFM style: Airport (left) | Date (center) | Time (right)
+    const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
 
     // Chart options - TBFM/FSM/AADC style with TRUE TIME AXIS
     const option = {
         backgroundColor: '#ffffff',
         title: {
-            text: `${data.airport} Arrivals by Origin ARTCC`,
+            text: chartTitle,
+            subtext: 'Arrivals by Origin ARTCC',
             left: 'center',
-            top: 10,
+            top: 5,
             textStyle: {
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: 'bold',
                 color: '#333',
-                fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                fontFamily: '"Inconsolata", "SF Mono", monospace'
+            },
+            subtextStyle: {
+                fontSize: 11,
+                color: '#666'
             }
         },
         tooltip: {
@@ -919,12 +947,20 @@ function renderOriginChart() {
         grid: {
             left: 55,
             right: 25,
-            bottom: 70,
+            bottom: 90,
             top: 55,
             containLabel: false
         },
         xAxis: {
             type: 'time',
+            name: getXAxisLabel(),
+            nameLocation: 'middle',
+            nameGap: 30,
+            nameTextStyle: {
+                fontSize: 11,
+                color: '#333',
+                fontWeight: 500
+            },
             maxInterval: 3600 * 1000,  // Maximum 1 hour between labels
             axisLine: {
                 lineStyle: {
@@ -942,13 +978,18 @@ function renderOriginChart() {
                 fontSize: 11,
                 color: '#333',
                 fontFamily: '"Inconsolata", "SF Mono", monospace',
-                fontWeight: 500,
+                fontWeight: function(value) {
+                    // Emphasize 00Z and 12Z with bold
+                    const d = new Date(value);
+                    const h = d.getUTCHours();
+                    return (h === 0 || h === 12) ? 'bold' : 500;
+                },
                 formatter: function(value) {
                     const d = new Date(value);
                     const h = d.getUTCHours().toString().padStart(2, '0');
                     const m = d.getUTCMinutes().toString().padStart(2, '0');
-                    // AADC style: "1200", "1300", "1330" etc.
-                    return h + m;
+                    // AADC style: "1200z", "1300z", etc.
+                    return h + m + 'z';
                 }
             },
             splitLine: {
@@ -963,7 +1004,7 @@ function renderOriginChart() {
         },
         yAxis: {
             type: 'value',
-            name: 'Arrivals',
+            name: 'Demand',
             nameLocation: 'middle',
             nameGap: 40,
             nameTextStyle: {
@@ -1117,7 +1158,7 @@ function buildStatusSeries(name, timeBins, dataByBin, status, type) {
  */
 function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type, viewDirection) {
     // Calculate interval for centering bars on time period
-    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
     const halfInterval = intervalMs / 2;
 
     // Build data as [timestamp, value] pairs for time axis
@@ -1223,7 +1264,7 @@ function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
  */
 function formatTimeLabelFromTimestamp(timestamp) {
     // Calculate interval and adjust timestamp back to bin start
-    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
     const halfInterval = intervalMs / 2;
     const binStart = timestamp - halfInterval;
 
@@ -1241,7 +1282,8 @@ function formatTimeLabelFromTimestamp(timestamp) {
 }
 
 /**
- * Get current time markLine for TRUE TIME AXIS - FAA AADC style
+ * Get current time markLine data item for TRUE TIME AXIS - FAA AADC style
+ * Returns a data item with embedded label config (for merging with rate lines)
  */
 function getCurrentTimeMarkLineForTimeAxis() {
     const now = new Date();
@@ -1251,9 +1293,10 @@ function getCurrentTimeMarkLineForTimeAxis() {
     // FSM/TBFM style: yellow/orange current time marker
     const markerColor = '#f59e0b';  // Amber/yellow like FSM reference
 
+    // Return data item with label embedded (not at markLine level)
+    // This allows proper merging with rate lines
     return {
-        silent: true,
-        symbol: ['none', 'none'],
+        xAxis: now.getTime(),
         lineStyle: {
             color: markerColor,
             width: 2,
@@ -1272,10 +1315,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
             borderRadius: 2,
             borderColor: markerColor,
             borderWidth: 1
-        },
-        data: [{
-            xAxis: now.getTime()
-        }]
+        }
     };
 }
 
@@ -1399,7 +1439,7 @@ function generateAllTimeBins() {
     const end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 60 * 60 * 1000);
 
     // Round start down and end up to nearest interval
-    const intervalMinutes = DEMAND_STATE.granularity === '15min' ? 15 : 60;
+    const intervalMinutes = getGranularityMinutes();
 
     // Round start down to nearest interval
     const startMinutes = start.getUTCMinutes();
@@ -1489,6 +1529,55 @@ function getDirectionLabel() {
         case 'dep': return 'Departures Only';
         default: return 'Arrivals & Departures';
     }
+}
+
+/**
+ * Get X-axis label based on granularity
+ * Format: "Time in {#}-Minute Increments"
+ */
+function getXAxisLabel() {
+    const minutes = getGranularityMinutes();
+    return `Time in ${minutes}-Minute Increments`;
+}
+
+/**
+ * Get granularity in minutes
+ */
+function getGranularityMinutes() {
+    switch (DEMAND_STATE.granularity) {
+        case '15min': return 15;
+        case '30min': return 30;
+        default: return 60;
+    }
+}
+
+/**
+ * Build chart title in FSM/TBFM style
+ * Format: "KATL          01/10/2026          1630z"
+ * Airport code (left), ADL date (center), ADL time (right)
+ */
+function buildChartTitle(airport, lastAdlUpdate) {
+    // Format ADL date and time
+    let dateStr = '--/--/----';
+    let timeStr = '----z';
+
+    if (lastAdlUpdate) {
+        const adlDate = new Date(lastAdlUpdate);
+        // Format: mm/dd/yyyy
+        const month = (adlDate.getUTCMonth() + 1).toString().padStart(2, '0');
+        const day = adlDate.getUTCDate().toString().padStart(2, '0');
+        const year = adlDate.getUTCFullYear();
+        dateStr = `${month}/${day}/${year}`;
+
+        // Format: hhmm'z'
+        const hours = adlDate.getUTCHours().toString().padStart(2, '0');
+        const mins = adlDate.getUTCMinutes().toString().padStart(2, '0');
+        timeStr = `${hours}${mins}z`;
+    }
+
+    // Use fixed-width spacing to create the left/center/right layout
+    // Pad with spaces to create even distribution
+    return `${airport}          ${dateStr}          ${timeStr}`;
 }
 
 /**
@@ -1685,7 +1774,7 @@ function showFlightDetails(timeBin) {
     if (!airport) return;
 
     // Adjust timestamp back to bin start (subtract half interval)
-    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
     const halfInterval = intervalMs / 2;
     const binStartMs = new Date(timeBin).getTime() - halfInterval;
     const actualTimeBin = new Date(binStartMs).toISOString();

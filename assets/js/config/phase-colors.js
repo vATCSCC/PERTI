@@ -5,8 +5,7 @@
  * Edit colors here to update them everywhere (demand, status, etc.)
  *
  * STACKING ORDER (bottom to top on chart):
- *   Main stack: arrived -> disconnected -> descending -> enroute -> departed -> taxiing -> unknown
- *   Separate axis: prefile (shares same data but displayed independently)
+ *   arrived -> disconnected -> descending -> enroute -> departed -> taxiing -> prefile -> unknown
  */
 
 // Flight phase colors for visualization
@@ -17,7 +16,7 @@ const PHASE_COLORS = {
     'enroute': '#dc2626',       // Red - Cruising
     'departed': '#f87171',      // Light Red - Just took off from origin
     'taxiing': '#22c55e',       // Green - Taxiing at airport
-    'prefile': '#06b6d4',       // Cyan - Filed flight plan
+    'prefile': '#3b82f6',       // Blue - Filed flight plan
     'unknown': '#eab308'        // Yellow - Unknown/other phase
 };
 
@@ -47,13 +46,14 @@ const PHASE_DESCRIPTIONS = {
 
 // Phase stacking order for main chart (bottom to top)
 // These phases stack on top of each other in the bar chart
-const PHASE_STACK_ORDER = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'unknown'];
+// Prefile is between taxiing and unknown
+const PHASE_STACK_ORDER = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
 
 // Phases displayed on separate axis (not stacked with main phases)
-// Prefile is shown separately because it represents future/planned flights
-const PHASE_SEPARATE_AXIS = ['prefile'];
+// Currently empty - all phases are stacked together
+const PHASE_SEPARATE_AXIS = [];
 
-// Complete phase order for iteration (stack order + separate axis)
+// Complete phase order for iteration (same as stack order now)
 const PHASE_ORDER = [...PHASE_STACK_ORDER, ...PHASE_SEPARATE_AXIS];
 
 // Bootstrap badge classes for each phase
@@ -64,7 +64,7 @@ const PHASE_BADGE_CLASSES = {
     'enroute': 'badge-danger',
     'departed': 'badge-danger',
     'taxiing': 'badge-success',
-    'prefile': 'badge-info',
+    'prefile': 'badge-primary',
     'unknown': 'badge-secondary'
 };
 

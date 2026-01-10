@@ -74,8 +74,8 @@ if (empty($airport) || strlen($airport) !== 4) {
     exit;
 }
 
-// Validate granularity
-if (!in_array($granularity, ['15min', 'hourly'])) {
+// Validate granularity (15min, 30min, hourly)
+if (!in_array($granularity, ['15min', '30min', 'hourly'])) {
     $granularity = 'hourly';
 }
 
