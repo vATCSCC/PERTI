@@ -2541,6 +2541,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </div>
                                 <div class="tree-node">
                                     <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label">vatsim_adl_daemon.php</span>
+                                        <span class="status-badge running tree-status">15s</span>
+                                    </div>
+                                    <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-python"></i></span>
                                         <span class="tree-label">atis_daemon.py</span>
                                         <span class="status-badge running tree-status">15s</span>
