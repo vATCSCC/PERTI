@@ -13,20 +13,21 @@
  *   RW = Real-world rates from FAA capacity data
  *
  * STATES:
- *   Active = Airport has controller with ATIS (rates are confirmed)
+ *   Active = Airport has controller with ATIS (strategic rates)
  *   Suggested = No ATIS, rates inferred from weather/default config
+ *   Custom = Dynamic override rates (differs from strategic)
  */
 
 // Rate line styling configuration
 const RATE_LINE_CONFIG = {
-    // Active rates (when airport has controller with ATIS)
+    // Active rates (when airport has controller with ATIS - strategic rates)
     active: {
         vatsim: {
-            color: '#FFFFFF',
+            color: '#000000',      // Black
             label: 'VATSIM'
         },
         rw: {
-            color: '#00FFFF',
+            color: '#00FFFF',      // Cyan
             label: 'Real World'
         }
     },
@@ -34,12 +35,24 @@ const RATE_LINE_CONFIG = {
     // Suggested rates (no controller, based on weather/config matching)
     suggested: {
         vatsim: {
-            color: '#888888',
+            color: '#6b7280',      // Gray
             label: 'VATSIM (Suggested)'
         },
         rw: {
-            color: '#008080',
+            color: '#0d9488',      // Teal
             label: 'Real World (Suggested)'
+        }
+    },
+
+    // Custom/Dynamic rates (manual override that differs from strategic)
+    custom: {
+        vatsim: {
+            color: '#000000',      // Black (dotted line style applied separately)
+            label: 'VATSIM (Dynamic)'
+        },
+        rw: {
+            color: '#00FFFF',      // Cyan (dotted line style applied separately)
+            label: 'Real World (Dynamic)'
         }
     },
 
@@ -53,6 +66,15 @@ const RATE_LINE_CONFIG = {
             type: 'dashed',
             width: 2,
             dashOffset: 0
+        },
+        // Dotted style for custom/dynamic rates
+        aar_custom: {
+            type: 'dotted',
+            width: 2
+        },
+        adr_custom: {
+            type: 'dotted',
+            width: 2
         }
     },
 
@@ -98,14 +120,19 @@ function buildRateMarkLines(rateData, direction = 'both') {
 
     const lines = [];
     const cfg = RATE_LINE_CONFIG;
-    const styleKey = rateData.is_suggested ? 'suggested' : 'active';
+
+    // Determine style: custom (override), suggested, or active
+    const isCustom = rateData.has_override;
+    const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
 
     // Helper to create a rate line
     const addLine = (value, source, rateType) => {
         if (!value) return;
 
         const sourceStyle = cfg[styleKey][source];
-        const lineStyle = cfg.lineStyle[rateType];
+        // Use dotted line style for custom/dynamic rates
+        const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
+        const lineStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
         const label = rateType.toUpperCase();
 
         lines.push({

@@ -26,6 +26,8 @@ include("load/connect.php");
     <script src="assets/js/config/phase-colors.js"></script>
     <!-- Rate Line Color Configuration -->
     <script src="assets/js/config/rate-colors.js"></script>
+    <!-- Filter Color Configuration -->
+    <script src="assets/js/config/filter-colors.js"></script>
 
     <style>
         /* ═══════════════════════════════════════════════════════════════════════════
@@ -380,6 +382,36 @@ include("load/connect.php");
                 </div>
             </div>
 
+            <!-- ATIS Info Card -->
+            <div class="col-auto px-1" id="atis_card_container" style="display: none;">
+                <div class="card shadow-sm perti-info-card h-100" style="border-color: #10b981; background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%); min-width: 220px;">
+                    <div class="card-body">
+                        <div class="perti-info-label mb-1 d-flex align-items-center" style="color: #059669;">
+                            <i class="fas fa-broadcast-tower mr-1"></i> ATIS
+                            <span id="atis_code_badge" class="badge ml-1" style="background-color: #10b981; color: #fff; font-size: 0.75rem;">--</span>
+                            <span id="atis_age_badge" class="badge badge-secondary ml-1" style="font-size: 0.65rem;">--</span>
+                            <button type="button" class="btn btn-link btn-sm ml-auto p-0" id="atis_details_btn" title="View full ATIS" style="font-size: 0.7rem; color: #059669;">
+                                <i class="fas fa-expand-alt"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-start" style="gap: 10px;">
+                            <div class="perti-stat-item">
+                                <div class="perti-stat-category" style="font-size: 0.65rem;">Arr Rwys</div>
+                                <div id="atis_arr_runways" class="perti-stat-value" style="color: #059669; font-size: 0.85rem;">--</div>
+                            </div>
+                            <div class="perti-stat-item">
+                                <div class="perti-stat-category" style="font-size: 0.65rem;">Dep Rwys</div>
+                                <div id="atis_dep_runways" class="perti-stat-value" style="color: #d97706; font-size: 0.85rem;">--</div>
+                            </div>
+                            <div class="perti-stat-item">
+                                <div class="perti-stat-category" style="font-size: 0.65rem;">Approach</div>
+                                <div id="atis_approach" class="perti-stat-value text-muted" style="font-size: 0.7rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Arrival Stats -->
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card perti-card-domestic h-100">
@@ -612,12 +644,39 @@ include("load/connect.php");
                     </span>
                     <div class="d-flex align-items-center">
                         <!-- Chart View Toggle -->
-                        <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group mr-3" data-toggle="buttons" role="group">
+                        <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group flex-wrap mr-3" data-toggle="buttons" role="group">
                             <label class="btn btn-outline-light active" title="Show by flight status">
                                 <input type="radio" name="demand_chart_view" id="view_status" value="status" autocomplete="off" checked> Status
                             </label>
                             <label class="btn btn-outline-light" title="Show arrivals by origin ARTCC">
                                 <input type="radio" name="demand_chart_view" id="view_origin" value="origin" autocomplete="off"> Origin
+                            </label>
+                            <label class="btn btn-outline-light" title="Show departures by destination ARTCC">
+                                <input type="radio" name="demand_chart_view" id="view_dest" value="dest" autocomplete="off"> Dest
+                            </label>
+                            <label class="btn btn-outline-light" title="Show by carrier">
+                                <input type="radio" name="demand_chart_view" id="view_carrier" value="carrier" autocomplete="off"> Carrier
+                            </label>
+                            <label class="btn btn-outline-light" title="Show by weight class">
+                                <input type="radio" name="demand_chart_view" id="view_weight" value="weight" autocomplete="off"> Weight
+                            </label>
+                            <label class="btn btn-outline-light" title="Show by aircraft type">
+                                <input type="radio" name="demand_chart_view" id="view_equipment" value="equipment" autocomplete="off"> Equip
+                            </label>
+                            <label class="btn btn-outline-light" title="Show by IFR/VFR">
+                                <input type="radio" name="demand_chart_view" id="view_rule" value="rule" autocomplete="off"> Rule
+                            </label>
+                            <label class="btn btn-outline-light" title="Show departures by departure fix">
+                                <input type="radio" name="demand_chart_view" id="view_dep_fix" value="dep_fix" autocomplete="off"> Dep Fix
+                            </label>
+                            <label class="btn btn-outline-light" title="Show arrivals by arrival fix">
+                                <input type="radio" name="demand_chart_view" id="view_arr_fix" value="arr_fix" autocomplete="off"> Arr Fix
+                            </label>
+                            <label class="btn btn-outline-light" title="Show departures by SID">
+                                <input type="radio" name="demand_chart_view" id="view_dp" value="dp" autocomplete="off"> DP
+                            </label>
+                            <label class="btn btn-outline-light" title="Show arrivals by STAR">
+                                <input type="radio" name="demand_chart_view" id="view_star" value="star" autocomplete="off"> STAR
                             </label>
                         </div>
                         <span class="text-light small" id="demand_last_update" style="opacity: 0.8;">--</span>

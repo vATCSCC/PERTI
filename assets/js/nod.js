@@ -3094,26 +3094,56 @@
     // Color Constants (matching route-maplibre.js)
     // =========================================
     
-    // DCC Region definitions (5 regions per spec)
-    const DCC_REGIONS = {
-        'WEST':         ['ZAK', 'ZAN', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE'],
-        'SOUTH_CENTRAL': ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
-        'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
-        'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
-        'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY']
-    };
-    
-    const DCC_REGION_COLORS = {
+    // DCC Region definitions - use FILTER_CONFIG if available
+    // Build DCC_REGIONS from FILTER_CONFIG.dccRegion.mapping if available
+    const DCC_REGIONS = (function() {
+        if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.dccRegion && FILTER_CONFIG.dccRegion.mapping) {
+            // Invert the mapping: from {artcc: region} to {region: [artccs]}
+            const regions = {};
+            for (const [artcc, region] of Object.entries(FILTER_CONFIG.dccRegion.mapping)) {
+                if (!regions[region]) regions[region] = [];
+                regions[region].push(artcc);
+            }
+            return regions;
+        }
+        return {
+            'WEST':         ['ZAK', 'ZAN', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE'],
+            'SOUTH_CENTRAL': ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
+            'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
+            'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
+            'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
+            'CANADA_EAST':  ['CZYZ', 'CZUL', 'CZZV', 'CZQM', 'CZQX', 'CZQO'],
+            'CANADA_WEST':  ['CZWG', 'CZEG', 'CZVR']
+        };
+    })();
+
+    // DCC Region colors - use FILTER_CONFIG if available
+    const DCC_REGION_COLORS = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.dccRegion && FILTER_CONFIG.dccRegion.colors)
+        ? Object.assign({}, FILTER_CONFIG.dccRegion.colors, { '': FILTER_CONFIG.dccRegion.colors['OTHER'] || '#6c757d' })
+        : {
         'WEST': '#dc3545',           // Red (bright, distinct)
         'SOUTH_CENTRAL': '#fd7e14',  // Orange (saturated, distinct from yellow)
         'MIDWEST': '#28a745',        // Green
         'SOUTHEAST': '#ffc107',      // Yellow (bright amber, distinct from orange)
         'NORTHEAST': '#007bff',      // Blue
+        'CANADA_EAST': '#9b59b6',    // Purple
+        'CANADA_WEST': '#ff69b4',    // Pink
         '': '#6c757d'
     };
-    
-    // Weight class colors (FSM Table 3-6)
-    const WEIGHT_CLASS_COLORS = {
+
+    // Weight class colors - use FILTER_CONFIG if available
+    const WEIGHT_CLASS_COLORS = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.weightClass && FILTER_CONFIG.weightClass.colors)
+        ? (function() {
+            const cfg = FILTER_CONFIG.weightClass.colors;
+            return {
+                'SUPER': cfg['J'] || '#ffc107', 'J': cfg['J'] || '#ffc107',
+                'HEAVY': cfg['H'] || '#dc3545', 'H': cfg['H'] || '#dc3545',
+                'LARGE': cfg['L'] || '#28a745', 'L': cfg['L'] || '#28a745',
+                'SMALL': cfg['S'] || '#17a2b8', 'S': cfg['S'] || '#17a2b8',
+                '': cfg['UNKNOWN'] || '#6c757d'
+            };
+        })()
+        : {
         'SUPER': '#ffc107', 'J': '#ffc107',  // Amber/Gold for Jumbo
         'HEAVY': '#dc3545', 'H': '#dc3545',  // Red for Heavy
         'LARGE': '#28a745', 'L': '#28a745',  // Green for Large/Jet
@@ -3257,8 +3287,10 @@
         '': '#6c757d'
     };
     
-    // Extended Carrier Colors (matching route-maplibre.js)
-    const CARRIER_COLORS = {
+    // Extended Carrier Colors - use FILTER_CONFIG if available, fallback to local
+    const CARRIER_COLORS = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier && FILTER_CONFIG.carrier.colors)
+        ? Object.assign({}, FILTER_CONFIG.carrier.colors, { '': FILTER_CONFIG.carrier.colors['OTHER'] || '#6c757d' })
+        : {
         // US Legacy
         'AAL': '#0078d2', 'UAL': '#0033a0', 'DAL': '#e01933',
         // US Low-Cost

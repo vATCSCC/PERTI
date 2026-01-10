@@ -122,6 +122,17 @@ if ($timeBin !== null) {
     $response['top_origins'] = getTopOrigins($conn, $helper, $airport, $startSQL, $endSQL);
     $response['top_carriers'] = getTopCarriers($conn, $helper, $airport, $startSQL, $endSQL, $direction);
     $response['origin_artcc_breakdown'] = getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL);
+
+    // New breakdown data for demand chart filters
+    $response['dest_artcc_breakdown'] = getDestARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL);
+    $response['weight_breakdown'] = getWeightBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL);
+    $response['carrier_breakdown'] = getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL);
+    $response['equipment_breakdown'] = getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL);
+    $response['rule_breakdown'] = getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL);
+    $response['dep_fix_breakdown'] = getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL);
+    $response['arr_fix_breakdown'] = getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL);
+    $response['dp_breakdown'] = getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL);
+    $response['star_breakdown'] = getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL);
 }
 
 sqlsrv_close($conn);
@@ -209,6 +220,267 @@ function getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
             }
             $results[$timeBin][] = [
                 "artcc" => $row['artcc'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get destination ARTCC breakdown for departures (for chart visualization)
+ */
+function getDestARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
+    $query = $helper->buildDestARTCCBreakdownQuery($airport, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "artcc" => $row['artcc'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get weight class breakdown by time bin
+ */
+function getWeightBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
+    $query = $helper->buildWeightClassBreakdownQuery($airport, $direction, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "weight_class" => $row['weight_class'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get carrier breakdown by time bin
+ */
+function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
+    $query = $helper->buildCarrierBreakdownQuery($airport, $direction, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "carrier" => $row['carrier'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get equipment breakdown by time bin
+ */
+function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
+    $query = $helper->buildEquipmentBreakdownQuery($airport, $direction, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "equipment" => $row['equipment'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get flight rule (IFR/VFR) breakdown by time bin
+ */
+function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
+    $query = $helper->buildFlightRuleBreakdownQuery($airport, $direction, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "rule" => $row['rule'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get departure fix breakdown by time bin (departures only)
+ */
+function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
+    $query = $helper->buildDepFixBreakdownQuery($airport, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "fix" => $row['fix'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get arrival fix breakdown by time bin (arrivals only)
+ */
+function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
+    $query = $helper->buildArrFixBreakdownQuery($airport, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "fix" => $row['fix'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get DP/SID breakdown by time bin (departures only)
+ */
+function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
+    $query = $helper->buildDPBreakdownQuery($airport, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "dp" => $row['dp'],
+                "count" => (int)$row['count']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $results;
+}
+
+/**
+ * Get STAR breakdown by time bin (arrivals only)
+ */
+function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
+    $query = $helper->buildSTARBreakdownQuery($airport, $startSQL, $endSQL);
+    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    $results = [];
+
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $timeBin = $row['time_bin'];
+            if ($timeBin instanceof DateTime) {
+                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+            }
+
+            if (!isset($results[$timeBin])) {
+                $results[$timeBin] = [];
+            }
+            $results[$timeBin][] = [
+                "star" => $row['star'],
                 "count" => (int)$row['count']
             ];
         }

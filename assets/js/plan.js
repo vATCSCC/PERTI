@@ -3375,9 +3375,9 @@ function pertiUpdateMessage() {
     lines.push('<@&1268395359714021396> please react with your availability to NOM for this event.');
     lines.push('<@&1268395210665361478> please react with your availability to shadow this event.');
     lines.push('');
-    lines.push('ðŸŸ¢ = Available');
-    lines.push('ðŸŸ¡ = Partially available/unsure');
-    lines.push('ðŸ”´ = Unavailable');
+    lines.push('🟢 = Available');
+    lines.push('🟡 = Partially available/unsure');
+    lines.push('🔴 = Unavailable');
     lines.push('---------------------------------------------------------');
 
     $('#pertiMessage').val(lines.join('\n'));
