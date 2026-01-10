@@ -1,5 +1,9 @@
 -- ============================================================================
--- sp_ProcessBoundaryDetectionBatch V7.4 - Granular Tiered Processing
+-- sp_ProcessBoundaryDetectionBatch V7.5 - Grid Fallback Fix
+--
+-- V7.5 Changes:
+--   - Added brute-force fallback when grid lookup fails for ARTCC detection
+--   - Fixes issue where boundaries crossing cell edges weren't indexed
 --
 -- Fine-grained tier system for optimal performance:
 --   Tier 1: New flights, no boundary (EVERY cycle)
@@ -166,6 +170,27 @@ BEGIN
         ORDER BY g.is_oceanic ASC, g.boundary_area ASC
     ) artcc
     WHERE f.tier IN (1, 2, 3, 6, 7);  -- Critical + international + validation
+
+    -- ========================================================================
+    -- Step 2b: ARTCC Fallback - Brute force for grid lookup failures (V7.5)
+    -- When grid lookup fails (boundary crosses cell edge but center not inside),
+    -- fall back to direct spatial lookup using the spatial index
+    -- ========================================================================
+
+    UPDATE a
+    SET a.new_artcc_id = fallback.boundary_id,
+        a.new_artcc = fallback.boundary_code
+    FROM #artcc_detection a
+    CROSS APPLY (
+        SELECT TOP 1 b.boundary_id, b.boundary_code
+        FROM dbo.adl_boundary b
+        WHERE b.boundary_type = 'ARTCC'
+          AND b.is_active = 1
+          AND b.boundary_geography.STIntersects(geography::Point(a.lat, a.lon, 4326)) = 1
+        ORDER BY b.is_oceanic ASC, b.boundary_geography.STArea() ASC
+    ) fallback
+    WHERE a.new_artcc_id IS NULL
+      AND a.prev_artcc_id IS NULL;  -- Only for flights that truly have no ARTCC
 
     -- ========================================================================
     -- Step 3: TRACON Detection (Tiers 1-4, below FL180)
@@ -420,7 +445,7 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_ProcessBoundaryDetectionBatch V7.4 (granular tiered processing)';
+PRINT 'Created sp_ProcessBoundaryDetectionBatch V7.5 (grid fallback fix)';
 PRINT 'Tier 1: New flights (every cycle)';
 PRINT 'Tier 2: Grid cell changed (every cycle)';
 PRINT 'Tier 3: Climbing/descending (every cycle)';
