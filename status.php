@@ -2040,8 +2040,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="mb-0"><i class="fas fa-project-diagram mr-2"></i>Flight Data Processing Pipeline</h6>
                 <div>
-                    <span class="runtime-badge <?= $runtimes['total'] < 800 ? 'fast' : ($runtimes['total'] < 2000 ? 'medium' : 'slow') ?>">
-                        Page: <?= $runtimes['total'] ?>ms
+                    <span class="runtime-badge <?= $runtimes['total'] < 5000 ? 'fast' : ($runtimes['total'] < 10000 ? 'medium' : 'slow') ?>">
+                        Page: <?= number_format($runtimes['total'] / 1000, 1) ?>s
                     </span>
                     <span class="runtime-badge <?= $runtimes['adl_queries'] < 300 ? 'fast' : ($runtimes['adl_queries'] < 800 ? 'medium' : 'slow') ?>">
                         DB: <?= $runtimes['adl_queries'] ?>ms
@@ -2150,6 +2150,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             $maxCount = max($maxCount, $ph['count']);
                         }
                         $days = ['', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                        // Calculate explicit thresholds for legend
+                        $thresh25 = (int)floor($maxCount * 0.25);
+                        $thresh50 = (int)floor($maxCount * 0.50);
+                        $thresh75 = (int)floor($maxCount * 0.75);
                         ?>
                         <div style="display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 1px; font-size: 0.55rem;">
                             <div></div>
@@ -2160,6 +2164,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <div style="color: #666; font-weight: 600; line-height: 14px;"><?= $days[$d] ?></div>
                             <?php for ($h = 0; $h < 24; $h++):
                                 $count = $heatmap[$d][$h] ?? 0;
+                                // Color thresholds: 0=none, <25%=low, <50%=med, <75%=high, ≥75%=peak
                                 $intensity = $maxCount > 0 ? $count / $maxCount : 0;
                                 $bg = $intensity === 0 ? '#f0f0f0' :
                                       ($intensity < 0.25 ? '#c6f6d5' :
@@ -2172,10 +2177,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         </div>
                         <div class="d-flex justify-content-end mt-1" style="font-size: 0.55rem; color: #888;">
                             <span style="display: inline-block; width: 10px; height: 10px; background: #f0f0f0; margin-right: 2px;"></span>0
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>1-<?= $thresh25 ?>
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span><?= $thresh25+1 ?>-<?= $thresh50 ?>
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span><?= $thresh50+1 ?>-<?= $thresh75 ?>
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span><?= $thresh75+1 ?>+
                         </div>
                     </div>
                 </div>
