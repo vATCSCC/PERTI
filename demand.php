@@ -510,7 +510,7 @@ include("load/connect.php");
                 </div>
             </div>
 
-            <!-- Legend Card - Phase-based colors matching status.php -->
+            <!-- Legend Card - Individual phase colors -->
             <div class="card shadow-sm mt-3">
                 <div class="card-header tbfm-card-header">
                     <span class="demand-section-title">
@@ -519,32 +519,43 @@ include("load/connect.php");
                 </div>
                 <div class="card-body py-3">
                     <div class="demand-legend-item">
+                        <span class="demand-legend-color" style="background-color: #1a1a1a;"></span>
+                        <strong>Arrived</strong>
+                        <small class="text-muted ml-1">(landed)</small>
+                    </div>
+                    <div class="demand-legend-item">
+                        <span class="demand-legend-color" style="background-color: #991b1b;"></span>
+                        <strong>Descending</strong>
+                        <small class="text-muted ml-1">(approach)</small>
+                    </div>
+                    <div class="demand-legend-item">
                         <span class="demand-legend-color" style="background-color: #dc2626;"></span>
-                        <strong>Active</strong>
-                        <small class="text-muted ml-1">(airborne)</small>
+                        <strong>Enroute</strong>
+                        <small class="text-muted ml-1">(cruising)</small>
+                    </div>
+                    <div class="demand-legend-item">
+                        <span class="demand-legend-color" style="background-color: #f87171;"></span>
+                        <strong>Departed</strong>
+                        <small class="text-muted ml-1">(climbing)</small>
                     </div>
                     <div class="demand-legend-item">
                         <span class="demand-legend-color" style="background-color: #22c55e;"></span>
                         <strong>Taxiing</strong>
-                        <small class="text-muted ml-1">(ground)</small>
+                        <small class="text-muted ml-1">(at origin)</small>
                     </div>
                     <div class="demand-legend-item">
                         <span class="demand-legend-color" style="background-color: #06b6d4;"></span>
-                        <strong>Scheduled</strong>
-                        <small class="text-muted ml-1">(prefile)</small>
+                        <strong>Prefile</strong>
+                        <small class="text-muted ml-1">(filed)</small>
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #67e8f9;"></span>
-                        <strong>Proposed</strong>
-                    </div>
-                    <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #1a1a1a;"></span>
-                        <strong>Arrived</strong>
+                        <span class="demand-legend-color" style="background-color: #eab308;"></span>
+                        <strong>Unknown</strong>
                     </div>
                     <hr class="my-2">
                     <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
                         <i class="fas fa-info-circle mr-1"></i>
-                        Phase-based colors matching status.php
+                        Current phase of flight at query time
                     </small>
                 </div>
             </div>

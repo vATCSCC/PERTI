@@ -595,6 +595,7 @@ function getAtisForCycle(array $atisList, array $config, int $cycleNum): array {
 
 /**
  * Process and import ATIS data.
+ * Uses batch processing to eliminate per-ATIS DB round-trips.
  */
 function processAtis($conn, array $atisList): array {
     if (empty($atisList)) {
@@ -616,36 +617,57 @@ function processAtis($conn, array $atisList): array {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Parse pending ATIS (500 handles peak METAR spikes with 300+ ATIS)
+    // Get pending ATIS (500 handles peak METAR spikes with 300+ ATIS)
     $sql = "EXEC dbo.sp_GetPendingAtis @limit = 500";
     $stmt = @sqlsrv_query($conn, $sql);
 
-    if ($stmt !== false) {
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $atisId = $row['atis_id'];
-            $text = $row['atis_text'] ?? '';
+    if ($stmt === false) {
+        return ['imported' => $imported, 'parsed' => 0, 'skipped' => 0];
+    }
 
-            $result = parseAtisRunways($text);
-            if (!empty($result['landing']) || !empty($result['departing'])) {
-                $runwaysJson = runwaysToJson($result['landing'], $result['departing'], $result['approaches']);
+    // Phase 1: Parse all ATIS in memory (fast - ~0.3ms each)
+    $batch = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $atisId = (int)$row['atis_id'];
+        $text = $row['atis_text'] ?? '';
 
-                $sql2 = "EXEC dbo.sp_ImportRunwaysInUse @atis_id = ?, @runways_json = ?";
-                $stmt2 = @sqlsrv_query($conn, $sql2, [&$atisId, &$runwaysJson]);
-                if ($stmt2 !== false) {
-                    $parsed++;
-                    sqlsrv_free_stmt($stmt2);
-                }
-            } else {
-                // No runways found - mark as SKIPPED so it doesn't stay pending forever
-                $sql2 = "UPDATE dbo.vatsim_atis SET parse_status = 'SKIPPED' WHERE atis_id = ?";
-                $stmt2 = @sqlsrv_query($conn, $sql2, [&$atisId]);
-                if ($stmt2 !== false) {
-                    $skipped++;
-                    sqlsrv_free_stmt($stmt2);
-                }
+        $result = parseAtisRunways($text);
+
+        // Build runway array for this ATIS
+        $runways = [];
+        if (!empty($result['landing']) || !empty($result['departing'])) {
+            $all = array_unique(array_merge($result['landing'], $result['departing']));
+            foreach ($all as $rwy) {
+                $isLanding = in_array($rwy, $result['landing']);
+                $isDeparting = in_array($rwy, $result['departing']);
+                $use = ($isLanding && $isDeparting) ? 'BOTH' : ($isLanding ? 'ARR' : 'DEP');
+                $runways[] = [
+                    'runway_id' => $rwy,
+                    'runway_use' => $use,
+                    'approach_type' => $result['approaches'][$rwy][0] ?? null
+                ];
             }
         }
-        sqlsrv_free_stmt($stmt);
+
+        $batch[] = [
+            'atis_id' => $atisId,
+            'runways' => $runways
+        ];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    // Phase 2: Batch import all parsed results (one DB call)
+    if (!empty($batch)) {
+        $batchJson = json_encode($batch);
+        $sql = "EXEC dbo.sp_ImportRunwaysInUseBatch @json = ?";
+        $stmt = @sqlsrv_query($conn, $sql, [&$batchJson]);
+
+        if ($stmt !== false) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            $parsed = $row['parsed'] ?? 0;
+            $skipped = $row['skipped'] ?? 0;
+            sqlsrv_free_stmt($stmt);
+        }
     }
 
     return ['imported' => $imported, 'parsed' => $parsed, 'skipped' => $skipped];

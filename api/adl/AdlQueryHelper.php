@@ -600,21 +600,25 @@ class AdlQueryHelper {
             ? 'COALESCE(eta_runway_utc, eta_utc)'
             : 'COALESCE(etd_runway_utc, etd_utc)';
 
-        // Flight status breakdown using phase column:
-        //   - arrived: phase = 'arrived' (landed at destination)
-        //   - active: phase IN ('departed', 'enroute', 'descending') (airborne)
-        //   - departed: phase = 'taxiing' (ground movement)
-        //   - scheduled: phase = 'prefile' with is_active = 1
-        //   - proposed: phase = 'prefile' with is_active = 0 or NULL
+        // Individual phase breakdown for detailed demand visualization:
+        //   - arrived: landed at destination
+        //   - descending: on approach to destination
+        //   - enroute: cruising
+        //   - departed: just took off from origin
+        //   - taxiing: taxiing at origin airport
+        //   - prefile: filed flight plan, not yet taxiing
+        //   - unknown: catch-all for other/null phases
         $sql = "
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COUNT(*) AS total,
                 SUM(CASE WHEN phase = 'arrived' THEN 1 ELSE 0 END) AS arrived,
-                SUM(CASE WHEN phase IN ('departed', 'enroute', 'descending') THEN 1 ELSE 0 END) AS active,
-                SUM(CASE WHEN phase = 'taxiing' THEN 1 ELSE 0 END) AS departed,
-                SUM(CASE WHEN phase = 'prefile' AND is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
-                SUM(CASE WHEN phase = 'prefile' AND (is_active = 0 OR is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
+                SUM(CASE WHEN phase = 'descending' THEN 1 ELSE 0 END) AS descending,
+                SUM(CASE WHEN phase = 'enroute' THEN 1 ELSE 0 END) AS enroute,
+                SUM(CASE WHEN phase = 'departed' THEN 1 ELSE 0 END) AS departed,
+                SUM(CASE WHEN phase = 'taxiing' THEN 1 ELSE 0 END) AS taxiing,
+                SUM(CASE WHEN phase = 'prefile' THEN 1 ELSE 0 END) AS prefile,
+                SUM(CASE WHEN phase NOT IN ('arrived', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR phase IS NULL THEN 1 ELSE 0 END) AS unknown
             FROM dbo.vw_adl_flights
             WHERE {$airportCol} = ?
               AND {$timeCol} IS NOT NULL
@@ -632,21 +636,25 @@ class AdlQueryHelper {
         // Use provided time expression with COALESCE fallback, or default to runway time
         $timeCol = $timeExpr ?? ($direction === 'arr' ? 't.eta_runway_utc' : 't.etd_runway_utc');
 
-        // Flight status breakdown using phase column:
-        //   - arrived: phase = 'arrived' (landed at destination)
-        //   - active: phase IN ('departed', 'enroute', 'descending') (airborne)
-        //   - departed: phase = 'taxiing' (ground movement)
-        //   - scheduled: phase = 'prefile' with is_active = 1
-        //   - proposed: phase = 'prefile' with is_active = 0 or NULL
+        // Individual phase breakdown for detailed demand visualization:
+        //   - arrived: landed at destination
+        //   - descending: on approach to destination
+        //   - enroute: cruising
+        //   - departed: just took off from origin
+        //   - taxiing: taxiing at origin airport
+        //   - prefile: filed flight plan, not yet taxiing
+        //   - unknown: catch-all for other/null phases
         $sql = "
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COUNT(*) AS total,
                 SUM(CASE WHEN c.phase = 'arrived' THEN 1 ELSE 0 END) AS arrived,
-                SUM(CASE WHEN c.phase IN ('departed', 'enroute', 'descending') THEN 1 ELSE 0 END) AS active,
-                SUM(CASE WHEN c.phase = 'taxiing' THEN 1 ELSE 0 END) AS departed,
-                SUM(CASE WHEN c.phase = 'prefile' AND c.is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
-                SUM(CASE WHEN c.phase = 'prefile' AND (c.is_active = 0 OR c.is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
+                SUM(CASE WHEN c.phase = 'descending' THEN 1 ELSE 0 END) AS descending,
+                SUM(CASE WHEN c.phase = 'enroute' THEN 1 ELSE 0 END) AS enroute,
+                SUM(CASE WHEN c.phase = 'departed' THEN 1 ELSE 0 END) AS departed,
+                SUM(CASE WHEN c.phase = 'taxiing' THEN 1 ELSE 0 END) AS taxiing,
+                SUM(CASE WHEN c.phase = 'prefile' THEN 1 ELSE 0 END) AS prefile,
+                SUM(CASE WHEN c.phase NOT IN ('arrived', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR c.phase IS NULL THEN 1 ELSE 0 END) AS unknown
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
