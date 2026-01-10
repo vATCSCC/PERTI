@@ -24,6 +24,8 @@ include("load/connect.php");
 
     <!-- Shared Phase Color Configuration -->
     <script src="assets/js/config/phase-colors.js"></script>
+    <!-- Rate Line Color Configuration -->
+    <script src="assets/js/config/rate-colors.js"></script>
 
     <style>
         /* ═══════════════════════════════════════════════════════════════════════════
@@ -343,6 +345,32 @@ include("load/connect.php");
                         <div class="d-flex align-items-center">
                             <span id="demand_selected_airport" class="perti-clock-display perti-clock-display-lg text-info">----</span>
                             <span id="demand_airport_name" class="ml-2 text-muted small" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Select an airport</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rate Info (Config + Weather + AAR/ADR) -->
+            <div class="col-auto px-1">
+                <div class="card shadow-sm perti-info-card h-100" style="border-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);">
+                    <div class="card-body">
+                        <div class="perti-info-label mb-1" style="color: #4f46e5;">
+                            <i class="fas fa-tachometer-alt mr-1"></i> Rates
+                            <span id="rate_weather_category" class="badge ml-1" style="background-color: #22c55e; color: #fff; font-size: 0.7rem;">--</span>
+                        </div>
+                        <div class="perti-stat-grid">
+                            <div class="perti-stat-item">
+                                <div class="perti-stat-category">Config</div>
+                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.8rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</div>
+                            </div>
+                            <div class="perti-stat-item">
+                                <div class="perti-stat-category">AAR/ADR</div>
+                                <div id="rate_display" class="perti-stat-value" style="color: #4f46e5;">--/--</div>
+                            </div>
+                            <div class="perti-stat-item">
+                                <div class="perti-stat-category">&nbsp;</div>
+                                <div id="rate_match_score" class="perti-stat-value text-muted" style="font-size: 0.7rem;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
