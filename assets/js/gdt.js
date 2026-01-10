@@ -1403,6 +1403,13 @@ html += "<tr" + trData + ">" +
 
 
 function resetGsForm() {
+        // Reset program state
+        GS_CURRENT_PROGRAM_ID = null;
+        GS_CURRENT_PROGRAM_STATUS = null;
+        GS_SIMULATION_READY = false;
+        setGsTableMode("LIVE");
+        setSendActualEnabled(false, "Create a new program");
+
         var ids = [
             "gs_name", "gs_ctl_element", "gs_airports", "gs_origin_centers",
             "gs_origin_airports", "gs_flt_incl_carrier", "gs_dep_facilities",
@@ -3467,68 +3474,129 @@ function showConfirmDialog(title, text, confirmText, icon) {
 
 function handleGsPreview() {
         var statusEl = document.getElementById("gs_adl_status");
-        if (statusEl) statusEl.textContent = "Previewing flights from live ADL...";
+        if (statusEl) statusEl.textContent = "Creating GS program and modeling flights...";
 
         setGsTableMode("LIVE");
-        var payload = collectGsWorkflowPayload();
+        var workflowPayload = collectGsWorkflowPayload();
 
-        return apiPostJson(GS_WORKFLOW_API.preview, payload)
-            .then(function(data) {
-                var rows = Array.isArray(data) ? data : (data && data.flights ? data.flights : []);
-                rows = normalizeSqlsrvRows(rows);
+        // Validate required fields
+        if (!workflowPayload.gs_airports) {
+            if (statusEl) statusEl.textContent = "Enter affected airports first.";
+            return Promise.resolve();
+        }
+        if (!workflowPayload.gs_start || !workflowPayload.gs_end) {
+            if (statusEl) statusEl.textContent = "Enter GS start and end times.";
+            return Promise.resolve();
+        }
 
-                renderFlightsFromAdlRowsForWorkflow(rows, "ADL");
+        // Build create payload for new API
+        var createPayload = {
+            ctl_element: workflowPayload.gs_ctl_element || workflowPayload.gs_airports.split(" ")[0],
+            start_utc: workflowPayload.gs_start,
+            end_utc: workflowPayload.gs_end,
+            scope_type: "TIER",
+            scope_tier: 2, // Default to Tier 2, can be enhanced later from gs_scope_select
+            exempt_airborne: true,
+            impacting_condition: workflowPayload.gs_impacting_condition || "WEATHER",
+            cause_text: workflowPayload.gs_comments || "Ground Stop",
+            created_by: "TMU"
+        };
+
+        // Step 1: Create PROPOSED program
+        return apiPostJson(GS_API.create, createPayload)
+            .then(function(createResp) {
+                if (createResp.status !== "ok" || !createResp.data || !createResp.data.program_id) {
+                    throw new Error(createResp.message || "Failed to create GS program");
+                }
+
+                var programId = createResp.data.program_id;
+                GS_CURRENT_PROGRAM_ID = programId;
+                GS_CURRENT_PROGRAM_STATUS = "PROPOSED";
+
+                if (statusEl) statusEl.textContent = "Program " + programId + " created. Modeling flights...";
+
+                // Step 2: Model the program to get affected flights
+                return apiPostJson(GS_API.model, { program_id: programId });
+            })
+            .then(function(modelResp) {
+                if (modelResp.status !== "ok") {
+                    throw new Error(modelResp.message || "Failed to model GS program");
+                }
+
+                var flights = (modelResp.data && modelResp.data.flights) || [];
+                flights = normalizeSqlsrvRows(flights);
+
+                // Store simulation data for flight list
+                storeSimulationData(modelResp.data);
+
+                renderFlightsFromAdlRowsForWorkflow(flights, "GS-PREVIEW");
 
                 if (statusEl) {
-                    statusEl.textContent = "Preview loaded: " + rows.length + " flights.";
+                    var summary = modelResp.data.summary || {};
+                    statusEl.textContent = "Preview: " + flights.length + " flights | " +
+                        "Controlled: " + (summary.controlled_flights || 0) + " | " +
+                        "Exempt: " + (summary.exempt_flights || 0) + " | " +
+                        "Program ID: " + GS_CURRENT_PROGRAM_ID;
                 }
                 buildAdvisory();
+
+                // Enable simulate since we have a PROPOSED program
+                setSendActualEnabled(false, "Run 'Simulate' to finalize before sending");
             })
             .catch(function(err) {
                 console.error("GS preview failed", err);
                 if (statusEl) statusEl.textContent = "Preview failed: " + (err && err.message ? err.message : err);
                 clearGsFlightTable("Preview failed.");
+                GS_CURRENT_PROGRAM_ID = null;
+                GS_CURRENT_PROGRAM_STATUS = null;
             });
     }
 
 function handleGsSimulate() {
         var statusEl = document.getElementById("gs_adl_status");
-        if (statusEl) statusEl.textContent = "Simulating GS into local sandbox (adl_flights_gs)...";
-
-        var payload = collectGsWorkflowPayload();
-
-        // gs_simulate requires gs_end
-        if (!payload.gs_end) {
-            if (statusEl) statusEl.textContent = "Simulate requires a GS END time.";
-            if (window.Swal) {
-                window.Swal.fire({ icon: "error", title: "Missing GS END", text: "Set GS END (UTC) before simulating." });
-            } else {
-                alert("Set GS END (UTC) before simulating.");
-            }
-            return Promise.resolve();
+        
+        // If no program exists yet, run Preview first to create one
+        if (!GS_CURRENT_PROGRAM_ID) {
+            if (statusEl) statusEl.textContent = "No program exists. Creating via Preview first...";
+            return handleGsPreview().then(function() {
+                if (GS_CURRENT_PROGRAM_ID) {
+                    // Now run simulate with the new program
+                    return handleGsSimulate();
+                }
+            });
         }
 
-        return apiPostJson(GS_WORKFLOW_API.simulate, payload)
-            .then(function(data) {
-                var rows = (data && Array.isArray(data.flights)) ? data.flights : [];
-                rows = normalizeSqlsrvRows(rows);
+        if (statusEl) statusEl.textContent = "Modeling GS program " + GS_CURRENT_PROGRAM_ID + "...";
+
+        // Model the existing program (simulation = re-running model)
+        return apiPostJson(GS_API.model, { program_id: GS_CURRENT_PROGRAM_ID })
+            .then(function(modelResp) {
+                if (modelResp.status !== "ok") {
+                    throw new Error(modelResp.message || "Failed to model GS program");
+                }
+
+                var flights = (modelResp.data && modelResp.data.flights) || [];
+                flights = normalizeSqlsrvRows(flights);
 
                 // Store simulation data for flight list viewing
-                storeSimulationData(data);
+                storeSimulationData(modelResp.data);
 
                 setGsTableMode("GS");
-                renderFlightsFromAdlRowsForWorkflow(rows, "GS");
+                renderFlightsFromAdlRowsForWorkflow(flights, "GS-SIM");
 
                 if (statusEl) {
-                    var msg = (data && data.message) ? data.message : ("Simulated " + rows.length + " flights.");
-                    if (data && data.summary) {
-                        msg += " (Max delay: " + (data.summary.max_program_delay_min || 0) + " min)";
+                    var summary = modelResp.data.summary || {};
+                    var msg = "Simulated " + flights.length + " flights.";
+                    if (summary.max_delay_min) {
+                        msg += " (Max delay: " + summary.max_delay_min + " min)";
                     }
+                    msg += " | Program ID: " + GS_CURRENT_PROGRAM_ID;
                     statusEl.textContent = msg;
                 }
                 buildAdvisory();
 
                 // Enable "Send Actual" button now that simulation is ready
+                GS_SIMULATION_READY = true;
                 setSendActualEnabled(true);
             })
             .catch(function(err) {
@@ -3559,44 +3627,70 @@ function handleGsSendActual() {
             return Promise.resolve();
         }
 
-        var payload = collectGsWorkflowPayload();
+        // Require a program to activate
+        if (!GS_CURRENT_PROGRAM_ID) {
+            if (statusEl) statusEl.textContent = "No GS program to activate. Run Preview/Simulate first.";
+            return Promise.resolve();
+        }
+
+        var workflowPayload = collectGsWorkflowPayload();
 
         return showConfirmDialog(
-            "Send GS Actual?",
-            "This will apply the GS sandbox changes (adl_flights_gs) to the live ADL flights table (adl_flights).",
-            "Send Actual",
+            "Activate GS Program " + GS_CURRENT_PROGRAM_ID + "?",
+            "This will activate the GS program and apply EDCTs to affected flights in the live ADL.",
+            "Activate",
             "warning"
         ).then(function(confirmed) {
             if (!confirmed) return;
 
-            if (statusEl) statusEl.textContent = "Applying GS to live ADL...";
+            if (statusEl) statusEl.textContent = "Activating GS program " + GS_CURRENT_PROGRAM_ID + "...";
 
-            return apiPostJson(GS_WORKFLOW_API.apply, payload)
-                .then(function(data) {
+            return apiPostJson(GS_API.activate, {
+                program_id: GS_CURRENT_PROGRAM_ID,
+                activated_by: "TMU"
+            })
+                .then(function(activateResp) {
+                    if (activateResp.status !== "ok") {
+                        throw new Error(activateResp.message || "Failed to activate GS program");
+                    }
+
+                    GS_CURRENT_PROGRAM_STATUS = "ACTIVE";
+                    
+                    var program = activateResp.data.program || {};
+                    var flightCount = activateResp.data.controlled_flights || program.controlled_flights || 0;
+
                     if (statusEl) {
-                        var msg = (data && data.message) ? data.message : "Applied.";
-                        statusEl.textContent = msg;
+                        statusEl.textContent = "GS ACTIVE | Program " + GS_CURRENT_PROGRAM_ID + 
+                            " | " + flightCount + " flights controlled | " +
+                            program.adv_number;
                     }
                     setGsTableMode("LIVE");
                     
-                    // Disable Send Actual - sandbox has been cleared, must re-simulate for another send
-                    setSendActualEnabled(false, "GS applied - run 'Simulate' again to send another");
+                    // Disable Send Actual - program is now active
+                    GS_SIMULATION_READY = false;
+                    setSendActualEnabled(false, "GS is ACTIVE - create new program or extend/purge current");
 
                     // Show the GS Flight List modal with affected flights
-                    if (data && data.flight_list) {
-                        showGsFlightListModal(data.flight_list, payload);
+                    if (activateResp.data && activateResp.data.flights) {
+                        showGsFlightListModal(activateResp.data.flights, workflowPayload);
+                    } else {
+                        // Fetch flight list separately
+                        return fetch(GS_API.flights + "?program_id=" + GS_CURRENT_PROGRAM_ID)
+                            .then(function(r) { return r.json(); })
+                            .then(function(flightsResp) {
+                                if (flightsResp.status === "ok" && flightsResp.data && flightsResp.data.flights) {
+                                    showGsFlightListModal(flightsResp.data.flights, workflowPayload);
+                                }
+                            });
                     }
-                    
-                    // Refresh the preview so the user sees live results
-                    return handleGsPreview();
                 })
                 .catch(function(err) {
-                    console.error("GS apply failed", err);
-                    if (statusEl) statusEl.textContent = "Apply failed: " + (err && err.message ? err.message : err);
+                    console.error("GS activate failed", err);
+                    if (statusEl) statusEl.textContent = "Activate failed: " + (err && err.message ? err.message : err);
                     if (window.Swal) {
-                        window.Swal.fire({ icon: "error", title: "Apply failed", text: (err && err.message) ? err.message : String(err) });
+                        window.Swal.fire({ icon: "error", title: "Activate failed", text: (err && err.message) ? err.message : String(err) });
                     } else {
-                        alert("Apply failed: " + (err && err.message ? err.message : err));
+                        alert("Activate failed: " + (err && err.message ? err.message : err));
                     }
                 });
         });
@@ -3606,63 +3700,117 @@ function handleGsPurgeAll() {
         var statusEl = document.getElementById("gs_adl_status");
 
         return showConfirmDialog(
-            "Purge ALL GS controls?",
-            "This clears GS/EDCT/CTD fields in the live ADL and also clears the local GS sandbox table.",
+            "Purge ALL active GS programs?",
+            "This will purge all ACTIVE and PROPOSED GS programs and clear EDCTs from affected flights.",
             "Purge All",
             "warning"
         ).then(function(confirmed) {
             if (!confirmed) return;
 
-            if (statusEl) statusEl.textContent = "Purging ALL GS/EDCT controls (live ADL)...";
+            if (statusEl) statusEl.textContent = "Fetching active GS programs...";
 
-            return apiPostJson(GS_WORKFLOW_API.purgeAll, {})
-                .then(function(data) {
-                    if (statusEl) {
-                        var msg = (data && data.message) ? data.message : "Purge complete.";
-                        statusEl.textContent = msg;
+            // Step 1: Get list of ACTIVE and PROPOSED programs
+            return fetch(GS_API.list + "?status=ACTIVE,PROPOSED")
+                .then(function(res) { return res.json(); })
+                .then(function(listResp) {
+                    if (listResp.status !== "ok") {
+                        throw new Error(listResp.message || "Failed to fetch program list");
                     }
+
+                    var programs = (listResp.data && listResp.data.programs) || [];
+                    if (!programs.length) {
+                        if (statusEl) statusEl.textContent = "No active/proposed GS programs to purge.";
+                        GS_CURRENT_PROGRAM_ID = null;
+                        GS_CURRENT_PROGRAM_STATUS = null;
+                        return;
+                    }
+
+                    if (statusEl) statusEl.textContent = "Purging " + programs.length + " GS programs...";
+
+                    // Step 2: Purge each program sequentially
+                    var purgePromises = programs.map(function(prog) {
+                        return apiPostJson(GS_API.purge, {
+                            program_id: prog.program_id,
+                            purged_by: "TMU"
+                        });
+                    });
+
+                    return Promise.all(purgePromises);
+                })
+                .then(function(results) {
+                    if (!results) return; // No programs to purge
+
+                    var purged = results.filter(function(r) { return r && r.status === "ok"; }).length;
+                    
+                    if (statusEl) {
+                        statusEl.textContent = "Purged " + purged + " GS program(s).";
+                    }
+                    
+                    // Clear current program state
+                    GS_CURRENT_PROGRAM_ID = null;
+                    GS_CURRENT_PROGRAM_STATUS = null;
+                    GS_SIMULATION_READY = false;
+                    
                     setGsTableMode("LIVE");
-                    // Disable Send Actual - sandbox has been purged
-                    setSendActualEnabled(false, "Sandbox purged - run 'Simulate' first");
-                    return handleGsPreview();
+                    setSendActualEnabled(false, "All programs purged - create new program");
+                    clearGsFlightTable("All GS programs purged.");
                 })
                 .catch(function(err) {
                     console.error("GS purge all failed", err);
                     if (statusEl) statusEl.textContent = "Purge all failed: " + (err && err.message ? err.message : err);
-                    clearGsFlightTable("Purge all failed.");
                 });
         });
     }
 
 function handleGsPurgeLocal() {
         var statusEl = document.getElementById("gs_adl_status");
-        var payload = collectGsWorkflowPayload();
+
+        // Require a program to purge
+        if (!GS_CURRENT_PROGRAM_ID) {
+            if (statusEl) statusEl.textContent = "No current GS program to purge.";
+            return Promise.resolve();
+        }
+
+        var programId = GS_CURRENT_PROGRAM_ID;
 
         return showConfirmDialog(
-            "Purge LOCAL GS sandbox?",
-            "This clears the local GS sandbox table (adl_flights_gs). You will remain in GS mode; re-run Simulate to rebuild the sandbox.",
-            "Purge Local",
+            "Purge GS Program " + programId + "?",
+            "This will cancel/purge the current GS program. If it was ACTIVE, EDCTs will be cleared from affected flights.",
+            "Purge Program",
             "warning"
         ).then(function(confirmed) {
             if (!confirmed) return;
 
-            if (statusEl) statusEl.textContent = "Purging local GS sandbox (adl_flights_gs)...";
+            if (statusEl) statusEl.textContent = "Purging GS program " + programId + "...";
 
-            return apiPostJson(GS_WORKFLOW_API.purgeLocal, payload)
-                .then(function(data) {
-                    setGsTableMode("GS");
-                    if (statusEl) {
-                        var msg = (data && data.message) ? data.message : "Local purge complete.";
-                        statusEl.textContent = msg;
+            return apiPostJson(GS_API.purge, {
+                program_id: programId,
+                purged_by: "TMU"
+            })
+                .then(function(purgeResp) {
+                    if (purgeResp.status !== "ok") {
+                        throw new Error(purgeResp.message || "Failed to purge GS program");
                     }
-                    clearGsFlightTable("Local sandbox purged. Click Simulate to rebuild.");
-                    // Disable Send Actual - sandbox has been purged
-                    setSendActualEnabled(false, "Sandbox purged - run 'Simulate' first");
+
+                    var purgedProgram = purgeResp.data && purgeResp.data.program;
+                    
+                    if (statusEl) {
+                        statusEl.textContent = "Program " + programId + " purged." +
+                            (purgedProgram ? " (" + purgedProgram.adv_number + ")" : "");
+                    }
+                    
+                    // Clear current program state
+                    GS_CURRENT_PROGRAM_ID = null;
+                    GS_CURRENT_PROGRAM_STATUS = null;
+                    GS_SIMULATION_READY = false;
+                    
+                    setGsTableMode("LIVE");
+                    setSendActualEnabled(false, "Program purged - create new program");
+                    clearGsFlightTable("GS program purged. Enter parameters and click Preview to start a new program.");
                 })
                 .catch(function(err) {
-                    console.error("GS purge local failed", err);
-                    if (statusEl) statusEl.textContent = "Purge local failed: " + (err && err.message ? err.message : err);
-                    clearGsFlightTable("Purge local failed.");
+                    console.error("GS purge failed", err);
+                    if (statusEl) statusEl.textContent = "Purge failed: " + (err && err.message ? err.message : err);
                 });
         });
     }
@@ -3792,8 +3940,8 @@ function applyGsToAdl() {
         if (!el) return;
 
         var flightListLabel = (GS_TABLE_MODE === "GS")
-            ? "ADL (GS sandbox: dbo.adl_flights_gs)"
-            : "ADL (live: dbo.adl_flights)";
+            ? "GS Program Mode"
+            : "Live ADL";
 
         var adlCache = "Not loaded";
         if (GS_ADL && (GS_ADL.snapshotUtc || (GS_ADL.raw && (GS_ADL.raw.snapshot_utc || GS_ADL.raw.snapshotUtc)))) {
@@ -3802,7 +3950,12 @@ function applyGsToAdl() {
             adlCache = "Loading...";
         }
 
-        el.textContent = "Flight list data source: " + flightListLabel + " | ADL cache: " + adlCache;
+        var programInfo = "";
+        if (GS_CURRENT_PROGRAM_ID) {
+            programInfo = " | Program ID: " + GS_CURRENT_PROGRAM_ID + " (" + (GS_CURRENT_PROGRAM_STATUS || "?") + ")";
+        }
+
+        el.textContent = "Data: " + flightListLabel + programInfo + " | ADL cache: " + adlCache;
     }
 
 function refreshAdl() {
