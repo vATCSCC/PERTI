@@ -257,6 +257,39 @@ class DatabaseConnection:
             self.logger.error(f"Failed to import runways for ATIS {atis_id}: {e}")
             return False
 
+    def import_runways_batch(self, batch_data: list[dict]) -> dict:
+        """
+        Import parsed runways for multiple ATIS records in a single call.
+
+        Args:
+            batch_data: List of {"atis_id": int, "runways": [...]} dicts
+
+        Returns:
+            {"parsed": int, "skipped": int, "runways": int} or empty dict on error
+        """
+        if not self.ensure_connected() or not batch_data:
+            return {}
+
+        try:
+            cursor = self.conn.cursor()
+            json_data = json.dumps(batch_data)
+            cursor.execute("EXEC dbo.sp_ImportRunwaysInUseBatch ?", json_data)
+
+            row = cursor.fetchone()
+            result = {
+                'parsed': row[0] if row else 0,
+                'skipped': row[1] if row else 0,
+                'runways': row[2] if row else 0,
+            }
+
+            self.conn.commit()
+            cursor.close()
+            return result
+
+        except pyodbc.Error as e:
+            self.logger.error(f"Failed to batch import runways: {e}")
+            return {}
+
     def close(self):
         """Close database connection."""
         if self.conn:
@@ -349,23 +382,23 @@ class AtisDaemon:
 
             # Parse pending ATIS records - process larger batches
             parse_start = time.time()
-            pending = self.db.get_pending_atis(limit=200)
+            pending = self.db.get_pending_atis(limit=500)
 
             # Pre-parse all ATIS in memory first (fast)
-            parsed_results = []
+            batch_data = []
             for record in pending:
                 runways = parse_full_runway_info(record['atis_text'])
-                if runways:
-                    parsed_results.append({
-                        'atis_id': record['atis_id'],
-                        'runways_json': json.dumps([r.to_dict() for r in runways])
-                    })
+                batch_data.append({
+                    'atis_id': record['atis_id'],
+                    'runways': [r.to_dict() for r in runways] if runways else []
+                })
 
-            # Batch import to database
-            for result in parsed_results:
-                if self.db.import_runways(result['atis_id'], result['runways_json']):
-                    cycle_stats['parsed'] += 1
-                    self.stats['runways_parsed'] += 1
+            # Single batch import to database (eliminates N+1)
+            if batch_data:
+                result = self.db.import_runways_batch(batch_data)
+                if result:
+                    cycle_stats['parsed'] = result.get('parsed', 0) + result.get('skipped', 0)
+                    self.stats['runways_parsed'] += result.get('parsed', 0)
 
             cycle_stats['parse_ms'] = int((time.time() - parse_start) * 1000)
             cycle_stats['db_ms'] = int((time.time() - db_start) * 1000)

@@ -77,17 +77,206 @@ if (!empty($tier) && $tier !== 'all' && !empty($artcc)) {
     }
 }
 
-// Major international airports to always include (Canada, Mexico, Caribbean, Europe hubs)
+// Major international airports to always include
+// These will always appear in the dropdown even if not in the database
 $majorInternationalAirports = [
     // Canada Major
-    'CYYZ', 'CYVR', 'CYUL', 'CYYC', 'CYEG', 'CYOW', 'CYWG', 'CYQB', 'CYHZ', 'CYXE',
+    'CYYZ' => 'Toronto Pearson',
+    'CYVR' => 'Vancouver',
+    'CYUL' => 'Montreal Trudeau',
+    'CYYC' => 'Calgary',
+    'CYEG' => 'Edmonton',
+    'CYOW' => 'Ottawa',
+    'CYWG' => 'Winnipeg',
+    'CYQB' => 'Quebec City',
+    'CYHZ' => 'Halifax',
+    'CYXE' => 'Saskatoon',
     // Mexico Major
-    'MMMX', 'MMUN', 'MMTJ', 'MMGL', 'MMMY', 'MMPR', 'MMSD', 'MMCU',
+    'MMMX' => 'Mexico City',
+    'MMUN' => 'Cancun',
+    'MMTJ' => 'Tijuana',
+    'MMGL' => 'Guadalajara',
+    'MMMY' => 'Monterrey',
+    'MMPR' => 'Puerto Vallarta',
+    'MMSD' => 'Los Cabos',
+    'MMCU' => 'Chihuahua',
     // Caribbean Major
-    'TIST', 'TJSJ', 'MKJP', 'MBPV', 'MYNN', 'TNCM', 'TBPB', 'TFFR',
-    // European Hubs (transatlantic)
-    'EGLL', 'LFPG', 'EHAM', 'EDDF', 'LEMD', 'LIRF', 'LEBL', 'EIDW', 'EGKK', 'LFPO'
+    'TIST' => 'St Thomas',
+    'TJSJ' => 'San Juan',
+    'MKJP' => 'Kingston',
+    'MBPV' => 'Providenciales',
+    'MYNN' => 'Nassau',
+    'TNCM' => 'St Maarten',
+    'TBPB' => 'Barbados',
+    'TFFR' => 'Guadeloupe',
+    // European Hubs
+    'EGLL' => 'London Heathrow',
+    'LFPG' => 'Paris CDG',
+    'EHAM' => 'Amsterdam',
+    'EDDF' => 'Frankfurt',
+    'LEMD' => 'Madrid',
+    'LIRF' => 'Rome Fiumicino',
+    'LEBL' => 'Barcelona',
+    'EIDW' => 'Dublin',
+    'EGKK' => 'London Gatwick',
+    'LFPO' => 'Paris Orly',
+    'LSZH' => 'Zurich',
+    'LOWW' => 'Vienna',
+    'EBBR' => 'Brussels',
+    'EKCH' => 'Copenhagen',
+    'ENGM' => 'Oslo',
+    'ESSA' => 'Stockholm Arlanda',
+    'EFHK' => 'Helsinki',
+    'LPPT' => 'Lisbon',
+    'LGAV' => 'Athens',
+    'LTFM' => 'Istanbul',
+    'UUEE' => 'Moscow Sheremetyevo',
+    'UUDD' => 'Moscow Domodedovo',
+    // Middle East
+    'OMDB' => 'Dubai',
+    'OMAA' => 'Abu Dhabi',
+    'OERK' => 'Riyadh',
+    'OEJN' => 'Jeddah',
+    'OTHH' => 'Doha',
+    'OKBK' => 'Kuwait',
+    'OBBI' => 'Bahrain',
+    'LLBG' => 'Tel Aviv',
+    // Asia Pacific
+    'VHHH' => 'Hong Kong',
+    'WSSS' => 'Singapore Changi',
+    'RKSI' => 'Seoul Incheon',
+    'RKSS' => 'Seoul Gimpo',
+    'RKPK' => 'Busan Gimhae',
+    'RPLL' => 'Manila',
+    'VTBS' => 'Bangkok Suvarnabhumi',
+    'VTBD' => 'Bangkok Don Mueang',
+    'WIII' => 'Jakarta',
+    'WMKK' => 'Kuala Lumpur',
+    'VVTS' => 'Ho Chi Minh City',
+    'VVNB' => 'Hanoi',
+    'RCTP' => 'Taipei Taoyuan',
+    'RCSS' => 'Taipei Songshan',
+    'VRMM' => 'Male Maldives',
+    // Japan
+    'RJTT' => 'Tokyo Haneda',
+    'RJAA' => 'Tokyo Narita',
+    'RJBB' => 'Osaka Kansai',
+    'RJOO' => 'Osaka Itami',
+    'RJGG' => 'Nagoya Chubu',
+    'RJFF' => 'Fukuoka',
+    'RJCC' => 'Sapporo New Chitose',
+    'ROAH' => 'Okinawa Naha',
+    'RJSN' => 'Niigata',
+    'RJFK' => 'Kagoshima',
+    // China
+    'ZBAA' => 'Beijing Capital',
+    'ZBAD' => 'Beijing Daxing',
+    'ZSPD' => 'Shanghai Pudong',
+    'ZSSS' => 'Shanghai Hongqiao',
+    'ZGGG' => 'Guangzhou',
+    'ZGSZ' => 'Shenzhen',
+    'ZUUU' => 'Chengdu Shuangliu',
+    'ZUCK' => 'Chongqing',
+    'ZPPP' => 'Kunming',
+    'ZLXY' => 'Xian',
+    'ZHCC' => 'Zhengzhou',
+    'ZHHH' => 'Wuhan',
+    'ZSNJ' => 'Nanjing',
+    'ZSHC' => 'Hangzhou',
+    'ZSAM' => 'Xiamen',
+    'ZGHA' => 'Changsha',
+    'ZYTL' => 'Dalian',
+    'ZYTX' => 'Shenyang',
+    'ZYCC' => 'Changchun',
+    'ZYHB' => 'Harbin',
+    'ZWWW' => 'Urumqi',
+    'ZLLL' => 'Lanzhou',
+    // India Major
+    'VIDP' => 'Delhi',
+    'VABB' => 'Mumbai',
+    'VOBL' => 'Bangalore',
+    'VOMM' => 'Chennai',
+    'VECC' => 'Kolkata',
+    'VOCI' => 'Kochi',
+    'VOHS' => 'Hyderabad',
+    'VAAH' => 'Ahmedabad',
+    'VAGO' => 'Goa',
+    'VGHS' => 'Dhaka',
+    // Australia
+    'YSSY' => 'Sydney',
+    'YMML' => 'Melbourne',
+    'YBBN' => 'Brisbane',
+    'YPPH' => 'Perth',
+    'YPAD' => 'Adelaide',
+    'YSCB' => 'Canberra',
+    'YBCG' => 'Gold Coast',
+    'YBCS' => 'Cairns',
+    'YBTL' => 'Townsville',
+    'YPDN' => 'Darwin',
+    'YHBA' => 'Hobart',
+    // New Zealand & Pacific
+    'NZAA' => 'Auckland',
+    'NZWN' => 'Wellington',
+    'NZCH' => 'Christchurch',
+    'NZQN' => 'Queenstown',
+    'NFFN' => 'Fiji Nadi',
+    'NTAA' => 'Tahiti Faaa',
+    'NWWW' => 'Noumea',
+    'NVVV' => 'Port Vila',
+    'AGGR' => 'Solomon Islands',
+    // South America
+    'SBGR' => 'Sao Paulo Guarulhos',
+    'SBGL' => 'Rio de Janeiro Galeao',
+    'SCEL' => 'Santiago',
+    'SKBO' => 'Bogota',
+    'SPJC' => 'Lima',
+    'SAEZ' => 'Buenos Aires Ezeiza',
+    'SEQM' => 'Quito',
+    'SVMI' => 'Caracas',
+    'SUMU' => 'Montevideo',
+    'SLLP' => 'La Paz',
+    // Central America
+    'MROC' => 'San Jose Costa Rica',
+    'MPTO' => 'Panama City',
+    'MGGT' => 'Guatemala City',
+    // Africa - North
+    'HECA' => 'Cairo',
+    'HEGN' => 'Hurghada',
+    'HESH' => 'Sharm El Sheikh',
+    'GMMN' => 'Casablanca',
+    'GMTT' => 'Tangier',
+    'DTTA' => 'Tunis',
+    'DAAG' => 'Algiers',
+    // Africa - West
+    'DNMM' => 'Lagos',
+    'DNAA' => 'Abuja',
+    'DGAA' => 'Accra',
+    'DIAP' => 'Abidjan',
+    'GOOY' => 'Dakar',
+    // Africa - East
+    'HKJK' => 'Nairobi',
+    'HKMO' => 'Mombasa',
+    'HAAB' => 'Addis Ababa',
+    'HTDA' => 'Dar es Salaam',
+    'HTKJ' => 'Kilimanjaro',
+    'HUEN' => 'Entebbe',
+    'HRYR' => 'Kigali',
+    'FMMI' => 'Antananarivo',
+    'FMEE' => 'Mauritius',
+    'FSIA' => 'Seychelles',
+    // Africa - South
+    'FAOR' => 'Johannesburg',
+    'FACT' => 'Cape Town',
+    'FALE' => 'Durban',
+    'FAPE' => 'Port Elizabeth',
+    'FBSK' => 'Gaborone',
+    'FLKK' => 'Lusaka',
+    'FVHA' => 'Harare',
+    'FQMA' => 'Maputo',
+    'FWKI' => 'Lilongwe',
+    'FYWH' => 'Windhoek'
 ];
+$intlAirportCodes = array_keys($majorInternationalAirports);
 
 // Build WHERE clause
 $whereClauses = [];
@@ -105,9 +294,9 @@ if ($category === 'aspm77') {
     $whereClauses[] = "Core30 = 1";
 } elseif ($category === 'all' || $category === '') {
     // Default: ASPM77 US airports + major international airports
-    $intlPlaceholders = array_fill(0, count($majorInternationalAirports), '?');
+    $intlPlaceholders = array_fill(0, count($intlAirportCodes), '?');
     $whereClauses[] = "(ASPM77 = 1 OR ICAO_ID IN (" . implode(", ", $intlPlaceholders) . "))";
-    $params = array_merge($params, $majorInternationalAirports);
+    $params = array_merge($params, $intlAirportCodes);
 }
 
 // Filter by ARTCC or tier ARTCCs
@@ -188,6 +377,34 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 
 sqlsrv_free_stmt($stmt);
+
+// For 'all' category, add any international airports not in the database
+if ($category === 'all' || $category === '') {
+    $existingIcaos = array_column($airports, 'icao');
+    foreach ($majorInternationalAirports as $icao => $name) {
+        if (!in_array($icao, $existingIcaos)) {
+            $airports[] = [
+                "icao" => $icao,
+                "name" => $name,
+                "artcc" => null,
+                "dcc_region" => null,
+                "is_aspm77" => false,
+                "is_oep35" => false,
+                "is_core30" => false,
+                "is_international" => true,
+                "lat" => null,
+                "lon" => null
+            ];
+        }
+    }
+    // Sort: Core30 first, then OEP35, then ASPM77, then international, then alphabetically
+    usort($airports, function($a, $b) {
+        if ($a['is_core30'] !== $b['is_core30']) return $b['is_core30'] ? 1 : -1;
+        if ($a['is_oep35'] !== $b['is_oep35']) return $b['is_oep35'] ? 1 : -1;
+        if ($a['is_aspm77'] !== $b['is_aspm77']) return $b['is_aspm77'] ? 1 : -1;
+        return strcmp($a['icao'], $b['icao']);
+    });
+}
 
 // Also get list of unique ARTCCs for filter dropdown
 $artccSql = "

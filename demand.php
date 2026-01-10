@@ -361,15 +361,15 @@ include("load/connect.php");
                         <div class="perti-stat-grid">
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Config</div>
-                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.8rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</div>
+                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.8rem; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">--</div>
                             </div>
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">AAR/ADR</div>
                                 <div id="rate_display" class="perti-stat-value" style="color: #4f46e5;">--/--</div>
                             </div>
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">&nbsp;</div>
-                                <div id="rate_match_score" class="perti-stat-value text-muted" style="font-size: 0.7rem;"></div>
+                                <div class="perti-stat-category">Source</div>
+                                <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.7rem;">--</div>
                             </div>
                         </div>
                     </div>
