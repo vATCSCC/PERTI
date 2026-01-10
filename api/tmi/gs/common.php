@@ -40,17 +40,47 @@ function read_request_payload() {
  * Get ADL database connection
  */
 function get_adl_conn() {
-    require_once(__DIR__ . '/../../../load/connect.php');
+    // Check if already connected via global scope
     global $conn_adl;
     
     if (isset($conn_adl) && $conn_adl) {
         return $conn_adl;
     }
     
+    // Include connect.php - note: when require_once is called inside a function,
+    // variables created in the included file go into local scope, not global.
+    // So we need to access $conn_adl directly after include (not via global).
+    require_once(__DIR__ . '/../../../load/connect.php');
+    
+    // Now $conn_adl exists in local scope from the require_once
+    if (isset($conn_adl) && $conn_adl) {
+        // Also set it globally for future calls
+        $GLOBALS['conn_adl'] = $conn_adl;
+        return $conn_adl;
+    }
+    
+    // Still not connected - return error
+    // Note: filter out informational messages (code 5701, 5703)
+    $errors = null;
+    if (function_exists('sqlsrv_errors')) {
+        $all_errors = sqlsrv_errors();
+        if ($all_errors) {
+            $errors = array_filter($all_errors, function($e) {
+                $code = isset($e['code']) ? $e['code'] : 0;
+                // 5701 = Changed database context, 5703 = Changed language setting
+                return !in_array($code, [5701, 5703]);
+            });
+            $errors = array_values($errors); // Re-index
+            if (empty($errors)) {
+                $errors = null;
+            }
+        }
+    }
+    
     respond_json(500, [
         'status'  => 'error',
         'message' => 'ADL SQL connection not established. Check load/connect.php and ADL_SQL_* constants.',
-        'errors'  => function_exists('sqlsrv_errors') ? sqlsrv_errors() : null
+        'errors'  => $errors
     ]);
 }
 
