@@ -1478,9 +1478,20 @@ include('load/nav.php');
 
                 <!-- Spacer -->
                 <div class="col"></div>
+
+                <!-- Advisory Org Config -->
+                <div class="col-auto px-1">
+                    <div class="card shadow-sm perti-info-card h-100">
+                        <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="AdvisoryConfig.showConfigModal();" data-toggle="tooltip" title="Switch between US DCC and Canadian NOC advisory formats">
+                                <i class="fas fa-globe mr-1"></i> <span id="advisoryOrgDisplay">DCC</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        
+
         <div class="row route-main-container">
             <!-- Left Panel: Route Controls -->
             <div class="col-12 col-lg-4 col-xl-3 mb-4 mb-lg-0 route-controls-panel">
@@ -2398,6 +2409,38 @@ ROUTE2</pre>
 <?php
 include('load/footer.php');
 ?>
+
+<!-- Advisory Organization Config Modal -->
+<div class="modal fade" id="advisoryOrgModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-globe mr-2"></i>Advisory Organization</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="advisoryOrg" id="orgDCC" value="DCC">
+                    <label class="form-check-label" for="orgDCC">
+                        <strong>US DCC</strong><br><small class="text-muted">vATCSCC ADVZY ... DCC</small>
+                    </label>
+                </div>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="radio" name="advisoryOrg" id="orgNOC" value="NOC">
+                    <label class="form-check-label" for="orgNOC">
+                        <strong>Canadian NOC</strong><br><small class="text-muted">vNAVCAN ADVZY ... NOC</small>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="assets/js/advisory-config.js"></script>
 
 <!-- Phase Colors Configuration -->
 <script src="assets/js/config/phase-colors.js"></script>

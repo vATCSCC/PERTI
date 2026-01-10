@@ -5739,8 +5739,8 @@ function generateRerouteAdvisory() {
 
         const lines = [];
 
-        // Header line – vATCSCC ADVZY NNN FAC MM/DD/YYYY ROUTE RQD
-        let header = 'vATCSCC ADVZY ' + advNumber + ' ' + advFacility + ' ' + advDate + ' ' + advAction;
+        // Header line – {ORG_PREFIX} ADVZY NNN FAC MM/DD/YYYY ROUTE RQD
+        let header = AdvisoryConfig.getPrefix() + ' ADVZY ' + advNumber + ' ' + advFacility + ' ' + advDate + ' ' + advAction;
         lines.push(header);
 advAddLabeledField(lines, 'NAME', advName);
         advAddLabeledField(lines, 'CONSTRAINED AREA', advConArea);

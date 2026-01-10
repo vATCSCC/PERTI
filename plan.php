@@ -263,6 +263,10 @@ include('load/nav.php');
 
                                 <hr>
 
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="AdvisoryConfig.showConfigModal();" data-toggle="tooltip" title="Switch between US DCC and Canadian NOC advisory formats">
+                                    <i class="fas fa-globe"></i> <span id="advisoryOrgDisplay">DCC</span>
+                                </button>
+
                                 <button type="button" class="btn btn-sm btn-primary mb-2" onclick="openPertiModal();">
                                     Create PERTI Discord Notification
                                 </button>
@@ -2273,6 +2277,40 @@ include('load/nav.php');
     </div>
 </div>
 <!-- End Operations Plan Advisory Modal -->
+
+<!-- Advisory Organization Config Modal -->
+<div class="modal fade" id="advisoryOrgModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-globe mr-2"></i>Advisory Organization</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="advisoryOrg" id="orgDCC" value="DCC">
+                    <label class="form-check-label" for="orgDCC">
+                        <strong>US DCC</strong><br><small class="text-muted">vATCSCC ADVZY ... DCC</small>
+                    </label>
+                </div>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="radio" name="advisoryOrg" id="orgNOC" value="NOC">
+                    <label class="form-check-label" for="orgNOC">
+                        <strong>Canadian NOC</strong><br><small class="text-muted">vNAVCAN ADVZY ... NOC</small>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Advisory Organization Config Modal -->
+
+<!-- Insert advisory-config.js Script -->
+<script src="assets/js/advisory-config.js"></script>
 
 <!-- Insert plan.js Script -->
 <script src="assets/js/plan.js"></script>

@@ -1,6 +1,10 @@
 -- ============================================================================
--- sp_ParseRoute.sql (v4 - Optimized Geographic Disambiguation)
+-- sp_ParseRoute.sql (v4.1 - Departure Fix Population)
 -- Full GIS Route Parsing for ADL Normalized Schema
+--
+-- v4.1 Changes (2026-01-10):
+--   - FIX: Added dfix (departure fix) population - captures first fix after SID
+--   - If SID is followed by airway, dfix is left NULL (no explicit departure fix)
 --
 -- v4 Changes (2026-01-07):
 --   - Consolidated all fix lookups into single proximity-based resolver
@@ -362,6 +366,7 @@ BEGIN
     -- Metadata
     DECLARE @dp_name NVARCHAR(16), @dfix NVARCHAR(8), @dtrsn NVARCHAR(16);
     DECLARE @star_name NVARCHAR(16), @afix NVARCHAR(8), @strsn NVARCHAR(16);
+    DECLARE @pending_dfix BIT = 0;  -- Flag to capture first fix after SID
     
     -- Add departure airport
     IF @dept_icao IS NOT NULL
@@ -387,9 +392,18 @@ BEGIN
         IF @t_type = 'AIRWAY'
         BEGIN
             SET @pending_airway = @t_token;
+            -- If SID followed directly by airway, clear pending dfix (no explicit departure fix)
+            SET @pending_dfix = 0;
         END
         ELSE IF @t_type IN ('FIX', 'AIRPORT')
         BEGIN
+            -- Capture departure fix (first fix after SID)
+            IF @pending_dfix = 1 AND @t_type = 'FIX'
+            BEGIN
+                SET @dfix = @t_token;
+                SET @pending_dfix = 0;
+            END
+
             -- If pending airway, expand it first
             IF @pending_airway IS NOT NULL AND @prev_fix_name IS NOT NULL
             BEGIN
@@ -397,17 +411,17 @@ BEGIN
                 SELECT fix_name, 'WAYPOINT', 'AIRWAY', @pending_airway, @pending_airway
                 FROM dbo.fn_ExpandAirwayNames(@pending_airway, @prev_fix_name, @t_token)
                 WHERE seq > 1 AND fix_name != @t_token;  -- Skip entry (already added) and exit (add below)
-                
+
                 SET @pending_airway = NULL;
             END
-            
+
             -- Add this fix
             IF @t_token NOT IN (ISNULL(@dept_icao,''), ISNULL(@dest_icao,'')) OR @t_type = 'FIX'
             BEGIN
                 INSERT INTO @waypoints (fix_name, fix_type, source, original_token)
                 VALUES (@t_token, CASE @t_type WHEN 'AIRPORT' THEN 'AIRPORT' ELSE 'WAYPOINT' END, 'ROUTE', @t_token);
             END
-            
+
             SET @prev_fix_name = @t_token;
             SET @last_fix_for_star = @t_token;
             SET @pending_airway = NULL;
@@ -457,12 +471,13 @@ BEGIN
                 IF @proc_type = 'DP'
                 BEGIN
                     SET @dp_name = @t_token;
+                    SET @pending_dfix = 1;  -- Flag to capture next fix as departure fix
                     -- For SIDs, expand but cap at 15 waypoints to avoid bloat
                     INSERT INTO @waypoints (fix_name, fix_type, source, on_dp, original_token)
                     SELECT TOP 15 value, 'WAYPOINT', 'SID', @t_token, @t_token
                     FROM STRING_SPLIT(@proc_route, ' ')
                     WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
-                    
+
                     SELECT TOP 1 @prev_fix_name = fix_name FROM @waypoints WHERE on_dp = @t_token ORDER BY seq DESC;
                 END
                 ELSE
@@ -909,9 +924,10 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_ParseRoute v4 created - Optimized Geographic Disambiguation';
+PRINT 'sp_ParseRoute v4.1 created - Departure Fix Population';
 PRINT '';
 PRINT 'Key improvements:';
+PRINT '  - v4.1: Added dfix (departure fix) population';
 PRINT '  - ONE database query for all candidate fixes';
 PRINT '  - Sequential proximity resolution (each fix uses previous)';
 PRINT '  - Airway-aware: prefers fixes actually on the airway';

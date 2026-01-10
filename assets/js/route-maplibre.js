@@ -6160,7 +6160,7 @@ $(document).ready(function() {
         }
         
         const lines = [];
-        let header = 'vATCSCC ADVZY ' + advNumber + ' ' + advFacility + ' ' + advDate + ' ' + advAction;
+        let header = AdvisoryConfig.getPrefix() + ' ADVZY ' + advNumber + ' ' + advFacility + ' ' + advDate + ' ' + advAction;
         lines.push(header);
         advAddLabeledField(lines, 'NAME', advName);
         advAddLabeledField(lines, 'CONSTRAINED AREA', advConArea);
