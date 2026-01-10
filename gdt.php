@@ -936,6 +936,62 @@ include("load/connect.php");
                         </div>
                     </div>
 
+                    <!-- Demand Profile Chart (ECharts) - FSM/TBFM Style -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="card border-info">
+                                <div class="card-header py-1 px-2 bg-info text-white d-flex justify-content-between align-items-center">
+                                    <small class="text-uppercase font-weight-bold">
+                                        <i class="fas fa-chart-area mr-1"></i>
+                                        <span id="gs_demand_chart_title">Demand Profile</span>
+                                        <span class="badge badge-light text-dark ml-2" id="gs_demand_airport_badge">--</span>
+                                    </small>
+                                    <div class="d-flex align-items-center">
+                                        <!-- Direction Toggle -->
+                                        <div class="btn-group btn-group-sm mr-2" role="group">
+                                            <button class="btn btn-light btn-sm active" id="gs_demand_dir_both" title="Show Both">Both</button>
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_dir_arr" title="Arrivals Only">Arr</button>
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_dir_dep" title="Departures Only">Dep</button>
+                                        </div>
+                                        <!-- Granularity Toggle -->
+                                        <div class="btn-group btn-group-sm mr-2" role="group">
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_gran_15" title="15-minute bins">15</button>
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_gran_30" title="30-minute bins">30</button>
+                                            <button class="btn btn-light btn-sm active" id="gs_demand_gran_60" title="Hourly bins">60</button>
+                                        </div>
+                                        <!-- Refresh Button -->
+                                        <button class="btn btn-outline-light btn-sm" id="gs_demand_refresh_btn" title="Refresh Demand Data">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2" style="background: #ffffff;">
+                                    <!-- Rate Info Bar -->
+                                    <div class="d-flex justify-content-between align-items-center mb-2 px-2" style="font-size: 0.75rem;">
+                                        <div>
+                                            <span class="text-muted mr-2">Config:</span>
+                                            <span id="gs_demand_config_name" class="font-weight-bold">--</span>
+                                            <span id="gs_demand_weather_badge" class="badge badge-success ml-2">VMC</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted mr-1">Rates:</span>
+                                            <span class="font-weight-bold">AAR <span id="gs_demand_aar" class="text-primary">--</span></span>
+                                            <span class="mx-1">/</span>
+                                            <span class="font-weight-bold">ADR <span id="gs_demand_adr" class="text-primary">--</span></span>
+                                            <span class="text-muted ml-2">(<span id="gs_demand_rate_source">--</span>)</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted mr-1">Last Update:</span>
+                                            <span id="gs_demand_last_update" class="text-info">--</span>
+                                        </div>
+                                    </div>
+                                    <!-- Demand Chart Container (ECharts) -->
+                                    <div id="gs_demand_chart" style="height: 320px; width: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Main Chart and Legend Row -->
                     <div class="row mb-3">
                         <div class="col-md-8">
@@ -1582,6 +1638,14 @@ include("load/connect.php");
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
 <!-- D3.js for GDP Demand/Capacity visualization -->
 <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+<!-- ECharts for Demand Visualization -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<!-- Shared Phase Color Configuration -->
+<script src="assets/js/config/phase-colors.js"></script>
+<!-- Rate Line Color Configuration -->
+<script src="assets/js/config/rate-colors.js"></script>
+<!-- Shared Demand Chart Module -->
+<script src="assets/js/demand-chart.js"></script>
 
 <?php include("load/footer.php"); ?>
 

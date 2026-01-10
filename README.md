@@ -271,7 +271,7 @@ Example config template: `load/config.example.php`
 ## 📚 Documentation
 
 For detailed technical documentation, see:
-- `assistant_codebase_index_v15.md` - Comprehensive codebase index
+- `assistant_codebase_index_v16.md` - Comprehensive codebase index
 - `docs/ADL_REFRESH_MIGRATION_GUIDE.md` - ADL refresh patterns
 - `scripts/README.md` - Script documentation
 - `scripts/README_boundaries.md` - Boundary refresh documentation
@@ -281,7 +281,7 @@ For detailed technical documentation, see:
 
 ## ⚙️ Technology Stack
 
-- **Backend:** PHP 7.4+
+- **Backend:** PHP 8.2+
 - **Frontend:** JavaScript (ES6+), jQuery, Bootstrap 4.5
 - **Mapping:** MapLibre GL JS, Leaflet
 - **Charts:** Chart.js
@@ -292,18 +292,30 @@ For detailed technical documentation, see:
 
 ---
 
-## 🆕 Recent Updates (v15)
+## 🆕 Recent Updates (v16)
 
-- **GDT Ground Stop NTML Architecture:** Complete NTML-based program lifecycle for Ground Stops
-  - New stored procedures: `sp_GS_Create`, `sp_GS_Model`, `sp_GS_IssueEDCTs`, `sp_GS_Extend`, `sp_GS_Purge`
-  - New API endpoints: `/api/tmi/gs/*` (create, model, activate, extend, purge, flights, demand)
-  - NTML tables for program registry, event logging, and slot allocation
-  - Pop-up flight detection during active programs
-- **ADL Schema Cleanup:** Removed redundant `flight_status` column (unified to `phase`)
-- **Weather Radar:** IEM NEXRAD/MRMS integration with multiple color tables
-- **SUA/TFR Display:** Special Use Airspace and TFR boundaries
-- **Initiative Timeline:** Interactive Gantt-style TMI visualization
-- **ATIS Import:** Batch ATIS import and runway assignment parsing
+- **Demand Subsystem (NEW):**
+  - `demand.php` — Airport demand analysis page
+  - `api/demand/*.php` — Demand API endpoints (airports, rates, summary, override)
+  - Weather-aware rate suggestions with AAR/ADR display
+  - Manual rate override support with time windows
+
+- **Airport Configuration & ATIS System (NEW):**
+  - Normalized runway configuration schema (`airport_config`, `airport_config_runway`, `airport_config_rate`)
+  - VATSIM ATIS import with weather extraction (wind, visibility, ceiling, category)
+  - Runway-in-use detection from ATIS parsing
+  - Flight-track-based runway detection as fallback
+  - Multi-level rate suggestion algorithm with confidence scoring
+  - Rate change audit trail (`airport_config_rate_history`)
+  - Manual rate overrides (`manual_rate_override`)
+
+- **Previous v15 Updates:**
+  - GDT Ground Stop NTML Architecture with complete program lifecycle
+  - ADL Schema Cleanup (unified `phase` column)
+  - Weather Radar (IEM NEXRAD/MRMS integration)
+  - SUA/TFR Display
+  - Initiative Timeline (Gantt-style visualization)
+  - ATIS Batch Import
 
 ---
 

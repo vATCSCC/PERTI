@@ -1772,9 +1772,9 @@
                 if (phase === 'descending') {
                     return '#f28e2b';  // Orange - Descending
                 }
-                // Arrived - on ground at destination or disconnected
-                if (phase === 'arrived') {
-                    return '#6c757d';  // Gray - Arrived
+                // Arrived or Disconnected - flight has ended
+                if (phase === 'arrived' || phase === 'disconnected') {
+                    return '#6c757d';  // Gray - Arrived/Disconnected
                 }
                 // Proposed/Prefile - no position yet
                 if (phase === 'prefile' || phase === 'unknown' || phase === '' || !phase) {

@@ -1,7 +1,7 @@
 # PERTI System Status Dashboard
 
 > **Last Updated:** 2026-01-10
-> **System Version:** Main Branch (e83664e)
+> **System Version:** v16 - Main Branch
 
 ---
 
@@ -15,8 +15,11 @@
 | Zone Detection | [OK] Active | OOOI airport zone monitoring |
 | Boundary Detection | [OK] Active | ARTCC/sector crossing detection |
 | Weather Integration | [OK] Active | SIGMET/AIRMET monitoring |
-| ATIS Import | [OK] Active | Runway assignment parsing |
+| ATIS Import | [OK] Active | Runway assignment parsing with weather extraction |
 | Event Statistics | [OK] Active | VATUSA event tracking |
+| **Demand Analysis (NEW v16)** | [OK] Active | Airport demand/capacity visualization |
+| **Airport Config (NEW v16)** | [OK] Active | Runway configuration & rate management |
+| **Rate Suggestions (NEW v16)** | [OK] Active | Weather-aware AAR/ADR recommendations |
 
 ---
 
@@ -75,6 +78,18 @@
 | `sp_GS_GetFlights` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Get affected flights |
 | `sp_GS_DetectPopups` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Detect pop-up flights |
 | `fn_HaversineNM` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Great circle distance |
+
+### Airport Configuration & Rate Management (NEW v16)
+
+| Procedure | Status | Location | Description |
+|-----------|--------|----------|-------------|
+| `sp_GetRateSuggestion` | [OK] Deployed | [085_rate_suggestion_proc.sql](../adl/migrations/085_rate_suggestion_proc.sql) | Multi-level rate suggestion algorithm |
+| `sp_ImportAtis` | [OK] Deployed | [086_atis_import_proc.sql](../adl/migrations/086_atis_import_proc.sql) | ATIS batch import with weather extraction |
+| `sp_DetectRunwayFromTracks` | [OK] Deployed | [087_runway_detect_proc.sql](../adl/migrations/087_runway_detect_proc.sql) | Flight-track-based runway detection |
+| `sp_ApplyManualRateOverride` | [OK] Deployed | [088_manual_override_proc.sql](../adl/migrations/088_manual_override_proc.sql) | Manual rate override management |
+| `sp_GetAirportConfig` | [OK] Deployed | [089_config_api_procs.sql](../adl/migrations/089_config_api_procs.sql) | Airport configuration lookup |
+| `sp_SyncRunwayInUse` | [OK] Deployed | [090_runway_sync_proc.sql](../adl/migrations/090_runway_sync_proc.sql) | Runway-in-use synchronization |
+| `fn_GetWeatherCategory` | [OK] Deployed | [084_weather_category_fn.sql](../adl/migrations/084_weather_category_fn.sql) | Weather category classification |
 
 ### Removed Procedures
 
@@ -210,11 +225,23 @@ python atis_daemon.py
 | **stats/** | 5 files | [OK] Deployed | Flight statistics |
 | **changelog/** | 7 files | [OK] Deployed | Change tracking triggers |
 
-### Pending Migrations
+### Airport Configuration & ATIS (NEW v16)
 
 | File | Status | Description |
 |------|--------|-------------|
-| [079_event_aar_from_flights.sql](../adl/migrations/079_event_aar_from_flights.sql) | [WARN] Pending | Event AAR calculation from flight data |
+| [079_event_aar_from_flights.sql](../adl/migrations/079_event_aar_from_flights.sql) | [OK] Deployed | Event AAR calculation from flight data |
+| [080_airport_config_schema.sql](../adl/migrations/080_airport_config_schema.sql) | [OK] Deployed | Normalized runway configuration tables |
+| [081_atis_weather_columns.sql](../adl/migrations/081_atis_weather_columns.sql) | [OK] Deployed | ATIS weather extraction columns |
+| [082_runway_in_use_table.sql](../adl/migrations/082_runway_in_use_table.sql) | [OK] Deployed | Runway-in-use tracking table |
+| [083_detected_runway_config.sql](../adl/migrations/083_detected_runway_config.sql) | [OK] Deployed | Flight-track runway detection |
+| [084_weather_category_fn.sql](../adl/migrations/084_weather_category_fn.sql) | [OK] Deployed | Weather category classification function |
+| [085_rate_suggestion_proc.sql](../adl/migrations/085_rate_suggestion_proc.sql) | [OK] Deployed | Multi-level rate suggestion algorithm |
+| [086_atis_import_proc.sql](../adl/migrations/086_atis_import_proc.sql) | [OK] Deployed | ATIS batch import procedure |
+| [087_runway_detect_proc.sql](../adl/migrations/087_runway_detect_proc.sql) | [OK] Deployed | Runway detection from flight tracks |
+| [088_manual_override_proc.sql](../adl/migrations/088_manual_override_proc.sql) | [OK] Deployed | Manual rate override management |
+| [089_config_api_procs.sql](../adl/migrations/089_config_api_procs.sql) | [OK] Deployed | Airport config API procedures |
+| [090_runway_sync_proc.sql](../adl/migrations/090_runway_sync_proc.sql) | [OK] Deployed | Runway-in-use synchronization |
+| [091_rate_history_table.sql](../adl/migrations/091_rate_history_table.sql) | [OK] Deployed | Rate change audit trail |
 
 ### PERTI MySQL Migrations
 
@@ -318,6 +345,7 @@ python atis_daemon.py
 |                         API LAYER (PHP)                                 |
 +-------------+-------------+-------------+-------------+----------------+
 |  /api/adl   |  /api/tmi   |  /api/jatoc |  /api/nod   |  /api/routes   |
+|  /api/demand (NEW v16)    |  /api/splits|  /api/data  |  /api/statsim  |
 +-------------+-------------+-------------+-------------+----------------+
                                    |
                                    v
@@ -340,6 +368,19 @@ python atis_daemon.py
 | `api/adl/AdlQueryHelper.php` | [WARN] Modified | Query improvements |
 | `assets/js/nod.js` | [WARN] Modified | NOD enhancements |
 
+### New Files (v16)
+
+| File | Status | Notes |
+|------|--------|-------|
+| `demand.php` | [OK] Created | Airport demand analysis page |
+| `api/demand/airports.php` | [OK] Created | Airport list API |
+| `api/demand/rates.php` | [OK] Created | Rate data API |
+| `api/demand/summary.php` | [OK] Created | Demand summary API |
+| `api/demand/override.php` | [OK] Created | Manual rate override API |
+| `api/demand/config.php` | [OK] Created | Airport config API |
+| `adl/migrations/080-091_*.sql` | [OK] Created | Airport config & ATIS schema |
+| `assets/js/demand.js` | [OK] Created | Demand page frontend |
+
 ### New Files (v15)
 
 | File | Status | Notes |
@@ -356,11 +397,11 @@ python atis_daemon.py
 
 | Commit | Description |
 |--------|-------------|
-| `e83664e` | Update ATIS batch import and daemon processing |
-| `2ee9d5e` | Fix V1.5 STContains bug - geography type uses STIntersects |
-| `0643219` | Add ATIS batch import and update demand/daemon |
-| `948b1c4` | Add zone detection v3 and update demand/daemon processing |
-| `bd57f02` | Refine demand.js |
+| `ef29cef` | Fix ATIS parser syntax error |
+| `0d38c3f` | Update demand, daemon, and ATIS systems |
+| `1ea19ae` | Add runway config detection and update demand system |
+| `8f5870d` | Update demand.js |
+| `3561e80` | Update status page |
 
 ---
 

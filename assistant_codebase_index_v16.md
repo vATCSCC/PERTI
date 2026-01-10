@@ -1,8 +1,8 @@
-# vATCSCC PERTI — Codebase Index (v15)
+# vATCSCC PERTI — Codebase Index (v16)
 
 Generated: 2026-01-10 UTC
 
-This index is based on the `wwwroot-2026-01-03-9.zip` snapshot and is intended as a fast reference for navigation, call graphs, and high-signal files.
+This index is a comprehensive reference for navigation, call graphs, and high-signal files.
 
 ## Quick navigation
 
@@ -29,13 +29,15 @@ This index is based on the `wwwroot-2026-01-03-9.zip` snapshot and is intended a
 - [21) NOD subsystem](#21-nod-nas-operations-dashboard-subsystem)
 - [22) ADL Refresh Patterns](#22-adl-refresh-patterns)
 - [23) Initiative Timeline subsystem](#23-initiative-timeline-subsystem)
-- [24) Weather Radar subsystem (NEW v14)](#24-weather-radar-subsystem--new-v14)
-- [25) SUA/TFR subsystem (NEW v14)](#25-suatfr-subsystem--new-v14)
-- [26) Practical gotchas](#26-practical-gotchas-to-remember)
-- [27) Search anchors](#27-search-anchors-fast-grep-patterns)
-- [28) Changelog](#28-changelog)
-- [29) VATSIM_ADL Azure SQL Database Reference](#29-vatsim_adl-azure-sql-database-reference)
-- [30) VATSIM_PERTI MySQL Database Reference](#30-vatsim_perti-mysql-database-reference)
+- [24) Weather Radar subsystem](#24-weather-radar-subsystem)
+- [25) SUA/TFR subsystem](#25-suatfr-subsystem)
+- [26) Demand subsystem (NEW v16)](#26-demand-subsystem-new-v16)
+- [27) Airport Configuration & ATIS subsystem (NEW v16)](#27-airport-configuration--atis-subsystem-new-v16)
+- [28) Practical gotchas](#28-practical-gotchas-to-remember)
+- [29) Search anchors](#29-search-anchors-fast-grep-patterns)
+- [30) Changelog](#30-changelog)
+- [31) VATSIM_ADL Azure SQL Database Reference](#31-vatsim_adl-azure-sql-database-reference)
+- [32) VATSIM_PERTI MySQL Database Reference](#32-vatsim_perti-mysql-database-reference)
 
 ---
 
@@ -896,7 +898,91 @@ Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
 
 ---
 
-## 26) Practical gotchas to remember
+## 26) Demand subsystem (NEW v16)
+
+### Key files
+
+- `demand.php` — Demand analysis page
+- `assets/js/demand.js` — Demand visualization JavaScript
+- `api/demand/*.php` — Demand API endpoints
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `api/demand/airports.php` | GET | List airports with demand filters (ASPM77/OEP35/Core30) |
+| `api/demand/airport.php` | GET | Single airport demand details |
+| `api/demand/rates.php` | GET | Acceptance/departure rates by airport |
+| `api/demand/summary.php` | GET | Overall demand summary |
+| `api/demand/override.php` | POST/GET | Manual rate override management |
+
+### Features
+
+- Airport demand visualization with rate coloring
+- ATIS-based suggested rates (AAR/ADR)
+- Manual rate override support
+- Weather-aware rate adjustments
+- Runway configuration detection from ATIS
+- Flight-track-based runway detection fallback
+
+---
+
+## 27) Airport Configuration & ATIS subsystem (NEW v16)
+
+### Database Tables (Azure SQL)
+
+| Table | Purpose |
+|-------|---------|
+| `airport_config` | Runway configuration definitions (config_id, airport_icao, config_name) |
+| `airport_config_runway` | Normalized runway assignments per config |
+| `airport_config_rate` | Rate tables by weather category (VMC/LVMC/IMC/LIMC/VLIMC) |
+| `airport_config_rate_history` | Rate change audit log |
+| `airport_config_history` | Config metadata change log |
+| `airport_weather_impact` | NAM TAF Board weather rules for rate adjustment |
+| `vatsim_atis` | Raw ATIS broadcasts with weather extraction |
+| `runway_in_use` | Parsed runway assignments from ATIS |
+| `atis_config_history` | Configuration change summary |
+| `detected_runway_config` | Flight-track-based runway detection |
+| `runway_heading_ref` | Heading-to-runway mapping |
+| `manual_rate_override` | Controller rate overrides with time windows |
+
+### Key Stored Procedures
+
+| Procedure | Purpose |
+|-----------|---------|
+| `sp_GetSuggestedRates` | Multi-level rate suggestion with fallback chain |
+| `sp_ImportVatsimAtis` | Import raw ATIS with weather extraction |
+| `sp_ImportRunwaysInUse` | Import parsed runway assignments |
+| `sp_DetectRunwaysFromFlights` | Analyze flight tracks for runway detection |
+| `sp_SetRateOverride` | Create/update manual rate override |
+| `sp_CancelRateOverride` | Deactivate rate overrides |
+| `sp_LogRateChange` | Audit log for rate changes |
+
+### Rate Suggestion Algorithm (Priority Order)
+
+1. **Manual overrides** — If active, return immediately (100% confidence)
+2. **ATIS runway match** — Match runway-in-use to config (100/80/70 confidence)
+3. **Detected config** — From flight tracks (30-50 confidence)
+4. **Wind-based selection** — Match wind to config criteria (30 confidence)
+5. **Highest capacity** — Fallback to best available (10-5 confidence)
+
+### ATIS Python Daemon
+
+- `scripts/vatsim_atis/atis_daemon.py` — Primary ATIS import (15s interval)
+- `scripts/vatsim_atis/vatsim_fetcher.py` — VATSIM API client
+- `scripts/vatsim_atis/atis_parser.py` — ATIS text parsing with runway/weather extraction
+
+### Weather Categories
+
+- **VMC** — Visual Meteorological Conditions
+- **LVMC** — Low Visibility VMC (ceiling 1000-2500 ft or vis 3-5 sm)
+- **IMC** — Instrument Meteorological Conditions
+- **LIMC** — Low IMC (ceiling 200-500 ft or vis 1/2-1 sm)
+- **VLIMC** — Very Low IMC (ceiling <200 ft or vis <1/2 sm)
+
+---
+
+## 28) Practical gotchas to remember
 
 1. **Azure SQL Serverless**: May have cold-start delays; first query after idle can be slow
 2. **Stored procedure timeouts**: Complex ADL refresh can timeout; use connection timeout settings
@@ -908,7 +994,7 @@ Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
 
 ---
 
-## 27) Search anchors (fast grep patterns)
+## 29) Search anchors (fast grep patterns)
 
 ```bash
 # Find API endpoint
@@ -929,7 +1015,44 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
 
 ---
 
-## 28) Changelog
+## 30) Changelog
+
+- **v16 (2026-01-10):**
+  - **Demand Subsystem:**
+    - `demand.php` — Demand analysis page
+    - `assets/js/demand.js` — Demand visualization with rate coloring
+    - `api/demand/*.php` — 5 new demand API endpoints (airports, airport, rates, summary, override)
+  - **Airport Configuration & ATIS Schema (migrations 079-091):**
+    - `airport_config` — Runway configuration definitions
+    - `airport_config_runway` — Normalized runway assignments
+    - `airport_config_rate` — Multi-weather rate tables (VMC/LVMC/IMC/LIMC/VLIMC)
+    - `airport_config_rate_history` — Rate change audit trail
+    - `airport_weather_impact` — Weather impact rules
+    - `vatsim_atis` — Raw ATIS with weather extraction columns
+    - `runway_in_use` — Parsed runway assignments
+    - `atis_config_history` — Configuration change summary
+    - `detected_runway_config` — Flight-track-based runway detection
+    - `runway_heading_ref` — Heading-to-runway mapping
+    - `manual_rate_override` — Controller rate overrides with time windows
+  - **New Stored Procedures:**
+    - `sp_GetSuggestedRates` — Multi-level rate suggestion with fallback chain
+    - `sp_ImportVatsimAtis` — ATIS import with weather extraction
+    - `sp_ImportRunwaysInUse` — Runway assignment import
+    - `sp_DetectRunwaysFromFlights` — Flight-track-based detection
+    - `sp_SetRateOverride` / `sp_CancelRateOverride` — Override management
+    - `sp_LogRateChange` — Rate audit logging
+  - **ATIS Daemon Enhancements:**
+    - `scripts/vatsim_atis/atis_daemon.py` — Batch import mode
+    - Weather extraction (wind, visibility, ceiling, category)
+    - Runway-in-use parsing
+  - **New Views:**
+    - `vw_airport_config_summary` — Config with runway strings
+    - `vw_airport_config_rates` — Pivoted rate tables
+    - `vw_current_runways_in_use` — Active runway assignments
+    - `vw_current_airport_config` — Current config summary
+    - `vw_current_atis_weather` — Latest ATIS weather
+    - `vw_current_detected_config` — Latest flight-based detection
+    - `vw_current_rate_overrides` — Active/upcoming overrides
 
 - **v15 (2026-01-10):**
   - **GDT Ground Stop NTML Architecture:**
@@ -997,7 +1120,7 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
 
 ---
 
-## 29) VATSIM_ADL Azure SQL Database Reference
+## 31) VATSIM_ADL Azure SQL Database Reference
 
 _Full table/column listing available in VATSIM_ADL_tree.json project file._
 
@@ -1035,6 +1158,18 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `ntml` | National Traffic Management Log (NEW v15) |
 | `ntml_info` | TMI event log / audit trail (NEW v15) |
 | `ntml_slots` | Arrival slot allocation (NEW v15) |
+| `airport_config` | Runway configuration definitions (NEW v16) |
+| `airport_config_runway` | Normalized runway assignments (NEW v16) |
+| `airport_config_rate` | Rate tables by weather category (NEW v16) |
+| `airport_config_rate_history` | Rate change audit log (NEW v16) |
+| `airport_config_history` | Config metadata change log (NEW v16) |
+| `airport_weather_impact` | Weather impact rules (NEW v16) |
+| `vatsim_atis` | Raw ATIS broadcasts with weather (NEW v16) |
+| `runway_in_use` | Parsed runway assignments (NEW v16) |
+| `atis_config_history` | Configuration change summary (NEW v16) |
+| `detected_runway_config` | Flight-track-based detection (NEW v16) |
+| `runway_heading_ref` | Heading-to-runway mapping (NEW v16) |
+| `manual_rate_override` | Controller rate overrides (NEW v16) |
 
 ### Views
 
@@ -1053,7 +1188,7 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 
 ---
 
-## 30) VATSIM_PERTI MySQL Database Reference
+## 32) VATSIM_PERTI MySQL Database Reference
 
 _Full table/column listing available in VATSIM_PERTI_tree.json project file._
 
