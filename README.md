@@ -175,9 +175,23 @@ PERTI/
 - `GET /api/adl/snapshot_history.php` - Historical snapshots
 
 ### TMI Operations
-- `POST /api/tmi/gs_*.php` - Ground Stop operations
+
+**New GS API (v15):**
+
+- `POST /api/tmi/gs/create.php` - Create new GS
+- `POST /api/tmi/gs/model.php` - Model GS scope
+- `POST /api/tmi/gs/activate.php` - Activate GS
+- `POST /api/tmi/gs/extend.php` - Extend GS
+- `POST /api/tmi/gs/purge.php` - Purge GS
+- `GET /api/tmi/gs/flights.php` - Get affected flights
+- `GET /api/tmi/gs/demand.php` - Get demand data
+- `GET /api/tmi/gs/list.php` - List programs
+- `GET /api/tmi/gs/get.php` - Get single program
+
+**Legacy APIs:**
+
+- `POST /api/tmi/gs_*.php` - Ground Stop operations (legacy)
 - `POST /api/tmi/gdp_*.php` - GDP operations
-- `POST /api/tmi/rr_*.php` - Reroute operations
 
 ### JATOC
 - `GET /api/jatoc/incidents.php` - List incidents
@@ -257,7 +271,7 @@ Example config template: `load/config.example.php`
 ## 📚 Documentation
 
 For detailed technical documentation, see:
-- `assistant_codebase_index_v14.md` - Comprehensive codebase index
+- `assistant_codebase_index_v15.md` - Comprehensive codebase index
 - `docs/ADL_REFRESH_MIGRATION_GUIDE.md` - ADL refresh patterns
 - `scripts/README.md` - Script documentation
 - `scripts/README_boundaries.md` - Boundary refresh documentation
@@ -278,13 +292,18 @@ For detailed technical documentation, see:
 
 ---
 
-## 🆕 Recent Updates (v14)
+## 🆕 Recent Updates (v15)
 
+- **GDT Ground Stop NTML Architecture:** Complete NTML-based program lifecycle for Ground Stops
+  - New stored procedures: `sp_GS_Create`, `sp_GS_Model`, `sp_GS_IssueEDCTs`, `sp_GS_Extend`, `sp_GS_Purge`
+  - New API endpoints: `/api/tmi/gs/*` (create, model, activate, extend, purge, flights, demand)
+  - NTML tables for program registry, event logging, and slot allocation
+  - Pop-up flight detection during active programs
+- **ADL Schema Cleanup:** Removed redundant `flight_status` column (unified to `phase`)
 - **Weather Radar:** IEM NEXRAD/MRMS integration with multiple color tables
 - **SUA/TFR Display:** Special Use Airspace and TFR boundaries
 - **Initiative Timeline:** Interactive Gantt-style TMI visualization
-- **Advisory Import:** Bulk advisory import functionality
-- **Superhigh Sectors:** Added superhigh altitude sector layer
+- **ATIS Import:** Batch ATIS import and runway assignment parsing
 
 ---
 
@@ -294,4 +313,4 @@ For issues or questions about PERTI, contact the vATCSCC development team.
 
 ---
 
-*Last updated: 2026-01-07*
+*Last updated: 2026-01-10*
