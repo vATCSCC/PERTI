@@ -109,13 +109,13 @@ $config = [
     'metar_window_mins' => 5,
 
     // Boundary & Crossings background processing
-    // Capacity: 750 boundaries/min handles ~5,000 flights, 75 crossings/min handles new flight intake
-    // For mega-events (6,000+): temporarily set boundary_max=1000, crossings_max=50
+    // NOTE: SP spatial queries are slow (~300ms/flight). Needs optimization.
+    // Current capacity: 250/min handles ~1,700 flights. Will fall behind at 3,000+ flights.
     'boundary_enabled'       => true,
     'boundary_interval'      => 4,    // Run every N cycles (4 = every 60 seconds, matches tier schedule)
-    'boundary_max_flights'   => 750,  // Max boundary flights per run (handles ~5,000 total flights)
-    'crossings_max_flights'  => 75,   // Max crossings per run (one-time calc, not continuous)
-    'boundary_timeout'       => 90,   // SP timeout in seconds (750 boundaries + 75 crossings ≈ 70s)
+    'boundary_max_flights'   => 250,  // Max boundary flights per run (limited by slow spatial queries)
+    'crossings_max_flights'  => 25,   // Max crossings per run (very slow, keep minimal)
+    'boundary_timeout'       => 120,  // SP timeout in seconds
 ];
 
 // ============================================================================
