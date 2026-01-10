@@ -1,6 +1,6 @@
 -- ============================================================================
 -- sp_ProcessBoundaryAndCrossings_Background
--- Version: 1.2
+-- Version: 1.4
 -- Date: 2026-01-10
 --
 -- Description: Background job for boundary detection and planned crossings
@@ -26,6 +26,7 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_ProcessBoundaryAndCrossings_Background
     @max_flights_per_run INT = 100,
+    @max_crossings_per_run INT = 50,   -- Separate limit for crossings (slower operation)
     @debug BIT = 0
 AS
 BEGIN
@@ -211,7 +212,7 @@ BEGIN
 
     -- Tier 1: Every 1 min - New flights + needs_recalc (ALWAYS)
     INSERT INTO #crossing_batch (flight_uid, tier)
-    SELECT TOP (@max_flights_per_run)
+    SELECT TOP (@max_crossings_per_run)
         c.flight_uid, 1
     FROM dbo.adl_flight_core c
     WHERE c.is_active = 1
@@ -222,10 +223,10 @@ BEGIN
     SET @tier1 = @@ROWCOUNT;
 
     -- Tier 2: Every 2 min - Regional in TRACON
-    IF @minute % 2 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_flights_per_run
+    IF @minute % 2 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_crossings_per_run
     BEGIN
         INSERT INTO #crossing_batch (flight_uid, tier)
-        SELECT TOP (@max_flights_per_run - (SELECT COUNT(*) FROM #crossing_batch))
+        SELECT TOP (@max_crossings_per_run - (SELECT COUNT(*) FROM #crossing_batch))
             c.flight_uid, 2
         FROM dbo.adl_flight_core c
         WHERE c.is_active = 1
@@ -239,10 +240,10 @@ BEGIN
     END
 
     -- Tier 3: Every 5 min - Regional in ARTCC only
-    IF @minute % 5 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_flights_per_run
+    IF @minute % 5 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_crossings_per_run
     BEGIN
         INSERT INTO #crossing_batch (flight_uid, tier)
-        SELECT TOP (@max_flights_per_run - (SELECT COUNT(*) FROM #crossing_batch))
+        SELECT TOP (@max_crossings_per_run - (SELECT COUNT(*) FROM #crossing_batch))
             c.flight_uid, 3
         FROM dbo.adl_flight_core c
         WHERE c.is_active = 1
@@ -256,10 +257,10 @@ BEGIN
     END
 
     -- Tier 4: Every 10 min - Enroute flights
-    IF @minute % 10 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_flights_per_run
+    IF @minute % 10 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_crossings_per_run
     BEGIN
         INSERT INTO #crossing_batch (flight_uid, tier)
-        SELECT TOP (@max_flights_per_run - (SELECT COUNT(*) FROM #crossing_batch))
+        SELECT TOP (@max_crossings_per_run - (SELECT COUNT(*) FROM #crossing_batch))
             c.flight_uid, 4
         FROM dbo.adl_flight_core c
         WHERE c.is_active = 1
@@ -272,26 +273,27 @@ BEGIN
     END
 
     -- Tier 5: Every 15 min - International flights
-    IF @minute % 15 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_flights_per_run
+    IF @minute % 15 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_crossings_per_run
     BEGIN
         INSERT INTO #crossing_batch (flight_uid, tier)
-        SELECT TOP (@max_flights_per_run - (SELECT COUNT(*) FROM #crossing_batch))
+        SELECT TOP (@max_crossings_per_run - (SELECT COUNT(*) FROM #crossing_batch))
             c.flight_uid, 5
         FROM dbo.adl_flight_core c
+        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
         WHERE c.is_active = 1
           AND NOT EXISTS (SELECT 1 FROM #crossing_batch b WHERE b.flight_uid = c.flight_uid)
           AND c.crossing_region_flags > 0
-          AND (c.fp_dept_icao NOT LIKE 'K%' OR c.fp_dest_icao NOT LIKE 'K%')  -- International
+          AND (fp.fp_dept_icao NOT LIKE 'K%' OR fp.fp_dest_icao NOT LIKE 'K%')  -- International
           AND DATEDIFF(SECOND, c.crossing_last_calc_utc, @now) >= 900;
 
         SET @tier5 = @@ROWCOUNT;
     END
 
     -- Tier 6: Every 30 min - Transit flights (flag = 4)
-    IF @minute % 30 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_flights_per_run
+    IF @minute % 30 = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_crossings_per_run
     BEGIN
         INSERT INTO #crossing_batch (flight_uid, tier)
-        SELECT TOP (@max_flights_per_run - (SELECT COUNT(*) FROM #crossing_batch))
+        SELECT TOP (@max_crossings_per_run - (SELECT COUNT(*) FROM #crossing_batch))
             c.flight_uid, 6
         FROM dbo.adl_flight_core c
         WHERE c.is_active = 1
@@ -303,10 +305,10 @@ BEGIN
     END
 
     -- Tier 7: Every 60 min - Catch-all
-    IF @minute = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_flights_per_run
+    IF @minute = 0 AND (SELECT COUNT(*) FROM #crossing_batch) < @max_crossings_per_run
     BEGIN
         INSERT INTO #crossing_batch (flight_uid, tier)
-        SELECT TOP (@max_flights_per_run - (SELECT COUNT(*) FROM #crossing_batch))
+        SELECT TOP (@max_crossings_per_run - (SELECT COUNT(*) FROM #crossing_batch))
             c.flight_uid, 7
         FROM dbo.adl_flight_core c
         WHERE c.is_active = 1
@@ -456,7 +458,7 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.2 - Fixed column names (fp_dept_icao, fp_dest_icao)';
+PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.4 - Separate limits for boundaries vs crossings';
 PRINT 'Tier schedule: 1=1min, 2=2min, 3=5min, 4=10min, 5=15min, 6=30min, 7=60min';
 PRINT 'Run every 60 seconds via SQL Agent or separate PHP daemon';
 GO

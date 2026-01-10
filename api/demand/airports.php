@@ -77,20 +77,37 @@ if (!empty($tier) && $tier !== 'all' && !empty($artcc)) {
     }
 }
 
+// Major international airports to always include (Canada, Mexico, Caribbean, Europe hubs)
+$majorInternationalAirports = [
+    // Canada Major
+    'CYYZ', 'CYVR', 'CYUL', 'CYYC', 'CYEG', 'CYOW', 'CYWG', 'CYQB', 'CYHZ', 'CYXE',
+    // Mexico Major
+    'MMMX', 'MMUN', 'MMTJ', 'MMGL', 'MMMY', 'MMPR', 'MMSD', 'MMCU',
+    // Caribbean Major
+    'TIST', 'TJSJ', 'MKJP', 'MBPV', 'MYNN', 'TNCM', 'TBPB', 'TFFR',
+    // European Hubs (transatlantic)
+    'EGLL', 'LFPG', 'EHAM', 'EDDF', 'LEMD', 'LIRF', 'LEBL', 'EIDW', 'EGKK', 'LFPO'
+];
+
 // Build WHERE clause
 $whereClauses = [];
 $params = [];
 
-// Only include airports with ICAO codes (4 characters starting with K or P for US)
+// Only include airports with ICAO codes (4 characters)
 $whereClauses[] = "ICAO_ID IS NOT NULL AND LEN(ICAO_ID) = 4";
 
-// Filter by category
+// Filter by category - default to ASPM77 + major international
 if ($category === 'aspm77') {
     $whereClauses[] = "ASPM77 = 1";
 } elseif ($category === 'oep35') {
     $whereClauses[] = "OEP35 = 1";
 } elseif ($category === 'core30') {
     $whereClauses[] = "Core30 = 1";
+} elseif ($category === 'all' || $category === '') {
+    // Default: ASPM77 US airports + major international airports
+    $intlPlaceholders = array_fill(0, count($majorInternationalAirports), '?');
+    $whereClauses[] = "(ASPM77 = 1 OR ICAO_ID IN (" . implode(", ", $intlPlaceholders) . "))";
+    $params = array_merge($params, $majorInternationalAirports);
 }
 
 // Filter by ARTCC or tier ARTCCs
