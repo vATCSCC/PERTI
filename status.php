@@ -58,12 +58,20 @@ $liveData = [
     'trajectories_1h' => 0,
     'trajectories_total' => 0,
     'zone_transitions_1h' => 0,
+    // Boundary Detection (Background Job)
     'boundary_crossings_1h' => 0,
-    'planned_crossings_1h' => 0,
+    'boundary_artcc_1h' => 0,
+    'boundary_tracon_1h' => 0,
+    'boundary_pending' => 0,           // Flights needing boundary detection
     'last_boundary_detection' => null,
-    'last_crossing_calc' => null,
     'flights_with_artcc' => 0,
+    'flights_with_tracon' => 0,
+    // Planned Crossings (Background Job)
+    'planned_crossings_1h' => 0,
+    'crossings_pending' => 0,          // Flights with needs_recalc or no calc
+    'last_crossing_calc' => null,
     'flights_with_crossings' => 0,
+    'crossing_tiers' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0, 6 => 0, 7 => 0],
     'weather_alerts_active' => 0,
     'atis_updates_1h' => 0,
     'atis_pending' => 0,
@@ -194,25 +202,52 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Boundary crossings (last hour) and total boundaries
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_boundary_log WHERE entry_time > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    // -------------------------------------------------------------------------
+    // Boundary Detection Stats (Background Job)
+    // -------------------------------------------------------------------------
+
+    // Boundary crossings by type (last hour)
+    $sql = "SELECT
+                b.boundary_type,
+                COUNT(*) AS cnt
+            FROM dbo.adl_flight_boundary_log bl
+            JOIN dbo.adl_boundary b ON b.boundary_id = bl.boundary_id
+            WHERE bl.entry_time > DATEADD(HOUR, -1, SYSUTCDATETIME())
+            GROUP BY b.boundary_type";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
-        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['boundary_crossings_1h'] = $row['cnt'] ?? 0;
+        $total = 0;
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $type = $row['boundary_type'];
+            $cnt = (int)($row['cnt'] ?? 0);
+            $total += $cnt;
+            if ($type === 'ARTCC') $liveData['boundary_artcc_1h'] = $cnt;
+            if ($type === 'TRACON') $liveData['boundary_tracon_1h'] = $cnt;
+        }
+        $liveData['boundary_crossings_1h'] = $total;
         sqlsrv_free_stmt($stmt);
     }
 
-    // Planned crossings calculated (last hour) - from background job
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_planned_crossings WHERE calculated_at > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    // Flights pending boundary detection (grid changed or no ARTCC)
+    $sql = "SELECT COUNT(*) AS cnt
+            FROM dbo.adl_flight_core c
+            JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+            WHERE c.is_active = 1
+              AND p.lat IS NOT NULL
+              AND (
+                  c.current_artcc_id IS NULL
+                  OR c.last_grid_lat IS NULL
+                  OR c.last_grid_lat != CAST(FLOOR(p.lat / 0.5) AS SMALLINT)
+                  OR c.last_grid_lon != CAST(FLOOR(p.lon / 0.5) AS SMALLINT)
+              )";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['planned_crossings_1h'] = $row['cnt'] ?? 0;
+        $liveData['boundary_pending'] = $row['cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
-    // Background processing: last boundary detection and crossing calc times
+    // Last boundary detection time
     $sql = "SELECT TOP 1 entry_time FROM dbo.adl_flight_boundary_log ORDER BY entry_time DESC";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
@@ -223,6 +258,46 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
+    // Flights with ARTCC/TRACON assigned
+    $sql = "SELECT
+                SUM(CASE WHEN current_artcc IS NOT NULL THEN 1 ELSE 0 END) AS with_artcc,
+                SUM(CASE WHEN current_tracon IS NOT NULL THEN 1 ELSE 0 END) AS with_tracon
+            FROM dbo.adl_flight_core WHERE is_active = 1";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['flights_with_artcc'] = $row['with_artcc'] ?? 0;
+        $liveData['flights_with_tracon'] = $row['with_tracon'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Planned Crossings Stats (Background Job)
+    // -------------------------------------------------------------------------
+
+    // Planned crossings calculated (last hour)
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_planned_crossings WHERE calculated_at > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['planned_crossings_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Flights pending crossing calculation
+    $sql = "SELECT COUNT(*) AS cnt
+            FROM dbo.adl_flight_core
+            WHERE is_active = 1
+              AND crossing_region_flags IS NOT NULL
+              AND (crossing_last_calc_utc IS NULL OR crossing_needs_recalc = 1)";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['crossings_pending'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Last crossing calc time
     $sql = "SELECT TOP 1 calculated_at FROM dbo.adl_flight_planned_crossings ORDER BY calculated_at DESC";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
@@ -233,16 +308,31 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Flights with ARTCC assigned and flights with crossings calculated
+    // Flights with crossings calculated + tier distribution
     $sql = "SELECT
-                SUM(CASE WHEN current_artcc IS NOT NULL THEN 1 ELSE 0 END) AS with_artcc,
-                SUM(CASE WHEN crossing_last_calc_utc IS NOT NULL THEN 1 ELSE 0 END) AS with_crossings
-            FROM dbo.adl_flight_core WHERE is_active = 1";
+                COUNT(*) AS with_crossings,
+                SUM(CASE WHEN crossing_tier = 1 THEN 1 ELSE 0 END) AS tier1,
+                SUM(CASE WHEN crossing_tier = 2 THEN 1 ELSE 0 END) AS tier2,
+                SUM(CASE WHEN crossing_tier = 3 THEN 1 ELSE 0 END) AS tier3,
+                SUM(CASE WHEN crossing_tier = 4 THEN 1 ELSE 0 END) AS tier4,
+                SUM(CASE WHEN crossing_tier = 5 THEN 1 ELSE 0 END) AS tier5,
+                SUM(CASE WHEN crossing_tier = 6 THEN 1 ELSE 0 END) AS tier6,
+                SUM(CASE WHEN crossing_tier = 7 THEN 1 ELSE 0 END) AS tier7
+            FROM dbo.adl_flight_core
+            WHERE is_active = 1 AND crossing_last_calc_utc IS NOT NULL";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['flights_with_artcc'] = $row['with_artcc'] ?? 0;
         $liveData['flights_with_crossings'] = $row['with_crossings'] ?? 0;
+        $liveData['crossing_tiers'] = [
+            1 => (int)($row['tier1'] ?? 0),
+            2 => (int)($row['tier2'] ?? 0),
+            3 => (int)($row['tier3'] ?? 0),
+            4 => (int)($row['tier4'] ?? 0),
+            5 => (int)($row['tier5'] ?? 0),
+            6 => (int)($row['tier6'] ?? 0),
+            7 => (int)($row['tier7'] ?? 0),
+        ];
         sqlsrv_free_stmt($stmt);
     }
 
@@ -2252,17 +2342,21 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Boundary Crossings <span style="font-size: 9px; color: #6366f1;">(BG)</span></td>
+                                <td class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(BG)</span>
+                                    <div style="font-size: 9px; color: #888;">A:<?= number_format($liveData['boundary_artcc_1h']) ?> T:<?= number_format($liveData['boundary_tracon_1h']) ?> | <?= number_format($liveData['boundary_pending']) ?> pending</div>
+                                </td>
                                 <td class="timing-info"><?= number_format($liveData['boundary_crossings_1h']) ?></td>
-                                <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>">
-                                    <?= $liveData['boundary_crossings_1h'] > 0 ? 'Logged' : 'None' ?>
+                                <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : ($liveData['boundary_pending'] > 0 ? 'warning' : 'scheduled') ?>">
+                                    <?= $liveData['boundary_crossings_1h'] > 0 ? 'Active' : ($liveData['boundary_pending'] > 0 ? 'Pending' : 'Idle') ?>
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(BG)</span></td>
+                                <td class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(BG)</span>
+                                    <div style="font-size: 9px; color: #888;"><?= number_format($liveData['flights_with_crossings']) ?> flights | <?= number_format($liveData['crossings_pending']) ?> pending</div>
+                                </td>
                                 <td class="timing-info"><?= number_format($liveData['planned_crossings_1h']) ?></td>
-                                <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>">
-                                    <?= $liveData['planned_crossings_1h'] > 0 ? 'Calc' : 'None' ?>
+                                <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : ($liveData['crossings_pending'] > 0 ? 'warning' : 'scheduled') ?>">
+                                    <?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : ($liveData['crossings_pending'] > 0 ? 'Pending' : 'Idle') ?>
                                 </span></td>
                             </tr>
                             <tr>
@@ -2473,19 +2567,36 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(Background)</span></div>
-                                    <div class="component-desc"><?= number_format($liveData['boundary_crossings_1h']) ?> crossings/hr &bull; <?= number_format($liveData['flights_with_artcc']) ?> flights tracked</div>
+                                    <div class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(60s Background)</span></div>
+                                    <div class="component-desc">
+                                        ARTCC: <?= number_format($liveData['boundary_artcc_1h']) ?>/hr &bull;
+                                        TRACON: <?= number_format($liveData['boundary_tracon_1h']) ?>/hr &bull;
+                                        <?= number_format($liveData['flights_with_artcc']) ?> tracked
+                                        <?php if ($liveData['boundary_pending'] > 0): ?>
+                                            <span style="color: #f59e0b;">&bull; <?= number_format($liveData['boundary_pending']) ?> pending</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                                 <td class="timing-info"><?= $liveData['last_boundary_detection'] ?? 'N/A' ?></td>
-                                <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>"><?= $liveData['boundary_crossings_1h'] > 0 ? 'Active' : 'Idle' ?></span></td>
+                                <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : ($liveData['boundary_pending'] > 0 ? 'warning' : 'scheduled') ?>">
+                                    <?= $liveData['boundary_crossings_1h'] > 0 ? 'Active' : ($liveData['boundary_pending'] > 0 ? 'Pending' : 'Idle') ?>
+                                </span></td>
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(Background)</span></div>
-                                    <div class="component-desc"><?= number_format($liveData['planned_crossings_1h']) ?> calc/hr &bull; <?= number_format($liveData['flights_with_crossings']) ?> flights with crossings</div>
+                                    <div class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(60s Background)</span></div>
+                                    <div class="component-desc">
+                                        <?= number_format($liveData['planned_crossings_1h']) ?> calc/hr &bull;
+                                        <?= number_format($liveData['flights_with_crossings']) ?> flights
+                                        <?php if ($liveData['crossings_pending'] > 0): ?>
+                                            <span style="color: #f59e0b;">&bull; <?= number_format($liveData['crossings_pending']) ?> pending</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                                 <td class="timing-info"><?= $liveData['last_crossing_calc'] ?? 'N/A' ?></td>
-                                <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>"><?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : 'Idle' ?></span></td>
+                                <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : ($liveData['crossings_pending'] > 0 ? 'warning' : 'scheduled') ?>">
+                                    <?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : ($liveData['crossings_pending'] > 0 ? 'Pending' : 'Idle') ?>
+                                </span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -2682,8 +2793,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step" style="border-left: 3px solid #6366f1;">
                             <span class="step-number" style="background: #6366f1;">10</span>
                             <div class="step-content">
-                                <div class="step-name">Boundary Detection <span class="step-category detect">Background</span></div>
-                                <div class="step-desc">ARTCC/TRACON detection (runs every 60s via background job)</div>
+                                <div class="step-name">Boundary Detection <span class="step-category detect">Background 60s</span></div>
+                                <div class="step-desc">
+                                    A:<?= number_format($liveData['boundary_artcc_1h']) ?> T:<?= number_format($liveData['boundary_tracon_1h']) ?>/hr &bull;
+                                    <?= number_format($liveData['flights_with_artcc']) ?> tracked
+                                    <?php if ($liveData['boundary_pending'] > 0): ?><span style="color:#f59e0b;">&bull; <?= $liveData['boundary_pending'] ?> pending</span><?php endif; ?>
+                                </div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= $liveData['boundary_crossings_1h'] > 0 ? '' : 'zero' ?>"><?= number_format($liveData['boundary_crossings_1h']) ?></span>
@@ -2694,8 +2809,18 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step" style="border-left: 3px solid #6366f1;">
                             <span class="step-number" style="background: #6366f1;">11</span>
                             <div class="step-content">
-                                <div class="step-name">Planned Crossings <span class="step-category detect">Background</span></div>
-                                <div class="step-desc">Calculate ARTCC crossings from route waypoints (tiered background)</div>
+                                <div class="step-name">Planned Crossings <span class="step-category detect">Background Tiered</span></div>
+                                <div class="step-desc">
+                                    <?= number_format($liveData['flights_with_crossings']) ?> flights &bull;
+                                    Tiers: <?php
+                                        $tierParts = [];
+                                        foreach ($liveData['crossing_tiers'] as $t => $cnt) {
+                                            if ($cnt > 0) $tierParts[] = "T{$t}:{$cnt}";
+                                        }
+                                        echo $tierParts ? implode(' ', $tierParts) : 'none';
+                                    ?>
+                                    <?php if ($liveData['crossings_pending'] > 0): ?><span style="color:#f59e0b;">&bull; <?= $liveData['crossings_pending'] ?> pending</span><?php endif; ?>
+                                </div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['planned_crossings_1h'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['planned_crossings_1h'] ?? 0) ?></span>
