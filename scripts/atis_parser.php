@@ -504,22 +504,30 @@ function parseCeilingFeet(string $text): ?int {
  */
 function classifyFlightCategory(?int $ceiling, ?float $visibility): string {
     // Classify based on ceiling
-    $ceilCat = match(true) {
-        $ceiling === null => 'VFR',
-        $ceiling < 500 => 'LIFR',
-        $ceiling < 1000 => 'IFR',
-        $ceiling <= 3000 => 'MVFR',
-        default => 'VFR'
-    };
+    if ($ceiling === null) {
+        $ceilCat = 'VFR';
+    } elseif ($ceiling < 500) {
+        $ceilCat = 'LIFR';
+    } elseif ($ceiling < 1000) {
+        $ceilCat = 'IFR';
+    } elseif ($ceiling <= 3000) {
+        $ceilCat = 'MVFR';
+    } else {
+        $ceilCat = 'VFR';
+    }
 
     // Classify based on visibility
-    $visCat = match(true) {
-        $visibility === null => 'VFR',
-        $visibility < 1 => 'LIFR',
-        $visibility < 3 => 'IFR',
-        $visibility <= 5 => 'MVFR',
-        default => 'VFR'
-    };
+    if ($visibility === null) {
+        $visCat = 'VFR';
+    } elseif ($visibility < 1) {
+        $visCat = 'LIFR';
+    } elseif ($visibility < 3) {
+        $visCat = 'IFR';
+    } elseif ($visibility <= 5) {
+        $visCat = 'MVFR';
+    } else {
+        $visCat = 'VFR';
+    }
 
     // Return most restrictive category
     $priority = ['LIFR' => 0, 'IFR' => 1, 'MVFR' => 2, 'VFR' => 3];
@@ -539,13 +547,13 @@ function classifyFlightCategory(?int $ceiling, ?float $visibility): string {
  * @return string PERTI weather category
  */
 function mapToWeatherCategory(string $flightCat): string {
-    return match($flightCat) {
+    $map = [
         'VFR' => 'VMC',
         'MVFR' => 'LVMC',
         'IFR' => 'IMC',
-        'LIFR' => 'LIMC',
-        default => 'VMC'
-    };
+        'LIFR' => 'LIMC'
+    ];
+    return $map[$flightCat] ?? 'VMC';
 }
 
 /**
