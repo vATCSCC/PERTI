@@ -3587,6 +3587,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             const currentTimeIso = result.current_time_iso;
                             const displayLabels = data.display_labels || [];
 
+                            // Calculate fixed 24-hour time bounds for true proportional time axis
+                            const now = new Date();
+                            const timeMax = new Date(now.getTime());
+                            const timeMin = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
                             // Convert data to {x, y} format for time axis
                             const makeTimeData = (values) => {
                                 return data.labels.map((ts, i) => ({ x: ts, y: values[i] }));
@@ -3739,6 +3744,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         x: {
                                             type: 'time',
                                             display: true,
+                                            min: timeMin,
+                                            max: timeMax,
                                             title: {
                                                 display: true,
                                                 text: 'Time (UTC)',
