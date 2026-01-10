@@ -58,7 +58,7 @@ while ($data = mysqli_fetch_array($query)) {
 
     // Add region icons for international hotline events
     $icon_prefix = '';
-    if (str_starts_with($data['hotline'], 'Canada')) {
+    if (strpos($data['hotline'], 'Canada') === 0) {
         $icon_prefix = '<img src="https://flagcdn.com/20x15/ca.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
     } elseif ($data['hotline'] === 'Mexico') {
         $icon_prefix = '<img src="https://flagcdn.com/20x15/mx.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
@@ -99,7 +99,7 @@ while ($data = mysqli_fetch_array($query)) {
         echo '<td class="text-warning text-center">'.$data['oplevel'].' - Regional Impact</td>';
     }
     elseif ($data['oplevel'] == 4) {
-        echo '<td class="text-danger text-center">'.$data['oplevel'].' - NAS-Wide Impact/td>';
+        echo '<td class="text-danger text-center">'.$data['oplevel'].' - NAS-Wide Impact</td>';
     }
 
     echo '<td class="text-center">'.$data['updated_at'].'</td>';
