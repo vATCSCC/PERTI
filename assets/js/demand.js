@@ -722,18 +722,19 @@ function renderOriginChart() {
             name: artcc,
             type: 'bar',
             stack: 'origin',
-            barWidth: intervalMs * 0.65,
+            barWidth: intervalMs * 0.75, // AADC style wider bars
+            barGap: '0%',
             emphasis: {
                 focus: 'series',
                 itemStyle: {
-                    shadowBlur: 4,
-                    shadowColor: 'rgba(0,0,0,0.3)'
+                    shadowBlur: 2,
+                    shadowColor: 'rgba(0,0,0,0.2)'
                 }
             },
             itemStyle: {
                 color: getARTCCColor(artcc),
-                borderColor: '#fff',
-                borderWidth: 0.5
+                borderColor: 'transparent', // No borders - AADC style
+                borderWidth: 0
             },
             data: seriesData
         };
@@ -1005,26 +1006,26 @@ function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
         name: name,
         type: 'bar',
         stack: type,
-        barWidth: intervalMs * 0.65, // Width in milliseconds (65% of interval)
-        barGap: '5%',
+        barWidth: intervalMs * 0.75, // Width in milliseconds (75% of interval) - AADC style wider bars
+        barGap: '0%',
         emphasis: {
             focus: 'series',
             itemStyle: {
-                shadowBlur: 4,
-                shadowColor: 'rgba(0,0,0,0.3)'
+                shadowBlur: 2,
+                shadowColor: 'rgba(0,0,0,0.2)'
             }
         },
         itemStyle: {
             color: color,
-            borderColor: type === 'arrivals' ? '#ffffff' : 'rgba(255,255,255,0.7)',
-            borderWidth: type === 'arrivals' ? 1 : 0.5
+            borderColor: 'transparent', // No borders - AADC style
+            borderWidth: 0
         },
         data: data
     };
 }
 
 /**
- * Format timestamp for tooltip display - TBFM/FSM style
+ * Format timestamp for tooltip display - FAA AADC style
  */
 function formatTimeLabelFromTimestamp(timestamp) {
     const d = new Date(timestamp);
@@ -1037,12 +1038,12 @@ function formatTimeLabelFromTimestamp(timestamp) {
     const endHours = endTime.getUTCHours().toString().padStart(2, '0');
     const endMinutes = endTime.getUTCMinutes().toString().padStart(2, '0');
 
-    // TBFM/FSM style: "14:00Z - 15:00Z" or "14:00Z - 14:15Z"
-    return `${hours}:${minutes}Z - ${endHours}:${endMinutes}Z`;
+    // AADC style: "1400" or "1400 - 1500"
+    return `${hours}${minutes} - ${endHours}${endMinutes}`;
 }
 
 /**
- * Get current time markLine for TRUE TIME AXIS - TBFM/FSM style
+ * Get current time markLine for TRUE TIME AXIS - FAA AADC style
  */
 function getCurrentTimeMarkLineForTimeAxis() {
     const now = new Date();
@@ -1051,27 +1052,28 @@ function getCurrentTimeMarkLineForTimeAxis() {
 
     return {
         silent: true,
-        symbol: ['none', 'arrow'],
-        symbolSize: [4, 8],
+        symbol: ['none', 'none'],
         lineStyle: {
-            color: '#CC0000',
+            color: '#0066CC',
             width: 2,
             type: 'solid'
         },
         label: {
             show: true,
-            formatter: `NOW\n${hours}:${minutes}Z`,
+            formatter: `${hours}${minutes}z`,
             position: 'start',
-            color: '#CC0000',
+            color: '#0066CC',
             fontWeight: 'bold',
             fontSize: 10,
             fontFamily: '"Inconsolata", monospace',
-            backgroundColor: 'rgba(255,255,255,0.9)',
-            padding: [2, 4],
-            borderRadius: 2
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            padding: [2, 6],
+            borderRadius: 2,
+            borderColor: '#0066CC',
+            borderWidth: 1
         },
         data: [{
-            xAxis: now.getTime() // Use actual timestamp value
+            xAxis: now.getTime()
         }]
     };
 }
