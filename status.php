@@ -1800,7 +1800,6 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
     <!-- Chart.js for live graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
@@ -3569,9 +3568,21 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             if (phaseCtx) {
                 // Fetch data from API
                 fetch('/api/stats/flight_phase_history.php?hours=24&interval=15')
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) throw new Error('API returned ' + response.status);
+                        return response.json();
+                    })
                     .then(result => {
-                        if (result.success && result.data) {
+                        console.log('Phase API response:', result);
+                        if (!result.success) {
+                            console.error('API error:', result.error || 'Unknown error');
+                            return;
+                        }
+                        if (!result.data || !result.data.labels || result.data.labels.length === 0) {
+                            console.warn('No phase data available');
+                            return;
+                        }
+                        try {
                             const data = result.data;
                             const currentTimeIso = result.current_time_iso;
                             const displayLabels = data.display_labels || [];
@@ -3853,6 +3864,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     window.phaseChartInstance.update();
                                 });
                             }
+                        } catch (chartErr) {
+                            console.error('Chart creation error:', chartErr);
                         }
                     })
                     .catch(err => console.error('Failed to load phase history:', err));
