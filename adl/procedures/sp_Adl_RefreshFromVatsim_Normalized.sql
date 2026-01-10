@@ -254,11 +254,11 @@ BEGIN
     
     INSERT INTO dbo.adl_flight_core (
         flight_key, cid, callsign, flight_id,
-        phase, flight_status, last_source, is_active,
+        phase, last_source, is_active,
         first_seen_utc, last_seen_utc, logon_time_utc,
         adl_date, adl_time, snapshot_utc
     )
-    SELECT 
+    SELECT
         p.flight_key, p.cid, p.callsign, p.flight_server,
         CASE
             WHEN p.lat IS NULL THEN 'prefile'
@@ -267,13 +267,6 @@ BEGIN
             WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) < 15 THEN 'departed'
             WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) > 85 THEN 'descending'
             ELSE 'enroute'
-        END,
-        CASE
-            WHEN p.lat IS NULL THEN 'PROPOSED'
-            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) < 10 THEN 'DEPARTING'
-            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) > 85 THEN 'ARRIVED'
-            WHEN ISNULL(p.pct_complete, 0) >= 90 THEN 'ARRIVING'
-            ELSE 'ACTIVE'
         END,
         'vatsim', 1,
         @now, @now, p.logon_time,
@@ -296,13 +289,6 @@ BEGIN
             WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) < 15 THEN 'departed'
             WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) > 85 THEN 'descending'
             ELSE 'enroute'
-        END,
-        c.flight_status = CASE
-            WHEN p.lat IS NULL THEN 'PROPOSED'
-            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) < 10 THEN 'DEPARTING'
-            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) > 85 THEN 'ARRIVED'
-            WHEN ISNULL(p.pct_complete, 0) >= 90 THEN 'ARRIVING'
-            ELSE 'ACTIVE'
         END,
         c.flight_id = COALESCE(p.flight_server, c.flight_id)
     FROM dbo.adl_flight_core c
@@ -349,13 +335,13 @@ BEGIN
     )
     INSERT INTO dbo.adl_flight_core (
         flight_key, cid, callsign,
-        phase, flight_status, last_source, is_active,
+        phase, last_source, is_active,
         first_seen_utc, last_seen_utc,
         adl_date, adl_time, snapshot_utc
     )
     SELECT
         pf.flight_key, pf.cid, pf.callsign,
-        'prefile', 'PROPOSED', 'vatsim', 1,
+        'prefile', 'vatsim', 1,
         @now, @now,
         CAST(@now AS DATE), CAST(@now AS TIME), @now
     FROM prefiles pf
@@ -698,7 +684,7 @@ BEGIN
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
     
-    UPDATE dbo.adl_flight_core SET is_active = 0, phase = 'arrived', flight_status = 'COMPLETED' WHERE is_active = 1 AND last_seen_utc < DATEADD(MINUTE, -5, @now);
+    UPDATE dbo.adl_flight_core SET is_active = 0, phase = 'arrived' WHERE is_active = 1 AND last_seen_utc < DATEADD(MINUTE, -5, @now);
 
     SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 

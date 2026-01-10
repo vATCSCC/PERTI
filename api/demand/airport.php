@@ -165,10 +165,12 @@ if ($direction === 'arr' || $direction === 'both') {
             "total" => (int)$row['total'],
             "breakdown" => [
                 "arrived" => (int)$row['arrived'],
-                "active" => (int)$row['active'],
+                "descending" => (int)$row['descending'],
+                "enroute" => (int)$row['enroute'],
                 "departed" => (int)$row['departed'],
-                "scheduled" => (int)$row['scheduled'],
-                "proposed" => (int)$row['proposed']
+                "taxiing" => (int)$row['taxiing'],
+                "prefile" => (int)$row['prefile'],
+                "unknown" => (int)$row['unknown']
             ]
         ];
     }
@@ -209,10 +211,12 @@ if ($direction === 'dep' || $direction === 'both') {
             "total" => (int)$row['total'],
             "breakdown" => [
                 "arrived" => (int)$row['arrived'],
-                "active" => (int)$row['active'],
+                "descending" => (int)$row['descending'],
+                "enroute" => (int)$row['enroute'],
                 "departed" => (int)$row['departed'],
-                "scheduled" => (int)$row['scheduled'],
-                "proposed" => (int)$row['proposed']
+                "taxiing" => (int)$row['taxiing'],
+                "prefile" => (int)$row['prefile'],
+                "unknown" => (int)$row['unknown']
             ]
         ];
     }

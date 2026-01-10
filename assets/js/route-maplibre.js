@@ -4746,7 +4746,7 @@ $(document).ready(function() {
                         altitude: flight.altitude || 0,
                         groundspeed: flight.groundspeed_kts || flight.groundspeed || 0,
                         aircraft_type: stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || ''),
-                        phase: flight.phase || flight.flight_status || '',
+                        phase: flight.phase || '',
                         fp_route: flight.fp_route || '',
                         flight_key: flight.flight_key || flight.callsign
                     },

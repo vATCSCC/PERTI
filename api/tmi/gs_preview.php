@@ -97,9 +97,9 @@ $params = [];
 // Use a small buffer (5 min) to account for timing differences
 $where[] = "(etd_runway_utc > DATEADD(MINUTE, -5, GETUTCDATE()) OR etd_runway_utc IS NULL)";
 
-// Also exclude flights marked as airborne/departed if flight_status exists
-// flight_status values: NULL/empty = not departed, 'A' = active/airborne, 'D' = departed, 'L' = landed
-$where[] = "(flight_status IS NULL OR flight_status NOT IN ('A','D','L'))";
+// Exclude flights that are already airborne or arrived (only want prefile/taxiing)
+// phase values: prefile, taxiing, departed, enroute, descending, arrived
+$where[] = "(phase IS NULL OR phase IN ('prefile', 'taxiing', 'unknown'))";
 
 if (count($arrival_airports) > 0) {
     $where[] = "fp_dest_icao IN (" . implode(',', array_fill(0, count($arrival_airports), '?')) . ")";

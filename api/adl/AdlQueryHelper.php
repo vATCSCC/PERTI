@@ -134,7 +134,6 @@ class AdlQueryHelper {
                 c.callsign,
                 c.cid,
                 c.phase,
-                c.flight_status,
                 c.is_active,
                 c.first_seen_utc,
                 c.last_seen_utc,

@@ -21,7 +21,7 @@ PRINT 'Step 1: Cleaning up stale flights...';
 
 DECLARE @cleaned INT;
 UPDATE dbo.adl_flight_core
-SET is_active = 0, phase = 'arrived', flight_status = 'COMPLETED'
+SET is_active = 0, phase = 'arrived'
 WHERE is_active = 1
   AND last_seen_utc < DATEADD(MINUTE, -5, SYSUTCDATETIME());
 

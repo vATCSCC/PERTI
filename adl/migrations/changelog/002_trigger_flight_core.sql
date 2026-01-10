@@ -53,11 +53,6 @@ BEGIN
 
         UNION ALL
 
-        SELECT flight_uid, callsign, 'I', @table_name, 'flight_status', NULL, flight_status, @batch_id, @now
-        FROM inserted WHERE flight_status IS NOT NULL
-
-        UNION ALL
-
         SELECT flight_uid, callsign, 'I', @table_name, 'is_active', NULL, CAST(is_active AS NVARCHAR(5)), @batch_id, @now
         FROM inserted WHERE is_active IS NOT NULL
 
@@ -97,14 +92,6 @@ BEGIN
         FROM inserted i
         JOIN deleted d ON d.flight_uid = i.flight_uid
         WHERE ISNULL(i.phase, '') <> ISNULL(d.phase, '')
-
-        UNION ALL
-
-        -- flight_status changes - use 'S' for status
-        SELECT i.flight_uid, i.callsign, 'S', @table_name, 'flight_status', d.flight_status, i.flight_status, @batch_id, @now
-        FROM inserted i
-        JOIN deleted d ON d.flight_uid = i.flight_uid
-        WHERE ISNULL(i.flight_status, '') <> ISNULL(d.flight_status, '')
 
         UNION ALL
 

@@ -201,7 +201,7 @@ $flights_sql = "
         f.delay_status,
         f.program_delay_min,
         f.absolute_delay_min,
-        f.flight_status
+        f.phase
     FROM dbo.adl_flights f
     WHERE f.ctl_type = 'GS'
     ORDER BY f.ctd_utc ASC, f.eta_runway_utc ASC, f.callsign ASC
