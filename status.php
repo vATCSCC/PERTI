@@ -60,6 +60,10 @@ $liveData = [
     'zone_transitions_1h' => 0,
     'boundary_crossings_1h' => 0,
     'planned_crossings_1h' => 0,
+    'last_boundary_detection' => null,
+    'last_crossing_calc' => null,
+    'flights_with_artcc' => 0,
+    'flights_with_crossings' => 0,
     'weather_alerts_active' => 0,
     'atis_updates_1h' => 0,
     'atis_pending' => 0,
@@ -205,6 +209,40 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         $liveData['planned_crossings_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Background processing: last boundary detection and crossing calc times
+    $sql = "SELECT TOP 1 entry_time FROM dbo.adl_flight_boundary_log ORDER BY entry_time DESC";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row && $row['entry_time'] instanceof DateTime) {
+            $liveData['last_boundary_detection'] = $row['entry_time']->format('H:i:s') . 'Z';
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    $sql = "SELECT TOP 1 calculated_at FROM dbo.adl_flight_planned_crossings ORDER BY calculated_at DESC";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row && $row['calculated_at'] instanceof DateTime) {
+            $liveData['last_crossing_calc'] = $row['calculated_at']->format('H:i:s') . 'Z';
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Flights with ARTCC assigned and flights with crossings calculated
+    $sql = "SELECT
+                SUM(CASE WHEN current_artcc IS NOT NULL THEN 1 ELSE 0 END) AS with_artcc,
+                SUM(CASE WHEN crossing_last_calc_utc IS NOT NULL THEN 1 ELSE 0 END) AS with_crossings
+            FROM dbo.adl_flight_core WHERE is_active = 1";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['flights_with_artcc'] = $row['with_artcc'] ?? 0;
+        $liveData['flights_with_crossings'] = $row['with_crossings'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
@@ -1912,13 +1950,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="mb-0"><i class="fas fa-project-diagram mr-2"></i>Flight Data Processing Pipeline</h6>
                 <div>
-                    <span class="runtime-badge <?= $runtimes['total'] < 1000 ? 'fast' : ($runtimes['total'] < 3000 ? 'medium' : 'slow') ?>">
+                    <span class="runtime-badge <?= $runtimes['total'] < 800 ? 'fast' : ($runtimes['total'] < 2000 ? 'medium' : 'slow') ?>">
                         Page: <?= $runtimes['total'] ?>ms
                     </span>
-                    <span class="runtime-badge <?= $runtimes['adl_queries'] < 500 ? 'fast' : ($runtimes['adl_queries'] < 1500 ? 'medium' : 'slow') ?>">
+                    <span class="runtime-badge <?= $runtimes['adl_queries'] < 300 ? 'fast' : ($runtimes['adl_queries'] < 800 ? 'medium' : 'slow') ?>">
                         DB: <?= $runtimes['adl_queries'] ?>ms
                     </span>
-                    <span class="runtime-badge <?= $runtimes['api_checks'] < 5000 ? 'fast' : 'medium' ?>">
+                    <span class="runtime-badge <?= $runtimes['api_checks'] < 3000 ? 'fast' : ($runtimes['api_checks'] < 6000 ? 'medium' : 'slow') ?>">
                         APIs: <?= $runtimes['api_checks'] ?>ms
                     </span>
                 </div>
@@ -2141,7 +2179,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         <?= strtoupper($apiHealth['vatsim']['status']) ?>
                                     </span>
                                 </td>
-                                <td class="timing-info <?= ($apiHealth['vatsim']['latency'] ?? 999) < 500 ? 'latency-good' : (($apiHealth['vatsim']['latency'] ?? 999) < 1500 ? 'latency-ok' : 'latency-bad') ?>">
+                                <td class="timing-info <?= ($apiHealth['vatsim']['latency'] ?? 9999) < 300 ? 'latency-good' : (($apiHealth['vatsim']['latency'] ?? 9999) < 800 ? 'latency-ok' : 'latency-bad') ?>">
                                     <?= $apiHealth['vatsim']['latency'] ? $apiHealth['vatsim']['latency'] . 'ms' : 'N/A' ?>
                                 </td>
                             </tr>
@@ -2155,7 +2193,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         <?= strtoupper($apiHealth['aviationweather']['status']) ?>
                                     </span>
                                 </td>
-                                <td class="timing-info <?= ($apiHealth['aviationweather']['latency'] ?? 999) < 500 ? 'latency-good' : (($apiHealth['aviationweather']['latency'] ?? 999) < 1500 ? 'latency-ok' : 'latency-bad') ?>">
+                                <td class="timing-info <?= ($apiHealth['aviationweather']['latency'] ?? 9999) < 300 ? 'latency-good' : (($apiHealth['aviationweather']['latency'] ?? 9999) < 800 ? 'latency-ok' : 'latency-bad') ?>">
                                     <?= $apiHealth['aviationweather']['latency'] ? $apiHealth['aviationweather']['latency'] . 'ms' : 'N/A' ?>
                                 </td>
                             </tr>
@@ -2169,7 +2207,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         <?= strtoupper($apiHealth['noaa']['status']) ?>
                                     </span>
                                 </td>
-                                <td class="timing-info <?= ($apiHealth['noaa']['latency'] ?? 999) < 500 ? 'latency-good' : (($apiHealth['noaa']['latency'] ?? 999) < 1500 ? 'latency-ok' : 'latency-bad') ?>">
+                                <td class="timing-info <?= ($apiHealth['noaa']['latency'] ?? 9999) < 300 ? 'latency-good' : (($apiHealth['noaa']['latency'] ?? 9999) < 800 ? 'latency-ok' : 'latency-bad') ?>">
                                     <?= $apiHealth['noaa']['latency'] ? $apiHealth['noaa']['latency'] . 'ms' : 'N/A' ?>
                                 </td>
                             </tr>
@@ -2436,17 +2474,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <tr>
                                 <td>
                                     <div class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(Background)</span></div>
-                                    <div class="component-desc"><?= number_format($liveData['boundary_crossings_1h']) ?> crossings/hr</div>
+                                    <div class="component-desc"><?= number_format($liveData['boundary_crossings_1h']) ?> crossings/hr &bull; <?= number_format($liveData['flights_with_artcc']) ?> flights tracked</div>
                                 </td>
-                                <td class="timing-info">Every 60s</td>
-                                <td><span class="status-badge complete">Active</span></td>
+                                <td class="timing-info"><?= $liveData['last_boundary_detection'] ?? 'N/A' ?></td>
+                                <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>"><?= $liveData['boundary_crossings_1h'] > 0 ? 'Active' : 'Idle' ?></span></td>
                             </tr>
                             <tr>
                                 <td>
                                     <div class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(Background)</span></div>
-                                    <div class="component-desc"><?= number_format($liveData['planned_crossings_1h']) ?> calc/hr (tiered)</div>
+                                    <div class="component-desc"><?= number_format($liveData['planned_crossings_1h']) ?> calc/hr &bull; <?= number_format($liveData['flights_with_crossings']) ?> flights with crossings</div>
                                 </td>
-                                <td class="timing-info">Every 60s</td>
+                                <td class="timing-info"><?= $liveData['last_crossing_calc'] ?? 'N/A' ?></td>
                                 <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>"><?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : 'Idle' ?></span></td>
                             </tr>
                         </tbody>
@@ -2457,7 +2495,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <div class="status-section">
                     <div class="status-section-header">
                         <span><i class="fas fa-sync-alt mr-2"></i>ADL Refresh Procedure</span>
-                        <span class="cycle-badge">V8.6 &bull; 15s Cycle</span>
+                        <span class="cycle-badge">V8.9 &bull; 15s Cycle + 60s Background</span>
                     </div>
                     <!-- Live Stats Header -->
                     <div class="procedure-header-stats">
@@ -3637,7 +3675,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             // Calculate combined max for synced y-axes
                             // For stacked chart, max is sum of all stacked values at each point
                             const stackedPhases = ['arrived', 'descending', 'enroute', 'departed', 'taxiing', 'unknown'];
-                            let yMax = 0;
+                            let rawMax = 0;
                             for (let i = 0; i < data.labels.length; i++) {
                                 let stackSum = 0;
                                 stackedPhases.forEach(phase => {
@@ -3647,10 +3685,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 });
                                 // Also check prefile values
                                 const prefileVal = data.datasets.prefile ? data.datasets.prefile[i] : 0;
-                                yMax = Math.max(yMax, stackSum, prefileVal);
+                                rawMax = Math.max(rawMax, stackSum, prefileVal);
                             }
-                            // Add 10% padding
-                            yMax = Math.ceil(yMax * 1.1);
+                            // Round up to nice interval (500 for values < 5000, 1000 for larger)
+                            const interval = rawMax < 5000 ? 500 : 1000;
+                            const yMax = Math.ceil(rawMax * 1.05 / interval) * interval;
 
                             window.phaseChartInstance = new Chart(phaseCtx, {
                                 type: 'line',
@@ -3712,7 +3751,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Prefile (shadow)',
-                                            data: makeTimeData(data.datasets.prefile),
+                                            data: makeTimeData(data.datasets.prefile || []),
                                             borderColor: '#000000',
                                             backgroundColor: 'transparent',
                                             fill: false,
@@ -3726,7 +3765,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         },
                                         {
                                             label: 'Prefile',
-                                            data: makeTimeData(data.datasets.prefile),
+                                            data: makeTimeData(data.datasets.prefile || []),
                                             borderColor: '#06b6d4',
                                             backgroundColor: 'transparent',
                                             fill: false,
