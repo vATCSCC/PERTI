@@ -1,9 +1,10 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.2 - ETD Optimization
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.3 - ETD Optimization Fix
 --
--- Changes from V8.9.1:
---   - Optimized Step 4b: filter flights needing ETD BEFORE expensive calculations
---   - Previously processed all ~1360 flights, now only processes ~10% needing updates
+-- Changes from V8.9.2:
+--   - Fixed Step 4b filter: only calculate ETD for flights WITHOUT an ETD
+--   - V8.9.2 filter was too broad (still processed 90% of flights)
+--   - Now truly processes only new flights needing initial ETD calculation
 --
 -- Changes from V8.9.1:
 --   - TEMPORARILY DISABLED Steps 10 & 11 (boundary/crossings) for diagnosis
@@ -540,8 +541,8 @@ BEGIN
     SET @step4_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 4b: ETD/STD Calculation (V8.4) - Optimized: filter early
-    -- Only process flights that need ETD updates (skip those with high-priority sources)
+    -- Step 4b: ETD/STD Calculation (V8.4) - V8.9.3: Only process flights without ETD
+    -- Once a flight has an ETD, we don't recalculate (saves ~90% of processing)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
@@ -574,10 +575,10 @@ BEGIN
         FROM #pilots p
         INNER JOIN dbo.adl_flight_core c ON c.flight_uid = p.flight_uid
         LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = p.flight_uid
-        -- OPTIMIZATION: Join to flight_times early and filter to flights needing ETD updates
+        -- V8.9.3: Only process flights that don't have an ETD yet
         INNER JOIN dbo.adl_flight_times ft ON ft.flight_uid = p.flight_uid
         WHERE p.flight_uid IS NOT NULL
-          AND (ft.etd_utc IS NULL OR ft.etd_source NOT IN ('A', 'T', 'S'))
+          AND ft.etd_utc IS NULL  -- Only new flights without ETD
     ),
     ETDResolved AS (
         SELECT flight_uid, phase, deptime, deptime_minutes, fp_dof_utc, fp_enroute_minutes,
@@ -861,7 +862,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.2 created successfully';
-PRINT 'OPTIMIZED: Step 4b ETD calculation now filters early (processes ~10% of flights)';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.3 created successfully';
+PRINT 'FIXED: Step 4b now only processes flights WITHOUT ETD (was still processing 90%)';
 PRINT 'DISABLED: Steps 10 (boundary) and 11 (crossings) for performance diagnosis';
 GO
