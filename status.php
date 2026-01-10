@@ -3814,8 +3814,16 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                                 color: '#06b6d4'
                                             },
                                             grid: { display: false },
-                                            ticks: { font: { size: 10 }, color: '#06b6d4' },
-                                            beginAtZero: true
+                                            ticks: {
+                                                font: { size: 10 },
+                                                color: '#06b6d4',
+                                                // Sync tick count with y axis
+                                                callback: function(value) {
+                                                    return value;
+                                                }
+                                            },
+                                            beginAtZero: true,
+                                            // Sync scale will be set by plugin
                                         }
                                     },
                                     interaction: {
@@ -3825,16 +3833,15 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     }
                                 },
                                 plugins: [{
-                                    id: 'syncY2Axis',
-                                    afterLayout: function(chart) {
-                                        // Sync y2 axis to use same scale as y axis
-                                        const y = chart.scales.y;
-                                        const y2 = chart.scales.y2;
-                                        if (y && y2 && (y2.max !== y.max || y2.min !== y.min)) {
-                                            y2.max = y.max;
-                                            y2.min = y.min;
-                                            y2.buildTicks();
-                                            y2.configure();
+                                    id: 'syncY2Scale',
+                                    afterDataLimits: function(chart, args) {
+                                        // After y axis calculates its limits, apply them to y2
+                                        if (args.scale.id === 'y') {
+                                            const y2 = chart.options.scales.y2;
+                                            if (y2) {
+                                                y2.min = args.scale.min;
+                                                y2.max = args.scale.max;
+                                            }
                                         }
                                     }
                                 }]
