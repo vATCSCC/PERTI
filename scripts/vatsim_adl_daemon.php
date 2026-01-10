@@ -595,11 +595,12 @@ function getAtisForCycle(array $atisList, array $config, int $cycleNum): array {
  */
 function processAtis($conn, array $atisList): array {
     if (empty($atisList)) {
-        return ['imported' => 0, 'parsed' => 0];
+        return ['imported' => 0, 'parsed' => 0, 'skipped' => 0];
     }
 
     $imported = 0;
     $parsed = 0;
+    $skipped = 0;
 
     // Import ATIS records
     $json = json_encode($atisList);
@@ -631,12 +632,20 @@ function processAtis($conn, array $atisList): array {
                     $parsed++;
                     sqlsrv_free_stmt($stmt2);
                 }
+            } else {
+                // No runways found - mark as SKIPPED so it doesn't stay pending forever
+                $sql2 = "UPDATE dbo.vatsim_atis SET parse_status = 'SKIPPED' WHERE atis_id = ?";
+                $stmt2 = @sqlsrv_query($conn, $sql2, [&$atisId]);
+                if ($stmt2 !== false) {
+                    $skipped++;
+                    sqlsrv_free_stmt($stmt2);
+                }
             }
         }
         sqlsrv_free_stmt($stmt);
     }
 
-    return ['imported' => $imported, 'parsed' => $parsed];
+    return ['imported' => $imported, 'parsed' => $parsed, 'skipped' => $skipped];
 }
 
 // ============================================================================
@@ -780,6 +789,7 @@ function runDaemon(array $config): void {
         'total_flights' => 0,
         'total_atis'    => 0,
         'total_parsed'  => 0,
+        'total_skipped' => 0,
         'started'       => time(),
         // Boundary processing stats
         'boundary_runs'        => 0,
@@ -838,6 +848,7 @@ function runDaemon(array $config): void {
             // 5. Process ATIS (with dynamic tiered intervals)
             $atisImported = 0;
             $atisParsed = 0;
+            $atisSkipped = 0;
             if ($config['atis_enabled']) {
                 // Decode JSON for ATIS extraction
                 $vatsimData = json_decode($jsonData, true);
@@ -849,6 +860,7 @@ function runDaemon(array $config): void {
                         $atisResult = processAtis($conn, $tieredAtis);
                         $atisImported = $atisResult['imported'];
                         $atisParsed = $atisResult['parsed'];
+                        $atisSkipped = $atisResult['skipped'] ?? 0;
                     }
                 }
                 unset($vatsimData);
@@ -875,6 +887,7 @@ function runDaemon(array $config): void {
             $stats['total_flights'] += $pilotCount;
             $stats['total_atis'] += $atisImported;
             $stats['total_parsed'] += $atisParsed;
+            $stats['total_skipped'] += $atisSkipped;
             if ($spMs > $stats['max_sp_ms']) {
                 $stats['max_sp_ms'] = $spMs;
             }
@@ -898,9 +911,12 @@ function runDaemon(array $config): void {
             ];
 
             // Add ATIS stats when processed this cycle
-            if ($atisImported > 0 || $atisParsed > 0) {
+            if ($atisImported > 0 || $atisParsed > 0 || $atisSkipped > 0) {
                 $logContext['atis'] = $atisImported;
                 $logContext['parsed'] = $atisParsed;
+                if ($atisSkipped > 0) {
+                    $logContext['skipped'] = $atisSkipped;
+                }
             }
 
             // Add boundary stats when processed this cycle
@@ -968,6 +984,7 @@ function runDaemon(array $config): void {
                 'avg_flights'   => $avgFlights,
                 'total_atis'    => $stats['total_atis'],
                 'atis_parsed'   => $stats['total_parsed'],
+                'atis_skipped'  => $stats['total_skipped'],
                 'bnd_runs'      => $stats['boundary_runs'],
                 'bnd_trans'     => $stats['boundary_transitions'],
                 'bnd_cross'     => $stats['boundary_crossings'],
