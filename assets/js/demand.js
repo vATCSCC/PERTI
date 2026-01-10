@@ -490,6 +490,7 @@ function updateRateInfoDisplay(rateData) {
         $('#rate_weather_category').text('--').removeClass().addClass('badge');
         $('#rate_display').text('--/--');
         $('#rate_source').text('--');
+        $('#rate_override_badge').hide();
         return;
     }
 
@@ -505,6 +506,10 @@ function updateRateInfoDisplay(rateData) {
         if (rateData.arr_runways) tooltip += `Arr: ${rateData.arr_runways}\n`;
         if (rateData.dep_runways) tooltip += `Dep: ${rateData.dep_runways}`;
     }
+    // Add override info to tooltip
+    if (rateData.has_override && rateData.override_reason) {
+        tooltip += `\n\nOverride: ${rateData.override_reason}`;
+    }
     $configEl.attr('title', tooltip.trim());
 
     // Weather category with color
@@ -518,6 +523,21 @@ function updateRateInfoDisplay(rateData) {
         $weatherBadge.css('color', '#fff');
     }
 
+    // Show/hide override badge
+    const $overrideBadge = $('#rate_override_badge');
+    if (rateData.has_override) {
+        $overrideBadge.show();
+        // Add expiry time to badge tooltip
+        if (rateData.override_end_utc) {
+            const endTime = new Date(rateData.override_end_utc);
+            const endStr = endTime.getUTCHours().toString().padStart(2, '0') + ':' +
+                           endTime.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+            $overrideBadge.attr('title', `Override active until ${endStr}`);
+        }
+    } else {
+        $overrideBadge.hide();
+    }
+
     // Rates display (AAR/ADR)
     const aar = rateData.rates?.vatsim_aar;
     const adr = rateData.rates?.vatsim_adr;
@@ -527,18 +547,23 @@ function updateRateInfoDisplay(rateData) {
     // Source info (match_type or rate_source)
     let sourceText = '--';
     if (rateData.match_type) {
-        // Format match type: "atis_exact" -> "ATIS", "detected" -> "Detected", etc.
+        // Format match type for display
         const matchTypeMap = {
-            'atis_exact': 'ATIS',
-            'atis_fuzzy': 'ATIS~',
-            'detected': 'Detected',
-            'default': 'Default',
-            'manual': 'Manual'
+            'EXACT': 'Exact',
+            'PARTIAL_ARR': 'Partial',
+            'PARTIAL_DEP': 'Partial',
+            'SUBSET_ARR': 'Subset',
+            'SUBSET_DEP': 'Subset',
+            'WIND_BASED': 'Wind',
+            'CAPACITY_DEFAULT': 'Default',
+            'VMC_FALLBACK': 'Fallback',
+            'DETECTED_TRACKS': 'Detected',
+            'MANUAL': 'Manual'
         };
         sourceText = matchTypeMap[rateData.match_type] || rateData.match_type;
 
-        // Add match score if available
-        if (rateData.match_score && rateData.match_score < 100) {
+        // Add match score if available and not 100%
+        if (rateData.match_score && rateData.match_score < 100 && rateData.match_type !== 'MANUAL') {
             sourceText += ` ${rateData.match_score}%`;
         }
     } else if (rateData.rate_source) {

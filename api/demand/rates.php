@@ -137,6 +137,12 @@ if ($effectiveUtc instanceof DateTime) {
     $effectiveUtc = $effectiveUtc->format('Y-m-d\TH:i:s\Z');
 }
 
+// Format override_end_utc if present
+$overrideEndUtc = isset($row['override_end_utc']) ? $row['override_end_utc'] : null;
+if ($overrideEndUtc instanceof DateTime) {
+    $overrideEndUtc = $overrideEndUtc->format('Y-m-d\TH:i:s\Z');
+}
+
 // Build response with enhanced fields
 $response = [
     "success" => true,
@@ -148,7 +154,7 @@ $response = [
     "weather_category" => $row['weather_category'] ?? 'VMC',
     "weather_impact_category" => (int)($row['weather_impact_category'] ?? 0),
     "config_matched" => (bool)$row['config_matched'],
-    "config_id" => $row['config_id'],
+    "config_id" => $row['config_id'] !== null ? (int)$row['config_id'] : null,
     "config_name" => $row['config_name'],
     "match_type" => $row['match_type'],
     "match_score" => (int)($row['match_score'] ?? 0),
@@ -169,7 +175,12 @@ $response = [
     ],
     "is_suggested" => (bool)$row['is_suggested'],
     "rate_source" => $row['rate_source'],
-    "effective_utc" => $effectiveUtc
+    "effective_utc" => $effectiveUtc,
+    // Manual override fields (new)
+    "has_override" => (bool)($row['has_override'] ?? false),
+    "override_id" => isset($row['override_id']) ? (int)$row['override_id'] : null,
+    "override_reason" => $row['override_reason'] ?? null,
+    "override_end_utc" => $overrideEndUtc
 ];
 
 echo json_encode($response);

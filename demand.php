@@ -354,18 +354,22 @@ include("load/connect.php");
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card h-100" style="border-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);">
                     <div class="card-body">
-                        <div class="perti-info-label mb-1" style="color: #4f46e5;">
+                        <div class="perti-info-label mb-1 d-flex align-items-center" style="color: #4f46e5;">
                             <i class="fas fa-tachometer-alt mr-1"></i> Rates
                             <span id="rate_weather_category" class="badge ml-1" style="background-color: #22c55e; color: #fff; font-size: 0.7rem;">--</span>
+                            <span id="rate_override_badge" class="badge badge-warning ml-1" style="display: none; font-size: 0.65rem;">OVERRIDE</span>
+                            <button type="button" class="btn btn-link btn-sm ml-auto p-0" id="rate_override_btn" title="Set manual rate override" style="font-size: 0.7rem; color: #6366f1;">
+                                <i class="fas fa-edit"></i>
+                            </button>
                         </div>
-                        <div class="perti-stat-grid">
+                        <div class="d-flex align-items-start" style="gap: 12px;">
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Config</div>
-                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.8rem; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">--</div>
+                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.75rem; cursor: help;" title="">--</div>
                             </div>
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">AAR/ADR</div>
-                                <div id="rate_display" class="perti-stat-value" style="color: #4f46e5;">--/--</div>
+                                <div id="rate_display" class="perti-stat-value" style="color: #4f46e5; font-size: 1rem;">--/--</div>
                             </div>
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Source</div>
@@ -544,51 +548,57 @@ include("load/connect.php");
                 </div>
             </div>
 
-            <!-- Legend Card - Individual phase colors -->
+            <!-- Legend Card - Organized by flight stage -->
             <div class="card shadow-sm mt-3">
                 <div class="card-header tbfm-card-header">
                     <span class="demand-section-title">
                         <i class="fas fa-palette mr-1"></i> Legend
                     </span>
                 </div>
-                <div class="card-body py-3" id="phase-legend-container">
-                    <!-- Legend items will be generated from phase-colors.js -->
-                    <script>
-                        // Generate legend from shared phase config
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const container = document.getElementById('phase-legend-container');
-                            if (typeof PHASE_ORDER !== 'undefined') {
-                                let html = '';
-                                PHASE_ORDER.forEach(phase => {
-                                    const color = PHASE_COLORS[phase] || '#999';
-                                    const label = PHASE_LABELS[phase] || phase;
-                                    const desc = PHASE_DESCRIPTIONS[phase] || '';
-                                    html += `<div class="demand-legend-item">
-                                        <span class="demand-legend-color" style="background-color: ${color};"></span>
-                                        <strong>${label}</strong>
-                                        ${desc ? `<small class="text-muted ml-1">(${desc})</small>` : ''}
-                                    </div>`;
-                                });
-                                html += `<hr class="my-2">
-                                    <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
-                                        <i class="fas fa-info-circle mr-1"></i>
-                                        Current phase of flight at query time
-                                    </small>`;
-                                container.innerHTML = html;
-                            }
-                        });
-                    </script>
-                    <!-- Fallback if JS doesn't load -->
-                    <noscript>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #1a1a1a;"></span><strong>Arrived</strong></div>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f97316;"></span><strong>Disconnected</strong></div>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #991b1b;"></span><strong>Descending</strong></div>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #dc2626;"></span><strong>Enroute</strong></div>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f87171;"></span><strong>Departed</strong></div>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #22c55e;"></span><strong>Taxiing</strong></div>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #06b6d4;"></span><strong>Prefile</strong></div>
-                        <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #eab308;"></span><strong>Unknown</strong></div>
-                    </noscript>
+                <div class="card-body py-2" id="phase-legend-container">
+                    <!-- Airborne Phases -->
+                    <div class="legend-group mb-2">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-plane mr-1"></i> Airborne
+                        </div>
+                        <div class="d-flex flex-wrap" style="gap: 2px 10px;">
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f87171;"></span>Departed</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #dc2626;"></span>Enroute</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #991b1b;"></span>Descending</div>
+                        </div>
+                    </div>
+                    <!-- Ground Phases -->
+                    <div class="legend-group mb-2">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-road mr-1"></i> Ground
+                        </div>
+                        <div class="d-flex flex-wrap" style="gap: 2px 10px;">
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #3b82f6;"></span>Prefile</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #22c55e;"></span>Taxiing</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #1a1a1a;"></span>Arrived</div>
+                        </div>
+                    </div>
+                    <!-- Other -->
+                    <div class="legend-group">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-question-circle mr-1"></i> Other
+                        </div>
+                        <div class="d-flex flex-wrap" style="gap: 2px 10px;">
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f97316;"></span>Disconnected</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #eab308;"></span>Unknown</div>
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <!-- Rate Lines Legend -->
+                    <div class="legend-group">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-minus mr-1"></i> Rate Lines
+                        </div>
+                        <div class="d-flex flex-wrap" style="gap: 2px 10px;">
+                            <div class="demand-legend-item"><span style="display: inline-block; width: 16px; height: 2px; background: #fff; border: 1px solid #999; margin-right: 6px; vertical-align: middle;"></span><small>AAR (solid)</small></div>
+                            <div class="demand-legend-item"><span style="display: inline-block; width: 16px; height: 2px; border-top: 2px dashed #888; margin-right: 6px; vertical-align: middle;"></span><small>ADR (dashed)</small></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -706,6 +716,207 @@ include("load/connect.php");
     }
     setInterval(updateDemandClock, 1000);
     updateDemandClock();
+
+    // Rate Override Modal Handler
+    $('#rate_override_btn').on('click', function() {
+        const airport = DEMAND_STATE.selectedAirport;
+        if (!airport) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Airport Selected',
+                text: 'Please select an airport first.',
+                toast: true,
+                position: 'bottom-right',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        const rateData = DEMAND_STATE.rateData || {};
+        const currentAAR = rateData.rates?.vatsim_aar || '';
+        const currentADR = rateData.rates?.vatsim_adr || '';
+        const hasOverride = rateData.has_override || false;
+
+        // Calculate default times (now to +4 hours)
+        const now = new Date();
+        const startDefault = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+        const endDefault = new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString().slice(0, 16);
+
+        Swal.fire({
+            title: `<i class="fas fa-edit mr-2"></i> Rate Override: ${airport}`,
+            html: `
+                <div class="text-left">
+                    ${hasOverride ? '<div class="alert alert-warning py-2 mb-3"><i class="fas fa-exclamation-triangle mr-1"></i> An override is already active. Creating a new one will replace it.</div>' : ''}
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">AAR (Arrival Rate)</label>
+                                <input type="number" id="swal_aar" class="form-control form-control-sm" value="${currentAAR}" min="0" max="200" placeholder="e.g. 44">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">ADR (Departure Rate)</label>
+                                <input type="number" id="swal_adr" class="form-control form-control-sm" value="${currentADR}" min="0" max="200" placeholder="e.g. 48">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">Start Time (UTC)</label>
+                                <input type="datetime-local" id="swal_start" class="form-control form-control-sm" value="${startDefault}">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">End Time (UTC)</label>
+                                <input type="datetime-local" id="swal_end" class="form-control form-control-sm" value="${endDefault}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Reason (optional)</label>
+                        <input type="text" id="swal_reason" class="form-control form-control-sm" placeholder="e.g. Event traffic, weather, construction">
+                    </div>
+                    <small class="text-muted">Override will take effect immediately and show on the chart.</small>
+                </div>
+            `,
+            width: 500,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-check mr-1"></i> Set Override',
+            cancelButtonText: 'Cancel',
+            showDenyButton: hasOverride,
+            denyButtonText: '<i class="fas fa-times mr-1"></i> Cancel Override',
+            focusConfirm: false,
+            customClass: {
+                confirmButton: 'btn btn-primary',
+                cancelButton: 'btn btn-secondary',
+                denyButton: 'btn btn-danger'
+            },
+            preConfirm: () => {
+                const aar = document.getElementById('swal_aar').value;
+                const adr = document.getElementById('swal_adr').value;
+                const start = document.getElementById('swal_start').value;
+                const end = document.getElementById('swal_end').value;
+                const reason = document.getElementById('swal_reason').value;
+
+                if (!aar && !adr) {
+                    Swal.showValidationMessage('Please enter at least AAR or ADR');
+                    return false;
+                }
+
+                if (!start || !end) {
+                    Swal.showValidationMessage('Please select start and end times');
+                    return false;
+                }
+
+                if (new Date(end) <= new Date(start)) {
+                    Swal.showValidationMessage('End time must be after start time');
+                    return false;
+                }
+
+                return { aar, adr, start, end, reason };
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                // Create override
+                createRateOverride(airport, result.value);
+            } else if (result.isDenied) {
+                // Cancel existing override
+                cancelRateOverride(airport);
+            }
+        });
+    });
+
+    // Create rate override via API
+    function createRateOverride(airport, data) {
+        const payload = {
+            airport: airport,
+            start_utc: new Date(data.start).toISOString(),
+            end_utc: new Date(data.end).toISOString(),
+            aar: data.aar ? parseInt(data.aar) : null,
+            adr: data.adr ? parseInt(data.adr) : null,
+            reason: data.reason || null
+        };
+
+        fetch('api/demand/override.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(response => {
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Override Created',
+                    text: `Rates will be overridden from ${formatTimeShort(data.start)} to ${formatTimeShort(data.end)} UTC`,
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+                // Refresh demand data to show new override
+                loadDemandData();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: response.error || 'Failed to create override'
+                });
+            }
+        })
+        .catch(err => {
+            console.error('Override API error:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to connect to server'
+            });
+        });
+    }
+
+    // Cancel existing rate override
+    function cancelRateOverride(airport) {
+        fetch(`api/demand/override.php?airport=${encodeURIComponent(airport)}`, {
+            method: 'DELETE'
+        })
+        .then(r => r.json())
+        .then(response => {
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Override Cancelled',
+                    text: `${response.overrides_cancelled} override(s) removed`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                // Refresh demand data
+                loadDemandData();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: response.error || 'Failed to cancel override'
+                });
+            }
+        })
+        .catch(err => {
+            console.error('Override cancel error:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to connect to server'
+            });
+        });
+    }
+
+    // Format time for display
+    function formatTimeShort(isoString) {
+        const d = new Date(isoString);
+        return d.getUTCHours().toString().padStart(2, '0') + ':' +
+               d.getUTCMinutes().toString().padStart(2, '0');
+    }
 </script>
 
 </body>
