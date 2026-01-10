@@ -107,6 +107,12 @@ $config = [
 
     // METAR update window (minutes before/after hour to boost to Tier 0)
     'metar_window_mins' => 5,
+
+    // Boundary & Crossings background processing
+    'boundary_enabled'       => true,
+    'boundary_interval'      => 4,    // Run every N cycles (4 = every 60 seconds)
+    'boundary_max_flights'   => 100,  // Max flights per run
+    'boundary_timeout'       => 60,   // SP timeout in seconds
 ];
 
 // ============================================================================
@@ -673,6 +679,45 @@ function runAtisCleanup($conn): ?array {
 }
 
 // ============================================================================
+// BOUNDARY & CROSSINGS BACKGROUND PROCESSING
+// ============================================================================
+
+/**
+ * Execute background boundary detection and planned crossings calculation.
+ * Runs separately from main refresh to avoid blocking.
+ */
+function executeBoundaryProcessing($conn, array $config): ?array {
+    $startTime = microtime(true);
+
+    $sql = "EXEC dbo.sp_ProcessBoundaryAndCrossings_Background @max_flights_per_run = ?, @debug = 0";
+    $options = ['QueryTimeout' => $config['boundary_timeout']];
+
+    $stmt = @sqlsrv_query($conn, $sql, [$config['boundary_max_flights']], $options);
+
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        logWarn("Boundary SP failed", ['error' => json_encode($errors)]);
+        return null;
+    }
+
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    if (!$row) {
+        return null;
+    }
+
+    $elapsedMs = $row['elapsed_ms'] ?? round((microtime(true) - $startTime) * 1000);
+
+    return [
+        'boundary_flights'     => $row['boundary_flights'] ?? 0,
+        'boundary_transitions' => $row['boundary_transitions'] ?? 0,
+        'crossings_calculated' => $row['crossings_calculated'] ?? 0,
+        'elapsed_ms'           => $elapsedMs,
+    ];
+}
+
+// ============================================================================
 // CONNECTION HEALTH CHECK (Fast)
 // ============================================================================
 
@@ -736,6 +781,11 @@ function runDaemon(array $config): void {
         'total_atis'    => 0,
         'total_parsed'  => 0,
         'started'       => time(),
+        // Boundary processing stats
+        'boundary_runs'        => 0,
+        'boundary_transitions' => 0,
+        'boundary_crossings'   => 0,
+        'boundary_total_ms'    => 0,
     ];
     
     // Signal handling
@@ -807,6 +857,18 @@ function runDaemon(array $config): void {
             // Free memory
             unset($jsonData);
 
+            // 5b. Boundary & Crossings processing (every N cycles)
+            $boundaryResult = null;
+            if ($config['boundary_enabled'] && $stats['runs'] % $config['boundary_interval'] === 0) {
+                $boundaryResult = executeBoundaryProcessing($conn, $config);
+                if ($boundaryResult !== null) {
+                    $stats['boundary_runs']++;
+                    $stats['boundary_transitions'] += $boundaryResult['boundary_transitions'];
+                    $stats['boundary_crossings'] += $boundaryResult['crossings_calculated'];
+                    $stats['boundary_total_ms'] += $boundaryResult['elapsed_ms'];
+                }
+            }
+
             // 6. Update stats
             $stats['successes']++;
             $stats['total_sp_ms'] += $spMs;
@@ -839,6 +901,17 @@ function runDaemon(array $config): void {
             if ($atisImported > 0 || $atisParsed > 0) {
                 $logContext['atis'] = $atisImported;
                 $logContext['parsed'] = $atisParsed;
+            }
+
+            // Add boundary stats when processed this cycle
+            if ($boundaryResult !== null) {
+                $logContext['bnd_ms'] = $boundaryResult['elapsed_ms'];
+                if ($boundaryResult['boundary_transitions'] > 0) {
+                    $logContext['bnd_trans'] = $boundaryResult['boundary_transitions'];
+                }
+                if ($boundaryResult['crossings_calculated'] > 0) {
+                    $logContext['crossings'] = $boundaryResult['crossings_calculated'];
+                }
             }
 
             logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", $logContext);
@@ -885,6 +958,8 @@ function runDaemon(array $config): void {
             $uptime = round((time() - $stats['started']) / 60);
             $successRate = $stats['runs'] > 0 ? round(($stats['successes'] / $stats['runs']) * 100, 1) : 0;
 
+            $avgBndMs = $stats['boundary_runs'] > 0 ? round($stats['boundary_total_ms'] / $stats['boundary_runs']) : 0;
+
             logInfo("=== Stats @ run {$stats['runs']} ===", [
                 'uptime_min'    => $uptime,
                 'success_rate'  => "{$successRate}%",
@@ -893,6 +968,10 @@ function runDaemon(array $config): void {
                 'avg_flights'   => $avgFlights,
                 'total_atis'    => $stats['total_atis'],
                 'atis_parsed'   => $stats['total_parsed'],
+                'bnd_runs'      => $stats['boundary_runs'],
+                'bnd_trans'     => $stats['boundary_transitions'],
+                'bnd_cross'     => $stats['boundary_crossings'],
+                'avg_bnd_ms'    => $avgBndMs,
             ]);
 
             // Run ATIS tiered cleanup every 100 cycles (~25 min)

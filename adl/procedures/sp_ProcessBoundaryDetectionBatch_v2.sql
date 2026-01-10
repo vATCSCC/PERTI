@@ -66,7 +66,8 @@ BEGIN
           OR c.last_grid_lon != CAST(FLOOR(p.lon / @grid_size) AS SMALLINT)
       );
 
-    SET @flights_processed = @@ROWCOUNT;
+    -- Use COUNT instead of @@ROWCOUNT (more reliable after connection recovery)
+    SET @flights_processed = (SELECT COUNT(*) FROM #flights);
 
     IF @flights_processed = 0
     BEGIN

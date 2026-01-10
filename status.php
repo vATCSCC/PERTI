@@ -59,6 +59,7 @@ $liveData = [
     'trajectories_total' => 0,
     'zone_transitions_1h' => 0,
     'boundary_crossings_1h' => 0,
+    'planned_crossings_1h' => 0,
     'weather_alerts_active' => 0,
     'atis_updates_1h' => 0,
     'atis_pending' => 0,
@@ -195,6 +196,15 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         $liveData['boundary_crossings_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Planned crossings calculated (last hour) - from background job
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_planned_crossings WHERE calculated_at > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['planned_crossings_1h'] = $row['cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
@@ -2204,10 +2214,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Boundary Crossings</td>
+                                <td class="component-name">Boundary Crossings <span style="font-size: 9px; color: #6366f1;">(BG)</span></td>
                                 <td class="timing-info"><?= number_format($liveData['boundary_crossings_1h']) ?></td>
                                 <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>">
                                     <?= $liveData['boundary_crossings_1h'] > 0 ? 'Logged' : 'None' ?>
+                                </span></td>
+                            </tr>
+                            <tr>
+                                <td class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(BG)</span></td>
+                                <td class="timing-info"><?= number_format($liveData['planned_crossings_1h']) ?></td>
+                                <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>">
+                                    <?= $liveData['planned_crossings_1h'] > 0 ? 'Calc' : 'None' ?>
                                 </span></td>
                             </tr>
                             <tr>
@@ -2418,11 +2435,19 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Boundary Detection</div>
+                                    <div class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(Background)</span></div>
                                     <div class="component-desc"><?= number_format($liveData['boundary_crossings_1h']) ?> crossings/hr</div>
                                 </td>
-                                <td class="timing-info">Continuous</td>
+                                <td class="timing-info">Every 60s</td>
                                 <td><span class="status-badge complete">Active</span></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(Background)</span></div>
+                                    <div class="component-desc"><?= number_format($liveData['planned_crossings_1h']) ?> calc/hr (tiered)</div>
+                                </td>
+                                <td class="timing-info">Every 60s</td>
+                                <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : 'scheduled' ?>"><?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : 'Idle' ?></span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -2615,21 +2640,33 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <span class="step-metric-label">trans/1h</span>
                             </div>
                         </div>
-                        <!-- Step 10 -->
-                        <div class="procedure-step">
-                            <span class="step-number">10</span>
+                        <!-- Step 10 (Background) -->
+                        <div class="procedure-step" style="border-left: 3px solid #6366f1;">
+                            <span class="step-number" style="background: #6366f1;">10</span>
                             <div class="step-content">
-                                <div class="step-name">Boundary Detection <span class="step-category detect">Detect</span></div>
-                                <div class="step-desc">Detect ARTCC/Sector/TRACON boundary crossings</div>
+                                <div class="step-name">Boundary Detection <span class="step-category detect">Background</span></div>
+                                <div class="step-desc">ARTCC/TRACON detection (runs every 60s via background job)</div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= $liveData['boundary_crossings_1h'] > 0 ? '' : 'zero' ?>"><?= number_format($liveData['boundary_crossings_1h']) ?></span>
                                 <span class="step-metric-label">cross/1h</span>
                             </div>
                         </div>
-                        <!-- Step 11 -->
+                        <!-- Step 11 (Background) -->
+                        <div class="procedure-step" style="border-left: 3px solid #6366f1;">
+                            <span class="step-number" style="background: #6366f1;">11</span>
+                            <div class="step-content">
+                                <div class="step-name">Planned Crossings <span class="step-category detect">Background</span></div>
+                                <div class="step-desc">Calculate ARTCC crossings from route waypoints (tiered background)</div>
+                            </div>
+                            <div class="step-metric">
+                                <span class="step-metric-value <?= ($liveData['planned_crossings_1h'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['planned_crossings_1h'] ?? 0) ?></span>
+                                <span class="step-metric-label">calc/1h</span>
+                            </div>
+                        </div>
+                        <!-- Step 12 -->
                         <div class="procedure-step">
-                            <span class="step-number">11</span>
+                            <span class="step-number">12</span>
                             <div class="step-content">
                                 <div class="step-name">Log Trajectory Positions <span class="step-category archive">Archive</span></div>
                                 <div class="step-desc">Archive flight positions to trajectory history</div>
@@ -2639,9 +2676,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <span class="step-metric-label">logged/1h</span>
                             </div>
                         </div>
-                        <!-- Step 12 -->
+                        <!-- Step 13 -->
                         <div class="procedure-step">
-                            <span class="step-number">12</span>
+                            <span class="step-number">13</span>
                             <div class="step-content">
                                 <div class="step-name">Capture Phase Snapshot <span class="step-category archive">Archive</span></div>
                                 <div class="step-desc">Store flight phase counts for 24hr chart</div>
@@ -3597,6 +3634,24 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 return data.labels.map((ts, i) => ({ x: ts, y: values[i] }));
                             };
 
+                            // Calculate combined max for synced y-axes
+                            // For stacked chart, max is sum of all stacked values at each point
+                            const stackedPhases = ['arrived', 'descending', 'enroute', 'departed', 'taxiing', 'unknown'];
+                            let yMax = 0;
+                            for (let i = 0; i < data.labels.length; i++) {
+                                let stackSum = 0;
+                                stackedPhases.forEach(phase => {
+                                    if (data.datasets[phase] && data.datasets[phase][i]) {
+                                        stackSum += data.datasets[phase][i];
+                                    }
+                                });
+                                // Also check prefile values
+                                const prefileVal = data.datasets.prefile ? data.datasets.prefile[i] : 0;
+                                yMax = Math.max(yMax, stackSum, prefileVal);
+                            }
+                            // Add 10% padding
+                            yMax = Math.ceil(yMax * 1.1);
+
                             window.phaseChartInstance = new Chart(phaseCtx, {
                                 type: 'line',
                                 data: {
@@ -3801,7 +3856,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             },
                                             grid: { color: '#f0f0f0' },
                                             ticks: { font: { size: 10 } },
-                                            beginAtZero: true
+                                            min: 0,
+                                            max: yMax
                                         },
                                         y2: {
                                             display: true,
@@ -3816,14 +3872,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             grid: { display: false },
                                             ticks: {
                                                 font: { size: 10 },
-                                                color: '#06b6d4',
-                                                // Sync tick count with y axis
-                                                callback: function(value) {
-                                                    return value;
-                                                }
+                                                color: '#06b6d4'
                                             },
-                                            beginAtZero: true,
-                                            // Sync scale will be set by plugin
+                                            min: 0,
+                                            max: yMax
                                         }
                                     },
                                     interaction: {
@@ -3831,20 +3883,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         axis: 'x',
                                         intersect: false
                                     }
-                                },
-                                plugins: [{
-                                    id: 'syncY2Scale',
-                                    afterDataLimits: function(chart, args) {
-                                        // After y axis calculates its limits, apply them to y2
-                                        if (args.scale.id === 'y') {
-                                            const y2 = chart.options.scales.y2;
-                                            if (y2) {
-                                                y2.min = args.scale.min;
-                                                y2.max = args.scale.max;
-                                            }
-                                        }
-                                    }
-                                }]
+                                }
                             });
 
                             // Populate summary statistics table
@@ -3882,13 +3921,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     const isLog = this.checked;
                                     window.phaseChartInstance.options.scales.y.type = isLog ? 'logarithmic' : 'linear';
                                     window.phaseChartInstance.options.scales.y2.type = isLog ? 'logarithmic' : 'linear';
-                                    if (isLog) {
-                                        window.phaseChartInstance.options.scales.y.min = 1;
-                                        window.phaseChartInstance.options.scales.y2.min = 1;
-                                    } else {
-                                        delete window.phaseChartInstance.options.scales.y.min;
-                                        delete window.phaseChartInstance.options.scales.y2.min;
-                                    }
+                                    // Set min to 1 for log scale (can't have 0), 0 for linear
+                                    window.phaseChartInstance.options.scales.y.min = isLog ? 1 : 0;
+                                    window.phaseChartInstance.options.scales.y2.min = isLog ? 1 : 0;
+                                    // Keep max the same (yMax was computed at creation)
                                     window.phaseChartInstance.update();
                                 });
                             }
