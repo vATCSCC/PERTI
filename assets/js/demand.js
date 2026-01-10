@@ -26,14 +26,27 @@ let DEMAND_STATE = {
     lastDemandData: null // Store last demand response for view switching
 };
 
-// Phase-based status colors - matches status.php color scheme
-const FSM_STATUS_COLORS = {
-    'active': '#dc2626',      // Red - Flight Active/Airborne (enroute, departed, descending phases)
-    'arrived': '#1a1a1a',     // Black - Arrived at destination
-    'departed': '#22c55e',    // Green - Taxiing (ground movement)
-    'scheduled': '#06b6d4',   // Cyan - Prefile with is_active=1
-    'proposed': '#67e8f9',    // Light Cyan - Prefile with is_active=0
-    'unknown': '#eab308'      // Yellow - Unknown phase
+// Individual phase colors for demand visualization
+// Stacking order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
+const FSM_PHASE_COLORS = {
+    'arrived': '#1a1a1a',     // Black - Landed at destination (bottom)
+    'descending': '#991b1b',  // Dark Red - On approach to destination
+    'enroute': '#dc2626',     // Red - Cruising
+    'departed': '#f87171',    // Light Red - Just took off from origin
+    'taxiing': '#22c55e',     // Green - Taxiing at origin airport
+    'prefile': '#06b6d4',     // Cyan - Filed flight plan
+    'unknown': '#eab308'      // Yellow - Unknown/other phase (top)
+};
+
+// Phase display names for legend/tooltips
+const PHASE_LABELS = {
+    'arrived': 'Arrived',
+    'descending': 'Descending',
+    'enroute': 'Enroute',
+    'departed': 'Departed',
+    'taxiing': 'Taxiing',
+    'prefile': 'Prefile',
+    'unknown': 'Unknown'
 };
 
 // ARTCC colors for origin breakdown visualization
@@ -472,32 +485,36 @@ function renderChart(data) {
     };
 
     // Build series based on direction
+    // Phase stacking order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
     const series = [];
+    const phaseOrder = ['arrived', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
 
     if (direction === 'arr' || direction === 'both') {
-        // Build arrival series by status (normalize time bins for lookup)
+        // Build arrival series by phase (normalize time bins for lookup)
         const arrivalsByBin = {};
         arrivals.forEach(d => { arrivalsByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
 
-        series.push(
-            buildStatusSeriesTimeAxis('Active (Arr)', timeBins, arrivalsByBin, 'active', 'arrivals'),
-            buildStatusSeriesTimeAxis('Scheduled (Arr)', timeBins, arrivalsByBin, 'scheduled', 'arrivals'),
-            buildStatusSeriesTimeAxis('Proposed (Arr)', timeBins, arrivalsByBin, 'proposed', 'arrivals'),
-            buildStatusSeriesTimeAxis('Arrived', timeBins, arrivalsByBin, 'arrived', 'arrivals')
-        );
+        // Add series in stacking order (bottom to top)
+        phaseOrder.forEach(phase => {
+            const suffix = direction === 'both' ? ' (Arr)' : '';
+            series.push(
+                buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals')
+            );
+        });
     }
 
     if (direction === 'dep' || direction === 'both') {
-        // Build departure series by status (normalize time bins for lookup)
+        // Build departure series by phase (normalize time bins for lookup)
         const departuresByBin = {};
         departures.forEach(d => { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
 
-        series.push(
-            buildStatusSeriesTimeAxis('Active (Dep)', timeBins, departuresByBin, 'active', 'departures'),
-            buildStatusSeriesTimeAxis('Scheduled (Dep)', timeBins, departuresByBin, 'scheduled', 'departures'),
-            buildStatusSeriesTimeAxis('Proposed (Dep)', timeBins, departuresByBin, 'proposed', 'departures'),
-            buildStatusSeriesTimeAxis('Departed', timeBins, departuresByBin, 'departed', 'departures')
-        );
+        // Add series in stacking order (bottom to top)
+        phaseOrder.forEach(phase => {
+            const suffix = direction === 'both' ? ' (Dep)' : '';
+            series.push(
+                buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures')
+            );
+        });
     }
 
     // Add current time marker to first series
@@ -906,28 +923,32 @@ function renderOriginChart() {
 
 /**
  * Update info bar stats with response data
+ * Uses individual phase breakdown from API
  */
 function updateInfoBarStats(data) {
     const arrivals = data.data.arrivals || [];
     const departures = data.data.departures || [];
 
-    // Calculate arrival totals
+    // Calculate arrival totals by phase
+    // Active = departed + enroute + descending (airborne flights)
+    // Scheduled = taxiing (at origin, ready to depart)
+    // Proposed = prefile (filed but not yet taxiing)
     let arrTotal = 0, arrActive = 0, arrScheduled = 0, arrProposed = 0;
     arrivals.forEach(d => {
         const b = d.breakdown || {};
-        arrActive += b.active || 0;
-        arrScheduled += b.scheduled || 0;
-        arrProposed += b.proposed || 0;
+        arrActive += (b.departed || 0) + (b.enroute || 0) + (b.descending || 0);
+        arrScheduled += b.taxiing || 0;
+        arrProposed += b.prefile || 0;
         arrTotal += d.total || 0;
     });
 
-    // Calculate departure totals
+    // Calculate departure totals by phase
     let depTotal = 0, depActive = 0, depScheduled = 0, depProposed = 0;
     departures.forEach(d => {
         const b = d.breakdown || {};
-        depActive += b.active || 0;
-        depScheduled += b.scheduled || 0;
-        depProposed += b.proposed || 0;
+        depActive += (b.departed || 0) + (b.enroute || 0) + (b.descending || 0);
+        depScheduled += b.taxiing || 0;
+        depProposed += b.prefile || 0;
         depTotal += d.total || 0;
     });
 
@@ -983,7 +1004,49 @@ function buildStatusSeries(name, timeBins, dataByBin, status, type) {
 }
 
 /**
- * Build a series for a specific status - TBFM/FSM style with TRUE TIME AXIS
+ * Build a series for a specific phase - TBFM/FSM style with TRUE TIME AXIS
+ * Data format: [[timestamp, value], [timestamp, value], ...]
+ * Uses individual phase colors from FSM_PHASE_COLORS
+ */
+function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type) {
+    // Build data as [timestamp, value] pairs for time axis
+    const data = timeBins.map(bin => {
+        const breakdown = dataByBin[bin];
+        const value = breakdown ? (breakdown[phase] || 0) : 0;
+        return [new Date(bin).getTime(), value];
+    });
+
+    // Get phase color from individual phase palette
+    let color = FSM_PHASE_COLORS[phase] || '#999';
+    if (type === 'departures') {
+        // Use lighter shade for departures to distinguish from arrivals
+        color = adjustColor(color, 0.15);
+    }
+
+    return {
+        name: name,
+        type: 'bar',
+        stack: type,
+        barWidth: '70%', // Percentage of available space per bin
+        barGap: '0%',
+        emphasis: {
+            focus: 'series',
+            itemStyle: {
+                shadowBlur: 2,
+                shadowColor: 'rgba(0,0,0,0.2)'
+            }
+        },
+        itemStyle: {
+            color: color,
+            borderColor: 'transparent', // No borders - AADC style
+            borderWidth: 0
+        },
+        data: data
+    };
+}
+
+/**
+ * Build a series for a specific status - TBFM/FSM style with TRUE TIME AXIS (legacy)
  * Data format: [[timestamp, value], [timestamp, value], ...]
  */
 function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
@@ -994,8 +1057,8 @@ function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
         return [new Date(bin).getTime(), value];
     });
 
-    // TBFM/FSM color palette - high contrast for ATC displays
-    let color = FSM_STATUS_COLORS[status] || '#999';
+    // Use phase colors
+    let color = FSM_PHASE_COLORS[status] || '#999';
     if (type === 'departures') {
         // Use distinct hatch pattern effect for departures via lighter shade
         color = adjustColor(color, 0.12);
@@ -1495,15 +1558,22 @@ function buildFlightListHtml(flights) {
 }
 
 /**
- * Get Bootstrap badge class for status
+ * Get Bootstrap badge class for phase/status
  */
 function getStatusBadgeClass(status) {
     switch (status) {
-        case 'active': return 'badge-danger';
+        // Individual phases
         case 'arrived': return 'badge-dark';
-        case 'departed': return 'badge-success';
+        case 'descending': return 'badge-danger';
+        case 'enroute': return 'badge-danger';
+        case 'departed': return 'badge-danger';
+        case 'taxiing': return 'badge-success';
+        case 'prefile': return 'badge-info';
+        // Legacy statuses (for backwards compatibility)
+        case 'active': return 'badge-danger';
         case 'scheduled': return 'badge-info';
         case 'proposed': return 'badge-primary';
+        case 'unknown': return 'badge-warning';
         default: return 'badge-secondary';
     }
 }

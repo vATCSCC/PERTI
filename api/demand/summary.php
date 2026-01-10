@@ -254,7 +254,7 @@ function getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction) {
                     "origin_artcc" => $row['origin_artcc'],
                     "time" => $eta,
                     "direction" => "arrival",
-                    "status" => deriveStatus($row['flight_status'], $row['is_active']),
+                    "status" => $row['phase'] ?? 'unknown',
                     "aircraft" => $row['aircraft_type']
                 ];
             }
@@ -281,7 +281,7 @@ function getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction) {
                     "dest_artcc" => $row['dest_artcc'],
                     "time" => $etd,
                     "direction" => "departure",
-                    "status" => deriveStatus($row['flight_status'], $row['is_active']),
+                    "status" => $row['phase'] ?? 'unknown',
                     "aircraft" => $row['aircraft_type']
                 ];
             }
@@ -297,13 +297,5 @@ function getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction) {
     return $flights;
 }
 
-/**
- * Derive FSM status from flight_status and is_active
- */
-function deriveStatus($flightStatus, $isActive) {
-    if ($flightStatus === 'L') return 'arrived';
-    if ($flightStatus === 'A') return 'active';
-    if ($flightStatus === 'D') return 'departed';
-    if ($isActive == 1) return 'scheduled';
-    return 'proposed';
-}
+// Note: Status is now derived directly from the 'phase' column in the database
+// Valid phases: prefile, taxiing, departed, enroute, descending, arrived, unknown
