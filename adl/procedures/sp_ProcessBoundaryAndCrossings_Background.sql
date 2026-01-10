@@ -1,6 +1,6 @@
 -- ============================================================================
 -- sp_ProcessBoundaryAndCrossings_Background
--- Version: 1.1
+-- Version: 1.2
 -- Date: 2026-01-10
 --
 -- Description: Background job for boundary detection and planned crossings
@@ -281,7 +281,7 @@ BEGIN
         WHERE c.is_active = 1
           AND NOT EXISTS (SELECT 1 FROM #crossing_batch b WHERE b.flight_uid = c.flight_uid)
           AND c.crossing_region_flags > 0
-          AND (c.dept NOT LIKE 'K%' OR c.dest NOT LIKE 'K%')  -- International
+          AND (c.fp_dept_icao NOT LIKE 'K%' OR c.fp_dest_icao NOT LIKE 'K%')  -- International
           AND DATEDIFF(SECOND, c.crossing_last_calc_utc, @now) >= 900;
 
         SET @tier5 = @@ROWCOUNT;
@@ -456,7 +456,7 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.1 - Added TOP limit to boundary detection';
+PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.2 - Fixed column names (fp_dept_icao, fp_dest_icao)';
 PRINT 'Tier schedule: 1=1min, 2=2min, 3=5min, 4=10min, 5=15min, 6=30min, 7=60min';
 PRINT 'Run every 60 seconds via SQL Agent or separate PHP daemon';
 GO

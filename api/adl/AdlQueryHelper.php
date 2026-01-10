@@ -600,17 +600,21 @@ class AdlQueryHelper {
             ? 'COALESCE(eta_runway_utc, eta_utc)'
             : 'COALESCE(etd_runway_utc, etd_utc)';
 
+        // Flight status breakdown using phase column:
+        //   - arrived: phase = 'arrived' (landed at destination)
+        //   - active: phase IN ('departed', 'enroute', 'descending') (airborne)
+        //   - departed: phase = 'taxiing' (ground movement)
+        //   - scheduled: phase = 'prefile' with is_active = 1
+        //   - proposed: phase = 'prefile' with is_active = 0 or NULL
         $sql = "
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COUNT(*) AS total,
-                SUM(CASE WHEN flight_status = 'L' THEN 1 ELSE 0 END) AS arrived,
-                SUM(CASE WHEN flight_status = 'A' THEN 1 ELSE 0 END) AS active,
-                SUM(CASE WHEN flight_status = 'D' THEN 1 ELSE 0 END) AS departed,
-                SUM(CASE WHEN (flight_status IS NULL OR flight_status = '' OR flight_status NOT IN ('A','D','L'))
-                              AND is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
-                SUM(CASE WHEN (flight_status IS NULL OR flight_status = '' OR flight_status NOT IN ('A','D','L'))
-                              AND (is_active = 0 OR is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
+                SUM(CASE WHEN phase = 'arrived' THEN 1 ELSE 0 END) AS arrived,
+                SUM(CASE WHEN phase IN ('departed', 'enroute', 'descending') THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN phase = 'taxiing' THEN 1 ELSE 0 END) AS departed,
+                SUM(CASE WHEN phase = 'prefile' AND is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
+                SUM(CASE WHEN phase = 'prefile' AND (is_active = 0 OR is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
             FROM dbo.vw_adl_flights
             WHERE {$airportCol} = ?
               AND {$timeCol} IS NOT NULL
@@ -628,17 +632,21 @@ class AdlQueryHelper {
         // Use provided time expression with COALESCE fallback, or default to runway time
         $timeCol = $timeExpr ?? ($direction === 'arr' ? 't.eta_runway_utc' : 't.etd_runway_utc');
 
+        // Flight status breakdown using phase column:
+        //   - arrived: phase = 'arrived' (landed at destination)
+        //   - active: phase IN ('departed', 'enroute', 'descending') (airborne)
+        //   - departed: phase = 'taxiing' (ground movement)
+        //   - scheduled: phase = 'prefile' with is_active = 1
+        //   - proposed: phase = 'prefile' with is_active = 0 or NULL
         $sql = "
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COUNT(*) AS total,
-                SUM(CASE WHEN c.flight_status = 'L' THEN 1 ELSE 0 END) AS arrived,
-                SUM(CASE WHEN c.flight_status = 'A' THEN 1 ELSE 0 END) AS active,
-                SUM(CASE WHEN c.flight_status = 'D' THEN 1 ELSE 0 END) AS departed,
-                SUM(CASE WHEN (c.flight_status IS NULL OR c.flight_status = '' OR c.flight_status NOT IN ('A','D','L'))
-                              AND c.is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
-                SUM(CASE WHEN (c.flight_status IS NULL OR c.flight_status = '' OR c.flight_status NOT IN ('A','D','L'))
-                              AND (c.is_active = 0 OR c.is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
+                SUM(CASE WHEN c.phase = 'arrived' THEN 1 ELSE 0 END) AS arrived,
+                SUM(CASE WHEN c.phase IN ('departed', 'enroute', 'descending') THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN c.phase = 'taxiing' THEN 1 ELSE 0 END) AS departed,
+                SUM(CASE WHEN c.phase = 'prefile' AND c.is_active = 1 THEN 1 ELSE 0 END) AS scheduled,
+                SUM(CASE WHEN c.phase = 'prefile' AND (c.is_active = 0 OR c.is_active IS NULL) THEN 1 ELSE 0 END) AS proposed
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
@@ -865,7 +873,7 @@ class AdlQueryHelper {
                         fp_dest_icao AS destination,
                         fp_dept_artcc AS origin_artcc,
                         COALESCE(eta_runway_utc, eta_utc) AS eta,
-                        flight_status,
+                        phase,
                         is_active,
                         aircraft_type
                     FROM dbo.vw_adl_flights
@@ -882,7 +890,7 @@ class AdlQueryHelper {
                         fp_dest_icao AS destination,
                         fp_dest_artcc AS dest_artcc,
                         COALESCE(etd_runway_utc, etd_utc) AS etd,
-                        flight_status,
+                        phase,
                         is_active,
                         aircraft_type
                     FROM dbo.vw_adl_flights
@@ -901,7 +909,7 @@ class AdlQueryHelper {
                         fp.fp_dest_icao AS destination,
                         fp.fp_dept_artcc AS origin_artcc,
                         COALESCE(t.eta_runway_utc, t.eta_utc) AS eta,
-                        c.flight_status,
+                        c.phase,
                         c.is_active,
                         fp.aircraft_type
                     FROM dbo.adl_flight_core c
@@ -920,7 +928,7 @@ class AdlQueryHelper {
                         fp.fp_dest_icao AS destination,
                         fp.fp_dest_artcc AS dest_artcc,
                         COALESCE(t.etd_runway_utc, t.etd_utc) AS etd,
-                        c.flight_status,
+                        c.phase,
                         c.is_active,
                         fp.aircraft_type
                     FROM dbo.adl_flight_core c
