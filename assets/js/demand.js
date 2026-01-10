@@ -26,14 +26,14 @@ let DEMAND_STATE = {
     lastDemandData: null // Store last demand response for view switching
 };
 
-// FSM Status colors - TFMS/AADC style palette
+// AADC/FSM/TFMS style status colors - matches FAA AADC exactly
 const FSM_STATUS_COLORS = {
-    'active': '#CC0000',      // Dark Red - Flight Active (airborne)
-    'arrived': '#333333',     // Dark Gray - Arrived
-    'departed': '#228B22',    // Forest Green - Departed
-    'scheduled': '#32CD32',   // Lime Green - Scheduled
-    'proposed': '#4169E1',    // Royal Blue - Proposed
-    'dep_past_etd': '#8B4513' // Brown - Dep Past ETD
+    'active': '#FF0000',      // Bright Red - Flight Active (airborne)
+    'arrived': '#000000',     // Black - Arrived/Past Dept Time
+    'departed': '#000000',    // Black - Departed
+    'scheduled': '#00FF00',   // Bright Lime Green - Departing/Scheduled
+    'proposed': '#90EE90',    // Light Green - Proposed (slightly lighter)
+    'dep_past_etd': '#8B4513' // Brown - Dep Past ETD (EDCT Issued)
 };
 
 // ARTCC colors for origin breakdown visualization
@@ -440,7 +440,7 @@ function loadDemandData() {
 }
 
 /**
- * Render the demand chart with data
+ * Render the demand chart with data - TBFM/FSM style with true time axis
  */
 function renderChart(data) {
     if (!DEMAND_STATE.chart) {
@@ -461,9 +461,6 @@ function renderChart(data) {
     // Store for drill-down
     DEMAND_STATE.timeBins = timeBins;
 
-    // Format time labels
-    const labels = timeBins.map(formatTimeLabel);
-
     // Create lookup maps for data by time bin (normalized to match generated bins)
     const normalizeTimeBin = (bin) => {
         const d = new Date(bin);
@@ -480,10 +477,10 @@ function renderChart(data) {
         arrivals.forEach(d => { arrivalsByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
 
         series.push(
-            buildStatusSeries('Active (Arr)', timeBins, arrivalsByBin, 'active', 'arrivals'),
-            buildStatusSeries('Scheduled (Arr)', timeBins, arrivalsByBin, 'scheduled', 'arrivals'),
-            buildStatusSeries('Proposed (Arr)', timeBins, arrivalsByBin, 'proposed', 'arrivals'),
-            buildStatusSeries('Arrived', timeBins, arrivalsByBin, 'arrived', 'arrivals')
+            buildStatusSeriesTimeAxis('Active (Arr)', timeBins, arrivalsByBin, 'active', 'arrivals'),
+            buildStatusSeriesTimeAxis('Scheduled (Arr)', timeBins, arrivalsByBin, 'scheduled', 'arrivals'),
+            buildStatusSeriesTimeAxis('Proposed (Arr)', timeBins, arrivalsByBin, 'proposed', 'arrivals'),
+            buildStatusSeriesTimeAxis('Arrived', timeBins, arrivalsByBin, 'arrived', 'arrivals')
         );
     }
 
@@ -493,20 +490,24 @@ function renderChart(data) {
         departures.forEach(d => { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
 
         series.push(
-            buildStatusSeries('Active (Dep)', timeBins, departuresByBin, 'active', 'departures'),
-            buildStatusSeries('Scheduled (Dep)', timeBins, departuresByBin, 'scheduled', 'departures'),
-            buildStatusSeries('Proposed (Dep)', timeBins, departuresByBin, 'proposed', 'departures'),
-            buildStatusSeries('Departed', timeBins, departuresByBin, 'departed', 'departures')
+            buildStatusSeriesTimeAxis('Active (Dep)', timeBins, departuresByBin, 'active', 'departures'),
+            buildStatusSeriesTimeAxis('Scheduled (Dep)', timeBins, departuresByBin, 'scheduled', 'departures'),
+            buildStatusSeriesTimeAxis('Proposed (Dep)', timeBins, departuresByBin, 'proposed', 'departures'),
+            buildStatusSeriesTimeAxis('Departed', timeBins, departuresByBin, 'departed', 'departures')
         );
     }
 
     // Add current time marker to first series
-    const timeMarkLine = getCurrentTimeMarkLine(timeBins);
+    const timeMarkLine = getCurrentTimeMarkLineForTimeAxis();
     if (series.length > 0 && timeMarkLine) {
         series[0].markLine = timeMarkLine;
     }
 
-    // Chart options - TFMS/FSM/AADC style
+    // Calculate bar width based on granularity (in milliseconds)
+    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    const barWidthMs = intervalMs * 0.7; // 70% of interval
+
+    // Chart options - TBFM/FSM/AADC style with TRUE TIME AXIS
     const option = {
         backgroundColor: '#ffffff',
         title: {
@@ -516,7 +517,8 @@ function renderChart(data) {
             textStyle: {
                 fontSize: 16,
                 fontWeight: 'bold',
-                color: '#333'
+                color: '#333',
+                fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
             }
         },
         tooltip: {
@@ -524,22 +526,29 @@ function renderChart(data) {
             axisPointer: {
                 type: 'shadow'
             },
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
             borderColor: '#ccc',
             borderWidth: 1,
+            padding: [8, 12],
             textStyle: {
-                color: '#333'
+                color: '#333',
+                fontSize: 12
             },
             formatter: function(params) {
-                let tooltip = `<strong>${params[0].axisValueLabel}</strong><br/>`;
+                if (!params || params.length === 0) return '';
+                // Extract timestamp from first param
+                const timestamp = params[0].value[0];
+                const timeStr = formatTimeLabelFromTimestamp(timestamp);
+                let tooltip = `<strong style="font-size:13px;">${timeStr}</strong><br/>`;
                 let total = 0;
                 params.forEach(p => {
-                    if (p.value > 0) {
-                        tooltip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
-                        total += p.value;
+                    const val = p.value[1] || 0;
+                    if (val > 0) {
+                        tooltip += `${p.marker} ${p.seriesName}: <strong>${val}</strong><br/>`;
+                        total += val;
                     }
                 });
-                tooltip += `<strong>Total: ${total}</strong>`;
+                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
                 return tooltip;
             }
         },
@@ -550,67 +559,87 @@ function renderChart(data) {
             itemWidth: 14,
             itemHeight: 10,
             textStyle: {
-                fontSize: 11
+                fontSize: 11,
+                fontFamily: '"Segoe UI", sans-serif'
             }
         },
         grid: {
-            left: 50,
-            right: 20,
+            left: 55,
+            right: 25,
             bottom: 70,
-            top: 50,
+            top: 55,
             containLabel: false
         },
         xAxis: {
-            type: 'category',
-            data: labels,
+            type: 'time',
             axisLine: {
                 lineStyle: {
-                    color: '#333'
+                    color: '#333',
+                    width: 1
                 }
             },
             axisTick: {
                 alignWithLabel: true,
                 lineStyle: {
-                    color: '#333'
+                    color: '#666'
                 }
             },
             axisLabel: {
-                rotate: 0,
-                interval: 0,
                 fontSize: 11,
-                color: '#333'
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+                fontWeight: 500,
+                formatter: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours().toString().padStart(2, '0');
+                    const m = d.getUTCMinutes().toString().padStart(2, '0');
+                    // AADC style: "1200", "1300", "1330" etc. (no colon, no Z)
+                    return h + m;
+                }
             },
             splitLine: {
-                show: false
-            }
+                show: true,
+                lineStyle: {
+                    color: '#f0f0f0',
+                    type: 'solid'
+                }
+            },
+            min: new Date(timeBins[0]).getTime(),
+            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs
         },
         yAxis: {
             type: 'value',
             name: 'Flights',
             nameLocation: 'middle',
-            nameGap: 35,
+            nameGap: 40,
             nameTextStyle: {
                 fontSize: 12,
-                color: '#333'
+                color: '#333',
+                fontWeight: 500
             },
             minInterval: 1,
             axisLine: {
                 show: true,
                 lineStyle: {
-                    color: '#333'
+                    color: '#333',
+                    width: 1
                 }
             },
             axisTick: {
-                show: true
+                show: true,
+                lineStyle: {
+                    color: '#666'
+                }
             },
             axisLabel: {
                 fontSize: 11,
-                color: '#333'
+                color: '#333',
+                fontFamily: '"Inconsolata", monospace'
             },
             splitLine: {
                 show: true,
                 lineStyle: {
-                    color: '#e0e0e0',
+                    color: '#e8e8e8',
                     type: 'dashed'
                 }
             }
@@ -623,8 +652,10 @@ function renderChart(data) {
     // Add click handler for drill-down
     DEMAND_STATE.chart.off('click'); // Remove previous handler
     DEMAND_STATE.chart.on('click', function(params) {
-        if (params.componentType === 'series') {
-            const timeBin = DEMAND_STATE.timeBins[params.dataIndex];
+        if (params.componentType === 'series' && params.value) {
+            // Extract timestamp from [timestamp, value] pair
+            const timestamp = params.value[0];
+            const timeBin = new Date(timestamp).toISOString();
             if (timeBin) {
                 showFlightDetails(timeBin);
             }
@@ -633,7 +664,7 @@ function renderChart(data) {
 }
 
 /**
- * Render chart with origin ARTCC breakdown
+ * Render chart with origin ARTCC breakdown - TBFM/FSM style with TRUE TIME AXIS
  */
 function renderOriginChart() {
     if (!DEMAND_STATE.chart) {
@@ -675,24 +706,29 @@ function renderOriginChart() {
     }
     const artccList = Array.from(allARTCCs).sort();
 
-    // Format time labels
-    const labels = timeBins.map(formatTimeLabel);
+    // Calculate interval in milliseconds
+    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
 
-    // Build series for each ARTCC (use normalized lookup)
+    // Build series for each ARTCC with TRUE TIME AXIS data format
     const series = artccList.map(artcc => {
         const seriesData = timeBins.map(bin => {
             const binData = originBreakdown[normalizeTimeBin(bin)] || originBreakdown[bin] || [];
             const artccEntry = Array.isArray(binData) ? binData.find(item => item.artcc === artcc) : null;
-            return artccEntry ? artccEntry.count : 0;
+            const value = artccEntry ? artccEntry.count : 0;
+            return [new Date(bin).getTime(), value];
         });
 
         return {
             name: artcc,
             type: 'bar',
             stack: 'origin',
-            barWidth: '60%',
+            barWidth: intervalMs * 0.65,
             emphasis: {
-                focus: 'series'
+                focus: 'series',
+                itemStyle: {
+                    shadowBlur: 4,
+                    shadowColor: 'rgba(0,0,0,0.3)'
+                }
             },
             itemStyle: {
                 color: getARTCCColor(artcc),
@@ -704,12 +740,12 @@ function renderOriginChart() {
     });
 
     // Add current time marker to first series
-    const timeMarkLine = getCurrentTimeMarkLine(timeBins);
+    const timeMarkLine = getCurrentTimeMarkLineForTimeAxis();
     if (series.length > 0 && timeMarkLine) {
         series[0].markLine = timeMarkLine;
     }
 
-    // Chart options - TFMS/FSM/AADC style
+    // Chart options - TBFM/FSM/AADC style with TRUE TIME AXIS
     const option = {
         backgroundColor: '#ffffff',
         title: {
@@ -719,7 +755,8 @@ function renderOriginChart() {
             textStyle: {
                 fontSize: 16,
                 fontWeight: 'bold',
-                color: '#333'
+                color: '#333',
+                fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
             }
         },
         tooltip: {
@@ -727,24 +764,30 @@ function renderOriginChart() {
             axisPointer: {
                 type: 'shadow'
             },
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
             borderColor: '#ccc',
             borderWidth: 1,
+            padding: [8, 12],
             textStyle: {
-                color: '#333'
+                color: '#333',
+                fontSize: 12
             },
             formatter: function(params) {
-                let tooltip = `<strong>${params[0].axisValueLabel}</strong><br/>`;
+                if (!params || params.length === 0) return '';
+                const timestamp = params[0].value[0];
+                const timeStr = formatTimeLabelFromTimestamp(timestamp);
+                let tooltip = `<strong style="font-size:13px;">${timeStr}</strong><br/>`;
                 let total = 0;
                 // Sort by value descending
-                const sorted = [...params].sort((a, b) => b.value - a.value);
+                const sorted = [...params].sort((a, b) => (b.value[1] || 0) - (a.value[1] || 0));
                 sorted.forEach(p => {
-                    if (p.value > 0) {
-                        tooltip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
-                        total += p.value;
+                    const val = p.value[1] || 0;
+                    if (val > 0) {
+                        tooltip += `${p.marker} ${p.seriesName}: <strong>${val}</strong><br/>`;
+                        total += val;
                     }
                 });
-                tooltip += `<strong>Total: ${total}</strong>`;
+                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
                 return tooltip;
             }
         },
@@ -755,67 +798,87 @@ function renderOriginChart() {
             itemWidth: 14,
             itemHeight: 10,
             textStyle: {
-                fontSize: 11
+                fontSize: 11,
+                fontFamily: '"Segoe UI", sans-serif'
             }
         },
         grid: {
-            left: 50,
-            right: 20,
+            left: 55,
+            right: 25,
             bottom: 70,
-            top: 50,
+            top: 55,
             containLabel: false
         },
         xAxis: {
-            type: 'category',
-            data: labels,
+            type: 'time',
             axisLine: {
                 lineStyle: {
-                    color: '#333'
+                    color: '#333',
+                    width: 1
                 }
             },
             axisTick: {
                 alignWithLabel: true,
                 lineStyle: {
-                    color: '#333'
+                    color: '#666'
                 }
             },
             axisLabel: {
-                rotate: 0,
-                interval: 0,
                 fontSize: 11,
-                color: '#333'
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+                fontWeight: 500,
+                formatter: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours().toString().padStart(2, '0');
+                    const m = d.getUTCMinutes().toString().padStart(2, '0');
+                    // AADC style: "1200", "1300", "1330" etc.
+                    return h + m;
+                }
             },
             splitLine: {
-                show: false
-            }
+                show: true,
+                lineStyle: {
+                    color: '#f0f0f0',
+                    type: 'solid'
+                }
+            },
+            min: new Date(timeBins[0]).getTime(),
+            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs
         },
         yAxis: {
             type: 'value',
             name: 'Arrivals',
             nameLocation: 'middle',
-            nameGap: 35,
+            nameGap: 40,
             nameTextStyle: {
                 fontSize: 12,
-                color: '#333'
+                color: '#333',
+                fontWeight: 500
             },
             minInterval: 1,
             axisLine: {
                 show: true,
                 lineStyle: {
-                    color: '#333'
+                    color: '#333',
+                    width: 1
                 }
             },
             axisTick: {
-                show: true
+                show: true,
+                lineStyle: {
+                    color: '#666'
+                }
             },
             axisLabel: {
                 fontSize: 11,
-                color: '#333'
+                color: '#333',
+                fontFamily: '"Inconsolata", monospace'
             },
             splitLine: {
                 show: true,
                 lineStyle: {
-                    color: '#e0e0e0',
+                    color: '#e8e8e8',
                     type: 'dashed'
                 }
             }
@@ -828,8 +891,9 @@ function renderOriginChart() {
     // Add click handler for drill-down
     DEMAND_STATE.chart.off('click');
     DEMAND_STATE.chart.on('click', function(params) {
-        if (params.componentType === 'series') {
-            const timeBin = DEMAND_STATE.timeBins[params.dataIndex];
+        if (params.componentType === 'series' && params.value) {
+            const timestamp = params.value[0];
+            const timeBin = new Date(timestamp).toISOString();
             if (timeBin) {
                 showFlightDetails(timeBin);
             }
@@ -882,7 +946,7 @@ function updateInfoBarStats(data) {
 }
 
 /**
- * Build a series for a specific status - TFMS style
+ * Build a series for a specific status - TFMS style (category axis - legacy)
  */
 function buildStatusSeries(name, timeBins, dataByBin, status, type) {
     const data = timeBins.map(bin => {
@@ -912,6 +976,103 @@ function buildStatusSeries(name, timeBins, dataByBin, status, type) {
             borderWidth: 0.5
         },
         data: data
+    };
+}
+
+/**
+ * Build a series for a specific status - TBFM/FSM style with TRUE TIME AXIS
+ * Data format: [[timestamp, value], [timestamp, value], ...]
+ */
+function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
+    // Build data as [timestamp, value] pairs for time axis
+    const data = timeBins.map(bin => {
+        const breakdown = dataByBin[bin];
+        const value = breakdown ? (breakdown[status] || 0) : 0;
+        return [new Date(bin).getTime(), value];
+    });
+
+    // TBFM/FSM color palette - high contrast for ATC displays
+    let color = FSM_STATUS_COLORS[status] || '#999';
+    if (type === 'departures') {
+        // Use distinct hatch pattern effect for departures via lighter shade
+        color = adjustColor(color, 0.12);
+    }
+
+    // Calculate bar width based on granularity
+    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+
+    return {
+        name: name,
+        type: 'bar',
+        stack: type,
+        barWidth: intervalMs * 0.65, // Width in milliseconds (65% of interval)
+        barGap: '5%',
+        emphasis: {
+            focus: 'series',
+            itemStyle: {
+                shadowBlur: 4,
+                shadowColor: 'rgba(0,0,0,0.3)'
+            }
+        },
+        itemStyle: {
+            color: color,
+            borderColor: type === 'arrivals' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+            borderWidth: type === 'arrivals' ? 1 : 0.5
+        },
+        data: data
+    };
+}
+
+/**
+ * Format timestamp for tooltip display - TBFM/FSM style
+ */
+function formatTimeLabelFromTimestamp(timestamp) {
+    const d = new Date(timestamp);
+    const hours = d.getUTCHours().toString().padStart(2, '0');
+    const minutes = d.getUTCMinutes().toString().padStart(2, '0');
+
+    // Calculate end time based on granularity
+    const intervalMinutes = DEMAND_STATE.granularity === '15min' ? 15 : 60;
+    const endTime = new Date(timestamp + intervalMinutes * 60 * 1000);
+    const endHours = endTime.getUTCHours().toString().padStart(2, '0');
+    const endMinutes = endTime.getUTCMinutes().toString().padStart(2, '0');
+
+    // TBFM/FSM style: "14:00Z - 15:00Z" or "14:00Z - 14:15Z"
+    return `${hours}:${minutes}Z - ${endHours}:${endMinutes}Z`;
+}
+
+/**
+ * Get current time markLine for TRUE TIME AXIS - TBFM/FSM style
+ */
+function getCurrentTimeMarkLineForTimeAxis() {
+    const now = new Date();
+    const hours = now.getUTCHours().toString().padStart(2, '0');
+    const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+
+    return {
+        silent: true,
+        symbol: ['none', 'arrow'],
+        symbolSize: [4, 8],
+        lineStyle: {
+            color: '#CC0000',
+            width: 2,
+            type: 'solid'
+        },
+        label: {
+            show: true,
+            formatter: `NOW\n${hours}:${minutes}Z`,
+            position: 'start',
+            color: '#CC0000',
+            fontWeight: 'bold',
+            fontSize: 10,
+            fontFamily: '"Inconsolata", monospace',
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            padding: [2, 4],
+            borderRadius: 2
+        },
+        data: [{
+            xAxis: now.getTime() // Use actual timestamp value
+        }]
     };
 }
 

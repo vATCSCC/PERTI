@@ -234,8 +234,11 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Boundary crossings (last 24 hours)
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.adl_flight_boundary_log WHERE entry_time > DATEADD(HOUR, -24, SYSUTCDATETIME())";
+    // Boundary crossings (last 24 hours) - use JOIN for consistency with 1h query
+    $sql = "SELECT COUNT(*) AS cnt
+            FROM dbo.adl_flight_boundary_log bl
+            JOIN dbo.adl_boundary b ON b.boundary_id = bl.boundary_id
+            WHERE bl.entry_time > DATEADD(HOUR, -24, SYSUTCDATETIME())";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -332,9 +335,20 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Flights with crossings calculated + tier distribution
+    // Flights with crossings calculated (count distinct flights in crossings table)
+    $sql = "SELECT COUNT(DISTINCT pc.flight_uid) AS with_crossings
+            FROM dbo.adl_flight_planned_crossings pc
+            JOIN dbo.adl_flight_core c ON c.flight_uid = pc.flight_uid
+            WHERE c.is_active = 1";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['flights_with_crossings'] = $row['with_crossings'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Crossing tier distribution from core table
     $sql = "SELECT
-                COUNT(*) AS with_crossings,
                 SUM(CASE WHEN crossing_tier = 1 THEN 1 ELSE 0 END) AS tier1,
                 SUM(CASE WHEN crossing_tier = 2 THEN 1 ELSE 0 END) AS tier2,
                 SUM(CASE WHEN crossing_tier = 3 THEN 1 ELSE 0 END) AS tier3,
@@ -343,11 +357,10 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
                 SUM(CASE WHEN crossing_tier = 6 THEN 1 ELSE 0 END) AS tier6,
                 SUM(CASE WHEN crossing_tier = 7 THEN 1 ELSE 0 END) AS tier7
             FROM dbo.adl_flight_core
-            WHERE is_active = 1 AND crossing_last_calc_utc IS NOT NULL";
+            WHERE is_active = 1 AND crossing_tier IS NOT NULL";
     $stmt = @sqlsrv_query($conn_adl, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['flights_with_crossings'] = $row['with_crossings'] ?? 0;
         $liveData['crossing_tiers'] = [
             1 => (int)($row['tier1'] ?? 0),
             2 => (int)($row['tier2'] ?? 0),
@@ -2095,11 +2108,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="mb-0"><i class="fas fa-project-diagram mr-2"></i>Flight Data Processing Pipeline</h6>
                 <div>
-                    <span class="runtime-badge <?= $runtimes['total'] < 5000 ? 'fast' : ($runtimes['total'] < 10000 ? 'medium' : 'slow') ?>">
-                        Page: <?= number_format($runtimes['total'] / 1000, 1) ?>s
+                    <span class="runtime-badge <?= $runtimes['total'] < 800 ? 'fast' : ($runtimes['total'] < 2000 ? 'medium' : 'slow') ?>">
+                        Page: <?= $runtimes['total'] ?>ms
                     </span>
-                    <span class="runtime-badge <?= $runtimes['adl_queries'] < 300 ? 'fast' : ($runtimes['adl_queries'] < 800 ? 'medium' : 'slow') ?>">
-                        DB: <?= $runtimes['adl_queries'] ?>ms
+                    <span class="runtime-badge <?= $runtimes['adl_queries'] < 5000 ? 'fast' : ($runtimes['adl_queries'] < 10000 ? 'medium' : 'slow') ?>">
+                        DB: <?= number_format($runtimes['adl_queries'] / 1000, 1) ?>s
                     </span>
                     <span class="runtime-badge <?= $runtimes['api_checks'] < 3000 ? 'fast' : ($runtimes['api_checks'] < 6000 ? 'medium' : 'slow') ?>">
                         APIs: <?= $runtimes['api_checks'] ?>ms

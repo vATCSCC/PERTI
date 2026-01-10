@@ -23,35 +23,46 @@ include("load/connect.php");
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
     <style>
-        /* Label styling consistent with other PERTI pages */
+        /* ═══════════════════════════════════════════════════════════════════════════
+           TBFM/FSM STYLE - Airport Demand Visualization
+           Based on FAA Time Based Flow Management & Flight Schedule Monitor
+           ═══════════════════════════════════════════════════════════════════════════ */
+
+        /* TBFM/FSM Label styling */
         .demand-label {
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             font-weight: 600;
             color: #333;
+            font-family: "Segoe UI", -apple-system, sans-serif;
         }
 
         .demand-section-title {
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-family: "Segoe UI", -apple-system, sans-serif;
         }
 
-        /* Chart container */
+        /* TBFM/FSM Chart container */
         .demand-chart-container {
             width: 100%;
-            height: 450px;
-            min-height: 350px;
+            height: 480px;
+            min-height: 380px;
+            background: #ffffff;
+            border: 1px solid #d0d0d0;
         }
 
-        /* Status indicators */
+        /* TBFM/FSM Status indicators - high contrast */
         .demand-status-indicator {
             display: inline-block;
             padding: 3px 10px;
-            border-radius: 4px;
+            border-radius: 3px;
             font-size: 0.75rem;
             font-weight: 600;
+            font-family: "Inconsolata", "SF Mono", monospace;
         }
 
         .demand-status-active {
@@ -64,16 +75,29 @@ include("load/connect.php");
             color: #333;
         }
 
-        /* Granularity and direction toggles - Bootstrap 4 */
+        /* TBFM/FSM Toggle buttons */
         .demand-toggle-group .btn {
-            font-size: 0.8rem;
-            padding: 5px 15px;
+            font-size: 0.78rem;
+            padding: 5px 14px;
+            font-weight: 500;
+            border-radius: 3px;
         }
 
         .demand-toggle-group .btn.active {
-            background-color: #6c757d !important;
-            border-color: #6c757d !important;
+            background-color: #2c3e50 !important;
+            border-color: #2c3e50 !important;
             color: #fff !important;
+        }
+
+        .demand-toggle-group .btn:not(.active) {
+            background-color: #f8f9fa;
+            border-color: #ced4da;
+            color: #495057;
+        }
+
+        .demand-toggle-group .btn:hover:not(.active) {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
         }
 
         /* Hide radio buttons inside labels */
@@ -83,54 +107,187 @@ include("load/connect.php");
             pointer-events: none;
         }
 
-        /* Legend items */
+        /* TBFM/FSM Legend items */
         .demand-legend-item {
             display: inline-flex;
             align-items: center;
             margin-right: 15px;
-            font-size: 0.75rem;
+            margin-bottom: 6px;
+            font-size: 0.78rem;
+            font-family: "Segoe UI", sans-serif;
         }
 
         .demand-legend-color {
             display: inline-block;
-            width: 14px;
-            height: 14px;
+            width: 16px;
+            height: 12px;
             border-radius: 2px;
-            margin-right: 5px;
+            margin-right: 6px;
+            border: 1px solid rgba(0,0,0,0.15);
         }
 
-        /* Card header fixes */
+        /* TBFM/FSM Card headers - dark theme */
         .card-header .demand-section-title {
             color: #333;
         }
 
-        .card-header.bg-primary .demand-section-title,
-        .card-header.bg-secondary .demand-section-title,
-        .card-header.bg-info .demand-section-title {
-            color: #fff;
+        .tbfm-card-header {
+            background: linear-gradient(180deg, #3a4a5c 0%, #2c3e50 100%);
+            border-bottom: 2px solid #1a252f;
+            padding: 10px 15px;
         }
 
-        /* Filter card */
+        .tbfm-card-header .demand-section-title {
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .tbfm-card-header .demand-section-title i {
+            color: #5dade2;
+        }
+
+        /* TBFM/FSM Filter card */
+        .demand-filter-card {
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+
         .demand-filter-card .card-body {
             padding: 15px;
+            background: #fafbfc;
         }
 
-        /* Empty state */
+        .demand-filter-card .form-control {
+            font-size: 0.85rem;
+            border-color: #ced4da;
+        }
+
+        .demand-filter-card .form-control:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 0.15rem rgba(52, 152, 219, 0.25);
+        }
+
+        /* TBFM/FSM Empty state */
         .demand-empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 80px 20px;
             color: #6c757d;
+            background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
         }
 
         .demand-empty-state i {
-            font-size: 48px;
-            margin-bottom: 15px;
-            opacity: 0.5;
+            font-size: 56px;
+            margin-bottom: 20px;
+            opacity: 0.4;
+            color: #2c3e50;
         }
 
         .demand-empty-state h5 {
             font-weight: 600;
             margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        /* TBFM/FSM Chart card */
+        .tbfm-chart-card {
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+
+        .tbfm-chart-card .card-body {
+            padding: 8px;
+            background: #ffffff;
+        }
+
+        /* TBFM/FSM Info bar enhancements */
+        .tbfm-stat-value {
+            font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .tbfm-clock {
+            font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+            font-weight: 500;
+            font-size: 1.15rem;
+            letter-spacing: 0.08em;
+        }
+
+        /* TBFM/FSM Flight summary table */
+        .tbfm-summary-table {
+            font-size: 0.82rem;
+        }
+
+        .tbfm-summary-table th {
+            background: #ecf0f1;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.04em;
+            color: #2c3e50;
+            padding: 6px 8px;
+        }
+
+        .tbfm-summary-table td {
+            padding: 5px 8px;
+            vertical-align: middle;
+        }
+
+        .tbfm-summary-table tr:hover {
+            background-color: #f5f6f7;
+        }
+
+        /* TBFM/FSM Badge styles */
+        .tbfm-badge-arrivals {
+            background-color: #27ae60;
+            color: #fff;
+        }
+
+        .tbfm-badge-departures {
+            background-color: #e67e22;
+            color: #fff;
+        }
+
+        .tbfm-badge-active {
+            background-color: #c0392b;
+            color: #fff;
+        }
+
+        /* TBFM/FSM Toggle buttons in dark header */
+        .tbfm-card-header .demand-toggle-group .btn {
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 3px;
+        }
+
+        .tbfm-card-header .demand-toggle-group .btn-outline-light {
+            border-color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.9);
+        }
+
+        .tbfm-card-header .demand-toggle-group .btn-outline-light:hover {
+            background-color: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.7);
+        }
+
+        .tbfm-card-header .demand-toggle-group .btn-outline-light.active {
+            background-color: #5dade2 !important;
+            border-color: #5dade2 !important;
+            color: #fff !important;
+        }
+
+        /* TBFM/FSM Info card stat values */
+        .perti-stat-value {
+            font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+            font-weight: 600;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .demand-chart-container {
+                height: 350px;
+                min-height: 300px;
+            }
         }
     </style>
 
@@ -160,13 +317,13 @@ include("load/connect.php");
     <!-- Info Bar: UTC Clock, Airport Stats -->
     <div class="perti-info-bar mb-3">
         <div class="row d-flex flex-wrap align-items-stretch" style="gap: 8px; margin: 0 -4px;">
-            <!-- Current Time (UTC) -->
+            <!-- Current Time (UTC) - TBFM Style -->
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card perti-card-utc h-100">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
                             <div class="perti-info-label">Current UTC</div>
-                            <div id="demand_utc_clock" class="perti-clock-display perti-clock-display-lg">--:--:--</div>
+                            <div id="demand_utc_clock" class="tbfm-clock text-primary">--:--:--</div>
                         </div>
                         <div class="ml-3">
                             <i class="far fa-clock fa-lg text-primary"></i>
@@ -270,9 +427,9 @@ include("load/connect.php");
         <!-- Left: Filters -->
         <div class="col-lg-3 mb-4">
             <div class="card shadow-sm demand-filter-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
                     <span class="demand-section-title">
-                        <i class="fas fa-filter mr-1 text-primary"></i> Filters
+                        <i class="fas fa-filter mr-1"></i> Filters
                     </span>
                 </div>
 
@@ -353,52 +510,57 @@ include("load/connect.php");
                 </div>
             </div>
 
-            <!-- Legend Card -->
+            <!-- Legend Card - TBFM/FSM Style -->
             <div class="card shadow-sm mt-3">
-                <div class="card-header">
+                <div class="card-header tbfm-card-header">
                     <span class="demand-section-title">
-                        <i class="fas fa-palette mr-1 text-info"></i> Legend
+                        <i class="fas fa-palette mr-1"></i> Legend
                     </span>
                 </div>
-                <div class="card-body py-2">
+                <div class="card-body py-3">
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #CC0000;"></span>
-                        Active (Airborne)
+                        <span class="demand-legend-color" style="background-color: #FF0000;"></span>
+                        <strong>Flight Active</strong>
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #32CD32;"></span>
-                        Scheduled
+                        <span class="demand-legend-color" style="background-color: #00FF00;"></span>
+                        <strong>Departing</strong>
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #4169E1;"></span>
-                        Proposed
+                        <span class="demand-legend-color" style="background-color: #90EE90;"></span>
+                        <strong>Proposed</strong>
                     </div>
                     <div class="demand-legend-item">
-                        <span class="demand-legend-color" style="background-color: #333333;"></span>
-                        Arrived/Departed
+                        <span class="demand-legend-color" style="background-color: #000000;"></span>
+                        <strong>Arrived</strong>
                     </div>
+                    <hr class="my-2">
+                    <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Based on FAA AADC display style
+                    </small>
                 </div>
             </div>
         </div>
 
         <!-- Right: Chart -->
         <div class="col-lg-9 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card shadow-sm tbfm-chart-card">
+                <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
                     <span class="demand-section-title">
-                        <i class="fas fa-chart-bar mr-1 text-primary"></i> Demand Chart
+                        <i class="fas fa-chart-bar mr-1"></i> Demand Chart
                     </span>
                     <div class="d-flex align-items-center">
                         <!-- Chart View Toggle -->
                         <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group mr-3" data-toggle="buttons" role="group">
-                            <label class="btn btn-outline-secondary active" title="Show by flight status">
+                            <label class="btn btn-outline-light active" title="Show by flight status">
                                 <input type="radio" name="demand_chart_view" id="view_status" value="status" autocomplete="off" checked> Status
                             </label>
-                            <label class="btn btn-outline-secondary" title="Show arrivals by origin ARTCC">
+                            <label class="btn btn-outline-light" title="Show arrivals by origin ARTCC">
                                 <input type="radio" name="demand_chart_view" id="view_origin" value="origin" autocomplete="off"> Origin
                             </label>
                         </div>
-                        <span class="text-muted small" id="demand_last_update">--</span>
+                        <span class="text-light small" id="demand_last_update" style="opacity: 0.8;">--</span>
                     </div>
                 </div>
                 <div class="card-body p-2">
@@ -414,38 +576,42 @@ include("load/connect.php");
                 </div>
             </div>
 
-            <!-- Flight List Card (placeholder for future) -->
-            <div class="card shadow-sm mt-3">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <!-- Flight Summary Card - TBFM/FSM Style -->
+            <div class="card shadow-sm mt-3 tbfm-chart-card">
+                <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
                     <span class="demand-section-title">
-                        <i class="fas fa-list mr-1 text-info"></i> Flight Summary
-                        <span class="badge badge-secondary ml-2" id="demand_flight_count">0 flights</span>
+                        <i class="fas fa-list mr-1"></i> Flight Summary
+                        <span class="badge badge-light ml-2" id="demand_flight_count" style="color: #2c3e50;">0 flights</span>
                     </span>
-                    <button class="btn btn-sm btn-outline-secondary" id="demand_toggle_flights" type="button" title="Toggle flight details">
+                    <button class="btn btn-sm btn-outline-light" id="demand_toggle_flights" type="button" title="Toggle flight details">
                         <i class="fas fa-chevron-down"></i>
                     </button>
                 </div>
                 <div class="card-body p-2" id="demand_flight_summary" style="display: none;">
                     <div class="row">
                         <div class="col-md-6">
-                            <div class="card border-light mb-2">
-                                <div class="card-header py-1 px-2 bg-light">
-                                    <span class="demand-label">Top Origin ARTCCs</span>
+                            <div class="card border mb-2" style="border-color: #bdc3c7;">
+                                <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
+                                    <span class="demand-label" style="color: #2c3e50;">
+                                        <i class="fas fa-map-marker-alt mr-1 text-danger"></i> Top Origin ARTCCs
+                                    </span>
                                 </div>
-                                <div class="card-body p-1">
-                                    <table class="table table-sm table-hover mb-0" style="font-size: 0.8rem;">
+                                <div class="card-body p-2">
+                                    <table class="table table-sm table-hover mb-0 tbfm-summary-table">
                                         <tbody id="demand_top_origins"></tbody>
                                     </table>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="card border-light mb-2">
-                                <div class="card-header py-1 px-2 bg-light">
-                                    <span class="demand-label">Top Carriers</span>
+                            <div class="card border mb-2" style="border-color: #bdc3c7;">
+                                <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
+                                    <span class="demand-label" style="color: #2c3e50;">
+                                        <i class="fas fa-plane mr-1 text-primary"></i> Top Carriers
+                                    </span>
                                 </div>
-                                <div class="card-body p-1">
-                                    <table class="table table-sm table-hover mb-0" style="font-size: 0.8rem;">
+                                <div class="card-body p-2">
+                                    <table class="table table-sm table-hover mb-0 tbfm-summary-table">
                                         <tbody id="demand_top_carriers"></tbody>
                                     </table>
                                 </div>

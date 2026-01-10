@@ -1,7 +1,7 @@
 -- ============================================================================
 -- sp_ProcessBoundaryAndCrossings_Background
--- Version: 1.0
--- Date: 2026-01-09
+-- Version: 1.1
+-- Date: 2026-01-10
 --
 -- Description: Background job for boundary detection and planned crossings
 --              Runs separately from main refresh cycle (every 60 seconds)
@@ -48,7 +48,8 @@ BEGIN
     -- ========================================================================
 
     -- Step A1: Find flights needing boundary detection (grid changed or new)
-    SELECT
+    -- LIMIT to @max_flights_per_run to avoid timeout
+    SELECT TOP (@max_flights_per_run)
         c.flight_uid,
         p.lat,
         p.lon,
@@ -74,7 +75,10 @@ BEGIN
           OR c.last_grid_lat IS NULL
           OR c.last_grid_lat != CAST(FLOOR(p.lat / @grid_size) AS SMALLINT)
           OR c.last_grid_lon != CAST(FLOOR(p.lon / @grid_size) AS SMALLINT)
-      );
+      )
+    ORDER BY
+        CASE WHEN c.current_artcc_id IS NULL THEN 0 ELSE 1 END,  -- New flights first
+        ISNULL(c.boundary_updated_at, '1900-01-01') ASC;  -- Oldest updates next
 
     SET @boundary_flights = (SELECT COUNT(*) FROM #boundary_flights);
 
@@ -452,7 +456,7 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.0';
+PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.1 - Added TOP limit to boundary detection';
 PRINT 'Tier schedule: 1=1min, 2=2min, 3=5min, 4=10min, 5=15min, 6=30min, 7=60min';
 PRINT 'Run every 60 seconds via SQL Agent or separate PHP daemon';
 GO
