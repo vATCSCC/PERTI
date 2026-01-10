@@ -340,3 +340,247 @@ function runwaysToJson(array $landing, array $departing, array $approaches = [])
 
     return json_encode($records);
 }
+
+// =====================================================
+// WEATHER PARSING FUNCTIONS
+// Based on vatsim_control_recs weather_parsing.py
+// =====================================================
+
+/**
+ * Parse weather information from ATIS text.
+ *
+ * Extracts wind, visibility, ceiling, altimeter and classifies
+ * into FAA flight categories and PERTI weather categories.
+ *
+ * @param string $atisText Full ATIS text
+ * @return array Weather data with all parsed fields
+ */
+function parseAtisWeather(string $atisText): array {
+    $weather = [
+        'wind_dir' => null,
+        'wind_speed' => null,
+        'wind_gust' => null,
+        'visibility_sm' => null,
+        'ceiling_ft' => null,
+        'altimeter' => null,
+        'flight_category' => null,
+        'weather_category' => null
+    ];
+
+    if (empty($atisText)) {
+        return $weather;
+    }
+
+    $text = strtoupper($atisText);
+
+    // Parse wind: 27015G25KT, VRB05KT, 27015KT
+    if (preg_match('/\b(VRB|\d{3})(\d{2,3})(?:G(\d{2,3}))?KT\b/', $text, $m)) {
+        $weather['wind_dir'] = $m[1] === 'VRB' ? null : (int)$m[1];
+        $weather['wind_speed'] = (int)$m[2];
+        $weather['wind_gust'] = isset($m[3]) && !empty($m[3]) ? (int)$m[3] : null;
+    }
+
+    // Parse visibility
+    $weather['visibility_sm'] = parseVisibilitySM($text);
+
+    // Parse ceiling
+    $weather['ceiling_ft'] = parseCeilingFeet($text);
+
+    // Parse altimeter: A2992 or Q1013
+    if (preg_match('/\b([AQ])(\d{4})\b/', $text, $m)) {
+        if ($m[1] === 'A') {
+            // US altimeter in inches (A2992 = 29.92)
+            $weather['altimeter'] = (float)$m[2] / 100;
+        } else {
+            // QNH in millibars/hectopascals (Q1013 = 29.92)
+            $weather['altimeter'] = round((float)$m[2] * 0.02953, 2);
+        }
+    }
+
+    // Classify flight category (VFR/MVFR/IFR/LIFR)
+    $weather['flight_category'] = classifyFlightCategory(
+        $weather['ceiling_ft'],
+        $weather['visibility_sm']
+    );
+
+    // Map to PERTI weather category (VMC/LVMC/IMC/LIMC/VLIMC)
+    $weather['weather_category'] = mapToWeatherCategory($weather['flight_category']);
+
+    return $weather;
+}
+
+/**
+ * Parse visibility from METAR/ATIS text.
+ *
+ * Handles multiple formats:
+ * - Mixed fractions: "1 1/2SM"
+ * - Less-than: "M1/4SM"
+ * - Simple fractions: "1/2SM"
+ * - Whole numbers: "10SM", "P6SM"
+ * - Metric (4-digit meters): "9999", "0800"
+ *
+ * @param string $text METAR/ATIS text
+ * @return float|null Visibility in statute miles
+ */
+function parseVisibilitySM(string $text): ?float {
+    // Mixed fraction: "1 1/2SM" or "2 1/4SM"
+    if (preg_match('/\b(\d+)\s+(\d+)\/(\d+)SM\b/', $text, $m)) {
+        return (float)$m[1] + ((float)$m[2] / (float)$m[3]);
+    }
+
+    // Less than fraction: "M1/4SM" means less than 1/4
+    if (preg_match('/\bM(\d+)\/(\d+)SM\b/', $text, $m)) {
+        // Return the value (caller can treat as "less than")
+        return (float)$m[1] / (float)$m[2];
+    }
+
+    // Simple fraction: "1/2SM", "3/4SM"
+    if (preg_match('/\b(\d+)\/(\d+)SM\b/', $text, $m)) {
+        return (float)$m[1] / (float)$m[2];
+    }
+
+    // Whole number with P prefix: "P6SM" means greater than 6
+    if (preg_match('/\bP(\d+)SM\b/', $text, $m)) {
+        // Return the value + 0.1 to indicate "greater than"
+        return (float)$m[1] + 0.1;
+    }
+
+    // Whole number: "10SM", "5SM"
+    if (preg_match('/\b(\d+)SM\b/', $text, $m)) {
+        return (float)$m[1];
+    }
+
+    // Metric visibility (4-digit): 9999 = 10km+, 0800 = 800m
+    if (preg_match('/\b(\d{4})\b/', $text, $m)) {
+        $meters = (int)$m[1];
+        if ($meters >= 9999) {
+            return 10.0;  // 10 SM or more
+        }
+        // Convert meters to statute miles (1 SM = 1609.34 m)
+        return round($meters / 1609.34, 1);
+    }
+
+    return null;
+}
+
+/**
+ * Parse ceiling from METAR/ATIS text.
+ *
+ * Finds the lowest BKN (broken), OVC (overcast), or VV (vertical visibility)
+ * layer, which constitutes a ceiling per FAA definition.
+ *
+ * @param string $text METAR/ATIS text
+ * @return int|null Ceiling in feet AGL
+ */
+function parseCeilingFeet(string $text): ?int {
+    $ceiling = null;
+
+    // Cloud layer pattern: BKN015, OVC025, VV002
+    // Height is in hundreds of feet
+    if (preg_match_all('/\b(BKN|OVC|VV)(\d{3})\b/', $text, $matches, PREG_SET_ORDER)) {
+        foreach ($matches as $m) {
+            $height = (int)$m[2] * 100;  // Convert from hundreds to feet
+            if ($ceiling === null || $height < $ceiling) {
+                $ceiling = $height;
+            }
+        }
+    }
+
+    return $ceiling;
+}
+
+/**
+ * Classify flight conditions into FAA flight category.
+ *
+ * FAA Flight Categories:
+ * - VFR:  Ceiling > 3000 ft AND visibility > 5 SM
+ * - MVFR: Ceiling 1000-3000 ft AND/OR visibility 3-5 SM
+ * - IFR:  Ceiling 500-999 ft AND/OR visibility 1-3 SM
+ * - LIFR: Ceiling < 500 ft AND/OR visibility < 1 SM
+ *
+ * @param int|null $ceiling Ceiling in feet
+ * @param float|null $visibility Visibility in statute miles
+ * @return string Flight category (VFR, MVFR, IFR, LIFR)
+ */
+function classifyFlightCategory(?int $ceiling, ?float $visibility): string {
+    // Classify based on ceiling
+    $ceilCat = match(true) {
+        $ceiling === null => 'VFR',
+        $ceiling < 500 => 'LIFR',
+        $ceiling < 1000 => 'IFR',
+        $ceiling <= 3000 => 'MVFR',
+        default => 'VFR'
+    };
+
+    // Classify based on visibility
+    $visCat = match(true) {
+        $visibility === null => 'VFR',
+        $visibility < 1 => 'LIFR',
+        $visibility < 3 => 'IFR',
+        $visibility <= 5 => 'MVFR',
+        default => 'VFR'
+    };
+
+    // Return most restrictive category
+    $priority = ['LIFR' => 0, 'IFR' => 1, 'MVFR' => 2, 'VFR' => 3];
+    return $priority[$ceilCat] < $priority[$visCat] ? $ceilCat : $visCat;
+}
+
+/**
+ * Map FAA flight category to PERTI weather category.
+ *
+ * Mapping:
+ * - VFR  -> VMC  (Visual Meteorological Conditions)
+ * - MVFR -> LVMC (Low VMC)
+ * - IFR  -> IMC  (Instrument Meteorological Conditions)
+ * - LIFR -> LIMC (Low IMC)
+ *
+ * @param string $flightCat FAA flight category
+ * @return string PERTI weather category
+ */
+function mapToWeatherCategory(string $flightCat): string {
+    return match($flightCat) {
+        'VFR' => 'VMC',
+        'MVFR' => 'LVMC',
+        'IFR' => 'IMC',
+        'LIFR' => 'LIMC',
+        default => 'VMC'
+    };
+}
+
+/**
+ * Format weather summary for display.
+ *
+ * @param array $weather Parsed weather data
+ * @return string Formatted summary like "VFR 270@15 10SM"
+ */
+function formatWeatherSummary(array $weather): string {
+    $parts = [];
+
+    // Flight category
+    if (!empty($weather['flight_category'])) {
+        $parts[] = $weather['flight_category'];
+    }
+
+    // Wind
+    if ($weather['wind_speed'] !== null) {
+        $dir = $weather['wind_dir'] !== null ? str_pad($weather['wind_dir'], 3, '0', STR_PAD_LEFT) : 'VRB';
+        $wind = "{$dir}@{$weather['wind_speed']}";
+        if ($weather['wind_gust'] !== null) {
+            $wind .= "G{$weather['wind_gust']}";
+        }
+        $parts[] = $wind;
+    }
+
+    // Visibility
+    if ($weather['visibility_sm'] !== null) {
+        $parts[] = $weather['visibility_sm'] . 'SM';
+    }
+
+    // Ceiling
+    if ($weather['ceiling_ft'] !== null) {
+        $parts[] = 'CIG' . str_pad($weather['ceiling_ft'] / 100, 3, '0', STR_PAD_LEFT);
+    }
+
+    return implode(' ', $parts);
+}
