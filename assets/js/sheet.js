@@ -157,6 +157,8 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     modal.find('.modal-body #weather').val(button.data('weather')).trigger('change');
     modal.find('.modal-body #arrive').val(button.data('arrive'));
     modal.find('.modal-body #depart').val(button.data('depart'));
+    modal.find('.modal-body #aar').val(button.data('aar'));
+    modal.find('.modal-body #adr').val(button.data('adr'));
     modal.find('.modal-body #comments').val(button.data('comments'));
 });
 

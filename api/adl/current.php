@@ -171,8 +171,7 @@ if (!empty($rows) && isset($rows[0]['snapshot_utc'])) {
 
 echo json_encode([
     "snapshot_utc" => $snapshotUtc,
-    "flights"      => $rows,
-    "rows"         => $rows
+    "flights"      => $rows
 ]);
 
 ?>

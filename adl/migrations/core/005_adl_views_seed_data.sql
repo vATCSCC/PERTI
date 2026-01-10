@@ -123,6 +123,13 @@ SELECT
     ac.wake_category,
     ac.airline_icao,
     ac.airline_name,
+    -- Derived columns for TMI compatibility
+    ac.airline_icao AS major_carrier,
+    CASE
+        WHEN ac.engine_type IN ('JET') THEN 'JET'
+        WHEN ac.engine_type IN ('TURBOPROP', 'PISTON') THEN 'PROP'
+        ELSE ac.engine_type
+    END AS ac_cat,
     
     -- Times
     t.std_utc,
