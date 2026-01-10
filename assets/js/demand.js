@@ -506,9 +506,8 @@ function renderChart(data) {
         series[0].markLine = timeMarkLine;
     }
 
-    // Calculate bar width based on granularity (in milliseconds)
+    // Calculate interval for x-axis bounds
     const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
-    const barWidthMs = intervalMs * 0.7; // 70% of interval
 
     // Chart options - TBFM/FSM/AADC style with TRUE TIME AXIS
     const option = {
@@ -725,7 +724,7 @@ function renderOriginChart() {
             name: artcc,
             type: 'bar',
             stack: 'origin',
-            barWidth: intervalMs * 0.75, // AADC style wider bars
+            barWidth: '70%', // Percentage of available space per bin
             barGap: '0%',
             emphasis: {
                 focus: 'series',
@@ -1002,14 +1001,11 @@ function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
         color = adjustColor(color, 0.12);
     }
 
-    // Calculate bar width based on granularity
-    const intervalMs = DEMAND_STATE.granularity === '15min' ? 15 * 60 * 1000 : 60 * 60 * 1000;
-
     return {
         name: name,
         type: 'bar',
         stack: type,
-        barWidth: intervalMs * 0.75, // Width in milliseconds (75% of interval) - AADC style wider bars
+        barWidth: '70%', // Percentage of available space per bin
         barGap: '0%',
         emphasis: {
             focus: 'series',

@@ -109,10 +109,13 @@ $config = [
     'metar_window_mins' => 5,
 
     // Boundary & Crossings background processing
+    // Capacity: 750 boundaries/min handles ~5,000 flights, 75 crossings/min handles new flight intake
+    // For mega-events (6,000+): temporarily set boundary_max=1000, crossings_max=50
     'boundary_enabled'       => true,
     'boundary_interval'      => 4,    // Run every N cycles (4 = every 60 seconds, matches tier schedule)
-    'boundary_max_flights'   => 500,  // Max flights per run (grid-optimized, should be fast)
-    'boundary_timeout'       => 90,   // SP timeout in seconds
+    'boundary_max_flights'   => 750,  // Max boundary flights per run (handles ~5,000 total flights)
+    'crossings_max_flights'  => 75,   // Max crossings per run (one-time calc, not continuous)
+    'boundary_timeout'       => 90,   // SP timeout in seconds (750 boundaries + 75 crossings ≈ 70s)
 ];
 
 // ============================================================================
@@ -613,8 +616,8 @@ function processAtis($conn, array $atisList): array {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Parse pending ATIS
-    $sql = "EXEC dbo.sp_GetPendingAtis @limit = 100";
+    // Parse pending ATIS (500 handles peak METAR spikes with 300+ ATIS)
+    $sql = "EXEC dbo.sp_GetPendingAtis @limit = 500";
     $stmt = @sqlsrv_query($conn, $sql);
 
     if ($stmt !== false) {
@@ -698,10 +701,10 @@ function runAtisCleanup($conn): ?array {
 function executeBoundaryProcessing($conn, array $config): ?array {
     $startTime = microtime(true);
 
-    $sql = "EXEC dbo.sp_ProcessBoundaryAndCrossings_Background @max_flights_per_run = ?, @debug = 0";
+    $sql = "EXEC dbo.sp_ProcessBoundaryAndCrossings_Background @max_flights_per_run = ?, @max_crossings_per_run = ?, @debug = 0";
     $options = ['QueryTimeout' => $config['boundary_timeout']];
 
-    $stmt = @sqlsrv_query($conn, $sql, [$config['boundary_max_flights']], $options);
+    $stmt = @sqlsrv_query($conn, $sql, [$config['boundary_max_flights'], $config['crossings_max_flights']], $options);
 
     if ($stmt === false) {
         $errors = sqlsrv_errors();
