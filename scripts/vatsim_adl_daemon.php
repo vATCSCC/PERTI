@@ -408,6 +408,9 @@ function extractAtisFromJson(array $data): array {
             $code = $atis['atis_code'];
         }
 
+        // Parse weather from ATIS text
+        $weather = parseAtisWeather($text);
+
         $atisList[] = [
             'airport_icao' => $airport,
             'callsign' => $callsign,
@@ -417,6 +420,15 @@ function extractAtisFromJson(array $data): array {
             'atis_text' => $text,
             'controller_cid' => $atis['cid'] ?? null,
             'logon_time' => $atis['logon_time'] ?? null,
+            // Weather fields
+            'wind_dir_deg' => $weather['wind_dir'],
+            'wind_speed_kt' => $weather['wind_speed'],
+            'wind_gust_kt' => $weather['wind_gust'],
+            'visibility_sm' => $weather['visibility_sm'],
+            'ceiling_ft' => $weather['ceiling_ft'],
+            'altimeter_inhg' => $weather['altimeter'],
+            'flight_category' => $weather['flight_category'],
+            'weather_category' => $weather['weather_category'],
         ];
     }
 

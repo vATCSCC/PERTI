@@ -279,7 +279,8 @@ BEGIN
     SET @new_flights = @@ROWCOUNT;
     
     UPDATE c
-    SET c.last_seen_utc = @now,
+    SET c.is_active = 1,  -- Reactivate if seen again
+        c.last_seen_utc = @now,
         c.snapshot_utc = @now,
         c.last_source = 'vatsim',
         c.phase = CASE
