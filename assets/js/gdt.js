@@ -29,7 +29,20 @@
 
 const GS_ADL_API_URL = "api/adl/current.php";
 
-    // GS workflow API endpoints
+    // GS workflow API endpoints (new normalized API)
+    const GS_API = {
+        list: "api/tmi/gs/list.php",
+        create: "api/tmi/gs/create.php",
+        model: "api/tmi/gs/model.php",
+        activate: "api/tmi/gs/activate.php",
+        extend: "api/tmi/gs/extend.php",
+        purge: "api/tmi/gs/purge.php",
+        get: "api/tmi/gs/get.php",
+        flights: "api/tmi/gs/flights.php",
+        demand: "api/tmi/gs/demand.php"
+    };
+
+    // Legacy GS workflow API endpoints (kept for backward compatibility)
     const GS_WORKFLOW_API = {
         preview: "api/tmi/gs_preview.php",
         simulate: "api/tmi/gs_simulate.php",
@@ -37,6 +50,10 @@ const GS_ADL_API_URL = "api/adl/current.php";
         purgeLocal: "api/tmi/gs_purge_local.php",
         purgeAll: "api/tmi/gs_purge_all.php"
     };
+
+    // Current GS program state
+    let GS_CURRENT_PROGRAM_ID = null;
+    let GS_CURRENT_PROGRAM_STATUS = null;
 
     // Which dataset the flight table is currently showing
     // LIVE = dbo.adl_flights, GS = dbo.adl_flights_gs (local sandbox)
