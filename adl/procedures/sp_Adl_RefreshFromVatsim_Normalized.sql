@@ -1,5 +1,10 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.7 - Planned Crossings Integration
+-- sp_Adl_RefreshFromVatsim_Normalized V8.8 - Phase Detection & Prefile Fix
+--
+-- Changes from V8.7:
+--   - Fixed phase detection: added 'arrived' phase (GS<50 + pct>85%)
+--   - Added Step 2a: Process VATSIM prefiles from $.prefiles array
+--   - Prefiles now tracked separately as phase='prefile'
 --
 -- Changes from V8.6:
 --   - Added Step 11: Planned Crossings Calculation
@@ -10,6 +15,7 @@
 --   1    - Parse JSON into temp table
 --   1b   - Enrich with airport data
 --   2    - Upsert adl_flight_core
+--   2a   - Process VATSIM prefiles (NEW)
 --   2b   - Create adl_flight_times rows
 --   3    - Upsert adl_flight_position
 --   4    - Detect route changes, upsert flight plans
@@ -228,15 +234,18 @@ BEGIN
     )
     SELECT 
         p.flight_key, p.cid, p.callsign, p.flight_server,
-        CASE 
+        CASE
             WHEN p.lat IS NULL THEN 'prefile'
+            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) > 85 THEN 'arrived'
             WHEN p.groundspeed_kts < 50 THEN 'taxiing'
-            WHEN p.altitude_ft < 10000 THEN 'departed'
+            WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) < 15 THEN 'departed'
+            WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) > 85 THEN 'descending'
             ELSE 'enroute'
         END,
-        CASE 
+        CASE
             WHEN p.lat IS NULL THEN 'PROPOSED'
             WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) < 10 THEN 'DEPARTING'
+            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) > 85 THEN 'ARRIVED'
             WHEN ISNULL(p.pct_complete, 0) >= 90 THEN 'ARRIVING'
             ELSE 'ACTIVE'
         END,
@@ -256,14 +265,16 @@ BEGIN
         c.last_source = 'vatsim',
         c.phase = CASE
             WHEN p.lat IS NULL THEN 'prefile'
+            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) > 85 THEN 'arrived'
             WHEN p.groundspeed_kts < 50 THEN 'taxiing'
             WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) < 15 THEN 'departed'
             WHEN p.altitude_ft < 10000 AND ISNULL(p.pct_complete, 0) > 85 THEN 'descending'
             ELSE 'enroute'
         END,
-        c.flight_status = CASE 
+        c.flight_status = CASE
             WHEN p.lat IS NULL THEN 'PROPOSED'
             WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) < 10 THEN 'DEPARTING'
+            WHEN p.groundspeed_kts < 50 AND ISNULL(p.pct_complete, 0) > 85 THEN 'ARRIVED'
             WHEN ISNULL(p.pct_complete, 0) >= 90 THEN 'ARRIVING'
             ELSE 'ACTIVE'
         END,
@@ -272,12 +283,85 @@ BEGIN
     INNER JOIN #pilots p ON c.flight_key = p.flight_key;
     
     SET @updated_flights = @@ROWCOUNT;
-    
+
     UPDATE p
     SET p.flight_uid = c.flight_uid
     FROM #pilots p
     INNER JOIN dbo.adl_flight_core c ON c.flight_key = p.flight_key;
-    
+
+    -- ========================================================================
+    -- Step 2a: Process VATSIM prefiles (filed but not yet connected)
+    -- ========================================================================
+
+    ;WITH prefiles AS (
+        SELECT
+            CAST(pf.cid AS INT) AS cid,
+            CAST(pf.callsign AS NVARCHAR(16)) AS callsign,
+            CAST(fp.departure AS CHAR(4)) AS dept_icao,
+            CAST(fp.arrival AS CHAR(4)) AS dest_icao,
+            CAST(fp.deptime AS CHAR(4)) AS dep_time_z,
+            CAST(pf.cid AS NVARCHAR) + '|' + CAST(pf.callsign AS NVARCHAR(16)) + '|' +
+                ISNULL(CAST(fp.departure AS NVARCHAR(4)), '') + '|' +
+                ISNULL(CAST(fp.arrival AS NVARCHAR(4)), '') + '|' +
+                ISNULL(CAST(fp.deptime AS NVARCHAR(4)), '') AS flight_key
+        FROM OPENJSON(@Json, '$.prefiles')
+        WITH (
+            cid INT,
+            callsign NVARCHAR(16),
+            flight_plan NVARCHAR(MAX) AS JSON
+        ) AS pf
+        OUTER APPLY OPENJSON(pf.flight_plan)
+        WITH (
+            departure NVARCHAR(8),
+            arrival NVARCHAR(8),
+            deptime NVARCHAR(8)
+        ) AS fp
+        WHERE pf.callsign IS NOT NULL
+    )
+    INSERT INTO dbo.adl_flight_core (
+        flight_key, cid, callsign,
+        phase, flight_status, last_source, is_active,
+        first_seen_utc, last_seen_utc,
+        adl_date, adl_time, snapshot_utc
+    )
+    SELECT
+        pf.flight_key, pf.cid, pf.callsign,
+        'prefile', 'PROPOSED', 'vatsim', 1,
+        @now, @now,
+        CAST(@now AS DATE), CAST(@now AS TIME), @now
+    FROM prefiles pf
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.adl_flight_core c WHERE c.flight_key = pf.flight_key
+    )
+    AND NOT EXISTS (
+        SELECT 1 FROM #pilots p WHERE p.flight_key = pf.flight_key
+    );
+
+    -- Update last_seen for existing prefiles still in prefile state
+    UPDATE c
+    SET c.last_seen_utc = @now, c.snapshot_utc = @now
+    FROM dbo.adl_flight_core c
+    WHERE c.phase = 'prefile'
+      AND c.is_active = 1
+      AND EXISTS (
+          SELECT 1 FROM OPENJSON(@Json, '$.prefiles')
+          WITH (
+              cid INT,
+              callsign NVARCHAR(16),
+              flight_plan NVARCHAR(MAX) AS JSON
+          ) AS pf
+          OUTER APPLY OPENJSON(pf.flight_plan)
+          WITH (
+              departure NVARCHAR(8),
+              arrival NVARCHAR(8),
+              deptime NVARCHAR(8)
+          ) AS fp
+          WHERE CAST(pf.cid AS NVARCHAR) + '|' + CAST(pf.callsign AS NVARCHAR(16)) + '|' +
+                ISNULL(CAST(fp.departure AS NVARCHAR(4)), '') + '|' +
+                ISNULL(CAST(fp.arrival AS NVARCHAR(4)), '') + '|' +
+                ISNULL(CAST(fp.deptime AS NVARCHAR(4)), '') = c.flight_key
+      );
+
     -- ========================================================================
     -- Step 2b: Create adl_flight_times rows for new flights
     -- ========================================================================
