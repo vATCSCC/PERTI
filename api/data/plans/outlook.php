@@ -44,20 +44,21 @@ curl_close($ch_usa);
 $ch_can = curl_init();
 curl_setopt_array($ch_can, [
     CURLOPT_RETURNTRANSFER => 1,
-    CURLOPT_URL => "https://vatcan.ca/api/v2/division/events"
+    CURLOPT_URL => "https://vatcan.ca/api/events"
 ]);
 $json_can = curl_exec($ch_can);
 $obj_can = json_decode($json_can, true);
 curl_close($ch_can);
 
 // Render VATUSA events (blue border + USA badge)
+// Note: VATUSA API only provides date (no time), times are in UTC
 if (isset($obj_usa['data']) && is_array($obj_usa['data'])) {
     foreach ($obj_usa['data'] as &$data) {
         echo '<div class="col-md-6 col-xl-4 mb-4">';
             echo '<div class="card border-left-primary" style="border-left: 4px solid #4e73df !important;">';
                 echo '<div class="card-body">';
                     echo '<h5 class="card-title"><b>'.$data['title'].'</b> <span class="badge badge-primary">USA</span></h5>';
-                    echo '<p class="text-wrap">On '.$data['start_date'].'</p>';
+                    echo '<p class="text-wrap mb-0">'.$data['start_date'].'</p>';
                 echo '</div>';
             echo '</div>';
         echo '</div>';
@@ -65,13 +66,38 @@ if (isset($obj_usa['data']) && is_array($obj_usa['data'])) {
 }
 
 // Render VATCAN events (red border + CAN badge)
+// Note: VATCAN API provides full datetime, times are in UTC
 if (isset($obj_can['data']) && is_array($obj_can['data'])) {
     foreach ($obj_can['data'] as &$data) {
+        // Format start datetime (YYYY-MM-DD HH:MM)
+        $start_formatted = substr($data['start'], 0, 16); // "YYYY-MM-DD HH:MM"
+        $end_formatted = substr($data['end'], 0, 16);
+
+        // Build airports string if available
+        $airports_str = '';
+        if (!empty($data['airports'])) {
+            $deps = $data['airports']['departure'] ?? [];
+            $arrs = $data['airports']['arrival'] ?? [];
+            if (!empty($deps) || !empty($arrs)) {
+                $airport_parts = [];
+                if (!empty($deps)) {
+                    $airport_parts[] = implode(', ', $deps);
+                }
+                if (!empty($arrs)) {
+                    $airport_parts[] = implode(', ', $arrs);
+                }
+                $airports_str = implode(' → ', $airport_parts);
+            }
+        }
+
         echo '<div class="col-md-6 col-xl-4 mb-4">';
             echo '<div class="card border-left-danger" style="border-left: 4px solid #e74a3b !important;">';
                 echo '<div class="card-body">';
                     echo '<h5 class="card-title"><b>'.$data['name'].'</b> <span class="badge badge-danger">CAN</span></h5>';
-                    echo '<p class="text-wrap">On '.substr($data['start'], 0, 10).'</p>';
+                    echo '<p class="text-wrap mb-1"><i class="fas fa-clock fa-sm text-muted"></i> '.$start_formatted.'Z - '.$end_formatted.'Z</p>';
+                    if (!empty($airports_str)) {
+                        echo '<p class="text-wrap mb-0"><i class="fas fa-plane fa-sm text-muted"></i> '.$airports_str.'</p>';
+                    }
                 echo '</div>';
             echo '</div>';
         echo '</div>';
