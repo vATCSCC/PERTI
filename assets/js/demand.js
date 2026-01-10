@@ -593,6 +593,7 @@ function renderChart(data) {
         },
         xAxis: {
             type: 'time',
+            maxInterval: 3600 * 1000,  // Maximum 1 hour between labels
             axisLine: {
                 lineStyle: {
                     color: '#333',
@@ -833,6 +834,7 @@ function renderOriginChart() {
         },
         xAxis: {
             type: 'time',
+            maxInterval: 3600 * 1000,  // Maximum 1 hour between labels
             axisLine: {
                 lineStyle: {
                     color: '#333',
@@ -1009,6 +1011,10 @@ function buildStatusSeries(name, timeBins, dataByBin, status, type) {
  * Build a series for a specific phase - TBFM/FSM style with TRUE TIME AXIS
  * Data format: [[timestamp, value], [timestamp, value], ...]
  * Uses individual phase colors from FSM_PHASE_COLORS
+ *
+ * FSM/TBFM style:
+ * - Arrivals: solid bars on the left side of each time bin
+ * - Departures: hatched/diagonal pattern bars on the right side
  */
 function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type) {
     // Build data as [timestamp, value] pairs for time axis
@@ -1019,18 +1025,16 @@ function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type) {
     });
 
     // Get phase color from individual phase palette
-    let color = FSM_PHASE_COLORS[phase] || '#999';
-    if (type === 'departures') {
-        // Use lighter shade for departures to distinguish from arrivals
-        color = adjustColor(color, 0.15);
-    }
+    const color = FSM_PHASE_COLORS[phase] || '#999';
 
-    return {
+    // Base series config
+    const seriesConfig = {
         name: name,
         type: 'bar',
         stack: type,
-        barWidth: '70%', // Percentage of available space per bin
-        barGap: '0%',
+        // FSM style: arrivals and departures side by side within each time bin
+        barWidth: '35%',  // Each stack takes ~35% of the bin width
+        barGap: '10%',    // Small gap between arrival and departure bars
         emphasis: {
             focus: 'series',
             itemStyle: {
@@ -1040,11 +1044,25 @@ function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type) {
         },
         itemStyle: {
             color: color,
-            borderColor: 'transparent', // No borders - AADC style
-            borderWidth: 0
+            borderColor: type === 'departures' ? 'rgba(255,255,255,0.5)' : 'transparent',
+            borderWidth: type === 'departures' ? 1 : 0
         },
         data: data
     };
+
+    // Add diagonal hatching pattern for departures (FSM/TBFM style)
+    if (type === 'departures') {
+        seriesConfig.itemStyle.decal = {
+            symbol: 'rect',
+            symbolSize: 1,
+            rotation: Math.PI / 4,  // 45-degree diagonal lines
+            color: 'rgba(255,255,255,0.4)',  // White lines for contrast
+            dashArrayX: [1, 0],
+            dashArrayY: [3, 5]  // Line thickness and spacing
+        };
+    }
+
+    return seriesConfig;
 }
 
 /**
@@ -1114,11 +1132,14 @@ function getCurrentTimeMarkLineForTimeAxis() {
     const hours = now.getUTCHours().toString().padStart(2, '0');
     const minutes = now.getUTCMinutes().toString().padStart(2, '0');
 
+    // FSM/TBFM style: yellow/orange current time marker
+    const markerColor = '#f59e0b';  // Amber/yellow like FSM reference
+
     return {
         silent: true,
         symbol: ['none', 'none'],
         lineStyle: {
-            color: '#0066CC',
+            color: markerColor,
             width: 2,
             type: 'solid'
         },
@@ -1126,14 +1147,14 @@ function getCurrentTimeMarkLineForTimeAxis() {
             show: true,
             formatter: `${hours}${minutes}z`,
             position: 'end',
-            color: '#0066CC',
+            color: markerColor,
             fontWeight: 'bold',
             fontSize: 10,
             fontFamily: '"Inconsolata", monospace',
             backgroundColor: 'rgba(255,255,255,0.95)',
             padding: [2, 6],
             borderRadius: 2,
-            borderColor: '#0066CC',
+            borderColor: markerColor,
             borderWidth: 1
         },
         data: [{
