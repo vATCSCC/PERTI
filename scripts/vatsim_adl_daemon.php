@@ -109,12 +109,17 @@ $config = [
     'metar_window_mins' => 5,
 
     // Boundary & Crossings background processing
-    // NOTE: SP spatial queries are slow (~300ms/flight). Needs optimization.
-    // Current capacity: 250/min handles ~1,700 flights. Will fall behind at 3,000+ flights.
+    // SP V1.6 uses set-based processing (not per-flight cursor), much faster than legacy
+    // Capacity planning (grid changes ~1 per 4min per flight):
+    //   1000 flights = 250/min needed, 3000 = 750/min, 5000 = 1250/min, 6000+ events = 1500+/min
+    // Timing: set-based SP scales linearly, 2000 flights ≈ 8-16s (well under 60s cycle)
+    // Adaptive intervals: runs more often when backlog exists, less often when caught up
     'boundary_enabled'       => true,
-    'boundary_interval'      => 4,    // Run every N cycles (4 = every 60 seconds, matches tier schedule)
-    'boundary_max_flights'   => 250,  // Max boundary flights per run (limited by slow spatial queries)
-    'crossings_max_flights'  => 25,   // Max crossings per run (very slow, keep minimal)
+    'boundary_interval_fast' => 2,    // Run every 2 cycles (30s) when pending > threshold
+    'boundary_interval_slow' => 4,    // Run every 4 cycles (60s) when caught up
+    'boundary_adaptive_threshold' => 500, // Switch to fast mode when pending > this
+    'boundary_max_flights'   => 2000, // Max boundary flights per run (event-ready)
+    'crossings_max_flights'  => 150,  // Max crossings per run (6x original for events)
     'boundary_timeout'       => 120,  // SP timeout in seconds
 
     // Runway detection from flight tracks
@@ -769,6 +774,32 @@ function executeBoundaryProcessing($conn, array $config): ?array {
     ];
 }
 
+/**
+ * Get count of flights pending boundary detection.
+ * Used for adaptive interval calculation.
+ */
+function getBoundaryPendingCount($conn): int {
+    $sql = "SELECT COUNT(*) AS cnt
+            FROM dbo.adl_flight_core c
+            JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+            WHERE c.is_active = 1
+              AND p.lat IS NOT NULL
+              AND (c.current_artcc_id IS NULL
+                  OR c.last_grid_lat IS NULL
+                  OR c.last_grid_lat != CAST(FLOOR(p.lat / 0.5) AS SMALLINT)
+                  OR c.last_grid_lon != CAST(FLOOR(p.lon / 0.5) AS SMALLINT))";
+
+    $stmt = @sqlsrv_query($conn, $sql);
+    if ($stmt === false) {
+        return 0;
+    }
+
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    return (int)($row['cnt'] ?? 0);
+}
+
 // ============================================================================
 // RUNWAY DETECTION FROM FLIGHT TRACKS
 // ============================================================================
@@ -957,15 +988,30 @@ function runDaemon(array $config): void {
             // Free memory
             unset($jsonData);
 
-            // 5b. Boundary & Crossings processing (every N cycles)
+            // 5b. Boundary & Crossings processing (adaptive interval based on pending count)
             $boundaryResult = null;
-            if ($config['boundary_enabled'] && $stats['runs'] % $config['boundary_interval'] === 0) {
-                $boundaryResult = executeBoundaryProcessing($conn, $config);
-                if ($boundaryResult !== null) {
-                    $stats['boundary_runs']++;
-                    $stats['boundary_transitions'] += $boundaryResult['boundary_transitions'];
-                    $stats['boundary_crossings'] += $boundaryResult['crossings_calculated'];
-                    $stats['boundary_total_ms'] += $boundaryResult['elapsed_ms'];
+            $boundaryPending = 0;
+            if ($config['boundary_enabled']) {
+                // Check pending count to determine interval (only check every 2 cycles to reduce overhead)
+                static $lastBoundaryPending = 0;
+                if ($stats['runs'] % 2 === 0) {
+                    $lastBoundaryPending = getBoundaryPendingCount($conn);
+                }
+                $boundaryPending = $lastBoundaryPending;
+
+                // Adaptive interval: fast (30s) when backlog exists, slow (60s) when caught up
+                $boundaryInterval = ($boundaryPending > $config['boundary_adaptive_threshold'])
+                    ? $config['boundary_interval_fast']
+                    : $config['boundary_interval_slow'];
+
+                if ($stats['runs'] % $boundaryInterval === 0) {
+                    $boundaryResult = executeBoundaryProcessing($conn, $config);
+                    if ($boundaryResult !== null) {
+                        $stats['boundary_runs']++;
+                        $stats['boundary_transitions'] += $boundaryResult['boundary_transitions'];
+                        $stats['boundary_crossings'] += $boundaryResult['crossings_calculated'];
+                        $stats['boundary_total_ms'] += $boundaryResult['elapsed_ms'];
+                    }
                 }
             }
 
@@ -1032,6 +1078,8 @@ function runDaemon(array $config): void {
             // Add boundary stats when processed this cycle
             if ($boundaryResult !== null) {
                 $logContext['bnd_ms'] = $boundaryResult['elapsed_ms'];
+                $logContext['bnd_pending'] = $boundaryPending;
+                $logContext['bnd_mode'] = ($boundaryPending > $config['boundary_adaptive_threshold']) ? 'FAST' : 'slow';
                 if ($boundaryResult['boundary_transitions'] > 0) {
                     $logContext['bnd_trans'] = $boundaryResult['boundary_transitions'];
                 }

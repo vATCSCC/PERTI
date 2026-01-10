@@ -486,15 +486,26 @@ function loadDemandData() {
  */
 function updateRateInfoDisplay(rateData) {
     if (!rateData) {
-        $('#rate_config_name').text('--');
+        $('#rate_config_name').text('--').attr('title', '');
         $('#rate_weather_category').text('--').removeClass().addClass('badge');
         $('#rate_display').text('--/--');
-        $('#rate_match_score').text('');
+        $('#rate_source').text('--');
         return;
     }
 
-    // Config name
-    $('#rate_config_name').text(rateData.config_name || '--');
+    // Config name with tooltip showing full details
+    const configName = rateData.config_name || '--';
+    const $configEl = $('#rate_config_name');
+    $configEl.text(configName);
+
+    // Build tooltip with runway info if available
+    let tooltip = configName;
+    if (rateData.arr_runways || rateData.dep_runways) {
+        tooltip += '\n';
+        if (rateData.arr_runways) tooltip += `Arr: ${rateData.arr_runways}\n`;
+        if (rateData.dep_runways) tooltip += `Dep: ${rateData.dep_runways}`;
+    }
+    $configEl.attr('title', tooltip.trim());
 
     // Weather category with color
     const weatherCat = rateData.weather_category || 'VMC';
@@ -513,13 +524,29 @@ function updateRateInfoDisplay(rateData) {
     const rateStr = (aar || '--') + '/' + (adr || '--');
     $('#rate_display').text(rateStr);
 
-    // Match confidence
-    if (rateData.match_score) {
-        const scoreText = rateData.is_suggested ? '(suggested)' : `(${rateData.match_score}% match)`;
-        $('#rate_match_score').text(scoreText);
-    } else {
-        $('#rate_match_score').text('');
+    // Source info (match_type or rate_source)
+    let sourceText = '--';
+    if (rateData.match_type) {
+        // Format match type: "atis_exact" -> "ATIS", "detected" -> "Detected", etc.
+        const matchTypeMap = {
+            'atis_exact': 'ATIS',
+            'atis_fuzzy': 'ATIS~',
+            'detected': 'Detected',
+            'default': 'Default',
+            'manual': 'Manual'
+        };
+        sourceText = matchTypeMap[rateData.match_type] || rateData.match_type;
+
+        // Add match score if available
+        if (rateData.match_score && rateData.match_score < 100) {
+            sourceText += ` ${rateData.match_score}%`;
+        }
+    } else if (rateData.rate_source) {
+        sourceText = rateData.rate_source;
+    } else if (rateData.is_suggested) {
+        sourceText = 'Suggested';
     }
+    $('#rate_source').text(sourceText);
 }
 
 /**
@@ -1376,13 +1403,13 @@ function buildRateMarkLinesForChart() {
             label: {
                 show: true,
                 formatter: `${label} ${value}`,
-                position: cfg.label.position || 'end',
+                position: 'insideEndTop',  // Keep label inside chart area
                 color: sourceStyle.color,
                 fontSize: cfg.label.fontSize || 10,
                 fontWeight: cfg.label.fontWeight || 'bold',
                 fontFamily: '"Roboto Mono", monospace',
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                padding: [2, 4],
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: [2, 6],
                 borderRadius: 2
             }
         });
@@ -1553,13 +1580,13 @@ function getGranularityMinutes() {
 
 /**
  * Build chart title in FSM/TBFM style
- * Format: "KATL          01/10/2026          1630z"
+ * Format: "KATL          01/10/2026          16:30Z"
  * Airport code (left), ADL date (center), ADL time (right)
  */
 function buildChartTitle(airport, lastAdlUpdate) {
     // Format ADL date and time
     let dateStr = '--/--/----';
-    let timeStr = '----z';
+    let timeStr = '--:--Z';
 
     if (lastAdlUpdate) {
         const adlDate = new Date(lastAdlUpdate);
@@ -1569,10 +1596,10 @@ function buildChartTitle(airport, lastAdlUpdate) {
         const year = adlDate.getUTCFullYear();
         dateStr = `${month}/${day}/${year}`;
 
-        // Format: hhmm'z'
+        // Format: HH:MMZ (with colon, uppercase Z)
         const hours = adlDate.getUTCHours().toString().padStart(2, '0');
         const mins = adlDate.getUTCMinutes().toString().padStart(2, '0');
-        timeStr = `${hours}${mins}z`;
+        timeStr = `${hours}:${mins}Z`;
     }
 
     // Use fixed-width spacing to create the left/center/right layout
