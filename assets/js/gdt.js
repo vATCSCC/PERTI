@@ -4874,6 +4874,9 @@ function loadTierInfo() {
         // Initialize Model GS Power Run event handlers
         initModelGsHandlers();
 
+        // Initialize GS Demand Chart handlers
+        initGsDemandChartHandlers();
+
         // Flight List modal link to Model GS
         var fltListOpenModel = document.getElementById("gs_flt_list_open_model");
         if (fltListOpenModel) {
@@ -5568,7 +5571,7 @@ function loadTierInfo() {
         if (section) {
             section.style.display = "";
             section.scrollIntoView({ behavior: "smooth", block: "start" });
-            
+
             // Render the data graph with current flight list data
             if (GS_FLIGHT_LIST_DATA || GS_LAST_SIMULATION_DATA) {
                 var data = GS_FLIGHT_LIST_DATA || GS_LAST_SIMULATION_DATA;
@@ -5576,6 +5579,214 @@ function loadTierInfo() {
                 renderModelGsDataGraph(data, payload);
                 renderModelGsSummaryTables(data);
             }
+
+            // Initialize and load demand chart
+            initGsDemandChart();
+        }
+    }
+
+    // Initialize GS Demand Chart (ECharts-based FSM/TBFM style)
+    function initGsDemandChart() {
+        if (!window.DemandChart) {
+            console.warn("DemandChart module not loaded");
+            return;
+        }
+
+        // Get first arrival airport from GS airports field
+        var apStr = getValue("gs_airports") || getValue("gs_ctl_element") || "";
+        var airports = apStr.toUpperCase().split(/\s+/).filter(function(x) { return x.length >= 3; });
+        var airport = airports[0] || null;
+
+        // Create chart instance if not already created
+        if (!GS_DEMAND_CHART) {
+            var chartContainer = document.getElementById("gs_demand_chart");
+            if (chartContainer) {
+                GS_DEMAND_CHART = window.DemandChart.create(chartContainer, {
+                    direction: GS_DEMAND_DIRECTION,
+                    granularity: GS_DEMAND_GRANULARITY,
+                    timeRangeStart: -2,
+                    timeRangeEnd: 14
+                });
+            }
+        }
+
+        // Load data for the airport
+        if (airport && GS_DEMAND_CHART) {
+            loadGsDemandData(airport);
+        }
+    }
+
+    // Load demand data for an airport
+    function loadGsDemandData(airport) {
+        if (!GS_DEMAND_CHART || !airport) return;
+
+        // Normalize airport code (add K prefix for US 3-letter codes)
+        if (airport.length === 3 && !/^[PK]/.test(airport)) {
+            airport = "K" + airport;
+        }
+
+        // Update UI
+        var badgeEl = document.getElementById("gs_demand_airport_badge");
+        if (badgeEl) badgeEl.textContent = airport;
+
+        // Load demand data
+        GS_DEMAND_CHART.load(airport, {
+            direction: GS_DEMAND_DIRECTION,
+            granularity: GS_DEMAND_GRANULARITY
+        }).then(function(result) {
+            if (result.success && result.rates) {
+                updateGsDemandRateInfo(result.rates);
+            }
+            // Update last update time
+            var updateEl = document.getElementById("gs_demand_last_update");
+            if (updateEl) {
+                var now = new Date();
+                updateEl.textContent = now.getUTCHours().toString().padStart(2, "0") + ":" +
+                                      now.getUTCMinutes().toString().padStart(2, "0") + ":" +
+                                      now.getUTCSeconds().toString().padStart(2, "0") + "Z";
+            }
+        }).catch(function(err) {
+            console.error("Failed to load demand data:", err);
+        });
+    }
+
+    // Update demand rate info display in the Model section
+    function updateGsDemandRateInfo(rateData) {
+        if (!rateData) return;
+
+        // Config name
+        var configEl = document.getElementById("gs_demand_config_name");
+        if (configEl) configEl.textContent = rateData.config_name || "--";
+
+        // Weather badge
+        var weatherEl = document.getElementById("gs_demand_weather_badge");
+        if (weatherEl) {
+            var weatherCat = rateData.weather_category || "VMC";
+            weatherEl.textContent = weatherCat;
+            // Apply weather color from rate-colors.js if available
+            if (typeof RATE_LINE_CONFIG !== "undefined" && RATE_LINE_CONFIG.weatherColors) {
+                weatherEl.style.backgroundColor = RATE_LINE_CONFIG.weatherColors[weatherCat] || "#22c55e";
+            }
+        }
+
+        // AAR/ADR values
+        var aarEl = document.getElementById("gs_demand_aar");
+        var adrEl = document.getElementById("gs_demand_adr");
+        if (aarEl) aarEl.textContent = rateData.rates && rateData.rates.vatsim_aar ? rateData.rates.vatsim_aar : "--";
+        if (adrEl) adrEl.textContent = rateData.rates && rateData.rates.vatsim_adr ? rateData.rates.vatsim_adr : "--";
+
+        // Rate source
+        var sourceEl = document.getElementById("gs_demand_rate_source");
+        if (sourceEl) {
+            var sourceText = "--";
+            if (rateData.match_type) {
+                var matchTypeMap = {
+                    "EXACT": "Exact", "PARTIAL_ARR": "Partial", "PARTIAL_DEP": "Partial",
+                    "SUBSET_ARR": "Subset", "SUBSET_DEP": "Subset", "WIND_BASED": "Wind",
+                    "CAPACITY_DEFAULT": "Default", "VMC_FALLBACK": "Fallback",
+                    "DETECTED_TRACKS": "Detected", "MANUAL": "Manual"
+                };
+                sourceText = matchTypeMap[rateData.match_type] || rateData.match_type;
+            } else if (rateData.is_suggested) {
+                sourceText = "Suggested";
+            }
+            sourceEl.textContent = sourceText;
+        }
+    }
+
+    // Initialize demand chart control handlers
+    function initGsDemandChartHandlers() {
+        // Direction toggle buttons
+        var dirBothBtn = document.getElementById("gs_demand_dir_both");
+        var dirArrBtn = document.getElementById("gs_demand_dir_arr");
+        var dirDepBtn = document.getElementById("gs_demand_dir_dep");
+
+        function setDirectionActive(activeBtn) {
+            [dirBothBtn, dirArrBtn, dirDepBtn].forEach(function(btn) {
+                if (btn) {
+                    btn.classList.remove("btn-light", "active");
+                    btn.classList.add("btn-outline-light");
+                }
+            });
+            if (activeBtn) {
+                activeBtn.classList.remove("btn-outline-light");
+                activeBtn.classList.add("btn-light", "active");
+            }
+        }
+
+        if (dirBothBtn) {
+            dirBothBtn.addEventListener("click", function() {
+                GS_DEMAND_DIRECTION = "both";
+                setDirectionActive(dirBothBtn);
+                if (GS_DEMAND_CHART) GS_DEMAND_CHART.update({ direction: "both" });
+            });
+        }
+        if (dirArrBtn) {
+            dirArrBtn.addEventListener("click", function() {
+                GS_DEMAND_DIRECTION = "arr";
+                setDirectionActive(dirArrBtn);
+                if (GS_DEMAND_CHART) GS_DEMAND_CHART.update({ direction: "arr" });
+            });
+        }
+        if (dirDepBtn) {
+            dirDepBtn.addEventListener("click", function() {
+                GS_DEMAND_DIRECTION = "dep";
+                setDirectionActive(dirDepBtn);
+                if (GS_DEMAND_CHART) GS_DEMAND_CHART.update({ direction: "dep" });
+            });
+        }
+
+        // Granularity toggle buttons
+        var gran15Btn = document.getElementById("gs_demand_gran_15");
+        var gran30Btn = document.getElementById("gs_demand_gran_30");
+        var gran60Btn = document.getElementById("gs_demand_gran_60");
+
+        function setGranularityActive(activeBtn) {
+            [gran15Btn, gran30Btn, gran60Btn].forEach(function(btn) {
+                if (btn) {
+                    btn.classList.remove("btn-light", "active");
+                    btn.classList.add("btn-outline-light");
+                }
+            });
+            if (activeBtn) {
+                activeBtn.classList.remove("btn-outline-light");
+                activeBtn.classList.add("btn-light", "active");
+            }
+        }
+
+        if (gran15Btn) {
+            gran15Btn.addEventListener("click", function() {
+                GS_DEMAND_GRANULARITY = "15min";
+                setGranularityActive(gran15Btn);
+                if (GS_DEMAND_CHART) GS_DEMAND_CHART.update({ granularity: "15min" });
+            });
+        }
+        if (gran30Btn) {
+            gran30Btn.addEventListener("click", function() {
+                GS_DEMAND_GRANULARITY = "30min";
+                setGranularityActive(gran30Btn);
+                if (GS_DEMAND_CHART) GS_DEMAND_CHART.update({ granularity: "30min" });
+            });
+        }
+        if (gran60Btn) {
+            gran60Btn.addEventListener("click", function() {
+                GS_DEMAND_GRANULARITY = "hourly";
+                setGranularityActive(gran60Btn);
+                if (GS_DEMAND_CHART) GS_DEMAND_CHART.update({ granularity: "hourly" });
+            });
+        }
+
+        // Refresh button
+        var refreshBtn = document.getElementById("gs_demand_refresh_btn");
+        if (refreshBtn) {
+            refreshBtn.addEventListener("click", function() {
+                var apStr = getValue("gs_airports") || getValue("gs_ctl_element") || "";
+                var airports = apStr.toUpperCase().split(/\s+/).filter(function(x) { return x.length >= 3; });
+                var airport = airports[0] || null;
+                if (airport) {
+                    loadGsDemandData(airport);
+                }
+            });
         }
     }
 
@@ -5593,6 +5804,11 @@ function loadTierInfo() {
     var GS_MODEL_CHART_TYPE = "bar";
     var GS_MODEL_CURRENT_DATA = null;
     var GS_MODEL_CURRENT_PAYLOAD = null;
+
+    // Demand Chart Integration (using shared DemandChart module)
+    var GS_DEMAND_CHART = null;
+    var GS_DEMAND_DIRECTION = "both";
+    var GS_DEMAND_GRANULARITY = "hourly";
 
     // Initialize Model GS event handlers
     function initModelGsHandlers() {

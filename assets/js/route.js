@@ -6562,7 +6562,17 @@ advAddLabeledField(lines, 'NAME', advName);
                     
                 case 'eta_hour':
                     return getEtaHourColor(flight.eta_runway_utc);
-                    
+
+                case 'status':
+                    // Phase-based coloring aligned with demand chart phases
+                    var phase = (flight.phase || '').toLowerCase();
+                    if (phase === 'enroute') return '#28a745';           // Green - Enroute
+                    if (phase === 'departed' || phase === 'taxiing') return '#17a2b8';  // Cyan - Departing/Taxiing
+                    if (phase === 'descending') return '#f28e2b';        // Orange - Descending
+                    if (phase === 'arrived' || phase === 'disconnected') return '#6c757d';  // Gray - Arrived/Disconnected
+                    if (phase === 'prefile' || phase === 'unknown' || !phase) return '#b07aa1';  // Purple - Prefile
+                    return '#ffffff';
+
                 default:
                     return WEIGHT_CLASS_COLORS[''];
             }
@@ -6713,7 +6723,17 @@ advAddLabeledField(lines, 'NAME', advName);
                         { color: ARR_DEP_COLORS['DEP'], label: 'Departing' }
                     ];
                     break;
-                    
+
+                case 'status':
+                    items = [
+                        { color: '#28a745', label: 'Enroute' },
+                        { color: '#17a2b8', label: 'Departed/Taxi' },
+                        { color: '#f28e2b', label: 'Descending' },
+                        { color: '#6c757d', label: 'Arrived/Disconn' },
+                        { color: '#b07aa1', label: 'Prefile' }
+                    ];
+                    break;
+
                 case 'eta_relative':
                     // Spectral gradient legend for ETA relative
                     items = [

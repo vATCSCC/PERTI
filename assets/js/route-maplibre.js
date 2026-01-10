@@ -3949,6 +3949,15 @@ $(document).ready(function() {
                     return '#6c757d';
                 case 'reroute_match':
                     return getRerouteMatchColor(flight);
+                case 'status':
+                    // Phase-based coloring aligned with demand chart phases
+                    const phase = (flight.phase || '').toLowerCase();
+                    if (phase === 'enroute') return '#28a745';           // Green - Enroute
+                    if (phase === 'departed' || phase === 'taxiing') return '#17a2b8';  // Cyan - Departing/Taxiing
+                    if (phase === 'descending') return '#f28e2b';        // Orange - Descending
+                    if (phase === 'arrived' || phase === 'disconnected') return '#6c757d';  // Gray - Arrived/Disconnected
+                    if (phase === 'prefile' || phase === 'unknown' || !phase) return '#b07aa1';  // Purple - Prefile
+                    return '#ffffff';
                 default:
                     return '#ffffff';
             }
@@ -4233,14 +4242,23 @@ $(document).ready(function() {
                     break;
                 case 'reroute_match':
                     // Show only VISIBLE (active + future) public routes with their colors
-                    const publicRoutes = (window.PublicRoutes && typeof window.PublicRoutes.getRoutes === 'function') 
-                        ? window.PublicRoutes.getRoutes() 
+                    const publicRoutes = (window.PublicRoutes && typeof window.PublicRoutes.getRoutes === 'function')
+                        ? window.PublicRoutes.getRoutes()
                         : [];
                     items = publicRoutes.map(route => ({
                         color: route.color || '#17a2b8',
                         label: route.name || 'Route'
                     }));
                     items.push({ color: '#666666', label: 'No Match' });
+                    break;
+                case 'status':
+                    items = [
+                        { color: '#28a745', label: 'Enroute' },
+                        { color: '#17a2b8', label: 'Departed/Taxi' },
+                        { color: '#f28e2b', label: 'Descending' },
+                        { color: '#6c757d', label: 'Arrived/Disconn' },
+                        { color: '#b07aa1', label: 'Prefile' }
+                    ];
                     break;
                 default:
                     items = [{ color: '#6c757d', label: state.colorBy }];
