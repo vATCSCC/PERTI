@@ -1,7 +1,7 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-01-07
-> **System Version:** Main Branch (ae131f5)
+> **Last Updated:** 2026-01-10
+> **System Version:** Main Branch (e83664e)
 
 ---
 
@@ -62,6 +62,19 @@
 | `sp_Adl_RefreshFromVatsim_Normalized` | [OK] Deployed | [sp_Adl_RefreshFromVatsim_Normalized.sql](../adl/procedures/sp_Adl_RefreshFromVatsim_Normalized.sql) | VATSIM flight data sync |
 | `fn_IsFlightRelevant` | [OK] Deployed | [fn_IsFlightRelevant.sql](../adl/procedures/fn_IsFlightRelevant.sql) | Flight relevance filter |
 | `diagnostic_check` | [OK] Deployed | [diagnostic_check.sql](../adl/procedures/diagnostic_check.sql) | Health check queries |
+
+### Ground Stop / GDT (NEW v15)
+
+| Procedure | Status | Location | Description |
+|-----------|--------|----------|-------------|
+| `sp_GS_Create` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Create proposed ground stop |
+| `sp_GS_Model` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Model GS (identify affected flights) |
+| `sp_GS_IssueEDCTs` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Activate ground stop |
+| `sp_GS_Extend` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Extend GS end time |
+| `sp_GS_Purge` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Cancel/purge ground stop |
+| `sp_GS_GetFlights` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Get affected flights |
+| `sp_GS_DetectPopups` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Detect pop-up flights |
+| `fn_HaversineNM` | [OK] Deployed | [002_gs_procedures.sql](../adl/migrations/tmi/002_gs_procedures.sql) | Great circle distance |
 
 ### Removed Procedures
 
@@ -324,18 +337,30 @@ python atis_daemon.py
 | File | Status | Notes |
 |------|--------|-------|
 | `.claude/settings.local.json` | [WARN] Modified | Local settings update |
-| `adl/php/parse_queue_daemon.php` | [WARN] Modified | Daemon improvements |
-| `adl/procedures/sp_ProcessBoundaryDetectionBatch.sql` | [WARN] Modified | Batch processing refinement |
+| `api/adl/AdlQueryHelper.php` | [WARN] Modified | Query improvements |
+| `assets/js/nod.js` | [WARN] Modified | NOD enhancements |
+
+### New Files (v15)
+
+| File | Status | Notes |
+|------|--------|-------|
+| `adl/migrations/tmi/001_ntml_schema.sql` | [OK] Created | NTML tables schema |
+| `adl/migrations/tmi/002_gs_procedures.sql` | [OK] Created | GS stored procedures |
+| `adl/migrations/tmi/003_gdt_views.sql` | [OK] Created | GDT views |
+| `adl/migrations/core/007_remove_flight_status.sql` | [OK] Created | Schema cleanup |
+| `api/tmi/gs/*.php` | [OK] Created | 10 new GS API endpoints |
+| `docs/GDT_Unified_Design_Document_v1.md` | [OK] Created | GDT design reference |
+| `docs/GDT_GS_Transition_Summary_20260110.md` | [OK] Created | Implementation summary |
 
 ### Recent Commits
 
 | Commit | Description |
 |--------|-------------|
-| `ae131f5` | Refine boundary detection batch processing |
-| `a39dca9` | Remove __pycache__ from version control |
-| `106d679` | Add codebase index documentation |
-| `4fd3509` | Add archive deployment and utility scripts |
-| `3010925` | Add boundary optimization, wind data, and changelog infrastructure |
+| `e83664e` | Update ATIS batch import and daemon processing |
+| `2ee9d5e` | Fix V1.5 STContains bug - geography type uses STIntersects |
+| `0643219` | Add ATIS batch import and update demand/daemon |
+| `948b1c4` | Add zone detection v3 and update demand/daemon processing |
+| `bd57f02` | Refine demand.js |
 
 ---
 

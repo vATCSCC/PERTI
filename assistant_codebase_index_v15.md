@@ -1,6 +1,6 @@
-# vATCSCC PERTI — Codebase Index (v14)
+# vATCSCC PERTI — Codebase Index (v15)
 
-Generated: 2026-01-07 UTC
+Generated: 2026-01-10 UTC
 
 This index is based on the `wwwroot-2026-01-03-9.zip` snapshot and is intended as a fast reference for navigation, call graphs, and high-signal files.
 
@@ -431,18 +431,44 @@ Notes:
 
 ### 6.2 TMI APIs (`/api/tmi/`)
 
+**Legacy APIs (deprecated):**
+
 - `gdp_apply.php` — Apply GDP to live flights
 - `gdp_preview.php` — Preview GDP impact
 - `gdp_purge.php` — Purge GDP
 - `gdp_simulate.php` — Run GDP simulation
 - `gdp_purge_local.php` — Local GDP purge
-- `gs_apply.php` — Apply Ground Stop
-- `gs_apply_ctd.php` — Apply GS with CTD
-- `gs_preview.php` — Preview GS impact
-- `gs_purge_all.php` — Purge all GS
-- `gs_purge_local.php` — Local GS purge
-- `gs_simulate.php` — Simulate GS
-- `rr_*.php` — Reroute management endpoints
+- `gs_apply.php` — Apply Ground Stop (legacy)
+- `gs_apply_ctd.php` — Apply GS with CTD (legacy)
+- `gs_preview.php` — Preview GS impact (legacy)
+- `gs_purge_all.php` — Purge all GS (legacy)
+- `gs_purge_local.php` — Local GS purge (legacy)
+- `gs_simulate.php` — Simulate GS (legacy)
+
+**New GS APIs (`/api/tmi/gs/`) — NEW v15:**
+
+- `common.php` — Shared utilities (respond_json, fetch_all, etc.)
+- `create.php` — Create new GS in PROPOSED state
+- `model.php` — Model GS (identify affected flights)
+- `activate.php` — Activate GS (issue EDCTs)
+- `extend.php` — Extend GS end time
+- `purge.php` — Cancel/purge GS
+- `flights.php` — Get affected flights
+- `get.php` — Get single program with optional flights/events
+- `list.php` — List GS programs with filters
+- `demand.php` — Get arrival demand (for bar graphs)
+
+**Removed APIs (v15):**
+
+- `rr_assign.php` — Removed (reroute assignment)
+- `rr_assign_manual.php` — Removed (manual reroute assignment)
+- `rr_compliance_history.php` — Removed (compliance history)
+- `rr_compliance_override.php` — Removed (compliance override)
+- `rr_compliance_refresh.php` — Removed (compliance refresh)
+- `rr_export.php` — Removed (reroute export)
+- `rr_flight_search.php` — Removed (flight search)
+- `rr_preview.php` — Removed (reroute preview)
+- `rr_stats.php` — Removed (reroute stats)
 
 ### 6.3 JATOC APIs (`/api/jatoc/`)
 
@@ -583,18 +609,55 @@ Notes:
 ## 11) GDP / GDT (Ground Delay Program) subsystem — Detailed notes
 
 ### Key files
+
 - `gdt.php` — FSM-style GDP interface (~98K)
 - `assets/js/gdt.js` — GDT JavaScript (~6,876 lines)
 - `assets/js/gdp.js` — GDP utilities (~1,339 lines)
 - `includes/gdp_section.php` — Reusable GDP component
-- `api/tmi/gdp_*.php` — GDP API endpoints
+- `api/tmi/gdp_*.php` — GDP API endpoints (legacy)
+- `api/tmi/gs/*.php` — New GS API endpoints (v15)
+
+### Database Tables (NEW v15 — NTML Schema)
+
+| Table | Description |
+|-------|-------------|
+| `ntml` | National Traffic Management Log (program registry) |
+| `ntml_info` | Event log / audit trail |
+| `ntml_slots` | Arrival slot allocation (for GDP) |
+
+### Stored Procedures (NEW v15)
+
+| Procedure | Description |
+|-----------|-------------|
+| `sp_GS_Create` | Create proposed ground stop |
+| `sp_GS_Model` | Identify affected flights |
+| `sp_GS_IssueEDCTs` | Activate ground stop |
+| `sp_GS_Extend` | Extend GS end time |
+| `sp_GS_Purge` | Cancel/purge ground stop |
+| `sp_GS_GetFlights` | Get affected flights |
+| `sp_GS_DetectPopups` | Detect new pop-up flights |
+
+### Views (NEW v15)
+
+| View | Description |
+|------|-------------|
+| `vw_GDT_FlightList` | Complete flight info for GDT displays |
+| `vw_GDT_DemandByQuarter` | Demand by 15-min bins |
+| `vw_GDT_DemandByHour` | Hourly demand |
+| `vw_GDT_DemandByCenter` | Demand by origin ARTCC |
+| `vw_NTML_Active` | Active TMI programs |
+| `vw_NTML_Today` | Today's programs |
 
 ### Features
+
 - FSM-style rate visualization
 - EDCT/CTA slot allocation
 - Program parameters (scope, rate, duration)
 - Flight list with compliance status
 - Real-time preview and simulation
+- **NEW v15:** NTML-based program lifecycle (PROPOSED → ACTIVE → COMPLETED/PURGED)
+- **NEW v15:** Tier-based scope expansion
+- **NEW v15:** Pop-up detection during active programs
 
 ---
 
@@ -868,6 +931,30 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
 
 ## 28) Changelog
 
+- **v15 (2026-01-10):**
+  - **GDT Ground Stop NTML Architecture:**
+    - `adl/migrations/tmi/001_ntml_schema.sql` — NTML tables schema
+    - `adl/migrations/tmi/002_gs_procedures.sql` — GS stored procedures (7 total)
+    - `adl/migrations/tmi/003_gdt_views.sql` — GDT views (6 total)
+    - `api/tmi/gs/*.php` — New GS API endpoints (10 files)
+    - Tables: `ntml`, `ntml_info`, `ntml_slots`
+    - Procedures: `sp_GS_Create`, `sp_GS_Model`, `sp_GS_IssueEDCTs`, `sp_GS_Extend`, `sp_GS_Purge`, `sp_GS_GetFlights`, `sp_GS_DetectPopups`
+    - Views: `vw_GDT_FlightList`, `vw_GDT_DemandByQuarter`, `vw_GDT_DemandByHour`, `vw_GDT_DemandByCenter`, `vw_NTML_Active`, `vw_NTML_Today`
+    - Helper function: `fn_HaversineNM`
+  - **ADL Schema Cleanup:**
+    - `adl/migrations/core/007_remove_flight_status.sql` — Removes redundant `flight_status` column (unified to `phase`)
+    - Updated `vw_adl_flights` view to remove `flight_status` reference
+  - **Enhanced `adl_flight_tmi` columns:**
+    - `program_id`, `slot_id`, `aslot`, `octd_utc`, `octa_utc`, `ctl_prgm`
+    - `ctl_exempt`, `ctl_exempt_reason`, `program_delay_min`, `delay_capped`
+    - `sl_hold`, `subbable`, `gs_held`, `gs_release_utc`
+    - `is_popup`, `is_recontrol`, `popup_detected_utc`
+    - `ecr_pending`, `ecr_requested_cta`, `ecr_requested_by`, `ecr_requested_utc`
+    - `ux_cancelled`, `fx_cancelled`, `rz_removed`, `assigned_utc`
+  - **Documentation:**
+    - `docs/GDT_Unified_Design_Document_v1.md` — Complete GDT design reference
+    - `docs/GDT_GS_Transition_Summary_20260110.md` — Implementation session summary
+
 - **v14 (2026-01-07):**
   - **Weather Radar Subsystem:**
     - `assets/js/weather_radar.js` — IEM NEXRAD/MRMS integration (~1,034 lines)
@@ -945,14 +1032,24 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `tmi_reroute_flights` | Flight assignments |
 | `tmi_reroutes` | Reroute definitions |
 | `tracons` | TRACON reference |
+| `ntml` | National Traffic Management Log (NEW v15) |
+| `ntml_info` | TMI event log / audit trail (NEW v15) |
+| `ntml_slots` | Arrival slot allocation (NEW v15) |
 
 ### Views
 
 | View | Description |
 |------|-------------|
+| `vw_adl_flights` | Live flight unified view |
 | `vw_adl_flights_history_30d` | 30-day history view |
 | `vw_dcc_advisories_today` | Today's advisories |
 | `vw_jatoc_active_incidents` | Active incidents |
+| `vw_GDT_FlightList` | GDT flight list (NEW v15) |
+| `vw_GDT_DemandByQuarter` | 15-min demand bins (NEW v15) |
+| `vw_GDT_DemandByHour` | Hourly demand (NEW v15) |
+| `vw_GDT_DemandByCenter` | Demand by ARTCC (NEW v15) |
+| `vw_NTML_Active` | Active TMI programs (NEW v15) |
+| `vw_NTML_Today` | Today's TMI programs (NEW v15) |
 
 ---
 
