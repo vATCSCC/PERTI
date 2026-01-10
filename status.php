@@ -3956,7 +3956,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             const phaseCtx = document.getElementById('phaseChart');
             if (phaseCtx) {
                 // Fetch data from API
-                fetch('/api/stats/flight_phase_history.php?hours=24&interval=15')
+                fetch('/api/stats/flight_phase_history.php?hours=24&interval=5')
                     .then(response => {
                         if (!response.ok) throw new Error('API returned ' + response.status);
                         return response.json();
