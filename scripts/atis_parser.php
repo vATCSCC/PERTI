@@ -28,20 +28,39 @@ function parseAtisRunways(string $atisText): array {
     // Pattern helpers
     $rwyNum = '([0-3]?\d[LRC]?)';
     // $rwyList captures runway lists like "27L AND 28R" or "24R AND RWY 25L" or "24, 25, 26"
-    // Now handles optional RWY/RUNWAY prefix before each runway in the list
+    // Now handles optional RWY/RUNWAY/RY prefix before each runway in the list
     // Fixed: \s* (optional space) after separators to handle "12L/12R" (no space)
-    $rwyList = '((?:RWYS?\s+)?[0-3]?\d[LRC]?(?:\s*(?:AND|,|\/|&)\s*(?:RWYS?\s+)?[0-3]?\d?[LRC]?|\s+\d{1,2}[LRC]?)*)';
+    // Note: RY (without W) is common at some airports like JFK
+    $rwyList = '((?:(?:RWY|RY|RUNWAY)S?\s+)?[0-3]?\d[LRC]?(?:\s*(?:AND|,|\/|&)\s*(?:(?:RWY|RY|RUNWAY)S?\s+)?[0-3]?\d?[LRC]?|\s+\d{1,2}[LRC]?)*)';
 
-    // Pattern 1: US standard - "LDG RWY 27L", "DEP RWY 28R"
-    if (preg_match_all('/(?:LDG|LNDG|LANDING|ARR(?:IV(?:ING|AL))?)\s+(?:RWYS?\s+)?'.$rwyList.'/i', $text, $m)) {
+    // Pattern 1: US standard - "LDG RWY 27L", "DEP RWY 28R", "DEP RY 4L"
+    // Note: RY (without W) is common at some airports like JFK
+    if (preg_match_all('/(?:LDG|LNDG|LANDING|ARR(?:IV(?:ING|AL))?)\s+(?:(?:RWY|RY|RUNWAY)S?\s+)?'.$rwyList.'/i', $text, $m)) {
         foreach ($m[1] as $rwyText) {
             $landing = array_merge($landing, extractRunwayNumbers($rwyText));
         }
     }
 
-    if (preg_match_all('/(?:DEP(?:ART(?:ING|URES?)?)?|DEPTG|DEPG|DPTG|DEPARTING|TKOF|TAKEOFF)\s+(?:RWYS?\s+)?'.$rwyList.'/i', $text, $m)) {
+    if (preg_match_all('/(?:DEP(?:ART(?:ING|URES?)?)?|DEPTG|DEPG|DPTG|DEPARTING|TKOF|TAKEOFF)\s+(?:(?:RWY|RY|RUNWAY)S?\s+)?'.$rwyList.'/i', $text, $m)) {
         foreach ($m[1] as $rwyText) {
             $departing = array_merge($departing, extractRunwayNumbers($rwyText));
+        }
+    }
+
+    // Pattern 1b: JFK style - "APPROACH IN USE ILS RY 4R, ILS 4L"
+    // Captures approaches in use which indicate arrival runways
+    // The format is: APPROACH IN USE [TYPE] RY/RWY [NUM], [TYPE] [NUM]
+    if (preg_match('/APPROACH(?:ES)?\s+IN\s+USE\s+(.+?)(?:\.|DEPTG|DEP\s|NOTAM|$)/i', $text, $m)) {
+        $approachSection = $m[1];
+        // Extract all runway numbers from the approach section
+        // Pattern: ILS RY 4R, ILS 4L, RNAV 22L, etc.
+        if (preg_match_all('/(?:ILS|RNAV|RNP|GPS|VOR|LOC|LDA|VISUAL)?\s*(?:RY|RWY|RUNWAY)?\s*([0-3]?\d[LRC]?)/i', $approachSection, $rwyMatches)) {
+            foreach ($rwyMatches[1] as $rwy) {
+                $rwy = trim($rwy);
+                if (!empty($rwy) && preg_match('/^[0-3]?\d[LRC]?$/', $rwy)) {
+                    $landing[] = normalizeRunway($rwy);
+                }
+            }
         }
     }
 
@@ -363,7 +382,8 @@ function filterAtisText(string $text): string {
 function extractRunwayNumbers(string $text): array {
     $runways = [];
     $text = strtoupper(trim($text));
-    $text = preg_replace('/^(?:RWYS?|RUNWAYS?)\s*/', '', $text);
+    // Strip RWY/RY/RUNWAY prefix (RY without W is common at JFK)
+    $text = preg_replace('/^(?:RWY|RY|RUNWAY)S?\s*/', '', $text);
 
     // Split on separators (AND, comma, slash, ampersand, or multiple spaces)
     $parts = preg_split('/\s*(?:AND|,|\/|&)\s*|\s{2,}/', $text);
@@ -373,8 +393,8 @@ function extractRunwayNumbers(string $text): array {
         $part = trim($part);
         if (empty($part)) continue;
 
-        // Strip RWY/RUNWAY prefix from each part (handles "RWY 25L" within list)
-        $part = preg_replace('/^(?:RWYS?|RUNWAYS?)\s*/', '', $part);
+        // Strip RWY/RY/RUNWAY prefix from each part (handles "RWY 25L" or "RY 4L" within list)
+        $part = preg_replace('/^(?:RWY|RY|RUNWAY)S?\s*/', '', $part);
 
         // Handle space-separated runways within a part (e.g., "27 36")
         $subParts = preg_split('/\s+/', $part);
@@ -382,8 +402,8 @@ function extractRunwayNumbers(string $text): array {
             $subPart = trim($subPart);
             if (empty($subPart)) continue;
 
-            // Skip if it's just "RWY" or "RUNWAY" with no number
-            if (preg_match('/^(?:RWYS?|RUNWAYS?)$/i', $subPart)) continue;
+            // Skip if it's just "RWY", "RY", or "RUNWAY" with no number
+            if (preg_match('/^(?:RWY|RY|RUNWAY)S?$/i', $subPart)) continue;
 
             if (preg_match('/^([0-3]?\d)\s*(L(?:EFT)?|R(?:IGHT)?|C(?:ENTER)?)?$/', $subPart, $m)) {
                 $runway = normalizeRunway($m[1] . ($m[2] ?? ''));
