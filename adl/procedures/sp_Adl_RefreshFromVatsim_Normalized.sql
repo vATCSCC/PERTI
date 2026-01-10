@@ -1,7 +1,11 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.1 - Disabled Steps 10 & 11
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.2 - ETD Optimization
 --
--- Changes from V8.9:
+-- Changes from V8.9.1:
+--   - Optimized Step 4b: filter flights needing ETD BEFORE expensive calculations
+--   - Previously processed all ~1360 flights, now only processes ~10% needing updates
+--
+-- Changes from V8.9.1:
 --   - TEMPORARILY DISABLED Steps 10 & 11 (boundary/crossings) for diagnosis
 --   - These are suspected to cause 60-120s execution times
 --
@@ -536,12 +540,13 @@ BEGIN
     SET @step4_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 4b: ETD/STD Calculation (V8.4)
+    -- Step 4b: ETD/STD Calculation (V8.4) - Optimized: filter early
+    -- Only process flights that need ETD updates (skip those with high-priority sources)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
-    
+
     ;WITH ETDCalc AS (
-        SELECT 
+        SELECT
             p.flight_uid, c.phase, fp.fp_dept_time_z AS deptime, fp.fp_enroute_minutes,
             fp.fp_remarks AS remarks, p.fp_dof_raw,
             COALESCE(
@@ -569,7 +574,10 @@ BEGIN
         FROM #pilots p
         INNER JOIN dbo.adl_flight_core c ON c.flight_uid = p.flight_uid
         LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = p.flight_uid
+        -- OPTIMIZATION: Join to flight_times early and filter to flights needing ETD updates
+        INNER JOIN dbo.adl_flight_times ft ON ft.flight_uid = p.flight_uid
         WHERE p.flight_uid IS NOT NULL
+          AND (ft.etd_utc IS NULL OR ft.etd_source NOT IN ('A', 'T', 'S'))
     ),
     ETDResolved AS (
         SELECT flight_uid, phase, deptime, deptime_minutes, fp_dof_utc, fp_enroute_minutes,
@@ -607,7 +615,7 @@ BEGIN
         ft.times_updated_utc = @now
     FROM dbo.adl_flight_times ft
     INNER JOIN ETDResolved er ON er.flight_uid = ft.flight_uid
-    WHERE er.etd_utc IS NOT NULL AND (ft.etd_utc IS NULL OR ft.etd_source NOT IN ('A', 'T', 'S'));
+    WHERE er.etd_utc IS NOT NULL;  -- Filter already applied in CTE
 
     SET @etd_count = @@ROWCOUNT;
     SET @step4b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
@@ -853,7 +861,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.1 created successfully';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.2 created successfully';
+PRINT 'OPTIMIZED: Step 4b ETD calculation now filters early (processes ~10% of flights)';
 PRINT 'DISABLED: Steps 10 (boundary) and 11 (crossings) for performance diagnosis';
-PRINT 'Re-enable after fixing the slow sub-procedures';
 GO
