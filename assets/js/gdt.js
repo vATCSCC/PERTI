@@ -3488,6 +3488,10 @@ function handleGsPreview() {
             if (statusEl) statusEl.textContent = "Enter GS start and end times.";
             return Promise.resolve();
         }
+        if (!workflowPayload.gs_dep_facilities) {
+            if (statusEl) statusEl.textContent = "GS scope is required. Select a scope tier or specify departure facilities.";
+            return Promise.resolve();
+        }
 
         // Build create payload for new API
         var createPayload = {
@@ -3519,8 +3523,7 @@ function handleGsPreview() {
                 // model.php requires dep_facilities in addition to program_id
                 var depFacilities = workflowPayload.gs_dep_facilities || "";
                 if (!depFacilities) {
-                    // Default to common ARTCCs if not specified
-                    depFacilities = "ZDC ZNY ZBW ZOB ZAU ZMP ZKC ZDV ZLA ZOA ZSE";
+                    throw new Error("GS scope is required. Select a scope tier or specify departure facilities.");
                 }
                 
                 return apiPostJson(GS_API.model, { 
@@ -3582,8 +3585,8 @@ function handleGsSimulate() {
         var workflowPayload = collectGsWorkflowPayload();
         var depFacilities = workflowPayload.gs_dep_facilities || "";
         if (!depFacilities) {
-            // Default to common ARTCCs if not specified
-            depFacilities = "ZDC ZNY ZBW ZOB ZAU ZMP ZKC ZDV ZLA ZOA ZSE";
+            if (statusEl) statusEl.textContent = "GS scope is required. Select a scope tier or specify departure facilities.";
+            return Promise.reject(new Error("GS scope is required."));
         }
 
         // Model the existing program (simulation = re-running model)
