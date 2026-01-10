@@ -71,7 +71,7 @@ if (isset($obj_can['data']) && is_array($obj_can['data'])) {
             echo '<div class="card border-left-danger" style="border-left: 4px solid #e74a3b !important;">';
                 echo '<div class="card-body">';
                     echo '<h5 class="card-title"><b>'.$data['name'].'</b> <span class="badge badge-danger">CAN</span></h5>';
-                    echo '<p class="text-wrap">On '.$data['start_pretty'].'</p>';
+                    echo '<p class="text-wrap">On '.substr($data['start'], 0, 10).'</p>';
                 echo '</div>';
             echo '</div>';
         echo '</div>';
