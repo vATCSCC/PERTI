@@ -579,6 +579,45 @@ function processAtis($conn, array $atisList): array {
 }
 
 // ============================================================================
+// ATIS TIERED CLEANUP
+// ============================================================================
+
+/**
+ * Run tiered ATIS cleanup.
+ * Calls sp_CleanupOldAtis which uses tiered retention:
+ *   Tier 0: Never delete (ASPM77 + event airports)
+ *   Tier 1: 30 days (CA/MX/LATAM majors)
+ *   Tier 2: 7 days (Global majors)
+ *   Tier 3: 24 hours (Americas non-major)
+ *   Tier 4: 1 hour (Global non-major)
+ */
+function runAtisCleanup($conn): ?array {
+    $sql = "EXEC dbo.sp_CleanupOldAtis @dry_run = 0";
+    $stmt = @sqlsrv_query($conn, $sql);
+
+    if ($stmt === false) {
+        return null;
+    }
+
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    if (!$row) {
+        return null;
+    }
+
+    return [
+        'tier1_30d' => $row['deleted_tier1_30d'] ?? 0,
+        'tier2_7d'  => $row['deleted_tier2_7d'] ?? 0,
+        'tier3_24h' => $row['deleted_tier3_24h'] ?? 0,
+        'tier4_1h'  => $row['deleted_tier4_1h'] ?? 0,
+        'total'     => $row['deleted_atis_total'] ?? 0,
+        'history'   => $row['deleted_history'] ?? 0,
+        'remaining' => $row['remaining_atis'] ?? 0,
+    ];
+}
+
+// ============================================================================
 // CONNECTION HEALTH CHECK (Fast)
 // ============================================================================
 
@@ -780,6 +819,14 @@ function runDaemon(array $config): void {
                 'total_atis'    => $stats['total_atis'],
                 'atis_parsed'   => $stats['total_parsed'],
             ]);
+
+            // Run ATIS tiered cleanup every 100 cycles (~25 min)
+            if ($conn !== null) {
+                $cleanupResult = runAtisCleanup($conn);
+                if ($cleanupResult !== null && $cleanupResult['total'] > 0) {
+                    logInfo("ATIS cleanup completed", $cleanupResult);
+                }
+            }
         }
         
         // Calculate sleep time
