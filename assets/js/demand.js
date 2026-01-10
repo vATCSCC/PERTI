@@ -240,6 +240,9 @@ window.DemandChartCore = (function() {
             const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
             const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
 
+            // Position AAR labels on top, ADR labels on bottom to prevent overlap
+            const labelPosition = rateType === 'aar' ? 'insideEndTop' : 'insideEndBottom';
+
             lines.push({
                 yAxis: value,
                 lineStyle: {
@@ -250,7 +253,7 @@ window.DemandChartCore = (function() {
                 label: {
                     show: true,
                     formatter: `${label} ${value}`,
-                    position: 'insideEndTop',
+                    position: labelPosition,
                     color: sourceStyle.color,
                     fontSize: cfg.label.fontSize || 10,
                     fontWeight: cfg.label.fontWeight || 'bold',
@@ -2800,6 +2803,9 @@ function buildRateMarkLinesForChart() {
         const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
         const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
 
+        // Position AAR labels on top, ADR labels on bottom to prevent overlap
+        const labelPosition = rateType === 'aar' ? 'insideEndTop' : 'insideEndBottom';
+
         lines.push({
             yAxis: value,
             lineStyle: {
@@ -2810,7 +2816,7 @@ function buildRateMarkLinesForChart() {
             label: {
                 show: true,
                 formatter: `${label} ${value}`,
-                position: 'insideEndTop',  // Keep label inside chart area
+                position: labelPosition,
                 color: sourceStyle.color,
                 fontSize: cfg.label.fontSize || 10,
                 fontWeight: cfg.label.fontWeight || 'bold',
