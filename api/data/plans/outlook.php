@@ -66,9 +66,9 @@ if (isset($obj_usa['data']) && is_array($obj_usa['data'])) {
 }
 
 // Render VATCAN events (red border + CAN badge)
-// Note: VATCAN API provides full datetime, times are in UTC
-if (isset($obj_can['data']) && is_array($obj_can['data'])) {
-    foreach ($obj_can['data'] as &$data) {
+// Note: VATCAN API returns array directly (not wrapped in 'data'), times are in UTC
+if (is_array($obj_can)) {
+    foreach ($obj_can as &$data) {
         // Format start datetime (YYYY-MM-DD HH:MM)
         $start_formatted = substr($data['start'], 0, 16); // "YYYY-MM-DD HH:MM"
         $end_formatted = substr($data['end'], 0, 16);
