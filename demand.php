@@ -352,75 +352,72 @@ include("load/connect.php");
 <div class="container-fluid mt-3 mb-5" id="demand_section">
     <!-- Info Bar: UTC Clock, Airport Stats -->
     <div class="perti-info-bar mb-3" style="overflow-x: auto;">
-        <div class="row d-flex flex-nowrap align-items-stretch" style="gap: 8px; margin: 0 -4px; min-width: max-content;">
-            <!-- Current Time (UTC) - TBFM Style -->
-            <div class="col-auto px-1">
+        <div class="row d-flex flex-nowrap align-items-stretch" style="gap: 10px; margin: 0; min-width: max-content;">
+            <!-- Current Time (UTC) -->
+            <div class="col-auto px-0">
                 <div class="card shadow-sm perti-info-card perti-card-utc h-100">
-                    <div class="card-body d-flex justify-content-between align-items-center">
+                    <div class="card-body d-flex justify-content-between align-items-center py-2">
                         <div>
-                            <div class="perti-info-label">Current UTC</div>
-                            <div id="demand_utc_clock" class="tbfm-clock text-primary">--:--:--</div>
-                        </div>
-                        <div class="ml-3">
-                            <i class="far fa-clock fa-lg text-primary"></i>
+                            <div class="perti-info-label"><i class="far fa-clock"></i> UTC</div>
+                            <div id="demand_utc_clock" class="tbfm-clock">--:--:--</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Selected Airport (compact) -->
-            <div class="col-auto px-1">
+            <!-- Selected Airport -->
+            <div class="col-auto px-0">
                 <div class="card shadow-sm perti-info-card perti-card-global h-100">
-                    <div class="card-body py-2 px-3">
-                        <div class="perti-info-label" style="font-size: 0.6rem;">Airport</div>
-                        <div class="d-flex align-items-center">
-                            <span id="demand_selected_airport" class="perti-stat-value text-info" style="font-size: 1.1rem;">----</span>
-                            <span id="demand_airport_name" class="ml-2 text-muted" style="font-size: 0.65rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Select airport</span>
+                    <div class="card-body py-2">
+                        <div class="perti-info-label"><i class="fas fa-map-marker-alt"></i> Airport</div>
+                        <div class="d-flex align-items-baseline">
+                            <span id="demand_selected_airport" class="perti-stat-value" style="font-size: 1.2rem; color: var(--info-airport-color);">----</span>
+                            <span id="demand_airport_name" class="ml-2 text-muted" style="font-size: 0.65rem; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Select airport</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Rate Info (Config with runway layout + Weather + AAR/ADR) -->
-            <div class="col-auto px-1">
-                <div class="card shadow-sm perti-info-card h-100" style="border-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);">
+            <!-- Suggested Config Card -->
+            <div class="col-auto px-0">
+                <div class="card shadow-sm perti-info-card perti-card-config h-100">
                     <div class="card-body py-2">
-                        <div class="perti-info-label mb-1 d-flex align-items-center" style="color: #4f46e5; font-size: 0.6rem;">
-                            <i class="fas fa-tachometer-alt mr-1"></i> Suggested Config
-                            <span id="rate_weather_category" class="badge ml-1" style="background-color: #22c55e; color: #fff; font-size: 0.65rem;">--</span>
-                            <span id="rate_override_badge" class="badge badge-warning ml-1" style="display: none; font-size: 0.6rem;">OVR</span>
-                            <button type="button" class="btn btn-link btn-sm ml-auto p-0" id="rate_override_btn" title="Set manual rate override" style="font-size: 0.65rem; color: #6366f1;">
+                        <div class="perti-info-label">
+                            <i class="fas fa-tachometer-alt"></i> Config
+                            <span id="rate_weather_category" class="badge badge-weather-vmc ml-1">--</span>
+                            <span id="rate_override_badge" class="badge badge-warning ml-1" style="display: none;">OVR</span>
+                            <button type="button" class="btn btn-link btn-sm btn-icon ml-auto p-0" id="rate_override_btn" title="Set manual rate override" style="color: var(--info-config-color);">
                                 <i class="fas fa-edit"></i>
                             </button>
                         </div>
-                        <div class="d-flex align-items-start" style="gap: 10px;">
-                            <!-- Runway Configuration (dep on top, arr below) -->
-                            <div class="perti-stat-item" style="min-width: 70px;">
-                                <div style="display: flex; flex-direction: column; gap: 2px;">
-                                    <div style="display: flex; align-items: center; gap: 4px;">
-                                        <i class="fas fa-plane-departure" style="font-size: 0.55rem; color: #d97706; width: 12px;"></i>
-                                        <span id="rate_dep_runways" class="perti-stat-value" style="font-size: 0.75rem; color: #d97706;">--</span>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 4px;">
-                                        <i class="fas fa-plane-arrival" style="font-size: 0.55rem; color: #059669; width: 12px;"></i>
-                                        <span id="rate_arr_runways" class="perti-stat-value" style="font-size: 0.75rem; color: #059669;">--</span>
-                                    </div>
+                        <div class="d-flex align-items-center" style="gap: 14px;">
+                            <!-- Runways -->
+                            <div class="runway-display">
+                                <div class="runway-row dep-runways">
+                                    <i class="fas fa-plane-departure"></i>
+                                    <span id="rate_dep_runways" class="runway-value">--</span>
+                                </div>
+                                <div class="runway-row arr-runways">
+                                    <i class="fas fa-plane-arrival"></i>
+                                    <span id="rate_arr_runways" class="runway-value">--</span>
                                 </div>
                             </div>
                             <!-- Config name -->
-                            <div class="perti-stat-item">
-                                <div class="perti-stat-category" style="font-size: 0.55rem;">Config</div>
-                                <div id="rate_config_name" class="perti-stat-value text-dark" style="font-size: 0.7rem; cursor: help;" title="">--</div>
+                            <div class="perti-stat-item text-left" style="min-width: 50px;">
+                                <div class="perti-stat-category">Config</div>
+                                <div id="rate_config_name" class="perti-stat-value" style="font-size: 0.75rem; cursor: help; color: #334155;" title="">--</div>
                             </div>
                             <!-- AAR/ADR -->
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category" style="font-size: 0.55rem;">AAR/ADR</div>
-                                <div id="rate_display" class="perti-stat-value" style="color: #4f46e5; font-size: 0.9rem;">--/--</div>
+                                <div class="perti-stat-category">AAR/ADR</div>
+                                <div class="perti-rate-display">
+                                    <span id="rate_display" class="perti-rate-value" style="color: var(--info-config-color);">--/--</span>
+                                </div>
                             </div>
                             <!-- Source -->
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category" style="font-size: 0.55rem;">Source</div>
-                                <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.65rem;">--</div>
+                                <div class="perti-stat-category">Source</div>
+                                <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.7rem;">--</div>
                             </div>
                         </div>
                     </div>
@@ -428,29 +425,33 @@ include("load/connect.php");
             </div>
 
             <!-- ATIS Info Card -->
-            <div class="col-auto px-1" id="atis_card_container" style="display: none;">
-                <div class="card shadow-sm perti-info-card h-100" style="border-color: #10b981; background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%); min-width: 220px;">
-                    <div class="card-body">
-                        <div class="perti-info-label mb-1 d-flex align-items-center" style="color: #059669;">
-                            <i class="fas fa-broadcast-tower mr-1"></i> ATIS
-                            <span id="atis_code_badge" class="badge ml-1" style="background-color: #10b981; color: #fff; font-size: 0.75rem;">--</span>
-                            <span id="atis_age_badge" class="badge badge-secondary ml-1" style="font-size: 0.65rem;">--</span>
-                            <button type="button" class="btn btn-link btn-sm ml-auto p-0" id="atis_details_btn" title="View full ATIS" style="font-size: 0.7rem; color: #059669;">
+            <div class="col-auto px-0" id="atis_card_container" style="display: none;">
+                <div class="card shadow-sm perti-info-card perti-card-atis h-100" style="min-width: 200px;">
+                    <div class="card-body py-2">
+                        <div class="perti-info-label">
+                            <i class="fas fa-broadcast-tower"></i> ATIS
+                            <span id="atis_code_badge" class="badge badge-atis ml-1">--</span>
+                            <span id="atis_age_badge" class="badge badge-age ml-1">--</span>
+                            <button type="button" class="btn btn-link btn-sm btn-icon ml-auto p-0" id="atis_details_btn" title="View full ATIS" style="color: var(--info-atis-color);">
                                 <i class="fas fa-expand-alt"></i>
                             </button>
                         </div>
-                        <div class="d-flex align-items-start" style="gap: 10px;">
-                            <div class="perti-stat-item">
-                                <div class="perti-stat-category" style="font-size: 0.65rem;">Arr Rwys</div>
-                                <div id="atis_arr_runways" class="perti-stat-value" style="color: #059669; font-size: 0.85rem;">--</div>
+                        <div class="d-flex align-items-center" style="gap: 14px;">
+                            <!-- Runways from ATIS -->
+                            <div class="runway-display">
+                                <div class="runway-row arr-runways">
+                                    <i class="fas fa-plane-arrival"></i>
+                                    <span id="atis_arr_runways" class="runway-value">--</span>
+                                </div>
+                                <div class="runway-row dep-runways">
+                                    <i class="fas fa-plane-departure"></i>
+                                    <span id="atis_dep_runways" class="runway-value">--</span>
+                                </div>
                             </div>
-                            <div class="perti-stat-item">
-                                <div class="perti-stat-category" style="font-size: 0.65rem;">Dep Rwys</div>
-                                <div id="atis_dep_runways" class="perti-stat-value" style="color: #d97706; font-size: 0.85rem;">--</div>
-                            </div>
-                            <div class="perti-stat-item">
-                                <div class="perti-stat-category" style="font-size: 0.65rem;">Approach</div>
-                                <div id="atis_approach" class="perti-stat-value text-muted" style="font-size: 0.7rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">--</div>
+                            <!-- Approach -->
+                            <div class="perti-stat-item text-left">
+                                <div class="perti-stat-category">Approach</div>
+                                <div id="atis_approach" class="perti-stat-value text-muted" style="font-size: 0.75rem; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">--</div>
                             </div>
                         </div>
                     </div>
@@ -458,25 +459,25 @@ include("load/connect.php");
             </div>
 
             <!-- Arrival Stats -->
-            <div class="col-auto px-1">
-                <div class="card shadow-sm perti-info-card perti-card-domestic h-100">
-                    <div class="card-body">
-                        <div class="perti-info-label mb-1">
-                            <i class="fas fa-plane-arrival mr-1"></i> Arrivals
-                            <span id="demand_arr_total" class="badge badge-success badge-total ml-1">0</span>
+            <div class="col-auto px-0">
+                <div class="card shadow-sm perti-info-card perti-card-arrivals h-100">
+                    <div class="card-body py-2">
+                        <div class="perti-info-label">
+                            <i class="fas fa-plane-arrival"></i> Arrivals
+                            <span id="demand_arr_total" class="badge badge-success badge-total ml-auto">0</span>
                         </div>
                         <div class="perti-stat-grid">
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Active</div>
-                                <div id="demand_arr_active" class="perti-stat-value text-danger">0</div>
+                                <div id="demand_arr_active" class="perti-stat-value" style="color: #dc2626;">0</div>
                             </div>
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Sched</div>
-                                <div id="demand_arr_scheduled" class="perti-stat-value text-success">0</div>
+                                <div id="demand_arr_scheduled" class="perti-stat-value" style="color: var(--info-arr-color);">0</div>
                             </div>
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Prop</div>
-                                <div id="demand_arr_proposed" class="perti-stat-value text-primary">0</div>
+                                <div id="demand_arr_proposed" class="perti-stat-value" style="color: #3b82f6;">0</div>
                             </div>
                         </div>
                     </div>
@@ -484,25 +485,25 @@ include("load/connect.php");
             </div>
 
             <!-- Departure Stats -->
-            <div class="col-auto px-1">
-                <div class="card shadow-sm perti-info-card h-100" style="border-color: #fd7e14; background: linear-gradient(135deg, #ffffff 0%, #fff8f0 100%);">
-                    <div class="card-body">
-                        <div class="perti-info-label mb-1" style="color: #d35400;">
-                            <i class="fas fa-plane-departure mr-1"></i> Departures
-                            <span id="demand_dep_total" class="badge badge-warning text-dark badge-total ml-1">0</span>
+            <div class="col-auto px-0">
+                <div class="card shadow-sm perti-info-card perti-card-departures h-100">
+                    <div class="card-body py-2">
+                        <div class="perti-info-label">
+                            <i class="fas fa-plane-departure"></i> Departures
+                            <span id="demand_dep_total" class="badge badge-warning text-dark badge-total ml-auto">0</span>
                         </div>
                         <div class="perti-stat-grid">
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Active</div>
-                                <div id="demand_dep_active" class="perti-stat-value text-danger">0</div>
+                                <div id="demand_dep_active" class="perti-stat-value" style="color: #dc2626;">0</div>
                             </div>
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Sched</div>
-                                <div id="demand_dep_scheduled" class="perti-stat-value text-success">0</div>
+                                <div id="demand_dep_scheduled" class="perti-stat-value" style="color: var(--info-dep-color);">0</div>
                             </div>
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Prop</div>
-                                <div id="demand_dep_proposed" class="perti-stat-value text-primary">0</div>
+                                <div id="demand_dep_proposed" class="perti-stat-value" style="color: #3b82f6;">0</div>
                             </div>
                         </div>
                     </div>
@@ -510,11 +511,11 @@ include("load/connect.php");
             </div>
 
             <!-- Auto-Refresh Status -->
-            <div class="col-auto px-1">
-                <div class="card shadow-sm perti-info-card h-100" style="border-color: #6c757d;">
-                    <div class="card-body d-flex align-items-center">
+            <div class="col-auto px-0">
+                <div class="card shadow-sm perti-info-card perti-card-refresh h-100">
+                    <div class="card-body d-flex align-items-center py-2">
                         <div>
-                            <div class="perti-info-label mb-1">Auto-Refresh</div>
+                            <div class="perti-info-label"><i class="fas fa-sync"></i> Refresh</div>
                             <div class="d-flex align-items-center">
                                 <div class="custom-control custom-switch">
                                     <input type="checkbox" class="custom-control-input" id="demand_auto_refresh" checked>
@@ -523,15 +524,12 @@ include("load/connect.php");
                                 <span class="demand-status-indicator demand-status-active ml-2" id="refresh_status">15s</span>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary ml-3" id="demand_refresh_btn" title="Manual Refresh">
+                        <button type="button" class="btn btn-sm btn-outline-secondary ml-3" id="demand_refresh_btn" title="Manual Refresh">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
                 </div>
             </div>
-
-            <!-- Spacer -->
-            <div class="col"></div>
         </div>
     </div>
 
