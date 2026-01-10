@@ -1,10 +1,9 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.4 - Steps 10 & 11 Re-enabled
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.5 - Steps 10 & 11 DISABLED (rollback)
 --
--- Changes from V8.9.3:
---   - RE-ENABLED Steps 10 & 11 with optimized V2.0 procedures
---   - Step 10: sp_ProcessBoundaryDetectionBatch V8.0 (grid-change only, no sectors)
---   - Step 11: sp_CalculatePlannedCrossingsBatch V2.0 (set-based, no cursor)
+-- Changes from V8.9.4:
+--   - DISABLED Steps 10 & 11 again - optimized sub-procedures not deployed
+--   - Will re-enable after sub-procedures are tested individually
 --
 -- Changes from V8.9.2:
 --   - Fixed Step 4b filter: only calculate ETD for flights WITHOUT an ETD
@@ -752,43 +751,44 @@ BEGIN
     SET @step9_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 10: Boundary Detection for ARTCC/TRACON (V8.9.4 - Re-enabled)
-    -- Uses optimized V8.0 procedure (grid-change only, no sectors)
+    -- Step 10: Boundary Detection - DISABLED pending sub-procedure optimization
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
-    BEGIN
-        EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
-    END
+    -- DISABLED: Sub-procedure needs to be deployed and tested first
+    -- IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
+    -- BEGIN
+    --     EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
+    -- END
 
     SET @step10_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 11: Planned Crossings Calculation (V8.9.4 - Re-enabled)
-    -- Uses optimized V2.0 procedure (set-based, no cursor)
+    -- Step 11: Planned Crossings Calculation - DISABLED pending sub-procedure optimization
+    -- Will re-enable after sub-procedures are tested individually
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    -- Detect regional flights first
-    IF OBJECT_ID('dbo.sp_DetectRegionalFlight', 'P') IS NOT NULL
-    BEGIN
-        EXEC dbo.sp_DetectRegionalFlight @batch_mode = 1;
-    END
+    -- DISABLED: Sub-procedures need to be deployed and tested first
+    -- -- Detect regional flights first
+    -- IF OBJECT_ID('dbo.sp_DetectRegionalFlight', 'P') IS NOT NULL
+    -- BEGIN
+    --     EXEC dbo.sp_DetectRegionalFlight @batch_mode = 1;
+    -- END
 
-    -- Calculate planned crossings (V2.0 set-based)
-    IF OBJECT_ID('dbo.sp_CalculatePlannedCrossingsBatch', 'P') IS NOT NULL
-    BEGIN
-        DECLARE @crossing_result TABLE (
-            processed_at DATETIME2, cycle INT, minute INT,
-            tier1_new_recalc INT, tier2_tracon INT, tier3_artcc INT,
-            tier4_level INT, tier5_intl INT, tier6_transit INT, tier7_outside INT,
-            total_flights INT, crossings_calculated INT, elapsed_ms INT
-        );
-        INSERT INTO @crossing_result
-        EXEC dbo.sp_CalculatePlannedCrossingsBatch @max_flights_per_batch = 200, @debug = 1;
-        SELECT @crossings_calculated = crossings_calculated FROM @crossing_result;
-    END
+    -- -- Calculate planned crossings (V2.0 set-based)
+    -- IF OBJECT_ID('dbo.sp_CalculatePlannedCrossingsBatch', 'P') IS NOT NULL
+    -- BEGIN
+    --     DECLARE @crossing_result TABLE (
+    --         processed_at DATETIME2, cycle INT, minute INT,
+    --         tier1_new_recalc INT, tier2_tracon INT, tier3_artcc INT,
+    --         tier4_level INT, tier5_intl INT, tier6_transit INT, tier7_outside INT,
+    --         total_flights INT, crossings_calculated INT, elapsed_ms INT
+    --     );
+    --     INSERT INTO @crossing_result
+    --     EXEC dbo.sp_CalculatePlannedCrossingsBatch @max_flights_per_batch = 200, @debug = 1;
+    --     SELECT @crossings_calculated = crossings_calculated FROM @crossing_result;
+    -- END
 
     SET @step11_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
@@ -861,8 +861,8 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.4 created successfully';
-PRINT 'RE-ENABLED: Steps 10 (boundary V8.0) and 11 (crossings V2.0) with optimized procedures';
-PRINT 'Step 10: Grid-change only detection, no sector detection';
-PRINT 'Step 11: Set-based batch processing, no cursor';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.5 created successfully';
+PRINT 'ROLLBACK: Steps 10 & 11 DISABLED (caused timeout in V8.9.4)';
+PRINT 'Steps 1-9 + 12-13 remain active, target <5s performance';
+PRINT 'Deploy/test sub-procedures individually before re-enabling';
 GO

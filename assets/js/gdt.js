@@ -3516,7 +3516,17 @@ function handleGsPreview() {
                 if (statusEl) statusEl.textContent = "Program " + programId + " created. Modeling flights...";
 
                 // Step 2: Model the program to get affected flights
-                return apiPostJson(GS_API.model, { program_id: programId });
+                // model.php requires dep_facilities in addition to program_id
+                var depFacilities = workflowPayload.gs_dep_facilities || "";
+                if (!depFacilities) {
+                    // Default to common ARTCCs if not specified
+                    depFacilities = "ZDC ZNY ZBW ZOB ZAU ZMP ZKC ZDV ZLA ZOA ZSE";
+                }
+                
+                return apiPostJson(GS_API.model, { 
+                    program_id: programId,
+                    dep_facilities: depFacilities
+                });
             })
             .then(function(modelResp) {
                 if (modelResp.status !== "ok") {
@@ -3568,8 +3578,19 @@ function handleGsSimulate() {
 
         if (statusEl) statusEl.textContent = "Modeling GS program " + GS_CURRENT_PROGRAM_ID + "...";
 
+        // Get dep_facilities from workflow payload
+        var workflowPayload = collectGsWorkflowPayload();
+        var depFacilities = workflowPayload.gs_dep_facilities || "";
+        if (!depFacilities) {
+            // Default to common ARTCCs if not specified
+            depFacilities = "ZDC ZNY ZBW ZOB ZAU ZMP ZKC ZDV ZLA ZOA ZSE";
+        }
+
         // Model the existing program (simulation = re-running model)
-        return apiPostJson(GS_API.model, { program_id: GS_CURRENT_PROGRAM_ID })
+        return apiPostJson(GS_API.model, { 
+            program_id: GS_CURRENT_PROGRAM_ID,
+            dep_facilities: depFacilities
+        })
             .then(function(modelResp) {
                 if (modelResp.status !== "ok") {
                     throw new Error(modelResp.message || "Failed to model GS program");
