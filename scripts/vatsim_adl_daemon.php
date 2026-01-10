@@ -116,6 +116,12 @@ $config = [
     'boundary_max_flights'   => 250,  // Max boundary flights per run (limited by slow spatial queries)
     'crossings_max_flights'  => 25,   // Max crossings per run (very slow, keep minimal)
     'boundary_timeout'       => 120,  // SP timeout in seconds
+
+    // Runway detection from flight tracks
+    // Analyzes recent flight tracks to detect active runways when no ATIS is available
+    'runway_detection_enabled'  => true,
+    'runway_detection_interval' => 120,   // Run every N cycles (120 = every 30 minutes)
+    'runway_detection_timeout'  => 60,    // SP timeout in seconds
 ];
 
 // ============================================================================
@@ -764,6 +770,47 @@ function executeBoundaryProcessing($conn, array $config): ?array {
 }
 
 // ============================================================================
+// RUNWAY DETECTION FROM FLIGHT TRACKS
+// ============================================================================
+
+/**
+ * Execute runway detection from flight track data.
+ * Analyzes recent departures/arrivals to detect active runway configurations.
+ * Runs every 30 minutes to build historical detection data.
+ */
+function executeRunwayDetection($conn, array $config): ?array {
+    $startTime = microtime(true);
+
+    $sql = "EXEC dbo.sp_DetectRunwaysFromFlights @debug = 0";
+    $options = ['QueryTimeout' => $config['runway_detection_timeout']];
+
+    $stmt = @sqlsrv_query($conn, $sql, [], $options);
+
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        logWarn("Runway detection SP failed", ['error' => json_encode($errors)]);
+        return null;
+    }
+
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    if (!$row) {
+        return null;
+    }
+
+    $elapsedMs = round((microtime(true) - $startTime) * 1000);
+
+    return [
+        'airports_analyzed' => $row['airports_analyzed'] ?? 0,
+        'departures_detected' => $row['departures_detected'] ?? 0,
+        'arrivals_detected' => $row['arrivals_detected'] ?? 0,
+        'configs_inserted' => $row['configs_inserted'] ?? 0,
+        'elapsed_ms' => $elapsedMs,
+    ];
+}
+
+// ============================================================================
 // CONNECTION HEALTH CHECK (Fast)
 // ============================================================================
 
@@ -833,6 +880,10 @@ function runDaemon(array $config): void {
         'boundary_transitions' => 0,
         'boundary_crossings'   => 0,
         'boundary_total_ms'    => 0,
+        // Runway detection stats
+        'runway_detect_runs'   => 0,
+        'runway_configs_found' => 0,
+        'runway_detect_ms'     => 0,
     ];
     
     // Signal handling
@@ -915,6 +966,28 @@ function runDaemon(array $config): void {
                     $stats['boundary_transitions'] += $boundaryResult['boundary_transitions'];
                     $stats['boundary_crossings'] += $boundaryResult['crossings_calculated'];
                     $stats['boundary_total_ms'] += $boundaryResult['elapsed_ms'];
+                }
+            }
+
+            // 5c. Runway detection from flight tracks (every 30 minutes)
+            $runwayResult = null;
+            if ($config['runway_detection_enabled'] && $stats['runs'] % $config['runway_detection_interval'] === 0) {
+                $runwayResult = executeRunwayDetection($conn, $config);
+                if ($runwayResult !== null) {
+                    $stats['runway_detect_runs']++;
+                    $stats['runway_configs_found'] += $runwayResult['configs_inserted'];
+                    $stats['runway_detect_ms'] += $runwayResult['elapsed_ms'];
+
+                    // Log runway detection results
+                    if ($runwayResult['configs_inserted'] > 0) {
+                        logInfo("Runway detection completed", [
+                            'airports' => $runwayResult['airports_analyzed'],
+                            'deps' => $runwayResult['departures_detected'],
+                            'arrs' => $runwayResult['arrivals_detected'],
+                            'configs' => $runwayResult['configs_inserted'],
+                            'ms' => $runwayResult['elapsed_ms'],
+                        ]);
+                    }
                 }
             }
 
@@ -1012,6 +1085,7 @@ function runDaemon(array $config): void {
             $successRate = $stats['runs'] > 0 ? round(($stats['successes'] / $stats['runs']) * 100, 1) : 0;
 
             $avgBndMs = $stats['boundary_runs'] > 0 ? round($stats['boundary_total_ms'] / $stats['boundary_runs']) : 0;
+            $avgRwyMs = $stats['runway_detect_runs'] > 0 ? round($stats['runway_detect_ms'] / $stats['runway_detect_runs']) : 0;
 
             logInfo("=== Stats @ run {$stats['runs']} ===", [
                 'uptime_min'    => $uptime,
@@ -1026,6 +1100,9 @@ function runDaemon(array $config): void {
                 'bnd_trans'     => $stats['boundary_transitions'],
                 'bnd_cross'     => $stats['boundary_crossings'],
                 'avg_bnd_ms'    => $avgBndMs,
+                'rwy_runs'      => $stats['runway_detect_runs'],
+                'rwy_configs'   => $stats['runway_configs_found'],
+                'avg_rwy_ms'    => $avgRwyMs,
             ]);
 
             // Run ATIS tiered cleanup every 100 cycles (~25 min)

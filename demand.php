@@ -515,10 +515,13 @@ include("load/connect.php");
                         <label class="demand-label mb-1">Granularity</label>
                         <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group w-100" data-toggle="buttons" role="group">
                             <label class="btn btn-outline-secondary">
-                                <input type="radio" name="demand_granularity" id="granularity_15min" value="15min" autocomplete="off"> 15-min
+                                <input type="radio" name="demand_granularity" id="granularity_15min" value="15min" autocomplete="off"> 15
+                            </label>
+                            <label class="btn btn-outline-secondary">
+                                <input type="radio" name="demand_granularity" id="granularity_30min" value="30min" autocomplete="off"> 30
                             </label>
                             <label class="btn btn-outline-secondary active">
-                                <input type="radio" name="demand_granularity" id="granularity_hourly" value="hourly" autocomplete="off" checked> Hourly
+                                <input type="radio" name="demand_granularity" id="granularity_hourly" value="hourly" autocomplete="off" checked> 60
                             </label>
                         </div>
                     </div>

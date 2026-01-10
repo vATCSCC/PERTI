@@ -575,9 +575,11 @@ class AdlQueryHelper {
         $depTimeExpr = "COALESCE(t.etd_runway_utc, t.etd_utc)";
         $timeExpr = $direction === 'arr' ? $arrTimeExpr : $depTimeExpr;
 
-        // Time bin SQL based on granularity
+        // Time bin SQL based on granularity (15min, 30min, hourly)
         if ($granularity === '15min') {
             $timeBinSQL = "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', {$timeExpr}) / 15) * 15, '2000-01-01')";
+        } elseif ($granularity === '30min') {
+            $timeBinSQL = "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', {$timeExpr}) / 30) * 30, '2000-01-01')";
         } else {
             $timeBinSQL = "DATEADD(HOUR, DATEDIFF(HOUR, 0, {$timeExpr}), 0)";
         }
