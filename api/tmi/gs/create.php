@@ -152,12 +152,26 @@ if ($stmt === false) {
 }
 
 // Get the output program_id
+// The SELECT @program_id is the first (and only) result set since SP has SET NOCOUNT ON
 $program_id = null;
-sqlsrv_next_result($stmt);
+
+// Try first result set
 $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 if ($row && isset($row['program_id'])) {
     $program_id = (int)$row['program_id'];
 }
+
+// If not found in first, try next result set (in case SP has multiple statements)
+if ($program_id === null || $program_id <= 0) {
+    while (sqlsrv_next_result($stmt)) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row && isset($row['program_id'])) {
+            $program_id = (int)$row['program_id'];
+            break;
+        }
+    }
+}
+
 sqlsrv_free_stmt($stmt);
 
 if ($program_id === null || $program_id <= 0) {
