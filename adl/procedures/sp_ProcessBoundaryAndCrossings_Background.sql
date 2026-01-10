@@ -1,11 +1,18 @@
 -- ============================================================================
 -- sp_ProcessBoundaryAndCrossings_Background
--- Version: 1.4
+-- Version: 1.6
 -- Date: 2026-01-10
 --
 -- Description: Background job for boundary detection and planned crossings
 --              Runs separately from main refresh cycle (every 60 seconds)
 --              Uses tiered processing to spread load across time
+--
+-- V1.6 Optimizations:
+--   - Removed fallback query (scanned all boundaries - too slow)
+--   - Set-based JOIN with ROW_NUMBER instead of OUTER APPLY
+--   - Skip TRACON for flights >= FL180 earlier in the query
+--   - Fixed: V1.5 incorrectly used STContains (doesn't exist for geography)
+--   - Uses STIntersects for geography point-in-polygon checks
 --
 -- Tier Schedule:
 --   Tier 1: Every 1 min  - New flights, needs_recalc flag
@@ -26,7 +33,7 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_ProcessBoundaryAndCrossings_Background
     @max_flights_per_run INT = 100,
-    @max_crossings_per_run INT = 50,   -- Separate limit for crossings (slower operation)
+    @max_crossings_per_run INT = 50,
     @debug BIT = 0
 AS
 BEGIN
@@ -45,11 +52,10 @@ BEGIN
     DECLARE @tier5 INT = 0, @tier6 INT = 0, @tier7 INT = 0;
 
     -- ========================================================================
-    -- PART A: BOUNDARY DETECTION (from sp_ProcessBoundaryDetectionBatch)
+    -- PART A: BOUNDARY DETECTION (Optimized V1.5)
     -- ========================================================================
 
-    -- Step A1: Find flights needing boundary detection (grid changed or new)
-    -- LIMIT to @max_flights_per_run to avoid timeout
+    -- Step A1: Find flights needing boundary detection
     SELECT TOP (@max_flights_per_run)
         c.flight_uid,
         p.lat,
@@ -59,8 +65,6 @@ BEGIN
         c.current_artcc_id,
         c.current_tracon,
         c.current_tracon_id,
-        c.last_grid_lat,
-        c.last_grid_lon,
         CAST(FLOOR(p.lat / @grid_size) AS SMALLINT) AS grid_lat,
         CAST(FLOOR(p.lon / @grid_size) AS SMALLINT) AS grid_lon,
         geography::Point(p.lat, p.lon, 4326) AS position_geo
@@ -78,66 +82,73 @@ BEGIN
           OR c.last_grid_lon != CAST(FLOOR(p.lon / @grid_size) AS SMALLINT)
       )
     ORDER BY
-        CASE WHEN c.current_artcc_id IS NULL THEN 0 ELSE 1 END,  -- New flights first
-        ISNULL(c.boundary_updated_at, '1900-01-01') ASC;  -- Oldest updates next
+        CASE WHEN c.current_artcc_id IS NULL THEN 0 ELSE 1 END,
+        ISNULL(c.boundary_updated_at, '1900-01-01') ASC;
 
     SET @boundary_flights = (SELECT COUNT(*) FROM #boundary_flights);
 
     IF @boundary_flights > 0
     BEGIN
         CREATE INDEX IX_bf_grid ON #boundary_flights(grid_lat, grid_lon);
+        CREATE INDEX IX_bf_uid ON #boundary_flights(flight_uid);
 
-        -- Step A2: ARTCC Detection
+        -- Step A2: ARTCC Detection (Set-based with ROW_NUMBER - faster than OUTER APPLY)
+        ;WITH artcc_matches AS (
+            SELECT
+                f.flight_uid,
+                g.boundary_id,
+                g.boundary_code,
+                ROW_NUMBER() OVER (
+                    PARTITION BY f.flight_uid
+                    ORDER BY g.is_oceanic ASC, g.boundary_area ASC
+                ) AS rn
+            FROM #boundary_flights f
+            JOIN dbo.adl_boundary_grid g
+                ON g.grid_lat = f.grid_lat
+                AND g.grid_lon = f.grid_lon
+                AND g.boundary_type = 'ARTCC'
+            JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
+            WHERE b.boundary_geography.STIntersects(f.position_geo) = 1
+        )
         SELECT
             f.flight_uid, f.lat, f.lon, f.altitude_ft, f.grid_lat, f.grid_lon,
             f.current_artcc AS prev_artcc, f.current_artcc_id AS prev_artcc_id,
-            artcc.boundary_id AS new_artcc_id, artcc.boundary_code AS new_artcc
+            am.boundary_id AS new_artcc_id, am.boundary_code AS new_artcc
         INTO #artcc_detection
         FROM #boundary_flights f
-        OUTER APPLY (
-            SELECT TOP 1 g.boundary_id, g.boundary_code
-            FROM dbo.adl_boundary_grid g
+        LEFT JOIN artcc_matches am ON am.flight_uid = f.flight_uid AND am.rn = 1;
+
+        -- NO FALLBACK - if grid doesn't match, leave as NULL (will be picked up next cycle)
+
+        -- Step A3: TRACON Detection (only for flights < FL180)
+        ;WITH tracon_matches AS (
+            SELECT
+                f.flight_uid,
+                g.boundary_id,
+                g.boundary_code,
+                ROW_NUMBER() OVER (
+                    PARTITION BY f.flight_uid
+                    ORDER BY g.boundary_area ASC
+                ) AS rn
+            FROM #boundary_flights f
+            JOIN dbo.adl_boundary_grid g
+                ON g.grid_lat = f.grid_lat
+                AND g.grid_lon = f.grid_lon
+                AND g.boundary_type = 'TRACON'
             JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
-            WHERE g.boundary_type = 'ARTCC'
-              AND g.grid_lat = f.grid_lat
-              AND g.grid_lon = f.grid_lon
+            WHERE f.altitude_ft < 18000
               AND b.boundary_geography.STIntersects(f.position_geo) = 1
-            ORDER BY g.is_oceanic ASC, g.boundary_area ASC
-        ) artcc;
-
-        -- Fallback for flights with no grid match
-        UPDATE a
-        SET a.new_artcc_id = fallback.boundary_id, a.new_artcc = fallback.boundary_code
-        FROM #artcc_detection a
-        CROSS APPLY (
-            SELECT TOP 1 b.boundary_id, b.boundary_code
-            FROM dbo.adl_boundary b
-            WHERE b.boundary_type = 'ARTCC' AND b.is_active = 1
-              AND b.boundary_geography.STIntersects(geography::Point(a.lat, a.lon, 4326)) = 1
-            ORDER BY b.is_oceanic ASC, b.boundary_geography.STArea() ASC
-        ) fallback
-        WHERE a.new_artcc_id IS NULL AND a.prev_artcc_id IS NULL;
-
-        -- Step A3: TRACON Detection (below FL180 only)
+        )
         SELECT
             f.flight_uid, f.lat, f.lon, f.altitude_ft,
             f.current_tracon AS prev_tracon, f.current_tracon_id AS prev_tracon_id,
-            tracon.boundary_id AS new_tracon_id, tracon.boundary_code AS new_tracon
+            tm.boundary_id AS new_tracon_id, tm.boundary_code AS new_tracon
         INTO #tracon_detection
         FROM #boundary_flights f
-        OUTER APPLY (
-            SELECT TOP 1 g.boundary_id, g.boundary_code
-            FROM dbo.adl_boundary_grid g
-            JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
-            WHERE g.boundary_type = 'TRACON'
-              AND g.grid_lat = f.grid_lat
-              AND g.grid_lon = f.grid_lon
-              AND b.boundary_geography.STIntersects(f.position_geo) = 1
-            ORDER BY g.boundary_area ASC
-        ) tracon
+        LEFT JOIN tracon_matches tm ON tm.flight_uid = f.flight_uid AND tm.rn = 1
         WHERE f.altitude_ft < 18000;
 
-        -- Step A4: Log ARTCC transitions
+        -- Step A4: Log ARTCC transitions (exit old boundary)
         UPDATE log
         SET exit_time = @now, exit_lat = a.lat, exit_lon = a.lon,
             exit_altitude = a.altitude_ft, duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)
@@ -147,6 +158,7 @@ BEGIN
           AND log.boundary_id = a.prev_artcc_id
           AND (a.new_artcc_id IS NULL OR a.new_artcc_id != a.prev_artcc_id);
 
+        -- Log ARTCC entry (new boundary)
         INSERT INTO dbo.adl_flight_boundary_log
             (flight_uid, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
         SELECT a.flight_uid, a.new_artcc_id, 'ARTCC', a.new_artcc, @now, a.lat, a.lon, a.altitude_ft
@@ -175,10 +187,12 @@ BEGIN
 
         SET @boundary_transitions = @boundary_transitions + @@ROWCOUNT;
 
-        -- Step A6: Update flight_core
+        -- Step A6: Update flight_core with new boundaries
         UPDATE c
-        SET c.current_artcc = a.new_artcc, c.current_artcc_id = a.new_artcc_id,
-            c.last_grid_lat = a.grid_lat, c.last_grid_lon = a.grid_lon,
+        SET c.current_artcc = a.new_artcc,
+            c.current_artcc_id = a.new_artcc_id,
+            c.last_grid_lat = a.grid_lat,
+            c.last_grid_lon = a.grid_lon,
             c.boundary_updated_at = @now
         FROM dbo.adl_flight_core c
         JOIN #artcc_detection a ON a.flight_uid = c.flight_uid;
@@ -283,7 +297,7 @@ BEGIN
         WHERE c.is_active = 1
           AND NOT EXISTS (SELECT 1 FROM #crossing_batch b WHERE b.flight_uid = c.flight_uid)
           AND c.crossing_region_flags > 0
-          AND (fp.fp_dept_icao NOT LIKE 'K%' OR fp.fp_dest_icao NOT LIKE 'K%')  -- International
+          AND (fp.fp_dept_icao NOT LIKE 'K%' OR fp.fp_dest_icao NOT LIKE 'K%')
           AND DATEDIFF(SECOND, c.crossing_last_calc_utc, @now) >= 900;
 
         SET @tier5 = @@ROWCOUNT;
@@ -298,7 +312,7 @@ BEGIN
         FROM dbo.adl_flight_core c
         WHERE c.is_active = 1
           AND NOT EXISTS (SELECT 1 FROM #crossing_batch b WHERE b.flight_uid = c.flight_uid)
-          AND c.crossing_region_flags = 4  -- Transit only
+          AND c.crossing_region_flags = 4
           AND DATEDIFF(SECOND, c.crossing_last_calc_utc, @now) >= 1800;
 
         SET @tier6 = @@ROWCOUNT;
@@ -341,21 +355,32 @@ BEGIN
         CREATE INDEX IX_aw_flight ON #all_waypoints(flight_uid, seq);
         CREATE INDEX IX_aw_grid ON #all_waypoints(grid_lat, grid_lon);
 
-        -- Find ARTCC for each waypoint
+        -- Find ARTCC for each waypoint (using set-based approach)
+        ;WITH waypoint_artcc_matches AS (
+            SELECT
+                w.flight_uid, w.seq, w.fix_name, w.eta_utc, w.lat, w.lon,
+                g.boundary_id, g.boundary_code,
+                ROW_NUMBER() OVER (
+                    PARTITION BY w.flight_uid, w.seq
+                    ORDER BY g.is_oceanic ASC, g.boundary_area ASC
+                ) AS rn
+            FROM #all_waypoints w
+            JOIN dbo.adl_boundary_grid g
+                ON g.grid_lat = w.grid_lat
+                AND g.grid_lon = w.grid_lon
+                AND g.boundary_type = 'ARTCC'
+            JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
+            WHERE b.boundary_geography.STIntersects(geography::Point(w.lat, w.lon, 4326)) = 1
+        )
         SELECT
             w.flight_uid, w.seq, w.fix_name, w.eta_utc, w.lat, w.lon,
-            artcc.boundary_id AS artcc_id, artcc.boundary_code AS artcc_code
+            wam.boundary_id AS artcc_id, wam.boundary_code AS artcc_code
         INTO #waypoint_artcc
         FROM #all_waypoints w
-        OUTER APPLY (
-            SELECT TOP 1 g.boundary_id, g.boundary_code
-            FROM dbo.adl_boundary_grid g
-            JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
-            WHERE g.boundary_type = 'ARTCC'
-              AND g.grid_lat = w.grid_lat AND g.grid_lon = w.grid_lon
-              AND b.boundary_geography.STContains(geography::Point(w.lat, w.lon, 4326)) = 1
-            ORDER BY g.is_oceanic ASC, g.boundary_area ASC
-        ) artcc;
+        LEFT JOIN waypoint_artcc_matches wam
+            ON wam.flight_uid = w.flight_uid
+            AND wam.seq = w.seq
+            AND wam.rn = 1;
 
         CREATE INDEX IX_wa_flight ON #waypoint_artcc(flight_uid, seq);
 
@@ -458,7 +483,7 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.4 - Separate limits for boundaries vs crossings';
+PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.6 - Fixed STContains bug';
+PRINT 'Changes: STIntersects (correct for geography), set-based JOINs, removed fallback query';
 PRINT 'Tier schedule: 1=1min, 2=2min, 3=5min, 4=10min, 5=15min, 6=30min, 7=60min';
-PRINT 'Run every 60 seconds via SQL Agent or separate PHP daemon';
 GO
