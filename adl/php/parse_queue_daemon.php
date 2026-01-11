@@ -55,18 +55,19 @@ class ParseQueueDaemon
     
     /**
      * Get queue statistics
+     * NOTE: PENDING/PROCESSING counts ALL items (not time-filtered) to detect backlogs
      */
     private function getQueueStats(): array
     {
         $sql = "
-            SELECT 
-                COUNT(CASE WHEN status = 'PENDING' THEN 1 END) AS pending,
+            SELECT
+                COUNT(CASE WHEN status = 'PENDING' AND next_eligible_utc <= SYSUTCDATETIME() THEN 1 END) AS pending,
                 COUNT(CASE WHEN status = 'PROCESSING' THEN 1 END) AS processing,
-                COUNT(CASE WHEN status = 'COMPLETE' THEN 1 END) AS complete,
-                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed,
-                AVG(CASE WHEN status = 'COMPLETE' THEN DATEDIFF(MILLISECOND, started_utc, completed_utc) END) AS avg_parse_ms
+                COUNT(CASE WHEN status = 'COMPLETE' AND completed_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS complete,
+                COUNT(CASE WHEN status = 'FAILED' AND completed_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS failed,
+                AVG(CASE WHEN status = 'COMPLETE' AND completed_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())
+                    THEN DATEDIFF(MILLISECOND, started_utc, completed_utc) END) AS avg_parse_ms
             FROM dbo.adl_parse_queue
-            WHERE queued_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())
         ";
         
         $stmt = sqlsrv_query($this->conn, $sql);
@@ -79,12 +80,40 @@ class ParseQueueDaemon
     }
     
     /**
+     * Reset items stuck in PROCESSING for more than 5 minutes
+     */
+    private function resetStuckItems(): int
+    {
+        $sql = "
+            UPDATE dbo.adl_parse_queue
+            SET status = 'PENDING',
+                next_eligible_utc = SYSUTCDATETIME(),
+                started_utc = NULL
+            WHERE status = 'PROCESSING'
+              AND started_utc < DATEADD(MINUTE, -5, SYSUTCDATETIME())
+        ";
+
+        $stmt = sqlsrv_query($this->conn, $sql);
+        if ($stmt === false) return 0;
+
+        $rows = sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
+
+        if ($rows > 0) {
+            $this->log("Reset {$rows} stuck PROCESSING items");
+        }
+
+        return $rows;
+    }
+
+    /**
      * Process a batch of routes directly (more control than sp_ProcessParseQueue)
      */
-    private function processBatch(): int
+    private function processBatch(int $batchSize = null): int
     {
+        $size = $batchSize ?? $this->batchSize;
         $sql = "EXEC dbo.sp_ParseRouteBatch @batch_size = ?, @tier = NULL";
-        $stmt = sqlsrv_query($this->conn, $sql, [$this->batchSize]);
+        $stmt = sqlsrv_query($this->conn, $sql, [$size]);
         
         if ($stmt === false) {
             $errors = sqlsrv_errors();
@@ -111,28 +140,40 @@ class ParseQueueDaemon
             'queue_stats' => []
         ];
         
+        // Reset any stuck items first
+        $this->resetStuckItems();
+
         // Get initial stats
         $queueStats = $this->getQueueStats();
         $pending = $queueStats['pending'] ?? 0;
-        
-        if ($pending == 0) {
+        $processing = $queueStats['processing'] ?? 0;
+
+        if ($pending == 0 && $processing == 0) {
             $this->log("Queue empty, nothing to process");
             $stats['queue_stats'] = $queueStats;
             return $stats;
         }
-        
-        $this->log("Processing queue ({$pending} pending)...");
-        
+
+        // Use larger batch size when backlogged (>100 pending), then return to normal
+        $isBacklogged = $pending > 100;
+        $catchupBatchSize = $isBacklogged ? 500 : $this->batchSize;
+
+        if ($isBacklogged) {
+            $this->log("BACKLOG detected ({$pending} pending) - using batch size {$catchupBatchSize}");
+        } else {
+            $this->log("Processing queue ({$pending} pending)...");
+        }
+
         // Process batches
         $iterations = 0;
         $totalProcessed = 0;
-        
+
         while ($iterations < MAX_ITERATIONS && $this->running) {
-            $processed = $this->processBatch();
+            $processed = $this->processBatch($catchupBatchSize);
             $totalProcessed += $processed;
             $iterations++;
-            
-            if ($processed < $this->batchSize) {
+
+            if ($processed < $catchupBatchSize) {
                 // Queue exhausted
                 break;
             }
