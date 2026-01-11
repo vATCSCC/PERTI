@@ -112,14 +112,14 @@ $config = [
     // SP V1.6 uses set-based processing (not per-flight cursor), much faster than legacy
     // Capacity planning (grid changes ~1 per 4min per flight):
     //   1000 flights = 250/min needed, 3000 = 750/min, 5000 = 1250/min, 6000+ events = 1500+/min
-    // Timing: set-based SP scales linearly, 2000 flights ≈ 8-16s (well under 60s cycle)
+    // DISABLED: Now runs in separate boundary_daemon.php for better throughput
     // Adaptive intervals: runs more often when backlog exists, less often when caught up
-    'boundary_enabled'       => true,
+    'boundary_enabled'       => false,
     'boundary_interval_fast' => 2,    // Run every 2 cycles (30s) when pending > threshold
     'boundary_interval_slow' => 4,    // Run every 4 cycles (60s) when caught up
     'boundary_adaptive_threshold' => 500, // Switch to fast mode when pending > this
-    'boundary_max_flights'   => 2000, // Max boundary flights per run (event-ready)
-    'crossings_max_flights'  => 150,  // Max crossings per run (6x original for events)
+    'boundary_max_flights'   => 100,  // Reduced from 2000 - prevents timeout
+    'crossings_max_flights'  => 50,   // Reduced from 150 - prevents timeout
     'boundary_timeout'       => 120,  // SP timeout in seconds
 
     // Runway detection from flight tracks
