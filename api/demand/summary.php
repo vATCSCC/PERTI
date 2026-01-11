@@ -393,8 +393,49 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
  * Get equipment breakdown by time bin
  */
 function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
-    $query = $helper->buildEquipmentBreakdownQuery($airport, $direction, $startSQL, $endSQL);
-    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    // Use simplified query matching weight pattern
+    $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' :
+               ($direction === 'dep' ? 'COALESCE(etd_runway_utc, etd_utc)' : 'COALESCE(eta_runway_utc, eta_utc)');
+    $airportCol = $direction === 'arr' ? 'fp_dest_icao' :
+                  ($direction === 'dep' ? 'fp_dept_icao' : 'fp_dest_icao');
+
+    if ($direction === 'both') {
+        $sql = "
+            WITH Combined AS (
+                SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, aircraft_type
+                FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
+                UNION ALL
+                SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, aircraft_type
+                FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
+            )
+            SELECT
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                COALESCE(aircraft_type, 'UNKNOWN') AS equipment,
+                COUNT(*) AS count
+            FROM Combined
+            WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+            GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0), COALESCE(aircraft_type, 'UNKNOWN')
+            ORDER BY time_bin, count DESC
+        ";
+        $params = [$airport, $airport, $startSQL, $endSQL];
+    } else {
+        $sql = "
+            SELECT
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
+                COALESCE(aircraft_type, 'UNKNOWN') AS equipment,
+                COUNT(*) AS count
+            FROM dbo.vw_adl_flights
+            WHERE $airportCol = ?
+              AND $timeCol IS NOT NULL
+              AND $timeCol >= ?
+              AND $timeCol < ?
+            GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0), COALESCE(aircraft_type, 'UNKNOWN')
+            ORDER BY time_bin, count DESC
+        ";
+        $params = [$airport, $startSQL, $endSQL];
+    }
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
     if ($stmt === false) {
@@ -402,23 +443,21 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
         return $results;
     }
 
-    if ($stmt !== false) {
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $timeBin = $row['time_bin'];
-            if ($timeBin instanceof DateTime) {
-                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
-            }
-
-            if (!isset($results[$timeBin])) {
-                $results[$timeBin] = [];
-            }
-            $results[$timeBin][] = [
-                "equipment" => $row['equipment'],
-                "count" => (int)$row['count']
-            ];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $timeBin = $row['time_bin'];
+        if ($timeBin instanceof DateTime) {
+            $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
         }
-        sqlsrv_free_stmt($stmt);
+
+        if (!isset($results[$timeBin])) {
+            $results[$timeBin] = [];
+        }
+        $results[$timeBin][] = [
+            "equipment" => $row['equipment'],
+            "count" => (int)$row['count']
+        ];
     }
+    sqlsrv_free_stmt($stmt);
 
     return $results;
 }
@@ -427,8 +466,49 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
  * Get flight rule (IFR/VFR) breakdown by time bin
  */
 function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
-    $query = $helper->buildFlightRuleBreakdownQuery($airport, $direction, $startSQL, $endSQL);
-    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    // Use simplified query matching carrier/equipment pattern
+    $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' :
+               ($direction === 'dep' ? 'COALESCE(etd_runway_utc, etd_utc)' : 'COALESCE(eta_runway_utc, eta_utc)');
+    $airportCol = $direction === 'arr' ? 'fp_dest_icao' :
+                  ($direction === 'dep' ? 'fp_dept_icao' : 'fp_dest_icao');
+
+    if ($direction === 'both') {
+        $sql = "
+            WITH Combined AS (
+                SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, fp_rule
+                FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
+                UNION ALL
+                SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, fp_rule
+                FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
+            )
+            SELECT
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                COALESCE(fp_rule, 'UNKNOWN') AS rule,
+                COUNT(*) AS count
+            FROM Combined
+            WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+            GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0), COALESCE(fp_rule, 'UNKNOWN')
+            ORDER BY time_bin, count DESC
+        ";
+        $params = [$airport, $airport, $startSQL, $endSQL];
+    } else {
+        $sql = "
+            SELECT
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
+                COALESCE(fp_rule, 'UNKNOWN') AS rule,
+                COUNT(*) AS count
+            FROM dbo.vw_adl_flights
+            WHERE $airportCol = ?
+              AND $timeCol IS NOT NULL
+              AND $timeCol >= ?
+              AND $timeCol < ?
+            GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0), COALESCE(fp_rule, 'UNKNOWN')
+            ORDER BY time_bin, count DESC
+        ";
+        $params = [$airport, $startSQL, $endSQL];
+    }
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
     if ($stmt === false) {
@@ -436,23 +516,21 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
         return $results;
     }
 
-    if ($stmt !== false) {
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $timeBin = $row['time_bin'];
-            if ($timeBin instanceof DateTime) {
-                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
-            }
-
-            if (!isset($results[$timeBin])) {
-                $results[$timeBin] = [];
-            }
-            $results[$timeBin][] = [
-                "rule" => $row['rule'],
-                "count" => (int)$row['count']
-            ];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $timeBin = $row['time_bin'];
+        if ($timeBin instanceof DateTime) {
+            $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
         }
-        sqlsrv_free_stmt($stmt);
+
+        if (!isset($results[$timeBin])) {
+            $results[$timeBin] = [];
+        }
+        $results[$timeBin][] = [
+            "rule" => $row['rule'],
+            "count" => (int)$row['count']
+        ];
     }
+    sqlsrv_free_stmt($stmt);
 
     return $results;
 }
@@ -461,8 +539,23 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
  * Get departure fix breakdown by time bin (departures only)
  */
 function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
-    $query = $helper->buildDepFixBreakdownQuery($airport, $startSQL, $endSQL);
-    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    // Use simplified query - departures only, use dfix column
+    $sql = "
+        SELECT
+            DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(etd_runway_utc, etd_utc)), 0) AS time_bin,
+            COALESCE(dfix, 'UNKNOWN') AS fix,
+            COUNT(*) AS count
+        FROM dbo.vw_adl_flights
+        WHERE fp_dept_icao = ?
+          AND COALESCE(etd_runway_utc, etd_utc) IS NOT NULL
+          AND COALESCE(etd_runway_utc, etd_utc) >= ?
+          AND COALESCE(etd_runway_utc, etd_utc) < ?
+        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(etd_runway_utc, etd_utc)), 0), COALESCE(dfix, 'UNKNOWN')
+        ORDER BY time_bin, count DESC
+    ";
+    $params = [$airport, $startSQL, $endSQL];
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
     if ($stmt === false) {
@@ -470,23 +563,21 @@ function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
         return $results;
     }
 
-    if ($stmt !== false) {
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $timeBin = $row['time_bin'];
-            if ($timeBin instanceof DateTime) {
-                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
-            }
-
-            if (!isset($results[$timeBin])) {
-                $results[$timeBin] = [];
-            }
-            $results[$timeBin][] = [
-                "fix" => $row['fix'],
-                "count" => (int)$row['count']
-            ];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $timeBin = $row['time_bin'];
+        if ($timeBin instanceof DateTime) {
+            $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
         }
-        sqlsrv_free_stmt($stmt);
+
+        if (!isset($results[$timeBin])) {
+            $results[$timeBin] = [];
+        }
+        $results[$timeBin][] = [
+            "fix" => $row['fix'],
+            "count" => (int)$row['count']
+        ];
     }
+    sqlsrv_free_stmt($stmt);
 
     return $results;
 }
@@ -495,8 +586,23 @@ function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
  * Get arrival fix breakdown by time bin (arrivals only)
  */
 function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
-    $query = $helper->buildArrFixBreakdownQuery($airport, $startSQL, $endSQL);
-    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    // Use simplified query - arrivals only, use afix column
+    $sql = "
+        SELECT
+            DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0) AS time_bin,
+            COALESCE(afix, 'UNKNOWN') AS fix,
+            COUNT(*) AS count
+        FROM dbo.vw_adl_flights
+        WHERE fp_dest_icao = ?
+          AND COALESCE(eta_runway_utc, eta_utc) IS NOT NULL
+          AND COALESCE(eta_runway_utc, eta_utc) >= ?
+          AND COALESCE(eta_runway_utc, eta_utc) < ?
+        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0), COALESCE(afix, 'UNKNOWN')
+        ORDER BY time_bin, count DESC
+    ";
+    $params = [$airport, $startSQL, $endSQL];
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
     if ($stmt === false) {
@@ -504,23 +610,21 @@ function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
         return $results;
     }
 
-    if ($stmt !== false) {
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $timeBin = $row['time_bin'];
-            if ($timeBin instanceof DateTime) {
-                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
-            }
-
-            if (!isset($results[$timeBin])) {
-                $results[$timeBin] = [];
-            }
-            $results[$timeBin][] = [
-                "fix" => $row['fix'],
-                "count" => (int)$row['count']
-            ];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $timeBin = $row['time_bin'];
+        if ($timeBin instanceof DateTime) {
+            $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
         }
-        sqlsrv_free_stmt($stmt);
+
+        if (!isset($results[$timeBin])) {
+            $results[$timeBin] = [];
+        }
+        $results[$timeBin][] = [
+            "fix" => $row['fix'],
+            "count" => (int)$row['count']
+        ];
     }
+    sqlsrv_free_stmt($stmt);
 
     return $results;
 }
@@ -529,8 +633,23 @@ function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
  * Get DP/SID breakdown by time bin (departures only)
  */
 function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
-    $query = $helper->buildDPBreakdownQuery($airport, $startSQL, $endSQL);
-    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    // Use simplified query - departures only, use dp_name column
+    $sql = "
+        SELECT
+            DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(etd_runway_utc, etd_utc)), 0) AS time_bin,
+            COALESCE(dp_name, 'UNKNOWN') AS dp,
+            COUNT(*) AS count
+        FROM dbo.vw_adl_flights
+        WHERE fp_dept_icao = ?
+          AND COALESCE(etd_runway_utc, etd_utc) IS NOT NULL
+          AND COALESCE(etd_runway_utc, etd_utc) >= ?
+          AND COALESCE(etd_runway_utc, etd_utc) < ?
+        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(etd_runway_utc, etd_utc)), 0), COALESCE(dp_name, 'UNKNOWN')
+        ORDER BY time_bin, count DESC
+    ";
+    $params = [$airport, $startSQL, $endSQL];
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
     if ($stmt === false) {
@@ -538,23 +657,21 @@ function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
         return $results;
     }
 
-    if ($stmt !== false) {
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $timeBin = $row['time_bin'];
-            if ($timeBin instanceof DateTime) {
-                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
-            }
-
-            if (!isset($results[$timeBin])) {
-                $results[$timeBin] = [];
-            }
-            $results[$timeBin][] = [
-                "dp" => $row['dp'],
-                "count" => (int)$row['count']
-            ];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $timeBin = $row['time_bin'];
+        if ($timeBin instanceof DateTime) {
+            $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
         }
-        sqlsrv_free_stmt($stmt);
+
+        if (!isset($results[$timeBin])) {
+            $results[$timeBin] = [];
+        }
+        $results[$timeBin][] = [
+            "dp" => $row['dp'],
+            "count" => (int)$row['count']
+        ];
     }
+    sqlsrv_free_stmt($stmt);
 
     return $results;
 }
@@ -563,8 +680,23 @@ function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
  * Get STAR breakdown by time bin (arrivals only)
  */
 function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
-    $query = $helper->buildSTARBreakdownQuery($airport, $startSQL, $endSQL);
-    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    // Use simplified query - arrivals only, use star_name column
+    $sql = "
+        SELECT
+            DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0) AS time_bin,
+            COALESCE(star_name, 'UNKNOWN') AS star,
+            COUNT(*) AS count
+        FROM dbo.vw_adl_flights
+        WHERE fp_dest_icao = ?
+          AND COALESCE(eta_runway_utc, eta_utc) IS NOT NULL
+          AND COALESCE(eta_runway_utc, eta_utc) >= ?
+          AND COALESCE(eta_runway_utc, eta_utc) < ?
+        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0), COALESCE(star_name, 'UNKNOWN')
+        ORDER BY time_bin, count DESC
+    ";
+    $params = [$airport, $startSQL, $endSQL];
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
     if ($stmt === false) {
@@ -572,23 +704,21 @@ function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
         return $results;
     }
 
-    if ($stmt !== false) {
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $timeBin = $row['time_bin'];
-            if ($timeBin instanceof DateTime) {
-                $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
-            }
-
-            if (!isset($results[$timeBin])) {
-                $results[$timeBin] = [];
-            }
-            $results[$timeBin][] = [
-                "star" => $row['star'],
-                "count" => (int)$row['count']
-            ];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $timeBin = $row['time_bin'];
+        if ($timeBin instanceof DateTime) {
+            $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
         }
-        sqlsrv_free_stmt($stmt);
+
+        if (!isset($results[$timeBin])) {
+            $results[$timeBin] = [];
+        }
+        $results[$timeBin][] = [
+            "star" => $row['star'],
+            "count" => (int)$row['count']
+        ];
     }
+    sqlsrv_free_stmt($stmt);
 
     return $results;
 }
