@@ -1,11 +1,16 @@
 -- ============================================================================
 -- sp_ProcessBoundaryAndCrossings_Background
--- Version: 1.6
+-- Version: 1.7
 -- Date: 2026-01-10
 --
 -- Description: Background job for boundary detection and planned crossings
 --              Runs separately from main refresh cycle (every 60 seconds)
 --              Uses tiered processing to spread load across time
+--
+-- V1.7 Changes:
+--   - Added SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH detection (was missing!)
+--   - Added ARTCC fallback for grid lookup failures
+--   - Full boundary detection now matches sp_ProcessBoundaryDetectionBatch
 --
 -- V1.6 Optimizations:
 --   - Removed fallback query (scanned all boundaries - too slow)
@@ -44,6 +49,12 @@ BEGIN
     DECLARE @minute INT = DATEPART(MINUTE, @now);
     DECLARE @grid_size DECIMAL(5,3) = 0.5;
 
+    -- US CONUS bounding box (for sector detection)
+    DECLARE @us_lat_min DECIMAL(6,2) = 24.0;
+    DECLARE @us_lat_max DECIMAL(6,2) = 50.0;
+    DECLARE @us_lon_min DECIMAL(7,2) = -130.0;
+    DECLARE @us_lon_max DECIMAL(7,2) = -65.0;
+
     -- Counters
     DECLARE @boundary_flights INT = 0;
     DECLARE @boundary_transitions INT = 0;
@@ -65,9 +76,19 @@ BEGIN
         c.current_artcc_id,
         c.current_tracon,
         c.current_tracon_id,
+        c.current_sector_low,
+        c.current_sector_low_ids,
+        c.current_sector_high,
+        c.current_sector_high_ids,
+        c.current_sector_superhigh,
+        c.current_sector_superhigh_ids,
         CAST(FLOOR(p.lat / @grid_size) AS SMALLINT) AS grid_lat,
         CAST(FLOOR(p.lon / @grid_size) AS SMALLINT) AS grid_lon,
-        geography::Point(p.lat, p.lon, 4326) AS position_geo
+        geography::Point(p.lat, p.lon, 4326) AS position_geo,
+        -- CONUS flag for sector detection
+        CASE WHEN p.lat BETWEEN @us_lat_min AND @us_lat_max
+              AND p.lon BETWEEN @us_lon_min AND @us_lon_max
+             THEN 1 ELSE 0 END AS is_conus
     INTO #boundary_flights
     FROM dbo.adl_flight_core c
     JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
@@ -111,14 +132,29 @@ BEGIN
             WHERE b.boundary_geography.STIntersects(f.position_geo) = 1
         )
         SELECT
-            f.flight_uid, f.lat, f.lon, f.altitude_ft, f.grid_lat, f.grid_lon,
+            f.flight_uid, f.lat, f.lon, f.altitude_ft, f.grid_lat, f.grid_lon, f.is_conus,
             f.current_artcc AS prev_artcc, f.current_artcc_id AS prev_artcc_id,
             am.boundary_id AS new_artcc_id, am.boundary_code AS new_artcc
         INTO #artcc_detection
         FROM #boundary_flights f
         LEFT JOIN artcc_matches am ON am.flight_uid = f.flight_uid AND am.rn = 1;
 
-        -- NO FALLBACK - if grid doesn't match, leave as NULL (will be picked up next cycle)
+        -- Step A2b: ARTCC Fallback - Brute force for grid lookup failures (V1.7)
+        -- When grid lookup fails (boundary crosses cell edge), fall back to direct spatial lookup
+        UPDATE a
+        SET a.new_artcc_id = fallback.boundary_id,
+            a.new_artcc = fallback.boundary_code
+        FROM #artcc_detection a
+        CROSS APPLY (
+            SELECT TOP 1 b.boundary_id, b.boundary_code
+            FROM dbo.adl_boundary b
+            WHERE b.boundary_type = 'ARTCC'
+              AND b.is_active = 1
+              AND b.boundary_geography.STIntersects(geography::Point(a.lat, a.lon, 4326)) = 1
+            ORDER BY b.is_oceanic ASC, b.boundary_geography.STArea() ASC
+        ) fallback
+        WHERE a.new_artcc_id IS NULL
+          AND a.prev_artcc_id IS NULL;  -- Only for flights that truly have no ARTCC
 
         -- Step A3: TRACON Detection (only for flights < FL180)
         ;WITH tracon_matches AS (
@@ -148,7 +184,83 @@ BEGIN
         LEFT JOIN tracon_matches tm ON tm.flight_uid = f.flight_uid AND tm.rn = 1
         WHERE f.altitude_ft < 18000;
 
-        -- Step A4: Log ARTCC transitions (exit old boundary)
+        -- ========================================================================
+        -- Step A4: SECTOR Detection (CONUS only) - V1.7
+        -- ========================================================================
+
+        -- SECTOR_LOW (altitude < 24000)
+        SELECT DISTINCT f.flight_uid, g.boundary_id, g.boundary_code
+        INTO #low_sectors_raw
+        FROM #boundary_flights f
+        JOIN dbo.adl_boundary_grid g ON
+            g.boundary_type = 'SECTOR_LOW'
+            AND g.grid_lat = f.grid_lat
+            AND g.grid_lon = f.grid_lon
+        JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
+        WHERE f.is_conus = 1
+          AND f.altitude_ft < 24000
+          AND b.boundary_geography.STIntersects(f.position_geo) = 1;
+
+        SELECT
+            f.flight_uid, f.lat, f.lon, f.altitude_ft,
+            f.current_sector_low AS prev_sector_low,
+            STUFF((SELECT ',' + ls.boundary_code FROM #low_sectors_raw ls
+                   WHERE ls.flight_uid = f.flight_uid ORDER BY ls.boundary_code FOR XML PATH('')), 1, 1, '') AS new_sector_low,
+            (SELECT ls.boundary_id AS id FROM #low_sectors_raw ls
+             WHERE ls.flight_uid = f.flight_uid ORDER BY ls.boundary_code FOR JSON PATH) AS new_sector_low_ids
+        INTO #low_detection
+        FROM #boundary_flights f
+        WHERE f.is_conus = 1 AND f.altitude_ft < 24000;
+
+        -- SECTOR_HIGH (altitude 10000-60000)
+        SELECT DISTINCT f.flight_uid, g.boundary_id, g.boundary_code
+        INTO #high_sectors_raw
+        FROM #boundary_flights f
+        JOIN dbo.adl_boundary_grid g ON
+            g.boundary_type = 'SECTOR_HIGH'
+            AND g.grid_lat = f.grid_lat
+            AND g.grid_lon = f.grid_lon
+        JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
+        WHERE f.is_conus = 1
+          AND f.altitude_ft >= 10000 AND f.altitude_ft < 60000
+          AND b.boundary_geography.STIntersects(f.position_geo) = 1;
+
+        SELECT
+            f.flight_uid, f.lat, f.lon, f.altitude_ft,
+            f.current_sector_high AS prev_sector_high,
+            STUFF((SELECT ',' + hs.boundary_code FROM #high_sectors_raw hs
+                   WHERE hs.flight_uid = f.flight_uid ORDER BY hs.boundary_code FOR XML PATH('')), 1, 1, '') AS new_sector_high,
+            (SELECT hs.boundary_id AS id FROM #high_sectors_raw hs
+             WHERE hs.flight_uid = f.flight_uid ORDER BY hs.boundary_code FOR JSON PATH) AS new_sector_high_ids
+        INTO #high_detection
+        FROM #boundary_flights f
+        WHERE f.is_conus = 1 AND f.altitude_ft >= 10000;
+
+        -- SECTOR_SUPERHIGH (altitude >= 35000)
+        SELECT DISTINCT f.flight_uid, g.boundary_id, g.boundary_code
+        INTO #superhigh_sectors_raw
+        FROM #boundary_flights f
+        JOIN dbo.adl_boundary_grid g ON
+            g.boundary_type = 'SECTOR_SUPERHIGH'
+            AND g.grid_lat = f.grid_lat
+            AND g.grid_lon = f.grid_lon
+        JOIN dbo.adl_boundary b ON b.boundary_id = g.boundary_id
+        WHERE f.is_conus = 1
+          AND f.altitude_ft >= 35000
+          AND b.boundary_geography.STIntersects(f.position_geo) = 1;
+
+        SELECT
+            f.flight_uid, f.lat, f.lon, f.altitude_ft,
+            f.current_sector_superhigh AS prev_sector_superhigh,
+            STUFF((SELECT ',' + sh.boundary_code FROM #superhigh_sectors_raw sh
+                   WHERE sh.flight_uid = f.flight_uid ORDER BY sh.boundary_code FOR XML PATH('')), 1, 1, '') AS new_sector_superhigh,
+            (SELECT sh.boundary_id AS id FROM #superhigh_sectors_raw sh
+             WHERE sh.flight_uid = f.flight_uid ORDER BY sh.boundary_code FOR JSON PATH) AS new_sector_superhigh_ids
+        INTO #superhigh_detection
+        FROM #boundary_flights f
+        WHERE f.is_conus = 1 AND f.altitude_ft >= 35000;
+
+        -- Step A5: Log ARTCC transitions (exit old boundary)
         UPDATE log
         SET exit_time = @now, exit_lat = a.lat, exit_lon = a.lon,
             exit_altitude = a.altitude_ft, duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)

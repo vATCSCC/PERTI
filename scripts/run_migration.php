@@ -19,16 +19,37 @@ if (!$isCLI) {
         header('Content-Type: text/html');
         echo '<!DOCTYPE html><html><head><title>Run Migration</title></head><body>';
         echo '<h1>Run ADL Migration</h1>';
-        echo '<p>Available migrations:</p><ul>';
+        echo '<p>Available migrations:</p>';
 
         $migrationDir = dirname(__DIR__) . '/adl/migrations';
-        $files = glob($migrationDir . '/*.sql');
-        foreach ($files as $file) {
-            $filename = basename($file);
-            echo '<li><a href="?file=' . urlencode($filename) . '&run=1" onclick="return confirm(\'Run ' . htmlspecialchars($filename) . '?\');">' . htmlspecialchars($filename) . '</a></li>';
+
+        // Get root-level migrations
+        $rootFiles = glob($migrationDir . '/*.sql');
+        if (count($rootFiles) > 0) {
+            echo '<h3>Root</h3><ul>';
+            foreach ($rootFiles as $file) {
+                $filename = basename($file);
+                echo '<li><a href="?file=' . urlencode($filename) . '&run=1" onclick="return confirm(\'Run ' . htmlspecialchars($filename) . '?\');">' . htmlspecialchars($filename) . '</a></li>';
+            }
+            echo '</ul>';
         }
 
-        echo '</ul></body></html>';
+        // Get subdirectory migrations
+        $subdirs = glob($migrationDir . '/*', GLOB_ONLYDIR);
+        foreach ($subdirs as $subdir) {
+            $subdirName = basename($subdir);
+            $subFiles = glob($subdir . '/*.sql');
+            if (count($subFiles) > 0) {
+                echo '<h3>' . htmlspecialchars($subdirName) . '</h3><ul>';
+                foreach ($subFiles as $file) {
+                    $filename = $subdirName . '/' . basename($file);
+                    echo '<li><a href="?file=' . urlencode($filename) . '&run=1" onclick="return confirm(\'Run ' . htmlspecialchars($filename) . '?\');">' . htmlspecialchars(basename($file)) . '</a></li>';
+                }
+                echo '</ul>';
+            }
+        }
+
+        echo '</body></html>';
         exit;
     }
     header('Content-Type: text/plain; charset=utf-8');
