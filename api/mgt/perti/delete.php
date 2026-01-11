@@ -1,11 +1,7 @@
 <?php
 
-// Session Start (S)
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-    ob_start();
-  }
-// Session Start (E)
+// Include session handler (validates SELF cookie and populates session)
+include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 
 include("../../../load/config.php");
 include("../../../load/connect.php");
