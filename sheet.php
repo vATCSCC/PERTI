@@ -152,10 +152,17 @@ include('load/nav.php');
                                     <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
                                     <li>VATUSA NTOS for public-facing, real-time TMI notices <a href="https://www.vatusa.net/mgt/tmu#notices" target="_blank">here</a>.
                                         <ul><li><b>ALL</b> NTOS entries must be accompanied by an NTML entry.</li></ul></li>
+                                    <?php if (stripos($plan_info['hotline'], 'Canada') !== false): ?>
+                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> channel for real-time operational coordination.
+                                        <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
+                                        <li>The VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <?= $plan_info['hotline']; ?> Hotline will serve as a primary backup if the VATCAN TeamSpeak fails.</li>
+                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <?php else: ?>
                                     <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline']; ?></b></span> Hotline for real-time operational coordination.
                                         <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
                                         <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang channel will serve as a primary backup if the VATUSA TeamSpeak fails.</li>
                                         <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <?php endif; ?>
                                     <li>Post any known virtual airline/group flights in <b>both</b> the #va-hotline channel of vATCSCC Discord and the PERTI Plan Staffing Sheet <a href="https://vats.im/dcc/PERTI_Staffing" target="_blank">here</a>.</li>
                                     <li>Monthly & Current Traffic Dashboards:
                                         <ul>

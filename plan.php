@@ -284,10 +284,17 @@ include('load/nav.php');
                                     <li><a href="https://perti.vatcscc.org/gdt" target="_blank">PERTI Ground Delay Tool (GDT)</a> for ground delay program/ground stop management.</li>
                                     <li><a href="https://perti.vatcscc.org/jatoc" target="_blank">PERTI JATOC AWO Incident Monitor</a> for incident management and real-time tracking.</li>
                                     <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
+                                    <?php if (stripos($plan_info['hotline'], 'Canada') !== false): ?>
+                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> channel for real-time operational coordination.
+                                        <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
+                                        <li>The VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <?= $plan_info['hotline']; ?> Hotline will serve as a primary backup if the VATCAN TeamSpeak fails.</li>
+                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <?php else: ?>
                                     <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline']; ?></b></span> Hotline for real-time operational coordination.
                                         <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
                                         <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang channel will serve as a primary backup if the VATUSA TeamSpeak fails.</li>
                                         <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <?php endif; ?>
                                     <li>Post any known virtual airline/group flight entries into <a href="https://bit.ly/NTML_Entry" target="_blank">this form</a>.</li>
                                     <li>TMU personnel must utilize <b>authorized</b> callsigns (XX_XX_TMU) in accordance with <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank">this policy</a>.</li>
                                     <li><a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank">vATCSCC Trangression Reporting Form</a> for incident reporting.</li>
