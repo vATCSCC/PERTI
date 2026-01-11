@@ -4,7 +4,7 @@
 
 PERTI (Plan, Execute, Review, Train, and Improve) is a web-based traffic flow management platform for VATSIM (Virtual Air Traffic Control Simulation). We take the security of our platform and user data seriously.
 
-**Production URL:** https://vatcscc.azurewebsites.net
+**Production URL:** https://perti.vatcscc.org
 
 ---
 
@@ -62,7 +62,7 @@ Complex issues may require additional time. We will keep you informed of progres
 
 ### In Scope
 
-- **Web Application:** All pages at `vatcscc.azurewebsites.net`
+- **Web Application:** All pages at `perti.vatcscc.org`
 - **API Endpoints:** All `/api/*` endpoints
 - **Authentication:** VATSIM OAuth integration
 - **Database Security:** SQL injection, data exposure

@@ -2,7 +2,7 @@
 
 Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a comprehensive traffic flow management platform for VATSIM.
 
-**Production URL:** https://vatcscc.azurewebsites.net
+**Production URL:** https://perti.vatcscc.org
 
 ---
 

@@ -57,7 +57,7 @@ define('VATSIM_REDIRECT_URI', 'https://your-domain.com/login/callback.php');
 ```php
 // Site configuration
 define('SITE_NAME', 'vATCSCC PERTI');
-define('SITE_URL', 'https://vatcscc.azurewebsites.net');
+define('SITE_URL', 'https://perti.vatcscc.org');
 define('TIMEZONE', 'UTC');
 ```
 
@@ -216,7 +216,7 @@ define('FORCE_HTTPS', true);
 ```php
 // Allowed origins for API requests
 define('CORS_ORIGINS', [
-    'https://vatcscc.azurewebsites.net',
+    'https://perti.vatcscc.org',
     'https://your-custom-domain.com'
 ]);
 ```

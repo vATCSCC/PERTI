@@ -8,7 +8,7 @@ This document provides a comprehensive reference for PERTI's RESTful API endpoin
 
 ### Base URL
 
-**Production:** `https://vatcscc.azurewebsites.net/api`
+**Production:** `https://perti.vatcscc.org/api`
 
 ### Authentication
 
