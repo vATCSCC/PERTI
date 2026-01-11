@@ -67,9 +67,9 @@ class JatocAuth {
             return self::$userRoles;
         }
 
-        // Check if roles are cached in session (5 minute cache)
+        // Check if roles are cached in session (30 second cache for development)
         if (isset($_SESSION['JATOC_ROLES']) && isset($_SESSION['JATOC_ROLES_CACHED_AT'])) {
-            if (time() - $_SESSION['JATOC_ROLES_CACHED_AT'] < 300) {
+            if (time() - $_SESSION['JATOC_ROLES_CACHED_AT'] < 30) {
                 self::$userRoles = $_SESSION['JATOC_ROLES'];
                 return self::$userRoles;
             }
@@ -136,10 +136,10 @@ class JatocAuth {
     }
 
     /**
-     * Infer roles from session (fallback when roles table doesn't exist)
+     * Infer roles from session (fallback when roles table doesn't exist or empty)
      *
-     * For backward compatibility, authenticated users get FACILITY role
-     * which allows create/update/close permissions.
+     * For backward compatibility and development, authenticated users get DCC role
+     * which allows full permissions. In production, populate jatoc_user_roles table.
      *
      * @return array Array of role codes
      */
@@ -148,9 +148,9 @@ class JatocAuth {
             return ['READONLY'];
         }
 
-        // Give authenticated users FACILITY role for backward compatibility
-        // This allows create, update, close, view permissions
-        return ['FACILITY'];
+        // TODO: In production, remove DCC fallback and require explicit role assignment
+        // For now, give authenticated users DCC role for full access during development
+        return ['DCC'];
     }
 
     /**
