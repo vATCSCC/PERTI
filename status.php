@@ -2572,6 +2572,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label">boundary_daemon.php</span>
+                                        <span class="status-badge running tree-status">30s</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">import_weather_alerts.php</span>
                                         <span class="status-badge scheduled tree-status">5m</span>
                                     </div>
@@ -2693,7 +2698,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(60s Background)</span></div>
+                                    <div class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(boundary_daemon.php)</span></div>
                                     <div class="component-desc">
                                         ARTCC: <?= number_format($liveData['boundary_artcc_1h']) ?>/hr &bull;
                                         TRACON: <?= number_format($liveData['boundary_tracon_1h']) ?>/hr &bull;
@@ -2710,7 +2715,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(60s Background)</span></div>
+                                    <div class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(boundary_daemon.php)</span></div>
                                     <div class="component-desc">
                                         <?= number_format($liveData['planned_crossings_1h']) ?> calc/hr &bull;
                                         <?= number_format($liveData['flights_with_crossings']) ?> flights
