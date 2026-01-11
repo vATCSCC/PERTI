@@ -439,13 +439,13 @@ include("load/connect.php");
                         <div class="d-flex align-items-center" style="gap: 14px;">
                             <!-- Runways from ATIS -->
                             <div class="runway-display">
-                                <div class="runway-row arr-runways">
-                                    <i class="fas fa-plane-arrival"></i>
-                                    <span id="atis_arr_runways" class="runway-value">--</span>
-                                </div>
                                 <div class="runway-row dep-runways">
                                     <i class="fas fa-plane-departure"></i>
                                     <span id="atis_dep_runways" class="runway-value">--</span>
+                                </div>
+                                <div class="runway-row arr-runways">
+                                    <i class="fas fa-plane-arrival"></i>
+                                    <span id="atis_arr_runways" class="runway-value">--</span>
                                 </div>
                             </div>
                             <!-- Approach -->

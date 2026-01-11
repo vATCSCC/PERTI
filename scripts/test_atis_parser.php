@@ -113,6 +113,13 @@ $testCases = [
         ['24L', '24R'],
         ['24R']
     ],
+
+    // JFK APPROACH IN USE style (RY instead of RWY)
+    'JFK APPROACH IN USE' => [
+        'JFK ATIS INFO O 2251Z. 08009KT 5SM RA BR BKN007 OVC015 05/04 A3002 (THREE ZERO ZERO TWO). APPROACH IN USE ILS RY 4R, ILS 4L. DEPTG RY 4L.. NOTAMS... READBACK ALL RWY ASSIGNMENTS',
+        ['04L', '04R'],
+        ['04L']
+    ],
 ];
 
 echo "=== ATIS Parser Test Suite ===\n\n";

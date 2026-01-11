@@ -221,12 +221,55 @@ function handlePost($conn) {
     sqlsrv_next_result($stmt);
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     $insertedId = $row['id'] ?? null;
-    
+
+    // =========================================
+    // Discord Posting (commented out - enable when ready)
+    // =========================================
+    // Channel IDs:
+    //   Production:
+    //     #advisories  = 358300240236773376
+    //     #ntml        = 358295136398082048
+    //   Staging:
+    //     #advzy-staging = 1008478301251194951
+    //     #ntml-staging  = 912499730335010886
+    // =========================================
+    /*
+    $discordResult = null;
+    $discordMessageId = null;
+
+    // Only post to Discord if status is ACTIVE (not drafts)
+    if (($input['status'] ?? 'ACTIVE') === 'ACTIVE') {
+        $discordResult = postAdvisoryToDiscord(
+            $advNumber,
+            $input['adv_type'],
+            $input['subject'],
+            $input['body_text'],
+            $input['valid_start_utc'],
+            $input['valid_end_utc'] ?? null
+        );
+
+        if ($discordResult && $discordResult['success']) {
+            $discordMessageId = $discordResult['message_id'] ?? null;
+
+            // Update advisory with Discord message ID
+            if ($discordMessageId) {
+                $updateSql = "UPDATE dbo.dcc_advisories
+                              SET discord_message_id = ?, discord_posted_at = GETUTCDATE()
+                              WHERE id = ?";
+                @sqlsrv_query($conn, $updateSql, [$discordMessageId, $insertedId]);
+            }
+        }
+    }
+    */
+
     echo json_encode([
         'success' => true,
         'id' => $insertedId,
         'adv_number' => $advNumber,
         'message' => 'Advisory created successfully'
+        // Uncomment when Discord posting is enabled:
+        // 'discord_posted' => $discordResult['success'] ?? false,
+        // 'discord_message_id' => $discordMessageId
     ]);
 }
 
@@ -366,10 +409,128 @@ function formatAdvisory($row) {
  */
 function formatSqlError($errors) {
     if (!$errors) return 'Unknown database error';
-    
+
     $messages = [];
     foreach ($errors as $error) {
         $messages[] = $error['message'] ?? $error[2] ?? 'Unknown error';
     }
     return implode('; ', $messages);
 }
+
+// =========================================
+// Discord Posting Helper (commented out - enable when ready)
+// =========================================
+/*
+**
+ * Post advisory to Discord channel using DiscordAPI
+ *
+ * @param string $advNumber Advisory number (e.g., "DCC 001")
+ * @param string $advType Advisory type (GDP, GS, AFP, etc.)
+ * @param string $subject Advisory subject line
+ * @param string $bodyText Full advisory text
+ * @param string $validStart Start time (UTC)
+ * @param string|null $validEnd End time (UTC) or null
+ * @return array Result with 'success' and 'message_id' keys
+ *
+function postAdvisoryToDiscord($advNumber, $advType, $subject, $bodyText, $validStart, $validEnd = null) {
+    // Include DiscordAPI if not already loaded
+    $discordApiPath = realpath(__DIR__ . '/../../load/discord/DiscordAPI.php');
+    if ($discordApiPath && !class_exists('DiscordAPI')) {
+        require_once $discordApiPath;
+    }
+
+    if (!class_exists('DiscordAPI')) {
+        return ['success' => false, 'error' => 'DiscordAPI class not available'];
+    }
+
+    $discord = new DiscordAPI();
+
+    if (!$discord->isConfigured()) {
+        return ['success' => false, 'error' => 'Discord bot not configured'];
+    }
+
+    // Channel IDs (use staging for testing, production when ready)
+    // Production: #advisories = 358300240236773376
+    // Staging:    #advzy-staging = 1008478301251194951
+    $channelId = '1008478301251194951'; // Staging - change to production when ready
+
+    // Format the advisory message
+    $timestamp = gmdate('Hi') . 'Z';
+    $formattedText = "**{$advNumber}** - {$advType}\n";
+    $formattedText .= "**Subject:** {$subject}\n";
+    if ($validEnd) {
+        $formattedText .= "**Valid:** {$validStart} - {$validEnd}\n";
+    } else {
+        $formattedText .= "**Valid from:** {$validStart}\n";
+    }
+    $formattedText .= "\n{$bodyText}";
+
+    // Build embed for nicer formatting
+    $embed = DiscordAPI::buildEmbed([
+        'title' => "{$advNumber} - {$advType}",
+        'description' => $subject,
+        'color' => getAdvisoryColor($advType),
+        'fields' => [
+            [
+                'name' => 'Advisory Text',
+                'value' => strlen($bodyText) > 1024 ? substr($bodyText, 0, 1021) . '...' : $bodyText,
+                'inline' => false
+            ],
+            [
+                'name' => 'Valid From',
+                'value' => $validStart,
+                'inline' => true
+            ],
+            [
+                'name' => 'Valid Until',
+                'value' => $validEnd ?? 'Until Further Notice',
+                'inline' => true
+            ]
+        ],
+        'footer' => [
+            'text' => 'vATCSCC Advisory System'
+        ],
+        'timestamp' => gmdate('Y-m-d\TH:i:s\Z')
+    ]);
+
+    // Send the message
+    $result = $discord->createMessage($channelId, [
+        'embeds' => [$embed]
+    ]);
+
+    if ($result) {
+        return [
+            'success' => true,
+            'message_id' => $result['id'] ?? null,
+            'channel_id' => $channelId
+        ];
+    } else {
+        return [
+            'success' => false,
+            'error' => $discord->getLastError(),
+            'http_code' => $discord->getLastHttpCode()
+        ];
+    }
+}
+
+**
+ * Get Discord embed color based on advisory type
+ *
+ * @param string $advType Advisory type
+ * @return int Color as decimal integer
+ *
+function getAdvisoryColor($advType) {
+    $colors = [
+        'GS'      => 15158332,  // Red (#E74C3C) - Ground Stop
+        'GDP'     => 15105570,  // Orange (#E67E22) - Ground Delay
+        'AFP'     => 3447003,   // Blue (#3498DB) - Airspace Flow
+        'CTOP'    => 10181046,  // Purple (#9B59B6) - Collaborative TMI
+        'REROUTE' => 15844367,  // Gold (#F1C40F) - Reroutes
+        'MIT'     => 5763719,   // Green (#57F287) - Miles in Trail
+        'CANCEL'  => 9807270,   // Gray (#9598A1) - Cancellation
+        'GENERAL' => 5814783,   // Blurple (#58A6FF) - General
+    ];
+
+    return $colors[strtoupper($advType)] ?? 5814783;
+}
+*/
