@@ -351,7 +351,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
     <!-- Full Width Filter & Events Table -->
     <div class="filter-bar">
         <div class="row align-items-end">
-            <div class="col"><label class="small mb-0">STATUS</label><select id="filterStatus" class="form-control form-control-sm form-control-dark"><option value="">All</option><option value="ACTIVE" selected>Active</option><option value="PENDING">Pending</option><option value="CLOSED">Closed</option></select></div>
+            <div class="col"><label class="small mb-0">LIFECYCLE</label><select id="filterStatus" class="form-control form-control-sm form-control-dark"><option value="">All</option><option value="ACTIVE" selected>Active</option><option value="PENDING">Pending</option><option value="MONITORING">Monitoring</option><option value="ESCALATED">Escalated</option><option value="CLOSED">Closed</option></select></div>
             <div class="col"><label class="small mb-0">FAC TYPE</label><select id="filterFacilityType" class="form-control form-control-sm form-control-dark"><option value="">All</option><option value="ARTCC">ARTCC</option><option value="TRACON">TRACON</option><option value="ATCT">ATCT</option></select></div>
             <div class="col"><label class="small mb-0">INC TYPE</label><select id="filterIncidentType" class="form-control form-control-sm form-control-dark"><option value="">All</option><option value="ATC_ZERO">ATC Zero</option><option value="ATC_ALERT">ATC Alert</option><option value="ATC_LIMITED">ATC Limited</option><option value="NON_RESPONSIVE">Non-Responsive</option></select></div>
             <div class="col"><label class="small mb-0">FACILITY</label><input type="text" id="filterFacility" class="form-control form-control-sm form-control-dark" placeholder="ZTL"></div>
@@ -367,7 +367,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
             <thead><tr>
                 <th data-sort="incident_number">INC# <i class="fas fa-sort sort-icon"></i></th>
                 <th data-sort="facility">Facility <i class="fas fa-sort sort-icon"></i></th>
-                <th data-sort="status">Status <i class="fas fa-sort sort-icon"></i></th>
+                <th data-sort="incident_type">Inc Type <i class="fas fa-sort sort-icon"></i></th>
                 <th data-sort="trigger_code">Trigger <i class="fas fa-sort sort-icon"></i></th>
                 <th data-sort="paged">Paged <i class="fas fa-sort sort-icon"></i></th>
                 <th data-sort="start_utc">Start <i class="fas fa-sort sort-icon"></i></th>
@@ -488,12 +488,12 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                     <div class="row">
                         <div class="col-md-4"><label class="small text-muted">FACILITY *</label><input type="text" id="incidentFacility" class="form-control form-control-dark" placeholder="ZTL" required></div>
                         <div class="col-md-4"><label class="small text-muted">TYPE</label><select id="incidentFacilityType" class="form-control form-control-dark"><option value="">Select</option><option value="ARTCC">ARTCC</option><option value="TRACON">TRACON</option><option value="ATCT">ATCT</option></select></div>
-                        <div class="col-md-4"><label class="small text-muted">STATUS *</label><select id="incidentStatus" class="form-control form-control-dark" required><option value="ATC_ZERO">ATC Zero</option><option value="ATC_ALERT">ATC Alert</option><option value="ATC_LIMITED">ATC Limited</option><option value="NON_RESPONSIVE">Non-Responsive</option><option value="OTHER">Other</option></select></div>
+                        <div class="col-md-4"><label class="small text-muted">INCIDENT TYPE *</label><select id="incidentStatus" class="form-control form-control-dark" required><option value="ATC_ZERO">ATC Zero</option><option value="ATC_ALERT">ATC Alert</option><option value="ATC_LIMITED">ATC Limited</option><option value="NON_RESPONSIVE">Non-Responsive</option><option value="OTHER">Other</option></select></div>
                     </div>
                     <div class="row mt-2">
                         <div class="col-md-4"><label class="small text-muted">TRIGGER</label><select id="incidentTrigger" class="form-control form-control-dark"><option value="">Select</option><option value="A">A - AFV</option><option value="B">B - Other Audio</option><option value="D">D - Datafeed (VATSIM)</option><option value="E">E - Datafeed (Other)</option><option value="F">F - Frequency</option><option value="H">H - Radar Client</option><option value="J">J - Staffing (Below)</option><option value="K">K - Staffing (Min)</option><option value="M">M - No Staffing</option><option value="Q">Q - Other</option><option value="R">R - Pilot</option><option value="S">S - Security (RW)</option><option value="T">T - Security (VATSIM)</option><option value="U">U - Unknown</option><option value="V">V - Volume</option><option value="W">W - Weather</option></select></div>
                         <div class="col-md-4"><label class="small text-muted">PAGED</label><select id="incidentPaged" class="form-control form-control-dark"><option value="0">No</option><option value="1">Yes</option></select></div>
-                        <div class="col-md-4"><label class="small text-muted">INC STATUS</label><select id="incidentIncidentStatus" class="form-control form-control-dark"><option value="ACTIVE">Active</option><option value="PENDING">Pending</option><option value="CLOSED">Closed</option></select></div>
+                        <div class="col-md-4"><label class="small text-muted">LIFECYCLE</label><select id="incidentIncidentStatus" class="form-control form-control-dark"><option value="PENDING">Pending</option><option value="ACTIVE">Active</option><option value="MONITORING">Monitoring</option><option value="ESCALATED">Escalated</option><option value="CLOSED">Closed</option></select></div>
                     </div>
                     <div class="row mt-2">
                         <div class="col-md-6"><label class="small text-muted">START (UTC) *</label><input type="datetime-local" id="incidentStartUtc" class="form-control form-control-dark" required></div>
@@ -516,7 +516,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                     <div class="col-lg-8">
                         <div class="details-grid mb-2">
                             <div class="label">Facility</div><div class="value" id="detailsFacility">-</div>
-                            <div class="label">Status</div><div class="value" id="detailsStatus">-</div>
+                            <div class="label">Inc Type</div><div class="value" id="detailsStatus">-</div>
                             <div class="label">Trigger</div><div class="value" id="detailsTrigger">-</div>
                             <div class="label">Paged</div><div class="value" id="detailsPaged">-</div>
                             <div class="label">Start</div><div class="value" id="detailsStartTime">-</div>
@@ -592,11 +592,13 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                 </div>
                 <div class="row mb-3">
                     <div class="col-md-3">
-                        <label class="small text-muted">STATUS</label>
+                        <label class="small text-muted">LIFECYCLE</label>
                         <select id="retrieveStatus" class="form-control form-control-dark form-control-sm">
                             <option value="">All</option>
-                            <option value="ACTIVE">Active</option>
                             <option value="PENDING">Pending</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="MONITORING">Monitoring</option>
+                            <option value="ESCALATED">Escalated</option>
                             <option value="CLOSED">Closed</option>
                         </select>
                     </div>

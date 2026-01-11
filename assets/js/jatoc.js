@@ -219,29 +219,38 @@
         const sorted = [...state.incidents].sort((a, b) => {
             let aVal = a[state.sortColumn];
             let bVal = b[state.sortColumn];
-            
+
+            // Handle renamed columns with fallback
+            if (state.sortColumn === 'incident_type') {
+                aVal = a.incident_type || a.status;
+                bVal = b.incident_type || b.status;
+            } else if (state.sortColumn === 'lifecycle_status') {
+                aVal = a.lifecycle_status || a.incident_status;
+                bVal = b.lifecycle_status || b.incident_status;
+            }
+
             // Handle nulls
             if (aVal == null) aVal = '';
             if (bVal == null) bVal = '';
-            
+
             // Handle booleans (paged)
             if (typeof aVal === 'boolean') aVal = aVal ? 1 : 0;
             if (typeof bVal === 'boolean') bVal = bVal ? 1 : 0;
-            
+
             // Handle numbers
             if (state.sortColumn === 'paged') {
                 aVal = a.paged ? 1 : 0;
                 bVal = b.paged ? 1 : 0;
             }
-            
+
             // String comparison
             if (typeof aVal === 'string') aVal = aVal.toLowerCase();
             if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-            
+
             let result = 0;
             if (aVal < bVal) result = -1;
             if (aVal > bVal) result = 1;
-            
+
             return state.sortDirection === 'asc' ? result : -result;
         });
         
@@ -629,9 +638,13 @@
     function updateMapIncidents(incidents) {
         if (!state.map || !state.map.loaded()) return;
         const fillFeatures = [], pointFeatures = [];
-        
-        incidents.filter(i => i.incident_status !== 'CLOSED' && !state.hiddenIncidents.has(i.id)).forEach(inc => {
-            const color = STATUS_COLORS[inc.status] || '#6b7280';
+
+        incidents.filter(i => {
+            const lifecycleStatus = i.lifecycle_status || i.incident_status;
+            return lifecycleStatus !== 'CLOSED' && !state.hiddenIncidents.has(i.id);
+        }).forEach(inc => {
+            const incidentType = inc.incident_type || inc.status;
+            const color = STATUS_COLORS[incidentType] || '#6b7280';
             const facType = (inc.facility_type || '').toUpperCase();
             const fac = (inc.facility || '').toUpperCase();
             let matched = false;
@@ -851,13 +864,15 @@
         const tbody = document.getElementById('eventsTableBody');
         if (!state.incidents.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">No incidents found</td></tr>'; return; }
         tbody.innerHTML = state.incidents.map(i => {
-            const sc = 'status-' + i.status.toLowerCase().replace('_', '-');
+            const incidentType = i.incident_type || i.status;
+            const lifecycleStatus = i.lifecycle_status || i.incident_status;
+            const sc = 'status-' + incidentType.toLowerCase().replace('_', '-');
             const triggerText = TRIGGERS[i.trigger_code] || i.trigger_desc || i.trigger_code || '-';
             const isHidden = state.hiddenIncidents.has(i.id);
             return `<tr>
                 <td class="incident-number">${i.incident_number || '-'}</td>
                 <td><strong>${i.facility}</strong>${i.facility_type ? `<br><small class="text-muted">${i.facility_type}</small>` : ''}</td>
-                <td><span class="status-badge ${sc}">${formatStatus(i.status)}</span></td>
+                <td><span class="status-badge ${sc}">${formatStatus(incidentType)}</span></td>
                 <td class="trigger-col">${esc(triggerText)}</td>
                 <td class="${i.paged ? 'paged-yes' : 'paged-no'}">${i.paged ? 'YES' : 'No'}</td>
                 <td>${formatTime(i.start_utc)}</td>
@@ -866,7 +881,7 @@
                     <button class="btn btn-xs btn-outline-secondary" onclick="JATOC.editIncident(${i.id})" title="Edit"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-xs btn-outline-${isHidden ? 'success' : 'warning'}" onclick="JATOC.toggleMapVisibility(${i.id})" title="${isHidden ? 'Show' : 'Hide'}"><i class="fas fa-${isHidden ? 'eye' : 'eye-slash'}"></i></button>
                     ${!i.paged ? `<button class="btn btn-xs btn-outline-warning" onclick="JATOC.quickPage(${i.id})" title="Page"><i class="fas fa-bell"></i></button>` : ''}
-                    ${i.incident_status === 'ACTIVE' ? `<button class="btn btn-xs btn-outline-success" onclick="JATOC.quickClose(${i.id})" title="Close"><i class="fas fa-check"></i></button>` : ''}
+                    ${lifecycleStatus === 'ACTIVE' ? `<button class="btn btn-xs btn-outline-success" onclick="JATOC.quickClose(${i.id})" title="Close"><i class="fas fa-check"></i></button>` : ''}
                     ${i.report_number ? `<button class="btn btn-xs btn-outline-primary" onclick="JATOC.viewReportById(${i.id})" title="View Report"><i class="fas fa-file-invoice"></i></button>` : ''}
                 </div></td>
             </tr>`;
@@ -874,10 +889,10 @@
     }
 
     function updateStats() {
-        const active = state.incidents.filter(i => i.incident_status === 'ACTIVE');
-        document.getElementById('statsAtcZero').textContent = active.filter(i => i.status === 'ATC_ZERO').length;
-        document.getElementById('statsAtcAlert').textContent = active.filter(i => i.status === 'ATC_ALERT').length;
-        document.getElementById('statsAtcLimited').textContent = active.filter(i => i.status === 'ATC_LIMITED').length;
+        const active = state.incidents.filter(i => (i.lifecycle_status || i.incident_status) === 'ACTIVE');
+        document.getElementById('statsAtcZero').textContent = active.filter(i => (i.incident_type || i.status) === 'ATC_ZERO').length;
+        document.getElementById('statsAtcAlert').textContent = active.filter(i => (i.incident_type || i.status) === 'ATC_ALERT').length;
+        document.getElementById('statsAtcLimited').textContent = active.filter(i => (i.incident_type || i.status) === 'ATC_LIMITED').length;
         document.getElementById('statsActive').textContent = active.length;
     }
 
@@ -914,14 +929,16 @@
         try {
             const r = await api('incident.php?id=' + id);
             const i = r.data;
+            const incidentType = i.incident_type || i.status;
+            const lifecycleStatus = i.lifecycle_status || i.incident_status;
             document.getElementById('incidentModalTitle').textContent = 'Edit ' + i.facility;
             document.getElementById('incidentId').value = i.id;
             document.getElementById('incidentFacility').value = i.facility || '';
             document.getElementById('incidentFacilityType').value = i.facility_type || '';
-            document.getElementById('incidentStatus').value = i.status || '';
+            document.getElementById('incidentStatus').value = incidentType || '';
             document.getElementById('incidentTrigger').value = i.trigger_code || '';
             document.getElementById('incidentPaged').value = i.paged ? '1' : '0';
-            document.getElementById('incidentIncidentStatus').value = i.incident_status || 'ACTIVE';
+            document.getElementById('incidentIncidentStatus').value = lifecycleStatus || 'ACTIVE';
             document.getElementById('incidentStartUtc').value = i.start_utc ? i.start_utc.replace(' ', 'T').slice(0, 16) : '';
             document.getElementById('incidentRemarks').value = i.remarks || '';
             $('#incidentModal').modal('show');
@@ -939,10 +956,12 @@
         try {
             const r = await api('incident.php?id=' + id);
             const i = r.data;
+            const incidentType = i.incident_type || i.status;
+            const lifecycleStatus = i.lifecycle_status || i.incident_status;
             state.currentIncident = i;
             document.getElementById('detailsIncNum').textContent = i.incident_number || '-';
             document.getElementById('detailsFacility').textContent = `${i.facility} (${i.facility_type || '?'})`;
-            document.getElementById('detailsStatus').innerHTML = `<span class="status-badge status-${i.status.toLowerCase().replace('_','-')}">${formatStatus(i.status)}</span>`;
+            document.getElementById('detailsStatus').innerHTML = `<span class="status-badge status-${incidentType.toLowerCase().replace('_','-')}">${formatStatus(incidentType)}</span>`;
             document.getElementById('detailsTrigger').textContent = i.trigger_code ? `${i.trigger_code} - ${TRIGGERS[i.trigger_code] || ''}` : '-';
             document.getElementById('detailsPaged').innerHTML = i.paged ? '<span class="text-success">Yes</span>' : '<span class="text-muted">No</span>';
             document.getElementById('detailsStartTime').textContent = formatTimeISO(i.start_utc);
@@ -952,18 +971,18 @@
             document.getElementById('detailsRemarks').textContent = i.remarks || 'No remarks';
             document.getElementById('updateIncidentId').value = i.id;
             document.getElementById('modalOpsLevel').value = state.opsLevel;
-            
+
             // Show/hide View Report button
             const viewReportBtn = document.getElementById('btnViewReport');
             if (viewReportBtn) {
                 viewReportBtn.style.display = i.report_number ? 'block' : 'none';
             }
-            
-            // Show Close Out or Reopen based on status
+
+            // Show Close Out or Reopen based on lifecycle status
             const closeOutBtn = document.getElementById('btnCloseOut');
             const reopenBtn = document.getElementById('btnReopen');
             if (closeOutBtn && reopenBtn) {
-                if (i.incident_status === 'CLOSED') {
+                if (lifecycleStatus === 'CLOSED') {
                     closeOutBtn.style.display = 'none';
                     reopenBtn.style.display = 'block';
                 } else {
@@ -971,7 +990,7 @@
                     reopenBtn.style.display = 'none';
                 }
             }
-            
+
             loadUpdates(i.id);
             $('#incidentDetailsModal').modal('show');
         } catch (e) { alert('Error: ' + e.message); }
@@ -1140,20 +1159,23 @@
             
             resultsEl.innerHTML = `
                 <table class="table table-sm table-dark mb-0" style="font-size:0.75rem">
-                    <thead><tr><th>INC#</th><th>Facility</th><th>Status</th><th>Inc Status</th><th>Start</th><th>Action</th></tr></thead>
+                    <thead><tr><th>INC#</th><th>Facility</th><th>Incident Type</th><th>Lifecycle</th><th>Start</th><th>Action</th></tr></thead>
                     <tbody>
-                        ${incidents.map(i => `
+                        ${incidents.map(i => {
+                            const incidentType = i.incident_type || i.status;
+                            const lifecycleStatus = i.lifecycle_status || i.incident_status;
+                            return `
                             <tr>
                                 <td class="incident-number">${i.incident_number || '-'}</td>
                                 <td>${i.facility}</td>
-                                <td><span class="status-badge status-${i.status.toLowerCase().replace('_','-')}">${formatStatus(i.status)}</span></td>
-                                <td>${i.incident_status}</td>
+                                <td><span class="status-badge status-${incidentType.toLowerCase().replace('_','-')}">${formatStatus(incidentType)}</span></td>
+                                <td>${lifecycleStatus}</td>
                                 <td>${formatTime(i.start_utc)}</td>
                                 <td>
                                     <button class="btn btn-xs btn-outline-info" onclick="JATOC.openRetrievedIncident(${i.id})" title="Open"><i class="fas fa-folder-open"></i></button>
                                 </td>
                             </tr>
-                        `).join('')}
+                        `}).join('')}
                     </tbody>
                 </table>
             `;

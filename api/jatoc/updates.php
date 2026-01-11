@@ -1,8 +1,8 @@
 <?php
 /**
- * JATOC Incident Updates API - GET/POST
- * GET: Public access
- * POST: Profile required (no server auth - checked client-side)
+ * JATOC Incident Updates API - GET/POST with pagination
+ * GET: Public access with pagination
+ * POST: Requires VATSIM auth
  */
 header('Content-Type: application/json');
 
@@ -13,7 +13,20 @@ if (session_status() == PHP_SESSION_NONE) {
 include("../../load/config.php");
 include("../../load/connect.php");
 
+// Include JATOC utilities
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/datetime.php';
+require_once __DIR__ . '/validators.php';
+require_once __DIR__ . '/auth.php';
+
+JatocAuth::setConnection($conn_adl);
+
 $method = $_SERVER['REQUEST_METHOD'];
+
+// POST requires authentication
+if ($method === 'POST') {
+    JatocAuth::requireAuth();
+}
 
 try {
     if ($method === 'GET') {
@@ -23,12 +36,27 @@ try {
             echo json_encode(['success' => false, 'error' => 'Missing incident_id']);
             return;
         }
-        
-        $stmt = sqlsrv_query($conn_adl, 
-            "SELECT * FROM jatoc_incident_updates WHERE incident_id = ? ORDER BY created_utc DESC", 
-            [$incidentId]);
+
+        // Pagination parameters
+        $limit = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 50;
+        $offset = isset($_GET['offset']) ? max(0, (int)$_GET['offset']) : 0;
+
+        // Count total
+        $countSql = "SELECT COUNT(*) as total FROM jatoc_incident_updates WHERE incident_id = ?";
+        $countStmt = sqlsrv_query($conn_adl, $countSql, [$incidentId]);
+        if ($countStmt === false) throw new Exception('Count query failed');
+        $totalRow = sqlsrv_fetch_array($countStmt, SQLSRV_FETCH_ASSOC);
+        $total = (int)$totalRow['total'];
+        sqlsrv_free_stmt($countStmt);
+
+        // Paginated query
+        $sql = "SELECT * FROM jatoc_incident_updates WHERE incident_id = ?
+                ORDER BY created_utc DESC
+                OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        $stmt = sqlsrv_query($conn_adl, $sql, [$incidentId, $offset, $limit]);
         if ($stmt === false) throw new Exception('Query failed');
-        
+
         $updates = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             if (isset($row['created_utc']) && $row['created_utc'] instanceof DateTime) {
@@ -36,37 +64,66 @@ try {
             }
             $updates[] = $row;
         }
-        
-        echo json_encode(['success' => true, 'data' => $updates]);
-        
+        sqlsrv_free_stmt($stmt);
+
+        echo json_encode([
+            'success' => true,
+            'data' => $updates,
+            'pagination' => [
+                'total' => $total,
+                'limit' => $limit,
+                'offset' => $offset,
+                'page' => floor($offset / $limit) + 1,
+                'pages' => $limit > 0 ? ceil($total / $limit) : 1,
+                'has_next' => ($offset + $limit) < $total,
+                'has_prev' => $offset > 0
+            ]
+        ]);
+
     } elseif ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
-        
-        if (empty($input['incident_id'])) {
+
+        // Validate input
+        $errors = JatocValidators::updateCreate($input);
+        if ($errors) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Missing incident_id']);
-            return;
+            echo json_encode(['success' => false, 'errors' => $errors]);
+            exit;
         }
-        
+
+        // Verify incident exists
+        $checkStmt = sqlsrv_query($conn_adl, "SELECT id FROM jatoc_incidents WHERE id = ?", [$input['incident_id']]);
+        if (!sqlsrv_fetch_array($checkStmt, SQLSRV_FETCH_ASSOC)) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Incident not found']);
+            exit;
+        }
+
+        // Validate update_type if provided
+        $updateType = $input['update_type'] ?? 'REMARK';
+        if (!array_key_exists($updateType, JATOC_UPDATE_TYPES)) {
+            $updateType = 'REMARK';
+        }
+
         $sql = "INSERT INTO jatoc_incident_updates (incident_id, update_type, remarks, created_by) VALUES (?, ?, ?, ?)";
         $params = [
             $input['incident_id'],
-            $input['update_type'] ?? 'REMARK',
+            $updateType,
             $input['remarks'] ?? null,
-            $input['created_by'] ?? null
+            $input['created_by'] ?? JatocAuth::getLogIdentifier()
         ];
-        
+
         $stmt = sqlsrv_query($conn_adl, $sql, $params);
         if ($stmt === false) throw new Exception('Insert failed');
-        
+
         // Update parent incident's update_utc
         sqlsrv_query($conn_adl, "UPDATE jatoc_incidents SET update_utc = SYSUTCDATETIME() WHERE id = ?", [$input['incident_id']]);
-        
+
         // Sync updates to report if exists
         syncReportUpdates($conn_adl, $input['incident_id']);
-        
+
         echo json_encode(['success' => true]);
-        
+
     } else {
         http_response_code(405);
         echo json_encode(['success' => false, 'error' => 'Method not allowed']);
@@ -80,7 +137,7 @@ function syncReportUpdates($conn, $incidentId) {
     // Check if report exists
     $check = sqlsrv_query($conn, "SELECT id FROM jatoc_reports WHERE incident_id = ?", [$incidentId]);
     if (!sqlsrv_fetch_array($check, SQLSRV_FETCH_ASSOC)) return;
-    
+
     // Get all updates
     $updStmt = sqlsrv_query($conn, "SELECT * FROM jatoc_incident_updates WHERE incident_id = ? ORDER BY created_utc ASC", [$incidentId]);
     $updates = [];
@@ -89,7 +146,7 @@ function syncReportUpdates($conn, $incidentId) {
         if ($ts instanceof DateTime) $ts = $ts->format('Y-m-d H:i:s') . 'Z';
         $updates[] = ['id' => $row['id'], 'type' => $row['update_type'], 'remarks' => $row['remarks'], 'created_by' => $row['created_by'], 'timestamp' => $ts];
     }
-    
-    sqlsrv_query($conn, "UPDATE jatoc_reports SET updates_json = ?, updated_at = SYSUTCDATETIME() WHERE incident_id = ?", 
+
+    sqlsrv_query($conn, "UPDATE jatoc_reports SET updates_json = ?, updated_at = SYSUTCDATETIME() WHERE incident_id = ?",
         [json_encode($updates), $incidentId]);
 }
