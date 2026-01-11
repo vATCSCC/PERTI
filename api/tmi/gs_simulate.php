@@ -62,14 +62,23 @@ if (!$conn) {
 // Build filter WHERE clause (same as preview)
 $where = []; $params = [];
 
-// CRITICAL: Ground Stop only affects flights STILL ON THE GROUND
-// Exclude flights that have already departed (ETD in the past)
-// Use a small buffer (5 min) to account for timing differences
-$where[] = "(etd_runway_utc > DATEADD(MINUTE, -5, GETUTCDATE()) OR etd_runway_utc IS NULL)";
+// Check for simulation mode (allows testing with historical data)
+$sim_mode = isset($input['sim_mode']) ? strtolower(trim($input['sim_mode'])) : 'live';
 
-// Exclude flights that are already airborne or arrived (only want prefile/taxiing)
-// phase values: prefile, taxiing, departed, enroute, descending, arrived
-$where[] = "(phase IS NULL OR phase IN ('prefile', 'taxiing', 'unknown'))";
+if ($sim_mode === 'live') {
+    // LIVE MODE: Ground Stop only affects flights STILL ON THE GROUND
+    // Exclude flights that have already departed (ETD in the past)
+    // Use a small buffer (5 min) to account for timing differences
+    $where[] = "(etd_runway_utc > DATEADD(MINUTE, -5, GETUTCDATE()) OR etd_runway_utc IS NULL)";
+
+    // Exclude flights that are already airborne or arrived (only want prefile/taxiing)
+    // phase values: prefile, taxiing, departed, enroute, descending, arrived
+    $where[] = "(phase IS NULL OR phase IN ('prefile', 'taxiing', 'unknown'))";
+} else {
+    // TEST MODE: Include all active flights regardless of phase/time
+    // Only require the flight to be active
+    $where[] = "(is_active = 1)";
+}
 
 if (count($arrival_airports) > 0) {
     $where[] = "fp_dest_icao IN (" . implode(',', array_fill(0, count($arrival_airports), '?')) . ")";
@@ -327,10 +336,31 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $flights[] = $row;
 }
 
+// Get diagnostic info: sample of raw time data from sandbox
+$diag_stmt = sqlsrv_query($conn, "
+    SELECT TOP 5
+        callsign, fp_dept_icao, fp_dest_icao,
+        etd_utc, etd_runway_utc, eta_utc, eta_runway_utc,
+        ete_minutes, fp_enroute_minutes,
+        ctd_utc, cta_utc, program_delay_min, ctl_type
+    FROM dbo.adl_flights_gs
+    ORDER BY etd_runway_utc
+");
+$diag_rows = [];
+if ($diag_stmt !== false) {
+    while ($dr = sqlsrv_fetch_array($diag_stmt, SQLSRV_FETCH_ASSOC)) {
+        foreach ($dr as $k => $v) {
+            if ($v instanceof \DateTimeInterface) $dr[$k] = datetime_to_iso($v);
+        }
+        $diag_rows[] = $dr;
+    }
+}
+
 echo json_encode([
     'status'  => 'ok',
     'message' => 'GS simulation applied.',
     'filters' => [
+        'sim_mode'         => $sim_mode,
         'arrival_airports' => $arrival_airports,
         'origin_airports'  => $origin_airports,
         'origin_centers'   => $origin_centers,
@@ -342,6 +372,10 @@ echo json_encode([
         'ctl_element'      => $ctl_element
     ],
     'summary' => $summary,
+    'debug' => [
+        'sandbox_sample' => $diag_rows,
+        'common_columns_count' => count($common)
+    ],
     'flights' => $flights
 ], JSON_PRETTY_PRINT);
 ?>
