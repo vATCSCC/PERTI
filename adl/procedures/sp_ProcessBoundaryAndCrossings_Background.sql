@@ -299,7 +299,56 @@ BEGIN
 
         SET @boundary_transitions = @boundary_transitions + @@ROWCOUNT;
 
-        -- Step A6: Update flight_core with new boundaries
+        -- Step A6: Log SECTOR transitions (V1.7)
+        -- SECTOR_LOW exits
+        UPDATE log SET exit_time = @now, exit_lat = f.lat, exit_lon = f.lon,
+            exit_altitude = f.altitude_ft, duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)
+        FROM dbo.adl_flight_boundary_log log
+        JOIN #low_detection f ON log.flight_uid = f.flight_uid
+        WHERE log.boundary_type = 'SECTOR_LOW' AND log.exit_time IS NULL
+          AND NOT EXISTS (SELECT 1 FROM #low_sectors_raw ls WHERE ls.flight_uid = log.flight_uid AND ls.boundary_id = log.boundary_id);
+
+        -- SECTOR_LOW entries
+        INSERT INTO dbo.adl_flight_boundary_log (flight_uid, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
+        SELECT ls.flight_uid, ls.boundary_id, 'SECTOR_LOW', ls.boundary_code, @now, f.lat, f.lon, f.altitude_ft
+        FROM #low_sectors_raw ls JOIN #low_detection f ON f.flight_uid = ls.flight_uid
+        WHERE NOT EXISTS (SELECT 1 FROM dbo.adl_flight_boundary_log log WHERE log.flight_uid = ls.flight_uid AND log.boundary_id = ls.boundary_id AND log.exit_time IS NULL);
+
+        SET @boundary_transitions = @boundary_transitions + @@ROWCOUNT;
+
+        -- SECTOR_HIGH exits
+        UPDATE log SET exit_time = @now, exit_lat = f.lat, exit_lon = f.lon,
+            exit_altitude = f.altitude_ft, duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)
+        FROM dbo.adl_flight_boundary_log log
+        JOIN #high_detection f ON log.flight_uid = f.flight_uid
+        WHERE log.boundary_type = 'SECTOR_HIGH' AND log.exit_time IS NULL
+          AND NOT EXISTS (SELECT 1 FROM #high_sectors_raw hs WHERE hs.flight_uid = log.flight_uid AND hs.boundary_id = log.boundary_id);
+
+        -- SECTOR_HIGH entries
+        INSERT INTO dbo.adl_flight_boundary_log (flight_uid, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
+        SELECT hs.flight_uid, hs.boundary_id, 'SECTOR_HIGH', hs.boundary_code, @now, f.lat, f.lon, f.altitude_ft
+        FROM #high_sectors_raw hs JOIN #high_detection f ON f.flight_uid = hs.flight_uid
+        WHERE NOT EXISTS (SELECT 1 FROM dbo.adl_flight_boundary_log log WHERE log.flight_uid = hs.flight_uid AND log.boundary_id = hs.boundary_id AND log.exit_time IS NULL);
+
+        SET @boundary_transitions = @boundary_transitions + @@ROWCOUNT;
+
+        -- SECTOR_SUPERHIGH exits
+        UPDATE log SET exit_time = @now, exit_lat = f.lat, exit_lon = f.lon,
+            exit_altitude = f.altitude_ft, duration_seconds = DATEDIFF(SECOND, log.entry_time, @now)
+        FROM dbo.adl_flight_boundary_log log
+        JOIN #superhigh_detection f ON log.flight_uid = f.flight_uid
+        WHERE log.boundary_type = 'SECTOR_SUPERHIGH' AND log.exit_time IS NULL
+          AND NOT EXISTS (SELECT 1 FROM #superhigh_sectors_raw sh WHERE sh.flight_uid = log.flight_uid AND sh.boundary_id = log.boundary_id);
+
+        -- SECTOR_SUPERHIGH entries
+        INSERT INTO dbo.adl_flight_boundary_log (flight_uid, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
+        SELECT sh.flight_uid, sh.boundary_id, 'SECTOR_SUPERHIGH', sh.boundary_code, @now, f.lat, f.lon, f.altitude_ft
+        FROM #superhigh_sectors_raw sh JOIN #superhigh_detection f ON f.flight_uid = sh.flight_uid
+        WHERE NOT EXISTS (SELECT 1 FROM dbo.adl_flight_boundary_log log WHERE log.flight_uid = sh.flight_uid AND log.boundary_id = sh.boundary_id AND log.exit_time IS NULL);
+
+        SET @boundary_transitions = @boundary_transitions + @@ROWCOUNT;
+
+        -- Step A7: Update flight_core with new boundaries
         UPDATE c
         SET c.current_artcc = a.new_artcc,
             c.current_artcc_id = a.new_artcc_id,
@@ -321,8 +370,25 @@ BEGIN
         JOIN #boundary_flights f ON f.flight_uid = c.flight_uid
         WHERE f.altitude_ft >= 18000 AND c.current_tracon_id IS NOT NULL;
 
+        -- Sector updates (V1.7)
+        UPDATE c SET c.current_sector_low = l.new_sector_low, c.current_sector_low_ids = l.new_sector_low_ids
+        FROM dbo.adl_flight_core c JOIN #low_detection l ON l.flight_uid = c.flight_uid;
+
+        UPDATE c SET c.current_sector_high = h.new_sector_high, c.current_sector_high_ids = h.new_sector_high_ids
+        FROM dbo.adl_flight_core c JOIN #high_detection h ON h.flight_uid = c.flight_uid;
+
+        UPDATE c SET c.current_sector_superhigh = s.new_sector_superhigh, c.current_sector_superhigh_ids = s.new_sector_superhigh_ids
+        FROM dbo.adl_flight_core c JOIN #superhigh_detection s ON s.flight_uid = c.flight_uid;
+
+        -- Cleanup temp tables
         DROP TABLE IF EXISTS #artcc_detection;
         DROP TABLE IF EXISTS #tracon_detection;
+        DROP TABLE IF EXISTS #low_sectors_raw;
+        DROP TABLE IF EXISTS #low_detection;
+        DROP TABLE IF EXISTS #high_sectors_raw;
+        DROP TABLE IF EXISTS #high_detection;
+        DROP TABLE IF EXISTS #superhigh_sectors_raw;
+        DROP TABLE IF EXISTS #superhigh_detection;
     END
 
     DROP TABLE IF EXISTS #boundary_flights;
@@ -595,7 +661,8 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.6 - Fixed STContains bug';
-PRINT 'Changes: STIntersects (correct for geography), set-based JOINs, removed fallback query';
+PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.7';
+PRINT 'V1.7: Added SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH detection';
+PRINT 'V1.7: Added ARTCC fallback for grid lookup failures';
 PRINT 'Tier schedule: 1=1min, 2=2min, 3=5min, 4=10min, 5=15min, 6=30min, 7=60min';
 GO

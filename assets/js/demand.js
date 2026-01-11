@@ -2320,7 +2320,7 @@ function renderEquipmentChart() {
         DEMAND_STATE.equipmentBreakdown,
         `${dirLabel} by Aircraft Type`,
         'equipment',
-        'aircraft_type',
+        'equipment',
         (acType) => {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.equipment && FILTER_CONFIG.equipment.colors) {
                 return FILTER_CONFIG.equipment.colors[acType] || FILTER_CONFIG.equipment.colors['OTHER'] || '#6c757d';
@@ -2348,7 +2348,7 @@ function renderRuleChart() {
         DEMAND_STATE.ruleBreakdown,
         `${dirLabel} by Flight Rule`,
         'rule',
-        'fp_rule',
+        'rule',
         (rule) => {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.flightRule && FILTER_CONFIG.flightRule.colors) {
                 return FILTER_CONFIG.flightRule.colors[rule] || '#6c757d';
@@ -2378,7 +2378,7 @@ function renderDepFixChart() {
         DEMAND_STATE.depFixBreakdown,
         `${dirLabel} by Departure Fix`,
         'dep_fix',
-        'dfix',
+        'fix',
         (fix) => {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
                 return FILTER_CONFIG.fix.getColor(fix);
@@ -2407,7 +2407,7 @@ function renderArrFixChart() {
         DEMAND_STATE.arrFixBreakdown,
         `${dirLabel} by Arrival Fix`,
         'arr_fix',
-        'afix',
+        'fix',
         (fix) => {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
                 return FILTER_CONFIG.fix.getColor(fix);
@@ -2436,7 +2436,7 @@ function renderDPChart() {
         DEMAND_STATE.dpBreakdown,
         `${dirLabel} by Departure Procedure (SID)`,
         'dp',
-        'dp_name',
+        'dp',
         (dp) => {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
                 return FILTER_CONFIG.procedure.getColor(dp);
@@ -2465,7 +2465,7 @@ function renderSTARChart() {
         DEMAND_STATE.starBreakdown,
         `${dirLabel} by STAR`,
         'star',
-        'star_name',
+        'star',
         (star) => {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
                 return FILTER_CONFIG.procedure.getColor(star);
