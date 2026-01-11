@@ -508,6 +508,7 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
         $params = [$airport, $startSQL, $endSQL];
     }
 
+    error_log("getRuleBreakdown: direction=$direction, params=" . json_encode($params));
     $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
@@ -516,7 +517,9 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
         return $results;
     }
 
+    $rowCount = 0;
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $rowCount++;
         $timeBin = $row['time_bin'];
         if ($timeBin instanceof DateTime) {
             $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
@@ -532,6 +535,7 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
     }
     sqlsrv_free_stmt($stmt);
 
+    error_log("getRuleBreakdown: returned $rowCount rows, " . count($results) . " time bins");
     return $results;
 }
 
