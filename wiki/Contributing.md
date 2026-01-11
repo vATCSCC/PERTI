@@ -36,7 +36,7 @@ Before contributing, ensure you have:
    ```
 3. Add upstream remote:
    ```bash
-   git remote add upstream https://github.com/original-org/PERTI.git
+   git remote add upstream https://github.com/vATCSCC/PERTI.git
    ```
 
 ---

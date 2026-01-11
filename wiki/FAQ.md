@@ -227,7 +227,7 @@ Flight data visible in PERTI is derived from VATSIM's public data feed. No addit
 
 ### Where can I report bugs?
 
-Report bugs on [GitHub Issues](../../issues) with:
+Report bugs on [GitHub Issues](https://github.com/vATCSCC/PERTI/issues) with:
 - Description of the issue
 - Steps to reproduce
 - Expected behavior

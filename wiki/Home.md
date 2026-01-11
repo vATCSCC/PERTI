@@ -72,8 +72,8 @@ See [[Changelog]] for full version history.
 
 ## Getting Help
 
-- **Issues:** [GitHub Issues](../../issues)
-- **Security:** See [[Security Policy|SECURITY]]
+- **Issues:** [GitHub Issues](https://github.com/vATCSCC/PERTI/issues)
+- **Security:** See [Security Policy](https://github.com/vATCSCC/PERTI/blob/main/SECURITY.md)
 - **Contact:** vATCSCC development team
 
 ---
