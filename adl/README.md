@@ -28,7 +28,8 @@ adl/
 ├── php/                         # PHP helper classes and daemons
 │   ├── AdlFlightUpsert.php          # PHP wrapper for sp_UpsertFlight
 │   ├── vatsim_ingest_daemon.php     # VATSIM API ingestion daemon
-│   └── parse_queue_daemon.php       # Route parsing queue processor
+│   ├── parse_queue_daemon.php       # Route parsing queue processor
+│   └── boundary_daemon.php          # ARTCC/TRACON boundary detection
 └── reference_data/              # Scripts to import reference data
     ├── import_all.php               # Master script - runs all imports
     ├── import_nav_fixes.php         # Import points.csv + navaids.csv
@@ -94,15 +95,26 @@ php import_procedures.php    # ~10K+ DPs/STARs from dp/star_full_routes.csv
 
 **Note:** Run `import_nav_fixes.php` first as other imports depend on fix coordinates.
 
-### 4. Start Data Ingestion
+### 4. Start Data Ingestion Daemons
+
+Three separate daemons handle data processing:
 
 ```bash
-# Start VATSIM ingestion (continuous)
-php adl/php/vatsim_ingest_daemon.php --loop --interval=15
+# 1. Main VATSIM data ingestion (every 15s)
+nohup php scripts/vatsim_adl_daemon.php > scripts/vatsim_adl.log 2>&1 &
 
-# Start parse queue processor (continuous)
-php adl/php/parse_queue_daemon.php --loop --batch=50
+# 2. Route parsing daemon (every 5s, auto-scales to 500 batch when backlogged)
+nohup php adl/php/parse_queue_daemon.php --loop > scripts/parse_queue.log 2>&1 &
+
+# 3. Boundary detection daemon (every 30s, ARTCC/TRACON/Crossings)
+nohup php adl/php/boundary_daemon.php --loop > scripts/boundary.log 2>&1 &
 ```
+
+| Daemon | Purpose | Interval | Batch Size |
+|--------|---------|----------|------------|
+| `vatsim_adl_daemon.php` | VATSIM feed + ATIS parsing | 15s | N/A |
+| `parse_queue_daemon.php` | Route expansion to waypoints | 5s | 50 (500 if backlogged) |
+| `boundary_daemon.php` | ARTCC/TRACON detection + crossings | 30s | 500 (1000 if backlogged) |
 
 Or integrate into existing code:
 
@@ -219,6 +231,7 @@ Recommended: **General Purpose Serverless, 2 vCore**
 - [x] PHP helper class (AdlFlightUpsert)
 - [x] VATSIM ingestion daemon
 - [x] Parse queue daemon
+- [x] Boundary detection daemon (ARTCC/TRACON/Crossings)
 - [ ] Position geo-coding trigger
 - [ ] Trajectory geo-coding trigger
 - [ ] Archive maintenance procedures
