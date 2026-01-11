@@ -35,7 +35,7 @@ For viewing public pages (JATOC, NOD), no account is required. For authenticated
 
 ### How do I log in?
 
-1. Navigate to https://vatcscc.azurewebsites.net
+1. Navigate to https://perti.vatcscc.org
 2. Click "Login" or access any authenticated page
 3. You will be redirected to VATSIM Connect
 4. Authorize PERTI to access your VATSIM account
