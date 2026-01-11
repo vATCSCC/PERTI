@@ -120,6 +120,9 @@ if ($conn === false) {
 //    - cete_minutes : difference between baseline ETA/EST and CTD+ETE
 //    - eta_prefix : set to 'C' (controlled)
 //    - eta_runway_utc : mirror CTA in the ADL ETA field
+//
+//    NOTE: Data lives in normalized tables - update adl_flight_times via
+//    join to adl_flight_core (which has callsign) and adl_flight_plan (which has fp_dept_icao/fp_dest_icao)
 // ---------------------------------------------------------------------------
 
 $totalUpdated = 0;
@@ -138,50 +141,47 @@ foreach ($updates as $u) {
         continue;
     }
 
-    // Allow null dep/dest filters in the WHERE clause
+    // Update adl_flight_times via join to adl_flight_core and adl_flight_plan
+    // The time columns live in adl_flight_times, not the physical adl_flights table
     $sql = "
-        UPDATE f
+        UPDATE t
         SET
-            ctd_utc = ?,
-            cta_utc = CASE
-                          WHEN f.ete_minutes IS NOT NULL
-                              THEN DATEADD(MINUTE, f.ete_minutes, ?)
-                          WHEN f.estimated_arr_utc IS NOT NULL
-                              THEN f.estimated_arr_utc
-                          WHEN f.eta_runway_utc IS NOT NULL
-                              THEN f.eta_runway_utc
+            t.ctd_utc = ?,
+            t.cta_utc = CASE
+                          WHEN t.ete_minutes IS NOT NULL
+                              THEN DATEADD(MINUTE, t.ete_minutes, ?)
+                          WHEN t.eta_runway_utc IS NOT NULL
+                              THEN t.eta_runway_utc
                           ELSE NULL
                       END,
-            eta_prefix = 'C',
-            eta_runway_utc = CASE
-                                 WHEN f.ete_minutes IS NOT NULL
-                                     THEN DATEADD(MINUTE, f.ete_minutes, ?)
-                                 WHEN f.estimated_arr_utc IS NOT NULL
-                                     THEN f.estimated_arr_utc
-                                 WHEN f.eta_runway_utc IS NOT NULL
-                                     THEN f.eta_runway_utc
+            t.eta_prefix = 'C',
+            t.eta_runway_utc = CASE
+                                 WHEN t.ete_minutes IS NOT NULL
+                                     THEN DATEADD(MINUTE, t.ete_minutes, ?)
+                                 WHEN t.eta_runway_utc IS NOT NULL
+                                     THEN t.eta_runway_utc
                                  ELSE NULL
                              END,
-            cete_minutes = CASE
-                               WHEN f.eta_runway_utc IS NOT NULL AND f.ete_minutes IS NOT NULL
-                                   THEN DATEDIFF(MINUTE, f.eta_runway_utc, DATEADD(MINUTE, f.ete_minutes, ?))
-                               WHEN f.estimated_arr_utc IS NOT NULL AND f.ete_minutes IS NOT NULL
-                                   THEN DATEDIFF(MINUTE, f.estimated_arr_utc, DATEADD(MINUTE, f.ete_minutes, ?))
+            t.cete_minutes = CASE
+                               WHEN t.eta_runway_utc IS NOT NULL AND t.ete_minutes IS NOT NULL
+                                   THEN DATEDIFF(MINUTE, t.eta_runway_utc, DATEADD(MINUTE, t.ete_minutes, ?))
                                ELSE NULL
                            END
-        FROM dbo.adl_flights AS f
-        WHERE f.is_active = 1
-          AND f.callsign = ?
+        FROM dbo.adl_flight_times AS t
+        INNER JOIN dbo.adl_flight_core AS c ON c.flight_uid = t.flight_uid
+        INNER JOIN dbo.adl_flight_plan AS fp ON fp.flight_uid = c.flight_uid
+        WHERE c.is_active = 1
+          AND c.callsign = ?
           ";
 
-    $params = [$ctdUtc, $ctdUtc, $ctdUtc, $ctdUtc, $ctdUtc, $callsign];
+    $params = [$ctdUtc, $ctdUtc, $ctdUtc, $ctdUtc, $callsign];
 
     if ($depIcao !== null && $depIcao !== '') {
-        $sql .= " AND f.fp_dept_icao = ?";
+        $sql .= " AND fp.fp_dept_icao = ?";
         $params[] = $depIcao;
     }
     if ($destIcao !== null && $destIcao !== '') {
-        $sql .= " AND f.fp_dest_icao = ?";
+        $sql .= " AND fp.fp_dest_icao = ?";
         $params[] = $destIcao;
     }
 

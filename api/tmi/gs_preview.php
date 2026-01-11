@@ -142,8 +142,8 @@ if ($gs_start !== null && $gs_end !== null) {
     $params[] = $gs_end;
 }
 
-// Final SQL
-$sql = "SELECT * FROM dbo.adl_flights";
+// Final SQL - query vw_adl_flights (view over normalized tables)
+$sql = "SELECT * FROM dbo.vw_adl_flights";
 if (count($where) > 0) {
     $sql .= " WHERE " . implode(" AND ", $where);
 }

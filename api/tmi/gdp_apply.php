@@ -122,35 +122,64 @@ if (!sqlsrv_begin_transaction($conn)) {
 }
 
 try {
-    // 1) Update live adl_flights with GDP control times from sandbox
-    //    Match by flight_key and update CTD/CTA/slot fields
-    $apply_sql = "
-        UPDATE af
-        SET 
-            af.ctl_type = gs.ctl_type,
-            af.ctl_element = gs.ctl_element,
-            af.ctd_utc = gs.ctd_utc,
-            af.cta_utc = gs.cta_utc,
-            af.delay_status = gs.delay_status,
-            af.program_delay_min = gs.program_delay_min,
-            af.absolute_delay_min = gs.absolute_delay_min,
-            af.schedule_variation_min = gs.schedule_variation_min,
-            af.oetd_utc = gs.oetd_utc,
-            af.betd_utc = gs.betd_utc,
-            af.oeta_utc = gs.oeta_utc,
-            af.beta_utc = gs.beta_utc,
-            af.gdp_program_id = gs.gdp_program_id,
-            af.gdp_slot_index = gs.gdp_slot_index,
-            af.gdp_slot_time_utc = gs.gdp_slot_time_utc
-        FROM dbo.adl_flights af
-        INNER JOIN dbo.adl_flights_gdp gs ON af.flight_key = gs.flight_key
+    // 1) Update normalized tables with GDP control times from sandbox
+    //    Match by flight_key via adl_flight_core
+
+    // 1a) Update adl_flight_times for time columns
+    $times_sql = "
+        UPDATE t
+        SET
+            t.ctd_utc = gs.ctd_utc,
+            t.cta_utc = gs.cta_utc,
+            t.oetd_utc = gs.oetd_utc,
+            t.betd_utc = gs.betd_utc,
+            t.oeta_utc = gs.oeta_utc,
+            t.beta_utc = gs.beta_utc
+        FROM dbo.adl_flight_times t
+        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+        INNER JOIN dbo.adl_flights_gdp gs ON c.flight_key = gs.flight_key
         WHERE gs.ctl_type LIKE 'GDP%'
     ";
-    $apply_stmt = sqlsrv_query($conn, $apply_sql);
-    if ($apply_stmt === false) throw new Exception('Apply to live ADL failed: ' . json_encode(sqlsrv_errors()));
-    
-    $affected_rows = sqlsrv_rows_affected($apply_stmt);
-    
+    $times_stmt = sqlsrv_query($conn, $times_sql);
+    if ($times_stmt === false) throw new Exception('Update adl_flight_times failed: ' . json_encode(sqlsrv_errors()));
+
+    // 1b) Ensure TMI rows exist for affected flights
+    $insert_tmi_sql = "
+        INSERT INTO dbo.adl_flight_tmi (flight_uid)
+        SELECT DISTINCT c.flight_uid
+        FROM dbo.adl_flight_core c
+        INNER JOIN dbo.adl_flights_gdp gs ON c.flight_key = gs.flight_key
+        WHERE gs.ctl_type LIKE 'GDP%'
+          AND NOT EXISTS (
+              SELECT 1 FROM dbo.adl_flight_tmi tmi WHERE tmi.flight_uid = c.flight_uid
+          )
+    ";
+    $ins_tmi_stmt = sqlsrv_query($conn, $insert_tmi_sql);
+    if ($ins_tmi_stmt === false) throw new Exception('Insert adl_flight_tmi failed: ' . json_encode(sqlsrv_errors()));
+
+    // 1c) Update adl_flight_tmi for control columns
+    $tmi_sql = "
+        UPDATE tmi
+        SET
+            tmi.ctl_type = gs.ctl_type,
+            tmi.ctl_element = gs.ctl_element,
+            tmi.delay_status = gs.delay_status,
+            tmi.program_delay_min = gs.program_delay_min,
+            tmi.absolute_delay_min = gs.absolute_delay_min,
+            tmi.schedule_variation_min = gs.schedule_variation_min,
+            tmi.gdp_program_id = gs.gdp_program_id,
+            tmi.gdp_slot_index = gs.gdp_slot_index,
+            tmi.gdp_slot_time_utc = gs.gdp_slot_time_utc
+        FROM dbo.adl_flight_tmi tmi
+        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = tmi.flight_uid
+        INNER JOIN dbo.adl_flights_gdp gs ON c.flight_key = gs.flight_key
+        WHERE gs.ctl_type LIKE 'GDP%'
+    ";
+    $tmi_stmt = sqlsrv_query($conn, $tmi_sql);
+    if ($tmi_stmt === false) throw new Exception('Update adl_flight_tmi failed: ' . json_encode(sqlsrv_errors()));
+
+    $affected_rows = sqlsrv_rows_affected($tmi_stmt);
+
     // 2) Get summary metrics from sandbox before clearing
     $metrics = [
         'total_flights' => 0,
@@ -301,12 +330,14 @@ try {
     exit;
 }
 
-// Get final flight list from live ADL
+// Get final flight list from vw_adl_flights (normalized tables view)
 $flights_out = [];
 $flights_stmt = sqlsrv_query($conn, "
-    SELECT * FROM dbo.adl_flights
-    WHERE gdp_program_id = ?
-    ORDER BY gdp_slot_index ASC, eta_runway_utc ASC
+    SELECT f.*, tmi.gdp_program_id, tmi.gdp_slot_index, tmi.gdp_slot_time_utc
+    FROM dbo.vw_adl_flights f
+    LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = f.flight_uid
+    WHERE tmi.gdp_program_id = ?
+    ORDER BY tmi.gdp_slot_index ASC, f.eta_runway_utc ASC
 ", [$program_id]);
 
 if ($flights_stmt !== false) {

@@ -167,8 +167,9 @@ if ($gs_start !== null && $gs_end !== null) {
     $params[] = $gs_end;
 }
 
-// Determine safe insert columns (intersection of adl_flights and adl_flights_gs; skip identity id)
-list($adl_cols, $adl_cols_err) = get_table_columns_lower($conn, 'adl_flights');
+// Determine safe insert columns (intersection of vw_adl_flights and adl_flights_gs; skip identity id)
+// Use vw_adl_flights as source since live data is in normalized tables
+list($adl_cols, $adl_cols_err) = get_table_columns_lower($conn, 'vw_adl_flights');
 if ($adl_cols_err) respond_json(500, ['status'=>'error','message'=>$adl_cols_err]);
 list($gs_cols, $gs_cols_err) = get_table_columns_lower($conn, 'adl_flights_gs');
 if ($gs_cols_err) respond_json(500, ['status'=>'error','message'=>$gs_cols_err]);
@@ -185,14 +186,15 @@ foreach ($adl_cols as $c) {
 if (!isset($adl_set['flight_key']) || !isset($gs_set['flight_key'])) {
     respond_json(500, [
         'status'  => 'error',
-        'message' => 'flight_key column missing from adl_flights and/or adl_flights_gs. Cannot reseed gs table.'
+        'message' => 'flight_key column missing from vw_adl_flights and/or adl_flights_gs. Cannot reseed gs table.'
     ]);
 }
 
 $ins_cols_sql = implode(', ', array_map(function($c){ return "[{$c}]"; }, $common));
 $sel_cols_sql = implode(', ', array_map(function($c){ return "a.[{$c}]"; }, $common));
 
-$sql = "SELECT {$sel_cols_sql} FROM dbo.adl_flights a";
+// Query from vw_adl_flights (normalized tables view)
+$sql = "SELECT {$sel_cols_sql} FROM dbo.vw_adl_flights a";
 if (count($where) > 0) {
     $sql .= " WHERE " . implode(' AND ', $where);
 }

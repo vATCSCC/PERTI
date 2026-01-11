@@ -364,8 +364,8 @@ if ($distance_nm > 0) {
     }
 }
 
-// Final SQL - order by ETA for slot allocation
-$sql = "SELECT * FROM dbo.adl_flights";
+// Final SQL - order by ETA for slot allocation (query normalized tables via view)
+$sql = "SELECT * FROM dbo.vw_adl_flights";
 if (count($where) > 0) {
     $sql .= " WHERE " . implode(" AND ", $where);
 }

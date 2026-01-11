@@ -105,9 +105,10 @@ if ($gs_start !== null && $gs_end !== null) {
 }
 $where_sql = count($where) ? (" WHERE " . implode(" AND ", $where)) : "";
 
-// Get common columns between adl_flights and adl_flights_gs (excluding identity)
+// Get common columns between vw_adl_flights (view) and adl_flights_gs (excluding identity)
+// NOTE: Live flight data is in normalized tables, accessed via vw_adl_flights view
 $cols_adl = []; $cols_gs = [];
-$stmt = sqlsrv_query($conn, "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adl_flights' ORDER BY ORDINAL_POSITION");
+$stmt = sqlsrv_query($conn, "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'vw_adl_flights' ORDER BY ORDINAL_POSITION");
 if ($stmt === false) { echo json_encode(['status'=>'error','message'=>sqlsrv_errors()], JSON_PRETTY_PRINT); exit; }
 while ($r = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) { $cols_adl[] = $r['COLUMN_NAME']; }
 
@@ -130,7 +131,7 @@ foreach ($cols_gs as $c) {
     $common[] = $c;
 }
 if (count($common) === 0) {
-    echo json_encode(['status'=>'error','message'=>'No common columns found between adl_flights and adl_flights_gs.'], JSON_PRETTY_PRINT);
+    echo json_encode(['status'=>'error','message'=>'No common columns found between vw_adl_flights and adl_flights_gs.'], JSON_PRETTY_PRINT);
     exit;
 }
 
@@ -160,13 +161,13 @@ try {
     $del = sqlsrv_query($conn, "DELETE FROM dbo.adl_flights_gs");
     if ($del === false) throw new Exception('DELETE failed: ' . json_encode(sqlsrv_errors()));
 
-    // 2) Seed GS with filtered ADL snapshot
+    // 2) Seed GS with filtered ADL snapshot from vw_adl_flights (normalized tables view)
     //    Use CTE with ROW_NUMBER to dedupe by flight_key (unique index includes scope + flight_key)
     //    Partition by flight_key alone since scope will be NULL for all inserted rows
     $ins_sql = ";WITH deduped AS (
-                    SELECT $col_list, 
+                    SELECT $col_list,
                            ROW_NUMBER() OVER (PARTITION BY flight_key ORDER BY eta_runway_utc ASC) as rn
-                    FROM dbo.adl_flights
+                    FROM dbo.vw_adl_flights
                     $where_sql
                 )
                 INSERT INTO dbo.adl_flights_gs ($col_list)
