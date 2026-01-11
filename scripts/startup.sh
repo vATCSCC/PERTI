@@ -24,8 +24,14 @@ nohup php "${WWWROOT}/adl/php/parse_queue_daemon.php" --loop --batch=50 --interv
 PARSE_PID=$!
 echo "  parse_queue_daemon.php started (PID: $PARSE_PID)"
 
+# Start the boundary detection daemon (ARTCC/TRACON detection every 30s)
+echo "Starting boundary_daemon.php..."
+nohup php "${WWWROOT}/adl/php/boundary_daemon.php" --loop --interval=30 >> /home/LogFiles/boundary.log 2>&1 &
+BOUNDARY_PID=$!
+echo "  boundary_daemon.php started (PID: $BOUNDARY_PID)"
+
 echo "========================================"
-echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID"
+echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
 echo "========================================"
 
 # Start the default Apache server (required for App Service)
