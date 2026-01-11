@@ -295,6 +295,11 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
+    if ($stmt === false) {
+        error_log("getCarrierBreakdown query failed: " . adl_sql_error_message());
+        return $results;
+    }
+
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $timeBin = $row['time_bin'];
@@ -323,6 +328,11 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
     $query = $helper->buildEquipmentBreakdownQuery($airport, $direction, $startSQL, $endSQL);
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
+
+    if ($stmt === false) {
+        error_log("getEquipmentBreakdown query failed: " . adl_sql_error_message());
+        return $results;
+    }
 
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -353,6 +363,11 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
+    if ($stmt === false) {
+        error_log("getRuleBreakdown query failed: " . adl_sql_error_message());
+        return $results;
+    }
+
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $timeBin = $row['time_bin'];
@@ -381,6 +396,11 @@ function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
     $query = $helper->buildDepFixBreakdownQuery($airport, $startSQL, $endSQL);
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
+
+    if ($stmt === false) {
+        error_log("getDepFixBreakdown query failed: " . adl_sql_error_message());
+        return $results;
+    }
 
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -411,6 +431,11 @@ function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
+    if ($stmt === false) {
+        error_log("getArrFixBreakdown query failed: " . adl_sql_error_message());
+        return $results;
+    }
+
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $timeBin = $row['time_bin'];
@@ -440,6 +465,11 @@ function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
+    if ($stmt === false) {
+        error_log("getDPBreakdown query failed: " . adl_sql_error_message());
+        return $results;
+    }
+
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $timeBin = $row['time_bin'];
@@ -468,6 +498,11 @@ function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
     $query = $helper->buildSTARBreakdownQuery($airport, $startSQL, $endSQL);
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
+
+    if ($stmt === false) {
+        error_log("getSTARBreakdown query failed: " . adl_sql_error_message());
+        return $results;
+    }
 
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
