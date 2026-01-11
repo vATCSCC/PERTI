@@ -114,6 +114,28 @@ $response = [
     ]
 ];
 
+// Debug: Check data availability for columns
+$debugQuery = "
+    SELECT
+        COUNT(*) AS total_flights,
+        SUM(CASE WHEN airline_icao IS NOT NULL AND airline_icao != '' THEN 1 ELSE 0 END) AS has_airline,
+        SUM(CASE WHEN aircraft_type IS NOT NULL AND aircraft_type != '' THEN 1 ELSE 0 END) AS has_aircraft_type,
+        SUM(CASE WHEN fp_rule IS NOT NULL AND fp_rule != '' THEN 1 ELSE 0 END) AS has_fp_rule,
+        SUM(CASE WHEN dfix IS NOT NULL AND dfix != '' THEN 1 ELSE 0 END) AS has_dfix,
+        SUM(CASE WHEN afix IS NOT NULL AND afix != '' THEN 1 ELSE 0 END) AS has_afix,
+        SUM(CASE WHEN dp_name IS NOT NULL AND dp_name != '' THEN 1 ELSE 0 END) AS has_dp,
+        SUM(CASE WHEN star_name IS NOT NULL AND star_name != '' THEN 1 ELSE 0 END) AS has_star
+    FROM dbo.vw_adl_flights
+    WHERE (fp_dest_icao = ? OR fp_dept_icao = ?)
+      AND (COALESCE(eta_runway_utc, eta_utc) >= ? OR COALESCE(etd_runway_utc, etd_utc) >= ?)
+";
+$debugStmt = sqlsrv_query($conn, $debugQuery, [$airport, $airport, $startSQL, $startSQL]);
+if ($debugStmt !== false) {
+    $debugRow = sqlsrv_fetch_array($debugStmt, SQLSRV_FETCH_ASSOC);
+    $response['_debug_data_availability'] = $debugRow;
+    sqlsrv_free_stmt($debugStmt);
+}
+
 // If time_bin is specified, return detailed flight list for that bin
 if ($timeBin !== null) {
     $response['flights'] = getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction);
@@ -292,6 +314,10 @@ function getWeightBreakdown($conn, $helper, $airport, $direction, $startSQL, $en
  */
 function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
     $query = $helper->buildCarrierBreakdownQuery($airport, $direction, $startSQL, $endSQL);
+
+    // Debug: Log query info
+    error_log("getCarrierBreakdown: direction=$direction, params=" . json_encode($query['params']));
+
     $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
     $results = [];
 
@@ -300,8 +326,10 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
         return $results;
     }
 
+    $rowCount = 0;
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $rowCount++;
             $timeBin = $row['time_bin'];
             if ($timeBin instanceof DateTime) {
                 $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
@@ -318,6 +346,7 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
         sqlsrv_free_stmt($stmt);
     }
 
+    error_log("getCarrierBreakdown: returned $rowCount rows, " . count($results) . " time bins");
     return $results;
 }
 
