@@ -313,12 +313,51 @@ function getWeightBreakdown($conn, $helper, $airport, $direction, $startSQL, $en
  * Get carrier breakdown by time bin
  */
 function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL) {
-    $query = $helper->buildCarrierBreakdownQuery($airport, $direction, $startSQL, $endSQL);
+    // TEMP: Use simplified query matching weight pattern (no TopN CTE)
+    $timeCol = $direction === 'arr' ? 'COALESCE(eta_runway_utc, eta_utc)' :
+               ($direction === 'dep' ? 'COALESCE(etd_runway_utc, etd_utc)' : 'COALESCE(eta_runway_utc, eta_utc)');
+    $airportCol = $direction === 'arr' ? 'fp_dest_icao' :
+                  ($direction === 'dep' ? 'fp_dept_icao' : 'fp_dest_icao');
 
-    // Debug: Log query info
-    error_log("getCarrierBreakdown: direction=$direction, params=" . json_encode($query['params']));
+    if ($direction === 'both') {
+        $sql = "
+            WITH Combined AS (
+                SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, airline_icao
+                FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
+                UNION ALL
+                SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, airline_icao
+                FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
+            )
+            SELECT
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
+                COALESCE(airline_icao, 'UNKNOWN') AS carrier,
+                COUNT(*) AS count
+            FROM Combined
+            WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
+            GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0), COALESCE(airline_icao, 'UNKNOWN')
+            ORDER BY time_bin, count DESC
+        ";
+        $params = [$airport, $airport, $startSQL, $endSQL];
+    } else {
+        $sql = "
+            SELECT
+                DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
+                COALESCE(airline_icao, 'UNKNOWN') AS carrier,
+                COUNT(*) AS count
+            FROM dbo.vw_adl_flights
+            WHERE $airportCol = ?
+              AND $timeCol IS NOT NULL
+              AND $timeCol >= ?
+              AND $timeCol < ?
+            GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0), COALESCE(airline_icao, 'UNKNOWN')
+            ORDER BY time_bin, count DESC
+        ";
+        $params = [$airport, $startSQL, $endSQL];
+    }
 
-    $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
+    error_log("getCarrierBreakdown: direction=$direction, sql_length=" . strlen($sql) . ", params=" . json_encode($params));
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $results = [];
 
     if ($stmt === false) {
