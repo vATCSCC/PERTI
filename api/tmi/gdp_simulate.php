@@ -344,7 +344,8 @@ $where_sql = count($where) ? (" WHERE " . implode(" AND ", $where)) : "";
 // -------------------------------
 $cols_adl = []; $cols_gdp = [];
 
-$stmt = sqlsrv_query($conn, "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adl_flights' ORDER BY ORDINAL_POSITION");
+// Query vw_adl_flights (view over normalized tables) for column discovery
+$stmt = sqlsrv_query($conn, "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'vw_adl_flights' ORDER BY ORDINAL_POSITION");
 if ($stmt === false) { echo json_encode(['status'=>'error','message'=>sqlsrv_errors()], JSON_PRETTY_PRINT); exit; }
 while ($r = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) { $cols_adl[] = $r['COLUMN_NAME']; }
 
@@ -388,11 +389,11 @@ try {
     $del = sqlsrv_query($conn, "DELETE FROM dbo.adl_slots_gdp WHERE program_id = ?", [$program_id]);
     if ($del === false) throw new Exception('DELETE adl_slots_gdp failed: ' . json_encode(sqlsrv_errors()));
     
-    // 2) Seed sandbox with filtered flights (deduped by flight_key)
+    // 2) Seed sandbox with filtered flights from vw_adl_flights (deduped by flight_key)
     $ins_sql = ";WITH deduped AS (
-                    SELECT $col_list, 
+                    SELECT $col_list,
                            ROW_NUMBER() OVER (PARTITION BY flight_key ORDER BY eta_runway_utc ASC) as rn
-                    FROM dbo.adl_flights
+                    FROM dbo.vw_adl_flights
                     $where_sql
                 )
                 INSERT INTO dbo.adl_flights_gdp ($col_list)

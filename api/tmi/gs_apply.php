@@ -60,8 +60,8 @@ function get_table_columns_lower($conn, $table_name) {
 }
 
 // api/tmi/gs_apply.php
-// "Send Actual GS": merge simulated GS fields from dbo.adl_flights_gs into dbo.adl_flights
-// then clear the simulated rows from dbo.adl_flights_gs.
+// "Send Actual GS": merge simulated GS fields from dbo.adl_flights_gs into normalized tables
+// (adl_flight_times and adl_flight_tmi), then clear the simulated rows from dbo.adl_flights_gs.
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond_json(405, [
@@ -92,77 +92,111 @@ if ($gs_count <= 0) {
     ]);
 }
 
-// Determine safe columns to copy (only those present in BOTH tables)
-list($adl_cols, $adl_cols_err) = get_table_columns_lower($conn, 'adl_flights');
-if ($adl_cols_err) respond_json(500, ['status'=>'error','message'=>$adl_cols_err]);
+// Get columns from sandbox table
 list($gs_cols, $gs_cols_err) = get_table_columns_lower($conn, 'adl_flights_gs');
 if ($gs_cols_err) respond_json(500, ['status'=>'error','message'=>$gs_cols_err]);
+$gs_set = array_fill_keys($gs_cols, true);
 
-$adl_set = array_fill_keys($adl_cols, true);
-$gs_set  = array_fill_keys($gs_cols, true);
+// Check flight_key exists
+if (!isset($gs_set['flight_key'])) {
+    respond_json(500, [
+        'status'  => 'error',
+        'message' => 'flight_key column missing from adl_flights_gs. Cannot apply GS.'
+    ]);
+}
 
-// Columns we *want* to apply (if they exist)
-$desired = [
-    'ctl_type', 'ctl_element',
-    'ctd_utc', 'octd_utc',
-    'cta_utc', 'octa_utc',
-    'delay_status',
+// Define column mappings to normalized tables
+// Columns for adl_flight_times table
+$times_columns = [
+    'ctd_utc', 'octd_utc', 'cta_utc', 'octa_utc',
     'eta_prefix', 'eta_runway_utc',
-    'oetd_utc', 'betd_utc',
-    'oeta_utc', 'beta_utc',
-    'oete_minutes', 'cete_minutes',
-    'igta_utc',
+    'oetd_utc', 'betd_utc', 'oeta_utc', 'beta_utc',
+    'oete_minutes', 'cete_minutes', 'ete_minutes',
+    'igta_utc'
+];
+
+// Columns for adl_flight_tmi table
+$tmi_columns = [
+    'ctl_type', 'ctl_element', 'delay_status',
     'absolute_delay_min', 'schedule_variation_min', 'program_delay_min'
 ];
 
-$apply_cols = [];
-foreach ($desired as $c) {
-    if (isset($adl_set[$c]) && isset($gs_set[$c])) {
-        $apply_cols[] = $c;
-    }
-}
+// Filter to columns that exist in sandbox
+$apply_times_cols = array_filter($times_columns, function($c) use ($gs_set) { return isset($gs_set[$c]); });
+$apply_tmi_cols = array_filter($tmi_columns, function($c) use ($gs_set) { return isset($gs_set[$c]); });
 
-if (!isset($adl_set['flight_key']) || !isset($gs_set['flight_key'])) {
-    respond_json(500, [
-        'status'  => 'error',
-        'message' => 'flight_key column missing from adl_flights and/or adl_flights_gs. Cannot apply GS.'
-    ]);
-}
+$apply_cols = array_merge($apply_times_cols, $apply_tmi_cols);
 
 if (count($apply_cols) === 0) {
     respond_json(500, [
         'status'  => 'error',
-        'message' => 'No applicable columns found to apply from adl_flights_gs to adl_flights.'
+        'message' => 'No applicable columns found to apply from adl_flights_gs to normalized tables.'
     ]);
 }
-
-$set_parts = [];
-foreach ($apply_cols as $c) {
-    $set_parts[] = "a.[{$c}] = g.[{$c}]";
-}
-
-$update_sql = "
-    UPDATE a
-    SET " . implode(",\n        ", $set_parts) . "
-    FROM dbo.adl_flights a
-    INNER JOIN dbo.adl_flights_gs g
-        ON g.flight_key = a.flight_key
-    WHERE g.ctl_type = 'GS'
-";
 
 if (!sqlsrv_begin_transaction($conn)) {
     respond_json(500, ['status'=>'error','message'=>'Failed to begin transaction','errors'=>sqlsrv_errors()]);
 }
 
-try {
-    $upd_stmt = sqlsrv_query($conn, $update_sql);
-    if ($upd_stmt === false) {
-        throw new Exception('UPDATE failed: ' . json_encode(sqlsrv_errors()));
-    }
-    $updated_rows = sqlsrv_rows_affected($upd_stmt);
-    sqlsrv_free_stmt($upd_stmt);
+$updated_rows = 0;
 
-    // Clear ALL swap table rows after applying (ensures clean state for next simulation)
+try {
+    // 1) Update adl_flight_times (columns that live in the times table)
+    if (count($apply_times_cols) > 0) {
+        $set_parts = array_map(function($c) { return "t.[{$c}] = g.[{$c}]"; }, $apply_times_cols);
+        $update_times_sql = "
+            UPDATE t
+            SET " . implode(",\n                ", $set_parts) . "
+            FROM dbo.adl_flight_times t
+            INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+            INNER JOIN dbo.adl_flights_gs g ON g.flight_key = c.flight_key
+            WHERE g.ctl_type = 'GS'
+        ";
+        $times_stmt = sqlsrv_query($conn, $update_times_sql);
+        if ($times_stmt === false) {
+            throw new Exception('UPDATE adl_flight_times failed: ' . json_encode(sqlsrv_errors()));
+        }
+        $updated_rows = sqlsrv_rows_affected($times_stmt);
+        sqlsrv_free_stmt($times_stmt);
+    }
+
+    // 2) Upsert adl_flight_tmi (ensure rows exist, then update)
+    if (count($apply_tmi_cols) > 0) {
+        // First, insert missing TMI rows for flights in the GS sandbox
+        $insert_tmi_sql = "
+            INSERT INTO dbo.adl_flight_tmi (flight_uid)
+            SELECT DISTINCT c.flight_uid
+            FROM dbo.adl_flight_core c
+            INNER JOIN dbo.adl_flights_gs g ON g.flight_key = c.flight_key
+            WHERE g.ctl_type = 'GS'
+              AND NOT EXISTS (
+                  SELECT 1 FROM dbo.adl_flight_tmi tmi WHERE tmi.flight_uid = c.flight_uid
+              )
+        ";
+        $ins_tmi_stmt = sqlsrv_query($conn, $insert_tmi_sql);
+        if ($ins_tmi_stmt === false) {
+            throw new Exception('INSERT adl_flight_tmi failed: ' . json_encode(sqlsrv_errors()));
+        }
+        sqlsrv_free_stmt($ins_tmi_stmt);
+
+        // Now update TMI columns
+        $set_parts = array_map(function($c) { return "tmi.[{$c}] = g.[{$c}]"; }, $apply_tmi_cols);
+        $update_tmi_sql = "
+            UPDATE tmi
+            SET " . implode(",\n                ", $set_parts) . "
+            FROM dbo.adl_flight_tmi tmi
+            INNER JOIN dbo.adl_flight_core c ON c.flight_uid = tmi.flight_uid
+            INNER JOIN dbo.adl_flights_gs g ON g.flight_key = c.flight_key
+            WHERE g.ctl_type = 'GS'
+        ";
+        $tmi_stmt = sqlsrv_query($conn, $update_tmi_sql);
+        if ($tmi_stmt === false) {
+            throw new Exception('UPDATE adl_flight_tmi failed: ' . json_encode(sqlsrv_errors()));
+        }
+        sqlsrv_free_stmt($tmi_stmt);
+    }
+
+    // 3) Clear ALL swap table rows after applying (ensures clean state for next simulation)
     $del_stmt = sqlsrv_query($conn, "DELETE FROM dbo.adl_flights_gs");
     if ($del_stmt === false) {
         throw new Exception('DELETE failed: ' . json_encode(sqlsrv_errors()));
@@ -184,14 +218,15 @@ list($utc_now, $utc_err) = sqlsrv_fetch_value($conn, "SELECT SYSUTCDATETIME()");
 if ($utc_err) $utc_now = null;
 
 // Fetch the list of affected GS flights for the flight list display
+// Query vw_adl_flights which joins normalized tables
 $affected_flights = [];
 $flights_sql = "
-    SELECT 
+    SELECT
         f.callsign AS acid,
         f.fp_dept_icao AS orig,
         f.fp_dest_icao AS dest,
-        f.dep_center AS dcenter,
-        f.arr_center AS acenter,
+        f.fp_dept_artcc AS dcenter,
+        f.fp_dest_artcc AS acenter,
         f.etd_runway_utc AS etd_utc,
         f.ctd_utc,
         f.eta_runway_utc AS eta_utc,
@@ -199,10 +234,11 @@ $flights_sql = "
         f.ctl_type,
         f.ctl_element,
         f.delay_status,
-        f.program_delay_min,
-        f.absolute_delay_min,
+        tmi.program_delay_min,
+        tmi.absolute_delay_min,
         f.phase
-    FROM dbo.adl_flights f
+    FROM dbo.vw_adl_flights f
+    LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = f.flight_uid
     WHERE f.ctl_type = 'GS'
     ORDER BY f.ctd_utc ASC, f.eta_runway_utc ASC, f.callsign ASC
 ";
