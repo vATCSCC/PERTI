@@ -1735,6 +1735,13 @@ function renderOriginChart() {
         return d.toISOString().replace('.000Z', 'Z');
     };
 
+    // Round to hour helper - breakdown data from API is always hourly
+    const roundToHour = (bin) => {
+        const d = new Date(bin);
+        d.setUTCMinutes(0, 0, 0);
+        return d.toISOString().replace('.000Z', 'Z');
+    };
+
     // Collect all unique ARTCCs
     const allARTCCs = new Set();
     for (const bin in originBreakdown) {
@@ -1753,7 +1760,9 @@ function renderOriginChart() {
     // Shift by half interval so bars are centered on the time period
     const series = artccList.map(artcc => {
         const seriesData = timeBins.map(bin => {
-            const binData = originBreakdown[normalizeTimeBin(bin)] || originBreakdown[bin] || [];
+            // Breakdown data is always hourly, so try hourly lookup first
+            const hourlyBin = roundToHour(bin);
+            const binData = originBreakdown[hourlyBin] || originBreakdown[normalizeTimeBin(bin)] || [];
             const artccEntry = Array.isArray(binData) ? binData.find(item => item.artcc === artcc) : null;
             const value = artccEntry ? artccEntry.count : 0;
             // Center the bar on the time period (start + half interval)
@@ -2007,6 +2016,11 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     const breakdown = breakdownData || {};
     const data = DEMAND_STATE.lastDemandData;
 
+    // Debug: Log breakdown chart rendering info
+    console.log('[Demand] renderBreakdownChart:', stackName, 'categoryKey:', categoryKey,
+        'breakdownBins:', Object.keys(breakdown).length,
+        'sampleKeys:', Object.keys(breakdown).slice(0, 3));
+
     if (!data) {
         console.error('No demand data available');
         return;
@@ -2016,10 +2030,17 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     const timeBins = generateAllTimeBins();
     DEMAND_STATE.timeBins = timeBins;
 
-    // Normalize time bin helper
+    // Normalize time bin helper (preserves minutes)
     const normalizeTimeBin = (bin) => {
         const d = new Date(bin);
         d.setUTCSeconds(0, 0);
+        return d.toISOString().replace('.000Z', 'Z');
+    };
+
+    // Round to hour helper - breakdown data from API is always hourly
+    const roundToHour = (bin) => {
+        const d = new Date(bin);
+        d.setUTCMinutes(0, 0, 0);
         return d.toISOString().replace('.000Z', 'Z');
     };
 
@@ -2031,6 +2052,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             catData.forEach(item => allCategories.add(item[categoryKey]));
         }
     }
+
+    // Debug: Log categories found
+    console.log('[Demand] renderBreakdownChart categories found:', Array.from(allCategories));
 
     // Sort categories - use order if provided, otherwise alphabetical
     let categoryList;
@@ -2051,7 +2075,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     // Build series
     const series = categoryList.map(category => {
         const seriesData = timeBins.map(bin => {
-            const binData = breakdown[normalizeTimeBin(bin)] || breakdown[bin] || [];
+            // Try hourly lookup first (breakdown data is always hourly), then exact match
+            const hourlyBin = roundToHour(bin);
+            const binData = breakdown[hourlyBin] || breakdown[normalizeTimeBin(bin)] || [];
             const catEntry = Array.isArray(binData) ? binData.find(item => item[categoryKey] === category) : null;
             const value = catEntry ? catEntry.count : 0;
             return [new Date(bin).getTime() + halfInterval, value];
@@ -3143,6 +3169,20 @@ function loadFlightSummary(renderOriginChartAfter) {
                 DEMAND_STATE.arrFixBreakdown = response.arr_fix_breakdown || {};
                 DEMAND_STATE.dpBreakdown = response.dp_breakdown || {};
                 DEMAND_STATE.starBreakdown = response.star_breakdown || {};
+
+                // Debug: Log breakdown data sizes
+                console.log('[Demand] Summary API breakdown data:',
+                    'origin:', Object.keys(DEMAND_STATE.originBreakdown).length,
+                    'dest:', Object.keys(DEMAND_STATE.destBreakdown).length,
+                    'weight:', Object.keys(DEMAND_STATE.weightBreakdown).length,
+                    'carrier:', Object.keys(DEMAND_STATE.carrierBreakdown).length,
+                    'equipment:', Object.keys(DEMAND_STATE.equipmentBreakdown).length,
+                    'rule:', Object.keys(DEMAND_STATE.ruleBreakdown).length,
+                    'depFix:', Object.keys(DEMAND_STATE.depFixBreakdown).length,
+                    'arrFix:', Object.keys(DEMAND_STATE.arrFixBreakdown).length,
+                    'dp:', Object.keys(DEMAND_STATE.dpBreakdown).length,
+                    'star:', Object.keys(DEMAND_STATE.starBreakdown).length
+                );
 
                 // Auto-expand the summary section if it has data
                 const hasData = (response.top_origins && response.top_origins.length > 0) ||
