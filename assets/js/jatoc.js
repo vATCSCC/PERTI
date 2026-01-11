@@ -782,13 +782,29 @@
     async function loadSpaceCalendar() {
         const el = document.getElementById('spaceCalendar');
         try {
+            // Check for manual override first
             const override = await api('daily_ops.php', 'GET', { item_type: 'SPACE' });
-            if (override.success && override.data?.[0]?.content) { el.innerHTML = renderCalendarFromText(override.data[0].content); return; }
-            const faaRes = await api('faa_ops_plan.php');
-            if (faaRes.success && faaRes.space_launches?.length) {
-                el.innerHTML = faaRes.space_launches.map(l => `<div class="ops-calendar-row ${l.status || ''}"><span class="ops-calendar-time">${l.time || 'TBD'}</span><span class="ops-calendar-event">${esc(l.name || l.details)}</span></div>`).join('');
-            } else { el.innerHTML = `<div class="ops-calendar-row"><span class="ops-calendar-event">Check FAA Ops Plan:</span></div><div class="ops-calendar-row"><a href="https://nasstatus.faa.gov" target="_blank" class="text-info">nasstatus.faa.gov</a></div>`; }
-        } catch (e) { el.innerHTML = '<div class="text-muted small p-2">Check nasstatus.faa.gov</div>'; }
+            if (override.success && override.data?.[0]?.content) {
+                el.innerHTML = renderCalendarFromText(override.data[0].content);
+                return;
+            }
+            // Fetch from en route initiatives space operations
+            const spaceRes = await api('space_ops.php');
+            if (spaceRes.success && spaceRes.data?.length) {
+                el.innerHTML = spaceRes.data.map(op => {
+                    const statusClass = op.status === 'active' ? 'active' : (op.status === 'imminent' ? 'imminent' : '');
+                    return `<div class="ops-calendar-row ${statusClass}">
+                        <span class="ops-calendar-time">${op.time || 'TBD'}</span>
+                        <span class="ops-calendar-event">${esc(op.name)}</span>
+                    </div>`;
+                }).join('');
+            } else {
+                el.innerHTML = '<div class="text-muted small p-2">No scheduled space operations</div>';
+            }
+        } catch (e) {
+            console.log('[JATOC] Space ops error:', e);
+            el.innerHTML = '<div class="text-muted small p-2">Unable to load space ops</div>';
+        }
     }
 
     async function loadVatusaEvents() {
