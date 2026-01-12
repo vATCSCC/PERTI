@@ -389,6 +389,7 @@ function initMap() {
         container: 'sim-map',
         style: {
             version: 8,
+            glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
             sources: {
                 'carto-dark': {
                     type: 'raster',
@@ -487,6 +488,9 @@ async function createSimulation() {
         updateTimeDisplay(new Date(result.simulation.currentTime));
     } else {
         log(`Failed to create simulation: ${result.error}`, 'error');
+        if (result.hint) {
+            log(result.hint, 'warning');
+        }
     }
 }
 
@@ -664,10 +668,20 @@ function log(message, type = 'info') {
 // Initialize
 // ============================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initMap();
     log('ATFM Simulator initialized', 'info');
-    log('Click "New Simulation" to begin', 'info');
+    
+    // Check engine status
+    const health = await apiCall({ action: 'health' });
+    if (health.status === 'ok') {
+        log(`Flight engine connected (${health.aircraftTypes} aircraft types)`, 'success');
+        log('Click "New Simulation" to begin', 'info');
+    } else {
+        log('Flight engine not running!', 'error');
+        log('Start engine: cd simulator/engine && npm install && npm start', 'warning');
+        document.getElementById('sim-status').textContent = 'Engine Offline';
+    }
 });
 </script>
 
