@@ -380,6 +380,9 @@ let tickInterval = null;
 let aircraftMarkers = new Map();
 let selectedCallsign = null;
 
+// Engine URL - Azure deployment
+const ENGINE_URL = 'https://vatcscc-atfm-engine.azurewebsites.net';
+
 // ============================================================================
 // Map Initialization
 // ============================================================================
@@ -454,16 +457,92 @@ function initMap() {
 }
 
 // ============================================================================
-// API Functions
+// API Functions - Direct to Node.js Engine
 // ============================================================================
 
 async function apiCall(data) {
     try {
-        const response = await fetch('api/simulator/engine.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
+        const action = data.action;
+        let url, method = 'GET', body = null;
+        
+        switch (action) {
+            case 'health':
+                url = `${ENGINE_URL}/health`;
+                break;
+            case 'create':
+                url = `${ENGINE_URL}/simulation/create`;
+                method = 'POST';
+                body = { name: data.name, startTime: data.startTime };
+                break;
+            case 'list':
+                url = `${ENGINE_URL}/simulation`;
+                break;
+            case 'status':
+                url = `${ENGINE_URL}/simulation/${data.simId}`;
+                break;
+            case 'spawn':
+                url = `${ENGINE_URL}/simulation/${data.simId}/aircraft`;
+                method = 'POST';
+                body = {
+                    callsign: data.callsign,
+                    aircraftType: data.aircraftType,
+                    origin: data.origin,
+                    destination: data.destination,
+                    route: data.route,
+                    altitude: data.altitude,
+                    speed: data.speed,
+                    heading: data.heading,
+                    cruiseAltitude: data.cruiseAltitude
+                };
+                break;
+            case 'aircraft':
+                url = data.callsign 
+                    ? `${ENGINE_URL}/simulation/${data.simId}/aircraft/${data.callsign}`
+                    : `${ENGINE_URL}/simulation/${data.simId}/aircraft`;
+                break;
+            case 'tick':
+                url = `${ENGINE_URL}/simulation/${data.simId}/tick`;
+                method = 'POST';
+                body = { deltaSeconds: data.deltaSeconds };
+                break;
+            case 'run':
+                url = `${ENGINE_URL}/simulation/${data.simId}/run`;
+                method = 'POST';
+                body = { durationSeconds: data.durationSeconds, tickInterval: data.tickInterval };
+                break;
+            case 'command':
+                url = `${ENGINE_URL}/simulation/${data.simId}/command`;
+                method = 'POST';
+                body = { callsign: data.callsign, command: data.command, params: data.params };
+                break;
+            case 'pause':
+                url = `${ENGINE_URL}/simulation/${data.simId}/pause`;
+                method = 'POST';
+                body = {};
+                break;
+            case 'resume':
+                url = `${ENGINE_URL}/simulation/${data.simId}/resume`;
+                method = 'POST';
+                body = {};
+                break;
+            case 'delete':
+                url = `${ENGINE_URL}/simulation/${data.simId}`;
+                method = 'DELETE';
+                break;
+            default:
+                return { success: false, error: `Unknown action: ${action}` };
+        }
+        
+        const options = {
+            method,
+            headers: { 'Content-Type': 'application/json' }
+        };
+        
+        if (body && method !== 'GET') {
+            options.body = JSON.stringify(body);
+        }
+        
+        const response = await fetch(url, options);
         return await response.json();
     } catch (error) {
         log(`API Error: ${error.message}`, 'error');

@@ -21,9 +21,20 @@ const SimulationController = require('./SimulationController');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// CORS for local development
+// CORS for PERTI domains
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    const allowedOrigins = [
+        'https://perti.vatcscc.org',
+        'https://vatcscc.azurewebsites.net',
+        'http://localhost',
+        'http://127.0.0.1'
+    ];
+    const origin = req.headers.origin;
+    if (allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
+        res.header('Access-Control-Allow-Origin', origin);
+    } else {
+        res.header('Access-Control-Allow-Origin', 'https://perti.vatcscc.org');
+    }
     res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') {
