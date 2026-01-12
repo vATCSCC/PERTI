@@ -158,11 +158,12 @@ try {
     }
     
 } catch (Exception $e) {
-    http_response_code(500);
+    // Return 200 with error info so JS can handle gracefully
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage(),
-        'hint' => 'Is the flight engine running? Start with: cd simulator/engine && npm start'
+        'hint' => 'Is the flight engine running? Start with: cd simulator/engine && npm start',
+        'engine_url' => ENGINE_URL
     ]);
 }
 
