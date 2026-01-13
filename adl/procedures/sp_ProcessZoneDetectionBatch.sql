@@ -98,7 +98,8 @@ BEGIN
             ag.zone_type,
             ag.zone_name,
             -- Calculate distance ONCE for each matching zone
-            f.flight_point.STDistance(ag.geometry) AS distance_m,
+            -- Use MakeValid() to handle potentially invalid geometry from STDifference operations
+            f.flight_point.STDistance(ag.geometry.MakeValid()) AS distance_m,
             -- Zone priority for ranking
             CASE ag.zone_type
                 WHEN 'PARKING' THEN 1
@@ -115,7 +116,8 @@ BEGIN
             ON ag.airport_icao = f.check_airport
             AND ag.is_active = 1
             -- Use STIntersects with buffer for spatial index efficiency
-            AND ag.geometry.STIntersects(f.flight_point.STBuffer(100)) = 1
+            -- Use MakeValid() to handle potentially invalid geometry from STDifference operations
+            AND ag.geometry.MakeValid().STIntersects(f.flight_point.STBuffer(100)) = 1
     ),
     -- Then rank using pre-calculated values
     zone_ranked AS (
