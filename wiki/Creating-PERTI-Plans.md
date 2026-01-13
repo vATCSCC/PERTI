@@ -36,7 +36,7 @@ Use the **tabbed navigation bar** to explore different sections:
 | Tab | Content |
 |-----|---------|
 | **Overview** | Event banner, operational goals, key objectives |
-| **DCC Staffing** | Data Communications Center staffing assignments |
+| **DCC Staffing** | Command Center staffing assignments |
 | **Historical** | Past event data for reference |
 | **Weather** | Weather forecast and expected conditions |
 | **Terminal Initiatives** | Ground stops, GDPs, arrival/departure programs |
