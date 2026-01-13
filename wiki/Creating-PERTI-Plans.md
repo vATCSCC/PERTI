@@ -25,7 +25,7 @@ PERTI Plans are comprehensive event planning documents used to coordinate traffi
 
 ### Step 1: Access the Plan
 
-1. Navigate to the plan URL provided (e.g., `https://perti.vatcscc.org/plan.php?p=CTP2026`)
+1. Navigate to the plan URL provided (e.g., `https://perti.vatcscc.org/plan.php?p=42`)
 2. Login with your VATSIM account if prompted
 3. The plan interface loads with the Overview tab active
 
@@ -110,10 +110,9 @@ Privileged users have full editing capabilities. All non-privileged features app
 | **End Date** | Event end date | 2026-03-15 |
 | **End Time** | Event end (UTC) | 04:00Z |
 | **Op Level** | Operational level (1-3) | 2 |
-| **Plan ID** | Short identifier | CTP2026E |
 
 4. Click **Create Plan**
-5. You're redirected to the new plan's editing interface
+5. A Plan ID is auto-generated and you're redirected to the new plan's editing interface
 
 ### Adding Operational Goals
 
