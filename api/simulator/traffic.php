@@ -567,6 +567,9 @@ function generateSyntheticFlights($dest, $startHour, $endHour, $count) {
         $altitudes = [31000, 33000, 35000, 37000, 39000, 41000];
         $altitude = $altitudes[array_rand($altitudes)];
         
+        // Get route for this O-D pair
+        $route = getRouteForPair($selectedPattern['origin'], $dest);
+        
         $flights[] = [
             'callsign' => $callsign,
             'origin' => $selectedPattern['origin'],
@@ -577,7 +580,9 @@ function generateSyntheticFlights($dest, $startHour, $endHour, $count) {
             'etd' => sprintf('%02d:%02d:00Z', $etdHour % 24, $etdMinute),
             'altitude' => $altitude,
             'speed' => mt_rand(440, 480),
-            'flightTimeMin' => $flightTimeMin
+            'flightTimeMin' => $flightTimeMin,
+            'route' => $route['routeString'],
+            'waypoints' => $route['waypoints']
         ];
     }
     
@@ -772,4 +777,230 @@ function getFallbackCarriers() {
         ['icao' => 'HAL', 'name' => 'Hawaiian Airlines', 'callsign' => 'HAWAIIAN', 'hubs' => 'PHNL'],
         ['icao' => 'VXS', 'name' => 'Avelo Airlines', 'callsign' => 'AVELO', 'hubs' => 'KHWD,KBUR'],
     ];
+}
+
+/**
+ * Get route and waypoints for an O-D pair
+ */
+function getRouteForPair($origin, $dest) {
+    // Get common route or use direct
+    $routeString = getCommonRouteInternal($origin, $dest) ?: 'DCT';
+    
+    // Expand to waypoints
+    $waypoints = [];
+    
+    // Add origin
+    $originCoords = getFixCoordinatesInternal($origin);
+    if ($originCoords) {
+        $waypoints[] = [
+            'name' => $origin,
+            'lat' => $originCoords['lat'],
+            'lon' => $originCoords['lon'],
+            'type' => 'AIRPORT'
+        ];
+    }
+    
+    // Parse route and add intermediate fixes
+    if ($routeString !== 'DCT') {
+        $elements = preg_split('/\s+/', $routeString);
+        foreach ($elements as $element) {
+            // Skip airways, SIDs/STARs, DCT
+            if (empty($element) || $element === 'DCT') continue;
+            if (preg_match('/^[JQTV]\d+$/', $element)) continue;
+            if (preg_match('/\d$/', $element) && strlen($element) > 5) continue;
+            
+            $coords = getFixCoordinatesInternal($element);
+            if ($coords) {
+                $waypoints[] = [
+                    'name' => $element,
+                    'lat' => $coords['lat'],
+                    'lon' => $coords['lon'],
+                    'type' => $coords['type'] ?? 'FIX'
+                ];
+            }
+        }
+    }
+    
+    // Add destination
+    $destCoords = getFixCoordinatesInternal($dest);
+    if ($destCoords) {
+        $waypoints[] = [
+            'name' => $dest,
+            'lat' => $destCoords['lat'],
+            'lon' => $destCoords['lon'],
+            'type' => 'AIRPORT'
+        ];
+    }
+    
+    return [
+        'routeString' => $routeString,
+        'waypoints' => $waypoints
+    ];
+}
+
+function getCommonRouteInternal($origin, $dest) {
+    $routes = [
+        // Northeast to/from Southeast
+        'KJFK-KATL' => 'MERIT SBJ NAVHO',
+        'KATL-KJFK' => 'JACCC CUTTN MERIT',
+        'KJFK-KMIA' => 'MERIT SBJ SAV CEBEE',
+        'KMIA-KJFK' => 'WINCO SAV SBJ MERIT',
+        'KBOS-KATL' => 'HAYED SBJ NAVHO',
+        'KATL-KBOS' => 'JACCC CUTTN HAYED',
+        
+        // Northeast to/from Midwest
+        'KJFK-KORD' => 'MERIT AIR DENNT',
+        'KORD-KJFK' => 'EARND AIR MERIT',
+        'KBOS-KORD' => 'HAYED AIR DENNT',
+        'KORD-KBOS' => 'EARND AIR HAYED',
+        
+        // Northeast to/from West
+        'KJFK-KLAX' => 'BIGGY SLT PKE DAGGZ',
+        'KLAX-KJFK' => 'DOTSS SLT BIGGY',
+        'KJFK-KSFO' => 'BIGGY SLT PKE SERFR',
+        'KSFO-KJFK' => 'SSTIK SLT BIGGY',
+        
+        // Midwest to/from Southeast
+        'KORD-KATL' => 'EARND HNN NAVHO',
+        'KATL-KORD' => 'JACCC HNN DENNT',
+        'KORD-KMIA' => 'EARND HNN SAV',
+        'KMIA-KORD' => 'WINCO SAV HNN DENNT',
+        
+        // Midwest to/from West
+        'KORD-KLAX' => 'EARND DBQ OBH DAGGZ',
+        'KLAX-KORD' => 'DOTSS OBH DBQ DENNT',
+        'KORD-KSFO' => 'EARND DBQ OBH SERFR',
+        'KSFO-KORD' => 'SSTIK OBH DBQ DENNT',
+        
+        // West Coast
+        'KLAX-KSFO' => 'VNY AVE SERFR',
+        'KSFO-KLAX' => 'SSTIK AVE SEAVU',
+        'KLAX-KSEA' => 'VNY AVE OAL HAWKZ',
+        'KSEA-KLAX' => 'SUMMA TOU AVE SEAVU',
+        
+        // Southeast to/from West
+        'KATL-KLAX' => 'JACCC MEI DFW DAGGZ',
+        'KLAX-KATL' => 'DOTSS DFW MEI NAVHO',
+        'KMIA-KLAX' => 'WINCO MEI DFW DAGGZ',
+        'KLAX-KMIA' => 'DOTSS DFW MEI SAV',
+        
+        // DFW Hub
+        'KDFW-KJFK' => 'AKUNA MEM SBJ MERIT',
+        'KJFK-KDFW' => 'MERIT SBJ MEM FINGR',
+        'KDFW-KORD' => 'AKUNA STL DENNT',
+        'KORD-KDFW' => 'EARND STL FINGR',
+        'KDFW-KLAX' => 'LOWGN DAGGZ',
+        'KLAX-KDFW' => 'DOTSS FINGR',
+        
+        // DEN Hub
+        'KDEN-KJFK' => 'TOMSN SLT PKE MERIT',
+        'KJFK-KDEN' => 'BIGGY SLT RAMMS',
+        'KDEN-KORD' => 'TOMSN OBH DENNT',
+        'KORD-KDEN' => 'EARND OBH RAMMS',
+        'KDEN-KLAX' => 'TOMSN DAGGZ',
+        'KLAX-KDEN' => 'DOTSS RAMMS',
+        
+        // Additional common pairs
+        'KEWR-KATL' => 'BIGGY SBJ NAVHO',
+        'KATL-KEWR' => 'JACCC SBJ BIGGY',
+        'KLGA-KATL' => 'ELIOT SBJ NAVHO',
+        'KATL-KLGA' => 'JACCC SBJ ELIOT',
+    ];
+    
+    return $routes[$origin . '-' . $dest] ?? null;
+}
+
+function getFixCoordinatesInternal($fix) {
+    global $conn_adl;
+    
+    // Try database first
+    if ($conn_adl) {
+        $sql = "SELECT lat, lon, fix_type FROM nav_fixes WHERE fix_name = ?";
+        $stmt = sqlsrv_query($conn_adl, $sql, [$fix]);
+        if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            sqlsrv_free_stmt($stmt);
+            return [
+                'lat' => floatval($row['lat']),
+                'lon' => floatval($row['lon']),
+                'type' => $row['fix_type']
+            ];
+        }
+    }
+    
+    // Fall back to hardcoded
+    $known = [
+        // Airports
+        'KATL' => ['lat' => 33.6407, 'lon' => -84.4277, 'type' => 'AIRPORT'],
+        'KORD' => ['lat' => 41.9742, 'lon' => -87.9073, 'type' => 'AIRPORT'],
+        'KDFW' => ['lat' => 32.8998, 'lon' => -97.0403, 'type' => 'AIRPORT'],
+        'KDEN' => ['lat' => 39.8561, 'lon' => -104.6737, 'type' => 'AIRPORT'],
+        'KJFK' => ['lat' => 40.6413, 'lon' => -73.7781, 'type' => 'AIRPORT'],
+        'KLAX' => ['lat' => 33.9425, 'lon' => -118.4081, 'type' => 'AIRPORT'],
+        'KSFO' => ['lat' => 37.6213, 'lon' => -122.3790, 'type' => 'AIRPORT'],
+        'KSEA' => ['lat' => 47.4502, 'lon' => -122.3088, 'type' => 'AIRPORT'],
+        'KMIA' => ['lat' => 25.7959, 'lon' => -80.2870, 'type' => 'AIRPORT'],
+        'KBOS' => ['lat' => 42.3656, 'lon' => -71.0096, 'type' => 'AIRPORT'],
+        'KEWR' => ['lat' => 40.6895, 'lon' => -74.1745, 'type' => 'AIRPORT'],
+        'KLGA' => ['lat' => 40.7769, 'lon' => -73.8740, 'type' => 'AIRPORT'],
+        'KPHL' => ['lat' => 39.8719, 'lon' => -75.2411, 'type' => 'AIRPORT'],
+        'KDCA' => ['lat' => 38.8521, 'lon' => -77.0402, 'type' => 'AIRPORT'],
+        'KIAD' => ['lat' => 38.9531, 'lon' => -77.4565, 'type' => 'AIRPORT'],
+        'KCLT' => ['lat' => 35.2140, 'lon' => -80.9431, 'type' => 'AIRPORT'],
+        'KMSP' => ['lat' => 44.8848, 'lon' => -93.2223, 'type' => 'AIRPORT'],
+        'KDTW' => ['lat' => 42.2162, 'lon' => -83.3554, 'type' => 'AIRPORT'],
+        'KPHX' => ['lat' => 33.4373, 'lon' => -112.0078, 'type' => 'AIRPORT'],
+        'KLAS' => ['lat' => 36.0840, 'lon' => -115.1537, 'type' => 'AIRPORT'],
+        'KIAH' => ['lat' => 29.9902, 'lon' => -95.3368, 'type' => 'AIRPORT'],
+        'KMCO' => ['lat' => 28.4312, 'lon' => -81.3081, 'type' => 'AIRPORT'],
+        'KFLL' => ['lat' => 26.0742, 'lon' => -80.1506, 'type' => 'AIRPORT'],
+        'KTPA' => ['lat' => 27.9756, 'lon' => -82.5333, 'type' => 'AIRPORT'],
+        'KSAN' => ['lat' => 32.7336, 'lon' => -117.1897, 'type' => 'AIRPORT'],
+        'KPDX' => ['lat' => 45.5898, 'lon' => -122.5951, 'type' => 'AIRPORT'],
+        'KSLC' => ['lat' => 40.7884, 'lon' => -111.9778, 'type' => 'AIRPORT'],
+        
+        // Key fixes
+        'MERIT' => ['lat' => 40.2500, 'lon' => -73.6667, 'type' => 'FIX'],
+        'BIGGY' => ['lat' => 40.4000, 'lon' => -74.2167, 'type' => 'FIX'],
+        'HAYED' => ['lat' => 42.1833, 'lon' => -71.2333, 'type' => 'FIX'],
+        'JACCC' => ['lat' => 33.8833, 'lon' => -84.3000, 'type' => 'FIX'],
+        'CUTTN' => ['lat' => 34.1167, 'lon' => -84.1500, 'type' => 'FIX'],
+        'NAVHO' => ['lat' => 33.5167, 'lon' => -84.6667, 'type' => 'FIX'],
+        'WINCO' => ['lat' => 25.9000, 'lon' => -80.1500, 'type' => 'FIX'],
+        'EARND' => ['lat' => 41.8667, 'lon' => -87.5833, 'type' => 'FIX'],
+        'DENNT' => ['lat' => 41.9833, 'lon' => -87.8333, 'type' => 'FIX'],
+        'DOTSS' => ['lat' => 33.7833, 'lon' => -118.4500, 'type' => 'FIX'],
+        'DAGGZ' => ['lat' => 34.8500, 'lon' => -116.8500, 'type' => 'FIX'],
+        'SSTIK' => ['lat' => 37.4167, 'lon' => -122.2500, 'type' => 'FIX'],
+        'SERFR' => ['lat' => 37.2500, 'lon' => -122.0000, 'type' => 'FIX'],
+        'SEAVU' => ['lat' => 33.8500, 'lon' => -118.5000, 'type' => 'FIX'],
+        'TOMSN' => ['lat' => 39.7000, 'lon' => -104.5000, 'type' => 'FIX'],
+        'RAMMS' => ['lat' => 39.6500, 'lon' => -104.8500, 'type' => 'FIX'],
+        'LOWGN' => ['lat' => 33.0833, 'lon' => -97.2000, 'type' => 'FIX'],
+        'FINGR' => ['lat' => 32.8333, 'lon' => -97.0000, 'type' => 'FIX'],
+        'AKUNA' => ['lat' => 33.0000, 'lon' => -96.8500, 'type' => 'FIX'],
+        'CEBEE' => ['lat' => 26.5000, 'lon' => -80.2000, 'type' => 'FIX'],
+        'ELIOT' => ['lat' => 40.7000, 'lon' => -73.9000, 'type' => 'FIX'],
+        'HAWKZ' => ['lat' => 47.5000, 'lon' => -122.5000, 'type' => 'FIX'],
+        'SUMMA' => ['lat' => 47.4000, 'lon' => -122.4000, 'type' => 'FIX'],
+        
+        // VORs
+        'SLT' => ['lat' => 40.8500, 'lon' => -111.9667, 'type' => 'VOR'],
+        'PKE' => ['lat' => 40.9667, 'lon' => -118.5667, 'type' => 'VOR'],
+        'OBH' => ['lat' => 41.4500, 'lon' => -100.6833, 'type' => 'VOR'],
+        'DBQ' => ['lat' => 42.4000, 'lon' => -90.7000, 'type' => 'VOR'],
+        'SBJ' => ['lat' => 39.8500, 'lon' => -74.5333, 'type' => 'VOR'],
+        'HNN' => ['lat' => 38.4333, 'lon' => -82.6667, 'type' => 'VOR'],
+        'AIR' => ['lat' => 40.4667, 'lon' => -80.7500, 'type' => 'VOR'],
+        'MEM' => ['lat' => 35.0500, 'lon' => -89.9833, 'type' => 'VOR'],
+        'MEI' => ['lat' => 32.3333, 'lon' => -88.7500, 'type' => 'VOR'],
+        'SAV' => ['lat' => 32.1333, 'lon' => -81.2000, 'type' => 'VOR'],
+        'AVE' => ['lat' => 34.9500, 'lon' => -118.4333, 'type' => 'VOR'],
+        'STL' => ['lat' => 38.8667, 'lon' => -90.4833, 'type' => 'VOR'],
+        'DFW' => ['lat' => 32.8500, 'lon' => -97.0333, 'type' => 'VOR'],
+        'VNY' => ['lat' => 34.2167, 'lon' => -118.4833, 'type' => 'VOR'],
+        'OAL' => ['lat' => 40.0833, 'lon' => -122.5000, 'type' => 'VOR'],
+        'TOU' => ['lat' => 44.0000, 'lon' => -122.0000, 'type' => 'VOR'],
+    ];
+    
+    return $known[$fix] ?? null;
 }

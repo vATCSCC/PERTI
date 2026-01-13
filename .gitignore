@@ -20,3 +20,16 @@ adl/php/nav_import/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Node.js dependencies (all locations)
+node_modules/
+
+# Build/deploy artifacts
+*.zip
+deploy.zip
+
+# IDE and OS files
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
