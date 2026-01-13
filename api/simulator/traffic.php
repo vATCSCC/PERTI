@@ -781,16 +781,21 @@ function getFallbackCarriers() {
 
 /**
  * Get route and waypoints for an O-D pair
+ * Uses sequential proximity resolution like sp_ParseRoute
  */
 function getRouteForPair($origin, $dest) {
     // Get common route or use direct
     $routeString = getCommonRouteInternal($origin, $dest) ?: 'DCT';
     
-    // Expand to waypoints
+    // Expand to waypoints using sequential proximity resolution
     $waypoints = [];
     
+    // Start with origin coordinates
+    $prevLat = null;
+    $prevLon = null;
+    
     // Add origin
-    $originCoords = getFixCoordinatesInternal($origin);
+    $originCoords = getFixCoordinatesProximity($origin, null, null);
     if ($originCoords) {
         $waypoints[] = [
             'name' => $origin,
@@ -798,9 +803,11 @@ function getRouteForPair($origin, $dest) {
             'lon' => $originCoords['lon'],
             'type' => 'AIRPORT'
         ];
+        $prevLat = $originCoords['lat'];
+        $prevLon = $originCoords['lon'];
     }
     
-    // Parse route and add intermediate fixes
+    // Parse route and add intermediate fixes with sequential proximity resolution
     if ($routeString !== 'DCT') {
         $elements = preg_split('/\s+/', $routeString);
         foreach ($elements as $element) {
@@ -809,7 +816,8 @@ function getRouteForPair($origin, $dest) {
             if (preg_match('/^[JQTV]\d+$/', $element)) continue;
             if (preg_match('/\d$/', $element) && strlen($element) > 5) continue;
             
-            $coords = getFixCoordinatesInternal($element);
+            // Use previous fix's coordinates for proximity resolution
+            $coords = getFixCoordinatesProximity($element, $prevLat, $prevLon);
             if ($coords) {
                 $waypoints[] = [
                     'name' => $element,
@@ -817,12 +825,15 @@ function getRouteForPair($origin, $dest) {
                     'lon' => $coords['lon'],
                     'type' => $coords['type'] ?? 'FIX'
                 ];
+                // Update previous coordinates for next iteration
+                $prevLat = $coords['lat'];
+                $prevLon = $coords['lon'];
             }
         }
     }
     
-    // Add destination
-    $destCoords = getFixCoordinatesInternal($dest);
+    // Add destination using proximity to last waypoint
+    $destCoords = getFixCoordinatesProximity($dest, $prevLat, $prevLon);
     if ($destCoords) {
         $waypoints[] = [
             'name' => $dest,
@@ -910,13 +921,40 @@ function getCommonRouteInternal($origin, $dest) {
     return $routes[$origin . '-' . $dest] ?? null;
 }
 
-function getFixCoordinatesInternal($fix) {
+/**
+ * Get fix coordinates using sequential proximity resolution
+ * If prevLat/prevLon provided, picks the closest candidate to those coordinates
+ * Falls back to CONUS bounding box if no previous coordinates
+ * This mirrors the logic in sp_ParseRoute v4.1
+ */
+function getFixCoordinatesProximity($fix, $prevLat, $prevLon) {
     global $conn_adl;
     
-    // Try database first
+    // Try database with proximity-based resolution
     if ($conn_adl) {
-        $sql = "SELECT lat, lon, fix_type FROM nav_fixes WHERE fix_name = ?";
-        $stmt = sqlsrv_query($conn_adl, $sql, [$fix]);
+        if ($prevLat !== null && $prevLon !== null) {
+            // Use previous coordinates for proximity resolution
+            // Order by distance to previous fix (using simplified Euclidean for speed)
+            $sql = "SELECT TOP 1 lat, lon, fix_type 
+                    FROM nav_fixes 
+                    WHERE fix_name = ? 
+                    AND lat BETWEEN 24 AND 50 
+                    AND lon BETWEEN -125 AND -66
+                    ORDER BY 
+                        POWER(lat - ?, 2) + POWER((lon - ?) * COS(RADIANS(?)), 2)";
+            $stmt = sqlsrv_query($conn_adl, $sql, [$fix, $prevLat, $prevLon, $prevLat]);
+        } else {
+            // No previous coordinates - just use CONUS bounds + type priority
+            $sql = "SELECT TOP 1 lat, lon, fix_type 
+                    FROM nav_fixes 
+                    WHERE fix_name = ? 
+                    AND lat BETWEEN 24 AND 50 
+                    AND lon BETWEEN -125 AND -66
+                    ORDER BY 
+                        CASE fix_type WHEN 'AIRPORT' THEN 0 WHEN 'VORTAC' THEN 1 WHEN 'VOR' THEN 2 ELSE 3 END";
+            $stmt = sqlsrv_query($conn_adl, $sql, [$fix]);
+        }
+        
         if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             sqlsrv_free_stmt($stmt);
             return [
@@ -927,7 +965,16 @@ function getFixCoordinatesInternal($fix) {
         }
     }
     
-    // Fall back to hardcoded
+    // Fall back to hardcoded CONUS fixes
+    return getFixCoordinatesInternal($fix);
+}
+
+/**
+ * Fallback function for hardcoded fix coordinates
+ * Used when database lookup fails or is unavailable
+ */
+function getFixCoordinatesInternal($fix) {
+    // Hardcoded CONUS fixes for fallback
     $known = [
         // Airports
         'KATL' => ['lat' => 33.6407, 'lon' => -84.4277, 'type' => 'AIRPORT'],
