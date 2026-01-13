@@ -254,7 +254,7 @@ PERTI is maintained by the vATCSCC development team. For operational questions, 
 | **ADL** | Aeronautical Data Link - flight data system |
 | **ADR** | Airport Departure Rate - departures per hour |
 | **ARTCC** | Air Route Traffic Control Center |
-| **DCC** | Data Communications Center |
+| **DCC** | Command Center |
 | **EDCT** | Expect Departure Clearance Time |
 | **GDP** | Ground Delay Program |
 | **GS** | Ground Stop |
