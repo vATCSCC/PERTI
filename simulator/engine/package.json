@@ -1,7 +1,7 @@
 {
   "name": "atfm-flight-engine",
-  "version": "0.1.0",
-  "description": "ATFM Training Simulator Flight Engine for VATSIM PERTI",
+  "version": "0.3.0",
+  "description": "ATFM Training Simulator Flight Engine for VATSIM PERTI - TMI + Traffic",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
