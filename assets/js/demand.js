@@ -19,7 +19,7 @@ window.DemandChartCore = (function() {
         'departed': '#f87171',
         'taxiing': '#22c55e',
         'prefile': '#3b82f6',
-        'unknown': '#eab308'
+        'unknown': '#9333ea'
     };
 
     // Phase labels - use shared config if available
@@ -689,7 +689,7 @@ const FSM_PHASE_COLORS = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : 
     'departed': '#f87171',      // Light Red - Just took off from origin
     'taxiing': '#22c55e',       // Green - Taxiing at origin airport
     'prefile': '#3b82f6',       // Blue - Filed flight plan
-    'unknown': '#eab308'        // Yellow - Unknown/other phase (top)
+    'unknown': '#9333ea'        // Purple - Unknown/other phase (top)
 };
 
 // Phase labels - use shared config if available

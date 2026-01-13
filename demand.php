@@ -654,13 +654,35 @@ include("load/connect.php");
                         </div>
                     </div>
                     <!-- Other -->
-                    <div class="legend-group">
+                    <div class="legend-group mb-2">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
                             <i class="fas fa-question-circle mr-1"></i> Other
                         </div>
                         <div class="d-flex flex-wrap" style="gap: 2px 10px;">
                             <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f97316;"></span>Disconnected</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #eab308;"></span>Unknown</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #6b7280;"></span>Exempt</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #9333ea;"></span>Unknown</div>
+                        </div>
+                    </div>
+                    <!-- TMI Statuses -->
+                    <div class="legend-group mb-2">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-hand-paper mr-1"></i> Ground Stop
+                        </div>
+                        <div class="d-flex flex-wrap" style="gap: 2px 10px;">
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #eab308;"></span>GS (EDCT)</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #fef08a;"></span>GS (Sim)</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #ca8a04;"></span>GS (Prop)</div>
+                        </div>
+                    </div>
+                    <div class="legend-group">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-clock mr-1"></i> Ground Delay
+                        </div>
+                        <div class="d-flex flex-wrap" style="gap: 2px 10px;">
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #92400e;"></span>GDP (EDCT)</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #d4a574;"></span>GDP (Sim)</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #78350f;"></span>GDP (Prop)</div>
                         </div>
                     </div>
                     <hr class="my-2">
