@@ -17,10 +17,10 @@
 require_once __DIR__ . '/../../load/connect.php';
 
 // Configuration
-define('DEFAULT_MAX_FLIGHTS', 500);      // Flights per boundary run
-define('DEFAULT_MAX_CROSSINGS', 100);    // Crossings per run
-define('DEFAULT_INTERVAL', 30);          // Seconds between runs
-define('SP_TIMEOUT', 120);               // SQL timeout in seconds
+define('DEFAULT_MAX_FLIGHTS', 100);      // Flights per boundary run (keep small to avoid timeouts)
+define('DEFAULT_MAX_CROSSINGS', 50);     // Crossings per run
+define('DEFAULT_INTERVAL', 15);          // Seconds between runs (more frequent, smaller batches)
+define('SP_TIMEOUT', 60);                // SQL timeout in seconds
 
 class BoundaryDaemon
 {
@@ -121,9 +121,9 @@ class BoundaryDaemon
             return ['pending' => 0, 'processed' => 0];
         }
 
-        // Adaptive batch size based on backlog
-        $isBacklogged = $pending > 500;
-        $batchFlights = $isBacklogged ? 1000 : $this->maxFlights;
+        // Adaptive batch size based on backlog (keep batches small to avoid SP timeouts)
+        $isBacklogged = $pending > 200;
+        $batchFlights = $isBacklogged ? 200 : $this->maxFlights;
 
         if ($isBacklogged) {
             $this->log("BACKLOG: {$pending} pending - processing up to {$batchFlights} flights");
@@ -190,9 +190,9 @@ class BoundaryDaemon
             }
 
             if ($this->running) {
-                // Sleep less if backlogged
+                // Sleep less if backlogged to catch up faster
                 $pending = $result['pending'] ?? 0;
-                $sleepTime = ($pending > 500) ? max(5, $this->interval / 2) : $this->interval;
+                $sleepTime = ($pending > 200) ? 5 : $this->interval;
                 sleep((int)$sleepTime);
             }
 
