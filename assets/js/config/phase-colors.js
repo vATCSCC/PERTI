@@ -5,19 +5,43 @@
  * Edit colors here to update them everywhere (demand, status, etc.)
  *
  * STACKING ORDER (bottom to top on chart):
- *   arrived -> disconnected -> descending -> enroute -> departed -> taxiing -> prefile -> unknown
+ *   arrived -> disconnected -> descending -> enroute -> departed -> taxiing -> prefile -> 
+ *   actual_gs -> simulated_gs -> proposed_gs -> actual_gdp -> simulated_gdp -> proposed_gdp -> unknown
+ * 
+ * GS/GDP Status Colors (FAA-style):
+ *   - Actual: EDCT has been issued
+ *   - Simulated: Model run but not issued
+ *   - Proposed: Created but not modeled
  */
 
 // Flight phase colors for visualization
 const PHASE_COLORS = {
-    'arrived': '#1a1a1a',       // Black - Landed at destination
-    'disconnected': '#f97316',  // Bright Orange - Disconnected mid-flight
-    'descending': '#991b1b',    // Dark Red - On approach to destination
-    'enroute': '#dc2626',       // Red - Cruising
-    'departed': '#f87171',      // Light Red - Just took off from origin
-    'taxiing': '#22c55e',       // Green - Taxiing at airport
-    'prefile': '#3b82f6',       // Blue - Filed flight plan
-    'unknown': '#eab308'        // Yellow - Unknown/other phase
+    // Standard flight phases
+    'arrived': '#1a1a1a',           // Black - Landed at destination
+    'disconnected': '#f97316',      // Bright Orange - Disconnected mid-flight
+    'descending': '#991b1b',        // Dark Red - On approach to destination
+    'enroute': '#dc2626',           // Red - Cruising
+    'departed': '#f87171',          // Light Red - Just took off from origin
+    'taxiing': '#22c55e',           // Green - Taxiing at airport
+    'prefile': '#3b82f6',           // Blue - Filed flight plan
+    
+    // Ground Stop statuses (yellow spectrum)
+    'actual_gs': '#eab308',         // Yellow - EDCT issued (FAA style)
+    'simulated_gs': '#fef08a',      // Light Yellow - Simulated but not issued
+    'proposed_gs': '#ca8a04',       // Dark Yellow/Gold - Proposed but not modeled
+    'gs': '#eab308',                // Yellow - Generic GS (same as actual)
+    
+    // Ground Delay Program statuses (brown spectrum)
+    'actual_gdp': '#92400e',        // Brown - EDCT issued (FAA style)
+    'simulated_gdp': '#d4a574',     // Light Brown/Tan - Simulated but not issued
+    'proposed_gdp': '#78350f',      // Dark Brown - Proposed but not modeled
+    'gdp': '#92400e',               // Brown - Generic GDP (same as actual)
+    
+    // Exempt flights
+    'exempt': '#6b7280',            // Gray - Exempt from TMI
+    
+    // Unknown/other
+    'unknown': '#9333ea'            // Purple - Unknown/other phase (changed from yellow)
 };
 
 // Phase display names for legend/tooltips
@@ -29,6 +53,15 @@ const PHASE_LABELS = {
     'departed': 'Departed',
     'taxiing': 'Taxiing',
     'prefile': 'Prefile',
+    'actual_gs': 'GS (EDCT)',
+    'simulated_gs': 'GS (Simulated)',
+    'proposed_gs': 'GS (Proposed)',
+    'gs': 'Ground Stop',
+    'actual_gdp': 'GDP (EDCT)',
+    'simulated_gdp': 'GDP (Simulated)',
+    'proposed_gdp': 'GDP (Proposed)',
+    'gdp': 'GDP',
+    'exempt': 'Exempt',
     'unknown': 'Unknown'
 };
 
@@ -41,13 +74,37 @@ const PHASE_DESCRIPTIONS = {
     'departed': 'climbing',
     'taxiing': 'at origin',
     'prefile': 'filed',
+    'actual_gs': 'GS EDCT issued',
+    'simulated_gs': 'GS simulated',
+    'proposed_gs': 'GS proposed',
+    'gs': 'ground stop',
+    'actual_gdp': 'GDP EDCT issued',
+    'simulated_gdp': 'GDP simulated',
+    'proposed_gdp': 'GDP proposed',
+    'gdp': 'GDP controlled',
+    'exempt': 'exempt',
     'unknown': ''
 };
 
 // Phase stacking order for main chart (bottom to top)
-// These phases stack on top of each other in the bar chart
-// Prefile is between taxiing and unknown
-const PHASE_STACK_ORDER = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+// TMI statuses appear on top of normal flight phases
+const PHASE_STACK_ORDER = [
+    'arrived', 
+    'disconnected', 
+    'descending', 
+    'enroute', 
+    'departed', 
+    'taxiing', 
+    'prefile',
+    'exempt',
+    'actual_gs',
+    'simulated_gs', 
+    'proposed_gs',
+    'actual_gdp',
+    'simulated_gdp',
+    'proposed_gdp',
+    'unknown'
+];
 
 // Phases displayed on separate axis (not stacked with main phases)
 // Currently empty - all phases are stacked together
@@ -65,22 +122,77 @@ const PHASE_BADGE_CLASSES = {
     'departed': 'badge-danger',
     'taxiing': 'badge-success',
     'prefile': 'badge-primary',
+    'actual_gs': 'badge-warning',
+    'simulated_gs': 'badge-warning',
+    'proposed_gs': 'badge-warning',
+    'gs': 'badge-warning',
+    'actual_gdp': 'badge-warning',
+    'simulated_gdp': 'badge-warning',
+    'proposed_gdp': 'badge-warning',
+    'gdp': 'badge-warning',
+    'exempt': 'badge-secondary',
     'unknown': 'badge-secondary'
 };
 
+// TMI status mapping for normalizing various status strings
+const TMI_STATUS_MAP = {
+    // Ground Stop variations
+    'PROPOSED_GS': 'proposed_gs',
+    'SIMULATED_GS': 'simulated_gs',
+    'ACTUAL_GS': 'actual_gs',
+    'GS': 'gs',
+    'GROUND_STOP': 'gs',
+    'GROUNDSTOP': 'gs',
+    
+    // GDP variations
+    'PROPOSED_GDP': 'proposed_gdp',
+    'SIMULATED_GDP': 'simulated_gdp',
+    'ACTUAL_GDP': 'actual_gdp',
+    'GDP': 'gdp',
+    'GROUND_DELAY': 'gdp',
+    
+    // Exempt
+    'EXEMPT': 'exempt',
+    'EXEMPTED': 'exempt'
+};
+
+// Helper function to normalize TMI status to phase key
+function normalizeTmiStatus(status) {
+    if (!status) return null;
+    var upper = String(status).toUpperCase().trim();
+    return TMI_STATUS_MAP[upper] || null;
+}
+
 // Helper function to get phase color
 function getPhaseColor(phase) {
-    return PHASE_COLORS[phase] || '#999999';
+    if (!phase) return PHASE_COLORS['unknown'];
+    var normalized = String(phase).toLowerCase().trim();
+    // Check direct match
+    if (PHASE_COLORS[normalized]) return PHASE_COLORS[normalized];
+    // Check TMI status map
+    var tmiPhase = normalizeTmiStatus(phase);
+    if (tmiPhase && PHASE_COLORS[tmiPhase]) return PHASE_COLORS[tmiPhase];
+    return PHASE_COLORS['unknown'] || '#9333ea';
 }
 
 // Helper function to get phase label
 function getPhaseLabel(phase) {
-    return PHASE_LABELS[phase] || phase;
+    if (!phase) return 'Unknown';
+    var normalized = String(phase).toLowerCase().trim();
+    if (PHASE_LABELS[normalized]) return PHASE_LABELS[normalized];
+    var tmiPhase = normalizeTmiStatus(phase);
+    if (tmiPhase && PHASE_LABELS[tmiPhase]) return PHASE_LABELS[tmiPhase];
+    return phase;
 }
 
 // Helper function to get phase badge class
 function getPhaseBadgeClass(phase) {
-    return PHASE_BADGE_CLASSES[phase] || 'badge-secondary';
+    if (!phase) return 'badge-secondary';
+    var normalized = String(phase).toLowerCase().trim();
+    if (PHASE_BADGE_CLASSES[normalized]) return PHASE_BADGE_CLASSES[normalized];
+    var tmiPhase = normalizeTmiStatus(phase);
+    if (tmiPhase && PHASE_BADGE_CLASSES[tmiPhase]) return PHASE_BADGE_CLASSES[tmiPhase];
+    return 'badge-secondary';
 }
 
 // Helper function to lighten a color (for departure bars)
@@ -100,7 +212,10 @@ if (typeof module !== 'undefined' && module.exports) {
         PHASE_LABELS,
         PHASE_DESCRIPTIONS,
         PHASE_ORDER,
+        PHASE_STACK_ORDER,
         PHASE_BADGE_CLASSES,
+        TMI_STATUS_MAP,
+        normalizeTmiStatus,
         getPhaseColor,
         getPhaseLabel,
         getPhaseBadgeClass,

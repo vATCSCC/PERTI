@@ -271,7 +271,7 @@ Example config template: `load/config.example.php`
 ## 📚 Documentation
 
 For detailed technical documentation, see:
-- `assistant_codebase_index_v16.md` - Comprehensive codebase index
+- `assistant_codebase_index_v17.md` - Comprehensive codebase index
 - `docs/ADL_REFRESH_MIGRATION_GUIDE.md` - ADL refresh patterns
 - `scripts/README.md` - Script documentation
 - `scripts/README_boundaries.md` - Boundary refresh documentation
@@ -292,7 +292,7 @@ For detailed technical documentation, see:
 
 ---
 
-## 🆕 Recent Updates (v16)
+## 🆕 Recent Updates (v17)
 
 - **Demand Subsystem (NEW):**
   - `demand.php` — Airport demand analysis page
@@ -309,7 +309,15 @@ For detailed technical documentation, see:
   - Rate change audit trail (`airport_config_rate_history`)
   - Manual rate overrides (`manual_rate_override`)
 
-- **Previous v15 Updates:**
+- **ATFM Training Simulator (NEW v17):**
+  - Web-based TMU training tool for GS/GDP/AFP/MIT/Reroute practice
+  - Node.js flight engine with realistic physics simulation
+  - Reference data: 3,989 O-D route patterns, 107 airports, 17 carriers
+  - `simulator.php` — Main simulator page
+  - `api/simulator/*.php` — Simulator API endpoints (navdata, engine, routes, traffic)
+  - `simulator/engine/` — Node.js headless flight simulation
+
+- **Previous v15/v16 Updates:**
   - GDT Ground Stop NTML Architecture with complete program lifecycle
   - ADL Schema Cleanup (unified `phase` column)
   - Weather Radar (IEM NEXRAD/MRMS integration)

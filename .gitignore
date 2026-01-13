@@ -33,3 +33,6 @@ deploy.zip
 .vscode/
 *.DS_Store
 Thumbs.db
+
+# Reference PDFs (FAA documentation)
+docs/*.pdf

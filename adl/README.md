@@ -27,7 +27,6 @@ adl/
 │   └── sp_UpsertFlight.sql          # Data ingestion from VATSIM/SimTraffic
 ├── php/                         # PHP helper classes and daemons
 │   ├── AdlFlightUpsert.php          # PHP wrapper for sp_UpsertFlight
-│   ├── vatsim_ingest_daemon.php     # VATSIM API ingestion daemon
 │   ├── parse_queue_daemon.php       # Route parsing queue processor
 │   └── boundary_daemon.php          # ARTCC/TRACON boundary detection
 └── reference_data/              # Scripts to import reference data

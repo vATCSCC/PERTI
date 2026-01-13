@@ -1,7 +1,7 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-01-10
-> **System Version:** v16 - Main Branch
+> **Last Updated:** 2026-01-13
+> **System Version:** v17 - Main Branch
 
 ---
 
@@ -20,6 +20,7 @@
 | **Demand Analysis (NEW v16)** | [OK] Active | Airport demand/capacity visualization |
 | **Airport Config (NEW v16)** | [OK] Active | Runway configuration & rate management |
 | **Rate Suggestions (NEW v16)** | [OK] Active | Weather-aware AAR/ADR recommendations |
+| **ATFM Simulator (NEW v17)** | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
 
 ---
 
@@ -367,6 +368,19 @@ python atis_daemon.py
 | `.claude/settings.local.json` | [WARN] Modified | Local settings update |
 | `api/adl/AdlQueryHelper.php` | [WARN] Modified | Query improvements |
 | `assets/js/nod.js` | [WARN] Modified | NOD enhancements |
+
+### New Files (v17)
+
+| File | Status | Notes |
+|------|--------|-------|
+| `simulator.php` | [DEV] In Progress | ATFM Training Simulator main page |
+| `api/simulator/navdata.php` | [DEV] In Progress | Navigation data API |
+| `api/simulator/engine.php` | [DEV] In Progress | Flight engine control API |
+| `api/simulator/routes.php` | [DEV] In Progress | Route pattern data API |
+| `api/simulator/traffic.php` | [DEV] In Progress | Traffic generation API |
+| `simulator/engine/` | [DEV] In Progress | Node.js flight engine |
+| `adl/migrations/sim_ref_*.sql` | [OK] Created | Simulator reference data tables |
+| `docs/ATFM_Simulator_Design_Document_v1.md` | [OK] Created | Simulator design reference |
 
 ### New Files (v16)
 

@@ -1,5 +1,15 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.5 - Steps 10 & 11 DISABLED (rollback)
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.7 - Prefile Flight Plans & Batch ETA
+--
+-- Changes from V8.9.6:
+--   - Step 2a: Now creates adl_flight_plan rows for prefiles (enables prefile ETAs)
+--   - Step 8d: Added sp_CalculateETABatch call (sets eta_dist_source, eta_method)
+--   - Prefiles now get GCD calculated from departure/arrival airports
+--
+-- Changes from V8.9.5:
+--   - Added Step 5b: Route Distance calculation for active flights
+--   - Uses sp_UpdateRouteDistancesBatch to populate route_dist_to_dest_nm
+--   - Enables more accurate ETA calculations using parsed route distances
 --
 -- Changes from V8.9.4:
 --   - DISABLED Steps 10 & 11 again - optimized sub-procedures not deployed
@@ -33,11 +43,13 @@
 --   4b   - ETD/STD Calculation (V8.4)
 --   4c   - SimBrief/ICAO Flight Plan Parsing (V8.5)
 --   5    - Queue routes for parsing
+--   5b   - Route Distance calculation (V8.9.6) <-- NEW
 --   6    - Upsert adl_flight_aircraft
 --   7    - Mark inactive flights
 --   8    - Process Trajectory & ETA Calculations
 --   8b   - Update arrival buckets
 --   8c   - Waypoint ETA Calculation (V8.6)
+--   8d   - Batch ETA Calculation (V8.9.7) <-- NEW
 --   9    - Zone Detection for OOOI
 --   10   - Boundary Detection for ARTCC/Sector/TRACON
 --   11   - Planned Crossings Calculation (V8.7) <-- NEW
@@ -84,7 +96,8 @@ BEGIN
     DECLARE @step1_ms INT = 0, @step1b_ms INT = 0, @step2_ms INT = 0, @step2a_ms INT = 0;
     DECLARE @step2b_ms INT = 0, @step3_ms INT = 0, @step4_ms INT = 0, @step4b_ms INT = 0;
     DECLARE @step4c_ms INT = 0, @step5_ms INT = 0, @step6_ms INT = 0, @step7_ms INT = 0;
-    DECLARE @step8_ms INT = 0, @step8b_ms INT = 0, @step8c_ms INT = 0, @step9_ms INT = 0;
+    DECLARE @step8_ms INT = 0, @step8b_ms INT = 0, @step8c_ms INT = 0, @step8d_ms INT = 0, @step9_ms INT = 0;
+    DECLARE @batch_eta_count INT = 0;  -- V8.9.7: Batch ETA counter
     DECLARE @step10_ms INT = 0, @step11_ms INT = 0, @step12_ms INT = 0, @step13_ms INT = 0;
     
     -- ========================================================================
@@ -378,6 +391,84 @@ BEGIN
                 ISNULL(CAST(fp.deptime AS NVARCHAR(4)), '') = c.flight_key
       );
 
+    -- V8.9.7: Create flight_plan rows for prefiles (enables prefile ETA calculation)
+    ;WITH prefile_plans AS (
+        SELECT
+            c.flight_uid,
+            CAST(fp.departure AS CHAR(4)) AS dept_icao,
+            CAST(fp.arrival AS CHAR(4)) AS dest_icao,
+            CAST(fp.alternate AS CHAR(4)) AS alt_icao,
+            CAST(fp.route AS NVARCHAR(MAX)) AS route,
+            CAST(fp.remarks AS NVARCHAR(MAX)) AS remarks,
+            CAST(fp.deptime AS CHAR(4)) AS dep_time_z,
+            CAST(fp.flight_rules AS CHAR(1)) AS fp_rule,
+            CASE
+                WHEN fp.altitude LIKE 'FL%' THEN TRY_CAST(SUBSTRING(fp.altitude, 3, 10) AS INT) * 100
+                WHEN fp.altitude LIKE 'F%' THEN TRY_CAST(SUBSTRING(fp.altitude, 2, 10) AS INT) * 100
+                ELSE TRY_CAST(fp.altitude AS INT)
+            END AS altitude_ft,
+            CASE
+                WHEN fp.cruise_tas LIKE 'N%' THEN TRY_CAST(SUBSTRING(fp.cruise_tas, 2, 10) AS INT)
+                ELSE TRY_CAST(fp.cruise_tas AS INT)
+            END AS tas_kts,
+            CASE
+                WHEN LEN(fp.enroute_time) = 4
+                THEN TRY_CAST(LEFT(fp.enroute_time, 2) AS INT) * 60 + TRY_CAST(RIGHT(fp.enroute_time, 2) AS INT)
+                ELSE TRY_CAST(fp.enroute_time AS INT)
+            END AS enroute_minutes,
+            HASHBYTES('MD5', ISNULL(fp.route, '')) AS route_hash
+        FROM OPENJSON(@Json, '$.prefiles')
+        WITH (
+            cid INT,
+            callsign NVARCHAR(16),
+            flight_plan NVARCHAR(MAX) AS JSON
+        ) AS pf
+        OUTER APPLY OPENJSON(pf.flight_plan)
+        WITH (
+            departure NVARCHAR(8),
+            arrival NVARCHAR(8),
+            alternate NVARCHAR(8),
+            deptime NVARCHAR(8),
+            route NVARCHAR(MAX),
+            remarks NVARCHAR(MAX),
+            altitude NVARCHAR(16),
+            cruise_tas NVARCHAR(16),
+            enroute_time NVARCHAR(8),
+            flight_rules NVARCHAR(4)
+        ) AS fp
+        INNER JOIN dbo.adl_flight_core c ON c.flight_key =
+            CAST(pf.cid AS NVARCHAR) + '|' + CAST(pf.callsign AS NVARCHAR(16)) + '|' +
+            ISNULL(CAST(fp.departure AS NVARCHAR(4)), '') + '|' +
+            ISNULL(CAST(fp.arrival AS NVARCHAR(4)), '') + '|' +
+            ISNULL(CAST(fp.deptime AS NVARCHAR(4)), '')
+        WHERE c.phase = 'prefile' AND c.is_active = 1
+          AND fp.departure IS NOT NULL AND fp.arrival IS NOT NULL
+    )
+    INSERT INTO dbo.adl_flight_plan (
+        flight_uid, fp_rule, fp_dept_icao, fp_dest_icao, fp_alt_icao,
+        fp_route, fp_remarks, fp_altitude_ft, fp_tas_kts, fp_dept_time_z,
+        fp_enroute_minutes, fp_hash, fp_updated_utc, parse_status,
+        gcd_nm
+    )
+    SELECT
+        pp.flight_uid, pp.fp_rule, pp.dept_icao, pp.dest_icao, pp.alt_icao,
+        pp.route, pp.remarks, pp.altitude_ft, pp.tas_kts, pp.dep_time_z,
+        pp.enroute_minutes, pp.route_hash, @now, 'PENDING',
+        -- Calculate GCD between departure and arrival airports
+        CASE
+            WHEN dept.LAT_DECIMAL IS NOT NULL AND dept.LONG_DECIMAL IS NOT NULL
+                 AND dest.LAT_DECIMAL IS NOT NULL AND dest.LONG_DECIMAL IS NOT NULL
+            THEN CAST(geography::Point(dept.LAT_DECIMAL, dept.LONG_DECIMAL, 4326).STDistance(
+                      geography::Point(dest.LAT_DECIMAL, dest.LONG_DECIMAL, 4326)) / 1852.0 AS DECIMAL(10,2))
+            ELSE NULL
+        END
+    FROM prefile_plans pp
+    LEFT JOIN dbo.apts dept ON dept.ICAO_ID = pp.dept_icao
+    LEFT JOIN dbo.apts dest ON dest.ICAO_ID = pp.dest_icao
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.adl_flight_plan fp WHERE fp.flight_uid = pp.flight_uid
+    );
+
     SET @step2a_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
@@ -640,6 +731,21 @@ BEGIN
     SET @step5_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
+    -- Step 5b: Update Route Distances for active flights (V8.9.6)
+    -- Uses parsed routes to calculate route_dist_to_dest_nm (more accurate than GCD)
+    -- ========================================================================
+    DECLARE @step5b_ms INT = 0;
+    DECLARE @route_dists_updated INT = 0;
+    SET @step_start = SYSUTCDATETIME();
+
+    IF OBJECT_ID('dbo.sp_UpdateRouteDistancesBatch', 'P') IS NOT NULL
+    BEGIN
+        EXEC dbo.sp_UpdateRouteDistancesBatch @flights_updated = @route_dists_updated OUTPUT;
+    END
+
+    SET @step5b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
+    -- ========================================================================
     -- Step 6: Upsert adl_flight_aircraft
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
@@ -724,6 +830,19 @@ BEGIN
     END
 
     SET @step8c_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
+
+    -- ========================================================================
+    -- Step 8d: Batch ETA Calculation (V8.9.7)
+    -- Uses sp_CalculateETABatch which sets eta_method and eta_dist_source
+    -- ========================================================================
+    SET @step_start = SYSUTCDATETIME();
+
+    IF OBJECT_ID('dbo.sp_CalculateETABatch', 'P') IS NOT NULL
+    BEGIN
+        EXEC dbo.sp_CalculateETABatch @eta_count = @batch_eta_count OUTPUT;
+    END
+
+    SET @step8d_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
     -- Step 9: Zone Detection for OOOI
@@ -814,9 +933,11 @@ BEGIN
         @new_flights AS new_flights,
         @updated_flights AS updated_flights,
         @routes_queued AS routes_queued,
+        @route_dists_updated AS route_dists_updated,
         @etd_count AS etds_calculated,
         @simbrief_parsed AS simbrief_parsed,
         @eta_count AS etas_calculated,
+        @batch_eta_count AS batch_etas_calculated,  -- V8.9.7
         @waypoint_etas AS waypoint_etas,
         @traj_count AS trajectories_logged,
         @zone_transitions AS zone_transitions,
@@ -834,11 +955,13 @@ BEGIN
         @step4b_ms AS step4b_etd_ms,
         @step4c_ms AS step4c_simbrief_ms,
         @step5_ms AS step5_queue_ms,
+        @step5b_ms AS step5b_routedist_ms,
         @step6_ms AS step6_aircraft_ms,
         @step7_ms AS step7_inactive_ms,
         @step8_ms AS step8_trajectory_ms,
         @step8b_ms AS step8b_bucket_ms,
         @step8c_ms AS step8c_waypoint_ms,
+        @step8d_ms AS step8d_batch_eta_ms,  -- V8.9.7
         @step9_ms AS step9_zone_ms,
         @step10_ms AS step10_boundary_ms,
         @step11_ms AS step11_crossings_ms,
@@ -848,8 +971,9 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.5 created successfully';
-PRINT 'ROLLBACK: Steps 10 & 11 DISABLED (caused timeout in V8.9.4)';
-PRINT 'Steps 1-9 + 12-13 remain active, target <5s performance';
-PRINT 'Deploy/test sub-procedures individually before re-enabling';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.7 created successfully';
+PRINT 'NEW: Step 2a - Prefile flight plans with GCD calculation';
+PRINT 'NEW: Step 8d - Batch ETA calculation (sets eta_dist_source, eta_method)';
+PRINT 'Steps 10 & 11 remain DISABLED pending sub-procedure testing';
+PRINT 'Steps 1-9 + 12-13 active, target <5s performance';
 GO

@@ -1,6 +1,6 @@
 # vATCSCC PERTI — Codebase Index (v17)
 
-Generated: 2026-01-11 UTC
+Generated: 2026-01-13 UTC
 
 This index is a comprehensive reference for navigation, call graphs, and high-signal files.
 
@@ -31,14 +31,15 @@ This index is a comprehensive reference for navigation, call graphs, and high-si
 - [23) Initiative Timeline subsystem](#23-initiative-timeline-subsystem)
 - [24) Weather Radar subsystem](#24-weather-radar-subsystem)
 - [25) SUA/TFR subsystem](#25-suatfr-subsystem)
-- [26) Demand subsystem](#26-demand-subsystem)
-- [27) Airport Configuration & ATIS subsystem](#27-airport-configuration--atis-subsystem)
+- [26) Demand subsystem (NEW v16)](#26-demand-subsystem-new-v16)
+- [27) Airport Configuration & ATIS subsystem (NEW v16)](#27-airport-configuration--atis-subsystem-new-v16)
 - [28) ATFM Training Simulator (NEW v17)](#28-atfm-training-simulator-new-v17)
 - [29) Practical gotchas](#29-practical-gotchas-to-remember)
 - [30) Search anchors](#30-search-anchors-fast-grep-patterns)
 - [31) Changelog](#31-changelog)
 - [32) VATSIM_ADL Azure SQL Database Reference](#32-vatsim_adl-azure-sql-database-reference)
 - [33) VATSIM_PERTI MySQL Database Reference](#33-vatsim_perti-mysql-database-reference)
+- [34) Quick Reference Indices](#34-quick-reference-indices)
 
 ---
 
@@ -55,12 +56,11 @@ This index is a comprehensive reference for navigation, call graphs, and high-si
 - `splits.php` — sector/position split configuration map (Azure SQL-backed; MapLibre)
 - `jatoc.php` — JATOC AWO Incident Monitor (Azure SQL-backed; MapLibre)
 - `nod.php` — **NAS Operations Dashboard** (consolidated monitoring; MapLibre)
-- `simulator.php` — **ATFM Training Simulator** (PLANNED v17)
 
 ### 1.2 Data stores
 
 - **MySQL** (via `mysqli_*`): plans, schedules, configs, comments, initiative timelines, and `tmi_ground_stops` definitions.
-- **Azure SQL** (via `sqlsrv_*`): ADL live flight state (`dbo.adl_flights`) + TMI workflows (GS/GDP/Reroute/Splits/History) + JATOC incidents + NOD advisories + Simulator reference data.
+- **Azure SQL** (via `sqlsrv_*`): ADL live flight state (`dbo.adl_flights`) + TMI workflows (GS/GDP/Reroute/Splits/History) + JATOC incidents + NOD advisories.
 
 ### 1.3 Background/refresh jobs
 
@@ -118,9 +118,45 @@ This index is a comprehensive reference for navigation, call graphs, and high-si
 - `tmi_ground_stops`
 - `assigned`
 
+#### `tmi_ground_stops` columns (MySQL)
+
+- `status:int:1`
+- `name:varchar:64`
+- `ctl_element:varchar:4`
+- `element_type:varchar:8`
+- `airports:text`
+- `start_utc:varchar:20`
+- `end_utc:varchar:20`
+- `prob_ext:int:1`
+- `origin_centers:text`
+- `origin_airports:text`
+- `flt_incl_carrier:varchar:64`
+- `flt_incl_type:varchar:4`
+- `dep_facilities:text`
+- `comments:text`
+- `adv_number:varchar:16`
+- `advisory_text:text`
+
+#### `p_terminal_init_timeline` / `p_enroute_init_timeline` columns (MySQL)
+
+- `id:int` (PK, auto-increment)
+- `p_id:int` (FK to p_plans)
+- `facility:varchar:255` — comma-separated facility codes
+- `area:varchar:255` — area/sector (optional)
+- `tmi_type:varchar:50` — GS, GDP, MIT, MINIT, CFR, APREQ, Reroute, AFP, FEA, FCA, CTOP, ICR, TBO, Metering, TBM, TBFM, Other
+- `tmi_type_other:varchar:100` — custom type when tmi_type = 'Other'
+- `cause:varchar:255` — cause/context
+- `start_datetime:datetime` — start date/time in UTC
+- `end_datetime:datetime` — end date/time in UTC
+- `level:varchar:50` — CDW, Possible, Probable, Expected, Active, Advisory_Terminal, Advisory_EnRoute, Constraint_Terminal, Constraint_EnRoute, Special_Event, Space_Op, Staffing, VIP, Misc
+- `notes:text`
+- `created_at:datetime`
+- `updated_at:datetime`
+- `created_by:varchar:50`
+
 ### 3.2 Azure SQL / ADL tables (high-signal subset)
 
-This project uses Azure SQL (via `sqlsrv_*` and `$conn_adl`) for live flight state + TMI workflows. Full table/column listing is in Section 32.
+This project uses Azure SQL (via `sqlsrv_*` and `$conn_adl`) for live flight state + TMI workflows. Full table/column listing is in Section 29.
 
 - **dbo.adl_flights** — Live flight data (refreshed every ~15s)
 - **dbo.adl_flights_gs** — Ground Stop applied flight state
@@ -133,16 +169,27 @@ This project uses Azure SQL (via `sqlsrv_*` and `$conn_adl`) for live flight sta
 - **dbo.tmi_reroute_flights** — Flight assignments
 - **dbo.tmi_reroute_compliance_log** — Compliance history
 
-### 3.4 Simulator Reference Tables (NEW v17)
+### 3.4 NOD/DCC Azure SQL Tables
 
-- **dbo.sim_ref_carrier_lookup** — 17 carriers with IATA/ICAO mappings
-- **dbo.sim_ref_route_patterns** — 3,989 O-D routes with hourly patterns
-- **dbo.sim_ref_airport_demand** — 107 airports with demand curves
-- **dbo.sim_ref_import_log** — Import tracking
+- **dbo.dcc_advisories** — DCC advisory records
+- **dbo.dcc_advisory_references** — Advisory cross-references
+- **dbo.dcc_discord_tmi** — Discord TMI integration storage (for bot integration)
+- **dbo.vw_dcc_advisories_today** — View for today's active advisories
+
+### 3.5 Supporting Azure SQL Tables
+
+- **dbo.ACD_Data** — Aircraft characteristics database (ICAO code, FAA designator, weight class, engine type)
+- **dbo.aircraft_type_lookup** — Aircraft type reference
+- **dbo.eta_citypair_lookup** — City pair ETA lookup
+- **dbo.tracons** — TRACON reference data
+- **dbo.r_airport_totals** — Airport totals for reporting
+- **dbo.r_hourly_rates** — Hourly rate calculations
 
 ---
 
 ## 4) Main pages (PHP entrypoints)
+
+Top-level PHP pages in `/wwwroot` and which `assets/js/*` files they load.
 
 | Page | Scripts | Size (lines) |
 |------|---------|--------------|
@@ -151,16 +198,791 @@ This project uses Azure SQL (via `sqlsrv_*` and `$conn_adl`) for live flight sta
 | `gdt.php` | `gdt.js` | ~98K |
 | `index.php` | — | ~23K |
 | `jatoc.php` | `jatoc.js` | ~93K |
+| `logout.php` | — | ~1K |
 | `nod.php` | `nod.js` | ~58K |
 | `plan.php` | `plan.js`, `initiative_timeline.js` | ~115K |
+| `privacy.php` | — | ~6K |
 | `reroutes.php` | `reroute.js` | ~22K |
 | `reroutes_index.php` | inline JS | ~12K |
 | `review.php` | `review.js`, `statsim_rates.js` | ~30K |
-| `route.php` | `route.js`, `route-maplibre.js`, `weather_radar.js` | ~137K |
+| `route.php` | `awys.js`, `leaflet.textpath.js`, `procs_enhanced.js`, `route-maplibre.js`, `route.js`, `weather_radar.js` | ~137K |
 | `schedule.php` | `schedule.js` | ~8K |
 | `sheet.php` | `sheet.js` | ~21K |
 | `splits.php` | `splits.js` | ~103K |
-| `simulator.php` | `simulator/*.js` | PLANNED v17 |
+
+Notes:
+- `reroutes_index.php` contains **inline** JS (no dedicated `assets/js/*` module).
+- `route.php` uses a **feature flag** (`localStorage.useMapLibre` or `?maplibre=true`) to switch between Leaflet and MapLibre.
+- `jatoc.php` and `nod.php` are publicly accessible (no auth required) for monitoring.
+- `route.php` now includes weather radar integration.
+
+---
+
+## 5) Client-side modules (`assets/js/`)
+
+### 5.1 Page entry modules (directly loaded by a PHP page)
+
+#### `awys.js`
+- Loaded by: `route.php`
+- Size: ~0 lines (placeholder/empty)
+
+#### `gdp.js`
+- Loaded by: `tmi.php`
+- Size: ~1,339 lines
+- Calls APIs:
+  - `api/tmi/gdp_apply.php`
+  - `api/tmi/gdp_preview.php`
+  - `api/tmi/gdp_purge.php`
+  - `api/tmi/gdp_purge_local.php`
+  - `api/tmi/gdp_simulate.php`
+
+#### `gdt.js`
+- Loaded by: `tmi.php`, `gdt.php`
+- Size: ~6,876 lines
+- Calls APIs:
+  - `/api/tmi/gdp_apply.php`
+  - `/api/tmi/gdp_preview.php`
+  - `/api/tmi/gdp_purge.php`
+  - `/api/tmi/gdp_simulate.php`
+
+#### `initiative_timeline.js`
+- Loaded by: `plan.php`
+- Size: ~1,281 lines
+- Purpose: Interactive timeline visualization for terminal and enroute initiatives
+- Calls APIs:
+  - `api/data/plans/term_inits_timeline.php`
+  - `api/data/plans/enroute_inits_timeline.php`
+- Features:
+  - Gantt-style timeline with color-coded levels
+  - Modal-based CRUD for timeline entries
+  - Real-time "now" line indicator
+  - Facility filtering and sorting
+  - Support for TMI types (GS, GDP, MIT, Reroute, etc.)
+  - Constraint and VIP movement visualization
+
+#### `jatoc.js`
+- Loaded by: `jatoc.php`
+- Size: ~1,171 lines
+- Calls APIs:
+  - `api/jatoc/incidents.php`
+  - `api/jatoc/incident.php`
+  - `api/jatoc/daily_ops.php`
+  - `api/jatoc/personnel.php`
+  - `api/jatoc/oplevel.php`
+  - `api/jatoc/updates.php`
+  - `api/jatoc/report.php`
+  - `api/jatoc/special_emphasis.php`
+  - `api/jatoc/vatusa_events.php`
+  - `api/jatoc/faa_ops_plan.php`
+
+#### `nod.js`
+- Loaded by: `nod.php`
+- Size: ~4,896 lines
+- Calls APIs:
+  - `api/nod/tmi_active.php` — consolidated active TMIs
+  - `api/nod/advisories.php` — advisory CRUD
+  - `api/nod/jatoc.php` — JATOC summary
+  - `api/nod/discord.php` — Discord integration
+  - `api/nod/tracks.php` — flight track history
+  - `api/nod/tmu_oplevel.php` — TMU operations level
+  - `api/routes/public.php` — public routes
+  - `api/adl/current.php` — live traffic
+  - `api/splits/active.php` — active splits
+  - `api/jatoc/incidents.php` — incident details
+
+#### `plan.js`
+- Loaded by: `plan.php`
+- Size: ~3,491 lines
+- Calls APIs: various `api/data/plans/*` and `api/mgt/*` endpoints
+
+#### `public-routes.js`
+- Loaded by: via `route.php` (integrated with route-maplibre.js)
+- Size: ~1,831 lines
+- Calls APIs:
+  - `api/routes/public.php`
+  - `api/routes/public_post.php`
+  - `api/routes/public_update.php`
+  - `api/routes/public_delete.php`
+
+#### `reroute.js`
+- Loaded by: `reroutes.php`
+- Size: ~654 lines
+- Calls APIs:
+  - `api/data/tmi/reroute.php`
+  - `api/data/tmi/reroutes.php`
+  - `api/mgt/tmi/reroutes/*`
+  - `api/tmi/rr_*`
+
+#### `review.js`
+- Loaded by: `review.php`
+- Size: ~412 lines
+- Calls APIs: `api/data/review/*`
+
+#### `route.js`
+- Loaded by: `route.php`
+- Size: ~8,319 lines
+- Calls APIs:
+  - `api/adl/current.php`
+  - `api/adl/flight.php`
+  - `api/data/routes.php`
+  - `api/data/fixes.php`
+
+#### `route-maplibre.js`
+- Loaded by: `route.php` (when MapLibre mode active)
+- Size: ~7,930 lines
+- Calls APIs: Same as route.js, optimized for MapLibre GL
+
+#### `schedule.js`
+- Loaded by: `schedule.php`
+- Size: ~199 lines
+- Calls APIs: `api/data/schedule.php`, `api/mgt/schedule/*`
+
+#### `sheet.js`
+- Loaded by: `sheet.php, data.php`
+- Size: ~244 lines
+- Calls APIs: `api/data/sheet/*`
+
+#### `splits.js`
+- Loaded by: `splits.php`
+- Size: ~7,360 lines
+- Calls APIs:
+  - `api/splits/configs.php`
+  - `api/splits/config.php`
+  - `api/splits/areas.php`
+  - `api/splits/sectors.php`
+  - `api/splits/presets.php`
+  - `api/splits/tracons.php`
+  - `api/splits/active.php`
+
+#### `statsim_rates.js`
+- Loaded by: `review.php`
+- Size: ~1,187 lines
+- Calls APIs:
+  - `api/statsim/fetch.php`
+  - `api/statsim/plan_info.php`
+  - `api/statsim/save_rates.php`
+
+#### `weather_radar.js` **(NEW v14)**
+- Loaded by: `route.php`
+- Size: ~1,034 lines
+- Purpose: IEM NEXRAD/MRMS weather radar integration for TSD map
+- Features:
+  - Multiple radar products (N0Q, EET, MRMS HSR, precipitation)
+  - Color tables: NWS Standard, FAA ATC (HF-STD-010A), Scope, High Contrast
+  - Animation support with 12 historical frames (~1 hour)
+  - Auto-refresh every 5 minutes
+  - MapLibre GL TMS tile integration
+- Data source: Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
+
+#### `weather_radar_integration.js` **(NEW v14)**
+- Loaded by: `route.php`
+- Size: ~419 lines
+- Purpose: Integration layer connecting WeatherRadar module to route.php UI
+- Features: Control panel binding, state persistence
+
+### 5.2 Utility/support modules
+
+#### `adl-service.js`
+- Size: ~579 lines
+- Purpose: Centralized ADL data management with subscriber pattern
+- Features: Double-buffering, rate limiting, shared data across components
+- Used by: Available for any page needing ADL data
+
+#### `adl-refresh-utils.js`
+- Size: ~580 lines
+- Purpose: Double-buffering utilities for seamless data refresh
+- Features: Buffered fetcher, table updater, prevents UI flashing
+- Used by: Multiple pages for refreshing ADL data
+
+#### `airspace_display.js`
+- Size: ~942 lines
+- Purpose: Airspace boundary rendering utilities
+
+#### `cycle.js`
+- Size: ~177 lines
+- Purpose: AIRAC cycle calculations
+
+#### `jatoc-facility-patch.js`
+- Size: ~486 lines
+- Purpose: JATOC facility name corrections
+
+#### `playbook-cdr-search.js`
+- Size: ~970 lines
+- Purpose: Playbook route and CDR search functionality
+
+#### `procs.js`
+- Size: ~0 lines (deprecated/emptied)
+- Purpose: Legacy SID/STAR procedure data
+
+#### `procs_enhanced.js`
+- Size: ~1,126 lines
+- Purpose: Enhanced procedure rendering for MapLibre
+
+#### `route-symbology.js`
+- Size: ~865 lines
+- Purpose: TSD-style aircraft symbology and route rendering
+
+---
+
+## 6) API endpoints index (`/api/...`)
+
+### 6.1 ADL APIs (`/api/adl/`)
+
+- `current.php` — Returns current ADL flight data
+- `flight.php` — Single flight details
+- `snapshot_history.php` — Historical snapshot access
+- `stats.php` — Flight statistics
+
+### 6.2 TMI APIs (`/api/tmi/`)
+
+**Legacy APIs (deprecated):**
+
+- `gdp_apply.php` — Apply GDP to live flights
+- `gdp_preview.php` — Preview GDP impact
+- `gdp_purge.php` — Purge GDP
+- `gdp_simulate.php` — Run GDP simulation
+- `gdp_purge_local.php` — Local GDP purge
+- `gs_apply.php` — Apply Ground Stop (legacy)
+- `gs_apply_ctd.php` — Apply GS with CTD (legacy)
+- `gs_preview.php` — Preview GS impact (legacy)
+- `gs_purge_all.php` — Purge all GS (legacy)
+- `gs_purge_local.php` — Local GS purge (legacy)
+- `gs_simulate.php` — Simulate GS (legacy)
+
+**New GS APIs (`/api/tmi/gs/`) — NEW v15:**
+
+- `common.php` — Shared utilities (respond_json, fetch_all, etc.)
+- `create.php` — Create new GS in PROPOSED state
+- `model.php` — Model GS (identify affected flights)
+- `activate.php` — Activate GS (issue EDCTs)
+- `extend.php` — Extend GS end time
+- `purge.php` — Cancel/purge GS
+- `flights.php` — Get affected flights
+- `get.php` — Get single program with optional flights/events
+- `list.php` — List GS programs with filters
+- `demand.php` — Get arrival demand (for bar graphs)
+
+**Removed APIs (v15):**
+
+- `rr_assign.php` — Removed (reroute assignment)
+- `rr_assign_manual.php` — Removed (manual reroute assignment)
+- `rr_compliance_history.php` — Removed (compliance history)
+- `rr_compliance_override.php` — Removed (compliance override)
+- `rr_compliance_refresh.php` — Removed (compliance refresh)
+- `rr_export.php` — Removed (reroute export)
+- `rr_flight_search.php` — Removed (flight search)
+- `rr_preview.php` — Removed (reroute preview)
+- `rr_stats.php` — Removed (reroute stats)
+
+### 6.3 JATOC APIs (`/api/jatoc/`)
+
+- `incidents.php` — List incidents
+- `incident.php` — Single incident CRUD
+- `daily_ops.php` — Daily operations
+- `personnel.php` — Personnel roster
+- `oplevel.php` — Operations level
+- `updates.php` — Incident updates
+- `report.php` — Incident reports
+- `special_emphasis.php` — Special emphasis items
+- `vatusa_events.php` — VATUSA events integration
+- `faa_ops_plan.php` — FAA ops plan
+
+### 6.4 NOD APIs (`/api/nod/`)
+
+- `tmi_active.php` — Active TMIs summary
+- `advisories.php` — Advisory CRUD
+- `advisory_import.php` — Import advisories **(NEW v14)**
+- `jatoc.php` — JATOC summary for NOD
+- `discord.php` — Discord integration
+- `tracks.php` — Flight track history
+- `tmu_oplevel.php` — TMU operations level
+
+### 6.5 Splits APIs (`/api/splits/`)
+
+- `configs.php` — Split configurations list
+- `config.php` — Single config CRUD
+- `areas.php` — Area definitions
+- `sectors.php` — Sector data
+- `presets.php` — Preset configurations
+- `tracons.php` — TRACON data
+- `active.php` — Active splits
+- `scheduled.php` — Scheduled splits
+- `maps.php` — Map data
+- `debug.php` — Debug endpoints
+
+### 6.6 Routes APIs (`/api/routes/`)
+
+- `public.php` — Public routes list
+- `public_post.php` — Create public route
+- `public_update.php` — Update public route
+- `public_delete.php` — Delete public route
+
+### 6.7 Data APIs (`/api/data/`)
+
+- `plans/*` — Plan data management
+- `review/*` — Review data
+- `routes.php` — Route data
+- `fixes.php` — Fix/waypoint data
+- `schedule.php` — Schedule data
+- `sheet/*` — Sheet data
+- `sigmets.php` — SIGMET data
+- `sua.php` — Special Use Airspace data **(NEW v14)**
+- `tfr.php` — Temporary Flight Restrictions **(NEW v14)**
+- `weather.php` — Weather data **(NEW v14)**
+- `parse_aixm_sua.php` — AIXM SUA parser **(NEW v14)**
+- `plans/term_inits_timeline.php` — Terminal timeline API
+- `plans/enroute_inits_timeline.php` — Enroute timeline API
+
+### 6.8 StatSim APIs (`/api/statsim/`)
+
+- `fetch.php` — Fetch StatSim data
+- `plan_info.php` — Plan info for StatSim
+- `save_rates.php` — Save rate calculations
+
+---
+
+## 7) Database migrations and schema artifacts
+
+- `migrations/001_create_reroute_tables.sql` — Initial reroute tables (MySQL)
+- `migrations/001_create_reroute_tables_sqlserver.sql` — Reroute tables (SQL Server)
+- `migrations/002_adl_history_stored_procedure.sql` — ADL history SP
+- `migrations/003_gdp_tables.sql` — GDP tables
+- `migrations/003_gdp_tables_PATCH.sql` — GDP patch
+- `migrations/004_public_routes.sql` — Public routes table
+- `migrations/004_splits_areas_color.sql` — Splits area colors
+- `migrations/005_jatoc_tables.sql` — JATOC tables
+- `migrations/005b_add_incident_numbers.sql` — Incident numbers
+- `migrations/005c_jatoc_reports_table.sql` — JATOC reports
+- `migrations/006_dcc_advisories.sql` — DCC advisory tables
+- `migrations/006_nod_advisories.sql` — NOD advisory tables
+- `migrations/007_add_plan_end_datetime.sql` — Plan end datetime
+- `migrations/007_initiative_timeline.sql` — Initiative timeline tables (MySQL)
+- `migrations/008_initiative_timeline_alter.sql` — Timeline alterations (Azure SQL)
+- `migrations/008_initiative_timeline_alter_mysql.sql` — Timeline alterations (MySQL)
+
+---
+
+## 8) Reference data and GeoJSON
+
+- `assets/geojson/artcc.json` — ARTCC boundaries (from VATSIM)
+- `assets/geojson/tracon.json` — TRACON boundaries (from VATSIM)
+- `assets/geojson/high.json` — High altitude sectors
+- `assets/geojson/low.json` — Low altitude sectors
+- `assets/geojson/superhigh.json` — Super high altitude sectors **(NEW v14)**
+- `assets/geojson/SUA.geojson` — Special Use Airspace boundaries **(NEW v14)**
+- `assets/data/playbook_routes.csv` — Playbook route reference
+- `assets/data/cdrs.csv` — CDR route reference
+- `assets/data/apts.csv` — Airport data
+- `assets/data/awys.csv` — Airway data
+- `assets/data/points.csv` — Navigation points
+- `assets/data/navaids.csv` — Navigation aids
+- `assets/data/dp_full_routes.csv` — Departure procedures
+- `assets/data/star_full_routes.csv` — Arrival procedures
+- `assets/data/TierInfo.csv` — ARTCC tier information
+
+---
+
+## 9) Operational scripts (`scripts/`)
+
+- `vatsim_adl_daemon.php` — Main ADL refresh daemon (runs every ~15s)
+- `refresh_vatsim_boundaries.php` — Boundary GeoJSON refresh
+- `update_playbook_routes.py` — Playbook route updates
+- `build_sector_boundaries.py` — Sector boundary builder
+- `statsim_scraper.js` — StatSim data scraper (Puppeteer)
+- `startup.sh` — Daemon startup script
+
+---
+
+## 10) Ground Stop (GS) subsystem — Detailed notes
+
+### Key files
+- `tmi.php` — Main GS UI (not in current snapshot)
+- `api/tmi/gs_*.php` — GS API endpoints
+- `api/data/tmi/ground_stop.php` — Single GS data
+- `api/data/tmi/ground_stops.php` — GS list
+- `api/mgt/tmi/ground_stops/post.php` — Create GS
+
+### Flow
+1. User creates GS definition in MySQL `tmi_ground_stops`
+2. Preview shows affected flights from `dbo.adl_flights`
+3. Apply copies affected flights to `dbo.adl_flights_gs` with EDCT
+4. ADL daemon maintains GS state during refresh cycles
+
+---
+
+## 11) GDP / GDT (Ground Delay Program) subsystem — Detailed notes
+
+### Key files
+
+- `gdt.php` — FSM-style GDP interface (~98K)
+- `assets/js/gdt.js` — GDT JavaScript (~6,876 lines)
+- `assets/js/gdp.js` — GDP utilities (~1,339 lines)
+- `includes/gdp_section.php` — Reusable GDP component
+- `api/tmi/gdp_*.php` — GDP API endpoints (legacy)
+- `api/tmi/gs/*.php` — New GS API endpoints (v15)
+
+### Database Tables (NEW v15 — NTML Schema)
+
+| Table | Description |
+|-------|-------------|
+| `ntml` | National Traffic Management Log (program registry) |
+| `ntml_info` | Event log / audit trail |
+| `ntml_slots` | Arrival slot allocation (for GDP) |
+
+### Stored Procedures (NEW v15)
+
+| Procedure | Description |
+|-----------|-------------|
+| `sp_GS_Create` | Create proposed ground stop |
+| `sp_GS_Model` | Identify affected flights |
+| `sp_GS_IssueEDCTs` | Activate ground stop |
+| `sp_GS_Extend` | Extend GS end time |
+| `sp_GS_Purge` | Cancel/purge ground stop |
+| `sp_GS_GetFlights` | Get affected flights |
+| `sp_GS_DetectPopups` | Detect new pop-up flights |
+
+### Views (NEW v15)
+
+| View | Description |
+|------|-------------|
+| `vw_GDT_FlightList` | Complete flight info for GDT displays |
+| `vw_GDT_DemandByQuarter` | Demand by 15-min bins |
+| `vw_GDT_DemandByHour` | Hourly demand |
+| `vw_GDT_DemandByCenter` | Demand by origin ARTCC |
+| `vw_NTML_Active` | Active TMI programs |
+| `vw_NTML_Today` | Today's programs |
+
+### Features
+
+- FSM-style rate visualization
+- EDCT/CTA slot allocation
+- Program parameters (scope, rate, duration)
+- Flight list with compliance status
+- Real-time preview and simulation
+- **NEW v15:** NTML-based program lifecycle (PROPOSED → ACTIVE → COMPLETED/PURGED)
+- **NEW v15:** Tier-based scope expansion
+- **NEW v15:** Pop-up detection during active programs
+
+---
+
+## 12) Reroute subsystem — Detailed notes
+
+### Key files
+- `reroutes.php` — Reroute authoring UI
+- `reroutes_index.php` — Reroute monitoring dashboard
+- `assets/js/reroute.js` — Reroute JavaScript
+- `api/tmi/rr_*.php` — Reroute APIs
+- `api/data/tmi/reroute.php`, `reroutes.php` — Reroute data
+
+### Tables (Azure SQL)
+- `dbo.tmi_reroutes` — Reroute definitions
+- `dbo.tmi_reroute_flights` — Flight assignments
+- `dbo.tmi_reroute_compliance_log` — Compliance history
+
+### Flow
+1. Create reroute with constraints (O/D, route, time window)
+2. Preview matching flights
+3. Assign flights to reroute
+4. Monitor compliance via dashboard
+
+---
+
+## 13) Splits subsystem — Detailed notes
+
+### Key files
+- `splits.php` — Main splits UI (~103K)
+- `assets/js/splits.js` — Splits JavaScript (~7,360 lines)
+- `api/splits/*.php` — Splits APIs
+
+### Features
+- MapLibre-based sector visualization
+- Area grouping and configuration
+- Preset management
+- Active position assignments
+- TRACON support
+- Strata filtering (low/high/superhigh)
+
+---
+
+## 14) Live Flights TSD / route.php — Detailed notes
+
+### Key files
+- `route.php` — Main TSD UI (~137K)
+- `assets/js/route.js` — Leaflet mode (~8,319 lines)
+- `assets/js/route-maplibre.js` — MapLibre mode (~7,930 lines)
+- `assets/js/route-symbology.js` — Aircraft symbols (~865 lines)
+- `assets/js/procs_enhanced.js` — SID/STAR rendering (~1,126 lines)
+- `assets/js/public-routes.js` — Public routes (~1,831 lines)
+- `assets/js/playbook-cdr-search.js` — Route search (~970 lines)
+- `assets/js/weather_radar.js` — Weather radar (~1,034 lines) **(NEW v14)**
+
+### Features
+- Real-time VATSIM flight display with TSD symbology
+- Multi-route plotting with DP/STAR resolution
+- Public routes sharing
+- Advisory builder for TFMS-style text
+- Export formats: GeoJSON, KML, GeoPackage
+- Playbook/CDR search
+- Weather radar overlay (IEM NEXRAD) **(NEW v14)**
+
+---
+
+## 15) ADL history snapshotting and tracks
+
+### Key components
+- `api/adl/snapshot_history.php` — Access historical snapshots
+- `api/nod/tracks.php` — Flight track history
+- `dbo.adl_flights_history` — Historical flight positions
+- `sp_Adl_RefreshFromVatsim` — Populates history during refresh
+
+---
+
+## 16) Stored Procedure `sp_Adl_RefreshFromVatsim` — Notes
+
+Located in Azure SQL VATSIM_ADL database.
+
+### Responsibilities
+1. Parse incoming VATSIM JSON flight data
+2. Update `dbo.adl_flights` with current positions
+3. Calculate ETAs based on route and groundspeed
+4. Maintain boundary crossing estimates
+5. Log flight history snapshots
+6. Preserve GS/GDP applied states
+
+---
+
+## 17) Public Routes subsystem
+
+### Key files
+- `assets/js/public-routes.js` (~1,831 lines)
+- `api/routes/public*.php` — CRUD endpoints
+
+### Features
+- Globally shared route advisories
+- ARTCC/TRACON attribution
+- Expiration management
+- Route geometry storage
+
+---
+
+## 18) JATOC subsystem
+
+### Key files
+- `jatoc.php` — AWO Incident Monitor (~93K)
+- `assets/js/jatoc.js` (~1,171 lines)
+- `assets/js/jatoc-facility-patch.js` (~486 lines)
+- `api/jatoc/*.php` — JATOC APIs
+
+### Features
+- Incident tracking (ATC Zero/Alert/Limited)
+- Operations level (1/2/3) display
+- Personnel roster
+- POTUS/Space calendar
+- VATUSA events integration
+- MapLibre visualization
+
+---
+
+## 19) StatSim subsystem
+
+### Key files
+- `scripts/statsim_scraper.js` — Puppeteer scraper
+- `assets/js/statsim_rates.js` (~1,187 lines)
+- `api/statsim/*.php` — StatSim APIs
+
+### Purpose
+Scrapes SimTraffic/StatSim data for historical rate analysis and planning comparison.
+
+---
+
+## 20) NASR Navigation Data Updater
+
+### Key file
+- `nasr_navdata_updater.py` — Main updater script
+
+### Updates
+- `assets/data/points.csv` — Navigation points
+- `assets/data/navaids.csv` — Navigation aids
+- `assets/data/awys.csv` — Airways
+- `assets/data/dp_full_routes.csv` — Departure procedures
+- `assets/data/star_full_routes.csv` — Arrival procedures
+
+### Source
+FAA NASR (28-day AIRAC cycle)
+
+---
+
+## 21) NOD (NAS Operations Dashboard) subsystem
+
+### Key files
+- `nod.php` — Main NOD UI (~58K)
+- `assets/js/nod.js` (~4,896 lines)
+- `api/nod/*.php` — NOD APIs
+
+### Features
+- Consolidated TMI monitoring
+- Advisory management
+- JATOC integration
+- Discord TMI sync
+- Flight track display
+- Operations level status
+- Weather radar integration **(Enhanced v14)**
+
+---
+
+## 22) ADL Refresh Patterns
+
+### Key files
+- `assets/js/adl-service.js` (~579 lines)
+- `assets/js/adl-refresh-utils.js` (~580 lines)
+
+### Patterns
+- **Double-buffering**: Fetch new data into hidden buffer, swap on complete
+- **Subscriber pattern**: Components register for data updates
+- **Rate limiting**: Prevent API overload
+- **State preservation**: Maintain selections across refreshes
+
+---
+
+## 23) Initiative Timeline subsystem
+
+### Key files
+- `assets/js/initiative_timeline.js` (~1,281 lines)
+- `assets/css/initiative_timeline.css` (~17K)
+- `api/data/plans/term_inits_timeline.php`
+- `api/data/plans/enroute_inits_timeline.php`
+
+### Features
+- Gantt-style interactive timeline
+- TMI type categorization
+- Color-coded severity levels
+- Real-time "now" indicator
+- Modal CRUD interface
+- Facility filtering
+
+---
+
+## 24) Weather Radar subsystem — NEW v14
+
+### Key files
+- `assets/js/weather_radar.js` (~1,034 lines)
+- `assets/js/weather_radar_integration.js` (~419 lines)
+- `assets/css/weather_radar.css` (~8.6K)
+- `api/data/weather.php` (~12K)
+
+### Features
+- **Products**: Base Reflectivity (N0Q), Echo Tops (EET), MRMS HSR, 1hr/24hr Precipitation
+- **Color tables**: NWS Standard, FAA ATC (HF-STD-010A), Scope (monochrome), High Contrast
+- **Animation**: 12 frames (~1 hour history), 5-minute intervals
+- **Auto-refresh**: Every 5 minutes
+- **Integration**: MapLibre GL TMS tiles
+
+### Data Source
+Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
+- TMS tile endpoints with load balancing across 4 hosts
+- 5-minute cache for real-time, 14-day cache for historical
+
+---
+
+## 25) SUA/TFR subsystem — NEW v14
+
+### Key files
+- `api/data/sua.php` (~2.2K) — Special Use Airspace API
+- `api/data/tfr.php` (~1.6K) — Temporary Flight Restrictions API
+- `api/data/parse_aixm_sua.php` (~18K) — AIXM SUA parser
+- `assets/geojson/SUA.geojson` — SUA boundary data
+
+### Features
+- FAA SUA boundary data (MOAs, Restricted Areas, Warning Areas)
+- TFR integration
+- AIXM format parsing
+- GeoJSON output for map display
+
+---
+
+## 26) Demand subsystem (NEW v16)
+
+### Key files
+
+- `demand.php` — Demand analysis page
+- `assets/js/demand.js` — Demand visualization JavaScript
+- `api/demand/*.php` — Demand API endpoints
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `api/demand/airports.php` | GET | List airports with demand filters (ASPM77/OEP35/Core30) |
+| `api/demand/airport.php` | GET | Single airport demand details |
+| `api/demand/rates.php` | GET | Acceptance/departure rates by airport |
+| `api/demand/summary.php` | GET | Overall demand summary |
+| `api/demand/override.php` | POST/GET | Manual rate override management |
+| `api/demand/configs.php` | GET | Available runway configs for an airport (for rate override selection) |
+| `api/demand/atis.php` | GET | Latest ATIS info with runway configuration and approach types |
+
+### Features
+
+- Airport demand visualization with rate coloring
+- ATIS-based suggested rates (AAR/ADR)
+- Manual rate override support
+- Weather-aware rate adjustments
+- Runway configuration detection from ATIS
+- Flight-track-based runway detection fallback
+
+---
+
+## 27) Airport Configuration & ATIS subsystem (NEW v16)
+
+### Database Tables (Azure SQL)
+
+| Table | Purpose |
+|-------|---------|
+| `airport_config` | Runway configuration definitions (config_id, airport_icao, config_name) |
+| `airport_config_runway` | Normalized runway assignments per config |
+| `airport_config_rate` | Rate tables by weather category (VMC/LVMC/IMC/LIMC/VLIMC) |
+| `airport_config_rate_history` | Rate change audit log |
+| `airport_config_history` | Config metadata change log |
+| `airport_weather_impact` | NAM TAF Board weather rules for rate adjustment |
+| `vatsim_atis` | Raw ATIS broadcasts with weather extraction |
+| `runway_in_use` | Parsed runway assignments from ATIS |
+| `atis_config_history` | Configuration change summary |
+| `detected_runway_config` | Flight-track-based runway detection |
+| `runway_heading_ref` | Heading-to-runway mapping |
+| `manual_rate_override` | Controller rate overrides with time windows |
+
+### Key Stored Procedures
+
+| Procedure | Purpose |
+|-----------|---------|
+| `sp_GetSuggestedRates` | Multi-level rate suggestion with fallback chain |
+| `sp_ImportVatsimAtis` | Import raw ATIS with weather extraction |
+| `sp_ImportRunwaysInUse` | Import parsed runway assignments |
+| `sp_DetectRunwaysFromFlights` | Analyze flight tracks for runway detection |
+| `sp_SetRateOverride` | Create/update manual rate override |
+| `sp_CancelRateOverride` | Deactivate rate overrides |
+| `sp_LogRateChange` | Audit log for rate changes |
+
+### Rate Suggestion Algorithm (Priority Order)
+
+1. **Manual overrides** — If active, return immediately (100% confidence)
+2. **ATIS runway match** — Match runway-in-use to config (100/80/70 confidence)
+3. **Detected config** — From flight tracks (30-50 confidence)
+4. **Wind-based selection** — Match wind to config criteria (30 confidence)
+5. **Highest capacity** — Fallback to best available (10-5 confidence)
+
+### ATIS Python Daemon
+
+- `scripts/vatsim_atis/atis_daemon.py` — Primary ATIS import (15s interval)
+- `scripts/vatsim_atis/vatsim_fetcher.py` — VATSIM API client
+- `scripts/vatsim_atis/atis_parser.py` — ATIS text parsing with runway/weather extraction
+
+### Weather Categories
+
+- **VMC** — Visual Meteorological Conditions
+- **LVMC** — Low Visibility VMC (ceiling 1000-2500 ft or vis 3-5 sm)
+- **IMC** — Instrument Meteorological Conditions
+- **LIMC** — Low IMC (ceiling 200-500 ft or vis 1/2-1 sm)
+- **VLIMC** — Very Low IMC (ceiling <200 ft or vis <1/2 sm)
 
 ---
 
@@ -168,132 +990,76 @@ This project uses Azure SQL (via `sqlsrv_*` and `$conn_adl`) for live flight sta
 
 ### Overview
 
-Semi-stochastic ATFM training simulator for National TMU (DCC) and facility-level TMU trainees to practice issuing TMIs against realistic traffic scenarios.
+The ATFM Training Simulator is a web-based training tool for National (DCC) and facility-level TMU personnel to practice issuing Traffic Management Initiatives (TMIs) against realistic traffic scenarios.
 
-### Status: Phase 0 - In Progress
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Data Import | ✅ COMPLETE | BTS data processed (20.6M flights → reference tables) |
-| SQL Deployment | ✅ COMPLETE | sim_ref_* tables deployed to Azure SQL |
-| Flight Engine | ✅ CODE COMPLETE | Node.js physics engine (needs relocation) |
-| Integration | 🔄 PENDING | Move engine to PERTI/simulator/, create PHP wrapper |
-| Frontend | 📋 PLANNED | simulator.php page with MapLibre display |
-
-### Database Tables (Deployed)
-
-```sql
--- 17 carriers with IATA/ICAO mappings
-sim_ref_carrier_lookup (carrier_id, carrier_code, carrier_icao, carrier_name)
-
--- 3,989 O-D routes with hourly patterns  
-sim_ref_route_patterns (
-    route_id, origin, destination, avg_daily_flights,
-    primary_carrier_icao, carrier_weights_json, aircraft_mix_json,
-    dep_hour_pattern_json, flight_time_min, distance_nm, is_hub_route
-)
-
--- 107 airports with demand curves
-sim_ref_airport_demand (
-    airport_id, airport_name, avg_daily_departures, avg_daily_arrivals,
-    pattern_type, hourly_dep_pattern_json, hourly_arr_pattern_json,
-    peak_dep_hours, peak_arr_hours
-)
-```
-
-### Flight Engine Components (Code Complete - Wrong Location)
-
-**Current Location:** `VATSIM PERTI/atfm-flight-engine/` (WRONG)
-**Target Location:** `VATSIM PERTI/PERTI/simulator/engine/`
-
-| File | Purpose | Lines |
-|------|---------|-------|
-| `src/index.js` | Express HTTP API server (port 3001) | ~300 |
-| `src/SimulationController.js` | Multi-simulation management | ~350 |
-| `src/aircraft/AircraftModel.js` | Flight physics engine | ~450 |
-| `src/math/flightMath.js` | Great circle, TAS/IAS, wind | ~250 |
-| `src/constants/flightConstants.js` | Aviation constants | ~100 |
-| `src/navigation/NavDataClient.js` | PERTI nav_fixes integration | ~300 |
-| `config/aircraftTypes.json` | 20 aircraft performance profiles | - |
-
-### Flight Engine HTTP API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/simulation/create` | Create new simulation |
-| GET | `/simulation` | List all simulations |
-| POST | `/simulation/:id/aircraft` | Spawn aircraft |
-| GET | `/simulation/:id/aircraft` | Get all aircraft state |
-| POST | `/simulation/:id/tick` | Advance time by N seconds |
-| POST | `/simulation/:id/command` | Issue ATC command |
-| DELETE | `/simulation/:id` | Delete simulation |
-
-### ATC Commands Supported
-
-| Command | Alias | Parameters | Description |
-|---------|-------|------------|-------------|
-| FH | FLY_HEADING | heading | Fly specific heading |
-| TL | TURN_LEFT | heading | Turn left to heading |
-| TR | TURN_RIGHT | heading | Turn right to heading |
-| CM | CLIMB | altitude | Climb and maintain |
-| DM | DESCEND | altitude | Descend and maintain |
-| SP | SPEED | speed | Maintain speed (knots) |
-| D | DIRECT | fix | Proceed direct to fix |
-| RESUME | - | - | Resume own navigation |
-
-### Planned File Structure (Target)
+### Architecture
 
 ```
-PERTI/
-├── simulator/                      ← NEW DIRECTORY
-│   ├── engine/                     ← Node.js flight engine
-│   │   ├── src/
-│   │   │   ├── index.js
-│   │   │   ├── SimulationController.js
-│   │   │   ├── aircraft/AircraftModel.js
-│   │   │   ├── math/flightMath.js
-│   │   │   ├── constants/flightConstants.js
-│   │   │   └── navigation/NavDataClient.js
-│   │   ├── config/aircraftTypes.json
-│   │   └── package.json
-│   └── scenarios/                  ← Scenario definitions
-├── simulator.php                   ← Main page
-├── assets/js/simulator/            ← Frontend controllers
-│   ├── SimulatorController.js
-│   ├── FlightDisplay.js
-│   └── TMIPanel.js
-└── api/simulator/                  ← PHP API endpoints
-    ├── session.php
-    ├── tick.php
-    └── tmi.php
+┌─────────────────────────────────────────────────────────────────┐
+│                      PERTI Web Application                       │
+├─────────────────────────────────────────────────────────────────┤
+│  simulator.php         │  Frontend UI (MapLibre, timeline)      │
+│  assets/js/simulator/  │  JavaScript controllers                │
+│  api/simulator/        │  PHP API endpoints                     │
+├─────────────────────────────────────────────────────────────────┤
+│                    Flight Engine Service                         │
+│  simulator/engine/     │  Node.js headless flight simulation    │
+│  - AircraftModel.js    │  Flight physics (position, climb, etc) │
+│  - SimulationController│  Multi-aircraft management             │
+│  - NavDataClient.js    │  PERTI nav_fixes integration           │
+├─────────────────────────────────────────────────────────────────┤
+│                      Azure SQL Database                          │
+│  sim_ref_*             │  Reference data (routes, demand)       │
+│  sim_session_*         │  Session state (planned)               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Sources
+### Key Files
 
-| Source | Records | Purpose |
-|--------|---------|---------|
-| BTS On-Time Performance | 20.6M flights (2022-2024) | Route patterns, timing |
-| BTS T-100 Domestic | - | Aircraft type mappings |
-| openScope | 100+ aircraft | Performance profiles (MIT license) |
-| PERTI nav_fixes | ~200K | Navigation waypoints |
-| PERTI nav_procedures | ~15K | SIDs/STARs |
+**Frontend:**
+- `simulator.php` — Main simulator UI page
+- `assets/js/simulator/*.js` — Frontend JavaScript modules
 
-### Related Documents
+**API Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `api/simulator/navdata.php` | GET | Navigation data for flight routing |
+| `api/simulator/engine.php` | GET/POST | Engine control (start/stop/state) |
+| `api/simulator/routes.php` | GET | Route pattern data |
+| `api/simulator/traffic.php` | GET/POST | Traffic generation and state |
 
-| Document | Location |
-|----------|----------|
-| Design Document | `docs/ATFM_Simulator_Design_Document_v1.md` |
-| Transition Summary | `../ATFM_Simulator_Transition_2026-01-11.md` |
-| Flight Engine Transition | `../ATFM_Flight_Engine_Transition.md` |
-| BTS SQL Scripts | `../BTS/sql/050_sim_ref_tables.sql` |
+**Node.js Engine:**
+- `simulator/engine/src/index.js` — Main entry point
+- `simulator/engine/src/SimulationController.js` — Multi-aircraft orchestration
+- `simulator/engine/src/aircraft/AircraftModel.js` — Flight physics model
+- `simulator/engine/src/navigation/NavDataClient.js` — PERTI navdata integration
+- `simulator/engine/src/math/flightMath.js` — Great-circle calculations
+- `simulator/engine/src/tmi/GroundStopManager.js` — GS TMI simulation
+- `simulator/engine/src/traffic/TrafficGenerator.js` — Realistic traffic generation
+- `simulator/engine/config/aircraftTypes.json` — Aircraft performance data
 
-### Next Steps
+### Database Tables (Azure SQL)
 
-1. **Move flight engine** to `PERTI/simulator/engine/`
-2. **Create simulator.php** main page with MapLibre display
-3. **Wire NavDataClient** to PERTI's `/api/data/fixes.php`
-4. **Build scenario generator** using sim_ref_* tables
-5. **Implement TMI application** (GS, GDP effects on flights)
+| Table | Purpose |
+|-------|---------|
+| `sim_ref_carrier_lookup` | 17 carriers with IATA/ICAO mappings |
+| `sim_ref_route_patterns` | 3,989 O-D route patterns with hourly distribution |
+| `sim_ref_airport_demand` | 107 airports with demand curves |
+
+### Features (Phase 0 - In Development)
+
+- Realistic traffic scenarios based on historical patterns
+- Ground Stop (GS) TMI practice
+- Flight physics simulation (climb, cruise, descent)
+- Time compression (1x, 2x, 4x)
+- MapLibre visualization
+
+### Documentation
+
+- `docs/ATFM_Simulator_Design_Document_v1.md` — Design specification
+- `docs/ATFM_Simulator_Deployment_2026-01-12.md` — Deployment guide
+- `docs/ATFM_Simulator_Phase1_GroundStop_2026-01-12.md` — Phase 1 GS implementation
+- `docs/ATFM_Simulator_Phase1_5_TrafficGen_2026-01-12.md` — Traffic generation
 
 ---
 
@@ -306,7 +1072,6 @@ PERTI/
 5. **GeoJSON size**: Large boundary files can impact load time; use compression
 6. **Weather radar tiles**: IEM may rate-limit; use multiple hosts
 7. **AIRAC cycles**: Navigation data updates every 28 days; schedule updates accordingly
-8. **Node.js in Azure**: App Service supports Node.js but may need IISNode configuration
 
 ---
 
@@ -325,40 +1090,144 @@ grep -r "EXEC\s*sp_" api/
 # Find MapLibre usage
 grep -r "maplibregl\|MapLibre" assets/js/
 
-# Find simulator references
-grep -r "simulator\|sim_ref" .
+# Find weather radar
+grep -r "WeatherRadar\|weather_radar" assets/js/
 ```
 
 ---
 
 ## 31) Changelog
 
-- **v17 (2026-01-11):**
-  - **ATFM Training Simulator - Phase 0:**
-    - BTS data import complete (20.6M flights → 3,989 routes, 107 airports, 17 carriers)
-    - SQL reference tables deployed: `sim_ref_carrier_lookup`, `sim_ref_route_patterns`, `sim_ref_airport_demand`
-    - Node.js flight engine code complete (AircraftModel, SimulationController, HTTP API)
-    - Flight physics: position updates, climb/descent, turns, FMS waypoint following
-    - ATC commands: heading, altitude, speed, direct-to
-    - 20 aircraft performance profiles from openScope
-    - **PENDING:** Relocate engine from `../atfm-flight-engine/` to `PERTI/simulator/engine/`
-  - **Documentation:**
-    - `docs/ATFM_Simulator_Design_Document_v1.md` — Complete design reference
-    - `ATFM_Flight_Engine_Transition.md` — Session transition details
+- **v17 (2026-01-13):**
+  - **ATFM Training Simulator Subsystem:**
+    - `simulator.php` — Simulator UI page
+    - `simulator/engine/` — Node.js flight engine
+    - `api/simulator/*.php` — 4 new API endpoints (navdata, engine, routes, traffic)
+    - `sim_ref_carrier_lookup` — Carrier reference (17 carriers)
+    - `sim_ref_route_patterns` — Route patterns (3,989 O-D pairs)
+    - `sim_ref_airport_demand` — Airport demand curves (107 airports)
+    - Documentation: Design document, deployment guide, phase docs
+  - **Demand API Updates:**
+    - Added `api/demand/configs.php` — Available runway configs for override selection
+    - Added `api/demand/atis.php` — Latest ATIS with runway configuration
+  - **Database Migration Corrections:**
+    - Documented actual migration file names (079-091)
+    - 079: `event_aar_from_flights.sql`, `event_aar_from_config.sql`
+    - 080: `airport_config_schema.sql`, `event_aar_no_defaults.sql`
+    - 082: `rate_history_schema.sql`
+    - 085: `atis_runway_schema.sql`
+    - 086: `parse_queue_cleanup.sql`, `086b_fix_retention.sql`
+    - 087: `atis_tiered_cleanup.sql`
+    - 088: `atis_batch_import.sql`
+    - 089: `atis_weather_columns.sql`, `atis_backfill_reparse.sql`
+    - 090: `detected_runway_config.sql`
+    - 091: `manual_rate_overrides.sql`
+  - **New Documentation:**
+    - `docs/ATFM_Simulator_Design_Document_v1.md`
+    - `docs/ATFM_Simulator_Deployment_2026-01-12.md`
+    - `docs/ATFM_Simulator_Phase1_GroundStop_2026-01-12.md`
+    - `docs/ATFM_Simulator_Phase1_5_TrafficGen_2026-01-12.md`
 
 - **v16 (2026-01-10):**
-  - Demand Subsystem
-  - Airport Configuration & ATIS Schema
-  - Rate suggestion algorithm with multi-level fallback
+  - **Demand Subsystem:**
+    - `demand.php` — Demand analysis page
+    - `assets/js/demand.js` — Demand visualization with rate coloring
+    - `api/demand/*.php` — 5 new demand API endpoints (airports, airport, rates, summary, override)
+  - **Airport Configuration & ATIS Schema (migrations 079-091):**
+    - `airport_config` — Runway configuration definitions
+    - `airport_config_runway` — Normalized runway assignments
+    - `airport_config_rate` — Multi-weather rate tables (VMC/LVMC/IMC/LIMC/VLIMC)
+    - `airport_config_rate_history` — Rate change audit trail
+    - `airport_weather_impact` — Weather impact rules
+    - `vatsim_atis` — Raw ATIS with weather extraction columns
+    - `runway_in_use` — Parsed runway assignments
+    - `atis_config_history` — Configuration change summary
+    - `detected_runway_config` — Flight-track-based runway detection
+    - `runway_heading_ref` — Heading-to-runway mapping
+    - `manual_rate_override` — Controller rate overrides with time windows
+  - **New Stored Procedures:**
+    - `sp_GetSuggestedRates` — Multi-level rate suggestion with fallback chain
+    - `sp_ImportVatsimAtis` — ATIS import with weather extraction
+    - `sp_ImportRunwaysInUse` — Runway assignment import
+    - `sp_DetectRunwaysFromFlights` — Flight-track-based detection
+    - `sp_SetRateOverride` / `sp_CancelRateOverride` — Override management
+    - `sp_LogRateChange` — Rate audit logging
+  - **ATIS Daemon Enhancements:**
+    - `scripts/vatsim_atis/atis_daemon.py` — Batch import mode
+    - Weather extraction (wind, visibility, ceiling, category)
+    - Runway-in-use parsing
+  - **New Views:**
+    - `vw_airport_config_summary` — Config with runway strings
+    - `vw_airport_config_rates` — Pivoted rate tables
+    - `vw_current_runways_in_use` — Active runway assignments
+    - `vw_current_airport_config` — Current config summary
+    - `vw_current_atis_weather` — Latest ATIS weather
+    - `vw_current_detected_config` — Latest flight-based detection
+    - `vw_current_rate_overrides` — Active/upcoming overrides
 
 - **v15 (2026-01-10):**
-  - GDT Ground Stop NTML Architecture
-  - New GS stored procedures and views
-  - ADL Schema Cleanup
+  - **GDT Ground Stop NTML Architecture:**
+    - `adl/migrations/tmi/001_ntml_schema.sql` — NTML tables schema
+    - `adl/migrations/tmi/002_gs_procedures.sql` — GS stored procedures (7 total)
+    - `adl/migrations/tmi/003_gdt_views.sql` — GDT views (6 total)
+    - `api/tmi/gs/*.php` — New GS API endpoints (10 files)
+    - Tables: `ntml`, `ntml_info`, `ntml_slots`
+    - Procedures: `sp_GS_Create`, `sp_GS_Model`, `sp_GS_IssueEDCTs`, `sp_GS_Extend`, `sp_GS_Purge`, `sp_GS_GetFlights`, `sp_GS_DetectPopups`
+    - Views: `vw_GDT_FlightList`, `vw_GDT_DemandByQuarter`, `vw_GDT_DemandByHour`, `vw_GDT_DemandByCenter`, `vw_NTML_Active`, `vw_NTML_Today`
+    - Helper function: `fn_HaversineNM`
+  - **ADL Schema Cleanup:**
+    - `adl/migrations/core/007_remove_flight_status.sql` — Removes redundant `flight_status` column (unified to `phase`)
+    - Updated `vw_adl_flights` view to remove `flight_status` reference
+  - **Enhanced `adl_flight_tmi` columns:**
+    - `program_id`, `slot_id`, `aslot`, `octd_utc`, `octa_utc`, `ctl_prgm`
+    - `ctl_exempt`, `ctl_exempt_reason`, `program_delay_min`, `delay_capped`
+    - `sl_hold`, `subbable`, `gs_held`, `gs_release_utc`
+    - `is_popup`, `is_recontrol`, `popup_detected_utc`
+    - `ecr_pending`, `ecr_requested_cta`, `ecr_requested_by`, `ecr_requested_utc`
+    - `ux_cancelled`, `fx_cancelled`, `rz_removed`, `assigned_utc`
+  - **Documentation:**
+    - `docs/GDT_Unified_Design_Document_v1.md` — Complete GDT design reference
+    - `docs/GDT_GS_Transition_Summary_20260110.md` — Implementation session summary
 
 - **v14 (2026-01-07):**
-  - Weather Radar Subsystem
-  - SUA/TFR Subsystem
+  - **Weather Radar Subsystem:**
+    - `assets/js/weather_radar.js` — IEM NEXRAD/MRMS integration (~1,034 lines)
+    - `assets/js/weather_radar_integration.js` — UI integration (~419 lines)
+    - `assets/css/weather_radar.css` — Radar control styling
+    - Multiple radar products: N0Q, EET, MRMS HSR, precipitation
+    - Color tables: NWS, FAA ATC, Scope, High Contrast
+    - Animation with 12 historical frames
+  - **SUA/TFR Subsystem:**
+    - `api/data/sua.php` — Special Use Airspace API
+    - `api/data/tfr.php` — TFR API
+    - `api/data/parse_aixm_sua.php` — AIXM parser
+    - `assets/geojson/SUA.geojson` — SUA boundaries
+    - `assets/geojson/superhigh.json` — Super high sectors
+  - **API Additions:**
+    - `api/nod/advisory_import.php` — Advisory import endpoint
+    - `api/data/weather.php` — Weather data API
+  - **CSS Additions:**
+    - `assets/css/info-bar.css` — Info bar styling
+
+- **v13 (2026-01-05):**
+  - Demand Visualization system (PLANNED)
+  - Weather/forecast tables (PLANNED)
+  - Analog situation finder (PLANNED)
+
+- **v12 (2026-01-03):**
+  - Initiative Timeline Subsystem
+  - Timeline MySQL tables and APIs
+  - Integration with plan.php
+
+- **v11 (2026-01-03):**
+  - NOD Subsystem (complete)
+  - ADL Refresh Patterns
+  - GDT Page
+
+- **v10 (2025-12-30):**
+  - JATOC Subsystem (complete)
+  - StatSim Integration
+  - NASR Navigation Data Updater
 
 ---
 
@@ -386,18 +1255,9 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `jatoc_incident_updates` | Incident updates |
 | `jatoc_personnel` | Personnel roster |
 | `jatoc_reports` | Incident reports |
-| `nav_fixes` | Navigation waypoints |
-| `nav_procedures` | SIDs/STARs |
-| `nav_procedure_legs` | Procedure leg details |
-| `nav_airways` | Airway definitions |
-| `ntml` | National Traffic Management Log |
-| `ntml_info` | TMI event log / audit trail |
-| `ntml_slots` | Arrival slot allocation |
 | `public_routes` | Public route definitions |
-| `sim_ref_carrier_lookup` | Simulator carrier reference (NEW v17) |
-| `sim_ref_route_patterns` | Simulator route patterns (NEW v17) |
-| `sim_ref_airport_demand` | Simulator airport demand (NEW v17) |
-| `sim_ref_import_log` | Simulator import tracking (NEW v17) |
+| `r_airport_totals` | Airport totals |
+| `r_hourly_rates` | Hourly rates |
 | `splits_areas` | Split area definitions |
 | `splits_configs` | Split configurations |
 | `splits_positions` | Position assignments |
@@ -406,12 +1266,24 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `tmi_reroute_flights` | Flight assignments |
 | `tmi_reroutes` | Reroute definitions |
 | `tracons` | TRACON reference |
-| `airport_config` | Runway configuration definitions |
-| `airport_config_runway` | Normalized runway assignments |
-| `airport_config_rate` | Rate tables by weather category |
-| `vatsim_atis` | Raw ATIS broadcasts with weather |
-| `runway_in_use` | Parsed runway assignments |
-| `manual_rate_override` | Controller rate overrides |
+| `ntml` | National Traffic Management Log (NEW v15) |
+| `ntml_info` | TMI event log / audit trail (NEW v15) |
+| `ntml_slots` | Arrival slot allocation (NEW v15) |
+| `airport_config` | Runway configuration definitions (NEW v16) |
+| `airport_config_runway` | Normalized runway assignments (NEW v16) |
+| `airport_config_rate` | Rate tables by weather category (NEW v16) |
+| `airport_config_rate_history` | Rate change audit log (NEW v16) |
+| `airport_config_history` | Config metadata change log (NEW v16) |
+| `airport_weather_impact` | Weather impact rules (NEW v16) |
+| `vatsim_atis` | Raw ATIS broadcasts with weather (NEW v16) |
+| `runway_in_use` | Parsed runway assignments (NEW v16) |
+| `atis_config_history` | Configuration change summary (NEW v16) |
+| `detected_runway_config` | Flight-track-based detection (NEW v16) |
+| `runway_heading_ref` | Heading-to-runway mapping (NEW v16) |
+| `manual_rate_override` | Controller rate overrides (NEW v16) |
+| `sim_ref_carrier_lookup` | 17 US carriers with IATA/ICAO codes (NEW v17) |
+| `sim_ref_route_patterns` | 3,989 O-D routes with hourly patterns (NEW v17) |
+| `sim_ref_airport_demand` | 107 airports with demand curves (NEW v17) |
 
 ### Views
 
@@ -421,12 +1293,12 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `vw_adl_flights_history_30d` | 30-day history view |
 | `vw_dcc_advisories_today` | Today's advisories |
 | `vw_jatoc_active_incidents` | Active incidents |
-| `vw_GDT_FlightList` | GDT flight list |
-| `vw_GDT_DemandByQuarter` | 15-min demand bins |
-| `vw_GDT_DemandByHour` | Hourly demand |
-| `vw_GDT_DemandByCenter` | Demand by ARTCC |
-| `vw_NTML_Active` | Active TMI programs |
-| `vw_NTML_Today` | Today's TMI programs |
+| `vw_GDT_FlightList` | GDT flight list (NEW v15) |
+| `vw_GDT_DemandByQuarter` | 15-min demand bins (NEW v15) |
+| `vw_GDT_DemandByHour` | Hourly demand (NEW v15) |
+| `vw_GDT_DemandByCenter` | Demand by ARTCC (NEW v15) |
+| `vw_NTML_Active` | Active TMI programs (NEW v15) |
+| `vw_NTML_Today` | Today's TMI programs (NEW v15) |
 
 ---
 
@@ -468,3 +1340,111 @@ _Full table/column listing available in VATSIM_PERTI_tree.json project file._
 | `route_playbook` | Playbook route cache |
 | `tmi_ground_stops` | Ground stop definitions |
 | `users` | User accounts |
+
+---
+
+## 34) Quick Reference Indices
+
+_Fast lookup tables for navigating the codebase._
+
+### By Feature/Subsystem
+
+| Feature | Primary Files | Database | API Endpoints |
+|---------|---------------|----------|---------------|
+| Ground Stop (GS) | `gdt.php`, `assets/js/gdt.js` | `ntml`, `ntml_info`, `tmi_ground_stops` | `api/gs/` |
+| GDP/GDT | `gdt.php`, `assets/js/gdt.js` | `ntml`, `ntml_slots` | `api/gdp/` |
+| Reroutes | `reroutes.php`, `reroutes_index.php` | `tmi_reroutes`, `tmi_reroute_flights` | `api/reroutes/` |
+| Splits | `splits.php`, `assets/js/splits.js` | `splits_*` tables | `api/splits/` |
+| JATOC | `jatoc.php`, `assets/js/jatoc.js` | `jatoc_*` tables | `api/jatoc/` |
+| NOD | `nod.php`, `assets/js/nod.js` | `dcc_advisories` | `api/nod/` |
+| TSD/Route | `route.php`, `assets/js/route.js` | `adl_flights` | `api/adl/` |
+| Demand | `assets/js/demand.js` | `airport_config_*`, `vatsim_atis` | `api/demand/` |
+| ATFM Simulator | `simulator.php`, `simulator/engine/` | `sim_ref_*` tables | `api/simulator/` |
+| Weather | `assets/js/weather.js` | — | `api/weather/` |
+| SUA/TFR | `assets/js/sua.js` | — | `api/sua/` |
+
+### By API Module
+
+| Module | Endpoints | Description |
+|--------|-----------|-------------|
+| `api/adl/` | flights, history, stats | ADL live flight data |
+| `api/demand/` | summary, configs, atis, rates | Airport demand/capacity |
+| `api/gdp/` | programs, slots, compliance | Ground Delay Programs |
+| `api/gs/` | stops, status, lift | Ground Stops |
+| `api/jatoc/` | incidents, reports, personnel | JATOC operations |
+| `api/nod/` | advisories, status | NAS Operations Dashboard |
+| `api/reroutes/` | routes, flights, compliance | Reroute management |
+| `api/simulator/` | navdata, engine, routes, traffic | ATFM Training Simulator |
+| `api/splits/` | areas, configs, positions | Sector splits |
+| `api/sua/` | tfrs, suas, notams | Special Use Airspace |
+| `api/weather/` | radar, metar, taf | Weather data |
+
+### By Database Connection
+
+| Connection | Variable | Tables/Purpose |
+|------------|----------|----------------|
+| MySQL | `$conn` | Planning, schedules, users, configs |
+| Azure SQL | `$conn_adl` | Live flights, TMI workflows, JATOC, advisories |
+
+### By Script/Daemon
+
+| Script | Purpose | Schedule |
+|--------|---------|----------|
+| `vatsim_adl_daemon.php` | VATSIM feed refresh | ~15s continuous |
+| `vatsim_boundary_daemon.php` | ARTCC/TRACON boundaries | ~5 min |
+| `demand_summary_daemon.php` | Demand aggregation | ~1 min |
+| `atis_daemon.php` | ATIS/runway parsing | ~30s |
+| `parse_queue_daemon.php` | Parse queue processing | ~10s |
+| `nasr_navdata_updater.py` | FAA AIRAC updates | Manual/28-day |
+
+### Common Grep Patterns
+
+```bash
+# Find TMI-related code
+grep -r "tmi_" api/ assets/js/
+
+# Find stored procedure calls
+grep -r "sp_" api/ scripts/
+
+# Find Azure SQL queries
+grep -r "conn_adl" api/ scripts/
+
+# Find MapLibre map initialization
+grep -r "maplibregl.Map" assets/js/
+
+# Find API endpoint handlers
+grep -r "api_response" api/
+```
+
+### Key Acronyms Reference
+
+| Acronym | Full Term |
+|---------|-----------|
+| AAR | Airport Acceptance Rate |
+| ADL | Aggregate Demand List |
+| ADR | Airport Departure Rate |
+| AFP | Airspace Flow Program |
+| ARTCC | Air Route Traffic Control Center |
+| ATFM | Air Traffic Flow Management |
+| ATIS | Automatic Terminal Information Service |
+| CDR | Coded Departure Route |
+| DCC | David Clark Center (vATCSCC) |
+| EDCT | Expect Departure Clearance Time |
+| GDP | Ground Delay Program |
+| GDT | Ground Delay Tool |
+| GS | Ground Stop |
+| IMC | Instrument Meteorological Conditions |
+| JATOC | Joint Air Traffic Operations Center |
+| LIMC | Low IMC |
+| LVMC | Low VMC |
+| MIT | Miles-In-Trail |
+| NASR | National Airspace System Resources |
+| NOD | NAS Operations Dashboard |
+| NTML | National Traffic Management Log |
+| SUA | Special Use Airspace |
+| TFR | Temporary Flight Restriction |
+| TMI | Traffic Management Initiative |
+| TMU | Traffic Management Unit |
+| TSD | Traffic Situation Display |
+| VLIMC | Very Low IMC |
+| VMC | Visual Meteorological Conditions |

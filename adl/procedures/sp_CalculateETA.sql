@@ -1,8 +1,13 @@
 -- ============================================================================
--- sp_CalculateETA.sql (v2 - Route Distance Support)
+-- sp_CalculateETA.sql (v3 - Prefile Support)
 -- Calculates sophisticated ETA for a flight based on route, performance,
 -- wind, weather, and TMI factors
--- 
+--
+-- v3 Changes (2026-01-13):
+--   - Added prefile support: calculates ETAs for prefiles without position data
+--   - Prefiles use gcd_nm or route_total_nm for distance estimation
+--   - Consistent with sp_CalculateETABatch V3.2
+--
 -- v2 Changes (2026-01-07):
 --   - Uses route_dist_to_dest_nm when available (more accurate than GCD)
 --   - Falls back to dist_to_dest_nm (GCD) when route distance unavailable
@@ -111,28 +116,51 @@ BEGIN
         RETURN;
     
     -- ========================================================================
-    -- NEW: Determine effective distance to use
+    -- Determine effective distance to use
     -- Prefer route distance when available and reasonable
+    -- For prefiles without position, use route_total or gcd
     -- ========================================================================
-    
-    IF @route_dist_to_dest IS NOT NULL 
+
+    IF @route_dist_to_dest IS NOT NULL
        AND @route_dist_to_dest > 0
        AND (@dist_to_dest IS NULL OR @route_dist_to_dest >= @dist_to_dest * 0.8)  -- Sanity check: route shouldn't be <80% of GCD
     BEGIN
         SET @effective_dist = @route_dist_to_dest;
         SET @dist_source = 'ROUTE';
     END
-    ELSE
+    ELSE IF @dist_to_dest IS NOT NULL AND @dist_to_dest > 0
     BEGIN
-        SET @effective_dist = ISNULL(@dist_to_dest, @gcd_nm);
+        SET @effective_dist = @dist_to_dest;
         SET @dist_source = 'GCD';
     END
+    ELSE IF @route_total_nm IS NOT NULL AND @route_total_nm > 0
+    BEGIN
+        -- Prefile with parsed route but no position
+        SET @effective_dist = @route_total_nm;
+        SET @dist_source = 'ROUTE';
+    END
+    ELSE IF @gcd_nm IS NOT NULL AND @gcd_nm > 0
+    BEGIN
+        -- Prefile with no route, use GCD from flight plan
+        SET @effective_dist = @gcd_nm;
+        SET @dist_source = 'GCD';
+    END
+    ELSE
+    BEGIN
+        -- No distance available
+        SET @effective_dist = NULL;
+        SET @dist_source = 'NONE';
+    END
     
+    -- Skip if no distance available
+    IF @effective_dist IS NULL OR @effective_dist <= 0
+        RETURN;
+
     -- Get destination elevation
-    SELECT @dest_elev = ISNULL(CAST(ELEV AS INT), 0) 
-    FROM dbo.apts 
+    SELECT @dest_elev = ISNULL(CAST(ELEV AS INT), 0)
+    FROM dbo.apts
     WHERE ICAO_ID = @dest_icao;
-    
+
     SET @dest_elev = ISNULL(@dest_elev, 0);
     SET @filed_alt = ISNULL(@filed_alt, 35000);
     
@@ -374,5 +402,5 @@ BEGIN
 END
 GO
 
-PRINT 'Created stored procedure dbo.sp_CalculateETA (v2 - Route Distance Support)';
+PRINT 'Created stored procedure dbo.sp_CalculateETA (v3 - Prefile Support)';
 GO

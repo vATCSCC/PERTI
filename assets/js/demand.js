@@ -34,8 +34,10 @@ window.DemandChartCore = (function() {
         'unknown': 'Unknown'
     };
 
-    // Phase stacking order (bottom to top)
-    const PHASE_ORDER = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    // Phase stacking order (bottom to top) - use shared config if available
+    const PHASE_ORDER = (typeof window.PHASE_STACK_ORDER !== 'undefined') ? window.PHASE_STACK_ORDER : 
+        ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 
+         'exempt', 'actual_gs', 'simulated_gs', 'proposed_gs', 'actual_gdp', 'simulated_gdp', 'proposed_gdp', 'unknown'];
 
     /**
      * Get granularity in minutes
