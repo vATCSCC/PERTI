@@ -1766,7 +1766,7 @@
                 }
                 // Fallback for unknown phases
                 if (!phase) {
-                    return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#eab308';
+                    return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#9333ea';
                 }
                 return '#999999';
                 
@@ -4469,8 +4469,10 @@
                         { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
                         { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
                         { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
+                        { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
                         { color: '#dc3545', label: 'GS Affected' },
-                        { color: '#ffc107', label: 'EDCT' }
+                        { color: '#ffc107', label: 'EDCT' },
+                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' }
                     ];
                 })();
                 break;
@@ -4692,8 +4694,10 @@
                         { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
                         { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
                         { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
+                        { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
                         { color: '#dc3545', label: 'GS Affected' },
-                        { color: '#ffc107', label: 'EDCT' }
+                        { color: '#ffc107', label: 'EDCT' },
+                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' }
                     ];
                 })();
                 break;

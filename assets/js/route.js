@@ -6594,7 +6594,7 @@ advAddLabeledField(lines, 'NAME', advName);
                     }
                     // Fallback for unknown phases
                     if (!phase) {
-                        return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#eab308';
+                        return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#9333ea';
                     }
                     return '#999999';
 
@@ -6760,7 +6760,11 @@ advAddLabeledField(lines, 'NAME', advName);
                         { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || 'Enroute' },
                         { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
                         { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
-                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' }
+                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
+                        { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
+                        { color: PC['actual_gs'] || '#eab308', label: 'GS' },
+                        { color: PC['actual_gdp'] || '#92400e', label: 'GDP' },
+                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' }
                     ];
                     break;
 

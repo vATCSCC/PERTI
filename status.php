@@ -4022,7 +4022,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             const colors = typeof PHASE_COLORS !== 'undefined' ? PHASE_COLORS : {
                                 arrived: '#1a1a1a', disconnected: '#f97316', descending: '#991b1b',
                                 enroute: '#dc2626', departed: '#f87171', taxiing: '#22c55e',
-                                prefile: '#3b82f6', unknown: '#eab308'
+                                prefile: '#3b82f6', unknown: '#9333ea'
                             };
                             const labels = typeof PHASE_LABELS !== 'undefined' ? PHASE_LABELS : {
                                 arrived: 'Arrived', disconnected: 'Disconnected', descending: 'Descending',

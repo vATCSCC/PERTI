@@ -1,5 +1,10 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.7 - Prefile Flight Plans & Batch ETA
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.8 - Capture Actual Arrival Times
+--
+-- Changes from V8.9.7:
+--   - Step 7: Now sets ata_utc in adl_flight_times when marking flights arrived
+--   - Uses last_seen_utc as the actual arrival time (best available data)
+--   - Enables ETA accuracy measurement (predicted vs actual comparison)
 --
 -- Changes from V8.9.6:
 --   - Step 2a: Now creates adl_flight_plan rows for prefiles (enables prefile ETAs)
@@ -787,10 +792,23 @@ BEGIN
     SET @step6_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 7: Mark inactive flights
+    -- Step 7: Mark inactive flights as arrived and capture actual arrival time
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
-    
+
+    -- V8.9.8: Also set ata_utc in times table when marking flight arrived
+    -- Use last_seen_utc as best approximation of actual arrival time
+    UPDATE t
+    SET t.ata_utc = c.last_seen_utc,
+        t.ata_runway_utc = c.last_seen_utc,
+        t.eta_prefix = 'A',  -- Mark as Actual
+        t.times_updated_utc = @now
+    FROM dbo.adl_flight_times t
+    INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+    WHERE c.is_active = 1
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now);
+
+    -- Now mark the core flight as arrived
     UPDATE dbo.adl_flight_core SET is_active = 0, phase = 'arrived' WHERE is_active = 1 AND last_seen_utc < DATEADD(MINUTE, -5, @now);
 
     SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
