@@ -1691,6 +1691,9 @@ include("load/connect.php");
 </div>
 
 <script src="assets/js/advisory-config.js"></script>
+<!-- FIR (International) Scope Support -->
+<script src="assets/js/fir-scope.js"></script>
+<script src="assets/js/fir-integration.js"></script>
 <script src="assets/js/gdt.js"></script>
 <script src="assets/js/gdp.js"></script>
 
