@@ -1,0 +1,536 @@
+{
+  "_comment": "FIR Tier Configuration for International Ground Stop/GDP Support",
+  "_version": "1.0.0",
+  "_updated": "2026-01-13",
+  
+  "global": {
+    "GLOBAL": {
+      "code": "GLOBAL",
+      "label": "(Global)",
+      "description": "All FIRs worldwide",
+      "patterns": ["*"]
+    },
+    "GLOBAL_INTL": {
+      "code": "GLOBAL_INTL",
+      "label": "(International Only)",
+      "description": "All non-US/Canada FIRs",
+      "patterns": ["A*", "B*", "D*", "E*", "F*", "G*", "H*", "L*", "M*", "N*", "O*", "R*", "S*", "T*", "U*", "V*", "W*", "Y*", "Z*"]
+    },
+    "Manual": {
+      "code": "Manual",
+      "label": "(Manual)",
+      "description": "Manually specify FIR patterns",
+      "patterns": []
+    }
+  },
+  
+  "regional": {
+    "EUR": {
+      "code": "EUR",
+      "label": "Europe",
+      "description": "All European FIRs",
+      "patterns": ["E*", "L*", "UU", "UL", "UK", "BI", "BG"]
+    },
+    "EUR_WEST": {
+      "code": "EUR_WEST",
+      "label": "Western Europe",
+      "description": "UK, Ireland, France, Benelux, Germany",
+      "patterns": ["EG*", "EI*", "LF*", "EB*", "EH*", "EL*", "ED*"]
+    },
+    "EUR_NORTH": {
+      "code": "EUR_NORTH",
+      "label": "Northern Europe",
+      "description": "Scandinavia, Baltics, Iceland",
+      "patterns": ["EN*", "ES*", "EF*", "EE*", "EV*", "EY*", "EK*", "BI*"]
+    },
+    "EUR_SOUTH": {
+      "code": "EUR_SOUTH",
+      "label": "Southern Europe",
+      "description": "Spain, Portugal, Italy, Greece, Turkey",
+      "patterns": ["LE*", "LP*", "LI*", "LG*", "LT*", "LC*"]
+    },
+    "EUR_CENTRAL": {
+      "code": "EUR_CENTRAL",
+      "label": "Central Europe",
+      "description": "Austria, Switzerland, Czech, Poland, Hungary",
+      "patterns": ["LO*", "LS*", "LK*", "EP*", "LH*", "LJ*", "LR*"]
+    },
+    "EUR_EAST": {
+      "code": "EUR_EAST",
+      "label": "Eastern Europe",
+      "description": "Russia (western), Ukraine, Belarus",
+      "patterns": ["UU*", "UL*", "UK*", "UM*"]
+    },
+    
+    "APAC": {
+      "code": "APAC",
+      "label": "Asia-Pacific",
+      "description": "All Asia-Pacific FIRs",
+      "patterns": ["R*", "V*", "W*", "Y*", "Z*", "PH*", "PG*", "N*"]
+    },
+    "APAC_EAST": {
+      "code": "APAC_EAST",
+      "label": "East Asia",
+      "description": "Japan, Korea, Taiwan, China",
+      "patterns": ["RJ*", "RK*", "RC*", "Z*"]
+    },
+    "APAC_SE": {
+      "code": "APAC_SE",
+      "label": "Southeast Asia",
+      "description": "Thailand, Vietnam, Malaysia, Singapore, Indonesia, Philippines",
+      "patterns": ["VT*", "VV*", "WM*", "WS*", "WI*", "WA*", "RP*"]
+    },
+    "APAC_SOUTH": {
+      "code": "APAC_SOUTH",
+      "label": "South Asia",
+      "description": "India, Pakistan, Bangladesh, Sri Lanka",
+      "patterns": ["VA*", "VE*", "VI*", "VO*", "VQ*", "OP*", "VG*", "VC*"]
+    },
+    "APAC_OCEANIA": {
+      "code": "APAC_OCEANIA",
+      "label": "Oceania",
+      "description": "Australia, New Zealand, Pacific Islands",
+      "patterns": ["Y*", "N*", "PH*", "PG*"]
+    },
+    
+    "NAM": {
+      "code": "NAM",
+      "label": "North America",
+      "description": "US, Canada, Mexico, Caribbean, Central America",
+      "patterns": ["K*", "C*", "M*", "T*", "P*"]
+    },
+    "NAM_MEX_CARIB": {
+      "code": "NAM_MEX_CARIB",
+      "label": "Mexico & Caribbean",
+      "description": "Mexico, Central America, Caribbean",
+      "patterns": ["MM*", "MK*", "MU*", "MN*", "MG*", "MT*", "T*"]
+    },
+    
+    "SAM": {
+      "code": "SAM",
+      "label": "South America",
+      "description": "All South American FIRs",
+      "patterns": ["S*"]
+    },
+    "SAM_NORTH": {
+      "code": "SAM_NORTH",
+      "label": "Northern South America",
+      "description": "Colombia, Venezuela, Ecuador, Peru",
+      "patterns": ["SK*", "SV*", "SE*", "SP*"]
+    },
+    "SAM_SOUTH": {
+      "code": "SAM_SOUTH",
+      "label": "Southern South America",
+      "description": "Brazil, Argentina, Chile",
+      "patterns": ["SB*", "SA*", "SC*", "SU*"]
+    },
+    
+    "AFR": {
+      "code": "AFR",
+      "label": "Africa",
+      "description": "All African FIRs",
+      "patterns": ["D*", "F*", "G*", "H*"]
+    },
+    "AFR_NORTH": {
+      "code": "AFR_NORTH",
+      "label": "North Africa",
+      "description": "Morocco, Algeria, Tunisia, Libya, Egypt",
+      "patterns": ["GM*", "DA*", "DT*", "HL*", "HE*"]
+    },
+    "AFR_WEST": {
+      "code": "AFR_WEST",
+      "label": "West Africa",
+      "description": "Nigeria, Ghana, Senegal, etc.",
+      "patterns": ["DN*", "DG*", "GO*", "GU*"]
+    },
+    "AFR_EAST": {
+      "code": "AFR_EAST",
+      "label": "East Africa",
+      "description": "Kenya, Tanzania, Ethiopia",
+      "patterns": ["HK*", "HT*", "HA*"]
+    },
+    "AFR_SOUTH": {
+      "code": "AFR_SOUTH",
+      "label": "Southern Africa",
+      "description": "South Africa, Zimbabwe, etc.",
+      "patterns": ["FA*", "FV*", "FW*"]
+    },
+    
+    "MID": {
+      "code": "MID",
+      "label": "Middle East",
+      "description": "All Middle East FIRs",
+      "patterns": ["O*", "LL*"]
+    },
+    "MID_GULF": {
+      "code": "MID_GULF",
+      "label": "Gulf States",
+      "description": "UAE, Qatar, Bahrain, Kuwait, Saudi",
+      "patterns": ["OM*", "OT*", "OB*", "OK*", "OE*"]
+    },
+    "MID_LEVANT": {
+      "code": "MID_LEVANT",
+      "label": "Levant",
+      "description": "Israel, Jordan, Lebanon, Syria",
+      "patterns": ["LL*", "OJ*", "OL*", "OS*"]
+    }
+  },
+  
+  "byIcaoPrefix": {
+    "_comment": "Individual FIR patterns by ICAO 2-letter prefix",
+    
+    "EG": {
+      "code": "EG",
+      "label": "United Kingdom",
+      "country": "GB",
+      "patterns": ["EG*"]
+    },
+    "EI": {
+      "code": "EI",
+      "label": "Ireland",
+      "country": "IE",
+      "patterns": ["EI*"]
+    },
+    "ED": {
+      "code": "ED",
+      "label": "Germany",
+      "country": "DE",
+      "patterns": ["ED*"]
+    },
+    "EH": {
+      "code": "EH",
+      "label": "Netherlands",
+      "country": "NL",
+      "patterns": ["EH*"]
+    },
+    "EB": {
+      "code": "EB",
+      "label": "Belgium",
+      "country": "BE",
+      "patterns": ["EB*"]
+    },
+    "LF": {
+      "code": "LF",
+      "label": "France",
+      "country": "FR",
+      "patterns": ["LF*"]
+    },
+    "LE": {
+      "code": "LE",
+      "label": "Spain",
+      "country": "ES",
+      "patterns": ["LE*"]
+    },
+    "LP": {
+      "code": "LP",
+      "label": "Portugal",
+      "country": "PT",
+      "patterns": ["LP*"]
+    },
+    "LI": {
+      "code": "LI",
+      "label": "Italy",
+      "country": "IT",
+      "patterns": ["LI*"]
+    },
+    "LS": {
+      "code": "LS",
+      "label": "Switzerland",
+      "country": "CH",
+      "patterns": ["LS*"]
+    },
+    "LO": {
+      "code": "LO",
+      "label": "Austria",
+      "country": "AT",
+      "patterns": ["LO*"]
+    },
+    "LK": {
+      "code": "LK",
+      "label": "Czech Republic",
+      "country": "CZ",
+      "patterns": ["LK*"]
+    },
+    "LH": {
+      "code": "LH",
+      "label": "Hungary",
+      "country": "HU",
+      "patterns": ["LH*"]
+    },
+    "EP": {
+      "code": "EP",
+      "label": "Poland",
+      "country": "PL",
+      "patterns": ["EP*"]
+    },
+    "LG": {
+      "code": "LG",
+      "label": "Greece",
+      "country": "GR",
+      "patterns": ["LG*"]
+    },
+    "LT": {
+      "code": "LT",
+      "label": "Turkey",
+      "country": "TR",
+      "patterns": ["LT*"]
+    },
+    "EN": {
+      "code": "EN",
+      "label": "Norway",
+      "country": "NO",
+      "patterns": ["EN*"]
+    },
+    "ES": {
+      "code": "ES",
+      "label": "Sweden",
+      "country": "SE",
+      "patterns": ["ES*"]
+    },
+    "EF": {
+      "code": "EF",
+      "label": "Finland",
+      "country": "FI",
+      "patterns": ["EF*"]
+    },
+    "EK": {
+      "code": "EK",
+      "label": "Denmark",
+      "country": "DK",
+      "patterns": ["EK*"]
+    },
+    "EE": {
+      "code": "EE",
+      "label": "Estonia",
+      "country": "EE",
+      "patterns": ["EE*"]
+    },
+    "EV": {
+      "code": "EV",
+      "label": "Latvia",
+      "country": "LV",
+      "patterns": ["EV*"]
+    },
+    "EY": {
+      "code": "EY",
+      "label": "Lithuania",
+      "country": "LT",
+      "patterns": ["EY*"]
+    },
+    "RJ": {
+      "code": "RJ",
+      "label": "Japan",
+      "country": "JP",
+      "patterns": ["RJ*"]
+    },
+    "RK": {
+      "code": "RK",
+      "label": "South Korea",
+      "country": "KR",
+      "patterns": ["RK*"]
+    },
+    "RC": {
+      "code": "RC",
+      "label": "Taiwan",
+      "country": "TW",
+      "patterns": ["RC*"]
+    },
+    "RP": {
+      "code": "RP",
+      "label": "Philippines",
+      "country": "PH",
+      "patterns": ["RP*"]
+    },
+    "ZB": {
+      "code": "ZB",
+      "label": "China (Beijing)",
+      "country": "CN",
+      "patterns": ["ZB*"]
+    },
+    "ZS": {
+      "code": "ZS",
+      "label": "China (Shanghai)",
+      "country": "CN",
+      "patterns": ["ZS*"]
+    },
+    "ZG": {
+      "code": "ZG",
+      "label": "China (Guangzhou)",
+      "country": "CN",
+      "patterns": ["ZG*"]
+    },
+    "VT": {
+      "code": "VT",
+      "label": "Thailand",
+      "country": "TH",
+      "patterns": ["VT*"]
+    },
+    "VV": {
+      "code": "VV",
+      "label": "Vietnam",
+      "country": "VN",
+      "patterns": ["VV*"]
+    },
+    "WM": {
+      "code": "WM",
+      "label": "Malaysia",
+      "country": "MY",
+      "patterns": ["WM*", "WB*"]
+    },
+    "WS": {
+      "code": "WS",
+      "label": "Singapore",
+      "country": "SG",
+      "patterns": ["WS*"]
+    },
+    "WI": {
+      "code": "WI",
+      "label": "Indonesia",
+      "country": "ID",
+      "patterns": ["WI*", "WA*", "WR*"]
+    },
+    "Y": {
+      "code": "Y",
+      "label": "Australia",
+      "country": "AU",
+      "patterns": ["Y*"]
+    },
+    "NZ": {
+      "code": "NZ",
+      "label": "New Zealand",
+      "country": "NZ",
+      "patterns": ["NZ*"]
+    },
+    "OE": {
+      "code": "OE",
+      "label": "Saudi Arabia",
+      "country": "SA",
+      "patterns": ["OE*"]
+    },
+    "OM": {
+      "code": "OM",
+      "label": "UAE",
+      "country": "AE",
+      "patterns": ["OM*"]
+    },
+    "OT": {
+      "code": "OT",
+      "label": "Qatar",
+      "country": "QA",
+      "patterns": ["OT*"]
+    },
+    "OB": {
+      "code": "OB",
+      "label": "Bahrain",
+      "country": "BH",
+      "patterns": ["OB*"]
+    },
+    "OK": {
+      "code": "OK",
+      "label": "Kuwait",
+      "country": "KW",
+      "patterns": ["OK*"]
+    },
+    "OI": {
+      "code": "OI",
+      "label": "Iran",
+      "country": "IR",
+      "patterns": ["OI*"]
+    },
+    "VI": {
+      "code": "VI",
+      "label": "India (North)",
+      "country": "IN",
+      "patterns": ["VI*"]
+    },
+    "VA": {
+      "code": "VA",
+      "label": "India (West)",
+      "country": "IN",
+      "patterns": ["VA*"]
+    },
+    "VE": {
+      "code": "VE",
+      "label": "India (East)",
+      "country": "IN",
+      "patterns": ["VE*"]
+    },
+    "VO": {
+      "code": "VO",
+      "label": "India (South)",
+      "country": "IN",
+      "patterns": ["VO*"]
+    },
+    "OP": {
+      "code": "OP",
+      "label": "Pakistan",
+      "country": "PK",
+      "patterns": ["OP*"]
+    },
+    "SB": {
+      "code": "SB",
+      "label": "Brazil",
+      "country": "BR",
+      "patterns": ["SB*"]
+    },
+    "SA": {
+      "code": "SA",
+      "label": "Argentina",
+      "country": "AR",
+      "patterns": ["SA*"]
+    },
+    "SC": {
+      "code": "SC",
+      "label": "Chile",
+      "country": "CL",
+      "patterns": ["SC*"]
+    },
+    "SK": {
+      "code": "SK",
+      "label": "Colombia",
+      "country": "CO",
+      "patterns": ["SK*"]
+    },
+    "SP": {
+      "code": "SP",
+      "label": "Peru",
+      "country": "PE",
+      "patterns": ["SP*"]
+    },
+    "MM": {
+      "code": "MM",
+      "label": "Mexico",
+      "country": "MX",
+      "patterns": ["MM*"]
+    },
+    "UU": {
+      "code": "UU",
+      "label": "Russia (Moscow)",
+      "country": "RU",
+      "patterns": ["UU*"]
+    },
+    "FA": {
+      "code": "FA",
+      "label": "South Africa",
+      "country": "ZA",
+      "patterns": ["FA*"]
+    },
+    "HE": {
+      "code": "HE",
+      "label": "Egypt",
+      "country": "EG",
+      "patterns": ["HE*"]
+    }
+  },
+  
+  "prefixList": ["EG", "EI", "ED", "EH", "EB", "EL", "EK", "EN", "ES", "EF", "EE", "EV", "EY", "EP", "LF", "LE", "LP", "LI", "LS", "LO", "LK", "LH", "LG", "LT", "RJ", "RK", "RC", "RP", "ZB", "ZS", "ZG", "VT", "VV", "WM", "WS", "WI", "Y", "NZ", "OE", "OM", "OT", "OB", "OK", "OI", "VI", "VA", "VE", "VO", "OP", "SB", "SA", "SC", "SK", "SP", "MM", "UU", "FA", "HE"],
+  
+  "regionGroups": {
+    "EUR": "Europe",
+    "APAC": "Asia-Pacific",
+    "NAM": "North America",
+    "SAM": "South America",
+    "AFR": "Africa",
+    "MID": "Middle East"
+  }
+}
