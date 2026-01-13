@@ -782,15 +782,66 @@ function getFallbackCarriers() {
 /**
  * Get route and waypoints for an O-D pair
  * Uses sequential proximity resolution like sp_ParseRoute
+ * Queries real FAA preferred routes from database
  */
 function getRouteForPair($origin, $dest) {
-    // Get common route or use direct
-    $routeString = getCommonRouteInternal($origin, $dest) ?: 'DCT';
+    global $conn_adl;
+    
+    $routeString = null;
+    $source = 'direct';
+    
+    // 1. Try database sources for real FAA routes
+    if ($conn_adl) {
+        // Try playbook routes first
+        $sql = "SELECT TOP 1 route_string FROM dbo.nav_playbook 
+                WHERE origin_icao = ? AND dest_icao = ?
+                ORDER BY effective_date DESC";
+        $stmt = sqlsrv_query($conn_adl, $sql, [$origin, $dest]);
+        if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $routeString = $row['route_string'];
+            $source = 'playbook';
+            sqlsrv_free_stmt($stmt);
+        }
+        
+        // Try CDRs if no playbook
+        if (!$routeString) {
+            $sql = "SELECT TOP 1 full_route FROM dbo.coded_departure_routes
+                    WHERE origin_icao = ? AND dest_icao = ?";
+            $stmt = sqlsrv_query($conn_adl, $sql, [$origin, $dest]);
+            if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $routeString = $row['full_route'];
+                $source = 'cdr';
+                sqlsrv_free_stmt($stmt);
+            }
+        }
+        
+        // Try public routes
+        if (!$routeString) {
+            $sql = "SELECT TOP 1 route_string FROM dbo.public_routes
+                    WHERE origin_icao = ? AND dest_icao = ? AND is_active = 1
+                    ORDER BY created_at DESC";
+            $stmt = sqlsrv_query($conn_adl, $sql, [$origin, $dest]);
+            if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $routeString = $row['route_string'];
+                $source = 'public';
+                sqlsrv_free_stmt($stmt);
+            }
+        }
+    }
+    
+    // 2. Fall back to hardcoded common routes if no database route
+    if (!$routeString) {
+        $routeString = getCommonRouteInternal($origin, $dest);
+        $source = $routeString ? 'common' : 'direct';
+    }
+    
+    // 3. Use DCT if nothing found
+    if (!$routeString) {
+        $routeString = 'DCT';
+    }
     
     // Expand to waypoints using sequential proximity resolution
     $waypoints = [];
-    
-    // Start with origin coordinates
     $prevLat = null;
     $prevLon = null;
     
@@ -811,10 +862,15 @@ function getRouteForPair($origin, $dest) {
     if ($routeString !== 'DCT') {
         $elements = preg_split('/\s+/', $routeString);
         foreach ($elements as $element) {
-            // Skip airways, SIDs/STARs, DCT
-            if (empty($element) || $element === 'DCT') continue;
-            if (preg_match('/^[JQTV]\d+$/', $element)) continue;
-            if (preg_match('/\d$/', $element) && strlen($element) > 5) continue;
+            // Skip empty, DCT, dots
+            if (empty($element) || $element === 'DCT' || $element === '..') continue;
+            
+            // Skip airways (J60, V123, Q75, T200, etc.) - they're just route designators
+            if (preg_match('/^[JVQT]\d+$/', $element)) continue;
+            
+            // Skip SIDs/STARs (end in digit, length > 4)
+            // e.g., SEAVU4, RPTOR2, HILEY3
+            if (preg_match('/\d$/', $element) && strlen($element) > 4) continue;
             
             // Use previous fix's coordinates for proximity resolution
             $coords = getFixCoordinatesProximity($element, $prevLat, $prevLon);
@@ -845,77 +901,80 @@ function getRouteForPair($origin, $dest) {
     
     return [
         'routeString' => $routeString,
-        'waypoints' => $waypoints
+        'waypoints' => $waypoints,
+        'source' => $source
     ];
 }
 
 function getCommonRouteInternal($origin, $dest) {
+    // Realistic FAA-style routes with airways
+    // These are fallbacks when database routes aren't available
     $routes = [
         // Northeast to/from Southeast
-        'KJFK-KATL' => 'MERIT SBJ NAVHO',
-        'KATL-KJFK' => 'JACCC CUTTN MERIT',
-        'KJFK-KMIA' => 'MERIT SBJ SAV CEBEE',
-        'KMIA-KJFK' => 'WINCO SAV SBJ MERIT',
-        'KBOS-KATL' => 'HAYED SBJ NAVHO',
-        'KATL-KBOS' => 'JACCC CUTTN HAYED',
+        'KJFK-KATL' => 'MERIT J209 SBJ J42 NAVHO',
+        'KATL-KJFK' => 'JACCC CUTTN J209 MERIT',
+        'KJFK-KMIA' => 'MERIT J209 SAV J79 CEBEE',
+        'KMIA-KJFK' => 'WINCO J79 SAV J209 MERIT',
+        'KBOS-KATL' => 'HAYED J42 SBJ NAVHO',
+        'KATL-KBOS' => 'JACCC CUTTN J42 HAYED',
         
         // Northeast to/from Midwest
-        'KJFK-KORD' => 'MERIT AIR DENNT',
-        'KORD-KJFK' => 'EARND AIR MERIT',
-        'KBOS-KORD' => 'HAYED AIR DENNT',
-        'KORD-KBOS' => 'EARND AIR HAYED',
+        'KJFK-KORD' => 'MERIT J584 AIR J94 DENNT',
+        'KORD-KJFK' => 'EARND J94 AIR J584 MERIT',
+        'KBOS-KORD' => 'HAYED J584 AIR J94 DENNT',
+        'KORD-KBOS' => 'EARND J94 AIR J584 HAYED',
         
         // Northeast to/from West
-        'KJFK-KLAX' => 'BIGGY SLT PKE DAGGZ',
-        'KLAX-KJFK' => 'DOTSS SLT BIGGY',
-        'KJFK-KSFO' => 'BIGGY SLT PKE SERFR',
-        'KSFO-KJFK' => 'SSTIK SLT BIGGY',
+        'KJFK-KLAX' => 'BIGGY J80 SLT J146 EED DAGGZ',
+        'KLAX-KJFK' => 'DOTSS HLYWD J146 SLT J80 BIGGY',
+        'KJFK-KSFO' => 'BIGGY J80 SLT J146 EED SERFR',
+        'KSFO-KJFK' => 'SSTIK TRUKN J146 SLT J80 BIGGY',
         
         // Midwest to/from Southeast
-        'KORD-KATL' => 'EARND HNN NAVHO',
-        'KATL-KORD' => 'JACCC HNN DENNT',
-        'KORD-KMIA' => 'EARND HNN SAV',
-        'KMIA-KORD' => 'WINCO SAV HNN DENNT',
+        'KORD-KATL' => 'EARND J94 HNN J42 NAVHO',
+        'KATL-KORD' => 'JACCC CUTTN J42 HNN J94 DENNT',
+        'KORD-KMIA' => 'EARND J94 HNN J79 SAV',
+        'KMIA-KORD' => 'WINCO J79 HNN J94 DENNT',
         
         // Midwest to/from West
-        'KORD-KLAX' => 'EARND DBQ OBH DAGGZ',
-        'KLAX-KORD' => 'DOTSS OBH DBQ DENNT',
-        'KORD-KSFO' => 'EARND DBQ OBH SERFR',
-        'KSFO-KORD' => 'SSTIK OBH DBQ DENNT',
+        'KORD-KLAX' => 'EARND J94 DBQ J10 OBH J80 DAGGZ',
+        'KLAX-KORD' => 'DOTSS HLYWD J80 OBH J10 DBQ J94 DENNT',
+        'KORD-KSFO' => 'EARND J94 DBQ J10 OBH J80 SERFR',
+        'KSFO-KORD' => 'SSTIK TRUKN J80 OBH J10 DBQ J94 DENNT',
         
         // West Coast
-        'KLAX-KSFO' => 'VNY AVE SERFR',
-        'KSFO-KLAX' => 'SSTIK AVE SEAVU',
-        'KLAX-KSEA' => 'VNY AVE OAL HAWKZ',
-        'KSEA-KLAX' => 'SUMMA TOU AVE SEAVU',
+        'KLAX-KSFO' => 'VNY SADDE AVE DYAMD SERFR',
+        'KSFO-KLAX' => 'SSTIK TRUKN SEAVU',
+        'KLAX-KSEA' => 'VNY J5 OAL HAWKZ',
+        'KSEA-KLAX' => 'SUMMA TOU J5 AVE SEAVU',
         
         // Southeast to/from West
-        'KATL-KLAX' => 'JACCC MEI DFW DAGGZ',
-        'KLAX-KATL' => 'DOTSS DFW MEI NAVHO',
-        'KMIA-KLAX' => 'WINCO MEI DFW DAGGZ',
-        'KLAX-KMIA' => 'DOTSS DFW MEI SAV',
+        'KATL-KLAX' => 'JACCC J42 MEI J2 DFW J80 DAGGZ',
+        'KLAX-KATL' => 'DOTSS HLYWD J80 DFW J2 MEI J42 NAVHO',
+        'KMIA-KLAX' => 'WINCO J79 MEI J2 DFW J80 DAGGZ',
+        'KLAX-KMIA' => 'DOTSS HLYWD J80 DFW J2 MEI J79 CEBEE',
         
         // DFW Hub
-        'KDFW-KJFK' => 'AKUNA MEM SBJ MERIT',
-        'KJFK-KDFW' => 'MERIT SBJ MEM FINGR',
-        'KDFW-KORD' => 'AKUNA STL DENNT',
-        'KORD-KDFW' => 'EARND STL FINGR',
-        'KDFW-KLAX' => 'LOWGN DAGGZ',
-        'KLAX-KDFW' => 'DOTSS FINGR',
+        'KDFW-KJFK' => 'AKUNA J24 MEM J42 MERIT',
+        'KJFK-KDFW' => 'MERIT J42 MEM J24 FINGR',
+        'KDFW-KORD' => 'AKUNA J24 STL J94 DENNT',
+        'KORD-KDFW' => 'EARND J94 STL J24 FINGR',
+        'KDFW-KLAX' => 'LOWGN J80 DAGGZ',
+        'KLAX-KDFW' => 'DOTSS HLYWD J80 FINGR',
         
-        // DEN Hub
-        'KDEN-KJFK' => 'TOMSN SLT PKE MERIT',
-        'KJFK-KDEN' => 'BIGGY SLT RAMMS',
-        'KDEN-KORD' => 'TOMSN OBH DENNT',
-        'KORD-KDEN' => 'EARND OBH RAMMS',
-        'KDEN-KLAX' => 'TOMSN DAGGZ',
-        'KLAX-KDEN' => 'DOTSS RAMMS',
+        // DEN Hub  
+        'KDEN-KJFK' => 'TOMSN J80 SLT J80 AIR MERIT',
+        'KJFK-KDEN' => 'BIGGY J80 SLT RAMMS',
+        'KDEN-KORD' => 'TOMSN J10 OBH J94 DENNT',
+        'KORD-KDEN' => 'EARND J94 OBH J10 RAMMS',
+        'KDEN-KLAX' => 'TOMSN J80 DAGGZ',
+        'KLAX-KDEN' => 'DOTSS HLYWD J80 RAMMS',
         
         // Additional common pairs
-        'KEWR-KATL' => 'BIGGY SBJ NAVHO',
-        'KATL-KEWR' => 'JACCC SBJ BIGGY',
-        'KLGA-KATL' => 'ELIOT SBJ NAVHO',
-        'KATL-KLGA' => 'JACCC SBJ ELIOT',
+        'KEWR-KATL' => 'BIGGY J209 SBJ J42 NAVHO',
+        'KATL-KEWR' => 'JACCC CUTTN J42 SBJ J209 BIGGY',
+        'KLGA-KATL' => 'ELIOT J209 SBJ J42 NAVHO',
+        'KATL-KLGA' => 'JACCC CUTTN J42 SBJ J209 ELIOT',
     ];
     
     return $routes[$origin . '-' . $dest] ?? null;
@@ -929,6 +988,9 @@ function getCommonRouteInternal($origin, $dest) {
  */
 function getFixCoordinatesProximity($fix, $prevLat, $prevLon) {
     global $conn_adl;
+    
+    // Try hardcoded first for critical VORs that may have duplicates
+    $hardcoded = getFixCoordinatesInternal($fix);
     
     // Try database with proximity-based resolution
     if ($conn_adl) {
@@ -957,16 +1019,31 @@ function getFixCoordinatesProximity($fix, $prevLat, $prevLon) {
         
         if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             sqlsrv_free_stmt($stmt);
-            return [
+            $dbResult = [
                 'lat' => floatval($row['lat']),
                 'lon' => floatval($row['lon']),
                 'type' => $row['fix_type']
             ];
+            
+            // If we have both hardcoded and DB results, and previous coords,
+            // compare distances and use the closer one (handles cases where DB is incomplete)
+            if ($hardcoded && $prevLat !== null && $prevLon !== null) {
+                $dbDist = pow($dbResult['lat'] - $prevLat, 2) + pow(($dbResult['lon'] - $prevLon) * cos(deg2rad($prevLat)), 2);
+                $hcDist = pow($hardcoded['lat'] - $prevLat, 2) + pow(($hardcoded['lon'] - $prevLon) * cos(deg2rad($prevLat)), 2);
+                
+                // If hardcoded is significantly closer (more than 4x), prefer it
+                // This handles cases where DB might be missing the right fix
+                if ($hcDist < $dbDist * 0.25) {
+                    return $hardcoded;
+                }
+            }
+            
+            return $dbResult;
         }
     }
     
     // Fall back to hardcoded CONUS fixes
-    return getFixCoordinatesInternal($fix);
+    return $hardcoded;
 }
 
 /**
