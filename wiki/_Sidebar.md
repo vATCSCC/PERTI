@@ -57,6 +57,7 @@
 ---
 
 **Reference**
+- [[Acronyms]]
 - [[FAQ]]
 - [[Changelog]]
 - [[Security Policy|SECURITY]]
