@@ -40,6 +40,9 @@ const PHASE_COLORS = {
     // Exempt flights
     'exempt': '#6b7280',            // Gray - Exempt from TMI
     
+    // Uncontrolled (not assigned to any TMI)
+    'uncontrolled': '#94a3b8',      // Light Gray - Not controlled by any TMI
+    
     // Unknown/other
     'unknown': '#9333ea'            // Purple - Unknown/other phase (changed from yellow)
 };
@@ -62,6 +65,7 @@ const PHASE_LABELS = {
     'proposed_gdp': 'GDP (Proposed)',
     'gdp': 'GDP',
     'exempt': 'Exempt',
+    'uncontrolled': 'Uncontrolled',
     'unknown': 'Unknown'
 };
 
@@ -83,6 +87,7 @@ const PHASE_DESCRIPTIONS = {
     'proposed_gdp': 'GDP proposed',
     'gdp': 'GDP controlled',
     'exempt': 'exempt',
+    'uncontrolled': 'not controlled',
     'unknown': ''
 };
 
@@ -96,6 +101,7 @@ const PHASE_STACK_ORDER = [
     'departed', 
     'taxiing', 
     'prefile',
+    'uncontrolled',
     'exempt',
     'actual_gs',
     'simulated_gs', 
@@ -131,6 +137,7 @@ const PHASE_BADGE_CLASSES = {
     'proposed_gdp': 'badge-warning',
     'gdp': 'badge-warning',
     'exempt': 'badge-secondary',
+    'uncontrolled': 'badge-light',
     'unknown': 'badge-secondary'
 };
 
