@@ -147,13 +147,19 @@ class SimulationController {
         const originArtcc = this._getArtccForAirport(params.origin);
         
         let flightPlan = [];
-        if (params.route) {
+        
+        // Use pre-expanded waypoints if provided
+        if (params.waypoints && params.waypoints.length > 0) {
+            flightPlan = params.waypoints;
+        } else if (params.route && params.route !== 'DCT') {
+            // Resolve route string via navData
             flightPlan = await this.navData.resolveRoute(
                 params.origin,
                 params.destination,
                 params.route
             );
         } else {
+            // Direct route
             const destApt = await this.navData.getAirport(params.destination);
             if (destApt) {
                 flightPlan = [
@@ -639,7 +645,8 @@ class SimulationController {
                     speed: flight.speed || 0,
                     cruiseAltitude: flight.cruiseAltitude || flight.altitude || 35000,
                     scheduledDeparture: flight.scheduledDeparture,
-                    route: flight.route
+                    route: flight.route,
+                    waypoints: flight.waypoints  // Pass pre-expanded waypoints
                 });
 
                 if (result.status === 'HELD') {
@@ -736,7 +743,9 @@ class SimulationController {
                 cruiseAltitude: flight.altitude || 35000,
                 scheduledDeparture: etd,
                 scheduledArrival: eta,
-                carrier: flight.carrier
+                carrier: flight.carrier,
+                route: flight.route,           // Preserve route string
+                waypoints: flight.waypoints    // Preserve pre-expanded waypoints
             };
         });
     }
