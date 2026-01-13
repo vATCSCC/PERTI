@@ -5631,10 +5631,22 @@ function loadTierInfo() {
         var badgeEl = document.getElementById("gs_demand_airport_badge");
         if (badgeEl) badgeEl.textContent = airport;
 
-        // Load demand data
+        // Get time basis from selector (default to 'eta', use 'ctd' to show TMI status colors)
+        var timeBasisEl = document.getElementById("gs_model_time_basis");
+        var timeBasis = timeBasisEl ? timeBasisEl.value : "eta";
+        // Map CTD/CTA values to 'ctd' for the API
+        if (timeBasis === "ctd" || timeBasis === "cta") {
+            timeBasis = "ctd";
+        } else {
+            timeBasis = "eta";
+        }
+
+        // Load demand data with time basis for TMI status coloring
         GS_DEMAND_CHART.load(airport, {
             direction: GS_DEMAND_DIRECTION,
-            granularity: GS_DEMAND_GRANULARITY
+            granularity: GS_DEMAND_GRANULARITY,
+            timeBasis: timeBasis,
+            programId: GS_CURRENT_PROGRAM_ID || null
         }).then(function(result) {
             if (result.success && result.rates) {
                 updateGsDemandRateInfo(result.rates);
@@ -5842,6 +5854,13 @@ function loadTierInfo() {
                 if (GS_MODEL_CURRENT_DATA) {
                     renderModelGsDataGraph(GS_MODEL_CURRENT_DATA, GS_MODEL_CURRENT_PAYLOAD);
                     renderComparisonChart(GS_MODEL_CURRENT_DATA);
+                }
+                // Also reload the demand chart with new time basis (for TMI status colors)
+                var apStr = getValue("gs_airports") || getValue("gs_ctl_element") || "";
+                var airports = apStr.toUpperCase().split(/\s+/).filter(function(x) { return x.length >= 3; });
+                var airport = airports[0] || null;
+                if (airport && GS_DEMAND_CHART) {
+                    loadGsDemandData(airport);
                 }
             });
         }

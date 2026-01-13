@@ -65,6 +65,8 @@ $granularity = isset($_GET['granularity']) ? strtolower(trim($_GET['granularity'
 $direction = isset($_GET['direction']) ? strtolower(trim($_GET['direction'])) : 'both';
 $start = isset($_GET['start']) ? trim($_GET['start']) : null;
 $end = isset($_GET['end']) ? trim($_GET['end']) : null;
+$timeBasis = isset($_GET['time_basis']) ? strtolower(trim($_GET['time_basis'])) : 'eta'; // 'eta' or 'ctd'
+$programId = isset($_GET['program_id']) ? (int)$_GET['program_id'] : null;
 
 // Validate airport
 if (empty($airport) || strlen($airport) !== 4) {
@@ -125,11 +127,88 @@ $response = [
     ],
     "granularity" => $granularity,
     "direction" => $direction,
+    "time_basis" => $timeBasis,
     "data" => [
         "arrivals" => [],
         "departures" => []
     ]
 ];
+
+// Use TMI-aware query when time_basis=ctd
+if ($timeBasis === 'ctd') {
+    $tmiQuery = $helper->buildTmiDemandAggregationQuery([
+        'airport' => $airport,
+        'granularity' => $granularity,
+        'startSQL' => $startSQL,
+        'endSQL' => $endSQL,
+        'program_id' => $programId
+    ]);
+
+    $tmiStmt = sqlsrv_query($conn, $tmiQuery['sql'], $tmiQuery['params']);
+
+    if ($tmiStmt === false) {
+        http_response_code(500);
+        echo json_encode([
+            "success" => false,
+            "error" => "Database error when querying TMI demand.",
+            "sql_error" => adl_sql_error_message()
+        ]);
+        sqlsrv_close($conn);
+        exit;
+    }
+
+    while ($row = sqlsrv_fetch_array($tmiStmt, SQLSRV_FETCH_ASSOC)) {
+        $timeBin = $row['time_bin'];
+        if ($timeBin instanceof DateTime) {
+            $timeBin = $timeBin->format("Y-m-d\\TH:i:s\\Z");
+        }
+
+        $response['data']['arrivals'][] = [
+            "time_bin" => $timeBin,
+            "total" => (int)$row['total'],
+            "breakdown" => [
+                // TMI statuses (priority coloring)
+                "proposed_gs" => (int)$row['proposed_gs'],
+                "simulated_gs" => (int)$row['simulated_gs'],
+                "actual_gs" => (int)$row['actual_gs'],
+                "proposed_gdp" => (int)$row['proposed_gdp'],
+                "simulated_gdp" => (int)$row['simulated_gdp'],
+                "actual_gdp" => (int)$row['actual_gdp'],
+                "exempt" => (int)$row['exempt'],
+                "uncontrolled" => (int)$row['uncontrolled'],
+                // Phase breakdown (for uncontrolled flights)
+                "arrived" => (int)$row['arrived'],
+                "disconnected" => (int)$row['disconnected'],
+                "descending" => (int)$row['descending'],
+                "enroute" => (int)$row['enroute'],
+                "departed" => (int)$row['departed'],
+                "taxiing" => (int)$row['taxiing'],
+                "prefile" => (int)$row['prefile']
+            ]
+        ];
+    }
+    sqlsrv_free_stmt($tmiStmt);
+
+    // Get last ADL update time
+    $lastUpdateQuery = $helper->buildLastUpdateQuery();
+    $lastUpdateStmt = sqlsrv_query($conn, $lastUpdateQuery['sql']);
+    if ($lastUpdateStmt !== false) {
+        $row = sqlsrv_fetch_array($lastUpdateStmt, SQLSRV_FETCH_ASSOC);
+        if ($row && $row['last_update']) {
+            $lastUpdate = $row['last_update'];
+            if ($lastUpdate instanceof DateTime) {
+                $response['last_adl_update'] = $lastUpdate->format("Y-m-d\\TH:i:s\\Z");
+            } else {
+                $response['last_adl_update'] = $lastUpdate;
+            }
+        }
+        sqlsrv_free_stmt($lastUpdateStmt);
+    }
+
+    sqlsrv_close($conn);
+    echo json_encode($response);
+    exit;
+}
 
 // Query arrivals
 if ($direction === 'arr' || $direction === 'both') {
