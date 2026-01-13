@@ -1729,4 +1729,93 @@ class AdlQueryHelper {
         }
         return ['sql' => "SELECT MAX(snapshot_utc) AS last_update FROM dbo.adl_flight_core", 'params' => []];
     }
+
+    // =========================================================================
+    // TMI DEMAND AGGREGATION (for CTD time basis in GDT Power Run)
+    // Tables: core + plan + times + tmi + ntml
+    // =========================================================================
+
+    /**
+     * Build query for TMI-aware demand aggregation by time bins
+     * Uses CTA (controlled time) and groups by TMI status instead of phase
+     *
+     * @param array $options:
+     *   - 'airport' => string (ICAO code)
+     *   - 'granularity' => '15min'|'30min'|'hourly'
+     *   - 'startSQL' => string (formatted datetime)
+     *   - 'endSQL' => string (formatted datetime)
+     *   - 'program_id' => int (optional - filter to specific program)
+     * @return array ['sql' => string, 'params' => array]
+     */
+    public function buildTmiDemandAggregationQuery($options = []) {
+        $airport = $options['airport'] ?? '';
+        $granularity = $options['granularity'] ?? 'hourly';
+        $startSQL = $options['startSQL'] ?? '';
+        $endSQL = $options['endSQL'] ?? '';
+        $programId = isset($options['program_id']) ? (int)$options['program_id'] : null;
+
+        // Time column: Use CTA if available (controlled), otherwise fall back to ETA
+        $timeExpr = "COALESCE(tmi.cta_utc, t.eta_runway_utc, t.eta_utc)";
+
+        // Time bin SQL based on granularity
+        if ($granularity === '15min') {
+            $timeBinSQL = "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', {$timeExpr}) / 15) * 15, '2000-01-01')";
+        } elseif ($granularity === '30min') {
+            $timeBinSQL = "DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', {$timeExpr}) / 30) * 30, '2000-01-01')";
+        } else {
+            $timeBinSQL = "DATEADD(HOUR, DATEDIFF(HOUR, 0, {$timeExpr}), 0)";
+        }
+
+        // TMI status determination:
+        // - proposed_gs: ctl_type='GS' AND program status='PROPOSED'
+        // - simulated_gs: ctl_type='GS' AND program status='SIMULATED'
+        // - actual_gs: ctl_type='GS' AND program status='ACTUAL'
+        // - exempt: ctl_exempt=1
+        // - uncontrolled: no TMI assignment or phase-based
+        $sql = "
+            SELECT
+                {$timeBinSQL} AS time_bin,
+                COUNT(*) AS total,
+                SUM(CASE WHEN tmi.ctl_type = 'GS' AND p.status = 'PROPOSED' AND ISNULL(tmi.ctl_exempt, 0) = 0 THEN 1 ELSE 0 END) AS proposed_gs,
+                SUM(CASE WHEN tmi.ctl_type = 'GS' AND p.status = 'SIMULATED' AND ISNULL(tmi.ctl_exempt, 0) = 0 THEN 1 ELSE 0 END) AS simulated_gs,
+                SUM(CASE WHEN tmi.ctl_type = 'GS' AND p.status = 'ACTUAL' AND ISNULL(tmi.ctl_exempt, 0) = 0 THEN 1 ELSE 0 END) AS actual_gs,
+                SUM(CASE WHEN tmi.ctl_type = 'GDP' AND p.status = 'PROPOSED' AND ISNULL(tmi.ctl_exempt, 0) = 0 THEN 1 ELSE 0 END) AS proposed_gdp,
+                SUM(CASE WHEN tmi.ctl_type = 'GDP' AND p.status = 'SIMULATED' AND ISNULL(tmi.ctl_exempt, 0) = 0 THEN 1 ELSE 0 END) AS simulated_gdp,
+                SUM(CASE WHEN tmi.ctl_type = 'GDP' AND p.status = 'ACTUAL' AND ISNULL(tmi.ctl_exempt, 0) = 0 THEN 1 ELSE 0 END) AS actual_gdp,
+                SUM(CASE WHEN tmi.ctl_exempt = 1 THEN 1 ELSE 0 END) AS exempt,
+                SUM(CASE WHEN tmi.program_id IS NULL OR tmi.ctl_type IS NULL THEN 1 ELSE 0 END) AS uncontrolled,
+                -- Also include phase breakdown for flights without TMI
+                SUM(CASE WHEN c.phase = 'arrived' THEN 1 ELSE 0 END) AS arrived,
+                SUM(CASE WHEN c.phase = 'disconnected' THEN 1 ELSE 0 END) AS disconnected,
+                SUM(CASE WHEN c.phase = 'descending' THEN 1 ELSE 0 END) AS descending,
+                SUM(CASE WHEN c.phase = 'enroute' THEN 1 ELSE 0 END) AS enroute,
+                SUM(CASE WHEN c.phase = 'departed' THEN 1 ELSE 0 END) AS departed,
+                SUM(CASE WHEN c.phase = 'taxiing' THEN 1 ELSE 0 END) AS taxiing,
+                SUM(CASE WHEN c.phase = 'prefile' THEN 1 ELSE 0 END) AS prefile
+            FROM dbo.adl_flight_core c
+            INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+            LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+            LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
+            LEFT JOIN dbo.ntml p ON p.program_id = tmi.program_id
+            WHERE fp.fp_dest_icao = ?
+              AND {$timeExpr} IS NOT NULL
+              AND {$timeExpr} >= ?
+              AND {$timeExpr} < ?
+        ";
+
+        $params = [$airport, $startSQL, $endSQL];
+
+        // Optional program filter
+        if ($programId !== null) {
+            $sql .= " AND (tmi.program_id = ? OR tmi.program_id IS NULL)";
+            $params[] = $programId;
+        }
+
+        $sql .= "
+            GROUP BY {$timeBinSQL}
+            ORDER BY time_bin
+        ";
+
+        return ['sql' => $sql, 'params' => $params];
+    }
 }

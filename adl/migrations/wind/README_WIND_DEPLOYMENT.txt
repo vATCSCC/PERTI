@@ -31,9 +31,12 @@ FILES
 DEPLOYMENT STEPS
 ================
 
-Step 1: Install Python Dependencies
------------------------------------
-    pip install cfgrib xarray requests pyodbc ecmwflibs
+Step 1: Install Python Dependencies (use Conda on Windows)
+-----------------------------------------------------------
+    conda install -c conda-forge cfgrib eccodes xarray requests pyodbc
+
+    Note: pip install won't work on Windows due to GRIB library requirements.
+    Conda handles the native eccodes/cfgrib libraries automatically.
 
 Step 2: Deploy Database Schema
 ------------------------------
@@ -142,14 +145,14 @@ TROUBLESHOOTING
 ===============
 
 "Missing required packages"
-    pip install cfgrib xarray requests pyodbc ecmwflibs
+    conda install -c conda-forge cfgrib eccodes xarray requests pyodbc
 
 "Database connection failed"
     Check DB_CONFIG settings in fetch_noaa_gfs.py
     Verify SQL Server is running and accessible
 
 "GRIB parse error"
-    Ensure ecmwflibs is installed: pip install ecmwflibs
+    Ensure eccodes is installed: conda install -c conda-forge eccodes
     Try downloading file manually to verify NOMADS is accessible
 
 "No data returned"
