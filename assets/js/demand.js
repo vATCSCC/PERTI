@@ -357,6 +357,8 @@ window.DemandChartCore = (function() {
             airport: null,
             direction: options.direction || 'both',
             granularity: options.granularity || 'hourly',
+            timeBasis: options.timeBasis || 'eta',  // 'eta' or 'ctd' (controlled time)
+            programId: options.programId || null,    // Optional TMI program filter
             timeRangeStart: options.timeRangeStart !== undefined ? options.timeRangeStart : -2,
             timeRangeEnd: options.timeRangeEnd !== undefined ? options.timeRangeEnd : 14,
             lastData: null,
@@ -371,30 +373,38 @@ window.DemandChartCore = (function() {
         window.addEventListener('resize', resizeHandler);
 
         return {
-            load: function(airport, opts) {
-                opts = opts || {};
-                if (!airport) {
-                    this.clear();
-                    return Promise.resolve({ success: false, error: 'No airport specified' });
-                }
+        load: function(airport, opts) {
+        opts = opts || {};
+        if (!airport) {
+        this.clear();
+        return Promise.resolve({ success: false, error: 'No airport specified' });
+        }
 
-                state.airport = airport;
-                if (opts.direction) state.direction = opts.direction;
-                if (opts.granularity) state.granularity = opts.granularity;
+        state.airport = airport;
+        if (opts.direction) state.direction = opts.direction;
+        if (opts.granularity) state.granularity = opts.granularity;
+        if (opts.timeBasis) state.timeBasis = opts.timeBasis;
+        if (opts.programId !== undefined) state.programId = opts.programId;
                 if (opts.timeRangeStart !== undefined) state.timeRangeStart = opts.timeRangeStart;
-                if (opts.timeRangeEnd !== undefined) state.timeRangeEnd = opts.timeRangeEnd;
+        if (opts.timeRangeEnd !== undefined) state.timeRangeEnd = opts.timeRangeEnd;
 
-                var now = new Date();
+        var now = new Date();
                 var start = new Date(now.getTime() + state.timeRangeStart * 60 * 60 * 1000);
-                var end = new Date(now.getTime() + state.timeRangeEnd * 60 * 60 * 1000);
+        var end = new Date(now.getTime() + state.timeRangeEnd * 60 * 60 * 1000);
 
-                var params = new URLSearchParams({
-                    airport: airport,
-                    granularity: state.granularity,
-                    direction: state.direction,
-                    start: start.toISOString(),
-                    end: end.toISOString()
+        var params = new URLSearchParams({
+        airport: airport,
+        granularity: state.granularity,
+        direction: state.direction,
+            start: start.toISOString(),
+                    end: end.toISOString(),
+                    time_basis: state.timeBasis
                 });
+                
+                // Add program_id if specified (for TMI-specific filtering)
+                if (state.programId) {
+                    params.append('program_id', state.programId);
+                }
 
                 state.chart.showLoading({ text: 'Loading...', maskColor: 'rgba(255,255,255,0.8)', textColor: '#333' });
 
@@ -567,6 +577,14 @@ window.DemandChartCore = (function() {
                     state.granularity = opts.granularity;
                     needsReload = true;
                 }
+                if (opts.timeBasis && opts.timeBasis !== state.timeBasis) {
+                    state.timeBasis = opts.timeBasis;
+                    needsReload = true;  // Time basis change requires fresh data
+                }
+                if (opts.programId !== undefined && opts.programId !== state.programId) {
+                    state.programId = opts.programId;
+                    needsReload = true;
+                }
                 if (opts.timeRangeStart !== undefined && opts.timeRangeStart !== state.timeRangeStart) {
                     state.timeRangeStart = opts.timeRangeStart;
                     needsReload = true;
@@ -597,6 +615,8 @@ window.DemandChartCore = (function() {
                     airport: state.airport,
                     direction: state.direction,
                     granularity: state.granularity,
+                    timeBasis: state.timeBasis,
+                    programId: state.programId,
                     timeRangeStart: state.timeRangeStart,
                     timeRangeEnd: state.timeRangeEnd
                 };
