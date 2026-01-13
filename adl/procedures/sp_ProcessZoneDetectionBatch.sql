@@ -2,6 +2,11 @@
 -- sp_ProcessZoneDetectionBatch.sql
 -- Batch processes zone detection for all active flights near airports
 --
+-- V2.1 - Added actual time fields:
+--   - Now sets atd_utc when RUNWAY→AIRBORNE (departure)
+--   - Now sets ata_runway_utc when AIRBORNE→RUNWAY (arrival)
+--   - These fields are used for ETA accuracy analysis
+--
 -- V2.0 - Performance optimized:
 --   - Single JOIN instead of 3 correlated subqueries
 --   - STIntersects with buffer instead of multiple STDistance calls
@@ -233,6 +238,11 @@ BEGIN
             WHEN z.prev_zone = 'RUNWAY' AND z.current_zone = 'AIRBORNE' AND ft.off_utc IS NULL
             THEN @now ELSE ft.off_utc END,
 
+        -- Also set actual departure time for analytics/ETA accuracy
+        atd_utc = CASE
+            WHEN z.prev_zone = 'RUNWAY' AND z.current_zone = 'AIRBORNE' AND ft.atd_utc IS NULL
+            THEN @now ELSE ft.atd_utc END,
+
         takeoff_roll_utc = CASE
             WHEN z.current_zone = 'RUNWAY' AND z.groundspeed_kts > 40 AND ft.takeoff_roll_utc IS NULL
             THEN @now ELSE ft.takeoff_roll_utc END,
@@ -253,6 +263,11 @@ BEGIN
         on_utc = CASE
             WHEN z.prev_zone = 'AIRBORNE' AND z.current_zone = 'RUNWAY' AND ft.on_utc IS NULL
             THEN @now ELSE ft.on_utc END,
+
+        -- Also set actual runway arrival time for analytics/ETA accuracy
+        ata_runway_utc = CASE
+            WHEN z.prev_zone = 'AIRBORNE' AND z.current_zone = 'RUNWAY' AND ft.ata_runway_utc IS NULL
+            THEN @now ELSE ft.ata_runway_utc END,
 
         touchdown_utc = CASE
             WHEN z.prev_zone = 'AIRBORNE' AND z.current_zone = 'RUNWAY' AND ft.touchdown_utc IS NULL
@@ -287,5 +302,5 @@ BEGIN
 END
 GO
 
-PRINT 'Created stored procedure dbo.sp_ProcessZoneDetectionBatch (V2.0 - Performance optimized)';
+PRINT 'Created stored procedure dbo.sp_ProcessZoneDetectionBatch (V2.1 - Added atd_utc/ata_runway_utc)';
 GO

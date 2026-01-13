@@ -1,7 +1,20 @@
 -- ============================================================================
--- sp_CalculateETABatch.sql (V3 - Route Distance Integration)
+-- sp_CalculateETABatch.sql (V3.3 - Prefile ETA Bug Fix)
 -- Consolidated batch ETA calculation - Single Source of Truth
--- 
+--
+-- V3.3 Changes:
+--   - Fixed: dist_source was missing from #eta_results output
+--   - This caused UPDATE/INSERT to fail when setting eta_dist_source
+--
+-- V3.2 Changes:
+--   - Prefiles now get ETA calculations using GCD distance
+--   - LEFT JOIN on position table allows flights without position
+--   - Distance fallback chain: position dist → route dist → GCD
+--
+-- V3.1 Changes:
+--   - Now sets eta_dist_source column in addition to eta_method
+--   - Enables timing analysis to track GCD vs ROUTE usage
+--
 -- V3 Changes:
 --   - Uses parsed route_dist_nm when available (more accurate than GCD)
 --   - Falls back to gcd_nm when route not parsed
@@ -59,12 +72,14 @@ BEGIN
     
     DROP TABLE IF EXISTS #eta_work;
     
-    SELECT 
+    SELECT
         c.flight_uid,
         c.phase,
-        p.altitude_ft,
-        p.groundspeed_kts,
-        p.dist_to_dest_nm,
+        -- V3.1: Handle NULL position data for prefiles
+        COALESCE(p.altitude_ft, fp.fp_altitude_ft) AS altitude_ft,
+        p.groundspeed_kts,  -- NULL for prefiles, handled in ETA calc
+        -- V3.1: Use position distance, then route distance, then GCD
+        COALESCE(p.dist_to_dest_nm, p.route_dist_to_dest_nm, fp.gcd_nm) AS dist_to_dest_nm,
         p.dist_flown_nm,
         -- Use filed altitude, but prefer final_alt from step climbs if available
         COALESCE(fp.final_alt_ft, fp.fp_altitude_ft, 35000) AS filed_alt,
@@ -79,7 +94,8 @@ BEGIN
         fp.route_dist_nm,
         fp.gcd_nm,
         COALESCE(fp.route_dist_nm, fp.gcd_nm) AS total_route_dist,
-        CASE 
+        CASE
+            WHEN p.route_dist_to_dest_nm IS NOT NULL THEN 'ROUTE'
             WHEN fp.route_dist_nm IS NOT NULL THEN 'ROUTE'
             WHEN fp.gcd_nm IS NOT NULL THEN 'GCD'
             ELSE 'NONE'
@@ -98,14 +114,14 @@ BEGIN
         ft.eta_utc AS current_eta
     INTO #eta_work
     FROM dbo.adl_flight_core c
-    INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+    LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid  -- V3.1: LEFT JOIN for prefiles
     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
     LEFT JOIN dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
     LEFT JOIN dbo.apts apt ON apt.ICAO_ID = fp.fp_dest_icao
     LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
     LEFT JOIN dbo.adl_flight_times ft ON ft.flight_uid = c.flight_uid
     WHERE c.is_active = 1
-      AND p.lat IS NOT NULL;
+      AND (p.lat IS NOT NULL OR c.phase = 'prefile');  -- V3.1: Include prefiles without position
     
     IF @debug = 1
     BEGIN
@@ -482,8 +498,9 @@ BEGIN
         ef.tmi_delay,
         ef.tod_dist,
         ef.tod_eta,
+        ef.dist_source,  -- V3.1: Include dist_source for UPDATE
         -- V3: Track method with distance source
-        CASE 
+        CASE
             WHEN ef.dist_source = 'ROUTE' AND ef.is_simbrief = 1 THEN 'V3_ROUTE_SB'
             WHEN ef.dist_source = 'ROUTE' THEN 'V3_ROUTE'
             WHEN ef.is_simbrief = 1 AND ef.stepclimb_count > 0 THEN 'V3_SB'
@@ -529,6 +546,7 @@ BEGIN
         ft.tod_dist_nm = r.tod_dist,
         ft.tod_eta_utc = r.tod_eta,
         ft.eta_method = r.eta_method,
+        ft.eta_dist_source = r.dist_source,  -- V3.1: Also set eta_dist_source for analysis
         ft.times_updated_utc = @now
     FROM dbo.adl_flight_times ft
     INNER JOIN #eta_results r ON r.flight_uid = ft.flight_uid;
@@ -559,14 +577,15 @@ BEGIN
         tod_dist_nm,
         tod_eta_utc,
         eta_method,
+        eta_dist_source,
         times_updated_utc
     )
-    SELECT 
+    SELECT
         r.flight_uid,
         r.final_eta,
         r.final_eta,
-        CASE WHEN r.final_eta IS NOT NULL 
-             THEN DATEDIFF(SECOND, '1970-01-01', r.final_eta) 
+        CASE WHEN r.final_eta IS NOT NULL
+             THEN DATEDIFF(SECOND, '1970-01-01', r.final_eta)
              ELSE NULL END,
         r.final_prefix,
         r.confidence,
@@ -578,10 +597,11 @@ BEGIN
         r.tod_dist,
         r.tod_eta,
         r.eta_method,
+        r.dist_source,
         @now
     FROM #eta_results r
     WHERE NOT EXISTS (
-        SELECT 1 FROM dbo.adl_flight_times ft 
+        SELECT 1 FROM dbo.adl_flight_times ft
         WHERE ft.flight_uid = r.flight_uid
     );
     
@@ -599,8 +619,11 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_CalculateETABatch V3 (Route Distance Integration)';
+PRINT 'Created sp_CalculateETABatch V3.3 (Prefile ETA Bug Fix)';
 PRINT '';
+PRINT 'V3.3: Fixed dist_source missing from #eta_results (broke eta_dist_source UPDATE)';
+PRINT 'V3.2: Prefiles now get ETA calculations using GCD distance';
+PRINT 'V3.1: Sets eta_dist_source for analysis';
 PRINT 'V3 Enhancements:';
 PRINT '  - Uses parsed route_dist_nm when available (more accurate than GCD)';
 PRINT '  - Falls back to gcd_nm when route not parsed';

@@ -71,8 +71,9 @@ fi
 # Test 5: Check daemon files exist
 echo "[5] Checking daemon files..."
 files=(
-    "adl/php/vatsim_ingest_daemon.php"
+    "scripts/vatsim_adl_daemon.php"
     "adl/php/parse_queue_daemon.php"
+    "adl/php/boundary_daemon.php"
     "scripts/vatsim_atis/atis_daemon.py"
 )
 for file in "${files[@]}"; do
@@ -94,20 +95,27 @@ echo "    $config_check"
 
 # Test 7: Check for running daemon processes
 echo "[7] Checking for running daemon processes..."
-ingest_pid=$(pgrep -f "vatsim_ingest_daemon.php" || echo "")
+adl_pid=$(pgrep -f "vatsim_adl_daemon.php" || echo "")
 parse_pid=$(pgrep -f "parse_queue_daemon.php" || echo "")
+boundary_pid=$(pgrep -f "boundary_daemon.php" || echo "")
 atis_pid=$(pgrep -f "atis_daemon" || echo "")
 
-if [ -n "$ingest_pid" ]; then
-    echo "    vatsim_ingest_daemon: RUNNING (PID: $ingest_pid)"
+if [ -n "$adl_pid" ]; then
+    echo "    vatsim_adl_daemon: RUNNING (PID: $adl_pid)"
 else
-    echo "    vatsim_ingest_daemon: NOT RUNNING"
+    echo "    vatsim_adl_daemon: NOT RUNNING"
 fi
 
 if [ -n "$parse_pid" ]; then
     echo "    parse_queue_daemon: RUNNING (PID: $parse_pid)"
 else
     echo "    parse_queue_daemon: NOT RUNNING"
+fi
+
+if [ -n "$boundary_pid" ]; then
+    echo "    boundary_daemon: RUNNING (PID: $boundary_pid)"
+else
+    echo "    boundary_daemon: NOT RUNNING"
 fi
 
 if [ -n "$atis_pid" ]; then
@@ -120,30 +128,38 @@ echo ""
 echo "======================================"
 
 # Parse command line args for individual tests
-run_ingest=false
+run_adl=false
 run_parse=false
+run_boundary=false
 run_atis=false
 run_all=false
 
 for arg in "$@"; do
     case $arg in
-        --ingest) run_ingest=true ;;
+        --adl) run_adl=true ;;
         --parse) run_parse=true ;;
+        --boundary) run_boundary=true ;;
         --atis) run_atis=true ;;
         --all) run_all=true ;;
     esac
 done
 
-if [ "$run_ingest" = true ] || [ "$run_all" = true ]; then
+if [ "$run_adl" = true ] || [ "$run_all" = true ]; then
     echo ""
-    echo "[TEST] Running vatsim_ingest_daemon.php (single cycle)..."
-    php "$WWWROOT/adl/php/vatsim_ingest_daemon.php"
+    echo "[TEST] Running vatsim_adl_daemon.php (single cycle)..."
+    php "$WWWROOT/scripts/vatsim_adl_daemon.php"
 fi
 
 if [ "$run_parse" = true ] || [ "$run_all" = true ]; then
     echo ""
     echo "[TEST] Running parse_queue_daemon.php (single cycle)..."
     php "$WWWROOT/adl/php/parse_queue_daemon.php"
+fi
+
+if [ "$run_boundary" = true ] || [ "$run_all" = true ]; then
+    echo ""
+    echo "[TEST] Running boundary_daemon.php (single cycle)..."
+    php "$WWWROOT/adl/php/boundary_daemon.php"
 fi
 
 if [ "$run_atis" = true ] || [ "$run_all" = true ]; then

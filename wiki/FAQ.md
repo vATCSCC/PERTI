@@ -86,6 +86,10 @@ Ground Stops use tiers to define affected traffic:
 - **Tier 2**: Extended scope
 - **Tier 3**: All flights to the destination
 
+### What is Adaptive Compression?
+
+Adaptive Compression (ADPT) automatically moves flights up to fill slots that would otherwise be wasted (e.g., when a flight cancels or substitutes). It helps maximize efficiency during GDPs and AFPs.
+
 ---
 
 ## JATOC (Incident Monitor)
@@ -248,20 +252,30 @@ PERTI is maintained by the vATCSCC development team. For operational questions, 
 
 ## Glossary
 
+This is a quick reference. For comprehensive acronym definitions, see [[Acronyms]].
+
 | Term | Definition |
 |------|------------|
-| **AAR** | Airport Acceptance Rate - arrivals per hour |
-| **ADL** | Aeronautical Data Link - flight data system |
-| **ADR** | Airport Departure Rate - departures per hour |
+| **AAR** | Airport Arrival Rate - maximum arrivals per hour |
+| **ADL** | Aggregate Demand List - flight data feed from TFMS containing schedules and NAS information |
+| **ADR** | Airport Departure Rate - maximum departures per hour |
+| **AFP** | Airspace Flow Program - controls departure times for flights to an FCA |
+| **ARTA/ARTD** | Actual Runway Time of Arrival/Departure (formerly AGTA/AGTD) |
 | **ARTCC** | Air Route Traffic Control Center |
+| **CTA/CTD** | Controlled Time of Arrival/Departure |
 | **DCC** | Command Center |
 | **EDCT** | Expect Departure Clearance Time |
+| **ETA/ETD** | Estimated Time of Arrival/Departure |
+| **FCA** | Flow Constrained Area - airspace element used with AFPs |
+| **FSM** | Flight Schedule Monitor |
 | **GDP** | Ground Delay Program |
 | **GS** | Ground Stop |
 | **JATOC** | Joint Air Traffic Operations Command |
 | **NOD** | NAS Operations Dashboard |
 | **OOOI** | Out-Off-On-In (flight phase tracking) |
+| **ORTA/ORTD** | Original Runway Time of Arrival/Departure (formerly OGTA/OGTD) |
 | **SUA** | Special Use Airspace |
+| **TFMS** | Traffic Flow Management System |
 | **TFR** | Temporary Flight Restriction |
 | **TMI** | Traffic Management Initiative |
 | **TMU** | Traffic Management Unit |
@@ -272,5 +286,6 @@ PERTI is maintained by the vATCSCC development team. For operational questions, 
 ## See Also
 
 - [[Getting Started]] - Setup guide
+- [[Acronyms]] - Complete acronym reference
 - [[API Reference]] - API documentation
 - [[Troubleshooting]] - Detailed troubleshooting guide

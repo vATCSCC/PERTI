@@ -2,8 +2,9 @@
 # Tests daemon connectivity and functionality on Windows
 
 param(
-    [switch]$TestIngest,
+    [switch]$TestAdl,
     [switch]$TestParse,
+    [switch]$TestBoundary,
     [switch]$TestAtis,
     [switch]$All
 )
@@ -74,8 +75,9 @@ if (Test-Path $reqFile) {
 # Test 5: Check daemon files exist
 Write-Host "[5] Checking daemon files..." -ForegroundColor Yellow
 $files = @(
-    "adl\php\vatsim_ingest_daemon.php",
+    "scripts\vatsim_adl_daemon.php",
     "adl\php\parse_queue_daemon.php",
+    "adl\php\boundary_daemon.php",
     "scripts\vatsim_atis\atis_daemon.py"
 )
 foreach ($file in $files) {
@@ -99,11 +101,11 @@ Write-Host ""
 Write-Host "======================================" -ForegroundColor Cyan
 
 # Run individual daemon tests if requested
-if ($TestIngest -or $All) {
+if ($TestAdl -or $All) {
     Write-Host ""
-    Write-Host "[TEST] Running vatsim_ingest_daemon.php (single cycle)..." -ForegroundColor Magenta
-    $ingestPath = Join-Path $WwwRoot "adl\php\vatsim_ingest_daemon.php"
-    php $ingestPath 2>&1
+    Write-Host "[TEST] Running vatsim_adl_daemon.php (single cycle)..." -ForegroundColor Magenta
+    $adlPath = Join-Path $WwwRoot "scripts\vatsim_adl_daemon.php"
+    php $adlPath 2>&1
 }
 
 if ($TestParse -or $All) {
@@ -111,6 +113,13 @@ if ($TestParse -or $All) {
     Write-Host "[TEST] Running parse_queue_daemon.php (single cycle)..." -ForegroundColor Magenta
     $parsePath = Join-Path $WwwRoot "adl\php\parse_queue_daemon.php"
     php $parsePath 2>&1
+}
+
+if ($TestBoundary -or $All) {
+    Write-Host ""
+    Write-Host "[TEST] Running boundary_daemon.php (single cycle)..." -ForegroundColor Magenta
+    $boundaryPath = Join-Path $WwwRoot "adl\php\boundary_daemon.php"
+    php $boundaryPath 2>&1
 }
 
 if ($TestAtis -or $All) {
