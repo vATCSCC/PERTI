@@ -927,12 +927,13 @@ if (rawGsFlag === true ||
 
         
         // ETD epoch and prefix (if ADL provides explicit fields)
+        // NOTE: Check both suffixed (_utc) and non-suffixed field names for API compatibility
         var etdEpoch = null;
         if (typeof f.etd_epoch === "number") {
             etdEpoch = f.etd_epoch;
-        } else if (f.etd_utc || f.etd_runway_utc || f.estimated_dep_utc) {
+        } else if (f.etd_utc || f.etd || f.etd_runway_utc || f.estimated_dep_utc) {
             etdEpoch = parseSimtrafficTimeToEpoch(
-                f.etd_utc || f.etd_runway_utc || f.estimated_dep_utc
+                f.etd_utc || f.etd || f.etd_runway_utc || f.estimated_dep_utc
             );
         } else {
             etdEpoch = depEpoch;
@@ -954,14 +955,15 @@ if (rawGsFlag === true ||
         }
 
         // Best-guess ETA from ADL (trajectory, SimTraffic, etc.)
+        // NOTE: Check both suffixed (_utc) and non-suffixed field names for API compatibility
         var etaPrefix = f.eta_prefix || f.eta_src || null;
         var etaEpoch = null;
         if (typeof f.eta_epoch === "number") {
             etaEpoch = f.eta_epoch;
-        } else if (f.eta_best_utc || f.eta_utc ||
+        } else if (f.eta_best_utc || f.eta_utc || f.eta ||
                    f.eta_runway_utc || f.cta_utc || f.estimated_arr_utc) {
             etaEpoch = parseSimtrafficTimeToEpoch(
-                f.eta_best_utc || f.eta_utc ||
+                f.eta_best_utc || f.eta_utc || f.eta ||
                 f.eta_runway_utc || f.cta_utc || f.estimated_arr_utc
             );
         } else if (depEpoch != null && eteMinutes != null) {
@@ -6629,15 +6631,21 @@ function updateDelayStats(visibleRows) {
         var dcenter = f.dcenter || f.dep_center || f.fp_dept_artcc || "";
         var acenter = f.acenter || f.arr_center || f.fp_dest_artcc || "";
         
-        // Original times (OETD/OETA)
-        var oetdText = f.oetd_utc ? formatZuluFromIso(f.oetd_utc) : (f.etd_utc ? formatZuluFromIso(f.etd_utc) : "");
-        var oetaText = f.oeta_utc ? formatZuluFromIso(f.oeta_utc) : (f.eta_utc ? formatZuluFromIso(f.eta_utc) : "");
+        // Original times (OETD/OETA) - check both suffixed and non-suffixed field names
+        var oetdVal = f.oetd_utc || f.oetd || f.etd_utc || f.etd || "";
+        var oetaVal = f.oeta_utc || f.oeta || f.eta_utc || f.eta || "";
+        var oetdText = oetdVal ? formatZuluFromIso(oetdVal) : "";
+        var oetaText = oetaVal ? formatZuluFromIso(oetaVal) : "";
         
-        // Current times
-        var etdText = f.etd_utc ? formatZuluFromIso(f.etd_utc) : "";
-        var ctdText = f.ctd_utc ? formatZuluFromIso(f.ctd_utc) : "";
-        var etaText = f.eta_utc ? formatZuluFromIso(f.eta_utc) : "";
-        var ctaText = f.cta_utc ? formatZuluFromIso(f.cta_utc) : "";
+        // Current times - check both suffixed and non-suffixed field names
+        var etdVal = f.etd_utc || f.etd || "";
+        var ctdVal = f.ctd_utc || f.edct_utc || f.gs_release_utc || "";
+        var etaVal = f.eta_utc || f.eta || "";
+        var ctaVal = f.cta_utc || f.cta || "";
+        var etdText = etdVal ? formatZuluFromIso(etdVal) : "";
+        var ctdText = ctdVal ? formatZuluFromIso(ctdVal) : "";
+        var etaText = etaVal ? formatZuluFromIso(etaVal) : "";
+        var ctaText = ctaVal ? formatZuluFromIso(ctaVal) : "";
         
         var delay = f.program_delay_min || f.absolute_delay_min || 0;
         var delayText = delay > 0 ? String(delay) : "0";
@@ -6658,12 +6666,12 @@ function updateDelayStats(visibleRows) {
             ' data-dest="' + escapeHtml(dest) + '"' +
             ' data-dcenter="' + escapeHtml(dcenter) + '"' +
             ' data-acenter="' + escapeHtml(acenter) + '"' +
-            ' data-oetd="' + escapeHtml(f.oetd_utc || f.etd_utc || "") + '"' +
-            ' data-oeta="' + escapeHtml(f.oeta_utc || f.eta_utc || "") + '"' +
-            ' data-etd="' + escapeHtml(f.etd_utc || "") + '"' +
-            ' data-ctd="' + escapeHtml(f.ctd_utc || "") + '"' +
-            ' data-eta="' + escapeHtml(f.eta_utc || "") + '"' +
-            ' data-cta="' + escapeHtml(f.cta_utc || "") + '"' +
+            ' data-oetd="' + escapeHtml(oetdVal || "") + '"' +
+            ' data-oeta="' + escapeHtml(oetaVal || "") + '"' +
+            ' data-etd="' + escapeHtml(etdVal || "") + '"' +
+            ' data-ctd="' + escapeHtml(ctdVal || "") + '"' +
+            ' data-eta="' + escapeHtml(etaVal || "") + '"' +
+            ' data-cta="' + escapeHtml(ctaVal || "") + '"' +
             ' data-delay="' + delay + '"' +
             ' data-status="' + escapeHtml(status) + '"' +
             ' data-carrier="' + escapeHtml(carrier) + '"';
