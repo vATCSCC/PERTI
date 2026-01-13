@@ -12,6 +12,7 @@ window.DemandChartCore = (function() {
 
     // Phase colors - use shared config from phase-colors.js if available
     const PHASE_COLORS = (typeof window.PHASE_COLORS !== 'undefined') ? window.PHASE_COLORS : {
+        // Standard flight phases
         'arrived': '#1a1a1a',
         'disconnected': '#f97316',
         'descending': '#991b1b',
@@ -19,6 +20,20 @@ window.DemandChartCore = (function() {
         'departed': '#f87171',
         'taxiing': '#22c55e',
         'prefile': '#3b82f6',
+        // Ground Stop statuses (yellow spectrum)
+        'actual_gs': '#eab308',
+        'simulated_gs': '#fef08a',
+        'proposed_gs': '#ca8a04',
+        'gs': '#eab308',
+        // Ground Delay Program statuses (brown spectrum)
+        'actual_gdp': '#92400e',
+        'simulated_gdp': '#d4a574',
+        'proposed_gdp': '#78350f',
+        'gdp': '#92400e',
+        // Exempt and uncontrolled
+        'exempt': '#6b7280',
+        'uncontrolled': '#94a3b8',
+        // Unknown/other
         'unknown': '#9333ea'
     };
 
@@ -31,13 +46,24 @@ window.DemandChartCore = (function() {
         'departed': 'Departed',
         'taxiing': 'Taxiing',
         'prefile': 'Prefile',
+        'actual_gs': 'GS (EDCT)',
+        'simulated_gs': 'GS (Simulated)',
+        'proposed_gs': 'GS (Proposed)',
+        'gs': 'Ground Stop',
+        'actual_gdp': 'GDP (EDCT)',
+        'simulated_gdp': 'GDP (Simulated)',
+        'proposed_gdp': 'GDP (Proposed)',
+        'gdp': 'GDP',
+        'exempt': 'Exempt',
+        'uncontrolled': 'Uncontrolled',
         'unknown': 'Unknown'
     };
 
     // Phase stacking order (bottom to top) - use shared config if available
     const PHASE_ORDER = (typeof window.PHASE_STACK_ORDER !== 'undefined') ? window.PHASE_STACK_ORDER : 
         ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 
-         'exempt', 'actual_gs', 'simulated_gs', 'proposed_gs', 'actual_gdp', 'simulated_gdp', 'proposed_gdp', 'unknown'];
+         'uncontrolled', 'exempt', 'actual_gs', 'simulated_gs', 'proposed_gs', 
+         'actual_gdp', 'simulated_gdp', 'proposed_gdp', 'unknown'];
 
     /**
      * Get granularity in minutes
@@ -442,6 +468,8 @@ window.DemandChartCore = (function() {
                 var departures = data.data.departures || [];
                 var direction = state.direction;
 
+                console.log('[DemandChart] render - timeBasis:', state.timeBasis, 'arrivals:', arrivals.length, 'departures:', departures.length);
+
                 var timeBins = generateAllTimeBins(state.granularity, state.timeRangeStart, state.timeRangeEnd);
 
                 var arrivalsByBin = {};
@@ -449,18 +477,41 @@ window.DemandChartCore = (function() {
 
                 var departuresByBin = {};
                 departures.forEach(function(d) { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+                
+                // Debug: Log first breakdown to see what keys are available
+                if (arrivals.length > 0 && arrivals[0].breakdown) {
+                    console.log('[DemandChart] Sample breakdown keys:', Object.keys(arrivals[0].breakdown));
+                }
 
                 var series = [];
+                
+                // When time_basis=ctd, only show TMI status breakdown (not flight phases)
+                // to avoid double-counting controlled flights
+                var phasesToRender;
+                if (state.timeBasis === 'ctd') {
+                    // TMI status phases only - no regular flight phases to avoid double-counting
+                    phasesToRender = [
+                        'uncontrolled',  // Flights not controlled by any TMI
+                        'exempt',        // Exempt from TMI
+                        'actual_gs', 'simulated_gs', 'proposed_gs',     // Ground Stop statuses
+                        'actual_gdp', 'simulated_gdp', 'proposed_gdp'   // GDP statuses
+                    ];
+                } else {
+                    // Standard flight phases when using ETA
+                    phasesToRender = ['arrived', 'disconnected', 'descending', 'enroute', 
+                                      'departed', 'taxiing', 'prefile', 'unknown'];
+                }
+                console.log('[DemandChart] phasesToRender:', phasesToRender);
 
                 if (direction === 'arr' || direction === 'both') {
-                    PHASE_ORDER.forEach(function(phase) {
+                    phasesToRender.forEach(function(phase) {
                         var suffix = direction === 'both' ? ' (Arr)' : '';
                         series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction, state.granularity));
                     });
                 }
 
                 if (direction === 'dep' || direction === 'both') {
-                    PHASE_ORDER.forEach(function(phase) {
+                    phasesToRender.forEach(function(phase) {
                         var suffix = direction === 'both' ? ' (Dep)' : '';
                         series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction, state.granularity));
                     });

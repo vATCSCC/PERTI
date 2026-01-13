@@ -5634,12 +5634,16 @@ function loadTierInfo() {
         // Get time basis from selector (default to 'eta', use 'ctd' to show TMI status colors)
         var timeBasisEl = document.getElementById("gs_model_time_basis");
         var timeBasis = timeBasisEl ? timeBasisEl.value : "eta";
-        // Map CTD/CTA values to 'ctd' for the API
+        console.log('[GDT] loadGsDemandData - raw timeBasis:', timeBasis);
+        
+        // Map CTD/CTA values to 'ctd' for the API (TMI status view)
+        // Map ETD/ETA values to 'eta' for the API (flight phase view)
         if (timeBasis === "ctd" || timeBasis === "cta") {
             timeBasis = "ctd";
         } else {
             timeBasis = "eta";
         }
+        console.log('[GDT] loadGsDemandData - mapped timeBasis:', timeBasis, 'programId:', GS_CURRENT_PROGRAM_ID);
 
         // Load demand data with time basis for TMI status coloring
         GS_DEMAND_CHART.load(airport, {
