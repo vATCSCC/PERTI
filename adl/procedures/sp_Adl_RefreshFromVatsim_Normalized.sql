@@ -230,27 +230,36 @@ BEGIN
     INNER JOIN dbo.apts a ON a.ICAO_ID = p.dest_icao
     WHERE p.dest_icao IS NOT NULL;
     
+    -- Validate coordinates before creating geography points
+    -- Latitude must be -90 to 90, Longitude must be -180 to 180
     UPDATE #pilots
-    SET 
-        gcd_nm = CASE 
-            WHEN dept_lat IS NOT NULL AND dest_lat IS NOT NULL 
+    SET
+        gcd_nm = CASE
+            WHEN dept_lat IS NOT NULL AND dest_lat IS NOT NULL
+                 AND dept_lat BETWEEN -90 AND 90 AND dept_lon BETWEEN -180 AND 180
+                 AND dest_lat BETWEEN -90 AND 90 AND dest_lon BETWEEN -180 AND 180
             THEN geography::Point(dept_lat, dept_lon, 4326).STDistance(
                  geography::Point(dest_lat, dest_lon, 4326)) / 1852.0
             ELSE NULL
         END,
-        dist_to_dest_nm = CASE 
-            WHEN lat IS NOT NULL AND dest_lat IS NOT NULL 
+        dist_to_dest_nm = CASE
+            WHEN lat IS NOT NULL AND dest_lat IS NOT NULL
+                 AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180
+                 AND dest_lat BETWEEN -90 AND 90 AND dest_lon BETWEEN -180 AND 180
             THEN geography::Point(lat, lon, 4326).STDistance(
                  geography::Point(dest_lat, dest_lon, 4326)) / 1852.0
             ELSE NULL
         END,
-        dist_flown_nm = CASE 
-            WHEN lat IS NOT NULL AND dept_lat IS NOT NULL 
+        dist_flown_nm = CASE
+            WHEN lat IS NOT NULL AND dept_lat IS NOT NULL
+                 AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180
+                 AND dept_lat BETWEEN -90 AND 90 AND dept_lon BETWEEN -180 AND 180
             THEN geography::Point(dept_lat, dept_lon, 4326).STDistance(
                  geography::Point(lat, lon, 4326)) / 1852.0
             ELSE NULL
         END
-    WHERE lat IS NOT NULL;
+    WHERE lat IS NOT NULL
+      AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180;
     
     UPDATE #pilots
     SET pct_complete = CASE
@@ -459,10 +468,12 @@ BEGIN
         pp.flight_uid, pp.fp_rule, pp.dept_icao, pp.dest_icao, pp.alt_icao,
         pp.route, pp.remarks, pp.altitude_ft, pp.tas_kts, pp.dep_time_z,
         pp.enroute_minutes, pp.route_hash, @now, 'PENDING',
-        -- Calculate GCD between departure and arrival airports
+        -- Calculate GCD between departure and arrival airports (with coordinate validation)
         CASE
             WHEN dept.LAT_DECIMAL IS NOT NULL AND dept.LONG_DECIMAL IS NOT NULL
                  AND dest.LAT_DECIMAL IS NOT NULL AND dest.LONG_DECIMAL IS NOT NULL
+                 AND dept.LAT_DECIMAL BETWEEN -90 AND 90 AND dept.LONG_DECIMAL BETWEEN -180 AND 180
+                 AND dest.LAT_DECIMAL BETWEEN -90 AND 90 AND dest.LONG_DECIMAL BETWEEN -180 AND 180
             THEN CAST(geography::Point(dept.LAT_DECIMAL, dept.LONG_DECIMAL, 4326).STDistance(
                       geography::Point(dest.LAT_DECIMAL, dest.LONG_DECIMAL, 4326)) / 1852.0 AS DECIMAL(10,2))
             ELSE NULL
@@ -496,11 +507,13 @@ BEGIN
     
     MERGE dbo.adl_flight_position AS target
     USING (
-        SELECT flight_uid, lat, lon, altitude_ft, groundspeed_kts, 
+        SELECT flight_uid, lat, lon, altitude_ft, groundspeed_kts,
                heading_deg, qnh_in_hg, qnh_mb,
                dist_to_dest_nm, dist_flown_nm, pct_complete
-        FROM #pilots 
+        FROM #pilots
         WHERE flight_uid IS NOT NULL AND lat IS NOT NULL
+          -- Validate coordinates for geography::Point (lat -90 to 90, lon -180 to 180)
+          AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180
     ) AS source
     ON target.flight_uid = source.flight_uid
     WHEN MATCHED THEN

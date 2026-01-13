@@ -318,15 +318,19 @@ def parse_grib_to_grid(grib_path, target_points, resolution, pressure_levels, de
 
 
 def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
-    """Parse GRIB2 file and extract all wind points at given resolution using vectorized ops."""
+    """Parse GRIB2 file and extract all wind points at given resolution."""
     import xarray as xr
     import numpy as np
 
     results = []
 
     try:
+        # Load entire dataset into memory at once (faster than lazy loading)
         ds = xr.open_dataset(grib_path, engine='cfgrib',
                             backend_kwargs={'filter_by_keys': {'typeOfLevel': 'isobaricInhPa'}})
+
+        # Force load all data into memory
+        ds = ds.load()
 
         lats = ds.latitude.values
         lons = ds.longitude.values
@@ -335,43 +339,52 @@ def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
         native_step = abs(lats[1] - lats[0]) if len(lats) > 1 else 0.25
         step_factor = max(1, int(resolution / native_step))
 
-        # Subsample coordinates
-        lat_subset = lats[::step_factor]
-        lon_subset = lons[::step_factor]
-
         # Get available pressure levels
         if 'isobaricInhPa' in ds.dims:
             available_levels = ds.isobaricInhPa.values
+            # Get full U and V arrays
+            u_full = ds['u'].values  # Shape: (levels, lats, lons)
+            v_full = ds['v'].values
         else:
             available_levels = [float(ds.isobaricInhPa.values)]
+            u_full = ds['u'].values[np.newaxis, :, :]  # Add level dimension
+            v_full = ds['v'].values[np.newaxis, :, :]
+
+        ds.close()
 
         # Filter to requested levels
-        target_levels = [lv for lv in available_levels if int(lv) in pressure_levels]
+        level_indices = [i for i, lv in enumerate(available_levels) if int(lv) in pressure_levels]
+        target_levels = [available_levels[i] for i in level_indices]
 
         if debug:
-            print(f"      Extracting {len(lat_subset)}x{len(lon_subset)}x{len(target_levels)} = "
-                  f"{len(lat_subset)*len(lon_subset)*len(target_levels)} points")
+            lat_count = len(range(0, len(lats), step_factor))
+            lon_count = len(range(0, len(lons), step_factor))
+            print(f"      Extracting {lat_count}x{lon_count}x{len(target_levels)} = "
+                  f"{lat_count*lon_count*len(target_levels)} points")
 
-        # Extract full arrays at once (vectorized - much faster)
-        for level in target_levels:
-            if 'isobaricInhPa' in ds.dims:
-                u_data = ds['u'].sel(isobaricInhPa=level).values[::step_factor, ::step_factor]
-                v_data = ds['v'].sel(isobaricInhPa=level).values[::step_factor, ::step_factor]
-            else:
-                u_data = ds['u'].values[::step_factor, ::step_factor]
-                v_data = ds['v'].values[::step_factor, ::step_factor]
+        # Subsample and process each level
+        for level_idx, level in zip(level_indices, target_levels):
+            # Extract and subsample
+            u_data = u_full[level_idx, ::step_factor, ::step_factor]
+            v_data = v_full[level_idx, ::step_factor, ::step_factor]
 
-            # Vectorized conversion to knots
+            # Convert to knots
             u_kts = u_data * 1.94384
             v_kts = v_data * 1.94384
 
-            # Vectorized speed and direction
+            # Calculate speed and direction
             speed_kts = np.sqrt(u_kts**2 + v_kts**2)
             direction = (np.degrees(np.arctan2(-u_kts, -v_kts)) + 360) % 360
 
-            # Build results
-            for i, lat in enumerate(lat_subset):
-                for j, lon in enumerate(lon_subset):
+            # Build results from subsampled arrays
+            lat_indices = range(0, len(lats), step_factor)
+            lon_indices = range(0, len(lons), step_factor)
+
+            for i, lat_idx in enumerate(lat_indices):
+                lat = lats[lat_idx]
+                for j, lon_idx in enumerate(lon_indices):
+                    lon = lons[lon_idx]
+
                     if np.isnan(u_kts[i, j]):
                         continue
 
@@ -386,8 +399,6 @@ def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
                         'wind_u_kts': round(float(u_kts[i, j]), 2),
                         'wind_v_kts': round(float(v_kts[i, j]), 2)
                     })
-
-        ds.close()
 
     except Exception as e:
         print(f"    GRIB parse error: {e}")
@@ -411,27 +422,38 @@ def insert_wind_data(conn, wind_data, tier, model_run_str, valid_time_str, forec
     # Enable fast executemany for bulk inserts
     cursor.fast_executemany = True
 
-    # Prepare batch data
+    # Convert datetime strings to datetime objects for proper pyodbc handling
+    model_run_dt = datetime.datetime.strptime(model_run_str, "%Y-%m-%d %H:%M:%S")
+    valid_time_dt = datetime.datetime.strptime(valid_time_str, "%Y-%m-%d %H:%M:%S")
+
+    # Prepare batch data with explicit type conversions
     batch_data = [
         (
-            point['lat'], point['lon'], point['pressure_hpa'], valid_time_str,
-            point['wind_speed_kts'], point['wind_dir_deg'],
-            point['wind_u_kts'], point['wind_v_kts'],
-            forecast_hour, model_run_str, tier
+            float(point['lat']),
+            float(point['lon']),
+            int(point['pressure_hpa']),
+            valid_time_dt,
+            float(point['wind_speed_kts']),
+            int(point['wind_dir_deg']),
+            float(point['wind_u_kts']),
+            float(point['wind_v_kts']),
+            int(forecast_hour),
+            model_run_dt,
+            int(tier)
         )
         for point in wind_data
     ]
 
     # Use temp table + MERGE for fast bulk upsert
     try:
-        # Create temp table
+        # Create temp table - schema matches wind_grid table
         cursor.execute("""
             IF OBJECT_ID('tempdb..#wind_import') IS NOT NULL DROP TABLE #wind_import;
             CREATE TABLE #wind_import (
-                lat DECIMAL(6,2), lon DECIMAL(7,2), pressure_hpa SMALLINT,
+                lat DECIMAL(5,2), lon DECIMAL(6,2), pressure_hpa INT,
                 valid_time_utc DATETIME2(0), wind_speed_kts DECIMAL(5,1),
                 wind_dir_deg SMALLINT, wind_u_kts DECIMAL(6,2), wind_v_kts DECIMAL(6,2),
-                forecast_hour TINYINT, model_run_utc DATETIME2(0), tier TINYINT
+                forecast_hour INT, model_run_utc DATETIME2(0), tier TINYINT
             );
         """)
 

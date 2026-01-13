@@ -180,16 +180,17 @@ BEGIN
     VALUES (@airport_icao, 'RUNWAY', 'FALLBACK_RWY', @center.STBuffer(200), @lat, @lon, @elev, 'FALLBACK');
     
     -- Taxiway zone: 200-500m ring
+    -- Use MakeValid() because STDifference can produce invalid ring orientations
     INSERT INTO dbo.airport_geometry (airport_icao, zone_type, zone_name, geometry, center_lat, center_lon, elevation_ft, source)
-    VALUES (@airport_icao, 'TAXIWAY', 'FALLBACK_TWY', @center.STBuffer(500).STDifference(@center.STBuffer(200)), @lat, @lon, @elev, 'FALLBACK');
-    
+    VALUES (@airport_icao, 'TAXIWAY', 'FALLBACK_TWY', @center.STBuffer(500).STDifference(@center.STBuffer(200)).MakeValid(), @lat, @lon, @elev, 'FALLBACK');
+
     -- Apron zone: 500-800m ring
     INSERT INTO dbo.airport_geometry (airport_icao, zone_type, zone_name, geometry, center_lat, center_lon, elevation_ft, source)
-    VALUES (@airport_icao, 'APRON', 'FALLBACK_APRON', @center.STBuffer(800).STDifference(@center.STBuffer(500)), @lat, @lon, @elev, 'FALLBACK');
-    
+    VALUES (@airport_icao, 'APRON', 'FALLBACK_APRON', @center.STBuffer(800).STDifference(@center.STBuffer(500)).MakeValid(), @lat, @lon, @elev, 'FALLBACK');
+
     -- Parking zone: 800-1200m ring
     INSERT INTO dbo.airport_geometry (airport_icao, zone_type, zone_name, geometry, center_lat, center_lon, elevation_ft, source)
-    VALUES (@airport_icao, 'PARKING', 'FALLBACK_PARK', @center.STBuffer(1200).STDifference(@center.STBuffer(800)), @lat, @lon, @elev, 'FALLBACK');
+    VALUES (@airport_icao, 'PARKING', 'FALLBACK_PARK', @center.STBuffer(1200).STDifference(@center.STBuffer(800)).MakeValid(), @lat, @lon, @elev, 'FALLBACK');
     
     SET @zones_created = 4;
     
