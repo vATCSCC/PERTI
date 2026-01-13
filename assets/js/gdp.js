@@ -108,10 +108,10 @@ const GDP = (function() {
     }
 
     function updateWorkflowButtons() {
-        const previewBtn = document.getElementById('gdp_preview_btn');
-        const simulateBtn = document.getElementById('gdp_simulate_btn');
+        const previewBtn = document.getElementById('gdp_model_btn');
+        const simulateBtn = document.getElementById('gdp_run_proposed_btn');
         const modelBtn = document.getElementById('gdp_model_btn');
-        const applyBtn = document.getElementById('gdp_apply_btn');
+        const applyBtn = document.getElementById('gdp_run_actual_btn');
         const purgeLocalBtn = document.getElementById('gdp_purge_local_btn');
         const purgeBtn = document.getElementById('gdp_purge_btn');
 
@@ -201,6 +201,321 @@ const GDP = (function() {
     }
 
     // =========================================================================
+    // Reload Handler - Refresh ADL data for current airport
+    // =========================================================================
+
+    async function handleReload() {
+        const airport = (document.getElementById('gdp_ctl_element')?.value || '').toUpperCase().trim();
+        
+        if (!airport) {
+            alert('Please enter a CTL Element (airport code) first.');
+            return;
+        }
+
+        const btn = document.getElementById('gdp_reload_btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Loading...';
+        }
+
+        try {
+            // Clear current state
+            state.previewFlights = [];
+            state.simulatedFlights = [];
+            state.slots = [];
+            state.summary = null;
+            state.status = 'DRAFT';
+            
+            // Update UI
+            updateStatusBadge('DRAFT');
+            updateWorkflowButtons();
+            
+            // Clear tables and charts
+            const tbodies = ['gdp_flight_list_tbody', 'gdp_slots_list_tbody', 'gdp_demand_by_center'];
+            tbodies.forEach(id => {
+                const tbody = document.getElementById(id);
+                if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-secondary">Click Model to load data</td></tr>';
+            });
+            
+            // Update airport label
+            const labelEl = document.getElementById('gdp_airport_label');
+            if (labelEl) labelEl.textContent = airport;
+            
+            console.log('GDP: Reloaded state for', airport);
+            
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Reload';
+            }
+        }
+    }
+
+    // =========================================================================
+    // Fill Rates Handler
+    // =========================================================================
+
+    function handleFillRates() {
+        const fillRow = document.getElementById('gdp_fill_row')?.value || 'PR';
+        const fillValue = parseInt(document.getElementById('gdp_fill_value')?.value || '40', 10);
+        
+        // Get all rate inputs in the rate table
+        if (fillRow === 'PR') {
+            const rateInputs = document.querySelectorAll('#gdp_rate_pr input[type="number"]');
+            rateInputs.forEach(input => input.value = fillValue);
+        } else if (fillRow === 'Reserve') {
+            const reserveInputs = document.querySelectorAll('#gdp_rate_reserve input[type="number"]');
+            reserveInputs.forEach(input => input.value = fillValue);
+        }
+        
+        console.log('GDP: Filled', fillRow, 'row with value', fillValue);
+    }
+
+    // =========================================================================
+    // Show Demand Handler
+    // =========================================================================
+
+    function handleShowDemand() {
+        const airport = (document.getElementById('gdp_ctl_element')?.value || '').toUpperCase().trim();
+        if (!airport) {
+            alert('Please enter a CTL Element (airport code) first.');
+            return;
+        }
+        
+        // Trigger a preview to load demand data
+        handlePreview();
+    }
+
+    // =========================================================================
+    // Modal Handlers
+    // =========================================================================
+
+    function openFlightListModal() {
+        const modal = document.getElementById('gdp_flight_list_modal');
+        if (modal) {
+            // Update airport label
+            const airport = document.getElementById('gdp_ctl_element')?.value || '---';
+            document.getElementById('gdp_flight_list_airport').textContent = airport.toUpperCase();
+            
+            // Populate flight list
+            renderFlightListModal();
+            
+            // Show modal using Bootstrap
+            $(modal).modal('show');
+        }
+    }
+
+    function openSlotsListModal() {
+        const modal = document.getElementById('gdp_slots_list_modal');
+        if (modal) {
+            // Update airport label
+            const airport = document.getElementById('gdp_ctl_element')?.value || '---';
+            document.getElementById('gdp_slots_list_airport').textContent = airport.toUpperCase();
+            
+            // Populate slots list
+            renderSlotsListModal();
+            
+            // Show modal using Bootstrap
+            $(modal).modal('show');
+        }
+    }
+
+    function renderFlightListModal() {
+        const tbody = document.getElementById('gdp_flight_list_tbody');
+        if (!tbody) return;
+        
+        const flights = state.simulatedFlights.length > 0 ? state.simulatedFlights : state.previewFlights;
+        
+        if (!flights || flights.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-secondary">No flights loaded. Run Model first.</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        let delayed = 0, exempt = 0;
+        
+        flights.forEach(f => {
+            const delay = parseInt(f.program_delay_min, 10) || 0;
+            const isExempt = f.ctl_exempt === 1 || f.ctl_exempt === '1';
+            const statusClass = isExempt ? 'text-success' : (delay > 0 ? 'text-warning' : '');
+            const statusText = isExempt ? 'Exempt' : (delay > 0 ? 'Delayed' : 'Uncontrolled');
+            
+            if (delay > 0) delayed++;
+            if (isExempt) exempt++;
+            
+            html += `<tr class="${statusClass}">
+                <td>${f.callsign || '--'}</td>
+                <td>${f.origin || '--'}</td>
+                <td>${f.destination || '--'}</td>
+                <td>${f.origin_artcc || '--'}</td>
+                <td>${f.aircraft_type || '--'}</td>
+                <td>${formatUtcTime(f.eta_runway_utc)}</td>
+                <td>${formatUtcTime(f.cta_utc)}</td>
+                <td>${formatUtcTime(f.ctd_utc)}</td>
+                <td class="${getDelayClass(delay)}">${formatDelay(delay)}</td>
+                <td>${statusText}</td>
+            </tr>`;
+        });
+        
+        tbody.innerHTML = html;
+        
+        // Update counts
+        document.getElementById('gdp_fl_count_all').textContent = flights.length;
+        document.getElementById('gdp_fl_count_delayed').textContent = delayed;
+        document.getElementById('gdp_fl_count_exempt').textContent = exempt;
+        document.getElementById('gdp_fl_status').textContent = `Showing ${flights.length} flights`;
+    }
+
+    function renderSlotsListModal() {
+        const tbody = document.getElementById('gdp_slots_list_tbody');
+        if (!tbody) return;
+        
+        const slots = state.slots || [];
+        
+        if (slots.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-secondary">No slots generated. Run Model first.</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        let assigned = 0, open = 0;
+        
+        slots.forEach(s => {
+            const isAssigned = s.callsign && s.callsign !== '';
+            if (isAssigned) assigned++; else open++;
+            
+            const statusText = isAssigned ? 'Assigned' : 'Open';
+            const statusClass = isAssigned ? 'text-primary' : 'text-secondary';
+            
+            html += `<tr>
+                <td>${formatUtcTime(s.slot_time_utc)}</td>
+                <td>${s.slot_id || '--'}</td>
+                <td class="${statusClass}">${s.callsign || '(open)'}</td>
+                <td>${s.origin || '--'}</td>
+                <td>${formatUtcTime(s.ctd_utc)}</td>
+                <td class="${getDelayClass(s.delay_min)}">${formatDelay(s.delay_min)}</td>
+                <td>${s.slot_type || 'PRG'}</td>
+                <td class="${statusClass}">${statusText}</td>
+            </tr>`;
+        });
+        
+        tbody.innerHTML = html;
+        
+        // Update counts
+        document.getElementById('gdp_sl_count_all').textContent = slots.length;
+        document.getElementById('gdp_sl_count_assigned').textContent = assigned;
+        document.getElementById('gdp_sl_count_open').textContent = open;
+        document.getElementById('gdp_sl_status').textContent = `Showing ${slots.length} slots`;
+    }
+
+    // =========================================================================
+    // Bar Graph View Toggle
+    // =========================================================================
+
+    function switchBarGraphView(view) {
+        const etaBtn = document.getElementById('gdp_bar_eta_btn');
+        const ctaBtn = document.getElementById('gdp_bar_cta_btn');
+        
+        if (view === 'eta') {
+            if (etaBtn) etaBtn.classList.add('active');
+            if (ctaBtn) ctaBtn.classList.remove('active');
+        } else {
+            if (etaBtn) etaBtn.classList.remove('active');
+            if (ctaBtn) ctaBtn.classList.add('active');
+        }
+        
+        // Re-render bar graph with the selected view
+        renderBarGraph(view);
+    }
+
+    function renderBarGraph(view) {
+        const flights = state.simulatedFlights.length > 0 ? state.simulatedFlights : state.previewFlights;
+        if (!flights || flights.length === 0) return;
+        
+        // Group flights by hour based on view (ETA or CTA)
+        const hourlyData = {};
+        
+        flights.forEach(f => {
+            const timeField = view === 'cta' ? (f.cta_utc || f.eta_runway_utc) : f.eta_runway_utc;
+            if (!timeField) return;
+            
+            const hour = new Date(timeField).getUTCHours();
+            const hourKey = hour.toString().padStart(2, '0') + 'Z';
+            
+            if (!hourlyData[hourKey]) {
+                hourlyData[hourKey] = { original: 0, modeled: 0 };
+            }
+            
+            // Original count (based on original ETA)
+            if (f.gdp_original_eta_utc || f.eta_runway_utc) {
+                const origHour = new Date(f.gdp_original_eta_utc || f.eta_runway_utc).getUTCHours();
+                const origKey = origHour.toString().padStart(2, '0') + 'Z';
+                if (origKey === hourKey) hourlyData[hourKey].original++;
+            }
+            
+            // Modeled count (based on current time field)
+            hourlyData[hourKey].modeled++;
+        });
+        
+        // Update label
+        const label = document.getElementById('gdp_bargraph_label');
+        if (label) label.textContent = document.getElementById('gdp_ctl_element')?.value?.toUpperCase() || '---';
+        
+        // Render using Chart.js
+        renderBarGraphChart(hourlyData);
+    }
+
+    function renderBarGraphChart(hourlyData) {
+        const canvas = document.getElementById('gdp_bargraph_canvas');
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        // Destroy existing chart if any
+        if (window.gdpBarChart) {
+            window.gdpBarChart.destroy();
+        }
+        
+        const hours = Object.keys(hourlyData).sort();
+        const originalData = hours.map(h => hourlyData[h].original);
+        const modeledData = hours.map(h => hourlyData[h].modeled);
+        
+        window.gdpBarChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: hours,
+                datasets: [
+                    {
+                        label: 'Original',
+                        data: originalData,
+                        backgroundColor: 'rgba(0, 123, 255, 0.7)',
+                        borderColor: 'rgba(0, 123, 255, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Modeled',
+                        data: modeledData,
+                        backgroundColor: 'rgba(255, 193, 7, 0.5)',
+                        borderColor: 'rgba(255, 193, 7, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                },
+                plugins: {
+                    legend: { position: 'top' }
+                }
+            }
+        });
+    }
+
+    // =========================================================================
     // Preview Handler
     // =========================================================================
 
@@ -214,7 +529,7 @@ const GDP = (function() {
 
         console.log('GDP Preview payload:', payload);
 
-        const btn = document.getElementById('gdp_preview_btn');
+        const btn = document.getElementById('gdp_model_btn');
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Loading...';
@@ -239,6 +554,7 @@ const GDP = (function() {
             renderSummaryTables(result.summary);
             renderFlightTable(state.previewFlights, false);
             renderDemandChart(result.summary);
+            renderBarGraph('eta');  // Render bar graph with ETA view
             
             // Generate program ID
             if (payload.gdp_start) {
@@ -253,7 +569,7 @@ const GDP = (function() {
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-search mr-1"></i> Preview';
+                btn.innerHTML = '<i class="fas fa-calculator mr-1"></i> Model';
             }
         }
     }
@@ -270,10 +586,10 @@ const GDP = (function() {
             return;
         }
 
-        const btn = document.getElementById('gdp_simulate_btn');
+        const btn = document.getElementById('gdp_run_proposed_btn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Simulating...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Running...';
         }
 
         try {
@@ -297,6 +613,7 @@ const GDP = (function() {
             renderFlightTable(state.simulatedFlights, true);
             renderSlotTable(state.slots);
             renderDemandChartWithSlots(state.simulatedFlights, state.slots, payload);
+            renderBarGraph('eta');  // Render bar graph with ETA view
             
         } catch (err) {
             console.error('Simulate error:', err);
@@ -304,7 +621,7 @@ const GDP = (function() {
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play mr-1"></i> Simulate';
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Run Proposed';
             }
         }
     }
@@ -320,7 +637,7 @@ const GDP = (function() {
 
         const payload = collectGdpPayload();
         
-        const btn = document.getElementById('gdp_apply_btn');
+        const btn = document.getElementById('gdp_run_actual_btn');
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Applying...';
@@ -346,7 +663,7 @@ const GDP = (function() {
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Send Actual';
+                btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Run Actual';
             }
         }
     }
@@ -415,10 +732,14 @@ const GDP = (function() {
     // =========================================================================
 
     function updateFlightCount(affected, exempt) {
-        const el = document.getElementById('gdp_flight_count');
-        if (el) {
-            el.textContent = affected + ' flights' + (exempt > 0 ? ' (' + exempt + ' exempt)' : '');
-        }
+        // Update the summary stats in the Model Summary card
+        const totalEl = document.getElementById('gdp_sum_total');
+        const delayedEl = document.getElementById('gdp_sum_delayed');
+        const exemptEl = document.getElementById('gdp_sum_exempt');
+        
+        if (totalEl) totalEl.textContent = affected + exempt;
+        if (delayedEl) delayedEl.textContent = affected;
+        if (exemptEl) exemptEl.textContent = exempt;
     }
 
     function updateMetrics(summary) {
@@ -429,23 +750,46 @@ const GDP = (function() {
             if (el) el.textContent = val;
         };
         
-        set('gdp_metric_total', summary.total_flights || summary.assigned_flights || '--');
-        set('gdp_metric_avg_delay', summary.avg_delay_min !== null ? summary.avg_delay_min + 'm' : '--');
-        set('gdp_metric_max_delay', summary.max_delay_min !== null ? summary.max_delay_min + 'm' : '--');
-        set('gdp_metric_utilization', summary.slot_utilization !== undefined ? summary.slot_utilization + '%' : '--');
+        // Update summary card
+        set('gdp_sum_total', summary.total_flights || summary.assigned_flights || '--');
+        set('gdp_sum_delayed', summary.delayed_flights || '--');
+        set('gdp_sum_exempt', summary.exempt_flights || '--');
+        set('gdp_sum_utilization', summary.slot_utilization !== undefined ? summary.slot_utilization + '%' : '--%');
+        
+        // Update data graph stats
+        set('gdp_stat_avg_delay', summary.avg_delay_min !== null ? summary.avg_delay_min + 'm' : '--');
+        set('gdp_stat_max_delay', summary.max_delay_min !== null ? summary.max_delay_min + 'm' : '--');
+        set('gdp_stat_total_delay', summary.total_delay_min !== undefined ? Math.round(summary.total_delay_min / 60) + 'h' : '--');
+        set('gdp_stat_affected', summary.delayed_flights || summary.assigned_flights || '--');
     }
 
     function renderSummaryTables(summary) {
         if (!summary) return;
 
-        // By Origin Center
-        renderCountTable('gdp_counts_origin_center', summary.by_origin_center);
+        // By Origin Center - render in the "Demand by Center" card
+        renderDemandByCenter(summary.by_origin_center);
+    }
+
+    function renderDemandByCenter(data) {
+        const tbody = document.getElementById('gdp_demand_by_center');
+        if (!tbody) return;
         
-        // By Hour
-        renderCountTable('gdp_counts_hour', summary.by_hour);
+        if (!data || Object.keys(data).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary">No data available</td></tr>';
+            return;
+        }
         
-        // By Carrier
-        renderCountTable('gdp_counts_carrier', summary.by_carrier);
+        let html = '';
+        for (const [center, counts] of Object.entries(data)) {
+            const nonExempt = counts.non_exempt || counts.total || counts;
+            const exempt = counts.exempt || 0;
+            html += `<tr>
+                <td>${center}</td>
+                <td class="text-right text-danger">${typeof nonExempt === 'object' ? nonExempt.count : nonExempt}</td>
+                <td class="text-right text-success">${exempt}</td>
+            </tr>`;
+        }
+        tbody.innerHTML = html;
     }
 
     function renderCountTable(tbodyId, data) {
@@ -845,7 +1189,10 @@ const GDP = (function() {
         const startInput = document.getElementById('gdp_start') || document.getElementById('gdp_start_ddhhmm');
         const endInput = document.getElementById('gdp_end') || document.getElementById('gdp_end_ddhhmm');
 
-        if (!startInput?.value || !endInput?.value) return;
+        if (!startInput?.value || !endInput?.value) {
+            console.log('GDP: Cannot build rate table - start/end times not set');
+            return;
+        }
 
         // Parse ddhhmm format or ISO format
         const parseDateValue = (val) => {
@@ -863,34 +1210,42 @@ const GDP = (function() {
         const start = parseDateValue(startInput.value);
         const end = parseDateValue(endInput.value);
         
-        const headers = document.getElementById('gdp_hourly_headers');
-        const rates = document.getElementById('gdp_hourly_rates');
-        const reserves = document.getElementById('gdp_hourly_reserves');
+        // Use the correct element IDs from the HTML
+        const headerRow = document.getElementById('gdp_rate_header');
+        const prRow = document.getElementById('gdp_rate_pr');
+        const reserveRow = document.getElementById('gdp_rate_reserve');
         
-        if (!headers || !rates || !reserves) return;
+        if (!headerRow || !prRow || !reserveRow) {
+            console.log('GDP: Rate table elements not found');
+            return;
+        }
 
-        let headerHtml = '';
-        let ratesHtml = '';
-        let reservesHtml = '';
+        // Build header and rate cells
+        let headerHtml = '<th>Hour</th>';
+        let prHtml = '<td class="font-weight-bold small">PR</td>';
+        let reserveHtml = '<td class="font-weight-bold small text-info">Reserve</td>';
         
-        const defaultRate = document.getElementById('gdp_program_rate')?.value || 40;
-        const defaultReserve = document.getElementById('gdp_reserve_rate')?.value || 0;
+        const defaultRate = parseInt(document.getElementById('gdp_fill_value')?.value || '40', 10);
 
         const current = new Date(start);
-        while (current < end) {
+        let hourCount = 0;
+        while (current < end && hourCount < 24) {  // Limit to 24 hours
             const hour = current.getUTCHours();
             const hourStr = hour.toString().padStart(2, '0');
             
-            headerHtml += `<th>${hourStr}Z</th>`;
-            ratesHtml += `<td><input type="number" class="form-control form-control-sm gdp-hourly-rate" data-hour="${hour}" value="${defaultRate}" min="0" max="120" style="width: 50px;"></td>`;
-            reservesHtml += `<td><input type="number" class="form-control form-control-sm gdp-hourly-reserve" data-hour="${hour}" value="${defaultReserve}" min="0" max="20" style="width: 50px;"></td>`;
+            headerHtml += `<th class="text-center small">${hourStr}Z</th>`;
+            prHtml += `<td><input type="number" class="form-control form-control-sm text-center gdp-hourly-rate" data-hour="${hour}" value="${defaultRate}" min="0" max="120" style="width: 45px;"></td>`;
+            reserveHtml += `<td><input type="number" class="form-control form-control-sm text-center gdp-hourly-reserve" data-hour="${hour}" value="0" min="0" max="20" style="width: 45px;"></td>`;
             
             current.setUTCHours(current.getUTCHours() + 1);
+            hourCount++;
         }
 
-        headers.innerHTML = headerHtml;
-        rates.innerHTML = ratesHtml;
-        reserves.innerHTML = reservesHtml;
+        headerRow.innerHTML = headerHtml;
+        prRow.innerHTML = prHtml;
+        reserveRow.innerHTML = reserveHtml;
+        
+        console.log('GDP: Built rate table with', hourCount, 'hours');
     }
 
     // =========================================================================
@@ -900,13 +1255,42 @@ const GDP = (function() {
     function init() {
         console.log('GDP Module initializing...');
 
-        // Workflow buttons
-        document.getElementById('gdp_preview_btn')?.addEventListener('click', handlePreview);
-        document.getElementById('gdp_simulate_btn')?.addEventListener('click', handleSimulate);
-        document.getElementById('gdp_model_btn')?.addEventListener('click', handleOpenModel);
-        document.getElementById('gdp_apply_btn')?.addEventListener('click', handleApply);
-        document.getElementById('gdp_purge_local_btn')?.addEventListener('click', handlePurgeLocal);
-        document.getElementById('gdp_purge_btn')?.addEventListener('click', handlePurge);
+        // Workflow buttons - map to actual HTML element IDs
+        document.getElementById('gdp_reload_btn')?.addEventListener('click', handleReload);
+        document.getElementById('gdp_model_btn')?.addEventListener('click', handlePreview);  // Model = Preview
+        document.getElementById('gdp_run_proposed_btn')?.addEventListener('click', handleSimulate);  // Run Proposed = Simulate
+        document.getElementById('gdp_run_actual_btn')?.addEventListener('click', handleApply);  // Run Actual = Apply
+
+        // Scope method radio buttons
+        document.getElementById('gdp_scope_tier')?.addEventListener('change', function() {
+            if (this.checked) switchScopeMode('tier');
+        });
+        document.getElementById('gdp_scope_distance')?.addEventListener('change', function() {
+            if (this.checked) switchScopeMode('distance');
+        });
+
+        // Fill rates button
+        document.getElementById('gdp_fill_btn')?.addEventListener('click', handleFillRates);
+
+        // Load Times button - build rate table from program times
+        document.getElementById('gdp_load_times_btn')?.addEventListener('click', buildHourlyRateTable);
+        
+        // Load AAR button - placeholder for loading AAR data
+        document.getElementById('gdp_load_aar_btn')?.addEventListener('click', () => {
+            console.log('GDP: Load AAR clicked - feature coming soon');
+            alert('Load ADL AAR feature coming soon.');
+        });
+
+        // Show Demand button
+        document.getElementById('gdp_show_demand_btn')?.addEventListener('click', handleShowDemand);
+
+        // Flight list and Slots list modals
+        document.getElementById('gdp_flight_list_btn')?.addEventListener('click', openFlightListModal);
+        document.getElementById('gdp_slots_list_btn')?.addEventListener('click', openSlotsListModal);
+
+        // Bar graph ETA/CTA toggle
+        document.getElementById('gdp_bar_eta_btn')?.addEventListener('click', () => switchBarGraphView('eta'));
+        document.getElementById('gdp_bar_cta_btn')?.addEventListener('click', () => switchBarGraphView('cta'));
 
         // View toggle buttons
         document.getElementById('gdp_view_chart_btn')?.addEventListener('click', () => switchView('chart'));
@@ -964,21 +1348,15 @@ const GDP = (function() {
     // =========================================================================
 
     function switchScopeMode(mode) {
-        const tierPanel = document.getElementById('gdp_scope_tier_panel');
-        const distancePanel = document.getElementById('gdp_scope_distance_panel');
-        const tierBtn = document.getElementById('gdp_scope_mode_tier');
-        const distanceBtn = document.getElementById('gdp_scope_mode_distance');
+        const tierPanel = document.getElementById('gdp_tier_panel');
+        const distancePanel = document.getElementById('gdp_distance_panel');
 
         if (mode === 'tier') {
             if (tierPanel) tierPanel.style.display = 'block';
             if (distancePanel) distancePanel.style.display = 'none';
-            if (tierBtn) tierBtn.classList.add('active');
-            if (distanceBtn) distanceBtn.classList.remove('active');
         } else {
             if (tierPanel) tierPanel.style.display = 'none';
             if (distancePanel) distancePanel.style.display = 'block';
-            if (tierBtn) tierBtn.classList.remove('active');
-            if (distanceBtn) distanceBtn.classList.add('active');
         }
     }
 

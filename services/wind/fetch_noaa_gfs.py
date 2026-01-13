@@ -318,8 +318,9 @@ def parse_grib_to_grid(grib_path, target_points, resolution, pressure_levels, de
 
 
 def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
-    """Parse GRIB2 file and extract all wind points at given resolution."""
+    """Parse GRIB2 file and extract all wind points at given resolution using vectorized ops."""
     import xarray as xr
+    import numpy as np
 
     results = []
 
@@ -330,56 +331,69 @@ def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
         lats = ds.latitude.values
         lons = ds.longitude.values
 
+        # Calculate step for subsampling
         native_step = abs(lats[1] - lats[0]) if len(lats) > 1 else 0.25
         step_factor = max(1, int(resolution / native_step))
 
-        for i in range(0, len(lats), step_factor):
-            lat = lats[i]
-            for j in range(0, len(lons), step_factor):
-                lon = lons[j]
+        # Subsample coordinates
+        lat_subset = lats[::step_factor]
+        lon_subset = lons[::step_factor]
 
-                if 'isobaricInhPa' in ds.dims:
-                    levels = ds.isobaricInhPa.values
-                else:
-                    levels = [ds.isobaricInhPa.values] if hasattr(ds, 'isobaricInhPa') else pressure_levels
+        # Get available pressure levels
+        if 'isobaricInhPa' in ds.dims:
+            available_levels = ds.isobaricInhPa.values
+        else:
+            available_levels = [float(ds.isobaricInhPa.values)]
 
-                for level in levels:
-                    if int(level) not in pressure_levels:
+        # Filter to requested levels
+        target_levels = [lv for lv in available_levels if int(lv) in pressure_levels]
+
+        if debug:
+            print(f"      Extracting {len(lat_subset)}x{len(lon_subset)}x{len(target_levels)} = "
+                  f"{len(lat_subset)*len(lon_subset)*len(target_levels)} points")
+
+        # Extract full arrays at once (vectorized - much faster)
+        for level in target_levels:
+            if 'isobaricInhPa' in ds.dims:
+                u_data = ds['u'].sel(isobaricInhPa=level).values[::step_factor, ::step_factor]
+                v_data = ds['v'].sel(isobaricInhPa=level).values[::step_factor, ::step_factor]
+            else:
+                u_data = ds['u'].values[::step_factor, ::step_factor]
+                v_data = ds['v'].values[::step_factor, ::step_factor]
+
+            # Vectorized conversion to knots
+            u_kts = u_data * 1.94384
+            v_kts = v_data * 1.94384
+
+            # Vectorized speed and direction
+            speed_kts = np.sqrt(u_kts**2 + v_kts**2)
+            direction = (np.degrees(np.arctan2(-u_kts, -v_kts)) + 360) % 360
+
+            # Build results
+            for i, lat in enumerate(lat_subset):
+                for j, lon in enumerate(lon_subset):
+                    if np.isnan(u_kts[i, j]):
                         continue
 
-                    try:
-                        if 'isobaricInhPa' in ds.dims:
-                            u = float(ds['u'].sel(latitude=lat, longitude=lon,
-                                                  isobaricInhPa=level, method='nearest').values)
-                            v = float(ds['v'].sel(latitude=lat, longitude=lon,
-                                                  isobaricInhPa=level, method='nearest').values)
-                        else:
-                            u = float(ds['u'].sel(latitude=lat, longitude=lon, method='nearest').values)
-                            v = float(ds['v'].sel(latitude=lat, longitude=lon, method='nearest').values)
+                    std_lon = lon if lon <= 180 else lon - 360
 
-                        u_kts = u * 1.94384
-                        v_kts = v * 1.94384
-                        speed_kts = math.sqrt(u_kts**2 + v_kts**2)
-                        direction = (math.degrees(math.atan2(-u_kts, -v_kts)) + 360) % 360
-
-                        std_lon = lon if lon <= 180 else lon - 360
-
-                        results.append({
-                            'lat': round(float(lat), 2),
-                            'lon': round(float(std_lon), 2),
-                            'pressure_hpa': int(level),
-                            'wind_speed_kts': round(speed_kts, 1),
-                            'wind_dir_deg': int(round(direction)),
-                            'wind_u_kts': round(u_kts, 2),
-                            'wind_v_kts': round(v_kts, 2)
-                        })
-                    except Exception:
-                        continue
+                    results.append({
+                        'lat': round(float(lat), 2),
+                        'lon': round(float(std_lon), 2),
+                        'pressure_hpa': int(level),
+                        'wind_speed_kts': round(float(speed_kts[i, j]), 1),
+                        'wind_dir_deg': int(round(direction[i, j])),
+                        'wind_u_kts': round(float(u_kts[i, j]), 2),
+                        'wind_v_kts': round(float(v_kts[i, j]), 2)
+                    })
 
         ds.close()
 
     except Exception as e:
         print(f"    GRIB parse error: {e}")
+        if debug:
+            import traceback
+            traceback.print_exc()
 
     finally:
         try:
@@ -391,50 +405,75 @@ def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
 
 
 def insert_wind_data(conn, wind_data, tier, model_run_str, valid_time_str, forecast_hour, debug=False):
-    """Insert wind data into database with tier."""
+    """Insert wind data into database with tier using bulk operations."""
     cursor = conn.cursor()
-    inserted = 0
 
-    for point in wind_data:
-        try:
-            cursor.execute("""
-                MERGE dbo.wind_grid AS target
-                USING (SELECT ? AS lat, ? AS lon, ? AS pressure_hpa, ? AS valid_time_utc) AS source
-                ON target.lat = source.lat
-                   AND target.lon = source.lon
-                   AND target.pressure_hpa = source.pressure_hpa
-                   AND target.valid_time_utc = source.valid_time_utc
-                WHEN MATCHED THEN
-                    UPDATE SET
-                        wind_speed_kts = ?,
-                        wind_dir_deg = ?,
-                        wind_u_kts = ?,
-                        wind_v_kts = ?,
-                        forecast_hour = ?,
-                        model_run_utc = ?,
-                        tier = ?,
-                        fetched_utc = SYSUTCDATETIME()
-                WHEN NOT MATCHED THEN
-                    INSERT (lat, lon, pressure_hpa, wind_speed_kts, wind_dir_deg,
-                            wind_u_kts, wind_v_kts, forecast_hour, model_run_utc, valid_time_utc, tier)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-            """, (
-                point['lat'], point['lon'], point['pressure_hpa'], valid_time_str,
-                point['wind_speed_kts'], point['wind_dir_deg'],
-                point['wind_u_kts'], point['wind_v_kts'],
-                forecast_hour, model_run_str, tier,
-                point['lat'], point['lon'], point['pressure_hpa'],
-                point['wind_speed_kts'], point['wind_dir_deg'],
-                point['wind_u_kts'], point['wind_v_kts'],
-                forecast_hour, model_run_str, valid_time_str, tier
-            ))
-            inserted += 1
-        except Exception as e:
-            if debug:
-                print(f"      Insert error: {e}")
+    # Enable fast executemany for bulk inserts
+    cursor.fast_executemany = True
 
-    conn.commit()
-    return inserted
+    # Prepare batch data
+    batch_data = [
+        (
+            point['lat'], point['lon'], point['pressure_hpa'], valid_time_str,
+            point['wind_speed_kts'], point['wind_dir_deg'],
+            point['wind_u_kts'], point['wind_v_kts'],
+            forecast_hour, model_run_str, tier
+        )
+        for point in wind_data
+    ]
+
+    # Use temp table + MERGE for fast bulk upsert
+    try:
+        # Create temp table
+        cursor.execute("""
+            IF OBJECT_ID('tempdb..#wind_import') IS NOT NULL DROP TABLE #wind_import;
+            CREATE TABLE #wind_import (
+                lat DECIMAL(6,2), lon DECIMAL(7,2), pressure_hpa SMALLINT,
+                valid_time_utc DATETIME2(0), wind_speed_kts DECIMAL(5,1),
+                wind_dir_deg SMALLINT, wind_u_kts DECIMAL(6,2), wind_v_kts DECIMAL(6,2),
+                forecast_hour TINYINT, model_run_utc DATETIME2(0), tier TINYINT
+            );
+        """)
+
+        # Bulk insert into temp table
+        cursor.executemany("""
+            INSERT INTO #wind_import VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, batch_data)
+
+        # Single MERGE from temp table
+        cursor.execute("""
+            MERGE dbo.wind_grid AS target
+            USING #wind_import AS source
+            ON target.lat = source.lat
+               AND target.lon = source.lon
+               AND target.pressure_hpa = source.pressure_hpa
+               AND target.valid_time_utc = source.valid_time_utc
+            WHEN MATCHED THEN
+                UPDATE SET
+                    wind_speed_kts = source.wind_speed_kts,
+                    wind_dir_deg = source.wind_dir_deg,
+                    wind_u_kts = source.wind_u_kts,
+                    wind_v_kts = source.wind_v_kts,
+                    forecast_hour = source.forecast_hour,
+                    model_run_utc = source.model_run_utc,
+                    tier = source.tier,
+                    fetched_utc = SYSUTCDATETIME()
+            WHEN NOT MATCHED THEN
+                INSERT (lat, lon, pressure_hpa, wind_speed_kts, wind_dir_deg,
+                        wind_u_kts, wind_v_kts, forecast_hour, model_run_utc, valid_time_utc, tier)
+                VALUES (source.lat, source.lon, source.pressure_hpa, source.wind_speed_kts,
+                        source.wind_dir_deg, source.wind_u_kts, source.wind_v_kts,
+                        source.forecast_hour, source.model_run_utc, source.valid_time_utc, source.tier);
+        """)
+
+        conn.commit()
+        return len(batch_data)
+
+    except Exception as e:
+        if debug:
+            print(f"      Bulk insert error: {e}")
+        conn.rollback()
+        return 0
 
 
 def main():
