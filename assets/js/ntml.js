@@ -1,39 +1,75 @@
 /**
- * NTML Protocol Form - Client-Side Logic
- * Handles form interactions, determinant code calculation, and form submission
+ * NTML Quick Entry - Streamlined Client-Side Logic
+ * Parses natural language entries, batch processing, auto-detection
  */
 
 // ============================================
-// GLOBAL STATE
+// CONSTANTS & DATA
 // ============================================
-let currentProtocol = null;
+
+const ARTCCS = {
+    'ZAB': 'Albuquerque Center', 'ZAU': 'Chicago Center', 'ZBW': 'Boston Center',
+    'ZDC': 'Washington Center', 'ZDV': 'Denver Center', 'ZFW': 'Fort Worth Center',
+    'ZHU': 'Houston Center', 'ZID': 'Indianapolis Center', 'ZJX': 'Jacksonville Center',
+    'ZKC': 'Kansas City Center', 'ZLA': 'Los Angeles Center', 'ZLC': 'Salt Lake Center',
+    'ZMA': 'Miami Center', 'ZME': 'Memphis Center', 'ZMP': 'Minneapolis Center',
+    'ZNY': 'New York Center', 'ZOA': 'Oakland Center', 'ZOB': 'Cleveland Center',
+    'ZSE': 'Seattle Center', 'ZTL': 'Atlanta Center'
+};
+
+const TRACONS = {
+    'A80': 'Atlanta TRACON', 'A90': 'Boston TRACON', 'C90': 'Chicago TRACON',
+    'D01': 'Denver TRACON', 'D10': 'Dallas TRACON', 'D21': 'Detroit TRACON',
+    'I90': 'Houston TRACON', 'L30': 'Las Vegas TRACON', 'M98': 'Minneapolis TRACON',
+    'N90': 'New York TRACON', 'NCT': 'NorCal TRACON', 'P50': 'Phoenix TRACON',
+    'P80': 'Portland TRACON', 'PCT': 'Potomac TRACON', 'S46': 'Seattle TRACON',
+    'SCT': 'SoCal TRACON', 'Y90': 'Yankee TRACON'
+};
+
+const MAJOR_AIRPORTS = [
+    'ATL', 'BOS', 'CLT', 'DCA', 'DEN', 'DFW', 'DTW', 'EWR', 'FLL', 'IAD', 'IAH',
+    'JFK', 'LAS', 'LAX', 'LGA', 'MCO', 'MDW', 'MIA', 'MSP', 'ORD', 'PHL', 'PHX',
+    'SAN', 'SEA', 'SFO', 'SLC', 'TPA'
+];
+
+const REASONS = ['WEATHER', 'VOLUME', 'RUNWAY', 'EQUIPMENT', 'OTHER'];
+const QUALIFIERS = ['HEAVY', 'B757', 'LARGE', 'SMALL', 'EACH', 'AS_ONE', 'PER_FIX'];
+const WEATHER_CONDITIONS = ['VMC', 'LVMC', 'IMC', 'LIMC', 'VLIMC'];
+
+// ============================================
+// STATE
+// ============================================
+
+let entryQueue = [];
 let productionMode = false;
+let currentMode = 'single';
 
 // ============================================
 // INITIALIZATION
 // ============================================
+
 $(document).ready(function() {
     initializeEventHandlers();
-    initializeQualifierBadges();
-    initializeFormWatchers();
-    
-    // Load saved mode preference
-    const savedMode = localStorage.getItem('ntml_production_mode');
-    if (savedMode === 'true') {
-        $('#productionMode').prop('checked', true);
-        productionMode = true;
-        updateModeIndicator();
-    }
+    initializeTimeDefaults();
+    loadSavedState();
 });
 
-// ============================================
-// EVENT HANDLERS
-// ============================================
 function initializeEventHandlers() {
-    // Protocol card selection
-    $('.protocol-card').click(function() {
-        const protocol = $(this).data('protocol');
-        selectProtocol(protocol);
+    // Mode toggle
+    $('.mode-btn').click(function() {
+        currentMode = $(this).data('mode');
+        $('.mode-btn').removeClass('active');
+        $(this).addClass('active');
+        
+        if (currentMode === 'single') {
+            $('#singleMode').show();
+            $('#batchMode').hide();
+            $('#quickInput').focus();
+        } else {
+            $('#singleMode').hide();
+            $('#batchMode').show();
+            $('#batchInput').focus();
+        }
     });
     
     // Production mode toggle
@@ -45,514 +81,851 @@ function initializeEventHandlers() {
         if (productionMode) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Production Mode Enabled',
-                text: 'NTML entries will now post to LIVE channels. Please review carefully before submitting.',
+                title: 'Production Mode',
+                text: 'Entries will post to LIVE Discord channels.',
                 confirmButtonColor: '#dc3545'
             });
         }
     });
     
-    // Holding field toggle for Delay form
-    $('#delay_holding').change(function() {
-        const val = $(this).val();
-        if (val === 'yes_initiating' || val === 'yes_15plus') {
-            $('#holding_location').prop('disabled', false);
-        } else {
-            $('#holding_location').prop('disabled', true).val('');
+    // Quick input - Enter to add, Ctrl+Enter to submit
+    $('#quickInput').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (e.ctrlKey) {
+                submitAll();
+            } else {
+                addFromQuickInput();
+            }
         }
     });
     
-    // Scenery issue toggle for Config form
-    $('#config_scenery').change(function() {
-        if ($(this).val() === 'yes') {
-            $('#scenery_desc_group').slideDown();
-        } else {
-            $('#scenery_desc_group').slideUp();
+    // Batch input - Ctrl+Enter to parse and add
+    $('#batchInput').on('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            parseBatchInput();
         }
     });
     
-    // Form submissions
-    $('#mitForm').submit(function(e) {
-        e.preventDefault();
-        submitNTML('05', $(this));
+    // Templates
+    $('.template-btn').click(function() {
+        const template = $(this).data('template');
+        applyTemplate(template);
     });
     
-    $('#minitForm').submit(function(e) {
-        e.preventDefault();
-        submitNTML('06', $(this));
-    });
-    
-    $('#delayForm').submit(function(e) {
-        e.preventDefault();
-        submitNTML('04', $(this));
-    });
-    
-    $('#configForm').submit(function(e) {
-        e.preventDefault();
-        submitNTML('01', $(this));
-    });
-}
-
-function initializeQualifierBadges() {
-    $('.qualifier-badge').click(function() {
-        const form = $(this).closest('form');
-        const hiddenInput = form.find('input[name="qualifiers"]');
-        
-        $(this).toggleClass('selected');
-        
-        // Gather all selected qualifiers in this form
-        const selected = [];
-        form.find('.qualifier-badge.selected').each(function() {
-            selected.push($(this).data('qualifier'));
+    // Clear queue
+    $('#clearQueue').click(function() {
+        Swal.fire({
+            title: 'Clear All Entries?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Clear All'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                entryQueue = [];
+                renderQueue();
+            }
         });
-        
-        hiddenInput.val(selected.join(','));
-    });
-}
-
-function initializeFormWatchers() {
-    // MIT form watchers
-    $('#mit_distance, #mit_same_artcc').on('change keyup', function() {
-        if (currentProtocol === '05') {
-            updateDeterminantPreview();
-        }
     });
     
-    // MINIT form watchers
-    $('#minit_minutes, #minit_same_artcc').on('change keyup', function() {
-        if (currentProtocol === '06') {
-            updateDeterminantPreview();
-        }
+    // Preview button
+    $('#previewBtn').click(showPreview);
+    
+    // Submit buttons
+    $('#submitAllBtn, #submitFromPreview').click(submitAll);
+    
+    // Auto-uppercase facility inputs
+    $('#quickInput').on('input', function() {
+        // Don't auto-uppercase everything, just help with parsing
+        showAutocomplete($(this).val());
     });
     
-    // Delay form watchers
-    $('#delay_longest, #delay_trend').on('change keyup', function() {
-        if (currentProtocol === '04') {
-            updateDeterminantPreview();
-        }
-    });
-    
-    // Config form watchers
-    $('#config_weather, #config_single_rwy, #config_aar, #config_adr').on('change keyup', function() {
-        if (currentProtocol === '01') {
-            updateDeterminantPreview();
+    // Valid time auto-advance
+    $('#validFrom').on('input', function() {
+        if ($(this).val().length === 4) {
+            $('#validUntil').focus();
         }
     });
 }
 
+function initializeTimeDefaults() {
+    // Set current Zulu time as default
+    const now = new Date();
+    const zuluHours = String(now.getUTCHours()).padStart(2, '0');
+    const zuluMins = String(now.getUTCMinutes()).padStart(2, '0');
+    $('#validFrom').val(zuluHours + zuluMins);
+    
+    // Default end time +2 hours
+    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const endHours = String(endTime.getUTCHours()).padStart(2, '0');
+    const endMins = String(endTime.getUTCMinutes()).padStart(2, '0');
+    $('#validUntil').val(endHours + endMins);
+}
+
+function loadSavedState() {
+    const savedMode = localStorage.getItem('ntml_production_mode');
+    if (savedMode === 'true') {
+        $('#productionMode').prop('checked', true);
+        productionMode = true;
+        updateModeIndicator();
+    }
+}
+
+function updateModeIndicator() {
+    const indicator = $('#modeIndicator');
+    const warning = $('#prodWarning');
+    
+    if (productionMode) {
+        indicator.removeClass('badge-warning').addClass('badge-danger').text('LIVE');
+        warning.addClass('show');
+    } else {
+        indicator.removeClass('badge-danger').addClass('badge-warning').text('TEST');
+        warning.removeClass('show');
+    }
+}
+
 // ============================================
-// PROTOCOL SELECTION
+// PARSING ENGINE
 // ============================================
-function selectProtocol(protocol) {
-    currentProtocol = protocol;
+
+function parseEntry(input) {
+    input = input.trim().toUpperCase();
+    if (!input) return null;
     
-    // Update card styling
-    $('.protocol-card').removeClass('active');
-    $(`.protocol-card[data-protocol="${protocol}"]`).addClass('active');
+    // Try each parser
+    let result = parseMIT(input) || parseMINIT(input) || parseDelay(input) || parseConfig(input);
     
-    // Show form container
-    $('#formContainer').slideDown();
+    if (result) {
+        result.raw = input;
+        result.determinant = calculateDeterminant(result);
+    }
     
-    // Hide all forms, show selected
-    $('.protocol-form').hide();
-    $(`#form-${protocol}`).fadeIn();
+    return result;
+}
+
+function parseMIT(input) {
+    // Pattern: [distance]MIT [from]→[to] [condition] [reason] [time-range]
+    // Also supports: [distance]MIT [from]->[to], [from]>[to], [from] [to]
+    const mitPattern = /^(\d+)\s*MIT\s+([A-Z0-9]{2,4})\s*(?:→|->|>|TO)\s*([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
     
-    // Reset determinant preview
-    updateDeterminantPreview();
+    // Simpler pattern without arrow
+    const mitSimplePattern = /^(\d+)\s*MIT\s+([A-Z0-9]{2,4})\s+([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
     
-    // Scroll to form
-    $('html, body').animate({
-        scrollTop: $('#formContainer').offset().top - 100
-    }, 500);
+    let match = input.match(mitPattern) || input.match(mitSimplePattern);
+    if (!match) return null;
+    
+    const [, distance, fromFac, toFac, conditionPart, reason, validFrom, validUntil] = match;
+    
+    // Parse condition for qualifiers
+    const { condition, qualifiers } = extractQualifiers(conditionPart);
+    
+    return {
+        type: 'MIT',
+        protocol: '05',
+        distance: parseInt(distance),
+        fromFacility: fromFac,
+        toFacility: toFac,
+        condition: condition.trim(),
+        qualifiers: qualifiers,
+        reason: reason || 'VOLUME',
+        validFrom: validFrom || $('#validFrom').val(),
+        validUntil: validUntil || $('#validUntil').val(),
+        isInternal: isSameARTCC(fromFac, toFac)
+    };
+}
+
+function parseMINIT(input) {
+    // Pattern: [minutes]MINIT [from]→[to] [condition] [reason]
+    const minitPattern = /^(\d+)\s*MINIT\s+([A-Z0-9]{2,4})\s*(?:→|->|>|TO)\s*([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
+    const minitSimplePattern = /^(\d+)\s*MINIT\s+([A-Z0-9]{2,4})\s+([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
+    
+    let match = input.match(minitPattern) || input.match(minitSimplePattern);
+    if (!match) return null;
+    
+    const [, minutes, fromFac, toFac, conditionPart, reason, validFrom, validUntil] = match;
+    const { condition, qualifiers } = extractQualifiers(conditionPart);
+    
+    return {
+        type: 'MINIT',
+        protocol: '06',
+        minutes: parseInt(minutes),
+        fromFacility: fromFac,
+        toFacility: toFac,
+        condition: condition.trim(),
+        qualifiers: qualifiers,
+        reason: reason || 'VOLUME',
+        validFrom: validFrom || $('#validFrom').val(),
+        validUntil: validUntil || $('#validUntil').val(),
+        isInternal: isSameARTCC(fromFac, toFac)
+    };
+}
+
+function parseDelay(input) {
+    // Pattern: DELAY [facility] [minutes]min [trend] [flights]flt [reason]
+    const delayPattern = /^DELAY\s+([A-Z0-9]{2,4})\s+(\d+)\s*(?:MIN|M)?\s*(INC(?:REASING)?|DEC(?:REASING)?|STEADY|STD)?\s*(\d+)?\s*(?:FLT|FLIGHTS?)?\s*(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER)?/i;
+    
+    let match = input.match(delayPattern);
+    if (!match) return null;
+    
+    const [, facility, minutes, trendRaw, flights, reason] = match;
+    
+    // Normalize trend
+    let trend = 'steady';
+    if (trendRaw) {
+        const t = trendRaw.toUpperCase();
+        if (t.startsWith('INC')) trend = 'increasing';
+        else if (t.startsWith('DEC')) trend = 'decreasing';
+    }
+    
+    return {
+        type: 'DELAY',
+        protocol: '04',
+        facility: facility,
+        chargeFacility: facility, // Default same
+        minutes: parseInt(minutes),
+        trend: trend,
+        flightsDelayed: parseInt(flights) || 1,
+        reason: reason || 'VOLUME',
+        holding: 'no'
+    };
+}
+
+function parseConfig(input) {
+    // Pattern: CONFIG [airport] [wx] ARR:[rwys] DEP:[rwys] AAR:[n] ADR:[n]
+    const configPattern = /^CONFIG\s+([A-Z0-9]{3,4})\s+(VMC|LVMC|IMC|LIMC|VLIMC)?\s*(?:ARR[:\s]*([A-Z0-9\/]+))?\s*(?:DEP[:\s]*([A-Z0-9\/]+))?\s*(?:AAR[:\s]*(\d+))?\s*(?:ADR[:\s]*(\d+))?/i;
+    
+    let match = input.match(configPattern);
+    if (!match) return null;
+    
+    const [, airport, weather, arrRwys, depRwys, aar, adr] = match;
+    
+    // Detect single runway
+    const arrCount = arrRwys ? arrRwys.split('/').length : 0;
+    const depCount = depRwys ? depRwys.split('/').length : 0;
+    const singleRunway = (arrCount <= 1 && depCount <= 1);
+    
+    return {
+        type: 'CONFIG',
+        protocol: '01',
+        airport: airport,
+        weather: weather || 'VMC',
+        arrRunways: arrRwys || '',
+        depRunways: depRwys || '',
+        aar: parseInt(aar) || 60,
+        adr: parseInt(adr) || 60,
+        singleRunway: singleRunway
+    };
+}
+
+function extractQualifiers(text) {
+    const found = [];
+    let remaining = text;
+    
+    for (const q of QUALIFIERS) {
+        const regex = new RegExp('\\b' + q.replace('_', '[_\\s]?') + '\\b', 'gi');
+        if (regex.test(remaining)) {
+            found.push(q);
+            remaining = remaining.replace(regex, '').trim();
+        }
+    }
+    
+    return { condition: remaining, qualifiers: found };
+}
+
+function isSameARTCC(fac1, fac2) {
+    // Get ARTCC for each facility
+    const artcc1 = getARTCCForFacility(fac1);
+    const artcc2 = getARTCCForFacility(fac2);
+    
+    return artcc1 && artcc2 && artcc1 === artcc2;
+}
+
+function getARTCCForFacility(fac) {
+    // If it's already an ARTCC
+    if (ARTCCS[fac]) return fac;
+    
+    // TRACON to ARTCC mapping (simplified)
+    const traconToArtcc = {
+        'N90': 'ZNY', 'A90': 'ZBW', 'C90': 'ZAU', 'D10': 'ZFW',
+        'PCT': 'ZDC', 'A80': 'ZTL', 'SCT': 'ZLA', 'NCT': 'ZOA',
+        'I90': 'ZHU', 'D01': 'ZDV', 'S46': 'ZSE', 'L30': 'ZLA'
+    };
+    
+    if (traconToArtcc[fac]) return traconToArtcc[fac];
+    
+    // Airport to ARTCC (simplified - major airports)
+    const airportToArtcc = {
+        'JFK': 'ZNY', 'LGA': 'ZNY', 'EWR': 'ZNY', 'BOS': 'ZBW',
+        'ORD': 'ZAU', 'MDW': 'ZAU', 'ATL': 'ZTL', 'CLT': 'ZTL',
+        'DFW': 'ZFW', 'IAH': 'ZHU', 'LAX': 'ZLA', 'SFO': 'ZOA',
+        'SEA': 'ZSE', 'DEN': 'ZDV', 'MIA': 'ZMA', 'DCA': 'ZDC',
+        'IAD': 'ZDC', 'PHL': 'ZNY', 'DTW': 'ZOB', 'MSP': 'ZMP'
+    };
+    
+    return airportToArtcc[fac] || null;
 }
 
 // ============================================
 // DETERMINANT CODE CALCULATION
 // ============================================
-function updateDeterminantPreview() {
-    let code = '--';
-    let description = 'Select protocol options to generate code';
-    
-    switch (currentProtocol) {
-        case '05':
-            const mitResult = calculateMITCode();
-            code = mitResult.code;
-            description = mitResult.description;
-            break;
-        case '06':
-            const minitResult = calculateMINITCode();
-            code = minitResult.code;
-            description = minitResult.description;
-            break;
-        case '04':
-            const delayResult = calculateDelayCode();
-            code = delayResult.code;
-            description = delayResult.description;
-            break;
-        case '01':
-            const configResult = calculateConfigCode();
-            code = configResult.code;
-            description = configResult.description;
-            break;
+
+function calculateDeterminant(entry) {
+    switch (entry.protocol) {
+        case '05': return calculateMITDeterminant(entry);
+        case '06': return calculateMINITDeterminant(entry);
+        case '04': return calculateDelayDeterminant(entry);
+        case '01': return calculateConfigDeterminant(entry);
+        default: return '00O00';
     }
-    
-    $('#determinantPreview').text(code);
-    $('#determinantDescription').text(description);
 }
 
-/**
- * MIT Code Logic (Protocol 05)
- * | Distance | External | Internal |
- * |----------|----------|----------|
- * | ≥60nm    | 05D01/02 | 05D04/05 |
- * | 40-59nm  | 05C01/02 | 05C04/05 |
- * | 25-39nm  | 05B01/02 | 05B04/05 |
- * | 15-24nm  | 05A01/02 | 05A04/05 |
- * | <15nm    | 05O01/02/03 | -     |
- */
-function calculateMITCode() {
-    const distance = parseInt($('#mit_distance').val()) || 0;
-    const sameArtcc = $('#mit_same_artcc').val();
+function calculateMITDeterminant(entry) {
+    const d = entry.distance;
+    const internal = entry.isInternal;
     
-    if (!distance || !sameArtcc) {
-        return { code: '05---', description: 'Enter distance and ARTCC relationship' };
-    }
+    let level, subcode;
     
-    const isInternal = sameArtcc === 'yes';
-    let level = '';
-    let subcode = '';
-    
-    if (distance >= 60) {
+    if (d >= 60) {
         level = 'D';
-        subcode = isInternal ? '04' : '01';
-    } else if (distance >= 40) {
+        subcode = internal ? '04' : '01';
+    } else if (d >= 40) {
         level = 'C';
-        subcode = isInternal ? '04' : '01';
-    } else if (distance >= 25) {
+        subcode = internal ? '04' : '01';
+    } else if (d >= 25) {
         level = 'B';
-        subcode = isInternal ? '04' : '01';
-    } else if (distance >= 15) {
+        subcode = internal ? '04' : '01';
+    } else if (d >= 15) {
         level = 'A';
-        subcode = isInternal ? '04' : '01';
+        subcode = internal ? '04' : '01';
     } else {
-        // <15nm - only external, different codes
         level = 'O';
         subcode = '01';
     }
     
-    const code = `05${level}${subcode}`;
-    const levelDesc = getLevelDescription(level);
-    const typeDesc = isInternal ? 'Internal' : 'External';
-    
-    return {
-        code: code,
-        description: `${levelDesc} priority - ${typeDesc} ${distance}MIT`
-    };
+    return `05${level}${subcode}`;
 }
 
-/**
- * MINIT Code Logic (Protocol 06)
- * | Minutes  | External | Internal |
- * |----------|----------|----------|
- * | ≥30min   | 06D01/02 | 06D04/05 |
- * | 20-29min | 06C01/02 | 06C04/05 |
- * | 13-19min | 06B01/02 | 06B04/05 |
- * | 7-12min  | 06A01/02 | 06A04/05 |
- * | <7min    | 06O01/02 | 06A04/05 |
- */
-function calculateMINITCode() {
-    const minutes = parseInt($('#minit_minutes').val()) || 0;
-    const sameArtcc = $('#minit_same_artcc').val();
+function calculateMINITDeterminant(entry) {
+    const m = entry.minutes;
+    const internal = entry.isInternal;
     
-    if (!minutes || !sameArtcc) {
-        return { code: '06---', description: 'Enter minutes and ARTCC relationship' };
-    }
+    let level, subcode;
     
-    const isInternal = sameArtcc === 'yes';
-    let level = '';
-    let subcode = '';
-    
-    if (minutes >= 30) {
+    if (m >= 30) {
         level = 'D';
-        subcode = isInternal ? '04' : '01';
-    } else if (minutes >= 20) {
+        subcode = internal ? '04' : '01';
+    } else if (m >= 20) {
         level = 'C';
-        subcode = isInternal ? '04' : '01';
-    } else if (minutes >= 13) {
+        subcode = internal ? '04' : '01';
+    } else if (m >= 13) {
         level = 'B';
-        subcode = isInternal ? '04' : '01';
-    } else if (minutes >= 7) {
+        subcode = internal ? '04' : '01';
+    } else if (m >= 7) {
         level = 'A';
-        subcode = isInternal ? '04' : '01';
+        subcode = internal ? '04' : '01';
     } else {
-        // <7min
-        if (isInternal) {
-            level = 'A';
-            subcode = '04';
-        } else {
-            level = 'O';
-            subcode = '01';
-        }
+        level = internal ? 'A' : 'O';
+        subcode = internal ? '04' : '01';
     }
     
-    const code = `06${level}${subcode}`;
-    const levelDesc = getLevelDescription(level);
-    const typeDesc = isInternal ? 'Internal' : 'External';
-    
-    return {
-        code: code,
-        description: `${levelDesc} priority - ${typeDesc} ${minutes}MINIT`
-    };
+    return `06${level}${subcode}`;
 }
 
-/**
- * Delay Code Logic (Protocol 04)
- * | Delay Duration | Increasing | Steady | Decreasing |
- * |----------------|------------|--------|------------|
- * | ≥600min        | 04D01      | 04D02  | 04D03      |
- * | 360-599min     | 04D04      | 04D05  | 04D06      |
- * | 180-359min     | 04C01      | 04C02  | 04C03      |
- * | 120-179min     | 04C04      | 04C05  | 04C06      |
- * | 90-119min      | 04B01      | 04B02  | 04B03      |
- * | 60-89min       | 04B04      | 04B05  | 04B06      |
- * | 30-59min       | 04A01      | 04A02  | 04A03      |
- * | 15-29min       | 04A04      | 04A05  | 04A06      |
- */
-function calculateDelayCode() {
-    const delay = parseInt($('#delay_longest').val()) || 0;
-    const trend = $('#delay_trend').val();
+function calculateDelayDeterminant(entry) {
+    const d = entry.minutes;
+    const trend = entry.trend;
     
-    if (!delay || !trend) {
-        return { code: '04---', description: 'Enter delay duration and trend' };
-    }
+    let level, baseCode;
     
-    let level = '';
-    let baseCode = 0;
+    if (d >= 600) { level = 'D'; baseCode = 1; }
+    else if (d >= 360) { level = 'D'; baseCode = 4; }
+    else if (d >= 180) { level = 'C'; baseCode = 1; }
+    else if (d >= 120) { level = 'C'; baseCode = 4; }
+    else if (d >= 90) { level = 'B'; baseCode = 1; }
+    else if (d >= 60) { level = 'B'; baseCode = 4; }
+    else if (d >= 30) { level = 'A'; baseCode = 1; }
+    else if (d >= 15) { level = 'A'; baseCode = 4; }
+    else { level = 'O'; baseCode = 1; }
     
-    if (delay >= 600) {
-        level = 'D';
-        baseCode = 1;
-    } else if (delay >= 360) {
-        level = 'D';
-        baseCode = 4;
-    } else if (delay >= 180) {
-        level = 'C';
-        baseCode = 1;
-    } else if (delay >= 120) {
-        level = 'C';
-        baseCode = 4;
-    } else if (delay >= 90) {
-        level = 'B';
-        baseCode = 1;
-    } else if (delay >= 60) {
-        level = 'B';
-        baseCode = 4;
-    } else if (delay >= 30) {
-        level = 'A';
-        baseCode = 1;
-    } else if (delay >= 15) {
-        level = 'A';
-        baseCode = 4;
-    } else {
-        // <15min - typically not reported
-        level = 'O';
-        baseCode = 1;
-    }
-    
-    // Trend offset: increasing=0, steady=1, decreasing=2
     const trendOffset = trend === 'increasing' ? 0 : (trend === 'steady' ? 1 : 2);
     const subcode = String(baseCode + trendOffset).padStart(2, '0');
     
-    const code = `04${level}${subcode}`;
-    const levelDesc = getLevelDescription(level);
-    const trendDesc = trend.charAt(0).toUpperCase() + trend.slice(1);
-    
-    return {
-        code: code,
-        description: `${levelDesc} priority - ${delay}min delay, ${trendDesc}`
-    };
+    return `04${level}${subcode}`;
 }
 
-/**
- * Airport Config Code Logic (Protocol 01) - Simplified
- * Complex logic based on runway config, weather, and rates
- */
-function calculateConfigCode() {
-    const weather = $('#config_weather').val();
-    const singleRwy = $('#config_single_rwy').val();
-    const aar = parseInt($('#config_aar').val()) || 0;
-    const adr = parseInt($('#config_adr').val()) || 0;
+function calculateConfigDeterminant(entry) {
+    const wx = entry.weather;
+    const single = entry.singleRunway;
+    const aar = entry.aar;
+    const adr = entry.adr;
     
-    if (!weather || !singleRwy) {
-        return { code: '01---', description: 'Enter weather and runway configuration' };
-    }
+    let level = 'O', subcode = '01';
     
-    let level = '';
-    let subcode = '01';
-    
-    // Emergency level conditions
-    if (singleRwy === 'yes') {
-        if (weather === 'VLIMC' || weather === 'LIMC') {
-            level = 'E';
-            subcode = '01';
-        } else if (weather === 'IMC' && (aar <= 30 || adr <= 30)) {
-            level = 'E';
-            subcode = '02';
+    if (single) {
+        if (wx === 'VLIMC' || wx === 'LIMC') {
+            level = 'E'; subcode = '01';
+        } else if (wx === 'IMC' && (aar <= 30 || adr <= 30)) {
+            level = 'E'; subcode = '02';
         } else if (aar <= 45 || adr <= 45) {
-            level = 'E';
-            subcode = '03';
+            level = 'E'; subcode = '03';
         } else {
-            level = 'D';
-            subcode = '01';
+            level = 'D'; subcode = '01';
         }
     } else {
-        // Multiple runway
-        if (weather === 'VLIMC' || weather === 'LIMC') {
-            level = 'C';
-            subcode = '01';
-        } else if (weather === 'IMC') {
-            level = 'B';
-            subcode = '01';
-        } else if (weather === 'LVMC') {
-            level = 'A';
-            subcode = '01';
-        } else {
-            level = 'O';
-            subcode = '01';
-        }
+        if (wx === 'VLIMC' || wx === 'LIMC') level = 'C';
+        else if (wx === 'IMC') level = 'B';
+        else if (wx === 'LVMC') level = 'A';
+        else level = 'O';
     }
     
-    const code = `01${level}${subcode}`;
-    const levelDesc = getLevelDescription(level);
-    const rwyDesc = singleRwy === 'yes' ? 'Single-Runway' : 'Multi-Runway';
+    return `01${level}${subcode}`;
+}
+
+// ============================================
+// QUEUE MANAGEMENT
+// ============================================
+
+function addFromQuickInput() {
+    const input = $('#quickInput').val();
+    const entry = parseEntry(input);
     
-    return {
-        code: code,
-        description: `${levelDesc} priority - ${rwyDesc} ${weather}`
-    };
-}
-
-function getLevelDescription(level) {
-    const descriptions = {
-        'E': 'Emergency/Critical',
-        'D': 'High',
-        'C': 'Moderate',
-        'B': 'Low',
-        'A': 'Informational',
-        'O': 'Other/Recordkeeping',
-        'X': 'Cancellation'
-    };
-    return descriptions[level] || 'Unknown';
-}
-
-// ============================================
-// MODE INDICATOR
-// ============================================
-function updateModeIndicator() {
-    const indicator = $('#modeIndicator');
-    if (productionMode) {
-        indicator.removeClass('test-mode-banner')
-                 .addClass('bg-danger text-white')
-                 .html('<i class="fas fa-broadcast-tower"></i> PRODUCTION MODE');
-    } else {
-        indicator.removeClass('bg-danger text-white')
-                 .addClass('test-mode-banner')
-                 .html('<i class="fas fa-flask"></i> TEST MODE');
-    }
-}
-
-// ============================================
-// FORM SUBMISSION
-// ============================================
-function submitNTML(protocol, form) {
-    // Validate determinant code is calculated
-    const determinant = $('#determinantPreview').text();
-    if (determinant === '--' || determinant.includes('---')) {
+    if (entry) {
+        entryQueue.push(entry);
+        $('#quickInput').val('').focus();
+        renderQueue();
+        hideAutocomplete();
+    } else if (input.trim()) {
+        // Show error for unparseable input
         Swal.fire({
             icon: 'error',
-            title: 'Incomplete Form',
-            text: 'Please fill in all required fields to generate a valid determinant code.'
+            title: 'Could not parse entry',
+            text: 'Check the syntax help for valid formats.',
+            toast: true,
+            position: 'top-end',
+            timer: 3000,
+            showConfirmButton: false
         });
+    }
+}
+
+function parseBatchInput() {
+    const lines = $('#batchInput').val().split('\n').filter(l => l.trim());
+    let added = 0, failed = 0;
+    const errors = [];
+    
+    for (const line of lines) {
+        const entry = parseEntry(line);
+        if (entry) {
+            entryQueue.push(entry);
+            added++;
+        } else {
+            failed++;
+            errors.push(line);
+        }
+    }
+    
+    if (added > 0) {
+        $('#batchInput').val('');
+        renderQueue();
+    }
+    
+    if (failed > 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: `${added} added, ${failed} failed`,
+            html: `Could not parse:<br><code>${errors.slice(0, 3).join('<br>')}</code>${errors.length > 3 ? '<br>...' : ''}`
+        });
+    } else if (added > 0) {
+        Swal.fire({
+            icon: 'success',
+            title: `${added} entries added`,
+            toast: true,
+            position: 'top-end',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+}
+
+function removeFromQueue(index) {
+    entryQueue.splice(index, 1);
+    renderQueue();
+}
+
+function renderQueue() {
+    const container = $('#entryQueue');
+    const count = entryQueue.length;
+    
+    $('#queueCount').text(count);
+    $('#clearQueue').toggle(count > 0);
+    $('#submitArea').toggle(count > 0);
+    $('#submitCount').text(count);
+    $('#emptyQueueMsg').toggle(count === 0);
+    
+    if (count === 0) {
+        container.html($('#emptyQueueMsg').prop('outerHTML'));
         return;
     }
     
-    // Confirm if production mode
-    if (productionMode) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Confirm Production Submission',
-            html: `You are about to post <strong>${determinant}</strong> to LIVE Discord channels.<br><br>This action cannot be undone.`,
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Submit to Production',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                doSubmit(protocol, form, determinant);
-            }
-        });
-    } else {
-        doSubmit(protocol, form, determinant);
+    let html = '';
+    entryQueue.forEach((entry, index) => {
+        const pillClass = entry.type.toLowerCase();
+        const message = buildDiscordMessage(entry);
+        
+        html += `
+            <div class="preview-card valid">
+                <button class="remove-btn" onclick="removeFromQueue(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+                <span class="protocol-pill ${pillClass}">${entry.type}</span>
+                <span class="determinant ml-2">[${entry.determinant}]</span>
+                <div class="details">${escapeHtml(message.split('\n')[0])}</div>
+            </div>
+        `;
+    });
+    
+    container.html(html);
+}
+
+// ============================================
+// TEMPLATES
+// ============================================
+
+function applyTemplate(template) {
+    const templates = {
+        'mit-arr': '20MIT ZBW→ZNY JFK LENDY VOLUME',
+        'mit-dep': '15MIT ZNY→ZDC EWR DEPARTURES VOLUME',
+        'minit': '10MINIT ZOB→ZNY CLE ARRIVALS WEATHER',
+        'delay': 'DELAY JFK 45min INC 12flt WEATHER',
+        'config': 'CONFIG JFK IMC ARR:22L/22R DEP:31L AAR:40 ADR:45',
+        'gs': 'DELAY JFK 120min STEADY 50flt WEATHER'
+    };
+    
+    const text = templates[template];
+    if (text) {
+        if (currentMode === 'single') {
+            $('#quickInput').val(text).focus();
+        } else {
+            const current = $('#batchInput').val();
+            $('#batchInput').val(current + (current ? '\n' : '') + text).focus();
+        }
     }
 }
 
-function doSubmit(protocol, form, determinant) {
-    // Show loading state
-    Swal.fire({
-        title: 'Submitting...',
-        html: `Posting ${determinant} to Discord`,
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
+// ============================================
+// AUTOCOMPLETE
+// ============================================
+
+function showAutocomplete(input) {
+    // Extract the last word being typed
+    const words = input.split(/\s+/);
+    const lastWord = words[words.length - 1].toUpperCase();
+    
+    if (lastWord.length < 2) {
+        hideAutocomplete();
+        return;
+    }
+    
+    const suggestions = [];
+    
+    // Search ARTCCs
+    for (const [id, name] of Object.entries(ARTCCS)) {
+        if (id.includes(lastWord)) {
+            suggestions.push({ id, name, type: 'ARTCC' });
         }
+    }
+    
+    // Search TRACONs
+    for (const [id, name] of Object.entries(TRACONS)) {
+        if (id.includes(lastWord)) {
+            suggestions.push({ id, name, type: 'TRACON' });
+        }
+    }
+    
+    // Search airports
+    for (const apt of MAJOR_AIRPORTS) {
+        if (apt.includes(lastWord)) {
+            suggestions.push({ id: apt, name: apt + ' Airport', type: 'Airport' });
+        }
+    }
+    
+    if (suggestions.length === 0) {
+        hideAutocomplete();
+        return;
+    }
+    
+    let html = '';
+    suggestions.slice(0, 8).forEach(s => {
+        html += `
+            <div class="autocomplete-item" data-value="${s.id}">
+                <span class="facility-id">${s.id}</span>
+                <span class="facility-name ml-2">${s.name} (${s.type})</span>
+            </div>
+        `;
     });
     
-    // Prepare form data
-    const formData = form.serialize();
-    const fullData = formData + '&determinant=' + encodeURIComponent(determinant) + '&production=' + (productionMode ? '1' : '0');
+    $('#autocompleteDropdown').html(html).addClass('show');
     
-    $.ajax({
-        type: 'POST',
-        url: 'api/mgt/ntml/post.php',
-        data: fullData,
-        success: function(response) {
-            try {
-                const data = JSON.parse(response);
-                if (data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'NTML Entry Posted',
-                        html: `<strong>${determinant}</strong> has been posted successfully.<br><br>
-                               <small class="text-muted">Channel: ${data.channel || 'Discord'}</small>`,
-                        confirmButtonColor: '#28a745'
-                    }).then(() => {
-                        // Reset form
-                        form[0].reset();
-                        form.find('.qualifier-badge').removeClass('selected');
-                        form.find('input[name="qualifiers"]').val('');
-                        updateDeterminantPreview();
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Submission Failed',
-                        text: data.error || 'An unknown error occurred.'
-                    });
-                }
-            } catch (e) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Submission Failed',
-                    text: 'Invalid response from server.'
-                });
-            }
-        },
-        error: function(xhr, status, error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Submission Failed',
-                text: 'Could not connect to server. Please try again.'
-            });
+    // Click handler
+    $('.autocomplete-item').click(function() {
+        const value = $(this).data('value');
+        const words = $('#quickInput').val().split(/\s+/);
+        words[words.length - 1] = value;
+        $('#quickInput').val(words.join(' ') + ' ').focus();
+        hideAutocomplete();
+    });
+}
+
+function hideAutocomplete() {
+    $('#autocompleteDropdown').removeClass('show');
+}
+
+// ============================================
+// MESSAGE BUILDING
+// ============================================
+
+function buildDiscordMessage(entry) {
+    switch (entry.type) {
+        case 'MIT':
+            return buildMITMessage(entry);
+        case 'MINIT':
+            return buildMINITMessage(entry);
+        case 'DELAY':
+            return buildDelayMessage(entry);
+        case 'CONFIG':
+            return buildConfigMessage(entry);
+        default:
+            return `[${entry.determinant}] ${entry.type}`;
+    }
+}
+
+function buildMITMessage(e) {
+    let msg = `**[${e.determinant}] ${e.distance}MIT** ${e.fromFacility}→${e.toFacility} ${e.condition}`;
+    if (e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
+    msg += `\nValid: ${e.validFrom}Z-${e.validUntil}Z`;
+    msg += `\nReason: ${e.reason}`;
+    return msg;
+}
+
+function buildMINITMessage(e) {
+    let msg = `**[${e.determinant}] ${e.minutes}MINIT** ${e.fromFacility}→${e.toFacility} ${e.condition}`;
+    if (e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
+    msg += `\nValid: ${e.validFrom}Z-${e.validUntil}Z`;
+    msg += `\nReason: ${e.reason}`;
+    return msg;
+}
+
+function buildDelayMessage(e) {
+    const trendDisplay = e.trend.charAt(0).toUpperCase() + e.trend.slice(1);
+    let msg = `**[${e.determinant}] DELAY** ${e.facility}`;
+    msg += `\nLongest: ${e.minutes}min | Trend: ${trendDisplay} | Flights: ${e.flightsDelayed}`;
+    msg += `\nReason: ${e.reason}`;
+    return msg;
+}
+
+function buildConfigMessage(e) {
+    let msg = `**[${e.determinant}] AIRPORT CONFIG** ${e.airport}`;
+    msg += `\nWeather: ${e.weather} | Single RWY: ${e.singleRunway ? 'Yes' : 'No'}`;
+    if (e.arrRunways) msg += `\nARR: ${e.arrRunways}`;
+    if (e.depRunways) msg += ` | DEP: ${e.depRunways}`;
+    msg += `\nAAR: ${e.aar} | ADR: ${e.adr}`;
+    return msg;
+}
+
+// ============================================
+// PREVIEW & SUBMIT
+// ============================================
+
+function showPreview() {
+    let content = '';
+    entryQueue.forEach((entry, i) => {
+        content += `--- Entry ${i + 1} ---\n`;
+        content += buildDiscordMessage(entry);
+        content += '\n\n';
+    });
+    
+    $('#previewContent').text(content);
+    $('#previewModal').modal('show');
+}
+
+function submitAll() {
+    if (entryQueue.length === 0) return;
+    
+    const confirmMsg = productionMode 
+        ? `Submit ${entryQueue.length} entries to LIVE Discord?`
+        : `Submit ${entryQueue.length} entries to staging?`;
+    
+    Swal.fire({
+        title: 'Confirm Submission',
+        text: confirmMsg,
+        icon: productionMode ? 'warning' : 'question',
+        showCancelButton: true,
+        confirmButtonColor: productionMode ? '#dc3545' : '#28a745',
+        confirmButtonText: 'Submit All'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            processSubmissions();
         }
     });
 }
+
+async function processSubmissions() {
+    $('#previewModal').modal('hide');
+    
+    Swal.fire({
+        title: 'Submitting...',
+        html: `<div id="submitProgress">0 / ${entryQueue.length}</div>`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+    
+    let success = 0, failed = 0;
+    const errors = [];
+    
+    for (let i = 0; i < entryQueue.length; i++) {
+        const entry = entryQueue[i];
+        $('#submitProgress').text(`${i + 1} / ${entryQueue.length}`);
+        
+        try {
+            const result = await submitEntry(entry);
+            if (result.success) {
+                success++;
+            } else {
+                failed++;
+                errors.push(result.error || 'Unknown error');
+            }
+        } catch (e) {
+            failed++;
+            errors.push(e.message || 'Network error');
+        }
+        
+        // Small delay between submissions to avoid rate limiting
+        if (i < entryQueue.length - 1) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    
+    // Clear successful entries
+    entryQueue = [];
+    renderQueue();
+    
+    // Show result
+    if (failed === 0) {
+        Swal.fire({
+            icon: 'success',
+            title: 'All Submitted!',
+            text: `${success} entries posted to Discord.`
+        });
+    } else {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Partially Completed',
+            html: `${success} succeeded, ${failed} failed.<br><small>${errors[0]}</small>`
+        });
+    }
+}
+
+function submitEntry(entry) {
+    return new Promise((resolve, reject) => {
+        // Build POST data based on entry type
+        const postData = buildPostData(entry);
+        postData.determinant = entry.determinant;
+        postData.production = productionMode ? '1' : '0';
+        
+        $.ajax({
+            type: 'POST',
+            url: 'api/mgt/ntml/post.php',
+            data: postData,
+            success: function(response) {
+                try {
+                    const data = typeof response === 'string' ? JSON.parse(response) : response;
+                    resolve(data);
+                } catch (e) {
+                    reject(new Error('Invalid response'));
+                }
+            },
+            error: function(xhr, status, error) {
+                reject(new Error(error || 'Request failed'));
+            }
+        });
+    });
+}
+
+function buildPostData(entry) {
+    switch (entry.type) {
+        case 'MIT':
+            return {
+                protocol: '05',
+                condition: entry.condition,
+                restriction_type: 'arrival',
+                req_facility_type: 'ARTCC',
+                req_facility_id: entry.toFacility,
+                prov_facility_type: 'ARTCC',
+                prov_facility_id: entry.fromFacility,
+                same_artcc: entry.isInternal ? 'yes' : 'no',
+                distance: entry.distance,
+                qualifiers: entry.qualifiers.join(','),
+                reason: entry.reason,
+                valid_from: entry.validFrom,
+                valid_until: entry.validUntil
+            };
+        case 'MINIT':
+            return {
+                protocol: '06',
+                condition: entry.condition,
+                restriction_type: 'arrival',
+                req_facility_type: 'ARTCC',
+                req_facility_id: entry.toFacility,
+                prov_facility_type: 'ARTCC',
+                prov_facility_id: entry.fromFacility,
+                same_artcc: entry.isInternal ? 'yes' : 'no',
+                minutes: entry.minutes,
+                qualifiers: entry.qualifiers.join(','),
+                reason: entry.reason,
+                valid_from: entry.validFrom,
+                valid_until: entry.validUntil
+            };
+        case 'DELAY':
+            return {
+                protocol: '04',
+                delay_type: 'arrival',
+                timeframe: 'now',
+                delay_facility: entry.facility,
+                charge_facility: entry.chargeFacility,
+                flights_delayed: entry.flightsDelayed,
+                longest_delay: entry.minutes,
+                delay_trend: entry.trend,
+                holding: entry.holding,
+                reason: entry.reason
+            };
+        case 'CONFIG':
+            return {
+                protocol: '01',
+                airport: entry.airport,
+                weather: entry.weather,
+                arr_runways: entry.arrRunways,
+                dep_runways: entry.depRunways,
+                single_runway: entry.singleRunway ? 'yes' : 'no',
+                aar: entry.aar,
+                adr: entry.adr,
+                fleet_mix: 'light'
+            };
+        default:
+            return { protocol: '00' };
+    }
+}
+
+// ============================================
+// UTILITIES
+// ============================================
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Make removeFromQueue available globally
+window.removeFromQueue = removeFromQueue;
