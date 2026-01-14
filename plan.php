@@ -1284,11 +1284,27 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
+                    <!-- Config Picker Section -->
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="addconfig_use_adl">
+                            <label class="custom-control-label" for="addconfig_use_adl">Load from ADL Config</label>
+                        </div>
+                        <div id="addconfig_picker" style="display: none;">
+                            <select class="form-control mb-2" id="addconfig_select" disabled>
+                                <option value="">-- Select configuration --</option>
+                            </select>
+                            <small class="text-muted">Enter airport code above then select a configuration</small>
+                        </div>
+                    </div>
+
+                    <hr class="my-2">
+
                     Field:
-                    <input type="text" class="form-control" name="airport" placeholder="BWI" maxlength="4" required>
+                    <input type="text" class="form-control" name="airport" id="addconfig_airport" placeholder="BWI" maxlength="4" required>
 
                     Meteorological Condition:
-                    <select class="form-control" name="weather">
+                    <select class="form-control" name="weather" id="addconfig_weather">
                         <option value="0">Unknown</option>
                         <option value="1">VMC</option>
                         <option value="2">LVMC</option>
@@ -1297,16 +1313,16 @@ include('load/nav.php');
                     </select>
 
                     Arrival Runways:
-                    <input type="text" class="form-control" name="arrive" placeholder="33L/33R">
+                    <input type="text" class="form-control" name="arrive" id="addconfig_arrive" placeholder="33L/33R">
 
                     Departure Runways:
-                    <input type="text" class="form-control" name="depart" placeholder="33R/28">
+                    <input type="text" class="form-control" name="depart" id="addconfig_depart" placeholder="33R/28">
 
                     Airport Arrival Rate (AAR):
-                    <input type="text" class="form-control" name="aar" maxlength="3">
+                    <input type="text" class="form-control" name="aar" id="addconfig_aar" maxlength="3">
 
                     Airport Departure Rate (ADR):
-                    <input type="text" class="form-control" name="adr" maxlength="3">
+                    <input type="text" class="form-control" name="adr" id="addconfig_adr" maxlength="3">
 
                     Comments:
                     <input type="text" class="form-control" name="comments">
@@ -1338,13 +1354,29 @@ include('load/nav.php');
 
                 <div class="modal-body">
 
-                    <input type="hidden" name="id" id="id">
+                    <input type="hidden" name="id" id="editconfig_id">
+
+                    <!-- Config Picker Section -->
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="editconfig_use_adl">
+                            <label class="custom-control-label" for="editconfig_use_adl">Load from ADL Config</label>
+                        </div>
+                        <div id="editconfig_picker" style="display: none;">
+                            <select class="form-control mb-2" id="editconfig_select" disabled>
+                                <option value="">-- Select configuration --</option>
+                            </select>
+                            <small class="text-muted">Select a configuration to load runways and rates</small>
+                        </div>
+                    </div>
+
+                    <hr class="my-2">
 
                     Field:
-                    <input type="text" class="form-control" name="airport" id="airport" placeholder="BWI" maxlength="4" required>
+                    <input type="text" class="form-control" name="airport" id="editconfig_airport" placeholder="BWI" maxlength="4" required>
 
                     Meteorological Condition:
-                    <select class="form-control" name="weather" id="weather">
+                    <select class="form-control" name="weather" id="editconfig_weather">
                         <option value="0">Unknown</option>
                         <option value="1">VMC</option>
                         <option value="2">LVMC</option>
@@ -1353,19 +1385,19 @@ include('load/nav.php');
                     </select>
 
                     Arrival Runways:
-                    <input type="text" class="form-control" name="arrive" id="arrive" placeholder="33L/33R">
+                    <input type="text" class="form-control" name="arrive" id="editconfig_arrive" placeholder="33L/33R">
 
                     Departure Runways:
-                    <input type="text" class="form-control" name="depart" id="depart" placeholder="33R/28">
+                    <input type="text" class="form-control" name="depart" id="editconfig_depart" placeholder="33R/28">
 
                     Airport Arrival Rate (AAR):
-                    <input type="text" class="form-control" name="aar" id="aar" maxlength="3">
+                    <input type="text" class="form-control" name="aar" id="editconfig_aar" maxlength="3">
 
                     Airport Departure Rate (ADR):
-                    <input type="text" class="form-control" name="adr" id="adr" maxlength="3">
+                    <input type="text" class="form-control" name="adr" id="editconfig_adr" maxlength="3">
 
                     Comments:
-                    <input type="text" class="form-control" name="comments" id="comments">
+                    <input type="text" class="form-control" name="comments" id="editconfig_comments">
 
                 </div>
                 <div class="modal-footer">

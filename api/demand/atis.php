@@ -74,22 +74,51 @@ if ($conn === false) {
     exit;
 }
 
-// Get latest ATIS record for this airport
-$sql = "SELECT TOP 1
-    a.atis_id,
-    a.airport_icao,
-    a.callsign,
-    a.atis_type,
-    a.atis_code,
-    a.frequency,
-    a.atis_text,
-    a.fetched_utc,
-    a.controller_cid,
-    DATEDIFF(MINUTE, a.fetched_utc, GETUTCDATE()) AS age_mins
-FROM dbo.vatsim_atis a
-WHERE a.airport_icao = ?
-  AND a.fetched_utc > DATEADD(HOUR, -2, GETUTCDATE())
-ORDER BY a.fetched_utc DESC";
+// Get effective ATIS source decision and all relevant ATIS records
+$sql = "SELECT
+    effective_source,
+    has_arr,
+    has_dep,
+    has_comb,
+    arr_age_mins,
+    dep_age_mins,
+    comb_age_mins,
+    effective_age_mins,
+    -- ARR ATIS fields
+    arr_atis_id,
+    arr_callsign,
+    arr_atis_code,
+    arr_frequency,
+    arr_atis_text,
+    arr_controller_cid,
+    arr_fetched_utc,
+    -- DEP ATIS fields
+    dep_atis_id,
+    dep_callsign,
+    dep_atis_code,
+    dep_frequency,
+    dep_atis_text,
+    dep_controller_cid,
+    dep_fetched_utc,
+    -- COMB ATIS fields
+    comb_atis_id,
+    comb_callsign,
+    comb_atis_code,
+    comb_frequency,
+    comb_atis_text,
+    comb_controller_cid,
+    comb_fetched_utc,
+    -- Weather (from best source)
+    wind_dir_deg,
+    wind_speed_kt,
+    wind_gust_kt,
+    visibility_sm,
+    ceiling_ft,
+    altimeter_inhg,
+    flight_category,
+    weather_category
+FROM dbo.vw_effective_atis
+WHERE airport_icao = ?";
 
 $stmt = sqlsrv_query($conn, $sql, [$airport]);
 
@@ -104,18 +133,23 @@ if ($stmt === false) {
     exit;
 }
 
-$atisRow = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+$effectiveAtis = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 sqlsrv_free_stmt($stmt);
 
 // If no recent ATIS found, return empty response
-if (!$atisRow) {
+if (!$effectiveAtis || !$effectiveAtis['effective_source']) {
     sqlsrv_close($conn);
     echo json_encode([
         "success" => true,
         "airport_icao" => $airport,
         "has_atis" => false,
+        "effective_source" => null,
         "atis" => null,
-        "runways" => null
+        "atis_arr" => null,
+        "atis_dep" => null,
+        "atis_comb" => null,
+        "runways" => null,
+        "weather" => null
     ]);
     exit;
 }
@@ -127,7 +161,9 @@ $sql = "SELECT
     dep_runways,
     approach_info,
     config_since,
-    atis_code
+    atis_code,
+    effective_source,
+    effective_age_mins
 FROM dbo.vw_current_airport_config
 WHERE airport_icao = ?";
 
@@ -172,18 +208,62 @@ if ($stmt !== false) {
 
 sqlsrv_close($conn);
 
-// Format timestamps
-$fetchedUtc = $atisRow['fetched_utc'];
-if ($fetchedUtc instanceof DateTime) {
-    $fetchedUtc = $fetchedUtc->format('Y-m-d\TH:i:s\Z');
+// Helper to format DateTime
+function formatUtc($dt) {
+    if ($dt instanceof DateTime) {
+        return $dt->format('Y-m-d\TH:i:s\Z');
+    }
+    return $dt;
+}
+
+// Helper to build ATIS object
+function buildAtisObject($prefix, $data) {
+    $atisId = $data[$prefix . '_atis_id'];
+    if (!$atisId) return null;
+
+    return [
+        "atis_id" => (int)$atisId,
+        "callsign" => $data[$prefix . '_callsign'],
+        "atis_code" => $data[$prefix . '_atis_code'],
+        "frequency" => $data[$prefix . '_frequency'],
+        "atis_text" => $data[$prefix . '_atis_text'],
+        "controller_cid" => $data[$prefix . '_controller_cid'],
+        "fetched_utc" => formatUtc($data[$prefix . '_fetched_utc']),
+        "age_mins" => $data[$prefix . '_age_mins'] !== null ? (int)$data[$prefix . '_age_mins'] : null
+    ];
 }
 
 $configSince = null;
 if ($configRow && $configRow['config_since']) {
-    $configSince = $configRow['config_since'];
-    if ($configSince instanceof DateTime) {
-        $configSince = $configSince->format('Y-m-d\TH:i:s\Z');
-    }
+    $configSince = formatUtc($configRow['config_since']);
+}
+
+// Build individual ATIS objects
+$atisArr = buildAtisObject('arr', $effectiveAtis);
+$atisDep = buildAtisObject('dep', $effectiveAtis);
+$atisComb = buildAtisObject('comb', $effectiveAtis);
+
+// Build primary "atis" object based on effective source
+$effectiveSource = $effectiveAtis['effective_source'];
+$primaryAtis = null;
+switch ($effectiveSource) {
+    case 'ARR_DEP':
+        // When using both, return ARR as primary (since it has weather info)
+        $primaryAtis = $atisArr;
+        if ($primaryAtis) $primaryAtis['atis_type'] = 'ARR';
+        break;
+    case 'COMB':
+        $primaryAtis = $atisComb;
+        if ($primaryAtis) $primaryAtis['atis_type'] = 'COMB';
+        break;
+    case 'ARR_ONLY':
+        $primaryAtis = $atisArr;
+        if ($primaryAtis) $primaryAtis['atis_type'] = 'ARR';
+        break;
+    case 'DEP_ONLY':
+        $primaryAtis = $atisDep;
+        if ($primaryAtis) $primaryAtis['atis_type'] = 'DEP';
+        break;
 }
 
 // Build response
@@ -191,24 +271,33 @@ $response = [
     "success" => true,
     "airport_icao" => $airport,
     "has_atis" => true,
-    "atis" => [
-        "atis_id" => (int)$atisRow['atis_id'],
-        "callsign" => $atisRow['callsign'],
-        "atis_type" => $atisRow['atis_type'],
-        "atis_code" => $atisRow['atis_code'],
-        "frequency" => $atisRow['frequency'],
-        "atis_text" => $atisRow['atis_text'],
-        "fetched_utc" => $fetchedUtc,
-        "age_mins" => (int)$atisRow['age_mins'],
-        "controller_cid" => $atisRow['controller_cid']
-    ],
+    "effective_source" => $effectiveSource,
+    // Primary ATIS (backwards compatible)
+    "atis" => $primaryAtis,
+    // Individual ATIS by type (new)
+    "atis_arr" => $atisArr,
+    "atis_dep" => $atisDep,
+    "atis_comb" => $atisComb,
+    // Runway configuration
     "runways" => [
         "arr_runways" => $configRow ? $configRow['arr_runways'] : null,
         "dep_runways" => $configRow ? $configRow['dep_runways'] : null,
         "approach_info" => $configRow ? $configRow['approach_info'] : null,
         "config_since" => $configSince,
         "atis_code" => $configRow ? $configRow['atis_code'] : null,
+        "effective_source" => $configRow && isset($configRow['effective_source']) ? $configRow['effective_source'] : null,
         "details" => $runways
+    ],
+    // Weather (from best source)
+    "weather" => [
+        "wind_dir_deg" => $effectiveAtis['wind_dir_deg'] !== null ? (int)$effectiveAtis['wind_dir_deg'] : null,
+        "wind_speed_kt" => $effectiveAtis['wind_speed_kt'] !== null ? (int)$effectiveAtis['wind_speed_kt'] : null,
+        "wind_gust_kt" => $effectiveAtis['wind_gust_kt'] !== null ? (int)$effectiveAtis['wind_gust_kt'] : null,
+        "visibility_sm" => $effectiveAtis['visibility_sm'] !== null ? (float)$effectiveAtis['visibility_sm'] : null,
+        "ceiling_ft" => $effectiveAtis['ceiling_ft'] !== null ? (int)$effectiveAtis['ceiling_ft'] : null,
+        "altimeter_inhg" => $effectiveAtis['altimeter_inhg'] !== null ? (float)$effectiveAtis['altimeter_inhg'] : null,
+        "flight_category" => $effectiveAtis['flight_category'],
+        "weather_category" => $effectiveAtis['weather_category']
     ]
 ];
 

@@ -483,7 +483,7 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
             )
             SELECT
                 DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
-                COALESCE(fp_rule, 'UNKNOWN') AS rule,
+                COALESCE(fp_rule, 'UNKNOWN') AS [rule],
                 COUNT(*) AS count
             FROM Combined
             WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
@@ -495,7 +495,7 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
         $sql = "
             SELECT
                 DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
-                COALESCE(fp_rule, 'UNKNOWN') AS rule,
+                COALESCE(fp_rule, 'UNKNOWN') AS [rule],
                 COUNT(*) AS count
             FROM dbo.vw_adl_flights
             WHERE $airportCol = ?

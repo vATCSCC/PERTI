@@ -96,6 +96,86 @@ function formatRunwayWithModifiers($runway, $modifiers) {
     return $html;
 }
 
+// Helper: Format config name for better readability
+function formatConfigName($configName, $arrRunways = null, $depRunways = null, $configCode = null) {
+    // Check if it's a simple descriptive name (no slashes, not all caps with underscores)
+    $isSimpleName = (strpos($configName, ' / ') === false && strpos($configName, '/') === false)
+                    || preg_match('/^[A-Za-z]+ Flow$/i', $configName)
+                    || preg_match('/^(North|South|East|West|Mixed|Balanced)/i', $configName);
+
+    // Common flow direction keywords to detect simple names
+    $flowKeywords = ['Flow', 'Config', 'Standard', 'Primary', 'Secondary', 'Alternate'];
+    foreach ($flowKeywords as $keyword) {
+        if (stripos($configName, $keyword) !== false) {
+            $isSimpleName = true;
+            break;
+        }
+    }
+
+    if ($isSimpleName) {
+        // Return simple name as-is with optional code
+        $display = htmlspecialchars($configName);
+        if ($configCode) {
+            $display .= ' <small class="text-muted">(' . htmlspecialchars($configCode) . ')</small>';
+        }
+        return $display;
+    }
+
+    // Check for "ARR / DEP" pattern (runway config format)
+    if (preg_match('/^(.+?)\s*\/\s*(.+)$/', $configName, $matches)) {
+        $arrPart = trim($matches[1]);
+        $depPart = trim($matches[2]);
+
+        // Format with explicit labels
+        $html = '<span class="config-formatted">';
+        $html .= '<span class="config-arr"><span class="config-label">ARR:</span> ' . formatRunwayList($arrPart) . '</span>';
+        $html .= '<span class="config-sep">|</span>';
+        $html .= '<span class="config-dep"><span class="config-label">DEP:</span> ' . formatRunwayList($depPart) . '</span>';
+        $html .= '</span>';
+
+        // Add config code if present
+        if ($configCode) {
+            $html .= ' <small class="text-muted">(' . htmlspecialchars($configCode) . ')</small>';
+        }
+
+        return $html;
+    }
+
+    // Fallback: return original with code
+    $display = htmlspecialchars($configName);
+    if ($configCode) {
+        $display .= ' <small class="text-muted">(' . htmlspecialchars($configCode) . ')</small>';
+    }
+    return $display;
+}
+
+// Helper: Format runway list for display (e.g., "04R/04L" -> "04R, 04L")
+function formatRunwayList($runwayStr) {
+    // Handle empty or dash
+    if (empty($runwayStr) || $runwayStr === '-') {
+        return '-';
+    }
+
+    // Split by common delimiters
+    $runways = preg_split('/[\/,]/', $runwayStr);
+    $formatted = [];
+
+    foreach ($runways as $rwy) {
+        $rwy = trim($rwy);
+        if (!empty($rwy)) {
+            // Clean up any embedded modifiers (they're now in the modifiers column)
+            // e.g., "04R_ILS" -> "04R"
+            if (preg_match('/^(\d{1,2}[LCR]?)(?:_|$)/', $rwy, $m)) {
+                $formatted[] = '<span class="runway-id">' . htmlspecialchars($m[1]) . '</span>';
+            } else {
+                $formatted[] = '<span class="runway-id">' . htmlspecialchars($rwy) . '</span>';
+            }
+        }
+    }
+
+    return implode(' ', $formatted);
+}
+
 $search = isset($_GET['search']) ? strip_tags($_GET['search']) : '';
 
 // Check if ADL connection is available
@@ -323,12 +403,14 @@ if (!$conn_adl) {
             }
             echo '<td class="text-center">' . $icaoHtml . '</td>';
 
-            // Config Name
-            $configDisplay = htmlspecialchars($data['config_name']);
-            if ($data['config_code']) {
-                $configDisplay .= ' <small class="text-muted">(' . htmlspecialchars($data['config_code']) . ')</small>';
-            }
-            echo '<td class="text-center">' . $configDisplay . '</td>';
+            // Config Name (formatted for readability)
+            $configDisplay = formatConfigName(
+                $data['config_name'],
+                $data['arr_runways'] ?? null,
+                $data['dep_runways'] ?? null,
+                $data['config_code'] ?? null
+            );
+            echo '<td class="text-center config-name-cell">' . $configDisplay . '</td>';
 
             // Modifiers column (config-level and runway-level combined as badges)
             echo '<td class="text-center modifiers-cell">';

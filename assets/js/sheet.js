@@ -150,16 +150,28 @@ $("#edittermstaffing").submit(function(e) {
 $('#editconfigModal').on('show.bs.modal', function(event) {
     var button = $(event.relatedTarget);
 
-    var modal= $(this);
+    var modal = $(this);
 
-    modal.find('.modal-body #id').val(button.data('id'));
-    modal.find('.modal-body #airport').val(button.data('airport'));
-    modal.find('.modal-body #weather').val(button.data('weather')).trigger('change');
-    modal.find('.modal-body #arrive').val(button.data('arrive'));
-    modal.find('.modal-body #depart').val(button.data('depart'));
-    modal.find('.modal-body #aar').val(button.data('aar'));
-    modal.find('.modal-body #adr').val(button.data('adr'));
-    modal.find('.modal-body #comments').val(button.data('comments'));
+    // Reset config picker state
+    $('#sheet_editconfig_use_adl').prop('checked', false);
+    $('#sheet_editconfig_picker').hide();
+    $('#sheet_editconfig_select').empty().append('<option value="">-- Select configuration --</option>').prop('disabled', true);
+    sheetEditconfigSelectedConfig = null;
+
+    modal.find('.modal-body #sheet_editconfig_id').val(button.data('id'));
+    modal.find('.modal-body #sheet_editconfig_airport').val(button.data('airport'));
+    modal.find('.modal-body #sheet_editconfig_weather').val(button.data('weather')).trigger('change');
+    modal.find('.modal-body #sheet_editconfig_arrive').val(button.data('arrive'));
+    modal.find('.modal-body #sheet_editconfig_depart').val(button.data('depart'));
+    modal.find('.modal-body #sheet_editconfig_comments').val(button.data('comments'));
+
+    // Pre-fetch configs for the airport
+    var airport = button.data('airport');
+    if (airport && airport.length >= 3) {
+        fetchAirportConfigs(airport, function(configs) {
+            populateConfigDropdown(configs, '#sheet_editconfig_select');
+        });
+    }
 });
 
 // AJAX: #editconfig POST
@@ -244,4 +256,98 @@ $("#editenroutestaffing").submit(function(e) {
             });
         }
     });
+});
+
+// =====================================================
+// ADL Config Picker Functions (Sheet)
+// =====================================================
+
+// Cache for loaded configs by airport
+var sheetConfigCache = {};
+var sheetEditconfigSelectedConfig = null;
+
+// Fetch configs for airport from ADL
+function fetchAirportConfigs(airport, callback) {
+    if (!airport || airport.length < 3) {
+        callback([]);
+        return;
+    }
+
+    var cacheKey = airport.toUpperCase();
+    if (sheetConfigCache[cacheKey]) {
+        callback(sheetConfigCache[cacheKey]);
+        return;
+    }
+
+    $.get('api/demand/config_search.php', { airport: airport })
+        .done(function(data) {
+            if (data.success && data.configs) {
+                sheetConfigCache[cacheKey] = data.configs;
+                callback(data.configs);
+            } else {
+                callback([]);
+            }
+        })
+        .fail(function() {
+            callback([]);
+        });
+}
+
+// Populate config dropdown with fetched configs
+function populateConfigDropdown(configs, selectElement) {
+    var $select = $(selectElement);
+    $select.empty().append('<option value="">-- Select configuration --</option>');
+
+    if (configs && configs.length > 0) {
+        configs.forEach(function(cfg, idx) {
+            var label = cfg.config_name;
+            if (cfg.config_code) {
+                label += ' (' + cfg.config_code + ')';
+            }
+            $select.append('<option value="' + idx + '">' + label + '</option>');
+        });
+        $select.prop('disabled', false);
+    } else {
+        $select.append('<option value="" disabled>No configs found for this airport</option>');
+        $select.prop('disabled', true);
+    }
+}
+
+// Apply config to form fields (runways only for sheet)
+function applySheetConfigToForm(config) {
+    if (!config) return;
+
+    $('#sheet_editconfig_arrive').val(config.arr_runways || '');
+    $('#sheet_editconfig_depart').val(config.dep_runways || '');
+}
+
+// Toggle config picker visibility
+$('#sheet_editconfig_use_adl').on('change', function() {
+    if ($(this).is(':checked')) {
+        $('#sheet_editconfig_picker').slideDown(200);
+        // Trigger config fetch
+        var airport = $('#sheet_editconfig_airport').val();
+        if (airport && airport.length >= 3) {
+            fetchAirportConfigs(airport, function(configs) {
+                populateConfigDropdown(configs, '#sheet_editconfig_select');
+            });
+        }
+    } else {
+        $('#sheet_editconfig_picker').slideUp(200);
+        sheetEditconfigSelectedConfig = null;
+    }
+});
+
+// Apply selected config
+$('#sheet_editconfig_select').on('change', function() {
+    var idx = $(this).val();
+    var airport = $('#sheet_editconfig_airport').val().toUpperCase();
+    var configs = sheetConfigCache[airport] || [];
+
+    if (idx !== '' && configs[idx]) {
+        sheetEditconfigSelectedConfig = configs[idx];
+        applySheetConfigToForm(sheetEditconfigSelectedConfig);
+    } else {
+        sheetEditconfigSelectedConfig = null;
+    }
 });

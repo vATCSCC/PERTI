@@ -1015,16 +1015,30 @@ $("#addconfig").submit(function(e) {
 $('#editconfigModal').on('show.bs.modal', function(event) {
     var button = $(event.relatedTarget);
 
-    var modal= $(this);
+    var modal = $(this);
 
-    modal.find('.modal-body #id').val(button.data('id'));
-    modal.find('.modal-body #airport').val(button.data('airport'));
-    modal.find('.modal-body #weather').val(button.data('weather')).trigger('change');
-    modal.find('.modal-body #arrive').val(button.data('arrive'));
-    modal.find('.modal-body #depart').val(button.data('depart'));
-    modal.find('.modal-body #aar').val(button.data('aar'));
-    modal.find('.modal-body #adr').val(button.data('adr'));
-    modal.find('.modal-body #comments').val(button.data('comments'));
+    // Reset config picker state
+    $('#editconfig_use_adl').prop('checked', false);
+    $('#editconfig_picker').hide();
+    $('#editconfig_select').empty().append('<option value="">-- Select configuration --</option>').prop('disabled', true);
+    editconfigSelectedConfig = null;
+
+    modal.find('.modal-body #editconfig_id').val(button.data('id'));
+    modal.find('.modal-body #editconfig_airport').val(button.data('airport'));
+    modal.find('.modal-body #editconfig_weather').val(button.data('weather')).trigger('change');
+    modal.find('.modal-body #editconfig_arrive').val(button.data('arrive'));
+    modal.find('.modal-body #editconfig_depart').val(button.data('depart'));
+    modal.find('.modal-body #editconfig_aar').val(button.data('aar'));
+    modal.find('.modal-body #editconfig_adr').val(button.data('adr'));
+    modal.find('.modal-body #editconfig_comments').val(button.data('comments'));
+
+    // Pre-fetch configs for the airport (for edit modal)
+    var airport = button.data('airport');
+    if (airport && airport.length >= 3) {
+        fetchAirportConfigs(airport, function(configs) {
+            populateConfigDropdown(configs, '#editconfig_select');
+        });
+    }
 });
 
 // AJAX: #editconfig POST
@@ -1119,6 +1133,215 @@ function autoConfig(id, aar, adr) {
         }
     });
 }
+
+// =====================================================
+// ADL Config Picker Functions
+// =====================================================
+
+// Cache for loaded configs by airport
+var configCache = {};
+var addconfigSelectedConfig = null;
+var editconfigSelectedConfig = null;
+
+// Fetch configs for airport from ADL
+function fetchAirportConfigs(airport, callback) {
+    if (!airport || airport.length < 3) {
+        callback([]);
+        return;
+    }
+
+    var cacheKey = airport.toUpperCase();
+    if (configCache[cacheKey]) {
+        callback(configCache[cacheKey]);
+        return;
+    }
+
+    $.get('api/demand/config_search.php', { airport: airport })
+        .done(function(data) {
+            if (data.success && data.configs) {
+                configCache[cacheKey] = data.configs;
+                callback(data.configs);
+            } else {
+                callback([]);
+            }
+        })
+        .fail(function() {
+            callback([]);
+        });
+}
+
+// Populate config dropdown with fetched configs
+function populateConfigDropdown(configs, selectElement) {
+    var $select = $(selectElement);
+    $select.empty().append('<option value="">-- Select configuration --</option>');
+
+    if (configs && configs.length > 0) {
+        configs.forEach(function(cfg, idx) {
+            var label = cfg.config_name;
+            if (cfg.config_code) {
+                label += ' (' + cfg.config_code + ')';
+            }
+            $select.append('<option value="' + idx + '">' + label + '</option>');
+        });
+        $select.prop('disabled', false);
+    } else {
+        $select.append('<option value="" disabled>No configs found for this airport</option>');
+        $select.prop('disabled', true);
+    }
+}
+
+// Get rate values based on weather selection
+function getRatesFromConfig(config, weatherValue) {
+    if (!config || !config.rates) return { aar: '', adr: '' };
+
+    var weatherMap = {
+        '0': 'vmc',   // Unknown -> default to VMC
+        '1': 'vmc',
+        '2': 'lvmc',
+        '3': 'imc',
+        '4': 'limc'
+    };
+
+    var key = weatherMap[weatherValue] || 'vmc';
+    var rates = config.rates[key] || {};
+
+    return {
+        aar: rates.aar !== null ? rates.aar : '',
+        adr: rates.adr !== null ? rates.adr : ''
+    };
+}
+
+// Apply config to form fields
+function applyConfigToForm(config, prefix, weatherValue) {
+    if (!config) return;
+
+    // Set runways (replace slashes with forward slashes for display)
+    $('#' + prefix + '_arrive').val(config.arr_runways || '');
+    $('#' + prefix + '_depart').val(config.dep_runways || '');
+
+    // Set rates based on weather
+    var rates = getRatesFromConfig(config, weatherValue);
+    $('#' + prefix + '_aar').val(rates.aar);
+    $('#' + prefix + '_adr').val(rates.adr);
+}
+
+// =====================================================
+// Add Config Modal - Config Picker Events
+// =====================================================
+
+// Toggle config picker visibility
+$('#addconfig_use_adl').on('change', function() {
+    if ($(this).is(':checked')) {
+        $('#addconfig_picker').slideDown(200);
+        // Trigger config fetch if airport already entered
+        var airport = $('#addconfig_airport').val();
+        if (airport && airport.length >= 3) {
+            fetchAirportConfigs(airport, function(configs) {
+                populateConfigDropdown(configs, '#addconfig_select');
+            });
+        }
+    } else {
+        $('#addconfig_picker').slideUp(200);
+        addconfigSelectedConfig = null;
+    }
+});
+
+// Fetch configs when airport field changes (Add Config modal)
+$('#addconfig_airport').on('blur change', function() {
+    var airport = $(this).val();
+    if ($('#addconfig_use_adl').is(':checked') && airport && airport.length >= 3) {
+        fetchAirportConfigs(airport, function(configs) {
+            populateConfigDropdown(configs, '#addconfig_select');
+        });
+    }
+});
+
+// Apply selected config (Add Config modal)
+$('#addconfig_select').on('change', function() {
+    var idx = $(this).val();
+    var airport = $('#addconfig_airport').val().toUpperCase();
+    var configs = configCache[airport] || [];
+
+    if (idx !== '' && configs[idx]) {
+        addconfigSelectedConfig = configs[idx];
+        var weather = $('#addconfig_weather').val();
+        applyConfigToForm(addconfigSelectedConfig, 'addconfig', weather);
+    } else {
+        addconfigSelectedConfig = null;
+    }
+});
+
+// Update rates when weather changes (Add Config modal)
+$('#addconfig_weather').on('change', function() {
+    if (addconfigSelectedConfig) {
+        var rates = getRatesFromConfig(addconfigSelectedConfig, $(this).val());
+        $('#addconfig_aar').val(rates.aar);
+        $('#addconfig_adr').val(rates.adr);
+    }
+});
+
+// Reset Add Config modal on open
+$('#addconfigModal').on('show.bs.modal', function() {
+    $('#addconfig_use_adl').prop('checked', false);
+    $('#addconfig_picker').hide();
+    $('#addconfig_select').empty().append('<option value="">-- Select configuration --</option>').prop('disabled', true);
+    addconfigSelectedConfig = null;
+});
+
+// =====================================================
+// Edit Config Modal - Config Picker Events
+// =====================================================
+
+// Toggle config picker visibility (Edit modal)
+$('#editconfig_use_adl').on('change', function() {
+    if ($(this).is(':checked')) {
+        $('#editconfig_picker').slideDown(200);
+        // Trigger config fetch
+        var airport = $('#editconfig_airport').val();
+        if (airport && airport.length >= 3) {
+            fetchAirportConfigs(airport, function(configs) {
+                populateConfigDropdown(configs, '#editconfig_select');
+            });
+        }
+    } else {
+        $('#editconfig_picker').slideUp(200);
+        editconfigSelectedConfig = null;
+    }
+});
+
+// Fetch configs when airport field changes (Edit Config modal)
+$('#editconfig_airport').on('blur change', function() {
+    var airport = $(this).val();
+    if ($('#editconfig_use_adl').is(':checked') && airport && airport.length >= 3) {
+        fetchAirportConfigs(airport, function(configs) {
+            populateConfigDropdown(configs, '#editconfig_select');
+        });
+    }
+});
+
+// Apply selected config (Edit Config modal)
+$('#editconfig_select').on('change', function() {
+    var idx = $(this).val();
+    var airport = $('#editconfig_airport').val().toUpperCase();
+    var configs = configCache[airport] || [];
+
+    if (idx !== '' && configs[idx]) {
+        editconfigSelectedConfig = configs[idx];
+        var weather = $('#editconfig_weather').val();
+        applyConfigToForm(editconfigSelectedConfig, 'editconfig', weather);
+    } else {
+        editconfigSelectedConfig = null;
+    }
+});
+
+// Update rates when weather changes (Edit Config modal)
+$('#editconfig_weather').on('change', function() {
+    if (editconfigSelectedConfig) {
+        var rates = getRatesFromConfig(editconfigSelectedConfig, $(this).val());
+        $('#editconfig_aar').val(rates.aar);
+        $('#editconfig_adr').val(rates.adr);
+    }
+});
 
 // addtermplanning Modal
 $('#addtermplanningModal').on('show.bs.modal', function(event) {
