@@ -1,5 +1,15 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.8 - Capture Actual Arrival Times
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.10 - Disable Timeout-Causing Steps
+--
+-- Changes from V8.9.9:
+--   - DISABLED Step 10 (Boundary Detection) - causing query timeouts
+--   - DISABLED Step 11 (Planned Crossings) - causing query timeouts
+--   - These steps need optimization before re-enabling
+--
+-- Changes from V8.9.8:
+--   - Re-enabled Step 10: Boundary Detection (ARTCC/TRACON)
+--   - Re-enabled Step 11: Planned Crossings Calculation
+--   - All steps 1-13 now active
 --
 -- Changes from V8.9.7:
 --   - Step 7: Now sets ata_utc in adl_flight_times when marking flights arrived
@@ -888,11 +898,12 @@ BEGIN
     SET @step9_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 10: Boundary Detection - DISABLED pending sub-procedure optimization
+    -- Step 10: Boundary Detection for ARTCC/Sector/TRACON
+    -- TEMPORARILY DISABLED - causing timeouts (2026-01-14)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    -- DISABLED: Sub-procedure needs to be deployed and tested first
+    -- DISABLED: Causing query timeouts
     -- IF OBJECT_ID('dbo.sp_ProcessBoundaryDetectionBatch', 'P') IS NOT NULL
     -- BEGIN
     --     EXEC dbo.sp_ProcessBoundaryDetectionBatch @transitions_detected = @boundary_transitions OUTPUT, @flights_processed = @boundary_flights OUTPUT;
@@ -901,12 +912,12 @@ BEGIN
     SET @step10_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 11: Planned Crossings Calculation - DISABLED pending sub-procedure optimization
-    -- Will re-enable after sub-procedures are tested individually
+    -- Step 11: Planned Crossings Calculation
+    -- TEMPORARILY DISABLED - causing timeouts (2026-01-14)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    -- DISABLED: Sub-procedures need to be deployed and tested first
+    -- DISABLED: Causing query timeouts
     -- -- Detect regional flights first
     -- IF OBJECT_ID('dbo.sp_DetectRegionalFlight', 'P') IS NOT NULL
     -- BEGIN
@@ -923,7 +934,7 @@ BEGIN
     --         total_flights INT, crossings_calculated INT, elapsed_ms INT
     --     );
     --     INSERT INTO @crossing_result
-    --     EXEC dbo.sp_CalculatePlannedCrossingsBatch @max_flights_per_batch = 200, @debug = 1;
+    --     EXEC dbo.sp_CalculatePlannedCrossingsBatch @max_flights_per_batch = 200, @debug = 0;
     --     SELECT @crossings_calculated = crossings_calculated FROM @crossing_result;
     -- END
 
@@ -1002,9 +1013,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.7 created successfully';
-PRINT 'NEW: Step 2a - Prefile flight plans with GCD calculation';
-PRINT 'NEW: Step 8d - Batch ETA calculation (sets eta_dist_source, eta_method)';
-PRINT 'Steps 10 & 11 remain DISABLED pending sub-procedure testing';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.10 created successfully';
+PRINT 'V8.9.10: DISABLED Steps 10 & 11 again - causing query timeouts';
 PRINT 'Steps 1-9 + 12-13 active, target <5s performance';
 GO

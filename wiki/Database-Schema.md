@@ -101,6 +101,14 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 | `manual_rate_override` | Manual rate overrides |
 | `rate_history` | Rate change audit trail |
 
+### ATFM Simulator Reference (v17)
+
+| Table | Purpose |
+|-------|---------|
+| `sim_ref_carrier_lookup` | 17 US carriers with IATA/ICAO codes |
+| `sim_ref_route_patterns` | 3,989 O-D routes with hourly patterns |
+| `sim_ref_airport_demand` | 107 airports with demand curves |
+
 ---
 
 ## Key Relationships

@@ -237,6 +237,9 @@ BEGIN
             FROM dbo.adl_boundary b
             WHERE b.is_active = 1
               AND b.boundary_type = 'ARTCC'
+              AND b.boundary_geography IS NOT NULL
+              AND b.boundary_geography.STIsValid() = 1
+              AND w.lat BETWEEN -90 AND 90 AND w.lon BETWEEN -180 AND 180
               AND b.boundary_geography.STContains(
                   geography::Point(w.lat, w.lon, 4326)
               ) = 1

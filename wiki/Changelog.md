@@ -4,7 +4,35 @@ This document tracks significant changes to PERTI across versions.
 
 ---
 
-## Version 16 (Current)
+## Version 17 (Current)
+
+*Released: January 2026*
+
+### New Features
+
+#### ATFM Training Simulator
+
+- **Simulator Page** (`/simulator.php`) - TMU training environment
+- Node.js flight engine with realistic physics simulation
+- Practice GS/GDP/AFP/MIT/Reroute TMI decisions
+- Reference data: 3,989 O-D route patterns, 107 airports, 17 carriers
+- Web-based interface with MapLibre visualization
+
+### API Additions (v17)
+
+- `GET /api/simulator/navdata.php` - Navigation data for routing
+- `GET/POST /api/simulator/engine.php` - Engine control
+- `GET /api/simulator/routes.php` - Route pattern data
+- `GET/POST /api/simulator/traffic.php` - Traffic generation
+
+### Database Changes (v17)
+
+- New tables: `sim_ref_carrier_lookup`, `sim_ref_route_patterns`, `sim_ref_airport_demand`
+- Data sourced from BTS On-Time Performance (20.6M flight records)
+
+---
+
+## Version 16
 
 *Released: January 2026*
 
@@ -201,8 +229,9 @@ This document tracks significant changes to PERTI across versions.
 
 ## Upcoming (Planned)
 
-### v17 (Planned)
+### v18 (Planned)
 
+- ATFM Simulator Phase 1 (GS/GDP implementation)
 - Enhanced GDP slot management
 - Reroute compliance automation
 - StatSim v2 integration
