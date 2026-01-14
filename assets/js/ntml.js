@@ -1,6 +1,6 @@
 /**
  * NTML Quick Entry - Streamlined Client-Side Logic
- * Parses natural language entries, batch processing, auto-detection
+ * Enhanced NLP parsing, batch processing, validation prompts
  */
 
 // ============================================
@@ -27,14 +27,28 @@ const TRACONS = {
 };
 
 const MAJOR_AIRPORTS = [
-    'ATL', 'BOS', 'CLT', 'DCA', 'DEN', 'DFW', 'DTW', 'EWR', 'FLL', 'IAD', 'IAH',
-    'JFK', 'LAS', 'LAX', 'LGA', 'MCO', 'MDW', 'MIA', 'MSP', 'ORD', 'PHL', 'PHX',
-    'SAN', 'SEA', 'SFO', 'SLC', 'TPA'
+    'ATL', 'BOS', 'BWI', 'CLT', 'DCA', 'DEN', 'DFW', 'DTW', 'EWR', 'FLL', 
+    'IAD', 'IAH', 'JFK', 'LAS', 'LAX', 'LGA', 'MCO', 'MDW', 'MIA', 'MSP', 
+    'ORD', 'PHL', 'PHX', 'SAN', 'SEA', 'SFO', 'SLC', 'TPA'
 ];
 
-const REASONS = ['WEATHER', 'VOLUME', 'RUNWAY', 'EQUIPMENT', 'OTHER'];
-const QUALIFIERS = ['HEAVY', 'B757', 'LARGE', 'SMALL', 'EACH', 'AS_ONE', 'PER_FIX'];
+// Common fixes/waypoints for autocomplete
+const COMMON_FIXES = [
+    'CAMRN', 'LENDY', 'BIGGY', 'MERIT', 'DIXIE', 'COATE', 'NEION', 'GAYEL',
+    'KORRY', 'LANNA', 'PARCH', 'ROBER', 'SKIPY', 'WAVEY', 'WHITE', 'ZIGGI',
+    'BETTE', 'PARKE', 'GREKI', 'JUDDS', 'VALRE', 'ELIOT', 'LEEAH', 'HAAYS'
+];
+
+const REASONS = ['WEATHER', 'VOLUME', 'RUNWAY', 'EQUIPMENT', 'OTHER', 'WX', 'VOL', 'RWY', 'EQUIP'];
+const QUALIFIERS = ['HEAVY', 'B757', 'LARGE', 'SMALL', 'EACH', 'AS_ONE', 'PER_FIX', 'AS ONE', 'PER FIX'];
 const WEATHER_CONDITIONS = ['VMC', 'LVMC', 'IMC', 'LIMC', 'VLIMC'];
+
+// Reason aliases
+const REASON_MAP = {
+    'WX': 'WEATHER', 'VOL': 'VOLUME', 'RWY': 'RUNWAY', 'EQUIP': 'EQUIPMENT',
+    'WEATHER': 'WEATHER', 'VOLUME': 'VOLUME', 'RUNWAY': 'RUNWAY', 
+    'EQUIPMENT': 'EQUIPMENT', 'OTHER': 'OTHER'
+};
 
 // ============================================
 // STATE
@@ -97,6 +111,18 @@ function initializeEventHandlers() {
             } else {
                 addFromQuickInput();
             }
+        } else if (e.key === 'Tab') {
+            // Tab to accept autocomplete
+            const selected = $('.autocomplete-item.selected');
+            if (selected.length) {
+                e.preventDefault();
+                selectAutocompleteItem(selected.data('value'));
+            }
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            navigateAutocomplete(e.key === 'ArrowDown' ? 1 : -1);
+        } else if (e.key === 'Escape') {
+            hideAutocomplete();
         }
     });
     
@@ -106,6 +132,11 @@ function initializeEventHandlers() {
             e.preventDefault();
             parseBatchInput();
         }
+    });
+    
+    // Input change for autocomplete
+    $('#quickInput').on('input', function() {
+        showAutocomplete($(this).val());
     });
     
     // Templates
@@ -136,28 +167,27 @@ function initializeEventHandlers() {
     // Submit buttons
     $('#submitAllBtn, #submitFromPreview').click(submitAll);
     
-    // Auto-uppercase facility inputs
-    $('#quickInput').on('input', function() {
-        // Don't auto-uppercase everything, just help with parsing
-        showAutocomplete($(this).val());
-    });
-    
     // Valid time auto-advance
     $('#validFrom').on('input', function() {
         if ($(this).val().length === 4) {
             $('#validUntil').focus();
         }
     });
+    
+    // Click outside to close autocomplete
+    $(document).click(function(e) {
+        if (!$(e.target).closest('#quickInput, #autocompleteDropdown').length) {
+            hideAutocomplete();
+        }
+    });
 }
 
 function initializeTimeDefaults() {
-    // Set current Zulu time as default
     const now = new Date();
     const zuluHours = String(now.getUTCHours()).padStart(2, '0');
     const zuluMins = String(now.getUTCMinutes()).padStart(2, '0');
     $('#validFrom').val(zuluHours + zuluMins);
     
-    // Default end time +2 hours
     const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     const endHours = String(endTime.getUTCHours()).padStart(2, '0');
     const endMins = String(endTime.getUTCMinutes()).padStart(2, '0');
@@ -187,136 +217,432 @@ function updateModeIndicator() {
 }
 
 // ============================================
-// PARSING ENGINE
+// ENHANCED NLP PARSING ENGINE
 // ============================================
 
 function parseEntry(input) {
     input = input.trim().toUpperCase();
     if (!input) return null;
     
-    // Try each parser
-    let result = parseMIT(input) || parseMINIT(input) || parseDelay(input) || parseConfig(input);
+    // Normalize common separators
+    input = normalizeInput(input);
+    
+    // Try each parser in order of specificity
+    let result = parseMIT_NLP(input) || parseMINIT_NLP(input) || parseDelay_NLP(input) || parseConfig_NLP(input);
     
     if (result) {
         result.raw = input;
         result.determinant = calculateDeterminant(result);
+        result.validationErrors = validateEntry(result);
     }
     
     return result;
 }
 
-function parseMIT(input) {
-    // Pattern: [distance]MIT [from]→[to] [condition] [reason] [time-range]
-    // Also supports: [distance]MIT [from]->[to], [from]>[to], [from] [to]
-    const mitPattern = /^(\d+)\s*MIT\s+([A-Z0-9]{2,4})\s*(?:→|->|>|TO)\s*([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
+function normalizeInput(input) {
+    // Normalize various separators and formats
+    return input
+        .replace(/\s*:\s*/g, ':')           // ZDC : ZJX -> ZDC:ZJX
+        .replace(/\s*->\s*/g, '→')           // -> to arrow
+        .replace(/\s*>\s*/g, '→')            // > to arrow
+        .replace(/\s+TO\s+/gi, '→')          // TO to arrow
+        .replace(/\s*→\s*/g, '→')            // Clean up arrows
+        .replace(/(\d+)\s*(MIT|MINIT)/gi, '$1$2')  // 40 MIT -> 40MIT
+        .replace(/(\d+)\s*MIN\b/gi, '$1min') // 45 MIN -> 45min
+        .replace(/(\d+)\s*FLT\b/gi, '$1flt') // 12 FLT -> 12flt
+        .trim();
+}
+
+/**
+ * Enhanced MIT Parser - handles many formats:
+ * - 20MIT ZBW→ZNY JFK LENDY VOLUME
+ * - ZMA TO JFK VIA CAMRN 40MIT ZDC:ZJX
+ * - 40MIT ZDC:ZJX JFK CAMRN WEATHER
+ * - JFK ARR 20MIT FROM ZBW VIA LENDY
+ */
+function parseMIT_NLP(input) {
+    // Extract MIT value first (required)
+    const mitMatch = input.match(/(\d+)\s*MIT/i);
+    if (!mitMatch) return null;
     
-    // Simpler pattern without arrow
-    const mitSimplePattern = /^(\d+)\s*MIT\s+([A-Z0-9]{2,4})\s+([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
+    const distance = parseInt(mitMatch[1]);
+    let remaining = input.replace(/(\d+)\s*MIT/i, ' ').trim();
     
-    let match = input.match(mitPattern) || input.match(mitSimplePattern);
-    if (!match) return null;
+    // Extract facilities - look for various patterns
+    let fromFacility = null, toFacility = null;
     
-    const [, distance, fromFac, toFac, conditionPart, reason, validFrom, validUntil] = match;
+    // Pattern: ZDC:ZJX or ZDC-ZJX (from:to notation)
+    const colonPattern = remaining.match(/([A-Z]{3}):([A-Z0-9]{3})/);
+    if (colonPattern) {
+        fromFacility = colonPattern[1];
+        toFacility = colonPattern[2];
+        remaining = remaining.replace(colonPattern[0], ' ');
+    }
     
-    // Parse condition for qualifiers
-    const { condition, qualifiers } = extractQualifiers(conditionPart);
+    // Pattern: ZBW→ZNY
+    const arrowPattern = remaining.match(/([A-Z0-9]{2,4})→([A-Z0-9]{2,4})/);
+    if (arrowPattern && !fromFacility) {
+        fromFacility = arrowPattern[1];
+        toFacility = arrowPattern[2];
+        remaining = remaining.replace(arrowPattern[0], ' ');
+    }
+    
+    // Pattern: FROM ZBW or ZBW FROM
+    const fromPattern = remaining.match(/(?:FROM\s+)?([A-Z]{3})(?:\s+FROM)?/i);
+    if (fromPattern && !fromFacility) {
+        // Check if this is likely the from facility (ARTCC code)
+        if (ARTCCS[fromPattern[1]] || TRACONS[fromPattern[1]]) {
+            fromFacility = fromPattern[1];
+            remaining = remaining.replace(fromPattern[0], ' ');
+        }
+    }
+    
+    // Extract condition (airport, fix, VIA waypoint)
+    let condition = '';
+    
+    // Pattern: VIA CAMRN or VIA LENDY
+    const viaPattern = remaining.match(/VIA\s+([A-Z0-9]{3,5})/i);
+    if (viaPattern) {
+        condition = viaPattern[1];
+        remaining = remaining.replace(viaPattern[0], ' ');
+    }
+    
+    // Look for airport codes
+    const airports = findAirports(remaining);
+    if (airports.length > 0) {
+        // First airport is likely the destination/condition
+        if (!toFacility && MAJOR_AIRPORTS.includes(airports[0])) {
+            // If it looks like an airport and we don't have a to facility
+            if (!condition) condition = airports[0];
+        }
+        if (!condition && airports[0]) {
+            condition = airports[0];
+        }
+        remaining = remaining.replace(new RegExp('\\b' + airports[0] + '\\b'), ' ');
+    }
+    
+    // Look for fixes in remaining text
+    const fixes = findFixes(remaining);
+    if (fixes.length > 0 && !condition) {
+        condition = fixes[0];
+        remaining = remaining.replace(new RegExp('\\b' + fixes[0] + '\\b'), ' ');
+    }
+    
+    // Look for any 5-letter words that might be fixes
+    const fiveLetterMatch = remaining.match(/\b([A-Z]{5})\b/);
+    if (fiveLetterMatch && !condition) {
+        condition = fiveLetterMatch[1];
+        remaining = remaining.replace(fiveLetterMatch[0], ' ');
+    }
+    
+    // Extract reason
+    let reason = 'VOLUME';
+    for (const r of Object.keys(REASON_MAP)) {
+        if (remaining.includes(r)) {
+            reason = REASON_MAP[r];
+            remaining = remaining.replace(new RegExp('\\b' + r + '\\b', 'i'), ' ');
+            break;
+        }
+    }
+    
+    // Extract qualifiers
+    const { qualifiers } = extractQualifiers(remaining);
+    
+    // Extract time range if present (1400-1800 or 1400Z-1800Z)
+    let validFrom = $('#validFrom').val();
+    let validUntil = $('#validUntil').val();
+    const timePattern = remaining.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z?/);
+    if (timePattern) {
+        validFrom = timePattern[1];
+        validUntil = timePattern[2];
+    }
+    
+    // Try to identify any remaining facility codes
+    if (!fromFacility || !toFacility) {
+        const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2})\b/g) || [];
+        for (const fac of facilityMatches) {
+            if (ARTCCS[fac] || TRACONS[fac]) {
+                if (!fromFacility) fromFacility = fac;
+                else if (!toFacility) toFacility = fac;
+            }
+        }
+    }
     
     return {
         type: 'MIT',
         protocol: '05',
-        distance: parseInt(distance),
-        fromFacility: fromFac,
-        toFacility: toFac,
-        condition: condition.trim(),
+        distance: distance,
+        fromFacility: fromFacility,
+        toFacility: toFacility,
+        condition: condition,
         qualifiers: qualifiers,
-        reason: reason || 'VOLUME',
-        validFrom: validFrom || $('#validFrom').val(),
-        validUntil: validUntil || $('#validUntil').val(),
-        isInternal: isSameARTCC(fromFac, toFac)
+        reason: reason,
+        validFrom: validFrom,
+        validUntil: validUntil,
+        isInternal: isSameARTCC(fromFacility, toFacility)
     };
 }
 
-function parseMINIT(input) {
-    // Pattern: [minutes]MINIT [from]→[to] [condition] [reason]
-    const minitPattern = /^(\d+)\s*MINIT\s+([A-Z0-9]{2,4})\s*(?:→|->|>|TO)\s*([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
-    const minitSimplePattern = /^(\d+)\s*MINIT\s+([A-Z0-9]{2,4})\s+([A-Z0-9]{2,4})\s+(.+?)(?:\s+(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER))?(?:\s+(\d{4})-(\d{4}))?$/i;
+/**
+ * Enhanced MINIT Parser
+ */
+function parseMINIT_NLP(input) {
+    const minitMatch = input.match(/(\d+)\s*MINIT/i);
+    if (!minitMatch) return null;
     
-    let match = input.match(minitPattern) || input.match(minitSimplePattern);
-    if (!match) return null;
+    const minutes = parseInt(minitMatch[1]);
+    let remaining = input.replace(/(\d+)\s*MINIT/i, ' ').trim();
     
-    const [, minutes, fromFac, toFac, conditionPart, reason, validFrom, validUntil] = match;
-    const { condition, qualifiers } = extractQualifiers(conditionPart);
+    // Reuse MIT parsing logic for facilities and conditions
+    let fromFacility = null, toFacility = null, condition = '';
+    
+    // Pattern: ZDC:ZJX
+    const colonPattern = remaining.match(/([A-Z]{3}):([A-Z0-9]{3})/);
+    if (colonPattern) {
+        fromFacility = colonPattern[1];
+        toFacility = colonPattern[2];
+        remaining = remaining.replace(colonPattern[0], ' ');
+    }
+    
+    // Pattern: ZBW→ZNY
+    const arrowPattern = remaining.match(/([A-Z0-9]{2,4})→([A-Z0-9]{2,4})/);
+    if (arrowPattern && !fromFacility) {
+        fromFacility = arrowPattern[1];
+        toFacility = arrowPattern[2];
+        remaining = remaining.replace(arrowPattern[0], ' ');
+    }
+    
+    // VIA pattern
+    const viaPattern = remaining.match(/VIA\s+([A-Z0-9]{3,5})/i);
+    if (viaPattern) {
+        condition = viaPattern[1];
+        remaining = remaining.replace(viaPattern[0], ' ');
+    }
+    
+    // Look for airports and fixes
+    const airports = findAirports(remaining);
+    if (airports.length > 0 && !condition) {
+        condition = airports[0];
+        remaining = remaining.replace(new RegExp('\\b' + airports[0] + '\\b'), ' ');
+    }
+    
+    const fixes = findFixes(remaining);
+    if (fixes.length > 0 && !condition) {
+        condition = fixes[0];
+    }
+    
+    // Extract reason
+    let reason = 'VOLUME';
+    for (const r of Object.keys(REASON_MAP)) {
+        if (remaining.includes(r)) {
+            reason = REASON_MAP[r];
+            break;
+        }
+    }
+    
+    const { qualifiers } = extractQualifiers(remaining);
+    
+    // Time
+    let validFrom = $('#validFrom').val();
+    let validUntil = $('#validUntil').val();
+    const timePattern = remaining.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z?/);
+    if (timePattern) {
+        validFrom = timePattern[1];
+        validUntil = timePattern[2];
+    }
+    
+    // Remaining facility codes
+    if (!fromFacility || !toFacility) {
+        const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2})\b/g) || [];
+        for (const fac of facilityMatches) {
+            if (ARTCCS[fac] || TRACONS[fac]) {
+                if (!fromFacility) fromFacility = fac;
+                else if (!toFacility) toFacility = fac;
+            }
+        }
+    }
     
     return {
         type: 'MINIT',
         protocol: '06',
-        minutes: parseInt(minutes),
-        fromFacility: fromFac,
-        toFacility: toFac,
-        condition: condition.trim(),
+        minutes: minutes,
+        fromFacility: fromFacility,
+        toFacility: toFacility,
+        condition: condition,
         qualifiers: qualifiers,
-        reason: reason || 'VOLUME',
-        validFrom: validFrom || $('#validFrom').val(),
-        validUntil: validUntil || $('#validUntil').val(),
-        isInternal: isSameARTCC(fromFac, toFac)
+        reason: reason,
+        validFrom: validFrom,
+        validUntil: validUntil,
+        isInternal: isSameARTCC(fromFacility, toFacility)
     };
 }
 
-function parseDelay(input) {
-    // Pattern: DELAY [facility] [minutes]min [trend] [flights]flt [reason]
-    const delayPattern = /^DELAY\s+([A-Z0-9]{2,4})\s+(\d+)\s*(?:MIN|M)?\s*(INC(?:REASING)?|DEC(?:REASING)?|STEADY|STD)?\s*(\d+)?\s*(?:FLT|FLIGHTS?)?\s*(WEATHER|VOLUME|RUNWAY|EQUIPMENT|OTHER)?/i;
+/**
+ * Enhanced Delay Parser
+ * Handles: DELAY JFK 45min INC 12flt WEATHER
+ *          JFK DELAY 45 INCREASING 12 FLIGHTS WX
+ */
+function parseDelay_NLP(input) {
+    if (!input.includes('DELAY')) return null;
     
-    let match = input.match(delayPattern);
-    if (!match) return null;
+    let remaining = input.replace(/DELAY/i, ' ').trim();
     
-    const [, facility, minutes, trendRaw, flights, reason] = match;
+    // Extract delay duration
+    let minutes = null;
+    const minMatch = remaining.match(/(\d+)\s*(?:MIN|M)?(?:UTES?)?/i);
+    if (minMatch) {
+        minutes = parseInt(minMatch[1]);
+        remaining = remaining.replace(minMatch[0], ' ');
+    }
     
-    // Normalize trend
+    // Extract trend
     let trend = 'steady';
-    if (trendRaw) {
-        const t = trendRaw.toUpperCase();
-        if (t.startsWith('INC')) trend = 'increasing';
-        else if (t.startsWith('DEC')) trend = 'decreasing';
+    if (/\b(?:INC(?:REASING)?|INCR)\b/i.test(remaining)) {
+        trend = 'increasing';
+        remaining = remaining.replace(/\b(?:INC(?:REASING)?|INCR)\b/i, ' ');
+    } else if (/\b(?:DEC(?:REASING)?|DECR)\b/i.test(remaining)) {
+        trend = 'decreasing';
+        remaining = remaining.replace(/\b(?:DEC(?:REASING)?|DECR)\b/i, ' ');
+    } else if (/\b(?:STD|STEADY)\b/i.test(remaining)) {
+        trend = 'steady';
+        remaining = remaining.replace(/\b(?:STD|STEADY)\b/i, ' ');
+    }
+    
+    // Extract flights count
+    let flightsDelayed = 1;
+    const fltMatch = remaining.match(/(\d+)\s*(?:FLT|FLIGHTS?)/i);
+    if (fltMatch) {
+        flightsDelayed = parseInt(fltMatch[1]);
+        remaining = remaining.replace(fltMatch[0], ' ');
+    }
+    
+    // Extract facility
+    let facility = null;
+    const airports = findAirports(remaining);
+    if (airports.length > 0) {
+        facility = airports[0];
+    } else {
+        // Look for any 3-letter code
+        const facMatch = remaining.match(/\b([A-Z]{3})\b/);
+        if (facMatch) facility = facMatch[1];
+    }
+    
+    // Extract reason
+    let reason = 'VOLUME';
+    for (const r of Object.keys(REASON_MAP)) {
+        if (remaining.includes(r)) {
+            reason = REASON_MAP[r];
+            break;
+        }
+    }
+    
+    // Holding detection
+    let holding = 'no';
+    if (/\bHOLD(?:ING)?\b/i.test(remaining)) {
+        holding = 'yes_initiating';
     }
     
     return {
         type: 'DELAY',
         protocol: '04',
         facility: facility,
-        chargeFacility: facility, // Default same
-        minutes: parseInt(minutes),
+        chargeFacility: facility,
+        minutes: minutes,
         trend: trend,
-        flightsDelayed: parseInt(flights) || 1,
-        reason: reason || 'VOLUME',
-        holding: 'no'
+        flightsDelayed: flightsDelayed,
+        reason: reason,
+        holding: holding
     };
 }
 
-function parseConfig(input) {
-    // Pattern: CONFIG [airport] [wx] ARR:[rwys] DEP:[rwys] AAR:[n] ADR:[n]
-    const configPattern = /^CONFIG\s+([A-Z0-9]{3,4})\s+(VMC|LVMC|IMC|LIMC|VLIMC)?\s*(?:ARR[:\s]*([A-Z0-9\/]+))?\s*(?:DEP[:\s]*([A-Z0-9\/]+))?\s*(?:AAR[:\s]*(\d+))?\s*(?:ADR[:\s]*(\d+))?/i;
+/**
+ * Enhanced Config Parser
+ */
+function parseConfig_NLP(input) {
+    if (!input.includes('CONFIG')) return null;
     
-    let match = input.match(configPattern);
-    if (!match) return null;
+    let remaining = input.replace(/CONFIG/i, ' ').trim();
     
-    const [, airport, weather, arrRwys, depRwys, aar, adr] = match;
+    // Extract airport
+    let airport = null;
+    const airports = findAirports(remaining);
+    if (airports.length > 0) {
+        airport = airports[0];
+        remaining = remaining.replace(new RegExp('\\b' + airport + '\\b'), ' ');
+    }
+    
+    // Extract weather
+    let weather = 'VMC';
+    for (const wx of WEATHER_CONDITIONS) {
+        if (remaining.includes(wx)) {
+            weather = wx;
+            remaining = remaining.replace(wx, ' ');
+            break;
+        }
+    }
+    
+    // Extract runways
+    let arrRunways = '', depRunways = '';
+    const arrMatch = remaining.match(/ARR[:\s]*([A-Z0-9\/]+)/i);
+    if (arrMatch) {
+        arrRunways = arrMatch[1];
+        remaining = remaining.replace(arrMatch[0], ' ');
+    }
+    
+    const depMatch = remaining.match(/DEP[:\s]*([A-Z0-9\/]+)/i);
+    if (depMatch) {
+        depRunways = depMatch[1];
+        remaining = remaining.replace(depMatch[0], ' ');
+    }
+    
+    // Extract rates
+    let aar = 60, adr = 60;
+    const aarMatch = remaining.match(/AAR[:\s]*(\d+)/i);
+    if (aarMatch) aar = parseInt(aarMatch[1]);
+    
+    const adrMatch = remaining.match(/ADR[:\s]*(\d+)/i);
+    if (adrMatch) adr = parseInt(adrMatch[1]);
     
     // Detect single runway
-    const arrCount = arrRwys ? arrRwys.split('/').length : 0;
-    const depCount = depRwys ? depRwys.split('/').length : 0;
-    const singleRunway = (arrCount <= 1 && depCount <= 1);
+    const arrCount = arrRunways ? arrRunways.split('/').length : 0;
+    const depCount = depRunways ? depRunways.split('/').length : 0;
+    const singleRunway = (arrCount <= 1 && depCount <= 1) || /\bSINGLE\b/i.test(remaining);
     
     return {
         type: 'CONFIG',
         protocol: '01',
         airport: airport,
-        weather: weather || 'VMC',
-        arrRunways: arrRwys || '',
-        depRunways: depRwys || '',
-        aar: parseInt(aar) || 60,
-        adr: parseInt(adr) || 60,
+        weather: weather,
+        arrRunways: arrRunways,
+        depRunways: depRunways,
+        aar: aar,
+        adr: adr,
         singleRunway: singleRunway
     };
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+function findAirports(text) {
+    const found = [];
+    for (const apt of MAJOR_AIRPORTS) {
+        if (new RegExp('\\b' + apt + '\\b').test(text)) {
+            found.push(apt);
+        }
+    }
+    return found;
+}
+
+function findFixes(text) {
+    const found = [];
+    for (const fix of COMMON_FIXES) {
+        if (new RegExp('\\b' + fix + '\\b').test(text)) {
+            found.push(fix);
+        }
+    }
+    return found;
 }
 
 function extractQualifiers(text) {
@@ -324,9 +650,10 @@ function extractQualifiers(text) {
     let remaining = text;
     
     for (const q of QUALIFIERS) {
-        const regex = new RegExp('\\b' + q.replace('_', '[_\\s]?') + '\\b', 'gi');
+        const normalized = q.replace(/[_\s]+/g, '[_\\s]?');
+        const regex = new RegExp('\\b' + normalized + '\\b', 'gi');
         if (regex.test(remaining)) {
-            found.push(q);
+            found.push(q.replace(/\s+/g, '_'));
             remaining = remaining.replace(regex, '').trim();
         }
     }
@@ -335,18 +662,16 @@ function extractQualifiers(text) {
 }
 
 function isSameARTCC(fac1, fac2) {
-    // Get ARTCC for each facility
+    if (!fac1 || !fac2) return false;
     const artcc1 = getARTCCForFacility(fac1);
     const artcc2 = getARTCCForFacility(fac2);
-    
     return artcc1 && artcc2 && artcc1 === artcc2;
 }
 
 function getARTCCForFacility(fac) {
-    // If it's already an ARTCC
+    if (!fac) return null;
     if (ARTCCS[fac]) return fac;
     
-    // TRACON to ARTCC mapping (simplified)
     const traconToArtcc = {
         'N90': 'ZNY', 'A90': 'ZBW', 'C90': 'ZAU', 'D10': 'ZFW',
         'PCT': 'ZDC', 'A80': 'ZTL', 'SCT': 'ZLA', 'NCT': 'ZOA',
@@ -355,16 +680,70 @@ function getARTCCForFacility(fac) {
     
     if (traconToArtcc[fac]) return traconToArtcc[fac];
     
-    // Airport to ARTCC (simplified - major airports)
     const airportToArtcc = {
-        'JFK': 'ZNY', 'LGA': 'ZNY', 'EWR': 'ZNY', 'BOS': 'ZBW',
-        'ORD': 'ZAU', 'MDW': 'ZAU', 'ATL': 'ZTL', 'CLT': 'ZTL',
-        'DFW': 'ZFW', 'IAH': 'ZHU', 'LAX': 'ZLA', 'SFO': 'ZOA',
-        'SEA': 'ZSE', 'DEN': 'ZDV', 'MIA': 'ZMA', 'DCA': 'ZDC',
-        'IAD': 'ZDC', 'PHL': 'ZNY', 'DTW': 'ZOB', 'MSP': 'ZMP'
+        'JFK': 'ZNY', 'LGA': 'ZNY', 'EWR': 'ZNY', 'TEB': 'ZNY',
+        'BOS': 'ZBW', 'PVD': 'ZBW', 'BDL': 'ZBW',
+        'ORD': 'ZAU', 'MDW': 'ZAU',
+        'ATL': 'ZTL', 'CLT': 'ZTL',
+        'DFW': 'ZFW', 'DAL': 'ZFW',
+        'IAH': 'ZHU', 'HOU': 'ZHU',
+        'LAX': 'ZLA', 'SAN': 'ZLA', 'LAS': 'ZLA',
+        'SFO': 'ZOA', 'OAK': 'ZOA', 'SJC': 'ZOA',
+        'SEA': 'ZSE', 'PDX': 'ZSE',
+        'DEN': 'ZDV',
+        'MIA': 'ZMA', 'FLL': 'ZMA', 'TPA': 'ZMA',
+        'DCA': 'ZDC', 'IAD': 'ZDC', 'BWI': 'ZDC',
+        'PHL': 'ZNY',
+        'DTW': 'ZOB', 'CLE': 'ZOB',
+        'MSP': 'ZMP',
+        'PHX': 'ZAB'
     };
     
     return airportToArtcc[fac] || null;
+}
+
+// ============================================
+// VALIDATION
+// ============================================
+
+function validateEntry(entry) {
+    const errors = [];
+    
+    switch (entry.type) {
+        case 'MIT':
+            if (!entry.distance || entry.distance < 1) errors.push({ field: 'distance', message: 'Distance is required' });
+            if (!entry.fromFacility) errors.push({ field: 'fromFacility', message: 'Providing facility is required' });
+            if (!entry.toFacility) errors.push({ field: 'toFacility', message: 'Requesting facility is required' });
+            if (!entry.condition) errors.push({ field: 'condition', message: 'Condition (airport/fix) is required' });
+            if (!entry.validFrom) errors.push({ field: 'validFrom', message: 'Valid from time is required' });
+            if (!entry.validUntil) errors.push({ field: 'validUntil', message: 'Valid until time is required' });
+            break;
+            
+        case 'MINIT':
+            if (!entry.minutes || entry.minutes < 1) errors.push({ field: 'minutes', message: 'Minutes value is required' });
+            if (!entry.fromFacility) errors.push({ field: 'fromFacility', message: 'Providing facility is required' });
+            if (!entry.toFacility) errors.push({ field: 'toFacility', message: 'Requesting facility is required' });
+            if (!entry.condition) errors.push({ field: 'condition', message: 'Condition (airport/fix) is required' });
+            if (!entry.validFrom) errors.push({ field: 'validFrom', message: 'Valid from time is required' });
+            if (!entry.validUntil) errors.push({ field: 'validUntil', message: 'Valid until time is required' });
+            break;
+            
+        case 'DELAY':
+            if (!entry.facility) errors.push({ field: 'facility', message: 'Facility is required' });
+            if (!entry.minutes || entry.minutes < 1) errors.push({ field: 'minutes', message: 'Delay duration is required' });
+            break;
+            
+        case 'CONFIG':
+            if (!entry.airport) errors.push({ field: 'airport', message: 'Airport is required' });
+            if (!entry.arrRunways && !entry.depRunways) errors.push({ field: 'runways', message: 'At least one runway configuration is required' });
+            break;
+    }
+    
+    return errors;
+}
+
+function isEntryValid(entry) {
+    return !entry.validationErrors || entry.validationErrors.length === 0;
 }
 
 // ============================================
@@ -382,59 +761,37 @@ function calculateDeterminant(entry) {
 }
 
 function calculateMITDeterminant(entry) {
-    const d = entry.distance;
+    const d = entry.distance || 0;
     const internal = entry.isInternal;
     
     let level, subcode;
     
-    if (d >= 60) {
-        level = 'D';
-        subcode = internal ? '04' : '01';
-    } else if (d >= 40) {
-        level = 'C';
-        subcode = internal ? '04' : '01';
-    } else if (d >= 25) {
-        level = 'B';
-        subcode = internal ? '04' : '01';
-    } else if (d >= 15) {
-        level = 'A';
-        subcode = internal ? '04' : '01';
-    } else {
-        level = 'O';
-        subcode = '01';
-    }
+    if (d >= 60) { level = 'D'; subcode = internal ? '04' : '01'; }
+    else if (d >= 40) { level = 'C'; subcode = internal ? '04' : '01'; }
+    else if (d >= 25) { level = 'B'; subcode = internal ? '04' : '01'; }
+    else if (d >= 15) { level = 'A'; subcode = internal ? '04' : '01'; }
+    else { level = 'O'; subcode = '01'; }
     
     return `05${level}${subcode}`;
 }
 
 function calculateMINITDeterminant(entry) {
-    const m = entry.minutes;
+    const m = entry.minutes || 0;
     const internal = entry.isInternal;
     
     let level, subcode;
     
-    if (m >= 30) {
-        level = 'D';
-        subcode = internal ? '04' : '01';
-    } else if (m >= 20) {
-        level = 'C';
-        subcode = internal ? '04' : '01';
-    } else if (m >= 13) {
-        level = 'B';
-        subcode = internal ? '04' : '01';
-    } else if (m >= 7) {
-        level = 'A';
-        subcode = internal ? '04' : '01';
-    } else {
-        level = internal ? 'A' : 'O';
-        subcode = internal ? '04' : '01';
-    }
+    if (m >= 30) { level = 'D'; subcode = internal ? '04' : '01'; }
+    else if (m >= 20) { level = 'C'; subcode = internal ? '04' : '01'; }
+    else if (m >= 13) { level = 'B'; subcode = internal ? '04' : '01'; }
+    else if (m >= 7) { level = 'A'; subcode = internal ? '04' : '01'; }
+    else { level = internal ? 'A' : 'O'; subcode = internal ? '04' : '01'; }
     
     return `06${level}${subcode}`;
 }
 
 function calculateDelayDeterminant(entry) {
-    const d = entry.minutes;
+    const d = entry.minutes || 0;
     const trend = entry.trend;
     
     let level, baseCode;
@@ -458,21 +815,16 @@ function calculateDelayDeterminant(entry) {
 function calculateConfigDeterminant(entry) {
     const wx = entry.weather;
     const single = entry.singleRunway;
-    const aar = entry.aar;
-    const adr = entry.adr;
+    const aar = entry.aar || 60;
+    const adr = entry.adr || 60;
     
     let level = 'O', subcode = '01';
     
     if (single) {
-        if (wx === 'VLIMC' || wx === 'LIMC') {
-            level = 'E'; subcode = '01';
-        } else if (wx === 'IMC' && (aar <= 30 || adr <= 30)) {
-            level = 'E'; subcode = '02';
-        } else if (aar <= 45 || adr <= 45) {
-            level = 'E'; subcode = '03';
-        } else {
-            level = 'D'; subcode = '01';
-        }
+        if (wx === 'VLIMC' || wx === 'LIMC') { level = 'E'; subcode = '01'; }
+        else if (wx === 'IMC' && (aar <= 30 || adr <= 30)) { level = 'E'; subcode = '02'; }
+        else if (aar <= 45 || adr <= 45) { level = 'E'; subcode = '03'; }
+        else { level = 'D'; subcode = '01'; }
     } else {
         if (wx === 'VLIMC' || wx === 'LIMC') level = 'C';
         else if (wx === 'IMC') level = 'B';
@@ -492,16 +844,153 @@ function addFromQuickInput() {
     const entry = parseEntry(input);
     
     if (entry) {
-        entryQueue.push(entry);
-        $('#quickInput').val('').focus();
-        renderQueue();
+        if (!isEntryValid(entry)) {
+            // Prompt for missing fields
+            promptForMissingFields(entry, function(completedEntry) {
+                entryQueue.push(completedEntry);
+                $('#quickInput').val('').focus();
+                renderQueue();
+            });
+        } else {
+            entryQueue.push(entry);
+            $('#quickInput').val('').focus();
+            renderQueue();
+        }
         hideAutocomplete();
     } else if (input.trim()) {
-        // Show error for unparseable input
         Swal.fire({
             icon: 'error',
             title: 'Could not parse entry',
-            text: 'Check the syntax help for valid formats.',
+            html: 'Check the syntax help for valid formats.<br><br>Try formats like:<br><code>20MIT ZBW→ZNY JFK LENDY VOL</code>',
+            toast: false
+        });
+    }
+}
+
+function promptForMissingFields(entry, callback) {
+    const errors = entry.validationErrors;
+    
+    // Build form HTML for missing fields
+    let formHtml = '<div class="text-left">';
+    formHtml += `<p class="mb-3">Parsed: <code>${entry.raw}</code></p>`;
+    formHtml += '<p class="text-warning mb-3"><i class="fas fa-exclamation-triangle"></i> Missing required fields:</p>';
+    
+    const fieldConfigs = {
+        'fromFacility': { label: 'Providing Facility', placeholder: 'e.g., ZBW', type: 'text', maxlength: 4 },
+        'toFacility': { label: 'Requesting Facility', placeholder: 'e.g., ZNY', type: 'text', maxlength: 4 },
+        'condition': { label: 'Condition (Airport/Fix)', placeholder: 'e.g., JFK, LENDY', type: 'text', maxlength: 10 },
+        'facility': { label: 'Facility', placeholder: 'e.g., JFK', type: 'text', maxlength: 4 },
+        'airport': { label: 'Airport', placeholder: 'e.g., JFK', type: 'text', maxlength: 4 },
+        'distance': { label: 'Distance (nm)', placeholder: 'e.g., 20', type: 'number', min: 1 },
+        'minutes': { label: 'Minutes', placeholder: 'e.g., 15', type: 'number', min: 1 },
+        'runways': { label: 'Arrival Runways', placeholder: 'e.g., 22L/22R', type: 'text' },
+        'validFrom': { label: 'Valid From (Zulu)', placeholder: '1400', type: 'text', maxlength: 4, value: $('#validFrom').val() },
+        'validUntil': { label: 'Valid Until (Zulu)', placeholder: '1800', type: 'text', maxlength: 4, value: $('#validUntil').val() }
+    };
+    
+    for (const error of errors) {
+        const config = fieldConfigs[error.field] || { label: error.field, type: 'text' };
+        const currentValue = entry[error.field] || config.value || '';
+        
+        formHtml += `
+            <div class="form-group mb-2">
+                <label class="small text-muted">${config.label}</label>
+                <input type="${config.type}" 
+                       class="form-control form-control-sm bg-dark text-light border-secondary" 
+                       id="fix_${error.field}" 
+                       placeholder="${config.placeholder || ''}"
+                       value="${currentValue}"
+                       ${config.maxlength ? `maxlength="${config.maxlength}"` : ''}
+                       ${config.min ? `min="${config.min}"` : ''}>
+            </div>
+        `;
+    }
+    
+    formHtml += '</div>';
+    
+    Swal.fire({
+        title: 'Complete Entry',
+        html: formHtml,
+        showCancelButton: true,
+        confirmButtonText: 'Add to Queue',
+        cancelButtonText: 'Cancel',
+        focusConfirm: false,
+        customClass: {
+            popup: 'bg-dark text-light'
+        },
+        preConfirm: () => {
+            // Gather values
+            for (const error of errors) {
+                const value = $(`#fix_${error.field}`).val();
+                if (!value) {
+                    Swal.showValidationMessage(`${error.message}`);
+                    return false;
+                }
+                
+                // Update entry with new value
+                if (error.field === 'runways') {
+                    entry.arrRunways = value;
+                } else {
+                    entry[error.field] = error.field === 'distance' || error.field === 'minutes' 
+                        ? parseInt(value) 
+                        : value.toUpperCase();
+                }
+            }
+            
+            // Recalculate determinant and validation
+            entry.isInternal = isSameARTCC(entry.fromFacility, entry.toFacility);
+            entry.determinant = calculateDeterminant(entry);
+            entry.validationErrors = validateEntry(entry);
+            
+            return entry;
+        }
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            callback(result.value);
+        }
+    });
+}
+
+function parseBatchInput() {
+    const lines = $('#batchInput').val().split('\n').filter(l => l.trim());
+    let added = 0, needsReview = 0;
+    const errors = [];
+    const pendingEntries = [];
+    
+    for (const line of lines) {
+        const entry = parseEntry(line);
+        if (entry) {
+            if (isEntryValid(entry)) {
+                entryQueue.push(entry);
+                added++;
+            } else {
+                pendingEntries.push(entry);
+                needsReview++;
+            }
+        } else {
+            errors.push(line);
+        }
+    }
+    
+    if (added > 0 || needsReview > 0) {
+        $('#batchInput').val(errors.join('\n'));
+        renderQueue();
+    }
+    
+    // Report results
+    let message = '';
+    if (added > 0) message += `${added} entries added. `;
+    if (needsReview > 0) message += `${needsReview} need review. `;
+    if (errors.length > 0) message += `${errors.length} could not be parsed.`;
+    
+    if (needsReview > 0) {
+        // Process entries needing review one by one
+        processIncompleteEntries(pendingEntries, 0);
+    } else if (message) {
+        Swal.fire({
+            icon: errors.length > 0 ? 'warning' : 'success',
+            title: 'Batch Processing Complete',
+            text: message,
             toast: true,
             position: 'top-end',
             timer: 3000,
@@ -510,46 +999,38 @@ function addFromQuickInput() {
     }
 }
 
-function parseBatchInput() {
-    const lines = $('#batchInput').val().split('\n').filter(l => l.trim());
-    let added = 0, failed = 0;
-    const errors = [];
-    
-    for (const line of lines) {
-        const entry = parseEntry(line);
-        if (entry) {
-            entryQueue.push(entry);
-            added++;
-        } else {
-            failed++;
-            errors.push(line);
-        }
-    }
-    
-    if (added > 0) {
-        $('#batchInput').val('');
+function processIncompleteEntries(entries, index) {
+    if (index >= entries.length) {
         renderQueue();
-    }
-    
-    if (failed > 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: `${added} added, ${failed} failed`,
-            html: `Could not parse:<br><code>${errors.slice(0, 3).join('<br>')}</code>${errors.length > 3 ? '<br>...' : ''}`
-        });
-    } else if (added > 0) {
         Swal.fire({
             icon: 'success',
-            title: `${added} entries added`,
+            title: 'Batch review complete',
             toast: true,
             position: 'top-end',
             timer: 2000,
             showConfirmButton: false
         });
+        return;
     }
+    
+    promptForMissingFields(entries[index], function(completedEntry) {
+        entryQueue.push(completedEntry);
+        processIncompleteEntries(entries, index + 1);
+    });
 }
 
 function removeFromQueue(index) {
+    entryQueue.splice(index, 1);
+    renderQueue();
+}
+
+function editQueueEntry(index) {
+    const entry = entryQueue[index];
+    
+    // Put raw text back in input for editing
+    $('#quickInput').val(entry.raw).focus();
+    
+    // Remove from queue
     entryQueue.splice(index, 1);
     renderQueue();
 }
@@ -565,7 +1046,12 @@ function renderQueue() {
     $('#emptyQueueMsg').toggle(count === 0);
     
     if (count === 0) {
-        container.html($('#emptyQueueMsg').prop('outerHTML'));
+        container.html(`
+            <div class="text-center text-muted py-4" id="emptyQueueMsg">
+                <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                No entries queued. Type above to add entries.
+            </div>
+        `);
         return;
     }
     
@@ -573,14 +1059,19 @@ function renderQueue() {
     entryQueue.forEach((entry, index) => {
         const pillClass = entry.type.toLowerCase();
         const message = buildDiscordMessage(entry);
+        const isValid = isEntryValid(entry);
         
         html += `
-            <div class="preview-card valid">
-                <button class="remove-btn" onclick="removeFromQueue(${index})">
+            <div class="preview-card ${isValid ? 'valid' : 'invalid'}">
+                <button class="remove-btn" onclick="removeFromQueue(${index})" title="Remove">
                     <i class="fas fa-times"></i>
+                </button>
+                <button class="remove-btn" style="right: 35px;" onclick="editQueueEntry(${index})" title="Edit">
+                    <i class="fas fa-edit"></i>
                 </button>
                 <span class="protocol-pill ${pillClass}">${entry.type}</span>
                 <span class="determinant ml-2">[${entry.determinant}]</span>
+                ${!isValid ? '<span class="badge badge-danger ml-2">Incomplete</span>' : ''}
                 <div class="details">${escapeHtml(message.split('\n')[0])}</div>
             </div>
         `;
@@ -618,10 +1109,11 @@ function applyTemplate(template) {
 // AUTOCOMPLETE
 // ============================================
 
+let autocompleteIndex = -1;
+
 function showAutocomplete(input) {
-    // Extract the last word being typed
     const words = input.split(/\s+/);
-    const lastWord = words[words.length - 1].toUpperCase();
+    const lastWord = (words[words.length - 1] || '').toUpperCase();
     
     if (lastWord.length < 2) {
         hideAutocomplete();
@@ -632,22 +1124,29 @@ function showAutocomplete(input) {
     
     // Search ARTCCs
     for (const [id, name] of Object.entries(ARTCCS)) {
-        if (id.includes(lastWord)) {
+        if (id.startsWith(lastWord) || id.includes(lastWord)) {
             suggestions.push({ id, name, type: 'ARTCC' });
         }
     }
     
     // Search TRACONs
     for (const [id, name] of Object.entries(TRACONS)) {
-        if (id.includes(lastWord)) {
+        if (id.startsWith(lastWord) || id.includes(lastWord)) {
             suggestions.push({ id, name, type: 'TRACON' });
         }
     }
     
     // Search airports
     for (const apt of MAJOR_AIRPORTS) {
-        if (apt.includes(lastWord)) {
+        if (apt.startsWith(lastWord) || apt.includes(lastWord)) {
             suggestions.push({ id: apt, name: apt + ' Airport', type: 'Airport' });
+        }
+    }
+    
+    // Search fixes
+    for (const fix of COMMON_FIXES) {
+        if (fix.startsWith(lastWord) || fix.includes(lastWord)) {
+            suggestions.push({ id: fix, name: fix, type: 'Fix' });
         }
     }
     
@@ -656,10 +1155,12 @@ function showAutocomplete(input) {
         return;
     }
     
+    autocompleteIndex = -1;
+    
     let html = '';
-    suggestions.slice(0, 8).forEach(s => {
+    suggestions.slice(0, 10).forEach((s, i) => {
         html += `
-            <div class="autocomplete-item" data-value="${s.id}">
+            <div class="autocomplete-item" data-value="${s.id}" data-index="${i}">
                 <span class="facility-id">${s.id}</span>
                 <span class="facility-name ml-2">${s.name} (${s.type})</span>
             </div>
@@ -668,18 +1169,34 @@ function showAutocomplete(input) {
     
     $('#autocompleteDropdown').html(html).addClass('show');
     
-    // Click handler
     $('.autocomplete-item').click(function() {
-        const value = $(this).data('value');
-        const words = $('#quickInput').val().split(/\s+/);
-        words[words.length - 1] = value;
-        $('#quickInput').val(words.join(' ') + ' ').focus();
-        hideAutocomplete();
+        selectAutocompleteItem($(this).data('value'));
     });
+}
+
+function navigateAutocomplete(direction) {
+    const items = $('.autocomplete-item');
+    if (items.length === 0) return;
+    
+    items.removeClass('selected');
+    autocompleteIndex += direction;
+    
+    if (autocompleteIndex < 0) autocompleteIndex = items.length - 1;
+    if (autocompleteIndex >= items.length) autocompleteIndex = 0;
+    
+    $(items[autocompleteIndex]).addClass('selected');
+}
+
+function selectAutocompleteItem(value) {
+    const words = $('#quickInput').val().split(/\s+/);
+    words[words.length - 1] = value;
+    $('#quickInput').val(words.join(' ') + ' ').focus();
+    hideAutocomplete();
 }
 
 function hideAutocomplete() {
     $('#autocompleteDropdown').removeClass('show');
+    autocompleteIndex = -1;
 }
 
 // ============================================
@@ -688,45 +1205,40 @@ function hideAutocomplete() {
 
 function buildDiscordMessage(entry) {
     switch (entry.type) {
-        case 'MIT':
-            return buildMITMessage(entry);
-        case 'MINIT':
-            return buildMINITMessage(entry);
-        case 'DELAY':
-            return buildDelayMessage(entry);
-        case 'CONFIG':
-            return buildConfigMessage(entry);
-        default:
-            return `[${entry.determinant}] ${entry.type}`;
+        case 'MIT': return buildMITMessage(entry);
+        case 'MINIT': return buildMINITMessage(entry);
+        case 'DELAY': return buildDelayMessage(entry);
+        case 'CONFIG': return buildConfigMessage(entry);
+        default: return `[${entry.determinant}] ${entry.type}`;
     }
 }
 
 function buildMITMessage(e) {
-    let msg = `**[${e.determinant}] ${e.distance}MIT** ${e.fromFacility}→${e.toFacility} ${e.condition}`;
-    if (e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
-    msg += `\nValid: ${e.validFrom}Z-${e.validUntil}Z`;
+    let msg = `**[${e.determinant}] ${e.distance}MIT** ${e.fromFacility || '???'}→${e.toFacility || '???'} ${e.condition || ''}`;
+    if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
+    msg += `\nValid: ${e.validFrom || '????'}Z-${e.validUntil || '????'}Z`;
     msg += `\nReason: ${e.reason}`;
     return msg;
 }
 
 function buildMINITMessage(e) {
-    let msg = `**[${e.determinant}] ${e.minutes}MINIT** ${e.fromFacility}→${e.toFacility} ${e.condition}`;
-    if (e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
-    msg += `\nValid: ${e.validFrom}Z-${e.validUntil}Z`;
+    let msg = `**[${e.determinant}] ${e.minutes}MINIT** ${e.fromFacility || '???'}→${e.toFacility || '???'} ${e.condition || ''}`;
+    if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
+    msg += `\nValid: ${e.validFrom || '????'}Z-${e.validUntil || '????'}Z`;
     msg += `\nReason: ${e.reason}`;
     return msg;
 }
 
 function buildDelayMessage(e) {
-    const trendDisplay = e.trend.charAt(0).toUpperCase() + e.trend.slice(1);
-    let msg = `**[${e.determinant}] DELAY** ${e.facility}`;
-    msg += `\nLongest: ${e.minutes}min | Trend: ${trendDisplay} | Flights: ${e.flightsDelayed}`;
+    const trendDisplay = e.trend ? e.trend.charAt(0).toUpperCase() + e.trend.slice(1) : 'Steady';
+    let msg = `**[${e.determinant}] DELAY** ${e.facility || '???'}`;
+    msg += `\nLongest: ${e.minutes || '?'}min | Trend: ${trendDisplay} | Flights: ${e.flightsDelayed || 1}`;
     msg += `\nReason: ${e.reason}`;
     return msg;
 }
 
 function buildConfigMessage(e) {
-    let msg = `**[${e.determinant}] AIRPORT CONFIG** ${e.airport}`;
+    let msg = `**[${e.determinant}] AIRPORT CONFIG** ${e.airport || '???'}`;
     msg += `\nWeather: ${e.weather} | Single RWY: ${e.singleRunway ? 'Yes' : 'No'}`;
     if (e.arrRunways) msg += `\nARR: ${e.arrRunways}`;
     if (e.depRunways) msg += ` | DEP: ${e.depRunways}`;
@@ -752,6 +1264,17 @@ function showPreview() {
 
 function submitAll() {
     if (entryQueue.length === 0) return;
+    
+    // Check for incomplete entries
+    const incomplete = entryQueue.filter(e => !isEntryValid(e));
+    if (incomplete.length > 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Incomplete Entries',
+            text: `${incomplete.length} entries have missing required fields. Please complete them before submitting.`
+        });
+        return;
+    }
     
     const confirmMsg = productionMode 
         ? `Submit ${entryQueue.length} entries to LIVE Discord?`
@@ -801,17 +1324,15 @@ async function processSubmissions() {
             errors.push(e.message || 'Network error');
         }
         
-        // Small delay between submissions to avoid rate limiting
+        // Delay between submissions
         if (i < entryQueue.length - 1) {
             await new Promise(r => setTimeout(r, 500));
         }
     }
     
-    // Clear successful entries
     entryQueue = [];
     renderQueue();
     
-    // Show result
     if (failed === 0) {
         Swal.fire({
             icon: 'success',
@@ -829,7 +1350,6 @@ async function processSubmissions() {
 
 function submitEntry(entry) {
     return new Promise((resolve, reject) => {
-        // Build POST data based on entry type
         const postData = buildPostData(entry);
         postData.determinant = entry.determinant;
         postData.production = productionMode ? '1' : '0';
@@ -866,7 +1386,7 @@ function buildPostData(entry) {
                 prov_facility_id: entry.fromFacility,
                 same_artcc: entry.isInternal ? 'yes' : 'no',
                 distance: entry.distance,
-                qualifiers: entry.qualifiers.join(','),
+                qualifiers: (entry.qualifiers || []).join(','),
                 reason: entry.reason,
                 valid_from: entry.validFrom,
                 valid_until: entry.validUntil
@@ -882,7 +1402,7 @@ function buildPostData(entry) {
                 prov_facility_id: entry.fromFacility,
                 same_artcc: entry.isInternal ? 'yes' : 'no',
                 minutes: entry.minutes,
-                qualifiers: entry.qualifiers.join(','),
+                qualifiers: (entry.qualifiers || []).join(','),
                 reason: entry.reason,
                 valid_from: entry.validFrom,
                 valid_until: entry.validUntil
@@ -927,5 +1447,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Make removeFromQueue available globally
+// Global functions for onclick handlers
 window.removeFromQueue = removeFromQueue;
+window.editQueueEntry = editQueueEntry;

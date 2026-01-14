@@ -1,25 +1,23 @@
 <?php
 /**
  * NTML Protocol Form - API Endpoint
- * Posts NTML entries to Discord via bot using existing DiscordAPI
+ * Posts NTML entries to Discord via DiscordAPI class
  */
 
+// Prevent caching
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 
+// Session Start
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
     ob_start();
 }
 
-// Use realpath for includes to ensure paths resolve correctly
-$config_path = realpath(__DIR__ . '/../../../load/config.php');
-$connect_path = realpath(__DIR__ . '/../../../load/connect.php');
-$discord_api_path = realpath(__DIR__ . '/../../../load/discord/DiscordAPI.php');
-
-if ($config_path) require_once($config_path);
-if ($connect_path) require_once($connect_path);
-if ($discord_api_path) require_once($discord_api_path);
+// Load dependencies
+include("../../../load/config.php");
+include("../../../load/connect.php");
+include("../../../load/discord/DiscordAPI.php");
 
 // Response helper
 function sendResponse($success, $data = [], $error = null) {
@@ -57,28 +55,30 @@ if (!isset($_POST['protocol']) || !isset($_POST['determinant'])) {
     sendResponse(false, [], 'Missing required fields');
 }
 
-// Initialize Discord API
-$discord = new DiscordAPI();
-
-if (!$discord->isConfigured()) {
-    http_response_code(503);
-    sendResponse(false, [], 'Discord integration not configured');
-}
-
 // Get form data
 $protocol = strip_tags($_POST['protocol']);
 $determinant = strip_tags($_POST['determinant']);
 $production = isset($_POST['production']) && $_POST['production'] === '1';
 
-// Determine target channel - use 'tmi' channel for NTML posts
-// Production could use a different channel if configured
-$channel = $production ? 'tmi' : 'tmi';  // Both use tmi for now (backup staging)
+// Initialize Discord API
+$discord = new DiscordAPI();
+
+// Check if Discord is configured
+if (!$discord->isConfigured()) {
+    http_response_code(500);
+    sendResponse(false, [], 'Discord integration not configured');
+}
 
 // Build message based on protocol type
 $message = buildNTMLMessage($protocol, $_POST);
 
-// Post to Discord using the DiscordAPI class
-$result = $discord->createMessage($channel, ['content' => $message]);
+// Add test prefix for non-production
+if (!$production) {
+    $message = "🧪 **[TEST]** " . $message;
+}
+
+// Post to Discord using the 'tmi' channel
+$result = $discord->createMessage('tmi', ['content' => $message]);
 
 if ($result !== null && isset($result['id'])) {
     // Log to database
@@ -90,8 +90,11 @@ if ($result !== null && isset($result['id'])) {
         'message_id' => $result['id']
     ]);
 } else {
+    $error = $discord->getLastError() ?: 'Unknown Discord API error';
+    $httpCode = $discord->getLastHttpCode();
+    
     http_response_code(500);
-    sendResponse(false, [], $discord->getLastError() ?? 'Failed to post to Discord');
+    sendResponse(false, [], "Discord API error: $error (HTTP $httpCode)");
 }
 
 // ============================================
@@ -117,13 +120,13 @@ function buildNTMLMessage($protocol, $data) {
 }
 
 function buildMITMessage($determinant, $data, $timestamp) {
-    $condition = strip_tags($data['condition']);
-    $distance = strip_tags($data['distance']);
-    $reqFac = strtoupper(strip_tags($data['req_facility_id']));
-    $provFac = strtoupper(strip_tags($data['prov_facility_id']));
-    $reason = strip_tags($data['reason']);
-    $validFrom = strip_tags($data['valid_from']);
-    $validUntil = strip_tags($data['valid_until']);
+    $condition = strip_tags($data['condition'] ?? '');
+    $distance = strip_tags($data['distance'] ?? '');
+    $reqFac = strtoupper(strip_tags($data['req_facility_id'] ?? ''));
+    $provFac = strtoupper(strip_tags($data['prov_facility_id'] ?? ''));
+    $reason = strip_tags($data['reason'] ?? 'VOLUME');
+    $validFrom = strip_tags($data['valid_from'] ?? '');
+    $validUntil = strip_tags($data['valid_until'] ?? '');
     
     // Build qualifiers string
     $qualifiers = '';
@@ -164,13 +167,13 @@ function buildMITMessage($determinant, $data, $timestamp) {
 }
 
 function buildMINITMessage($determinant, $data, $timestamp) {
-    $condition = strip_tags($data['condition']);
-    $minutes = strip_tags($data['minutes']);
-    $reqFac = strtoupper(strip_tags($data['req_facility_id']));
-    $provFac = strtoupper(strip_tags($data['prov_facility_id']));
-    $reason = strip_tags($data['reason']);
-    $validFrom = strip_tags($data['valid_from']);
-    $validUntil = strip_tags($data['valid_until']);
+    $condition = strip_tags($data['condition'] ?? '');
+    $minutes = strip_tags($data['minutes'] ?? '');
+    $reqFac = strtoupper(strip_tags($data['req_facility_id'] ?? ''));
+    $provFac = strtoupper(strip_tags($data['prov_facility_id'] ?? ''));
+    $reason = strip_tags($data['reason'] ?? 'VOLUME');
+    $validFrom = strip_tags($data['valid_from'] ?? '');
+    $validUntil = strip_tags($data['valid_until'] ?? '');
     
     // Build qualifiers string
     $qualifiers = '';
@@ -211,13 +214,13 @@ function buildMINITMessage($determinant, $data, $timestamp) {
 }
 
 function buildDelayMessage($determinant, $data, $timestamp) {
-    $delayFac = strtoupper(strip_tags($data['delay_facility']));
-    $chargeFac = strtoupper(strip_tags($data['charge_facility']));
-    $longestDelay = strip_tags($data['longest_delay']);
-    $trend = ucfirst(strip_tags($data['delay_trend']));
-    $flightsDelayed = strip_tags($data['flights_delayed']);
-    $reason = strip_tags($data['reason']);
-    $holding = strip_tags($data['holding']);
+    $delayFac = strtoupper(strip_tags($data['delay_facility'] ?? ''));
+    $chargeFac = strtoupper(strip_tags($data['charge_facility'] ?? $delayFac));
+    $longestDelay = strip_tags($data['longest_delay'] ?? '');
+    $trend = ucfirst(strip_tags($data['delay_trend'] ?? 'steady'));
+    $flightsDelayed = strip_tags($data['flights_delayed'] ?? '1');
+    $reason = strip_tags($data['reason'] ?? 'VOLUME');
+    $holding = strip_tags($data['holding'] ?? 'no');
     
     $holdingText = '';
     if ($holding === 'yes_initiating') {
@@ -232,7 +235,11 @@ function buildDelayMessage($determinant, $data, $timestamp) {
         }
     }
     
-    $message = "**[$determinant] DELAY** $delayFac (charged to $chargeFac)\n";
+    $message = "**[$determinant] DELAY** $delayFac";
+    if ($chargeFac && $chargeFac !== $delayFac) {
+        $message .= " (charged to $chargeFac)";
+    }
+    $message .= "\n";
     $message .= "Longest: {$longestDelay}min | Trend: $trend | Flights: $flightsDelayed\n";
     $message .= "Reason: $reason";
     
@@ -248,13 +255,13 @@ function buildDelayMessage($determinant, $data, $timestamp) {
 }
 
 function buildConfigMessage($determinant, $data, $timestamp) {
-    $airport = strtoupper(strip_tags($data['airport']));
-    $weather = strip_tags($data['weather']);
-    $arrRwys = strtoupper(strip_tags($data['arr_runways']));
-    $depRwys = strtoupper(strip_tags($data['dep_runways']));
-    $aar = strip_tags($data['aar']);
-    $adr = strip_tags($data['adr']);
-    $singleRwy = $data['single_runway'] === 'yes' ? 'Yes' : 'No';
+    $airport = strtoupper(strip_tags($data['airport'] ?? ''));
+    $weather = strip_tags($data['weather'] ?? 'VMC');
+    $arrRwys = strtoupper(strip_tags($data['arr_runways'] ?? ''));
+    $depRwys = strtoupper(strip_tags($data['dep_runways'] ?? ''));
+    $aar = strip_tags($data['aar'] ?? '60');
+    $adr = strip_tags($data['adr'] ?? '60');
+    $singleRwy = (isset($data['single_runway']) && $data['single_runway'] === 'yes') ? 'Yes' : 'No';
     
     // Weather conditions
     $wxConditions = [];
@@ -284,8 +291,6 @@ function buildConfigMessage($determinant, $data, $timestamp) {
 function logNTMLEntry($protocol, $determinant, $data, $messageId, $isProduction) {
     global $conn_sqli;
     
-    if (!$conn_sqli) return;
-    
     // Sanitize data for JSON storage
     $safeData = array_map('strip_tags', $data);
     $jsonData = json_encode($safeData);
@@ -295,7 +300,7 @@ function logNTMLEntry($protocol, $determinant, $data, $messageId, $isProduction)
     
     // Check if ntml_entries table exists, create if not
     $tableCheck = $conn_sqli->query("SHOW TABLES LIKE 'ntml_entries'");
-    if ($tableCheck && $tableCheck->num_rows === 0) {
+    if ($tableCheck->num_rows === 0) {
         createNTMLTable($conn_sqli);
     }
     
@@ -328,3 +333,5 @@ function createNTMLTable($conn) {
     
     $conn->query($sql);
 }
+
+?>
