@@ -17,10 +17,10 @@
 require_once __DIR__ . '/../../load/connect.php';
 
 // Configuration
-define('DEFAULT_MAX_FLIGHTS', 100);      // Flights per boundary run (keep small to avoid timeouts)
+define('DEFAULT_MAX_FLIGHTS', 100);      // Flights per boundary run
 define('DEFAULT_MAX_CROSSINGS', 50);     // Crossings per run
-define('DEFAULT_INTERVAL', 15);          // Seconds between runs (more frequent, smaller batches)
-define('SP_TIMEOUT', 60);                // SQL timeout in seconds
+define('DEFAULT_INTERVAL', 15);          // Seconds between runs
+define('SP_TIMEOUT', 300);               // SQL timeout - 5 min for large batches (isolated daemon, no cascade risk)
 
 class BoundaryDaemon
 {
@@ -121,9 +121,10 @@ class BoundaryDaemon
             return ['pending' => 0, 'processed' => 0];
         }
 
-        // Adaptive batch size based on backlog (keep batches small to avoid SP timeouts)
+        // Adaptive batch size based on backlog
+        // With 5-min timeout, we can handle larger batches when behind
         $isBacklogged = $pending > 200;
-        $batchFlights = $isBacklogged ? 200 : $this->maxFlights;
+        $batchFlights = $isBacklogged ? min(200, $this->maxFlights * 2) : $this->maxFlights;
 
         if ($isBacklogged) {
             $this->log("BACKLOG: {$pending} pending - processing up to {$batchFlights} flights");
