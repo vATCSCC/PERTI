@@ -338,6 +338,43 @@ include("sessions/handler.php");
             font-size: 0.65rem;
             margin-right: 8px;
         }
+
+        /* Config name formatting */
+        .config-name-cell {
+            white-space: nowrap;
+        }
+        .config-formatted {
+            display: inline;
+        }
+        .config-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .config-arr .config-label {
+            color: #dc3545;
+        }
+        .config-arr .runway-id {
+            color: #dc3545;
+            font-weight: 600;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .config-dep .config-label {
+            color: #28a745;
+        }
+        .config-dep .runway-id {
+            color: #28a745;
+            font-weight: 600;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .config-sep {
+            margin: 0 6px;
+            color: #6c757d;
+        }
+        .runway-id {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-weight: 600;
+        }
     </style>
 
 </head>

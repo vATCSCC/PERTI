@@ -8,11 +8,12 @@ PRINT 'Fixing column name mismatches...';
 GO
 
 -- ============================================================================
--- FIX 1: Index on flight_phase (not lifecycle_state)
+-- FIX 1: Index on phase (the actual column name in adl_flight_core)
+-- Note: The column is "phase" NOT "flight_phase" - flight_phase is on trajectory table
 -- ============================================================================
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_flight_crossing_regional' AND object_id = OBJECT_ID('dbo.adl_flight_core'))
 BEGIN
-    CREATE INDEX IX_flight_crossing_regional ON dbo.adl_flight_core(crossing_region_flags, flight_phase)
+    CREATE INDEX IX_flight_crossing_regional ON dbo.adl_flight_core(crossing_region_flags, phase)
         INCLUDE (current_artcc, current_tracon, level_flight_confirmed)
         WHERE is_active = 1 AND crossing_region_flags > 0;
     PRINT 'Created index: IX_flight_crossing_regional';
@@ -180,7 +181,8 @@ PRINT 'Fixed procedure: sp_DetectRegionalFlight';
 GO
 
 -- ============================================================================
--- FIX 4: sp_UpdateLevelFlightStatus - Use flight_phase not lifecycle_state
+-- FIX 4: sp_UpdateLevelFlightStatus - Use phase (not lifecycle_state or flight_phase)
+-- Note: The column is "phase" in adl_flight_core
 -- ============================================================================
 
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateLevelFlightStatus
@@ -207,7 +209,7 @@ BEGIN
         FROM dbo.adl_flight_core c
         JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
         WHERE c.is_active = 1
-          AND c.flight_phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
+          AND c.phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
     )
     UPDATE c
     SET
@@ -253,7 +255,7 @@ PRINT 'Fixed procedure: sp_UpdateLevelFlightStatus';
 GO
 
 -- ============================================================================
--- FIX 5: sp_CalculatePlannedCrossingsBatch - Use flight_phase
+-- FIX 5: sp_CalculatePlannedCrossingsBatch - Use phase (not flight_phase)
 -- ============================================================================
 
 CREATE OR ALTER PROCEDURE dbo.sp_CalculatePlannedCrossingsBatch
@@ -315,7 +317,7 @@ BEGIN
         WHERE c.is_active = 1
           AND b.flight_uid IS NULL
           AND c.crossing_region_flags > 0
-          AND c.flight_phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
+          AND c.phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
           AND c.current_tracon IS NOT NULL
           AND (c.crossing_last_calc_utc IS NULL
                OR DATEDIFF(SECOND, c.crossing_last_calc_utc, @now) >= 60);
@@ -337,7 +339,7 @@ BEGIN
         WHERE c.is_active = 1
           AND b.flight_uid IS NULL
           AND c.crossing_region_flags > 0
-          AND c.flight_phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
+          AND c.phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
           AND c.current_artcc IS NOT NULL
           AND c.current_tracon IS NULL
           AND (c.crossing_last_calc_utc IS NULL
@@ -361,7 +363,7 @@ BEGIN
         WHERE c.is_active = 1
           AND b.flight_uid IS NULL
           AND c.crossing_region_flags > 0
-          AND c.flight_phase IN ('enroute', 'cruise')
+          AND c.phase IN ('enroute', 'cruise')
           AND c.level_flight_confirmed = 1
           AND ABS(ISNULL(p.vertical_rate_fpm, 0)) < 200
           AND (c.crossing_last_calc_utc IS NULL
@@ -385,7 +387,7 @@ BEGIN
           AND b.flight_uid IS NULL
           AND c.crossing_region_flags = 0
           AND c.crossing_region_flags IS NOT NULL
-          AND c.flight_phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
+          AND c.phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
           AND (c.crossing_last_calc_utc IS NULL
                OR DATEDIFF(SECOND, c.crossing_last_calc_utc, @now) >= 600);
 
@@ -406,7 +408,7 @@ BEGIN
         WHERE c.is_active = 1
           AND b.flight_uid IS NULL
           AND c.crossing_region_flags = 4
-          AND c.flight_phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
+          AND c.phase IN ('departed', 'enroute', 'descending', 'climbing', 'cruise')
           AND (c.crossing_last_calc_utc IS NULL
                OR DATEDIFF(SECOND, c.crossing_last_calc_utc, @now) >= 1800);
 
