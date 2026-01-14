@@ -33,6 +33,11 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 - **Route Plotter** - TSD-style live flight map with weather radar
 - **Reroutes** - Reroute authoring and compliance monitoring
 - **Splits** - Sector/position split configuration
+- **Demand Analysis** - Airport demand/capacity visualization with rate suggestions
+
+### Training (Authenticated)
+
+- **ATFM Simulator** - Training simulator for TMU personnel (NEW v17)
 
 ### Planning & Scheduling (Authenticated)
 
@@ -60,7 +65,8 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 
 ## Current Version
 
-**v16** - Includes:
+**v17** - Includes:
+- **ATFM Training Simulator** (NEW) - TMU training with Node.js flight engine
 - Airport demand analysis with weather-aware rate suggestions
 - Normalized runway configuration schema
 - VATSIM ATIS import with weather extraction
@@ -78,4 +84,4 @@ See [[Changelog]] for full version history.
 
 ---
 
-*Last updated: 2026-01-10*
+*Last updated: 2026-01-13*

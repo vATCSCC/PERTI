@@ -7,6 +7,10 @@
 --   - Pre-calculated waypoint cumulative distances (Option C)
 --
 -- Part of ETA Enhancement Project - Item #1 (Route Distance)
+--
+-- V1.1 - 2026-01-14: Fixed geography error 24144
+--   - Skip segments where start/end coordinates are identical (zero-length)
+--   - These create invalid LINESTRING geometries that cause STDistance to fail
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -62,13 +66,14 @@ BEGIN
     DECLARE @route_geometry GEOGRAPHY;
     
     -- Get route metadata
-    SELECT 
+    SELECT
         @route_total = route_total_nm,
         @waypoint_count = waypoint_count,
-        @route_geometry = route_geometry
+        -- Use MakeValid() to handle potentially invalid stored geometry
+        @route_geometry = CASE WHEN route_geometry IS NOT NULL THEN route_geometry.MakeValid() ELSE NULL END
     FROM dbo.adl_flight_plan
     WHERE flight_uid = @flight_uid;
-    
+
     -- No route parsed
     IF @waypoint_count IS NULL OR @waypoint_count < 2
     BEGIN
@@ -98,6 +103,7 @@ BEGIN
     );
     
     -- Build segment list with cumulative distances
+    -- V1.1: Exclude zero-length segments (identical start/end coords) that cause invalid LINESTRING
     INSERT INTO @segments
     SELECT 
         w1.sequence_num AS seg_start_seq,
@@ -117,7 +123,9 @@ BEGIN
         AND w2.sequence_num = w1.sequence_num + 1
     WHERE w1.flight_uid = @flight_uid
       AND w1.lat IS NOT NULL 
-      AND w2.lat IS NOT NULL;
+      AND w2.lat IS NOT NULL
+      -- V1.1: Skip zero-length segments (would create invalid LINESTRING)
+      AND NOT (w1.lat = w2.lat AND w1.lon = w2.lon);
     
     -- If no segments with cumulative distances, fall back to geometry method
     IF NOT EXISTS (SELECT 1 FROM @segments WHERE seg_end_cum_dist > 0)
@@ -145,19 +153,20 @@ BEGIN
             DECLARE @best_dist FLOAT = 999999;
             DECLARE @best_cum_dist DECIMAL(10,2) = 0;
             
-            SELECT TOP 1 
+            SELECT TOP 1
                 @best_seq = sequence_num,
-                @best_dist = position_geo.STDistance(@current_pos),
-                @best_cum_dist = ISNULL(cum_dist_nm, 
+                -- Use MakeValid() to handle potentially invalid stored geometry
+                @best_dist = position_geo.MakeValid().STDistance(@current_pos),
+                @best_cum_dist = ISNULL(cum_dist_nm,
                     -- Estimate cum_dist if not populated
-                    (SELECT ISNULL(SUM(segment_dist_nm), 0) 
-                     FROM dbo.adl_flight_waypoints 
+                    (SELECT ISNULL(SUM(segment_dist_nm), 0)
+                     FROM dbo.adl_flight_waypoints
                      WHERE flight_uid = @flight_uid AND sequence_num <= w.sequence_num)
                 )
             FROM dbo.adl_flight_waypoints w
             WHERE flight_uid = @flight_uid
               AND position_geo IS NOT NULL
-            ORDER BY position_geo.STDistance(@current_pos);
+            ORDER BY position_geo.MakeValid().STDistance(@current_pos);
             
             IF @best_seq IS NOT NULL
             BEGIN
@@ -314,10 +323,11 @@ BEGIN
     DECLARE @final_next_name NVARCHAR(64);
     DECLARE @final_dist_to_next DECIMAL(10,2);
     
-    SELECT TOP 1 
+    SELECT TOP 1
         @final_next_seq = sequence_num,
         @final_next_name = fix_name,
-        @final_dist_to_next = @current_pos.STDistance(position_geo) / 1852.0
+        -- Use MakeValid() to handle potentially invalid stored geometry
+        @final_dist_to_next = @current_pos.STDistance(position_geo.MakeValid()) / 1852.0
     FROM dbo.adl_flight_waypoints
     WHERE flight_uid = @flight_uid
       AND sequence_num >= @closest_seg_end
@@ -340,7 +350,7 @@ BEGIN
 END;
 GO
 
-PRINT 'Created function dbo.fn_CalculateRouteDistanceRemaining';
+PRINT 'Created function dbo.fn_CalculateRouteDistanceRemaining V1.1';
 GO
 
 -- ============================================================================

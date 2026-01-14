@@ -461,6 +461,87 @@ Returns Temporary Flight Restrictions.
 
 ---
 
+## ATFM Training Simulator APIs
+
+Training simulator for TMU personnel practice.
+
+### GET /api/simulator/navdata.php
+
+Returns navigation data for flight routing.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `bounds` | string | Geographic bounds (lat1,lon1,lat2,lon2) |
+| `type` | string | Filter: waypoint, navaid, airport |
+
+### GET /api/simulator/routes.php
+
+Returns route pattern reference data.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `origin` | string | Origin airport (ICAO) |
+| `destination` | string | Destination airport (ICAO) |
+| `carrier` | string | Filter by carrier ICAO |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "routes": [
+    {
+      "route_id": 1234,
+      "origin": "KATL",
+      "destination": "KJFK",
+      "avg_daily_flights": 12.5,
+      "primary_carrier_icao": "DAL",
+      "flight_time_min": 135,
+      "distance_nm": 762
+    }
+  ]
+}
+```
+
+### GET/POST /api/simulator/engine.php
+
+Controls the flight simulation engine.
+
+**Access:** Authenticated
+
+**GET Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `session_id` | string | Simulation session ID |
+| `action` | string | status, aircraft |
+
+**POST Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `action` | string | create, tick, command |
+| `session_id` | string | Simulation session ID |
+| `data` | object | Action-specific parameters |
+
+### GET/POST /api/simulator/traffic.php
+
+Generates and manages simulated traffic.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `session_id` | string | Simulation session ID |
+| `airport` | string | Target airport for traffic |
+| `hours` | int | Hours of traffic to generate |
+
+---
+
 ## Rate Limiting
 
 API requests are subject to rate limiting:

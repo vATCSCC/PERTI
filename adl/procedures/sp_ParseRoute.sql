@@ -755,7 +755,8 @@ BEGIN
     IF @point_count >= 2
     BEGIN
         BEGIN TRY
-            SET @route_geo = geography::STGeomFromText(@linestring, 4326);
+            -- Use MakeValid() to ensure the geometry is valid for spatial operations
+            SET @route_geo = geography::STGeomFromText(@linestring, 4326).MakeValid();
         END TRY
         BEGIN CATCH
             IF @debug = 1 PRINT 'Error creating LineString: ' + ERROR_MESSAGE();
