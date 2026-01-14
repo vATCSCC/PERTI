@@ -105,6 +105,14 @@ METAR_REMARKS = r'\bRMK\s+(?:AO[12]|SLP\d{3}|T\d{8}|P\d{4}|[A-Z]{2,3}\d{2,3}|\$)
 # Trend markers - remove forecast sections
 METAR_TREND = r'\s+(?:NOSIG|BECMG\s+\S+|TEMPO\s+\S+)(?:\s+\S+)*?(?=\s+(?:LDG|ARR|DEP|RWY|LAND|RUNWAY)|$)'
 
+# Verbose RVR sections (European ATIS format)
+# "RUNWAY VISUAL RANGE RUNWAY 25R MORE THAN 2000 METERS NEUTRAL RUNWAY 25C..."
+# This reports visibility for runways but is NOT a runway assignment
+VERBOSE_RVR = r'RUNWAY\s+VISUAL\s+RANGE\s+(?:RUNWAY\s+\d{2}[LRC]?\s+(?:MORE\s+THAN\s+|LESS\s+THAN\s+)?\d+\s+(?:METERS?|FT|FEET)\s*(?:NEUTRAL|RISING|FALLING|VARYING|[UDN])?\s*)+'
+
+# "DO NOT MISTAKE TWY ... FOR RWY" - taxiway confusion warnings, not runway assignments
+TAXIWAY_WARNING = r'DO\s+NOT\s+MISTAKE\s+(?:TWY|TAXIWAY)\s+\w+\s+FOR\s+(?:RWY|RUNWAY)\s+\d{2}[LRC]?'
+
 
 def _is_valid_runway_number(runway: str) -> bool:
     """
@@ -245,7 +253,14 @@ def filter_atis_text(atis_text: str) -> str:
     # Remove METAR elements in order of specificity (most specific first)
     # ==========================================================================
 
-    # 1. Runway Visual Range (must be before wind - contains runway numbers)
+    # 0. Verbose RVR sections (European format) - must be first!
+    #    "RUNWAY VISUAL RANGE RUNWAY 25R MORE THAN 2000 METERS..."
+    text = re.sub(VERBOSE_RVR, ' [VERBOSE_RVR] ', text, flags=re.IGNORECASE)
+
+    # 0b. Taxiway confusion warnings - "DO NOT MISTAKE TWY MIKE FOR RWY 25C"
+    text = re.sub(TAXIWAY_WARNING, ' [TWY_WARNING] ', text, flags=re.IGNORECASE)
+
+    # 1. Runway Visual Range (coded METAR format)
     #    R27L/0800, R09/P2000FT - this is RVR, not runway assignment
     text = re.sub(METAR_RVR, ' [RVR] ', text)
 
@@ -288,7 +303,7 @@ def filter_atis_text(atis_text: str) -> str:
     text = re.sub(r'\b([12]\d{2}|0[0-9]{2}|3[0-5]\d|360)\s*(?:AT|@)\s*\d+\b', ' [WIND_TEXT] ', text)
 
     # 12. Clean up placeholder markers (we used them to prevent re-matching)
-    text = re.sub(r'\[(?:RVR|WIND|WIND_VAR|WS|TIME|ALT|TEMP|VIS|VIS_DIR|VIS_M|CLD|WX|WIND_TEXT)\]', '', text)
+    text = re.sub(r'\[(?:VERBOSE_RVR|TWY_WARNING|RVR|WIND|WIND_VAR|WS|TIME|ALT|TEMP|VIS|VIS_DIR|VIS_M|CLD|WX|WIND_TEXT)\]', '', text)
 
     # 13. Clean up extra whitespace
     text = re.sub(r'\s+', ' ', text).strip()
@@ -372,18 +387,23 @@ def parse_runway_assignments(atis_text: str) -> tuple[set[str], set[str]]:
 
     # Pattern 6: European "RUNWAY(S) IN USE" format
     # e.g., "RUNWAY IN USE 22", "RUNWAYS IN USE 25R AND 25L"
+    # Note: "RUNWAYS IN USE" typically means BOTH arr/dep unless explicitly qualified
+    # The ATIS type (ARRIVAL/DEPARTURE INFORMATION) indicates the broadcast type,
+    # NOT that runways are exclusive to that operation type.
     in_use_pattern = r'(?:RUNWAY?S?|RWY)\s+(?:IN\s+USE|ACTIVE)\s+([0-3]?\d[LRC]?(?:\s*(?:AND|,|/)\s*[0-3]?\d?[LRC]?)*)'
     for match in re.finditer(in_use_pattern, text, re.IGNORECASE):
         runways = _extract_runway_numbers(match.group(1))
-        # Check context for arrival/departure indication
-        context_start = max(0, match.start() - 100)
+        # Check immediate context for arrival/departure indication
+        context_start = max(0, match.start() - 50)
         context = text[context_start:match.start()].upper()
-        if 'ARRIVAL' in context or 'ARR ' in context:
+
+        # Only restrict if there's explicit "FOR ARR" or "FOR DEP" context
+        if ' FOR ARR' in context or 'ARRIVAL ' in context[-20:]:
             landing_runways.update(runways)
-        elif 'DEPARTURE' in context or 'DEP ' in context:
+        elif ' FOR DEP' in context or 'DEPARTURE ' in context[-20:]:
             departing_runways.update(runways)
         else:
-            # Default to both if no context
+            # Default to both - "RUNWAYS IN USE" means all operations
             landing_runways.update(runways)
             departing_runways.update(runways)
 

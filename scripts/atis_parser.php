@@ -358,7 +358,7 @@ function parseAtisRunways(string $atisText): array {
 }
 
 /**
- * Filter ATIS text to remove METAR data.
+ * Filter ATIS text to remove METAR data and false positive sources.
  */
 function filterAtisText(string $text): string {
     $text = strtoupper($text);
@@ -367,11 +367,26 @@ function filterAtisText(string $text): string {
     $text = preg_replace('/\.\s*(?:METAR|SPECI)\s+\d{6}Z.*$/i', ' ', $text);
     $text = preg_replace('/\s+RMK\s+.*/i', ' ', $text);
 
+    // Verbose RVR sections (European ATIS format)
+    // "RUNWAY VISUAL RANGE RUNWAY 25R MORE THAN 2000 METERS NEUTRAL RUNWAY 25C..."
+    // This reports visibility for runways but is NOT a runway assignment
+    $text = preg_replace('/RUNWAY\s+VISUAL\s+RANGE\s+(?:RUNWAY\s+\d{2}[LRC]?\s+(?:MORE\s+THAN\s+|LESS\s+THAN\s+)?\d+\s+(?:METERS?|FT|FEET)\s*(?:NEUTRAL|RISING|FALLING|VARYING|[UDN])?\s*)+/i', ' ', $text);
+
+    // Taxiway confusion warnings - "DO NOT MISTAKE TWY MIKE FOR RWY 25C"
+    // This is a warning, not a runway assignment
+    $text = preg_replace('/DO\s+NOT\s+MISTAKE\s+(?:TWY|TAXIWAY)\s+\w+\s+FOR\s+(?:RWY|RUNWAY)\s+\d{2}[LRC]?/i', ' ', $text);
+
+    // Coded RVR (METAR format): R27L/0800, R09/P2000FT
+    $text = preg_replace('/\bR\d{2}[LRC]?\/[PM]?\d{4}(?:FT|V[PM]?\d{4}(?:FT)?)?(?:\/[UDN])?\b/i', ' ', $text);
+
     // Remove weather elements
     $text = preg_replace('/\b[AQ]\s*\d{4}\b/', '', $text);  // Altimeter
     $text = preg_replace('/\bM?\d{2}\/M?\d{2}\b/', '', $text);  // Temp/dew
     $text = preg_replace('/\bP?\d+SM\b/', '', $text);  // Visibility
     $text = preg_replace('/\b(?:VRB|\d{3})\d{2}(?:G\d{2})?KT\b/', '', $text);  // Wind
+
+    // Wind shear sections - "WS ALL RWY" or "WS RWY 27L"
+    $text = preg_replace('/\bWS\s+(?:ALL\s+)?(?:RWY|RWYS?|RUNWAY)\b[^.]*/', ' ', $text);
 
     return $text;
 }
