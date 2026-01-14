@@ -4,7 +4,7 @@
 // Establishes connections to the primary MySQL database
 // and (optionally) the ADL Azure SQL database.
 
-include("config.php");
+include_once("config.php");
 
 // -------------------------------------------------------------------------
 // Helper for ADL SQL Server error messages (used by Azure SQL connection)

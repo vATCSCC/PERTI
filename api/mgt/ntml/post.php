@@ -23,6 +23,25 @@ function ntml_debug_log($message, $data = null) {
     @file_put_contents($logFile, $entry . "\n", FILE_APPEND);
 }
 
+// Register shutdown function to catch fatal errors
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ntml_debug_log('FATAL ERROR', $error);
+    }
+});
+
+// Set error handler for non-fatal errors
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    ntml_debug_log('PHP Error', [
+        'errno' => $errno,
+        'errstr' => $errstr,
+        'errfile' => $errfile,
+        'errline' => $errline
+    ]);
+    return false; // Let PHP handle it normally too
+});
+
 ntml_debug_log('=== NTML POST Request Started ===');
 ntml_debug_log('POST data received', $_POST);
 
@@ -37,11 +56,11 @@ ntml_debug_log('Session started', ['session_id' => session_id()]);
 // Load dependencies
 try {
     ntml_debug_log('Loading config.php');
-    include("../../../load/config.php");
+    include_once("../../../load/config.php");
     ntml_debug_log('config.php loaded successfully');
     
     ntml_debug_log('Loading connect.php');
-    include("../../../load/connect.php");
+    include_once("../../../load/connect.php");
     ntml_debug_log('connect.php loaded successfully');
     
     ntml_debug_log('Loading DiscordAPI.php');
