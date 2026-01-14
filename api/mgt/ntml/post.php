@@ -1,7 +1,7 @@
 <?php
 /**
  * NTML Protocol Form - API Endpoint
- * Posts NTML entries to Discord via bot
+ * Posts NTML entries to Discord via bot using existing DiscordAPI
  */
 
 header('Content-Type: application/json');
@@ -12,8 +12,14 @@ if (session_status() == PHP_SESSION_NONE) {
     ob_start();
 }
 
-include("../../../load/config.php");
-include("../../../load/connect.php");
+// Use realpath for includes to ensure paths resolve correctly
+$config_path = realpath(__DIR__ . '/../../../load/config.php');
+$connect_path = realpath(__DIR__ . '/../../../load/connect.php');
+$discord_api_path = realpath(__DIR__ . '/../../../load/discord/DiscordAPI.php');
+
+if ($config_path) require_once($config_path);
+if ($connect_path) require_once($connect_path);
+if ($discord_api_path) require_once($discord_api_path);
 
 // Response helper
 function sendResponse($success, $data = [], $error = null) {
@@ -51,39 +57,41 @@ if (!isset($_POST['protocol']) || !isset($_POST['determinant'])) {
     sendResponse(false, [], 'Missing required fields');
 }
 
+// Initialize Discord API
+$discord = new DiscordAPI();
+
+if (!$discord->isConfigured()) {
+    http_response_code(503);
+    sendResponse(false, [], 'Discord integration not configured');
+}
+
 // Get form data
 $protocol = strip_tags($_POST['protocol']);
 $determinant = strip_tags($_POST['determinant']);
 $production = isset($_POST['production']) && $_POST['production'] === '1';
 
-// Get channel configuration
-$channels = json_decode(DISCORD_CHANNELS, true);
-
-// Determine target channel
-// Production uses primary TMI channel, test uses the same (backup) for now
-// To add production channels, add 'ntml_prod' to DISCORD_CHANNELS in config.php
-$channel = $production 
-    ? ($channels['ntml_prod'] ?? $channels['tmi']) 
-    : $channels['tmi'];
+// Determine target channel - use 'tmi' channel for NTML posts
+// Production could use a different channel if configured
+$channel = $production ? 'tmi' : 'tmi';  // Both use tmi for now (backup staging)
 
 // Build message based on protocol type
 $message = buildNTMLMessage($protocol, $_POST);
 
-// Post to Discord
-$result = postToDiscord($channel, $message);
+// Post to Discord using the DiscordAPI class
+$result = $discord->createMessage($channel, ['content' => $message]);
 
-if ($result['success']) {
+if ($result !== null && isset($result['id'])) {
     // Log to database
-    logNTMLEntry($protocol, $determinant, $_POST, $result['message_id'], $production);
+    logNTMLEntry($protocol, $determinant, $_POST, $result['id'], $production);
     
     $channelName = $production ? 'Production NTML' : 'Test/Staging';
     sendResponse(true, [
         'channel' => $channelName,
-        'message_id' => $result['message_id']
+        'message_id' => $result['id']
     ]);
 } else {
     http_response_code(500);
-    sendResponse(false, [], $result['error']);
+    sendResponse(false, [], $discord->getLastError() ?? 'Failed to post to Discord');
 }
 
 // ============================================
@@ -270,56 +278,13 @@ function buildConfigMessage($determinant, $data, $timestamp) {
 }
 
 // ============================================
-// DISCORD API FUNCTIONS
-// ============================================
-
-function postToDiscord($channelId, $message) {
-    $url = DISCORD_API_BASE . "/channels/$channelId/messages";
-    
-    $headers = [
-        "Authorization: Bot " . DISCORD_BOT_TOKEN,
-        "Content-Type: application/json",
-        "User-Agent: PERTI-NTML/1.0"
-    ];
-    
-    $body = json_encode([
-        'content' => $message
-    ]);
-    
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-    
-    if ($error) {
-        return ['success' => false, 'error' => "cURL error: $error"];
-    }
-    
-    $data = json_decode($response, true);
-    
-    if ($httpCode >= 200 && $httpCode < 300 && isset($data['id'])) {
-        return ['success' => true, 'message_id' => $data['id']];
-    } else {
-        $errorMsg = isset($data['message']) ? $data['message'] : "Discord API error (HTTP $httpCode)";
-        return ['success' => false, 'error' => $errorMsg];
-    }
-}
-
-// ============================================
 // DATABASE LOGGING
 // ============================================
 
 function logNTMLEntry($protocol, $determinant, $data, $messageId, $isProduction) {
     global $conn_sqli;
+    
+    if (!$conn_sqli) return;
     
     // Sanitize data for JSON storage
     $safeData = array_map('strip_tags', $data);
@@ -330,7 +295,7 @@ function logNTMLEntry($protocol, $determinant, $data, $messageId, $isProduction)
     
     // Check if ntml_entries table exists, create if not
     $tableCheck = $conn_sqli->query("SHOW TABLES LIKE 'ntml_entries'");
-    if ($tableCheck->num_rows === 0) {
+    if ($tableCheck && $tableCheck->num_rows === 0) {
         createNTMLTable($conn_sqli);
     }
     
@@ -363,4 +328,3 @@ function createNTMLTable($conn) {
     
     $conn->query($sql);
 }
-?>
