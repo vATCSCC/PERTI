@@ -814,6 +814,35 @@ include("load/connect.php");
 <script src="assets/js/demand.js"></script>
 
 <script>
+    /**
+     * Format config name for display
+     * Parses "ARR / DEP" pattern and adds explicit labels
+     */
+    function formatConfigName(configName, arrRunways, depRunways) {
+        if (!configName) return '--';
+
+        // Check if it's a simple descriptive name
+        const flowKeywords = ['Flow', 'Config', 'Standard', 'Primary', 'Secondary', 'Alternate'];
+        const isSimpleName = !configName.includes('/') ||
+            /^[A-Za-z]+ Flow$/i.test(configName) ||
+            /^(North|South|East|West|Mixed|Balanced)/i.test(configName) ||
+            flowKeywords.some(kw => configName.toLowerCase().includes(kw.toLowerCase()));
+
+        if (isSimpleName) {
+            return configName;
+        }
+
+        // Parse "ARR / DEP" pattern
+        const match = configName.match(/^(.+?)\s*\/\s*(.+)$/);
+        if (match) {
+            const arrPart = match[1].trim().replace(/\//g, ' ');
+            const depPart = match[2].trim().replace(/\//g, ' ');
+            return `ARR: ${arrPart} | DEP: ${depPart}`;
+        }
+
+        return configName;
+    }
+
     // Chart view toggle button handler
     $('.demand-view-btn').on('click', function() {
         // Remove active class from all buttons
@@ -906,7 +935,8 @@ include("load/connect.php");
                 ? ` (AAR: ${cfg.current_aar || '-'} / ADR: ${cfg.current_adr || '-'})`
                 : '';
             const selected = cfg.config_id === currentConfigId ? 'selected' : '';
-            configOptions += `<option value="${cfg.config_id}" data-aar="${cfg.current_aar || ''}" data-adr="${cfg.current_adr || ''}" ${selected}>${cfg.config_name}${rateInfo}</option>`;
+            const displayName = formatConfigName(cfg.config_name, cfg.arr_runways, cfg.dep_runways);
+            configOptions += `<option value="${cfg.config_id}" data-aar="${cfg.current_aar || ''}" data-adr="${cfg.current_adr || ''}" ${selected}>${displayName}${rateInfo}</option>`;
         });
         configOptions += '<option value="custom">Custom Rates...</option>';
 

@@ -4,6 +4,39 @@
  */
 
 // ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Format config name for display
+ * Parses "ARR / DEP" pattern and adds explicit labels
+ */
+window.formatConfigName = function(configName, arrRunways, depRunways) {
+    if (!configName) return '--';
+
+    // Check if it's a simple descriptive name
+    const flowKeywords = ['Flow', 'Config', 'Standard', 'Primary', 'Secondary', 'Alternate'];
+    const isSimpleName = !configName.includes('/') ||
+        /^[A-Za-z]+ Flow$/i.test(configName) ||
+        /^(North|South|East|West|Mixed|Balanced)/i.test(configName) ||
+        flowKeywords.some(kw => configName.toLowerCase().includes(kw.toLowerCase()));
+
+    if (isSimpleName) {
+        return configName;
+    }
+
+    // Parse "ARR / DEP" pattern
+    const match = configName.match(/^(.+?)\s*\/\s*(.+)$/);
+    if (match) {
+        const arrPart = match[1].trim().replace(/\//g, ' ');
+        const depPart = match[2].trim().replace(/\//g, ' ');
+        return `ARR: ${arrPart} | DEP: ${depPart}`;
+    }
+
+    return configName;
+};
+
+// ============================================================================
 // DemandChartCore - Reusable chart rendering functions
 // Used by both demand.php and gdt.php
 // ============================================================================
@@ -1270,8 +1303,9 @@ function updateRateInfoDisplay(rateData) {
 
     // Config name with tooltip showing full details
     const configName = rateData.config_name || '--';
+    const displayName = window.formatConfigName(configName, rateData.arr_runways, rateData.dep_runways);
     const $configEl = $('#rate_config_name');
-    $configEl.text(configName);
+    $configEl.text(displayName);
 
     // Populate runway display fields (dep on top, arr below)
     const arrRunways = rateData.arr_runways || '--';
@@ -1283,8 +1317,8 @@ function updateRateInfoDisplay(rateData) {
     let tooltip = configName;
     if (rateData.arr_runways || rateData.dep_runways) {
         tooltip += '\n';
-        if (rateData.arr_runways) tooltip += `Arr: ${rateData.arr_runways}\n`;
-        if (rateData.dep_runways) tooltip += `Dep: ${rateData.dep_runways}`;
+        if (rateData.arr_runways) tooltip += `ARR: ${rateData.arr_runways}\n`;
+        if (rateData.dep_runways) tooltip += `DEP: ${rateData.dep_runways}`;
     }
     // Add override info to tooltip
     if (rateData.has_override && rateData.override_reason) {
