@@ -243,6 +243,10 @@ python atis_daemon.py
 | [089_config_api_procs.sql](../adl/migrations/089_config_api_procs.sql) | [OK] Deployed | Airport config API procedures |
 | [090_runway_sync_proc.sql](../adl/migrations/090_runway_sync_proc.sql) | [OK] Deployed | Runway-in-use synchronization |
 | [091_rate_history_table.sql](../adl/migrations/091_rate_history_table.sql) | [OK] Deployed | Rate change audit trail |
+| [092_config_modifiers_schema.sql](../adl/migrations/092_config_modifiers_schema.sql) | [OK] Deployed | Structured modifier system for runway configs |
+| [093_config_modifiers_data_migration.sql](../adl/migrations/093_config_modifiers_data_migration.sql) | [OK] Deployed | Data migration for config modifiers |
+| [094_fix_stale_atis_combination.sql](../adl/migrations/094_fix_stale_atis_combination.sql) | [OK] Deployed | ARR/DEP ATIS age validation |
+| [095_atis_type_priority.sql](../adl/migrations/095_atis_type_priority.sql) | [OK] Deployed | ATIS source priority logic (ARR+DEP > COMB > single) |
 
 ### PERTI MySQL Migrations
 

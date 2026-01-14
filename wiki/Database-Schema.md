@@ -100,6 +100,26 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 | `runway_in_use` | Current runway assignments |
 | `manual_rate_override` | Manual rate overrides |
 | `rate_history` | Rate change audit trail |
+| `vatsim_atis` | Raw ATIS broadcasts with weather |
+
+### Config Modifiers (v17)
+
+| Table | Purpose |
+|-------|---------|
+| `modifier_category` | Modifier categories (PARALLEL_OPS, APPROACH_TYPE, etc.) |
+| `modifier_type` | Modifier definitions (SIMOS, ILS, CAT_II, etc.) |
+| `config_modifier` | Links modifiers to configs/runways |
+
+### ATIS Views (v17)
+
+| View | Purpose |
+|------|---------|
+| `vw_current_atis_by_type` | Current ATIS records by airport and type |
+| `vw_effective_atis` | Effective ATIS source decision (ARR+DEP > COMB) |
+| `vw_current_runways_in_use` | Active runway assignments |
+| `vw_current_airport_config` | Current config summary |
+| `vw_config_with_modifiers` | Configs with aggregated modifiers |
+| `vw_runway_with_modifiers` | Runways with aggregated modifiers |
 
 ### ATFM Simulator Reference (v17)
 

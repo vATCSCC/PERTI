@@ -1,6 +1,6 @@
 # vATCSCC PERTI — Codebase Index (v17)
 
-Generated: 2026-01-13 UTC
+Generated: 2026-01-14 UTC
 
 This index is a comprehensive reference for navigation, call graphs, and high-signal files.
 
@@ -949,6 +949,25 @@ Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
 | `detected_runway_config` | Flight-track-based runway detection |
 | `runway_heading_ref` | Heading-to-runway mapping |
 | `manual_rate_override` | Controller rate overrides with time windows |
+| `modifier_category` | Config modifier categories (PARALLEL_OPS, APPROACH_TYPE, etc.) — NEW v17 |
+| `modifier_type` | Modifier type definitions (SIMOS, ILS, CAT_II, etc.) — NEW v17 |
+| `config_modifier` | Links modifiers to configs/runways — NEW v17 |
+
+### Key Views (Azure SQL)
+
+| View | Purpose |
+|------|---------|
+| `vw_airport_config_summary` | Config with runway strings |
+| `vw_airport_config_rates` | Pivoted rate tables |
+| `vw_current_runways_in_use` | Active runway assignments (2-hour ATIS age filter) |
+| `vw_current_airport_config` | Current config summary with ARR/DEP combination logic |
+| `vw_current_atis_weather` | Latest ATIS weather |
+| `vw_current_detected_config` | Latest flight-based detection |
+| `vw_current_rate_overrides` | Active/upcoming overrides |
+| `vw_current_atis_by_type` | Current ATIS records by airport and type — NEW v17 |
+| `vw_effective_atis` | Effective ATIS source decision (ARR+DEP > COMB > single) — NEW v17 |
+| `vw_config_with_modifiers` | Configs with aggregated modifiers — NEW v17 |
+| `vw_runway_with_modifiers` | Runways with aggregated modifiers — NEW v17 |
 
 ### Key Stored Procedures
 
@@ -983,6 +1002,30 @@ Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
 - **IMC** — Instrument Meteorological Conditions
 - **LIMC** — Low IMC (ceiling 200-500 ft or vis 1/2-1 sm)
 - **VLIMC** — Very Low IMC (ceiling <200 ft or vis <1/2 sm)
+
+### ATIS Type Priority Logic (NEW v17)
+
+When selecting which ATIS source(s) to use for runway configuration:
+
+1. **ARR + DEP** — When both are current and within 30 mins of each other (Priority 1)
+2. **COMB** — Consolidated ATIS if available (Priority 2)
+3. **ARR_ONLY** — Single arrival ATIS when no DEP available (Priority 3)
+4. **DEP_ONLY** — Single departure ATIS when no ARR available (Priority 4)
+
+The `vw_effective_atis` view implements this logic and provides weather data from the best available source (preferring ARR for weather since it affects arrivals most).
+
+### Config Modifier Categories (NEW v17)
+
+| Category | Purpose | Examples |
+|----------|---------|----------|
+| `PARALLEL_OPS` | Parallel runway approach types | SIMOS, PRM, CSPR, SOIA |
+| `APPROACH_TYPE` | Instrument approach procedures | ILS, RNAV, RNP, GLS |
+| `TRAFFIC_BIAS` | Arrival/departure balance | ARR_ONLY, DEP_ONLY, MIXED |
+| `VISIBILITY_CAT` | ILS categories | CAT_I, CAT_II, CAT_III |
+| `SPECIAL_OPS` | Special operational procedures | LAHSO, CIRCLING, CONVERGING |
+| `TIME_RESTRICT` | Time-based restrictions | DAY, NIGHT, CURFEW |
+| `WEATHER_OPS` | Weather/seasonal conditions | WINTER, NOISE, TSTM |
+| `NAMED` | Named configuration variants | Named variant identifiers |
 
 ---
 
@@ -1122,6 +1165,21 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
     - 089: `atis_weather_columns.sql`, `atis_backfill_reparse.sql`
     - 090: `detected_runway_config.sql`
     - 091: `manual_rate_overrides.sql`
+    - 092: `config_modifiers_schema.sql` — Structured modifier system for runway configs
+    - 093: `config_modifiers_data_migration.sql` + fix patches (093a-d)
+    - 094: `fix_stale_atis_combination.sql` — ARR/DEP combination age validation
+    - 095: `atis_type_priority.sql` — ATIS source priority logic (ARR+DEP > COMB > single)
+  - **New Tables (092-095):**
+    - `modifier_category` — Config modifier categories (8 categories)
+    - `modifier_type` — Modifier type definitions (~40 types)
+    - `config_modifier` — Links modifiers to configs/runways
+  - **New Views (094-095):**
+    - `vw_current_atis_by_type` — Current ATIS records by airport and type
+    - `vw_effective_atis` — Effective ATIS source decision
+    - `vw_config_with_modifiers` — Configs with aggregated modifiers
+    - `vw_runway_with_modifiers` — Runways with aggregated modifiers
+  - **Updated Procedures:**
+    - `sp_GetSuggestedRates` — Now uses effective ATIS source for weather data
   - **New Documentation:**
     - `docs/ATFM_Simulator_Design_Document_v1.md`
     - `docs/ATFM_Simulator_Deployment_2026-01-12.md`
@@ -1284,6 +1342,9 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `sim_ref_carrier_lookup` | 17 US carriers with IATA/ICAO codes (NEW v17) |
 | `sim_ref_route_patterns` | 3,989 O-D routes with hourly patterns (NEW v17) |
 | `sim_ref_airport_demand` | 107 airports with demand curves (NEW v17) |
+| `modifier_category` | Config modifier categories (NEW v17) |
+| `modifier_type` | Modifier type definitions (NEW v17) |
+| `config_modifier` | Config/runway modifier assignments (NEW v17) |
 
 ### Views
 
@@ -1299,6 +1360,13 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `vw_GDT_DemandByCenter` | Demand by ARTCC (NEW v15) |
 | `vw_NTML_Active` | Active TMI programs (NEW v15) |
 | `vw_NTML_Today` | Today's TMI programs (NEW v15) |
+| `vw_airport_config_summary` | Config with runway strings (NEW v16) |
+| `vw_current_runways_in_use` | Active runway assignments (NEW v16) |
+| `vw_current_airport_config` | Current config summary (NEW v16) |
+| `vw_current_atis_by_type` | Current ATIS by airport and type (NEW v17) |
+| `vw_effective_atis` | Effective ATIS source decision (NEW v17) |
+| `vw_config_with_modifiers` | Configs with aggregated modifiers (NEW v17) |
+| `vw_runway_with_modifiers` | Runways with aggregated modifiers (NEW v17) |
 
 ---
 
