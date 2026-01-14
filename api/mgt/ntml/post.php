@@ -8,16 +8,51 @@
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 
+// Debug logging function - writes to /home/LogFiles/ntml_debug.log on Azure
+function ntml_debug_log($message, $data = null) {
+    $logFile = '/home/LogFiles/ntml_debug.log';
+    // Fallback to local dir if /home/LogFiles doesn't exist
+    if (!is_dir('/home/LogFiles')) {
+        $logFile = __DIR__ . '/ntml_debug.log';
+    }
+    $timestamp = date('Y-m-d H:i:s');
+    $entry = "[$timestamp] $message";
+    if ($data !== null) {
+        $entry .= " | Data: " . json_encode($data);
+    }
+    @file_put_contents($logFile, $entry . "\n", FILE_APPEND);
+}
+
+ntml_debug_log('=== NTML POST Request Started ===');
+ntml_debug_log('POST data received', $_POST);
+
 // Session Start
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
     ob_start();
 }
 
+ntml_debug_log('Session started', ['session_id' => session_id()]);
+
 // Load dependencies
-include("../../../load/config.php");
-include("../../../load/connect.php");
-include("../../../load/discord/DiscordAPI.php");
+try {
+    ntml_debug_log('Loading config.php');
+    include("../../../load/config.php");
+    ntml_debug_log('config.php loaded successfully');
+    
+    ntml_debug_log('Loading connect.php');
+    include("../../../load/connect.php");
+    ntml_debug_log('connect.php loaded successfully');
+    
+    ntml_debug_log('Loading DiscordAPI.php');
+    include("../../../load/discord/DiscordAPI.php");
+    ntml_debug_log('DiscordAPI.php loaded successfully');
+} catch (Exception $e) {
+    ntml_debug_log('ERROR loading dependencies', ['error' => $e->getMessage()]);
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Dependency load error: ' . $e->getMessage()]);
+    exit();
+}
 
 // Response helper
 function sendResponse($success, $data = [], $error = null) {
@@ -30,6 +65,7 @@ function sendResponse($success, $data = [], $error = null) {
 }
 
 // Check Perms
+ntml_debug_log('Checking permissions', ['DEV_defined' => defined('DEV'), 'session_cid' => $_SESSION['VATSIM_CID'] ?? 'NOT SET']);
 $perm = false;
 if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
@@ -37,20 +73,29 @@ if (!defined('DEV')) {
         $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
         if ($p_check) {
             $perm = true;
+            ntml_debug_log('Permission granted via session CID', ['cid' => $cid]);
+        } else {
+            ntml_debug_log('Permission denied - user query failed', ['cid' => $cid]);
         }
+    } else {
+        ntml_debug_log('Permission denied - no session CID');
     }
 } else {
     $perm = true;
     $_SESSION['VATSIM_CID'] = 0;
+    ntml_debug_log('Permission granted via DEV mode');
 }
 
 if (!$perm) {
+    ntml_debug_log('REJECTED - Unauthorized access');
     http_response_code(403);
     sendResponse(false, [], 'Unauthorized access');
 }
 
 // Validate required fields
+ntml_debug_log('Validating required fields');
 if (!isset($_POST['protocol']) || !isset($_POST['determinant'])) {
+    ntml_debug_log('REJECTED - Missing required fields', ['has_protocol' => isset($_POST['protocol']), 'has_determinant' => isset($_POST['determinant'])]);
     http_response_code(400);
     sendResponse(false, [], 'Missing required fields');
 }
@@ -59,18 +104,27 @@ if (!isset($_POST['protocol']) || !isset($_POST['determinant'])) {
 $protocol = strip_tags($_POST['protocol']);
 $determinant = strip_tags($_POST['determinant']);
 $production = isset($_POST['production']) && $_POST['production'] === '1';
+ntml_debug_log('Form data extracted', ['protocol' => $protocol, 'determinant' => $determinant, 'production' => $production]);
 
 // Initialize Discord API
+ntml_debug_log('Initializing Discord API');
 $discord = new DiscordAPI();
+ntml_debug_log('Discord API initialized', [
+    'configured' => $discord->isConfigured(),
+    'tmi_channel' => $discord->getChannelByPurpose('tmi')
+]);
 
 // Check if Discord is configured
 if (!$discord->isConfigured()) {
+    ntml_debug_log('ERROR - Discord not configured');
     http_response_code(500);
     sendResponse(false, [], 'Discord integration not configured');
 }
 
 // Build message based on protocol type
+ntml_debug_log('Building message for protocol: ' . $protocol);
 $message = buildNTMLMessage($protocol, $_POST);
+ntml_debug_log('Message built', ['message_length' => strlen($message), 'message_preview' => substr($message, 0, 100)]);
 
 // Add test prefix for non-production
 if (!$production) {
@@ -78,9 +132,16 @@ if (!$production) {
 }
 
 // Post to Discord using the 'tmi' channel
+ntml_debug_log('Sending to Discord tmi channel');
 $result = $discord->createMessage('tmi', ['content' => $message]);
+ntml_debug_log('Discord API response', [
+    'result' => $result,
+    'last_error' => $discord->getLastError(),
+    'last_http_code' => $discord->getLastHttpCode()
+]);
 
 if ($result !== null && isset($result['id'])) {
+    ntml_debug_log('SUCCESS - Message posted', ['message_id' => $result['id']]);
     // Log to database
     logNTMLEntry($protocol, $determinant, $_POST, $result['id'], $production);
     
@@ -92,6 +153,7 @@ if ($result !== null && isset($result['id'])) {
 } else {
     $error = $discord->getLastError() ?: 'Unknown Discord API error';
     $httpCode = $discord->getLastHttpCode();
+    ntml_debug_log('FAILED - Discord API error', ['error' => $error, 'http_code' => $httpCode]);
     
     http_response_code(500);
     sendResponse(false, [], "Discord API error: $error (HTTP $httpCode)");

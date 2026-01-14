@@ -1,6 +1,19 @@
 /**
- * NTML Quick Entry - Streamlined Client-Side Logic
- * Enhanced NLP parsing, batch processing, validation prompts
+ * NTML Quick Entry - Enhanced NLP Parser v2.0
+ * Supports all 13 TMI types based on historical NTML analysis
+ * 
+ * TMI Types Supported:
+ * - MIT (Miles-In-Trail)
+ * - MINIT (Minutes-In-Trail)
+ * - STOP (Flow Stoppage)
+ * - APREQ/CFR (Approval Request/Call for Release)
+ * - TBM (Time-Based Metering)
+ * - CANCEL (TMI Cancellation)
+ * - E/D, A/D, D/D (Expected/Arrival/Departure Delay with Holding)
+ * - CONFIG (Airport Configuration)
+ * - REROUTE (Route Changes)
+ * - GS/GDP (Ground Stop/Ground Delay Program)
+ * - OTHER (Planning, Alt restrictions, etc.)
  */
 
 // ============================================
@@ -14,41 +27,112 @@ const ARTCCS = {
     'ZKC': 'Kansas City Center', 'ZLA': 'Los Angeles Center', 'ZLC': 'Salt Lake Center',
     'ZMA': 'Miami Center', 'ZME': 'Memphis Center', 'ZMP': 'Minneapolis Center',
     'ZNY': 'New York Center', 'ZOA': 'Oakland Center', 'ZOB': 'Cleveland Center',
-    'ZSE': 'Seattle Center', 'ZTL': 'Atlanta Center'
+    'ZSE': 'Seattle Center', 'ZTL': 'Atlanta Center',
+    // Canadian
+    'CZY': 'Gander Oceanic', 'CZM': 'Montreal Center', 'CZZ': 'Toronto Center',
+    'CZE': 'Edmonton Center', 'CZV': 'Vancouver Center', 'CZW': 'Winnipeg Center'
 };
 
 const TRACONS = {
     'A80': 'Atlanta TRACON', 'A90': 'Boston TRACON', 'C90': 'Chicago TRACON',
     'D01': 'Denver TRACON', 'D10': 'Dallas TRACON', 'D21': 'Detroit TRACON',
-    'I90': 'Houston TRACON', 'L30': 'Las Vegas TRACON', 'M98': 'Minneapolis TRACON',
-    'N90': 'New York TRACON', 'NCT': 'NorCal TRACON', 'P50': 'Phoenix TRACON',
-    'P80': 'Portland TRACON', 'PCT': 'Potomac TRACON', 'S46': 'Seattle TRACON',
-    'SCT': 'SoCal TRACON', 'Y90': 'Yankee TRACON'
+    'F11': 'Miami TRACON', 'I90': 'Houston TRACON', 'L30': 'Las Vegas TRACON', 
+    'M98': 'Minneapolis TRACON', 'N90': 'New York TRACON', 'NCT': 'NorCal TRACON', 
+    'P50': 'Phoenix TRACON', 'P80': 'Portland TRACON', 'PCT': 'Potomac TRACON', 
+    'S46': 'Seattle TRACON', 'SCT': 'SoCal TRACON', 'Y90': 'Yankee TRACON',
+    // Towers that appear in NTML
+    'MIA': 'Miami Tower', 'JFK': 'JFK Tower', 'EWR': 'Newark Tower', 
+    'LGA': 'LaGuardia Tower', 'ORD': 'O\'Hare Tower', 'ATL': 'Atlanta Tower',
+    'DFW': 'Dallas Tower', 'LAX': 'Los Angeles Tower', 'SFO': 'San Francisco Tower',
+    'DEN': 'Denver Tower', 'SEA': 'Seattle Tower', 'PHX': 'Phoenix Tower'
 };
 
 const MAJOR_AIRPORTS = [
-    'ATL', 'BOS', 'BWI', 'CLT', 'DCA', 'DEN', 'DFW', 'DTW', 'EWR', 'FLL', 
-    'IAD', 'IAH', 'JFK', 'LAS', 'LAX', 'LGA', 'MCO', 'MDW', 'MIA', 'MSP', 
-    'ORD', 'PHL', 'PHX', 'SAN', 'SEA', 'SFO', 'SLC', 'TPA'
+    'ABQ', 'ATL', 'AUS', 'BDL', 'BNA', 'BOS', 'BWI', 'CLE', 'CLT', 'CMH', 
+    'CVG', 'DAL', 'DCA', 'DEN', 'DFW', 'DTW', 'EWR', 'FLL', 'GEG', 'HNL',
+    'HOU', 'IAD', 'IAH', 'IND', 'ISP', 'JAX', 'JFK', 'LAS', 'LAX', 
+    'LGA', 'MCI', 'MCO', 'MDW', 'MEM', 'MIA', 'MKE', 'MSP', 'MSY', 'OAK',
+    'OKC', 'ORD', 'PDX', 'PHL', 'PHX', 'PIT', 'RDU', 'RSW', 'SAN', 'SAT',
+    'SDF', 'SEA', 'SFO', 'SJC', 'SLC', 'SMF', 'SNA', 'STL', 'TEB', 'TPA',
+    'TUS', 'YYZ', 'YYJ', 'YVR'
 ];
 
-// Common fixes/waypoints for autocomplete
+// Expanded fixes from historical NTML data
 const COMMON_FIXES = [
+    // NY Metro
     'CAMRN', 'LENDY', 'BIGGY', 'MERIT', 'DIXIE', 'COATE', 'NEION', 'GAYEL',
     'KORRY', 'LANNA', 'PARCH', 'ROBER', 'SKIPY', 'WAVEY', 'WHITE', 'ZIGGI',
-    'BETTE', 'PARKE', 'GREKI', 'JUDDS', 'VALRE', 'ELIOT', 'LEEAH', 'HAAYS'
+    'BETTE', 'PARKE', 'GREKI', 'JUDDS', 'VALRE', 'ELIOT', 'LEEAH', 'HAAYS',
+    'HAARP', 'FLOSI', 'PHLBO', 'FQM', 'MIP', 'LVZ', 'JAIKE', 'MAZIE',
+    // Florida
+    'CIGAR', 'BAGGS', 'CODGR', 'JUULI', 'BALKE', 'SLOJO', 'WALET', 'JORAY',
+    'HIBAC', 'CRANS', 'SSCOT', 'CURSO', 'QUBEN', 'MARQO', 'OHDEA', 'LUNNI',
+    // Atlanta
+    'CHPPR', 'GLAVN', 'BOBZY',
+    // West Coast
+    'SERFR', 'DYAMD', 'BDEGA', 'PIRAT', 'SUUTR', 'SLMMR', 'SILCN', 'RAZRR',
+    'BRIXX', 'TUDOR', 'HAWKZ', 'RADDY', 'JAKSN', 'GABBL', 'ESTWD', 'BURGL', 'REBRG',
+    // Central
+    'BONNT', 'KEOKK', 'CASHN', 'BENKY', 'TRTLL', 'MAGOO', 'PHEEB', 'ZZIPR',
+    'MYRRS', 'KOHLL', 'UFDUH', 'OBSTR', 'OHHMY', 'JALAP', 'SMUUV', 'EMMMA',
+    'WATSN', 'BAGEL', 'DROSE', 'JSONN', 'MNOSO', 'KKISS', 'RKCTY', 'HAYLL', 'VCTRZ',
+    // DFW
+    'TURKI', 'MDANO', 'HOFFF', 'HITUG', 'AXXEE', 'FEWWW', 'RRNET', 'YUYUN',
+    'PNUTS', 'STUFT', 'CRIED', 'GUTZZ', 'PIEPE', 'IBUFY', 'BEREE',
+    // Airways
+    'J48', 'J70', 'J146', 'J584', 'J60', 'J6', 'J75', 'J220', 'Q75', 'Q58', 
+    'Q102', 'Q818', 'Q480', 'AR21', 'AR22'
 ];
 
-const REASONS = ['WEATHER', 'VOLUME', 'RUNWAY', 'EQUIPMENT', 'OTHER', 'WX', 'VOL', 'RWY', 'EQUIP'];
-const QUALIFIERS = ['HEAVY', 'B757', 'LARGE', 'SMALL', 'EACH', 'AS_ONE', 'PER_FIX', 'AS ONE', 'PER FIX'];
-const WEATHER_CONDITIONS = ['VMC', 'LVMC', 'IMC', 'LIMC', 'VLIMC'];
+// Navaids from NTML
+const NAVAIDS = ['OMN', 'ARS', 'ENDEW', 'DEALE', 'PSB', 'FWA', 'IRK', 'FOD', 
+    'GRB', 'EKR', 'LMT', 'BAE', 'DBQ', 'ALO', 'GSO', 'JAX', 'EAU', 'SQS', 'PLL'];
 
-// Reason aliases
-const REASON_MAP = {
-    'WX': 'WEATHER', 'VOL': 'VOLUME', 'RWY': 'RUNWAY', 'EQUIP': 'EQUIPMENT',
-    'WEATHER': 'WEATHER', 'VOLUME': 'VOLUME', 'RUNWAY': 'RUNWAY', 
-    'EQUIPMENT': 'EQUIPMENT', 'OTHER': 'OTHER'
+// Expanded reason formats (from NTML analysis)
+const REASON_FORMATS = {
+    // Standard colon-separated
+    'VOLUME:VOLUME': 'VOLUME', 'VOLUME / VOLUME': 'VOLUME', 'VOLUME/VOLUME': 'VOLUME',
+    'WEATHER:WEATHER': 'WEATHER', 'WEATHER:THUNDERSTORMS': 'WEATHER',
+    'WEATHER / THUNDERSTORMS': 'WEATHER', 'WEATHER:WX': 'WEATHER',
+    'RUNWAY:CONFIG CHG': 'RUNWAY', 'RUNWAY:CONFIG': 'RUNWAY', 'RUNWAY:RWY CHG': 'RUNWAY',
+    'OTHER:OTHER': 'OTHER', 'OTHER:STAFFING': 'OTHER', 'OTHER:COORDINATION': 'OTHER',
+    // Event-specific
+    'VOLUME:FNO': 'VOLUME', 'VOLUME:EVENT': 'VOLUME', 'VOLUME:GO BLUE': 'VOLUME',
+    'VOLUME:NIGHTMARE': 'VOLUME', 'VOLUME:BLUCIFER': 'VOLUME', 'VOLUME:JOURNEY': 'VOLUME',
+    'VOLUME:NCX': 'VOLUME', 'VOLUME:EMNEM': 'VOLUME', 'VOLUME:COMPACTED DEMAND': 'VOLUME',
+    // Simple
+    'VOLUME': 'VOLUME', 'WEATHER': 'WEATHER', 'WX': 'WEATHER', 'VOL': 'VOLUME',
+    'RUNWAY': 'RUNWAY', 'RWY': 'RUNWAY', 'EQUIPMENT': 'EQUIPMENT', 'EQUIP': 'EQUIPMENT',
+    'OTHER': 'OTHER', 'STAFFING': 'OTHER', 'COORDINATION': 'OTHER'
 };
+
+// Expanded qualifiers from NTML analysis
+const QUALIFIERS = [
+    // Flow qualifiers
+    'PER FIX', 'PER AIRPORT', 'PER STREAM', 'PER ROUTE', 'PER RTE',
+    'AS ONE', 'SINGLE STREAM', 'EACH',
+    // Stack control
+    'NO STACKS',
+    // Runway
+    'RALT', 'RUNWAY ALTERNATING',
+    // Type filters
+    'TYPE:JETS', 'TYPE:ALL', 'TYPE:PROPS', 'JETS', 'PROPS',
+    // Exclusions
+    'EXCL:PROPS', 'EXCL:NONE', 'EXCL:DIVERSIONS', 'EXCL:ATL', 'EXCLROPS',
+    // Weight class
+    'HEAVY', 'B757', 'LARGE', 'SMALL',
+    // Compression
+    'NO COMP', '-10MIT NO COMP-',
+    // Sequencing
+    'AFTER'
+];
+
+const WEATHER_CONDITIONS = ['VMC', 'LVMC', 'MVMC', 'IMC', 'LIMC', 'VLIMC'];
+
+const AAR_TYPES = ['Strat', 'Dyn'];
+
+// Sector identifiers (from NTML)
+const SECTORS = ['3_WEST', 'NORTH', 'SOUTH', 'EAST', 'WEST'];
 
 // ============================================
 // STATE
@@ -112,7 +196,6 @@ function initializeEventHandlers() {
                 addFromQuickInput();
             }
         } else if (e.key === 'Tab') {
-            // Tab to accept autocomplete
             const selected = $('.autocomplete-item.selected');
             if (selected.length) {
                 e.preventDefault();
@@ -217,18 +300,32 @@ function updateModeIndicator() {
 }
 
 // ============================================
-// ENHANCED NLP PARSING ENGINE
+// ENHANCED NLP PARSING ENGINE v2.0
 // ============================================
 
+/**
+ * Main parser entry point - tries parsers in order of specificity
+ */
 function parseEntry(input) {
     input = input.trim().toUpperCase();
     if (!input) return null;
     
-    // Normalize common separators
+    // Normalize input
     input = normalizeInput(input);
     
     // Try each parser in order of specificity
-    let result = parseMIT_NLP(input) || parseMINIT_NLP(input) || parseDelay_NLP(input) || parseConfig_NLP(input);
+    let result = 
+        parseCancel_NLP(input) ||      // Check CANCEL first (can contain other keywords)
+        parseHolding_NLP(input) ||     // E/D, A/D, D/D patterns
+        parseStop_NLP(input) ||        // STOP patterns
+        parseAPREQ_NLP(input) ||       // APREQ/CFR patterns
+        parseTBM_NLP(input) ||         // TBM/Metering patterns
+        parseReroute_NLP(input) ||     // Reroute patterns
+        parseMIT_NLP(input) ||         // MIT patterns
+        parseMINIT_NLP(input) ||       // MINIT patterns
+        parseDelay_NLP(input) ||       // DELAY patterns
+        parseConfig_NLP(input) ||      // CONFIG patterns
+        parseOther_NLP(input);         // Catch-all for other types
     
     if (result) {
         result.raw = input;
@@ -239,131 +336,561 @@ function parseEntry(input) {
     return result;
 }
 
+/**
+ * Normalize input - standardize separators and formats
+ */
 function normalizeInput(input) {
-    // Normalize various separators and formats
     return input
-        .replace(/\s*:\s*/g, ':')           // ZDC : ZJX -> ZDC:ZJX
-        .replace(/\s*->\s*/g, '→')           // -> to arrow
-        .replace(/\s*>\s*/g, '→')            // > to arrow
-        .replace(/\s+TO\s+/gi, '→')          // TO to arrow
-        .replace(/\s*→\s*/g, '→')            // Clean up arrows
-        .replace(/(\d+)\s*(MIT|MINIT)/gi, '$1$2')  // 40 MIT -> 40MIT
-        .replace(/(\d+)\s*MIN\b/gi, '$1min') // 45 MIN -> 45min
-        .replace(/(\d+)\s*FLT\b/gi, '$1flt') // 12 FLT -> 12flt
+        .replace(/\s*:\s*/g, ':')              // ZDC : ZJX -> ZDC:ZJX
+        .replace(/\s*->\s*/g, '→')             // -> to arrow
+        .replace(/\s*>\s*/g, '→')              // > to arrow  
+        .replace(/\s+TO\s+(?!MIA|JFK|ATL|ORD|LAX|SFO|DFW|DEN|SEA)/gi, '→')  // TO to arrow (not before airports)
+        .replace(/\s*→\s*/g, '→')              // Clean up arrows
+        .replace(/(\d+)\s+(MIT|MINIT)/gi, '$1$2')   // 40 MIT -> 40MIT
+        .replace(/(\d+)\s*MIN\b/gi, '$1min')   // 45 MIN -> 45min
+        .replace(/(\d+)\s*FLT\b/gi, '$1flt')   // 12 FLT -> 12flt
+        .replace(/\bE\/D\b/g, 'ED')            // E/D -> ED
+        .replace(/\bA\/D\b/g, 'AD')            // A/D -> AD
+        .replace(/\bD\/D\b/g, 'DD')            // D/D -> DD
         .trim();
 }
 
 /**
- * Enhanced MIT Parser - handles many formats:
- * - 20MIT ZBW→ZNY JFK LENDY VOLUME
- * - ZMA TO JFK VIA CAMRN 40MIT ZDC:ZJX
- * - 40MIT ZDC:ZJX JFK CAMRN WEATHER
- * - JFK ARR 20MIT FROM ZBW VIA LENDY
+ * Extract time range from input (HHMM-HHMM or HHMMZ-HHMMZ)
+ */
+function extractTimeRange(input) {
+    const timePattern = input.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z?/);
+    if (timePattern) {
+        return {
+            validFrom: timePattern[1],
+            validUntil: timePattern[2],
+            remaining: input.replace(timePattern[0], ' ')
+        };
+    }
+    return {
+        validFrom: $('#validFrom').val() || '',
+        validUntil: $('#validUntil').val() || '',
+        remaining: input
+    };
+}
+
+/**
+ * Extract facility pair from input (ZDC:ZJX or ZBW→ZNY or ZBW ZNY)
+ */
+function extractFacilityPair(input) {
+    let fromFacility = null, toFacility = null;
+    let remaining = input;
+    
+    // Pattern: ZDC:ZJX,ZTL,ZHU (colon with multiple destinations)
+    const colonMulti = remaining.match(/([A-Z]{3}):([A-Z0-9,]+)/);
+    if (colonMulti) {
+        fromFacility = colonMulti[1];
+        toFacility = colonMulti[2]; // Keep the full list
+        remaining = remaining.replace(colonMulti[0], ' ');
+    }
+    
+    // Pattern: ZBW→ZNY
+    if (!fromFacility) {
+        const arrowPattern = remaining.match(/([A-Z0-9]{2,4})→([A-Z0-9]{2,4})/);
+        if (arrowPattern) {
+            fromFacility = arrowPattern[1];
+            toFacility = arrowPattern[2];
+            remaining = remaining.replace(arrowPattern[0], ' ');
+        }
+    }
+    
+    return { fromFacility, toFacility, remaining };
+}
+
+/**
+ * Extract reason from input
+ */
+function extractReason(input) {
+    // Try compound reasons first (VOLUME:VOLUME, etc.)
+    for (const [pattern, normalized] of Object.entries(REASON_FORMATS)) {
+        const regex = new RegExp('\\b' + pattern.replace(/[/:]/g, '[/:]?') + '\\b', 'i');
+        if (regex.test(input)) {
+            return {
+                reason: normalized,
+                rawReason: pattern,
+                remaining: input.replace(regex, ' ')
+            };
+        }
+    }
+    return { reason: 'VOLUME', rawReason: 'VOLUME:VOLUME', remaining: input };
+}
+
+/**
+ * Extract exclusions (EXCL:NONE, EXCL:PROPS, etc.)
+ */
+function extractExclusions(input) {
+    const exclMatch = input.match(/EXCL:([A-Z,]+)/i);
+    if (exclMatch) {
+        return {
+            exclusions: exclMatch[1],
+            remaining: input.replace(exclMatch[0], ' ')
+        };
+    }
+    return { exclusions: 'NONE', remaining: input };
+}
+
+/**
+ * Extract qualifiers from input
+ */
+function extractQualifiers(input) {
+    const found = [];
+    let remaining = input;
+    
+    // Check for AFTER [callsign] pattern
+    const afterMatch = remaining.match(/AFTER\s+([A-Z]{3}\d+)/i);
+    if (afterMatch) {
+        found.push(`AFTER ${afterMatch[1]}`);
+        remaining = remaining.replace(afterMatch[0], ' ');
+    }
+    
+    // Check for TYPE: patterns
+    const typeMatch = remaining.match(/TYPE:([A-Z]+)/i);
+    if (typeMatch) {
+        found.push(`TYPE:${typeMatch[1]}`);
+        remaining = remaining.replace(typeMatch[0], ' ');
+    }
+    
+    // Check for ALT: patterns (altitude restrictions)
+    const altMatch = remaining.match(/ALT:([A-Z0-9]+)/i);
+    if (altMatch) {
+        found.push(`ALT:${altMatch[1]}`);
+        remaining = remaining.replace(altMatch[0], ' ');
+    }
+    
+    // Check standard qualifiers
+    for (const q of QUALIFIERS) {
+        if (q === 'AFTER') continue; // Already handled
+        const normalized = q.replace(/[_\s]+/g, '[_\\s]?');
+        const regex = new RegExp('\\b' + normalized + '\\b', 'gi');
+        if (regex.test(remaining)) {
+            found.push(q.replace(/\s+/g, '_'));
+            remaining = remaining.replace(regex, ' ').trim();
+        }
+    }
+    
+    return { qualifiers: found, remaining };
+}
+
+// ============================================
+// TMI TYPE PARSERS
+// ============================================
+
+/**
+ * Parse CANCEL entries
+ */
+function parseCancel_NLP(input) {
+    if (!input.includes('CANCEL')) return null;
+    
+    let remaining = input;
+    
+    // ALL TMI CANCELLED
+    if (/ALL\s+TMI\s*(CANCELLED|CANCEL)/i.test(input)) {
+        const { fromFacility, toFacility, remaining: r1 } = extractFacilityPair(remaining);
+        return {
+            type: 'CANCEL',
+            protocol: '00',
+            cancelType: 'ALL',
+            condition: 'ALL TMI',
+            fromFacility,
+            toFacility
+        };
+    }
+    
+    remaining = remaining.replace(/CANCEL\s*/gi, ' ').trim();
+    
+    const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(remaining);
+    remaining = r2;
+    
+    const { validFrom, validUntil, remaining: r3 } = extractTimeRange(remaining);
+    remaining = r3;
+    
+    let viaRoute = null;
+    const viaMatch = remaining.match(/VIA\s+([A-Z0-9,\/]+)/i);
+    if (viaMatch) {
+        viaRoute = viaMatch[1];
+        remaining = remaining.replace(viaMatch[0], ' ');
+    }
+    
+    const airports = findAirports(remaining);
+    const condition = airports.length > 0 ? airports.join(',') : (viaRoute || '');
+    
+    const mitMatch = remaining.match(/(\d+)\s*MIT/i);
+    const mitValue = mitMatch ? parseInt(mitMatch[1]) : null;
+    
+    return {
+        type: 'CANCEL',
+        protocol: '00',
+        cancelType: mitValue ? 'MIT' : (viaRoute ? 'ROUTE' : 'TMI'),
+        condition: condition,
+        viaRoute: viaRoute,
+        mitValue: mitValue,
+        fromFacility,
+        toFacility,
+        validFrom,
+        validUntil
+    };
+}
+
+/**
+ * Parse Holding/Delay entries (E/D, A/D, D/D)
+ */
+function parseHolding_NLP(input) {
+    const holdingPattern = input.match(/(?:([A-Z]{3}(?:\d{2})?)\s+)?(ED|AD|DD)\s+(?:FOR|FROM|TO)\s+([A-Z]{3})/i);
+    if (!holdingPattern) return null;
+    
+    const reportingFacility = holdingPattern[1] || null;
+    const delayType = holdingPattern[2].toUpperCase();
+    const airport = holdingPattern[3];
+    
+    let remaining = input.replace(holdingPattern[0], ' ');
+    
+    let delayChange = 'steady';
+    let delayMinutes = null;
+    let delayTime = null;
+    let acftCount = null;
+    let isHolding = false;
+    
+    const holdingMatch = remaining.match(/([+-])Holding\/(\d{4})(?:\/(\d+)\s*ACFT)?/i);
+    if (holdingMatch) {
+        delayChange = holdingMatch[1] === '+' ? 'initiating' : 'terminating';
+        delayTime = holdingMatch[2];
+        acftCount = holdingMatch[3] ? parseInt(holdingMatch[3]) : null;
+        isHolding = true;
+        remaining = remaining.replace(holdingMatch[0], ' ');
+    }
+    
+    const delayMatch = remaining.match(/([+-])(\d+)\/(\d{4})(?:[-\/](\d{4}))?(?:\/(\d+)\s*ACFT)?/i);
+    if (delayMatch) {
+        delayChange = delayMatch[1] === '+' ? 'increasing' : 'decreasing';
+        delayMinutes = parseInt(delayMatch[2]);
+        delayTime = delayMatch[3];
+        acftCount = delayMatch[5] ? parseInt(delayMatch[5]) : null;
+        remaining = remaining.replace(delayMatch[0], ' ');
+    }
+    
+    let navaid = null;
+    const navaidMatch = remaining.match(/NAVAID:([A-Z]+)/i);
+    if (navaidMatch) {
+        navaid = navaidMatch[1];
+        remaining = remaining.replace(navaidMatch[0], ' ');
+    }
+    
+    const { reason, rawReason } = extractReason(remaining);
+    
+    const isStream = remaining.includes('STREAM');
+    const isLateNote = remaining.includes('LATE NOTE');
+    
+    return {
+        type: 'HOLDING',
+        protocol: '04',
+        delayType: delayType,
+        airport: airport,
+        reportingFacility: reportingFacility,
+        delayChange: delayChange,
+        delayMinutes: delayMinutes,
+        delayTime: delayTime,
+        acftCount: acftCount,
+        isHolding: isHolding,
+        navaid: navaid,
+        isStream: isStream,
+        isLateNote: isLateNote,
+        reason: reason,
+        rawReason: rawReason
+    };
+}
+
+/**
+ * Parse STOP entries (flow stoppage)
+ */
+function parseStop_NLP(input) {
+    if (!input.includes('STOP') || input.includes('GROUND STOP')) return null;
+    if (input.includes('CANCEL')) return null;
+    
+    let remaining = input;
+    
+    const { validFrom, validUntil, remaining: r1 } = extractTimeRange(remaining);
+    remaining = r1;
+    
+    const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(remaining);
+    remaining = r2;
+    
+    const { exclusions, remaining: r3 } = extractExclusions(remaining);
+    remaining = r3;
+    
+    const { reason, rawReason, remaining: r4 } = extractReason(remaining);
+    remaining = r4;
+    
+    remaining = remaining.replace(/\bSTOP\b/gi, ' ');
+    
+    let viaRoute = null;
+    const viaMatch = remaining.match(/VIA\s+([A-Z0-9,\/\s]+?)(?=\s+(?:VOLUME|WEATHER|RUNWAY|OTHER|EXCL|\d{4})|\s*$)/i);
+    if (viaMatch) {
+        viaRoute = viaMatch[1].trim();
+        remaining = remaining.replace(viaMatch[0], ' ');
+    }
+    
+    const isDepartures = remaining.includes('DEPARTURES') || remaining.includes('DEP');
+    const isArrivals = remaining.includes('ARRIVALS') || remaining.includes('ARR');
+    remaining = remaining.replace(/\b(DEPARTURES?|ARRIVALS?|DEP|ARR)\b/gi, ' ');
+    
+    const airports = findAirports(remaining);
+    const condition = airports.join(',') || '';
+    
+    return {
+        type: 'STOP',
+        protocol: '03',
+        condition: condition,
+        viaRoute: viaRoute,
+        isDepartures: isDepartures,
+        isArrivals: isArrivals,
+        fromFacility,
+        toFacility,
+        exclusions,
+        reason,
+        rawReason,
+        validFrom,
+        validUntil
+    };
+}
+
+/**
+ * Parse APREQ/CFR entries
+ */
+function parseAPREQ_NLP(input) {
+    const isAPREQ = input.includes('APREQ');
+    const isCFR = input.includes('CFR');
+    if (!isAPREQ && !isCFR) return null;
+    
+    let remaining = input.replace(/\b(APREQ|CFR)\b/gi, ' ').trim();
+    
+    const { validFrom, validUntil, remaining: r1 } = extractTimeRange(remaining);
+    remaining = r1;
+    
+    const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(remaining);
+    remaining = r2;
+    
+    const { exclusions, remaining: r3 } = extractExclusions(remaining);
+    remaining = r3;
+    
+    const { reason, rawReason, remaining: r4 } = extractReason(remaining);
+    remaining = r4;
+    
+    const { qualifiers, remaining: r5 } = extractQualifiers(remaining);
+    remaining = r5;
+    
+    let viaRoute = null;
+    const viaMatch = remaining.match(/VIA\s+([A-Z0-9,\/]+)/i);
+    if (viaMatch) {
+        viaRoute = viaMatch[1];
+        remaining = remaining.replace(viaMatch[0], ' ');
+    }
+    
+    const isDepartures = remaining.includes('DEPARTURES') || remaining.includes('DEP');
+    const isArrivals = remaining.includes('ARRIVALS') || remaining.includes('ARR');
+    remaining = remaining.replace(/\b(DEPARTURES?|ARRIVALS?|DEP|ARR)\b/gi, ' ');
+    
+    const airports = findAirports(remaining);
+    const condition = airports.join(',') || '';
+    
+    return {
+        type: isAPREQ ? 'APREQ' : 'CFR',
+        protocol: '07',
+        condition: condition,
+        viaRoute: viaRoute,
+        isDepartures: isDepartures,
+        isArrivals: isArrivals,
+        qualifiers,
+        fromFacility,
+        toFacility,
+        exclusions,
+        reason,
+        rawReason,
+        validFrom,
+        validUntil
+    };
+}
+
+/**
+ * Parse TBM (Time-Based Metering) entries
+ */
+function parseTBM_NLP(input) {
+    const hasTBM = input.includes('TBM');
+    const hasMetering = input.includes('METERING') || input.includes('CALFLOW');
+    if (!hasTBM && !hasMetering) return null;
+    
+    let remaining = input.replace(/\bTBM\b/gi, ' ').replace(/\bMETERING\b/gi, ' ').replace(/\bCALFLOW\b/gi, ' ').trim();
+    
+    const { validFrom, validUntil, remaining: r1 } = extractTimeRange(remaining);
+    remaining = r1;
+    
+    const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(remaining);
+    remaining = r2;
+    
+    const { exclusions, remaining: r3 } = extractExclusions(remaining);
+    remaining = r3;
+    
+    const { reason, rawReason, remaining: r4 } = extractReason(remaining);
+    remaining = r4;
+    
+    let sector = null;
+    for (const s of SECTORS) {
+        if (remaining.includes(s)) {
+            sector = s;
+            remaining = remaining.replace(s, ' ');
+            break;
+        }
+    }
+    
+    const isBegin = remaining.includes('BEGIN');
+    const isEnd = remaining.includes('END');
+    remaining = remaining.replace(/\b(BEGIN|END)\b/gi, ' ');
+    
+    const viaSimtraffic = remaining.includes('SIMTRAFFIC');
+    remaining = remaining.replace(/SIMTRAFFIC/gi, ' ');
+    
+    const isDepartures = remaining.includes('DEPARTURES') || remaining.includes('DEP');
+    remaining = remaining.replace(/\b(DEPARTURES?|DEP)\b/gi, ' ');
+    
+    const airports = findAirports(remaining);
+    const condition = airports.join(',') || '';
+    
+    return {
+        type: 'TBM',
+        protocol: '08',
+        condition: condition,
+        sector: sector,
+        isBegin: isBegin,
+        isEnd: isEnd,
+        isDepartures: isDepartures,
+        viaSimtraffic: viaSimtraffic,
+        fromFacility,
+        toFacility,
+        exclusions,
+        reason,
+        rawReason,
+        validFrom,
+        validUntil
+    };
+}
+
+/**
+ * Parse Reroute entries
+ */
+function parseReroute_NLP(input) {
+    if (!input.includes('REROUTE') && !input.includes('RERTES')) return null;
+    
+    let remaining = input.replace(/\b(REROUTE|RERTES)\b/gi, ' ').trim();
+    
+    const { validFrom, validUntil, remaining: r1 } = extractTimeRange(remaining);
+    remaining = r1;
+    
+    const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(remaining);
+    remaining = r2;
+    
+    const { exclusions, remaining: r3 } = extractExclusions(remaining);
+    remaining = r3;
+    
+    const { reason, rawReason, remaining: r4 } = extractReason(remaining);
+    remaining = r4;
+    
+    let viaRoute = null;
+    const viaMatch = remaining.match(/VIA\s+(.+?)(?=\s+(?:VOLUME|WEATHER|EXCL|\d{4})|$)/i);
+    if (viaMatch) {
+        viaRoute = viaMatch[1].trim();
+        remaining = remaining.replace(viaMatch[0], ' ');
+    } else {
+        const routeTokens = remaining.match(/\b([A-Z]{4,5}\d?)\b/g);
+        if (routeTokens && routeTokens.length > 1) {
+            viaRoute = routeTokens.join(' ');
+        }
+    }
+    
+    const airports = findAirports(remaining);
+    const condition = airports.join(',') || '';
+    
+    return {
+        type: 'REROUTE',
+        protocol: '09',
+        condition: condition,
+        route: viaRoute,
+        fromFacility,
+        toFacility,
+        exclusions,
+        reason,
+        rawReason,
+        validFrom,
+        validUntil
+    };
+}
+
+/**
+ * Enhanced MIT Parser
  */
 function parseMIT_NLP(input) {
-    // Extract MIT value first (required)
     const mitMatch = input.match(/(\d+)\s*MIT/i);
     if (!mitMatch) return null;
     
     const distance = parseInt(mitMatch[1]);
     let remaining = input.replace(/(\d+)\s*MIT/i, ' ').trim();
     
-    // Extract facilities - look for various patterns
-    let fromFacility = null, toFacility = null;
+    const { validFrom, validUntil, remaining: r1 } = extractTimeRange(remaining);
+    remaining = r1;
     
-    // Pattern: ZDC:ZJX or ZDC-ZJX (from:to notation)
-    const colonPattern = remaining.match(/([A-Z]{3}):([A-Z0-9]{3})/);
-    if (colonPattern) {
-        fromFacility = colonPattern[1];
-        toFacility = colonPattern[2];
-        remaining = remaining.replace(colonPattern[0], ' ');
-    }
+    const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(remaining);
+    remaining = r2;
     
-    // Pattern: ZBW→ZNY
-    const arrowPattern = remaining.match(/([A-Z0-9]{2,4})→([A-Z0-9]{2,4})/);
-    if (arrowPattern && !fromFacility) {
-        fromFacility = arrowPattern[1];
-        toFacility = arrowPattern[2];
-        remaining = remaining.replace(arrowPattern[0], ' ');
-    }
+    const { exclusions, remaining: r3 } = extractExclusions(remaining);
+    remaining = r3;
     
-    // Pattern: FROM ZBW or ZBW FROM
-    const fromPattern = remaining.match(/(?:FROM\s+)?([A-Z]{3})(?:\s+FROM)?/i);
-    if (fromPattern && !fromFacility) {
-        // Check if this is likely the from facility (ARTCC code)
-        if (ARTCCS[fromPattern[1]] || TRACONS[fromPattern[1]]) {
-            fromFacility = fromPattern[1];
-            remaining = remaining.replace(fromPattern[0], ' ');
-        }
-    }
+    const { reason, rawReason, remaining: r4 } = extractReason(remaining);
+    remaining = r4;
     
-    // Extract condition (airport, fix, VIA waypoint)
+    const { qualifiers, remaining: r5 } = extractQualifiers(remaining);
+    remaining = r5;
+    
     let condition = '';
-    
-    // Pattern: VIA CAMRN or VIA LENDY
-    const viaPattern = remaining.match(/VIA\s+([A-Z0-9]{3,5})/i);
+    const viaPattern = remaining.match(/VIA\s+([A-Z0-9,\/]+)/i);
     if (viaPattern) {
         condition = viaPattern[1];
         remaining = remaining.replace(viaPattern[0], ' ');
     }
     
-    // Look for airport codes
+    const isDepartures = remaining.includes('DEPARTURES') || remaining.includes('DEP');
+    const isArrivals = remaining.includes('ARRIVALS') || remaining.includes('ARR');
+    remaining = remaining.replace(/\b(DEPARTURES?|ARRIVALS?|DEP|ARR)\b/gi, ' ');
+    
     const airports = findAirports(remaining);
-    if (airports.length > 0) {
-        // First airport is likely the destination/condition
-        if (!toFacility && MAJOR_AIRPORTS.includes(airports[0])) {
-            // If it looks like an airport and we don't have a to facility
-            if (!condition) condition = airports[0];
-        }
-        if (!condition && airports[0]) {
-            condition = airports[0];
-        }
+    if (airports.length > 0 && !condition) {
+        condition = airports[0];
         remaining = remaining.replace(new RegExp('\\b' + airports[0] + '\\b'), ' ');
     }
     
-    // Look for fixes in remaining text
-    const fixes = findFixes(remaining);
-    if (fixes.length > 0 && !condition) {
-        condition = fixes[0];
-        remaining = remaining.replace(new RegExp('\\b' + fixes[0] + '\\b'), ' ');
-    }
-    
-    // Look for any 5-letter words that might be fixes
-    const fiveLetterMatch = remaining.match(/\b([A-Z]{5})\b/);
-    if (fiveLetterMatch && !condition) {
-        condition = fiveLetterMatch[1];
-        remaining = remaining.replace(fiveLetterMatch[0], ' ');
-    }
-    
-    // Extract reason
-    let reason = 'VOLUME';
-    for (const r of Object.keys(REASON_MAP)) {
-        if (remaining.includes(r)) {
-            reason = REASON_MAP[r];
-            remaining = remaining.replace(new RegExp('\\b' + r + '\\b', 'i'), ' ');
-            break;
+    if (!condition) {
+        const fixes = findFixes(remaining);
+        if (fixes.length > 0) {
+            condition = fixes.join(',');
         }
     }
     
-    // Extract qualifiers
-    const { qualifiers } = extractQualifiers(remaining);
-    
-    // Extract time range if present (1400-1800 or 1400Z-1800Z)
-    let validFrom = $('#validFrom').val();
-    let validUntil = $('#validUntil').val();
-    const timePattern = remaining.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z?/);
-    if (timePattern) {
-        validFrom = timePattern[1];
-        validUntil = timePattern[2];
+    if (!condition) {
+        const fiveLetterMatch = remaining.match(/\b([A-Z]{5})\b/);
+        if (fiveLetterMatch) {
+            condition = fiveLetterMatch[1];
+        }
     }
     
-    // Try to identify any remaining facility codes
-    if (!fromFacility || !toFacility) {
+    let parsedFrom = fromFacility, parsedTo = toFacility;
+    if (!parsedFrom || !parsedTo) {
         const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2})\b/g) || [];
         for (const fac of facilityMatches) {
             if (ARTCCS[fac] || TRACONS[fac]) {
-                if (!fromFacility) fromFacility = fac;
-                else if (!toFacility) toFacility = fac;
+                if (!parsedFrom) parsedFrom = fac;
+                else if (!parsedTo) parsedTo = fac;
             }
         }
     }
@@ -372,14 +899,18 @@ function parseMIT_NLP(input) {
         type: 'MIT',
         protocol: '05',
         distance: distance,
-        fromFacility: fromFacility,
-        toFacility: toFacility,
+        fromFacility: parsedFrom,
+        toFacility: parsedTo,
         condition: condition,
+        isDepartures: isDepartures,
+        isArrivals: isArrivals,
         qualifiers: qualifiers,
+        exclusions: exclusions,
         reason: reason,
+        rawReason: rawReason,
         validFrom: validFrom,
         validUntil: validUntil,
-        isInternal: isSameARTCC(fromFacility, toFacility)
+        isInternal: isSameARTCC(parsedFrom, parsedTo)
     };
 }
 
@@ -393,37 +924,31 @@ function parseMINIT_NLP(input) {
     const minutes = parseInt(minitMatch[1]);
     let remaining = input.replace(/(\d+)\s*MINIT/i, ' ').trim();
     
-    // Reuse MIT parsing logic for facilities and conditions
-    let fromFacility = null, toFacility = null, condition = '';
+    const { validFrom, validUntil, remaining: r1 } = extractTimeRange(remaining);
+    remaining = r1;
     
-    // Pattern: ZDC:ZJX
-    const colonPattern = remaining.match(/([A-Z]{3}):([A-Z0-9]{3})/);
-    if (colonPattern) {
-        fromFacility = colonPattern[1];
-        toFacility = colonPattern[2];
-        remaining = remaining.replace(colonPattern[0], ' ');
-    }
+    const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(remaining);
+    remaining = r2;
     
-    // Pattern: ZBW→ZNY
-    const arrowPattern = remaining.match(/([A-Z0-9]{2,4})→([A-Z0-9]{2,4})/);
-    if (arrowPattern && !fromFacility) {
-        fromFacility = arrowPattern[1];
-        toFacility = arrowPattern[2];
-        remaining = remaining.replace(arrowPattern[0], ' ');
-    }
+    const { exclusions, remaining: r3 } = extractExclusions(remaining);
+    remaining = r3;
     
-    // VIA pattern
-    const viaPattern = remaining.match(/VIA\s+([A-Z0-9]{3,5})/i);
+    const { reason, rawReason, remaining: r4 } = extractReason(remaining);
+    remaining = r4;
+    
+    const { qualifiers, remaining: r5 } = extractQualifiers(remaining);
+    remaining = r5;
+    
+    let condition = '';
+    const viaPattern = remaining.match(/VIA\s+([A-Z0-9,\/]+)/i);
     if (viaPattern) {
         condition = viaPattern[1];
         remaining = remaining.replace(viaPattern[0], ' ');
     }
     
-    // Look for airports and fixes
     const airports = findAirports(remaining);
     if (airports.length > 0 && !condition) {
         condition = airports[0];
-        remaining = remaining.replace(new RegExp('\\b' + airports[0] + '\\b'), ' ');
     }
     
     const fixes = findFixes(remaining);
@@ -431,33 +956,13 @@ function parseMINIT_NLP(input) {
         condition = fixes[0];
     }
     
-    // Extract reason
-    let reason = 'VOLUME';
-    for (const r of Object.keys(REASON_MAP)) {
-        if (remaining.includes(r)) {
-            reason = REASON_MAP[r];
-            break;
-        }
-    }
-    
-    const { qualifiers } = extractQualifiers(remaining);
-    
-    // Time
-    let validFrom = $('#validFrom').val();
-    let validUntil = $('#validUntil').val();
-    const timePattern = remaining.match(/(\d{4})Z?\s*[-–]\s*(\d{4})Z?/);
-    if (timePattern) {
-        validFrom = timePattern[1];
-        validUntil = timePattern[2];
-    }
-    
-    // Remaining facility codes
-    if (!fromFacility || !toFacility) {
+    let parsedFrom = fromFacility, parsedTo = toFacility;
+    if (!parsedFrom || !parsedTo) {
         const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2})\b/g) || [];
         for (const fac of facilityMatches) {
             if (ARTCCS[fac] || TRACONS[fac]) {
-                if (!fromFacility) fromFacility = fac;
-                else if (!toFacility) toFacility = fac;
+                if (!parsedFrom) parsedFrom = fac;
+                else if (!parsedTo) parsedTo = fac;
             }
         }
     }
@@ -466,28 +971,28 @@ function parseMINIT_NLP(input) {
         type: 'MINIT',
         protocol: '06',
         minutes: minutes,
-        fromFacility: fromFacility,
-        toFacility: toFacility,
+        fromFacility: parsedFrom,
+        toFacility: parsedTo,
         condition: condition,
         qualifiers: qualifiers,
+        exclusions: exclusions,
         reason: reason,
+        rawReason: rawReason,
         validFrom: validFrom,
         validUntil: validUntil,
-        isInternal: isSameARTCC(fromFacility, toFacility)
+        isInternal: isSameARTCC(parsedFrom, parsedTo)
     };
 }
 
 /**
  * Enhanced Delay Parser
- * Handles: DELAY JFK 45min INC 12flt WEATHER
- *          JFK DELAY 45 INCREASING 12 FLIGHTS WX
  */
 function parseDelay_NLP(input) {
     if (!input.includes('DELAY')) return null;
+    if (/\b(ED|AD|DD)\s+(?:FOR|FROM|TO)/i.test(input)) return null;
     
     let remaining = input.replace(/DELAY/i, ' ').trim();
     
-    // Extract delay duration
     let minutes = null;
     const minMatch = remaining.match(/(\d+)\s*(?:MIN|M)?(?:UTES?)?/i);
     if (minMatch) {
@@ -495,7 +1000,6 @@ function parseDelay_NLP(input) {
         remaining = remaining.replace(minMatch[0], ' ');
     }
     
-    // Extract trend
     let trend = 'steady';
     if (/\b(?:INC(?:REASING)?|INCR)\b/i.test(remaining)) {
         trend = 'increasing';
@@ -508,7 +1012,6 @@ function parseDelay_NLP(input) {
         remaining = remaining.replace(/\b(?:STD|STEADY)\b/i, ' ');
     }
     
-    // Extract flights count
     let flightsDelayed = 1;
     const fltMatch = remaining.match(/(\d+)\s*(?:FLT|FLIGHTS?)/i);
     if (fltMatch) {
@@ -516,27 +1019,17 @@ function parseDelay_NLP(input) {
         remaining = remaining.replace(fltMatch[0], ' ');
     }
     
-    // Extract facility
     let facility = null;
     const airports = findAirports(remaining);
     if (airports.length > 0) {
         facility = airports[0];
     } else {
-        // Look for any 3-letter code
         const facMatch = remaining.match(/\b([A-Z]{3})\b/);
         if (facMatch) facility = facMatch[1];
     }
     
-    // Extract reason
-    let reason = 'VOLUME';
-    for (const r of Object.keys(REASON_MAP)) {
-        if (remaining.includes(r)) {
-            reason = REASON_MAP[r];
-            break;
-        }
-    }
+    const { reason } = extractReason(remaining);
     
-    // Holding detection
     let holding = 'no';
     if (/\bHOLD(?:ING)?\b/i.test(remaining)) {
         holding = 'yes_initiating';
@@ -556,14 +1049,18 @@ function parseDelay_NLP(input) {
 }
 
 /**
- * Enhanced Config Parser
+ * Enhanced Config Parser (Airport Configuration)
  */
 function parseConfig_NLP(input) {
-    if (!input.includes('CONFIG')) return null;
+    const hasConfig = input.includes('CONFIG');
+    const hasAARPattern = /AAR\s*\([^)]+\)\s*:\s*\d+/i.test(input) || /AAR:\d+/i.test(input);
+    const hasRunwayPattern = /ARR:\s*[A-Z0-9\/]+/i.test(input) || /DEP:\s*[A-Z0-9\/]+/i.test(input);
+    const hasWeatherCode = WEATHER_CONDITIONS.some(wx => input.includes(wx));
+    
+    if (!hasConfig && !hasAARPattern && !(hasRunwayPattern && hasWeatherCode)) return null;
     
     let remaining = input.replace(/CONFIG/i, ' ').trim();
     
-    // Extract airport
     let airport = null;
     const airports = findAirports(remaining);
     if (airports.length > 0) {
@@ -571,7 +1068,6 @@ function parseConfig_NLP(input) {
         remaining = remaining.replace(new RegExp('\\b' + airport + '\\b'), ' ');
     }
     
-    // Extract weather
     let weather = 'VMC';
     for (const wx of WEATHER_CONDITIONS) {
         if (remaining.includes(wx)) {
@@ -581,32 +1077,48 @@ function parseConfig_NLP(input) {
         }
     }
     
-    // Extract runways
     let arrRunways = '', depRunways = '';
-    const arrMatch = remaining.match(/ARR[:\s]*([A-Z0-9\/]+)/i);
+    const arrMatch = remaining.match(/ARR[:\s]*([A-Z0-9_\/]+)/i);
     if (arrMatch) {
-        arrRunways = arrMatch[1];
+        arrRunways = arrMatch[1].replace(/_/g, '/');
         remaining = remaining.replace(arrMatch[0], ' ');
     }
     
-    const depMatch = remaining.match(/DEP[:\s]*([A-Z0-9\/]+)/i);
+    const depMatch = remaining.match(/DEP[:\s]*([A-Z0-9_\/]+)/i);
     if (depMatch) {
-        depRunways = depMatch[1];
+        depRunways = depMatch[1].replace(/_/g, '/');
         remaining = remaining.replace(depMatch[0], ' ');
     }
     
-    // Extract rates
-    let aar = 60, adr = 60;
-    const aarMatch = remaining.match(/AAR[:\s]*(\d+)/i);
-    if (aarMatch) aar = parseInt(aarMatch[1]);
+    let aar = 60, aarType = 'Strat', aarAdjustment = null;
+    const aarMatch = remaining.match(/AAR\s*\((\w+)\)\s*:\s*(\d+)/i);
+    if (aarMatch) {
+        aarType = aarMatch[1];
+        aar = parseInt(aarMatch[2]);
+        remaining = remaining.replace(aarMatch[0], ' ');
+    } else {
+        const simpleAar = remaining.match(/AAR[:\s]*(\d+)/i);
+        if (simpleAar) {
+            aar = parseInt(simpleAar[1]);
+            remaining = remaining.replace(simpleAar[0], ' ');
+        }
+    }
     
+    const adjMatch = remaining.match(/AAR\s*Adjustment[:\s]*([A-Z_\/]+)/i);
+    if (adjMatch) {
+        aarAdjustment = adjMatch[1];
+        remaining = remaining.replace(adjMatch[0], ' ');
+    }
+    
+    let adr = 60;
     const adrMatch = remaining.match(/ADR[:\s]*(\d+)/i);
-    if (adrMatch) adr = parseInt(adrMatch[1]);
+    if (adrMatch) {
+        adr = parseInt(adrMatch[1]);
+    }
     
-    // Detect single runway
-    const arrCount = arrRunways ? arrRunways.split('/').length : 0;
-    const depCount = depRunways ? depRunways.split('/').length : 0;
-    const singleRunway = (arrCount <= 1 && depCount <= 1) || /\bSINGLE\b/i.test(remaining);
+    const arrCount = arrRunways ? arrRunways.split('/').filter(r => r.match(/\d/)).length : 0;
+    const depCount = depRunways ? depRunways.split('/').filter(r => r.match(/\d/)).length : 0;
+    const singleRunway = (arrCount <= 1 && depCount <= 1) || /\bSINGLE\b/i.test(input);
     
     return {
         type: 'CONFIG',
@@ -616,8 +1128,87 @@ function parseConfig_NLP(input) {
         arrRunways: arrRunways,
         depRunways: depRunways,
         aar: aar,
+        aarType: aarType,
+        aarAdjustment: aarAdjustment,
         adr: adr,
         singleRunway: singleRunway
+    };
+}
+
+/**
+ * Parse Other/Planning entries
+ */
+function parseOther_NLP(input) {
+    if (input.includes('TYPE:PLANNING') || input.includes('PLANNING')) {
+        const { validFrom, validUntil, remaining: r1 } = extractTimeRange(input);
+        const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(r1);
+        const { reason, remaining: r3 } = extractReason(r2);
+        
+        return {
+            type: 'OTHER',
+            protocol: '00',
+            subType: 'PLANNING',
+            condition: r3.trim(),
+            fromFacility,
+            toFacility,
+            reason,
+            validFrom,
+            validUntil
+        };
+    }
+    
+    if (input.includes('AOB') || input.includes('AOA') || input.includes('NON-RVSM')) {
+        const { validFrom, validUntil, remaining: r1 } = extractTimeRange(input);
+        const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(r1);
+        
+        let altRestriction = null;
+        const altMatch = input.match(/(?:AOB|AOA|ABV|BLW)\s*(?:FL)?(\d+)/i);
+        if (altMatch) {
+            altRestriction = altMatch[0];
+        }
+        
+        return {
+            type: 'OTHER',
+            protocol: '00',
+            subType: 'ALTITUDE',
+            condition: altRestriction || input,
+            fromFacility,
+            toFacility,
+            validFrom,
+            validUntil
+        };
+    }
+    
+    const dirMatch = input.match(/\b(NORTH|SOUTH|EAST|WEST)\b/i);
+    if (dirMatch && !input.match(/\d+\s*MIT/i)) {
+        const { validFrom, validUntil, remaining: r1 } = extractTimeRange(input);
+        const { fromFacility, toFacility, remaining: r2 } = extractFacilityPair(r1);
+        const airports = findAirports(r2);
+        
+        return {
+            type: 'OTHER',
+            protocol: '00',
+            subType: 'FLOW_DIRECTION',
+            condition: airports.join(',') + ' ' + dirMatch[1],
+            fromFacility,
+            toFacility,
+            validFrom,
+            validUntil
+        };
+    }
+    
+    const { validFrom, validUntil } = extractTimeRange(input);
+    const { fromFacility, toFacility } = extractFacilityPair(input);
+    
+    return {
+        type: 'OTHER',
+        protocol: '00',
+        subType: 'GENERIC',
+        condition: input.substring(0, 100),
+        fromFacility,
+        toFacility,
+        validFrom,
+        validUntil
     };
 }
 
@@ -642,23 +1233,12 @@ function findFixes(text) {
             found.push(fix);
         }
     }
-    return found;
-}
-
-function extractQualifiers(text) {
-    const found = [];
-    let remaining = text;
-    
-    for (const q of QUALIFIERS) {
-        const normalized = q.replace(/[_\s]+/g, '[_\\s]?');
-        const regex = new RegExp('\\b' + normalized + '\\b', 'gi');
-        if (regex.test(remaining)) {
-            found.push(q.replace(/\s+/g, '_'));
-            remaining = remaining.replace(regex, '').trim();
+    for (const nav of NAVAIDS) {
+        if (new RegExp('\\b' + nav + '\\b').test(text)) {
+            found.push(nav);
         }
     }
-    
-    return { condition: remaining, qualifiers: found };
+    return found;
 }
 
 function isSameARTCC(fac1, fac2) {
@@ -675,28 +1255,32 @@ function getARTCCForFacility(fac) {
     const traconToArtcc = {
         'N90': 'ZNY', 'A90': 'ZBW', 'C90': 'ZAU', 'D10': 'ZFW',
         'PCT': 'ZDC', 'A80': 'ZTL', 'SCT': 'ZLA', 'NCT': 'ZOA',
-        'I90': 'ZHU', 'D01': 'ZDV', 'S46': 'ZSE', 'L30': 'ZLA'
+        'I90': 'ZHU', 'D01': 'ZDV', 'S46': 'ZSE', 'L30': 'ZLA',
+        'F11': 'ZMA', 'D21': 'ZOB', 'M98': 'ZMP', 'P50': 'ZAB',
+        'P80': 'ZSE', 'Y90': 'ZBW'
     };
     
     if (traconToArtcc[fac]) return traconToArtcc[fac];
     
     const airportToArtcc = {
-        'JFK': 'ZNY', 'LGA': 'ZNY', 'EWR': 'ZNY', 'TEB': 'ZNY',
+        'JFK': 'ZNY', 'LGA': 'ZNY', 'EWR': 'ZNY', 'TEB': 'ZNY', 'HPN': 'ZNY', 'ISP': 'ZNY',
         'BOS': 'ZBW', 'PVD': 'ZBW', 'BDL': 'ZBW',
         'ORD': 'ZAU', 'MDW': 'ZAU',
         'ATL': 'ZTL', 'CLT': 'ZTL',
         'DFW': 'ZFW', 'DAL': 'ZFW',
         'IAH': 'ZHU', 'HOU': 'ZHU',
-        'LAX': 'ZLA', 'SAN': 'ZLA', 'LAS': 'ZLA',
-        'SFO': 'ZOA', 'OAK': 'ZOA', 'SJC': 'ZOA',
-        'SEA': 'ZSE', 'PDX': 'ZSE',
-        'DEN': 'ZDV',
-        'MIA': 'ZMA', 'FLL': 'ZMA', 'TPA': 'ZMA',
+        'LAX': 'ZLA', 'SAN': 'ZLA', 'LAS': 'ZLA', 'SNA': 'ZLA',
+        'SFO': 'ZOA', 'OAK': 'ZOA', 'SJC': 'ZOA', 'SMF': 'ZOA',
+        'SEA': 'ZSE', 'PDX': 'ZSE', 'GEG': 'ZSE',
+        'DEN': 'ZDV', 'SLC': 'ZLC',
+        'MIA': 'ZMA', 'FLL': 'ZMA', 'TPA': 'ZMA', 'RSW': 'ZMA', 'MCO': 'ZMA', 'JAX': 'ZJX',
         'DCA': 'ZDC', 'IAD': 'ZDC', 'BWI': 'ZDC',
         'PHL': 'ZNY',
-        'DTW': 'ZOB', 'CLE': 'ZOB',
-        'MSP': 'ZMP',
-        'PHX': 'ZAB'
+        'DTW': 'ZOB', 'CLE': 'ZOB', 'PIT': 'ZOB', 'CVG': 'ZID',
+        'MSP': 'ZMP', 'MCI': 'ZKC', 'STL': 'ZKC',
+        'PHX': 'ZAB', 'ABQ': 'ZAB', 'TUS': 'ZAB',
+        'MEM': 'ZME', 'BNA': 'ZME',
+        'IND': 'ZID', 'SDF': 'ZID'
     };
     
     return airportToArtcc[fac] || null;
@@ -728,6 +1312,31 @@ function validateEntry(entry) {
             if (!entry.validUntil) errors.push({ field: 'validUntil', message: 'Valid until time is required' });
             break;
             
+        case 'STOP':
+            if (!entry.fromFacility) errors.push({ field: 'fromFacility', message: 'Providing facility is required' });
+            if (!entry.toFacility) errors.push({ field: 'toFacility', message: 'Requesting facility is required' });
+            if (!entry.validFrom) errors.push({ field: 'validFrom', message: 'Valid from time is required' });
+            if (!entry.validUntil) errors.push({ field: 'validUntil', message: 'Valid until time is required' });
+            break;
+            
+        case 'APREQ':
+        case 'CFR':
+            if (!entry.fromFacility) errors.push({ field: 'fromFacility', message: 'Providing facility is required' });
+            if (!entry.toFacility) errors.push({ field: 'toFacility', message: 'Requesting facility is required' });
+            if (!entry.validFrom) errors.push({ field: 'validFrom', message: 'Valid from time is required' });
+            if (!entry.validUntil) errors.push({ field: 'validUntil', message: 'Valid until time is required' });
+            break;
+            
+        case 'TBM':
+            if (!entry.condition) errors.push({ field: 'condition', message: 'Airport(s) required' });
+            if (!entry.fromFacility) errors.push({ field: 'fromFacility', message: 'Providing facility is required' });
+            if (!entry.toFacility) errors.push({ field: 'toFacility', message: 'Requesting facility is required' });
+            break;
+            
+        case 'HOLDING':
+            if (!entry.airport) errors.push({ field: 'airport', message: 'Airport is required' });
+            break;
+            
         case 'DELAY':
             if (!entry.facility) errors.push({ field: 'facility', message: 'Facility is required' });
             if (!entry.minutes || entry.minutes < 1) errors.push({ field: 'minutes', message: 'Delay duration is required' });
@@ -736,6 +1345,14 @@ function validateEntry(entry) {
         case 'CONFIG':
             if (!entry.airport) errors.push({ field: 'airport', message: 'Airport is required' });
             if (!entry.arrRunways && !entry.depRunways) errors.push({ field: 'runways', message: 'At least one runway configuration is required' });
+            break;
+            
+        case 'CANCEL':
+            if (!entry.fromFacility && !entry.cancelType) errors.push({ field: 'fromFacility', message: 'Facility info required' });
+            break;
+            
+        case 'REROUTE':
+            if (!entry.route) errors.push({ field: 'route', message: 'Route is required' });
             break;
     }
     
@@ -751,11 +1368,18 @@ function isEntryValid(entry) {
 // ============================================
 
 function calculateDeterminant(entry) {
-    switch (entry.protocol) {
-        case '05': return calculateMITDeterminant(entry);
-        case '06': return calculateMINITDeterminant(entry);
-        case '04': return calculateDelayDeterminant(entry);
-        case '01': return calculateConfigDeterminant(entry);
+    switch (entry.type) {
+        case 'MIT': return calculateMITDeterminant(entry);
+        case 'MINIT': return calculateMINITDeterminant(entry);
+        case 'DELAY': 
+        case 'HOLDING': return calculateDelayDeterminant(entry);
+        case 'CONFIG': return calculateConfigDeterminant(entry);
+        case 'STOP': return '03O01';
+        case 'APREQ':
+        case 'CFR': return '07O01';
+        case 'TBM': return '08O01';
+        case 'CANCEL': return '00X00';
+        case 'REROUTE': return '09O01';
         default: return '00O00';
     }
 }
@@ -791,8 +1415,8 @@ function calculateMINITDeterminant(entry) {
 }
 
 function calculateDelayDeterminant(entry) {
-    const d = entry.minutes || 0;
-    const trend = entry.trend;
+    const d = entry.minutes || entry.delayMinutes || 0;
+    const trend = entry.trend || entry.delayChange || 'steady';
     
     let level, baseCode;
     
@@ -806,7 +1430,8 @@ function calculateDelayDeterminant(entry) {
     else if (d >= 15) { level = 'A'; baseCode = 4; }
     else { level = 'O'; baseCode = 1; }
     
-    const trendOffset = trend === 'increasing' ? 0 : (trend === 'steady' ? 1 : 2);
+    const trendOffset = trend === 'increasing' || trend === 'initiating' ? 0 : 
+                       (trend === 'steady' ? 1 : 2);
     const subcode = String(baseCode + trendOffset).padStart(2, '0');
     
     return `04${level}${subcode}`;
@@ -828,7 +1453,7 @@ function calculateConfigDeterminant(entry) {
     } else {
         if (wx === 'VLIMC' || wx === 'LIMC') level = 'C';
         else if (wx === 'IMC') level = 'B';
-        else if (wx === 'LVMC') level = 'A';
+        else if (wx === 'LVMC' || wx === 'MVMC') level = 'A';
         else level = 'O';
     }
     
@@ -845,7 +1470,6 @@ function addFromQuickInput() {
     
     if (entry) {
         if (!isEntryValid(entry)) {
-            // Prompt for missing fields
             promptForMissingFields(entry, function(completedEntry) {
                 entryQueue.push(completedEntry);
                 $('#quickInput').val('').focus();
@@ -861,7 +1485,13 @@ function addFromQuickInput() {
         Swal.fire({
             icon: 'error',
             title: 'Could not parse entry',
-            html: 'Check the syntax help for valid formats.<br><br>Try formats like:<br><code>20MIT ZBW→ZNY JFK LENDY VOL</code>',
+            html: `Check the syntax help for valid formats.<br><br>
+                   <strong>Supported types:</strong><br>
+                   MIT, MINIT, STOP, APREQ, CFR, TBM, CONFIG, CANCEL, E/D, A/D, D/D, REROUTE<br><br>
+                   <strong>Examples:</strong><br>
+                   <code>20MIT ZBW:ZNY JFK LENDY VOL</code><br>
+                   <code>BOS STOP VOLUME:VOLUME 2345-0015 ZNY:PHL</code><br>
+                   <code>CFR MIA departures 2100-0400 ZMA:F11</code>`,
             toast: false
         });
     }
@@ -870,20 +1500,20 @@ function addFromQuickInput() {
 function promptForMissingFields(entry, callback) {
     const errors = entry.validationErrors;
     
-    // Build form HTML for missing fields
     let formHtml = '<div class="text-left">';
-    formHtml += `<p class="mb-3">Parsed: <code>${entry.raw}</code></p>`;
+    formHtml += `<p class="mb-3">Parsed as <strong>${entry.type}</strong>: <code>${entry.raw}</code></p>`;
     formHtml += '<p class="text-warning mb-3"><i class="fas fa-exclamation-triangle"></i> Missing required fields:</p>';
     
     const fieldConfigs = {
         'fromFacility': { label: 'Providing Facility', placeholder: 'e.g., ZBW', type: 'text', maxlength: 4 },
         'toFacility': { label: 'Requesting Facility', placeholder: 'e.g., ZNY', type: 'text', maxlength: 4 },
-        'condition': { label: 'Condition (Airport/Fix)', placeholder: 'e.g., JFK, LENDY', type: 'text', maxlength: 10 },
+        'condition': { label: 'Condition (Airport/Fix)', placeholder: 'e.g., JFK, LENDY', type: 'text', maxlength: 20 },
         'facility': { label: 'Facility', placeholder: 'e.g., JFK', type: 'text', maxlength: 4 },
         'airport': { label: 'Airport', placeholder: 'e.g., JFK', type: 'text', maxlength: 4 },
         'distance': { label: 'Distance (nm)', placeholder: 'e.g., 20', type: 'number', min: 1 },
         'minutes': { label: 'Minutes', placeholder: 'e.g., 15', type: 'number', min: 1 },
         'runways': { label: 'Arrival Runways', placeholder: 'e.g., 22L/22R', type: 'text' },
+        'route': { label: 'Route', placeholder: 'e.g., PIEPE5 IBUFY SQS', type: 'text' },
         'validFrom': { label: 'Valid From (Zulu)', placeholder: '1400', type: 'text', maxlength: 4, value: $('#validFrom').val() },
         'validUntil': { label: 'Valid Until (Zulu)', placeholder: '1800', type: 'text', maxlength: 4, value: $('#validUntil').val() }
     };
@@ -919,7 +1549,6 @@ function promptForMissingFields(entry, callback) {
             popup: 'bg-dark text-light'
         },
         preConfirm: () => {
-            // Gather values
             for (const error of errors) {
                 const value = $(`#fix_${error.field}`).val();
                 if (!value) {
@@ -927,7 +1556,6 @@ function promptForMissingFields(entry, callback) {
                     return false;
                 }
                 
-                // Update entry with new value
                 if (error.field === 'runways') {
                     entry.arrRunways = value;
                 } else {
@@ -937,7 +1565,6 @@ function promptForMissingFields(entry, callback) {
                 }
             }
             
-            // Recalculate determinant and validation
             entry.isInternal = isSameARTCC(entry.fromFacility, entry.toFacility);
             entry.determinant = calculateDeterminant(entry);
             entry.validationErrors = validateEntry(entry);
@@ -977,14 +1604,12 @@ function parseBatchInput() {
         renderQueue();
     }
     
-    // Report results
     let message = '';
     if (added > 0) message += `${added} entries added. `;
     if (needsReview > 0) message += `${needsReview} need review. `;
     if (errors.length > 0) message += `${errors.length} could not be parsed.`;
     
     if (needsReview > 0) {
-        // Process entries needing review one by one
         processIncompleteEntries(pendingEntries, 0);
     } else if (message) {
         Swal.fire({
@@ -1026,11 +1651,7 @@ function removeFromQueue(index) {
 
 function editQueueEntry(index) {
     const entry = entryQueue[index];
-    
-    // Put raw text back in input for editing
     $('#quickInput').val(entry.raw).focus();
-    
-    // Remove from queue
     entryQueue.splice(index, 1);
     renderQueue();
 }
@@ -1057,7 +1678,7 @@ function renderQueue() {
     
     let html = '';
     entryQueue.forEach((entry, index) => {
-        const pillClass = entry.type.toLowerCase();
+        const pillClass = entry.type.toLowerCase().replace('/', '-');
         const message = buildDiscordMessage(entry);
         const isValid = isEntryValid(entry);
         
@@ -1086,12 +1707,18 @@ function renderQueue() {
 
 function applyTemplate(template) {
     const templates = {
-        'mit-arr': '20MIT ZBW→ZNY JFK LENDY VOLUME',
-        'mit-dep': '15MIT ZNY→ZDC EWR DEPARTURES VOLUME',
-        'minit': '10MINIT ZOB→ZNY CLE ARRIVALS WEATHER',
+        'mit-arr': '20MIT ZBW→ZNY JFK LENDY VOLUME:VOLUME EXCL:NONE 2300-0300',
+        'mit-dep': '15MIT ZNY→ZDC EWR DEPARTURES VOLUME:VOLUME EXCL:NONE 2300-0300',
+        'minit': '10MINIT ZOB→ZNY CLE ARRIVALS VOLUME:VOLUME EXCL:NONE 2300-0300',
         'delay': 'DELAY JFK 45min INC 12flt WEATHER',
-        'config': 'CONFIG JFK IMC ARR:22L/22R DEP:31L AAR:40 ADR:45',
-        'gs': 'DELAY JFK 120min STEADY 50flt WEATHER'
+        'config': 'JFK VMC ARR:ILS_31R DEP:31L AAR(Strat):58 ADR:24',
+        'gs': 'JFK STOP VOLUME:VOLUME EXCL:NONE 2300-0100 ZNY:N90',
+        'stop': 'BOS STOP VOLUME:VOLUME EXCL:NONE 2345-0015 ZBW:ZNY',
+        'apreq': 'APREQ JFK departures via J220 TYPE:ALL VOLUME:VOLUME 2330-0400 ZNY:ZDC',
+        'cfr': 'CFR MIA,FLL departures TYPE:ALL VOLUME:VOLUME 2100-0400 ZMA:F11',
+        'tbm': 'ATL TBM 3_WEST VOLUME:VOLUME EXCL:NONE 2230-0400 ZTL:ZJX,ZME',
+        'holding': 'ZDC E/D for BOS, +30/0019/13 ACFT VOLUME:VOLUME',
+        'cancel': 'CANCEL JFK via CAMRN 20MIT ZNY:ZDC'
     };
     
     const text = templates[template];
@@ -1122,28 +1749,24 @@ function showAutocomplete(input) {
     
     const suggestions = [];
     
-    // Search ARTCCs
     for (const [id, name] of Object.entries(ARTCCS)) {
         if (id.startsWith(lastWord) || id.includes(lastWord)) {
             suggestions.push({ id, name, type: 'ARTCC' });
         }
     }
     
-    // Search TRACONs
     for (const [id, name] of Object.entries(TRACONS)) {
         if (id.startsWith(lastWord) || id.includes(lastWord)) {
             suggestions.push({ id, name, type: 'TRACON' });
         }
     }
     
-    // Search airports
     for (const apt of MAJOR_AIRPORTS) {
         if (apt.startsWith(lastWord) || apt.includes(lastWord)) {
             suggestions.push({ id: apt, name: apt + ' Airport', type: 'Airport' });
         }
     }
     
-    // Search fixes
     for (const fix of COMMON_FIXES) {
         if (fix.startsWith(lastWord) || fix.includes(lastWord)) {
             suggestions.push({ id: fix, name: fix, type: 'Fix' });
@@ -1207,8 +1830,16 @@ function buildDiscordMessage(entry) {
     switch (entry.type) {
         case 'MIT': return buildMITMessage(entry);
         case 'MINIT': return buildMINITMessage(entry);
+        case 'STOP': return buildStopMessage(entry);
+        case 'APREQ':
+        case 'CFR': return buildAPREQMessage(entry);
+        case 'TBM': return buildTBMMessage(entry);
+        case 'HOLDING': return buildHoldingMessage(entry);
         case 'DELAY': return buildDelayMessage(entry);
         case 'CONFIG': return buildConfigMessage(entry);
+        case 'CANCEL': return buildCancelMessage(entry);
+        case 'REROUTE': return buildRerouteMessage(entry);
+        case 'OTHER': return buildOtherMessage(entry);
         default: return `[${entry.determinant}] ${entry.type}`;
     }
 }
@@ -1216,16 +1847,65 @@ function buildDiscordMessage(entry) {
 function buildMITMessage(e) {
     let msg = `**[${e.determinant}] ${e.distance}MIT** ${e.fromFacility || '???'}→${e.toFacility || '???'} ${e.condition || ''}`;
     if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
-    msg += `\nValid: ${e.validFrom || '????'}Z-${e.validUntil || '????'}Z`;
-    msg += `\nReason: ${e.reason}`;
+    if (e.isDepartures) msg += ' DEPARTURES';
+    if (e.isArrivals) msg += ' ARRIVALS';
+    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
     return msg;
 }
 
 function buildMINITMessage(e) {
     let msg = `**[${e.determinant}] ${e.minutes}MINIT** ${e.fromFacility || '???'}→${e.toFacility || '???'} ${e.condition || ''}`;
     if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
-    msg += `\nValid: ${e.validFrom || '????'}Z-${e.validUntil || '????'}Z`;
-    msg += `\nReason: ${e.reason}`;
+    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    return msg;
+}
+
+function buildStopMessage(e) {
+    let msg = `**[${e.determinant}] STOP** ${e.condition || ''}`;
+    if (e.viaRoute) msg += ` via ${e.viaRoute}`;
+    if (e.isDepartures) msg += ' departures';
+    if (e.isArrivals) msg += ' arrivals';
+    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
+    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    return msg;
+}
+
+function buildAPREQMessage(e) {
+    let msg = `**[${e.determinant}] ${e.type}** ${e.condition || ''}`;
+    if (e.viaRoute) msg += ` via ${e.viaRoute}`;
+    if (e.isDepartures) msg += ' departures';
+    if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
+    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
+    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    return msg;
+}
+
+function buildTBMMessage(e) {
+    let msg = `**[${e.determinant}] TBM** ${e.condition || ''}`;
+    if (e.sector) msg += ` ${e.sector}`;
+    if (e.isBegin) msg += ' BEGIN';
+    if (e.isEnd) msg += ' END';
+    if (e.viaSimtraffic) msg += ' (via SIMTRAFFIC)';
+    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
+    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    return msg;
+}
+
+function buildHoldingMessage(e) {
+    const typeMap = { 'ED': 'E/D', 'AD': 'A/D', 'DD': 'D/D' };
+    const typeDisplay = typeMap[e.delayType] || e.delayType;
+    let msg = `**[${e.determinant}]** ${e.reportingFacility || ''} ${typeDisplay} for ${e.airport}`;
+    
+    if (e.isHolding) {
+        msg += `, ${e.delayChange === 'initiating' ? '+' : '-'}Holding/${e.delayTime || '????'}`;
+    } else if (e.delayMinutes) {
+        msg += `, ${e.delayChange === 'increasing' ? '+' : '-'}${e.delayMinutes}/${e.delayTime || '????'}`;
+    }
+    
+    if (e.acftCount) msg += `/${e.acftCount} ACFT`;
+    if (e.navaid) msg += ` NAVAID:${e.navaid}`;
+    if (e.isStream) msg += ' STREAM';
+    msg += ` ${e.rawReason || 'VOLUME:VOLUME'}`;
     return msg;
 }
 
@@ -1238,11 +1918,40 @@ function buildDelayMessage(e) {
 }
 
 function buildConfigMessage(e) {
-    let msg = `**[${e.determinant}] AIRPORT CONFIG** ${e.airport || '???'}`;
-    msg += `\nWeather: ${e.weather} | Single RWY: ${e.singleRunway ? 'Yes' : 'No'}`;
-    if (e.arrRunways) msg += `\nARR: ${e.arrRunways}`;
-    if (e.depRunways) msg += ` | DEP: ${e.depRunways}`;
-    msg += `\nAAR: ${e.aar} | ADR: ${e.adr}`;
+    let msg = `**[${e.determinant}]** ${e.airport || '???'}    ${e.weather}`;
+    msg += `    ARR:${e.arrRunways || '-'} DEP:${e.depRunways || '-'}`;
+    msg += `    AAR(${e.aarType || 'Strat'}):${e.aar}`;
+    if (e.aarAdjustment) msg += ` AAR Adjustment:${e.aarAdjustment}`;
+    msg += `    ADR:${e.adr}`;
+    return msg;
+}
+
+function buildCancelMessage(e) {
+    let msg = `**CANCEL**`;
+    if (e.cancelType === 'ALL') {
+        msg += ' ALL TMI';
+    } else {
+        if (e.condition) msg += ` ${e.condition}`;
+        if (e.viaRoute) msg += ` via ${e.viaRoute}`;
+        if (e.mitValue) msg += ` ${e.mitValue}MIT`;
+    }
+    if (e.fromFacility || e.toFacility) msg += ` ${e.fromFacility || ''}:${e.toFacility || ''}`;
+    return msg;
+}
+
+function buildRerouteMessage(e) {
+    let msg = `**[${e.determinant}] REROUTE** ${e.condition || ''}`;
+    if (e.route) msg += ` via ${e.route}`;
+    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
+    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    return msg;
+}
+
+function buildOtherMessage(e) {
+    let msg = `**[${e.determinant}] ${e.subType || 'OTHER'}**`;
+    if (e.condition) msg += ` ${e.condition}`;
+    if (e.fromFacility || e.toFacility) msg += ` ${e.fromFacility || ''}:${e.toFacility || ''}`;
+    if (e.validFrom) msg += ` ${e.validFrom}-${e.validUntil || '????'}`;
     return msg;
 }
 
@@ -1265,7 +1974,6 @@ function showPreview() {
 function submitAll() {
     if (entryQueue.length === 0) return;
     
-    // Check for incomplete entries
     const incomplete = entryQueue.filter(e => !isEntryValid(e));
     if (incomplete.length > 0) {
         Swal.fire({
@@ -1324,7 +2032,6 @@ async function processSubmissions() {
             errors.push(e.message || 'Network error');
         }
         
-        // Delay between submissions
         if (i < entryQueue.length - 1) {
             await new Promise(r => setTimeout(r, 500));
         }
@@ -1374,66 +2081,61 @@ function submitEntry(entry) {
 }
 
 function buildPostData(entry) {
+    const base = {
+        type: entry.type,
+        protocol: entry.protocol,
+        determinant: entry.determinant,
+        raw: entry.raw,
+        reason: entry.reason,
+        raw_reason: entry.rawReason,
+        valid_from: entry.validFrom,
+        valid_until: entry.validUntil,
+        from_facility: entry.fromFacility,
+        to_facility: entry.toFacility,
+        exclusions: entry.exclusions,
+        qualifiers: (entry.qualifiers || []).join(',')
+    };
+    
     switch (entry.type) {
         case 'MIT':
-            return {
-                protocol: '05',
-                condition: entry.condition,
-                restriction_type: 'arrival',
-                req_facility_type: 'ARTCC',
-                req_facility_id: entry.toFacility,
-                prov_facility_type: 'ARTCC',
-                prov_facility_id: entry.fromFacility,
-                same_artcc: entry.isInternal ? 'yes' : 'no',
-                distance: entry.distance,
-                qualifiers: (entry.qualifiers || []).join(','),
-                reason: entry.reason,
-                valid_from: entry.validFrom,
-                valid_until: entry.validUntil
-            };
+            return { ...base, distance: entry.distance, condition: entry.condition, 
+                     is_departures: entry.isDepartures, is_arrivals: entry.isArrivals,
+                     is_internal: entry.isInternal };
         case 'MINIT':
-            return {
-                protocol: '06',
-                condition: entry.condition,
-                restriction_type: 'arrival',
-                req_facility_type: 'ARTCC',
-                req_facility_id: entry.toFacility,
-                prov_facility_type: 'ARTCC',
-                prov_facility_id: entry.fromFacility,
-                same_artcc: entry.isInternal ? 'yes' : 'no',
-                minutes: entry.minutes,
-                qualifiers: (entry.qualifiers || []).join(','),
-                reason: entry.reason,
-                valid_from: entry.validFrom,
-                valid_until: entry.validUntil
-            };
+            return { ...base, minutes: entry.minutes, condition: entry.condition,
+                     is_internal: entry.isInternal };
+        case 'STOP':
+            return { ...base, condition: entry.condition, via_route: entry.viaRoute,
+                     is_departures: entry.isDepartures, is_arrivals: entry.isArrivals };
+        case 'APREQ':
+        case 'CFR':
+            return { ...base, condition: entry.condition, via_route: entry.viaRoute,
+                     is_departures: entry.isDepartures };
+        case 'TBM':
+            return { ...base, condition: entry.condition, sector: entry.sector,
+                     is_begin: entry.isBegin, is_end: entry.isEnd, via_simtraffic: entry.viaSimtraffic };
+        case 'HOLDING':
+            return { ...base, delay_type: entry.delayType, airport: entry.airport,
+                     reporting_facility: entry.reportingFacility, delay_change: entry.delayChange,
+                     delay_minutes: entry.delayMinutes, delay_time: entry.delayTime,
+                     acft_count: entry.acftCount, is_holding: entry.isHolding, navaid: entry.navaid };
         case 'DELAY':
-            return {
-                protocol: '04',
-                delay_type: 'arrival',
-                timeframe: 'now',
-                delay_facility: entry.facility,
-                charge_facility: entry.chargeFacility,
-                flights_delayed: entry.flightsDelayed,
-                longest_delay: entry.minutes,
-                delay_trend: entry.trend,
-                holding: entry.holding,
-                reason: entry.reason
-            };
+            return { ...base, facility: entry.facility, minutes: entry.minutes,
+                     trend: entry.trend, flights_delayed: entry.flightsDelayed, holding: entry.holding };
         case 'CONFIG':
-            return {
-                protocol: '01',
-                airport: entry.airport,
-                weather: entry.weather,
-                arr_runways: entry.arrRunways,
-                dep_runways: entry.depRunways,
-                single_runway: entry.singleRunway ? 'yes' : 'no',
-                aar: entry.aar,
-                adr: entry.adr,
-                fleet_mix: 'light'
-            };
+            return { ...base, airport: entry.airport, weather: entry.weather,
+                     arr_runways: entry.arrRunways, dep_runways: entry.depRunways,
+                     aar: entry.aar, aar_type: entry.aarType, aar_adjustment: entry.aarAdjustment,
+                     adr: entry.adr, single_runway: entry.singleRunway };
+        case 'CANCEL':
+            return { ...base, cancel_type: entry.cancelType, condition: entry.condition,
+                     via_route: entry.viaRoute, mit_value: entry.mitValue };
+        case 'REROUTE':
+            return { ...base, condition: entry.condition, route: entry.route };
+        case 'OTHER':
+            return { ...base, sub_type: entry.subType, condition: entry.condition };
         default:
-            return { protocol: '00' };
+            return base;
     }
 }
 
