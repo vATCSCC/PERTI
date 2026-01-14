@@ -10,6 +10,9 @@ composer
 scripts/*.log
 scripts/*.lock
 
+# Form data (contains sensitive information)
+scripts/ntml_form.json
+
 # Swap/temp files
 *.swp
 *.swo
