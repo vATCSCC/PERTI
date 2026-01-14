@@ -55,39 +55,52 @@ function rateCell($rate, $extraClass = '') {
     echo "<td class=\"{$class}\"{$style}>{$val}</td>";
 }
 
-$search = isset($_GET['search']) ? strip_tags($_GET['search']) : '';
+// Helper: Get modifier badge HTML
+function getModifierBadge($code, $variant = null, $category = null) {
+    // Category colors
+    $categoryColors = [
+        'PARALLEL_OPS'   => 'primary',    // Blue
+        'APPROACH_TYPE'  => 'info',       // Purple/Cyan
+        'TRAFFIC_BIAS'   => 'success',    // Green
+        'VISIBILITY_CAT' => 'warning',    // Amber
+        'SPECIAL_OPS'    => 'danger',     // Red
+        'TIME_RESTRICT'  => 'secondary',  // Gray
+        'WEATHER_OPS'    => 'info',       // Cyan
+        'NAMED'          => 'dark',       // Dark
+    ];
 
-// Auto-create rate history table if it doesn't exist
-if ($conn_adl) {
-    $checkTable = sqlsrv_query($conn_adl, "SELECT 1 FROM sys.tables WHERE name = 'airport_config_rate_history'");
-    if ($checkTable && !sqlsrv_fetch($checkTable)) {
-        // Create the history table
-        $createSql = "
-            CREATE TABLE dbo.airport_config_rate_history (
-                history_id BIGINT IDENTITY(1,1) PRIMARY KEY,
-                config_id INT NOT NULL,
-                source VARCHAR(8) NOT NULL,
-                weather VARCHAR(8) NOT NULL,
-                rate_type VARCHAR(4) NOT NULL,
-                old_value SMALLINT NULL,
-                new_value SMALLINT NULL,
-                change_type VARCHAR(8) NOT NULL,
-                changed_by_cid INT NULL,
-                changed_utc DATETIME2 DEFAULT GETUTCDATE(),
-                notes VARCHAR(256) NULL,
-                CONSTRAINT FK_rate_history_config FOREIGN KEY (config_id)
-                    REFERENCES dbo.airport_config(config_id) ON DELETE CASCADE,
-                INDEX IX_rate_history_config (config_id),
-                INDEX IX_rate_history_changed (changed_utc DESC)
-            )
-        ";
-        sqlsrv_query($conn_adl, $createSql);
+    $badgeClass = $categoryColors[$category] ?? 'secondary';
+    $displayText = $code;
+    if ($variant) {
+        $displayText .= ':' . $variant;
     }
+    return '<span class="badge badge-' . $badgeClass . ' badge-sm mr-1" data-toggle="tooltip" title="' . htmlspecialchars($code) . '">' . htmlspecialchars($displayText) . '</span>';
 }
+
+// Helper: Format runway with modifiers
+function formatRunwayWithModifiers($runway, $modifiers) {
+    $html = '<span class="runway-id">' . htmlspecialchars($runway['runway_id']);
+    if (!empty($runway['intersection'])) {
+        $html .= '@' . htmlspecialchars($runway['intersection']);
+    }
+    $html .= '</span>';
+
+    // Add modifier badges
+    if (!empty($modifiers)) {
+        $html .= ' ';
+        foreach ($modifiers as $mod) {
+            $html .= '<span class="badge badge-outline-' . ($mod['badge_class'] ?? 'secondary') . ' badge-xs" title="' . htmlspecialchars($mod['description'] ?? '') . '">' . htmlspecialchars($mod['abbrev']) . '</span>';
+        }
+    }
+
+    return $html;
+}
+
+$search = isset($_GET['search']) ? strip_tags($_GET['search']) : '';
 
 // Check if ADL connection is available
 if (!$conn_adl) {
-    // Fallback to MySQL (legacy)
+    // Fallback to MySQL (legacy) - simplified output
     $query = mysqli_query($conn_sqli, "SELECT * FROM config_data WHERE airport LIKE '%$search%' ORDER BY airport ASC LIMIT 50");
 
     while ($data = mysqli_fetch_array($query)) {
@@ -95,6 +108,7 @@ if (!$conn_adl) {
         echo '<td class="text-center">' . htmlspecialchars($data['airport']) . '</td>';
         echo '<td class="text-center">K' . htmlspecialchars($data['airport']) . '</td>';
         echo '<td class="text-center">-</td>';
+        echo '<td class="text-center">-</td>'; // Modifiers
         echo '<td class="text-center">' . htmlspecialchars($data['arr']) . '</td>';
         echo '<td class="text-center">' . htmlspecialchars($data['dep']) . '</td>';
 
@@ -138,9 +152,11 @@ if (!$conn_adl) {
 } else {
     // Get active filter
     $activeFilter = isset($_GET['active']) ? $_GET['active'] : 'active';
+    // Get modifier filter
+    $modifierFilter = isset($_GET['modifier']) ? $_GET['modifier'] : '';
 
     // Use ADL SQL Server - Join summary and rates views
-    // Include weather impact info via subquery
+    // Include weather impact info and modifiers
     $sql = "
         SELECT
             s.config_id,
@@ -189,29 +205,112 @@ if (!$conn_adl) {
         $sql .= " AND s.is_active = 0";
     }
 
+    // Add modifier filter if specified
+    if ($modifierFilter) {
+        $sql .= " AND EXISTS (SELECT 1 FROM dbo.config_modifier cm WHERE cm.config_id = s.config_id AND cm.modifier_code = ?)";
+    }
+
     $sql .= " ORDER BY s.airport_faa ASC, s.config_name ASC";
 
     $searchParam = '%' . $search . '%';
     $params = [$searchParam, $searchParam, $searchParam];
+    if ($modifierFilter) {
+        $params[] = $modifierFilter;
+    }
 
     $stmt = sqlsrv_query($conn_adl, $sql, $params);
 
     if ($stmt === false) {
         error_log("ADL configs query failed: " . adl_sql_error_message());
-        echo '<tr><td colspan="12" class="text-center text-danger">Error loading configurations</td></tr>';
+        echo '<tr><td colspan="20" class="text-center text-danger">Error loading configurations</td></tr>';
     } else {
+        // Fetch modifiers for all configs (batch query for efficiency)
+        $modifiersQuery = "
+            SELECT
+                cm.config_id,
+                cm.runway_id,
+                cm.modifier_code,
+                cm.original_value,
+                cm.variant_value,
+                mt.display_name,
+                mt.abbrev,
+                mt.description,
+                mc.category_code,
+                mc.category_name,
+                mc.color_hex
+            FROM dbo.config_modifier cm
+            JOIN dbo.modifier_type mt ON cm.modifier_code = mt.modifier_code
+            JOIN dbo.modifier_category mc ON mt.category_code = mc.category_code
+            ORDER BY cm.config_id, mc.display_order, cm.runway_id
+        ";
+        $modifiersStmt = sqlsrv_query($conn_adl, $modifiersQuery);
+        $allModifiers = [];
+        if ($modifiersStmt) {
+            while ($mod = sqlsrv_fetch_array($modifiersStmt, SQLSRV_FETCH_ASSOC)) {
+                $configId = $mod['config_id'];
+                if (!isset($allModifiers[$configId])) {
+                    $allModifiers[$configId] = ['config' => [], 'runways' => []];
+                }
+                if ($mod['runway_id'] === null) {
+                    $allModifiers[$configId]['config'][] = $mod;
+                } else {
+                    if (!isset($allModifiers[$configId]['runways'][$mod['runway_id']])) {
+                        $allModifiers[$configId]['runways'][$mod['runway_id']] = [];
+                    }
+                    $allModifiers[$configId]['runways'][$mod['runway_id']][] = $mod;
+                }
+            }
+            sqlsrv_free_stmt($modifiersStmt);
+        }
+
+        // Fetch runway details with intersections
+        $runwaysQuery = "
+            SELECT
+                r.config_id,
+                r.runway_id,
+                r.runway_use,
+                r.priority,
+                r.intersection
+            FROM dbo.airport_config_runway r
+            ORDER BY r.config_id, r.runway_use, r.priority
+        ";
+        $runwaysStmt = sqlsrv_query($conn_adl, $runwaysQuery);
+        $allRunways = [];
+        if ($runwaysStmt) {
+            while ($rwy = sqlsrv_fetch_array($runwaysStmt, SQLSRV_FETCH_ASSOC)) {
+                $configId = $rwy['config_id'];
+                if (!isset($allRunways[$configId])) {
+                    $allRunways[$configId] = ['ARR' => [], 'DEP' => []];
+                }
+                $use = $rwy['runway_use'];
+                if ($use === 'ARR' || $use === 'BOTH') {
+                    $allRunways[$configId]['ARR'][] = $rwy;
+                }
+                if ($use === 'DEP' || $use === 'BOTH') {
+                    $allRunways[$configId]['DEP'][] = $rwy;
+                }
+            }
+            sqlsrv_free_stmt($runwaysStmt);
+        }
+
         while ($data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $configId = $data['config_id'];
             $isActive = $data['is_active'] ?? true;
             $rowClass = $isActive ? '' : 'config-inactive';
-            echo '<tr class="' . $rowClass . '" data-active="' . ($isActive ? 'true' : 'false') . '">';
+
+            $configMods = $allModifiers[$configId]['config'] ?? [];
+            $runwayMods = $allModifiers[$configId]['runways'] ?? [];
+            $runways = $allRunways[$configId] ?? ['ARR' => [], 'DEP' => []];
+
+            echo '<tr class="' . $rowClass . '" data-active="' . ($isActive ? 'true' : 'false') . '" data-config-id="' . $configId . '">';
 
             // Checkbox column for bulk selection (admin only)
             if ($perm == true) {
-                echo '<td class="text-center"><input type="checkbox" class="row-checkbox bulk-checkbox" data-id="' . $data['config_id'] . '"></td>';
+                echo '<td class="text-center"><input type="checkbox" class="row-checkbox bulk-checkbox" data-id="' . $configId . '"></td>';
             }
 
             // Airport FAA
-            echo '<td class="text-center">' . htmlspecialchars($data['airport_faa']) . '</td>';
+            echo '<td class="text-center font-weight-bold">' . htmlspecialchars($data['airport_faa']) . '</td>';
 
             // Airport ICAO with weather impact indicator
             $icaoHtml = htmlspecialchars($data['airport_icao']);
@@ -231,11 +330,98 @@ if (!$conn_adl) {
             }
             echo '<td class="text-center">' . $configDisplay . '</td>';
 
-            // Arrival Runways
-            echo '<td class="text-center">' . htmlspecialchars($data['arr_runways'] ?? '-') . '</td>';
+            // Modifiers column (config-level and runway-level combined as badges)
+            echo '<td class="text-center modifiers-cell">';
+            $badgeHtml = '';
+
+            // Config-level modifiers first
+            foreach ($configMods as $mod) {
+                $categoryColors = [
+                    'PARALLEL_OPS'   => 'primary',
+                    'APPROACH_TYPE'  => 'info',
+                    'TRAFFIC_BIAS'   => 'success',
+                    'VISIBILITY_CAT' => 'warning',
+                    'SPECIAL_OPS'    => 'danger',
+                    'TIME_RESTRICT'  => 'secondary',
+                    'WEATHER_OPS'    => 'info',
+                    'NAMED'          => 'dark',
+                ];
+                $badgeClass = $categoryColors[$mod['category_code']] ?? 'secondary';
+                $label = $mod['abbrev'];
+                if ($mod['variant_value']) {
+                    $label .= ':' . $mod['variant_value'];
+                }
+                $badgeHtml .= '<span class="badge badge-' . $badgeClass . ' mr-1" data-toggle="tooltip" title="' . htmlspecialchars($mod['display_name'] . ': ' . $mod['description']) . '">' . htmlspecialchars($label) . '</span>';
+            }
+
+            // Runway-level modifiers (unique only)
+            $seenMods = [];
+            foreach ($runwayMods as $rwyId => $mods) {
+                foreach ($mods as $mod) {
+                    $key = $mod['modifier_code'] . ':' . ($mod['variant_value'] ?? '');
+                    if (!isset($seenMods[$key])) {
+                        $seenMods[$key] = true;
+                        $categoryColors = [
+                            'PARALLEL_OPS'   => 'primary',
+                            'APPROACH_TYPE'  => 'info',
+                            'TRAFFIC_BIAS'   => 'success',
+                            'VISIBILITY_CAT' => 'warning',
+                            'SPECIAL_OPS'    => 'danger',
+                            'TIME_RESTRICT'  => 'secondary',
+                            'WEATHER_OPS'    => 'info',
+                            'NAMED'          => 'dark',
+                        ];
+                        $badgeClass = $categoryColors[$mod['category_code']] ?? 'secondary';
+                        $label = $mod['abbrev'];
+                        if ($mod['variant_value']) {
+                            $label .= ':' . $mod['variant_value'];
+                        }
+                        $badgeHtml .= '<span class="badge badge-outline-' . $badgeClass . ' mr-1" data-toggle="tooltip" title="' . htmlspecialchars($mod['display_name'] . ' (' . $rwyId . '): ' . $mod['description']) . '">' . htmlspecialchars($label) . '</span>';
+                    }
+                }
+            }
+
+            echo $badgeHtml ?: '<span class="text-muted">-</span>';
+            echo '</td>';
+
+            // Arrival Runways (formatted with intersections)
+            echo '<td class="text-center runway-cell">';
+            $arrHtml = [];
+            foreach ($runways['ARR'] as $rwy) {
+                $rwyText = $rwy['runway_id'];
+                if (!empty($rwy['intersection'])) {
+                    $rwyText .= '@' . $rwy['intersection'];
+                }
+                // Add runway-specific modifier indicators
+                if (isset($runwayMods[$rwy['runway_id']])) {
+                    $rwyMods = $runwayMods[$rwy['runway_id']];
+                    $modAbbrevs = [];
+                    foreach ($rwyMods as $m) {
+                        if (in_array($m['category_code'], ['APPROACH_TYPE', 'PARALLEL_OPS'])) {
+                            $modAbbrevs[] = $m['abbrev'];
+                        }
+                    }
+                    if ($modAbbrevs) {
+                        $rwyText .= ' <small class="text-info">(' . implode(',', $modAbbrevs) . ')</small>';
+                    }
+                }
+                $arrHtml[] = $rwyText;
+            }
+            echo implode('<br>', $arrHtml) ?: '-';
+            echo '</td>';
 
             // Departure Runways
-            echo '<td class="text-center">' . htmlspecialchars($data['dep_runways'] ?? '-') . '</td>';
+            echo '<td class="text-center runway-cell">';
+            $depHtml = [];
+            foreach ($runways['DEP'] as $rwy) {
+                $rwyText = $rwy['runway_id'];
+                if (!empty($rwy['intersection'])) {
+                    $rwyText .= '@' . $rwy['intersection'];
+                }
+                $depHtml[] = $rwyText;
+            }
+            echo implode('<br>', $depHtml) ?: '-';
+            echo '</td>';
 
             // VATSIM Rates (ARR: VMC, LVMC, IMC, LIMC, VLIMC)
             rateCell($data['vatsim_vmc_aar'], 'section-divider');
@@ -265,7 +451,7 @@ if (!$conn_adl) {
                 // Build data attributes for modal
                 echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Update Field Configuration">';
                 echo '<span class="badge badge-warning" data-toggle="modal" data-target="#updateconfigModal" ';
-                echo 'data-config_id="' . $data['config_id'] . '" ';
+                echo 'data-config_id="' . $configId . '" ';
                 echo 'data-airport_faa="' . htmlspecialchars($data['airport_faa']) . '" ';
                 echo 'data-airport_icao="' . htmlspecialchars($data['airport_icao']) . '" ';
                 echo 'data-config_name="' . htmlspecialchars($data['config_name']) . '" ';
@@ -299,10 +485,10 @@ if (!$conn_adl) {
 
                 echo '<i class="fas fa-pencil-alt"></i> Update</span></a>';
                 echo ' ';
-                echo '<a href="javascript:void(0)" onclick="showHistory(' . $data['config_id'] . ', \'' . htmlspecialchars($data['airport_faa'], ENT_QUOTES) . '\', \'' . htmlspecialchars($data['config_name'], ENT_QUOTES) . '\')" data-toggle="tooltip" title="View Rate Change History">';
+                echo '<a href="javascript:void(0)" onclick="showHistory(' . $configId . ', \'' . htmlspecialchars($data['airport_faa'], ENT_QUOTES) . '\', \'' . htmlspecialchars($data['config_name'], ENT_QUOTES) . '\')" data-toggle="tooltip" title="View Rate Change History">';
                 echo '<span class="badge badge-info"><i class="fas fa-history"></i></span></a>';
                 echo ' ';
-                echo '<a href="javascript:void(0)" onclick="deleteConfig(' . $data['config_id'] . ')" data-toggle="tooltip" title="Delete Field Configuration">';
+                echo '<a href="javascript:void(0)" onclick="deleteConfig(' . $configId . ')" data-toggle="tooltip" title="Delete Field Configuration">';
                 echo '<span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                 echo '</center></td>';
             }

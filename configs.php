@@ -266,6 +266,78 @@ include("sessions/handler.php");
         .change-decreased { color: #dc3545; }
         .change-new { color: #17a2b8; }
         .change-removed { color: #6c757d; text-decoration: line-through; }
+
+        /* Modifier badges */
+        .modifiers-cell {
+            max-width: 200px;
+            white-space: normal;
+        }
+        .badge-outline-primary {
+            color: #3B82F6;
+            background-color: transparent;
+            border: 1px solid #3B82F6;
+        }
+        .badge-outline-info {
+            color: #06B6D4;
+            background-color: transparent;
+            border: 1px solid #06B6D4;
+        }
+        .badge-outline-success {
+            color: #10B981;
+            background-color: transparent;
+            border: 1px solid #10B981;
+        }
+        .badge-outline-warning {
+            color: #F59E0B;
+            background-color: transparent;
+            border: 1px solid #F59E0B;
+        }
+        .badge-outline-danger {
+            color: #EF4444;
+            background-color: transparent;
+            border: 1px solid #EF4444;
+        }
+        .badge-outline-secondary {
+            color: #6B7280;
+            background-color: transparent;
+            border: 1px solid #6B7280;
+        }
+        .badge-outline-dark {
+            color: #374151;
+            background-color: transparent;
+            border: 1px solid #374151;
+        }
+        .badge-sm {
+            font-size: 0.7rem;
+            padding: 2px 5px;
+        }
+        .badge-xs {
+            font-size: 0.6rem;
+            padding: 1px 3px;
+        }
+
+        /* Runway cell styling */
+        .runway-cell {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        .runway-cell small {
+            font-size: 0.7rem;
+        }
+
+        /* Modifier legend */
+        .modifier-legend {
+            font-size: 0.75rem;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .modifier-legend .badge {
+            font-size: 0.65rem;
+            margin-right: 8px;
+        }
     </style>
 
 </head>
@@ -348,7 +420,42 @@ include('load/nav.php');
                     <option value="inactive">Inactive Only</option>
                 </select>
             </div>
-            <div class="col-md-5 text-right">
+            <div class="col-md-2">
+                <select class="form-control form-control-sm" id="filterModifier">
+                    <option value="">All Modifiers</option>
+                    <optgroup label="Parallel Operations">
+                        <option value="SIMOS">SIMOS</option>
+                        <option value="STAGGERED">Staggered</option>
+                        <option value="SIDE_BY_SIDE">Side-by-Side</option>
+                        <option value="IN_TRAIL">In-Trail</option>
+                    </optgroup>
+                    <optgroup label="Approach Type">
+                        <option value="ILS">ILS</option>
+                        <option value="VOR">VOR</option>
+                        <option value="RNAV">RNAV</option>
+                        <option value="LDA">LDA</option>
+                        <option value="LOC">LOC</option>
+                        <option value="FMS_VISUAL">FMS Visual</option>
+                    </optgroup>
+                    <optgroup label="Special Operations">
+                        <option value="LAHSO">LAHSO</option>
+                        <option value="SINGLE_RWY">Single Runway</option>
+                        <option value="CIRCLING">Circling</option>
+                        <option value="VAP">Visual Approach</option>
+                    </optgroup>
+                    <optgroup label="Visibility Category">
+                        <option value="CAT_II">CAT II</option>
+                        <option value="CAT_III">CAT III</option>
+                    </optgroup>
+                    <optgroup label="Weather/Time">
+                        <option value="WINTER">Winter</option>
+                        <option value="NOISE">Noise Abatement</option>
+                        <option value="DAY">Day Only</option>
+                        <option value="NIGHT">Night Only</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="col-md-3 text-right">
                 <?php if ($perm == true) { ?>
                     <button class="btn btn-success btn-sm" data-target="#addconfigModal" data-toggle="modal"><i class="fas fa-plus"></i> Add Config</button>
                 <?php } ?>
@@ -367,6 +474,20 @@ include('load/nav.php');
         </div>
         <?php } ?>
 
+        <!-- Modifier Legend -->
+        <div class="modifier-legend" id="modifierLegend">
+            <strong>Modifier Legend:</strong>
+            <span class="badge badge-primary">SIMOS</span> Parallel Ops
+            <span class="badge badge-info">ILS</span> Approach Type
+            <span class="badge badge-success">ARR</span> Traffic Bias
+            <span class="badge badge-warning">II</span> Visibility Cat
+            <span class="badge badge-danger">LAHSO</span> Special Ops
+            <span class="badge badge-secondary">NGT</span> Time
+            <span class="badge badge-info">WNT</span> Weather
+            |
+            <span class="badge badge-outline-primary">Outline</span> = Runway-specific modifier
+        </div>
+
         <div id="configs-container">
             <table class="table table-sm table-striped table-bordered" id="configs" style="width: 100%;">
                 <thead class="table-dark text-light">
@@ -380,6 +501,7 @@ include('load/nav.php');
                         <th rowspan="3" class="text-center align-middle sortable" data-sort="0" data-type="text">FAA</th>
                         <th rowspan="3" class="text-center align-middle sortable" data-sort="1" data-type="text">ICAO</th>
                         <th rowspan="3" class="text-center align-middle">Config</th>
+                        <th rowspan="3" class="text-center align-middle">Modifiers</th>
                         <th rowspan="3" class="text-center align-middle">ARR<br>Rwys</th>
                         <th rowspan="3" class="text-center align-middle">DEP<br>Rwys</th>
                         <th colspan="7" class="text-center vatsim-header section-divider">VATSIM Rates</th>
@@ -396,22 +518,22 @@ include('load/nav.php');
                     <!-- Row 3: Weather categories (sortable by rate value) -->
                     <tr>
                         <!-- VATSIM AAR -->
-                        <th class="text-center weather-header vatsim-arr-header section-divider sortable" data-sort="5" data-type="num" data-toggle="tooltip" title="VMC Arrival Rate - Click to sort">VMC</th>
-                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="6" data-type="num" data-toggle="tooltip" title="LVMC Arrival Rate - Click to sort">LVMC</th>
-                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="7" data-type="num" data-toggle="tooltip" title="IMC Arrival Rate - Click to sort">IMC</th>
-                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="8" data-type="num" data-toggle="tooltip" title="LIMC Arrival Rate - Click to sort">LIMC</th>
-                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="9" data-type="num" data-toggle="tooltip" title="VLIMC Arrival Rate - Click to sort">VLIMC</th>
+                        <th class="text-center weather-header vatsim-arr-header section-divider sortable" data-sort="6" data-type="num" data-toggle="tooltip" title="VMC Arrival Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="7" data-type="num" data-toggle="tooltip" title="LVMC Arrival Rate - Click to sort">LVMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="8" data-type="num" data-toggle="tooltip" title="IMC Arrival Rate - Click to sort">IMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="9" data-type="num" data-toggle="tooltip" title="LIMC Arrival Rate - Click to sort">LIMC</th>
+                        <th class="text-center weather-header vatsim-arr-header sortable" data-sort="10" data-type="num" data-toggle="tooltip" title="VLIMC Arrival Rate - Click to sort">VLIMC</th>
                         <!-- VATSIM ADR -->
-                        <th class="text-center weather-header vatsim-dep-header sortable" data-sort="10" data-type="num" data-toggle="tooltip" title="VMC Departure Rate - Click to sort">VMC</th>
-                        <th class="text-center weather-header vatsim-dep-header sortable" data-sort="11" data-type="num" data-toggle="tooltip" title="IMC Departure Rate - Click to sort">IMC</th>
+                        <th class="text-center weather-header vatsim-dep-header sortable" data-sort="11" data-type="num" data-toggle="tooltip" title="VMC Departure Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header vatsim-dep-header sortable" data-sort="12" data-type="num" data-toggle="tooltip" title="IMC Departure Rate - Click to sort">IMC</th>
                         <!-- RW AAR -->
-                        <th class="text-center weather-header rw-arr-header section-divider sortable" data-sort="12" data-type="num" data-toggle="tooltip" title="RW VMC Arrival Rate - Click to sort">VMC</th>
-                        <th class="text-center weather-header rw-arr-header sortable" data-sort="13" data-type="num" data-toggle="tooltip" title="RW LVMC Arrival Rate - Click to sort">LVMC</th>
-                        <th class="text-center weather-header rw-arr-header sortable" data-sort="14" data-type="num" data-toggle="tooltip" title="RW IMC Arrival Rate - Click to sort">IMC</th>
-                        <th class="text-center weather-header rw-arr-header sortable" data-sort="15" data-type="num" data-toggle="tooltip" title="RW LIMC Arrival Rate - Click to sort">LIMC</th>
+                        <th class="text-center weather-header rw-arr-header section-divider sortable" data-sort="13" data-type="num" data-toggle="tooltip" title="RW VMC Arrival Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header rw-arr-header sortable" data-sort="14" data-type="num" data-toggle="tooltip" title="RW LVMC Arrival Rate - Click to sort">LVMC</th>
+                        <th class="text-center weather-header rw-arr-header sortable" data-sort="15" data-type="num" data-toggle="tooltip" title="RW IMC Arrival Rate - Click to sort">IMC</th>
+                        <th class="text-center weather-header rw-arr-header sortable" data-sort="16" data-type="num" data-toggle="tooltip" title="RW LIMC Arrival Rate - Click to sort">LIMC</th>
                         <!-- RW ADR -->
-                        <th class="text-center weather-header rw-dep-header sortable" data-sort="16" data-type="num" data-toggle="tooltip" title="RW VMC Departure Rate - Click to sort">VMC</th>
-                        <th class="text-center weather-header rw-dep-header sortable" data-sort="17" data-type="num" data-toggle="tooltip" title="RW IMC Departure Rate - Click to sort">IMC</th>
+                        <th class="text-center weather-header rw-dep-header sortable" data-sort="17" data-type="num" data-toggle="tooltip" title="RW VMC Departure Rate - Click to sort">VMC</th>
+                        <th class="text-center weather-header rw-dep-header sortable" data-sort="18" data-type="num" data-toggle="tooltip" title="RW IMC Departure Rate - Click to sort">IMC</th>
                     </tr>
                 </thead>
 
@@ -787,9 +909,9 @@ include('load/nav.php');
                     var faa = cells.eq(faaIdx).text().trim();
                     airports.add(faa);
 
-                    // Check VATSIM rates (offset by checkbox column if present)
+                    // Check VATSIM rates (offset by checkbox + modifiers columns)
                     var hasVatsim = false;
-                    for (var i = 5 + colOffset; i <= 11 + colOffset; i++) {
+                    for (var i = 6 + colOffset; i <= 12 + colOffset; i++) {
                         if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
                             hasVatsim = true;
                             break;
@@ -799,7 +921,7 @@ include('load/nav.php');
 
                     // Check RW rates
                     var hasRw = false;
-                    for (var i = 12 + colOffset; i <= 17 + colOffset; i++) {
+                    for (var i = 13 + colOffset; i <= 18 + colOffset; i++) {
                         if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
                             hasRw = true;
                             break;
@@ -808,8 +930,8 @@ include('load/nav.php');
                     if (hasRw) withRw++;
 
                     // Compare VMC AAR
-                    var vatsimVmc = parseInt(cells.eq(5 + colOffset).text()) || 0;
-                    var rwVmc = parseInt(cells.eq(12 + colOffset).text()) || 0;
+                    var vatsimVmc = parseInt(cells.eq(6 + colOffset).text()) || 0;
+                    var rwVmc = parseInt(cells.eq(13 + colOffset).text()) || 0;
                     if (vatsimVmc > 0 && rwVmc > 0) {
                         if (vatsimVmc > rwVmc) vatsimHigher++;
                         else if (vatsimVmc < rwVmc) vatsimLower++;
@@ -844,14 +966,14 @@ include('load/nav.php');
                 // Rate filter
                 if (show && filter) {
                     var hasRw = false;
-                    for (var i = 12 + colOffset; i <= 17 + colOffset; i++) {
+                    for (var i = 13 + colOffset; i <= 18 + colOffset; i++) {
                         if (cells.eq(i).text().trim() !== '-' && cells.eq(i).text().trim() !== '') {
                             hasRw = true;
                             break;
                         }
                     }
-                    var vatsimVmc = parseInt(cells.eq(5 + colOffset).text()) || 0;
-                    var rwVmc = parseInt(cells.eq(12 + colOffset).text()) || 0;
+                    var vatsimVmc = parseInt(cells.eq(6 + colOffset).text()) || 0;
+                    var rwVmc = parseInt(cells.eq(13 + colOffset).text()) || 0;
 
                     switch (filter) {
                         case 'has-rw': show = hasRw; break;
@@ -949,7 +1071,7 @@ include('load/nav.php');
 
         function exportToCSV() {
             var csv = [];
-            var headers = ['FAA', 'ICAO', 'Config', 'ARR Rwys', 'DEP Rwys',
+            var headers = ['FAA', 'ICAO', 'Config', 'Modifiers', 'ARR Rwys', 'DEP Rwys',
                 'VATSIM VMC AAR', 'VATSIM LVMC AAR', 'VATSIM IMC AAR', 'VATSIM LIMC AAR', 'VATSIM VLIMC AAR',
                 'VATSIM VMC ADR', 'VATSIM IMC ADR',
                 'RW VMC AAR', 'RW LVMC AAR', 'RW IMC AAR', 'RW LIMC AAR',
@@ -960,7 +1082,7 @@ include('load/nav.php');
                 var row = [];
                 var startIdx = colOffset; // Skip checkbox column
                 $(this).find('td').each(function(i) {
-                    if (i >= startIdx && i < 18 + colOffset) {
+                    if (i >= startIdx && i < 19 + colOffset) {
                         var text = $(this).text().trim().replace(/"/g, '""');
                         row.push('"' + text + '"');
                     }
@@ -979,7 +1101,12 @@ include('load/nav.php');
 
         function loadData(search) {
             var activeFilter = $('#filterActive').val() || 'active';
-            $.get(`api/data/configs?search=${search}&active=${activeFilter}`).done(function(data) {
+            var modifierFilter = $('#filterModifier').val() || '';
+            var url = `api/data/configs?search=${search}&active=${activeFilter}`;
+            if (modifierFilter) {
+                url += `&modifier=${modifierFilter}`;
+            }
+            $.get(url).done(function(data) {
                 $('#configs_table').html(data);
                 tooltips();
                 applyFilters();
@@ -1116,6 +1243,10 @@ include('load/nav.php');
             });
 
             $('#filterActive').change(function() {
+                loadData($('#search').val());
+            });
+
+            $('#filterModifier').change(function() {
                 loadData($('#search').val());
             });
 
