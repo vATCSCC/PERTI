@@ -933,8 +933,8 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
         <!-- Map Layer Controls -->
         <div class="nod-map-controls" id="mapLayerControls">
             <div class="nod-map-controls-header" data-draggable="mapLayerControls">
-                <h6><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-layer-group mr-2"></i>MAP LAYERS</h6>
-                <i class="fas fa-chevron-down" id="layerControlsChevron" onclick="event.stopPropagation(); NOD.toggleLayerControls()"></i>
+                <h6 onclick="NOD.toggleLayerControls()" style="cursor: pointer; flex: 1;"><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-layer-group mr-2"></i>MAP LAYERS</h6>
+                <i class="fas fa-chevron-down" id="layerControlsChevron" onclick="event.stopPropagation(); NOD.toggleLayerControls()" style="cursor: pointer;"></i>
             </div>
             <div class="nod-map-controls-body">
                 <!-- Boundaries -->
@@ -943,34 +943,46 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                     <input type="checkbox" id="layer-artcc" checked onchange="NOD.toggleLayer('artcc', this.checked)">
                     <span class="nod-layer-color" style="background: #4a9eff;"></span>
                     <label for="layer-artcc">ARTCC</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-artcc" min="0" max="100" value="70"
+                           title="Opacity" onchange="NOD.setLayerOpacity('artcc', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-tracon" onchange="NOD.toggleLayer('tracon', this.checked)">
                     <span class="nod-layer-color" style="background: #28a745;"></span>
                     <label for="layer-tracon">TRACON</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-tracon" min="0" max="100" value="60"
+                           title="Opacity" onchange="NOD.setLayerOpacity('tracon', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-high" onchange="NOD.toggleLayer('high', this.checked)">
                     <span class="nod-layer-color" style="background: #6f42c1;"></span>
                     <label for="layer-high">High Sectors</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-high" min="0" max="100" value="50"
+                           title="Opacity" onchange="NOD.setLayerOpacity('high', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-low" onchange="NOD.toggleLayer('low', this.checked)">
                     <span class="nod-layer-color" style="background: #20c997;"></span>
                     <label for="layer-low">Low Sectors</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-low" min="0" max="100" value="50"
+                           title="Opacity" onchange="NOD.setLayerOpacity('low', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-superhigh" onchange="NOD.toggleLayer('superhigh', this.checked)">
                     <span class="nod-layer-color" style="background: #e83e8c;"></span>
                     <label for="layer-superhigh">Superhigh Sectors</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-superhigh" min="0" max="100" value="50"
+                           title="Opacity" onchange="NOD.setLayerOpacity('superhigh', this.value/100)">
                 </div>
-                
+
                 <!-- Overlays -->
                 <div class="text-muted small mb-2 mt-3" style="font-size: 10px; text-transform: uppercase;">Overlays</div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-traffic" checked onchange="NOD.toggleLayer('traffic', this.checked)">
                     <span class="nod-layer-color" style="background: #fff;"></span>
                     <label for="layer-traffic">Live Traffic</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-traffic" min="0" max="100" value="100"
+                           title="Opacity" onchange="NOD.setLayerOpacity('traffic', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-demand" onchange="NOD.toggleDemandLayer(this.checked)">
@@ -1037,6 +1049,8 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                     <input type="checkbox" id="layer-radar" onchange="NOD.toggleLayer('radar', this.checked)">
                     <span class="nod-layer-color" style="background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);"></span>
                     <label for="layer-radar">NEXRAD Radar</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-radar" min="0" max="100" value="60"
+                           title="Opacity" onchange="NOD.setLayerOpacity('radar', this.value/100)">
                 </div>
             </div>
         </div>
@@ -1044,8 +1058,8 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
         <!-- Traffic Filter Controls (matches route.php Flight Filters) -->
         <div class="nod-traffic-controls" id="trafficControls">
             <div class="nod-map-controls-header" data-draggable="trafficControls">
-                <h6><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-filter mr-2"></i>FLIGHT FILTERS</h6>
-                <i class="fas fa-chevron-down" id="trafficControlsChevron" onclick="event.stopPropagation(); NOD.toggleTrafficControls()"></i>
+                <h6 onclick="NOD.toggleTrafficControls()" style="cursor: pointer; flex: 1;"><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-filter mr-2"></i>FLIGHT FILTERS</h6>
+                <i class="fas fa-chevron-down" id="trafficControlsChevron" onclick="event.stopPropagation(); NOD.toggleTrafficControls()" style="cursor: pointer;"></i>
             </div>
             <div class="nod-map-controls-body">
                 <!-- Display Options -->
@@ -1187,10 +1201,38 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
         <!-- Demand Threshold Controls -->
         <div class="nod-traffic-controls" id="demandControls" style="display: none; top: 220px;">
             <div class="nod-map-controls-header" data-draggable="demandControls">
-                <h6><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-chart-line mr-2"></i>DEMAND THRESHOLDS</h6>
-                <i class="fas fa-chevron-down" id="demandControlsChevron"></i>
+                <h6 onclick="NOD.toggleDemandControls()" style="cursor: pointer; flex: 1;"><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-chart-line mr-2"></i>DEMAND THRESHOLDS</h6>
+                <i class="fas fa-chevron-down" id="demandControlsChevron" onclick="event.stopPropagation(); NOD.toggleDemandControls()" style="cursor: pointer;"></i>
             </div>
             <div class="nod-map-controls-body">
+                <!-- Monitor Input -->
+                <div class="form-group mb-2 px-2">
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">ADD MONITOR</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control bg-dark text-light border-secondary"
+                               id="demand-monitor-input"
+                               placeholder="e.g. MERIT, J48, KBOS arr via MERIT"
+                               onkeydown="if(event.key==='Enter') NODDemandLayer.addMonitorFromInput(this.value)">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-info" type="button"
+                                    onclick="NODDemandLayer.addMonitorFromInput(document.getElementById('demand-monitor-input').value)"
+                                    title="Add monitor">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <small class="text-muted mt-1 d-block" style="font-size: 9px;">
+                        Examples: MERIT • J48 • LANNA J48 MOL • KBOS arr via MERIT
+                    </small>
+                </div>
+
+                <!-- Active Monitors List -->
+                <div id="demand-monitors-list" class="px-2 mb-2" style="max-height: 100px; overflow-y: auto;">
+                    <div class="text-muted small text-center py-2">No monitors active</div>
+                </div>
+
+                <hr class="my-2 border-secondary">
+
                 <!-- Threshold Mode -->
                 <div class="form-group mb-2 px-2">
                     <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">MODE</label>
