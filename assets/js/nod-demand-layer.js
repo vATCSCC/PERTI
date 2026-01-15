@@ -440,6 +440,18 @@ const NODDemandLayer = (function() {
             const data = await response.json();
             state.demandData = data;
 
+            // Log any SQL errors from API
+            if (data.sql_errors && data.sql_errors.length > 0) {
+                console.error('[DemandLayer] SQL errors:', data.sql_errors);
+            }
+
+            // Debug: log monitor data
+            if (data.monitors) {
+                data.monitors.forEach((m, i) => {
+                    console.log(`[DemandLayer] Monitor ${i}: type=${m.type}, lat=${m.lat}, lon=${m.lon}, total=${m.total}`);
+                });
+            }
+
             // Update map visualization
             updateMapData(data.monitors || []);
 
@@ -461,7 +473,16 @@ const NODDemandLayer = (function() {
      * Update map sources with demand data
      */
     function updateMapData(monitors) {
-        if (!state.map || !state.sourcesAdded) return;
+        if (!state.map) {
+            console.warn('[DemandLayer] updateMapData: no map instance');
+            return;
+        }
+        if (!state.sourcesAdded) {
+            console.warn('[DemandLayer] updateMapData: sources not added yet');
+            return;
+        }
+
+        console.log('[DemandLayer] updateMapData called with', monitors.length, 'monitors');
 
         const fixFeatures = [];
         const segmentFeatures = [];
@@ -559,16 +580,28 @@ const NODDemandLayer = (function() {
             }
         });
 
+        console.log('[DemandLayer] Built features: fixes=' + fixFeatures.length + ', segments=' + segmentFeatures.length);
+
         // Update sources
-        state.map.getSource('demand-fixes-source').setData({
+        const fixSource = state.map.getSource('demand-fixes-source');
+        const segSource = state.map.getSource('demand-segments-source');
+
+        if (!fixSource || !segSource) {
+            console.error('[DemandLayer] Map sources not found!');
+            return;
+        }
+
+        fixSource.setData({
             type: 'FeatureCollection',
             features: fixFeatures
         });
 
-        state.map.getSource('demand-segments-source').setData({
+        segSource.setData({
             type: 'FeatureCollection',
             features: segmentFeatures
         });
+
+        console.log('[DemandLayer] Map sources updated');
     }
 
     /**
