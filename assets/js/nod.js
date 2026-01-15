@@ -119,7 +119,14 @@
         layerOpacity: {
             'public-routes': 0.9,
             splits: 0.7,
-            incidents: 0.8
+            incidents: 0.8,
+            artcc: 0.7,
+            tracon: 0.6,
+            high: 0.5,
+            low: 0.5,
+            superhigh: 0.5,
+            traffic: 1.0,
+            radar: 0.6
         },
         
         // Map legend visibility
@@ -175,7 +182,8 @@
             panelCollapsed: false,
             activeTab: 'tmi',
             layerControlsCollapsed: false,
-            trafficControlsCollapsed: true
+            trafficControlsCollapsed: true,
+            demandControlsCollapsed: false
         },
         
         // Refresh timers
@@ -3648,15 +3656,32 @@
         const controls = document.getElementById('trafficControls');
         const chevron = document.getElementById('trafficControlsChevron');
         const body = controls.querySelector('.nod-map-controls-body');
-        
+
         const isCollapsed = body.style.display === 'none';
         body.style.display = isCollapsed ? 'block' : 'none';
         chevron.className = isCollapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-right';
-        
+
         state.ui.trafficControlsCollapsed = !isCollapsed;
         saveUIState();
     }
-    
+
+    function toggleDemandControls() {
+        const controls = document.getElementById('demandControls');
+        const chevron = document.getElementById('demandControlsChevron');
+        const body = controls.querySelector('.nod-map-controls-body');
+
+        if (!controls || !body) return;
+
+        const isCollapsed = body.style.display === 'none';
+        body.style.display = isCollapsed ? 'block' : 'none';
+        if (chevron) {
+            chevron.className = isCollapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-right';
+        }
+
+        state.ui.demandControlsCollapsed = !isCollapsed;
+        saveUIState();
+    }
+
     function toggleLayer(layerId, visible) {
         state.layers[layerId] = visible;
         
@@ -4336,8 +4361,63 @@
                     }
                 }
             });
+        } else if (layerName === 'artcc') {
+            const layers = ['artcc-fill', 'artcc-lines', 'artcc-labels'];
+            layers.forEach(layer => {
+                if (state.map.getLayer(layer)) {
+                    const type = state.map.getLayer(layer).type;
+                    if (type === 'fill') {
+                        state.map.setPaintProperty(layer, 'fill-opacity', opacity * 0.1);
+                    } else if (type === 'line') {
+                        state.map.setPaintProperty(layer, 'line-opacity', opacity);
+                    } else if (type === 'symbol') {
+                        state.map.setPaintProperty(layer, 'text-opacity', opacity);
+                    }
+                }
+            });
+        } else if (layerName === 'tracon') {
+            const layers = ['tracon-fill', 'tracon-lines'];
+            layers.forEach(layer => {
+                if (state.map.getLayer(layer)) {
+                    const type = state.map.getLayer(layer).type;
+                    if (type === 'fill') {
+                        state.map.setPaintProperty(layer, 'fill-opacity', opacity * 0.15);
+                    } else if (type === 'line') {
+                        state.map.setPaintProperty(layer, 'line-opacity', opacity);
+                    }
+                }
+            });
+        } else if (layerName === 'high') {
+            if (state.map.getLayer('high-lines')) {
+                state.map.setPaintProperty('high-lines', 'line-opacity', opacity);
+            }
+        } else if (layerName === 'low') {
+            if (state.map.getLayer('low-lines')) {
+                state.map.setPaintProperty('low-lines', 'line-opacity', opacity);
+            }
+        } else if (layerName === 'superhigh') {
+            if (state.map.getLayer('superhigh-lines')) {
+                state.map.setPaintProperty('superhigh-lines', 'line-opacity', opacity);
+            }
+        } else if (layerName === 'traffic') {
+            const layers = ['traffic-icons', 'traffic-circles-fallback', 'traffic-labels'];
+            layers.forEach(layer => {
+                if (state.map.getLayer(layer)) {
+                    const type = state.map.getLayer(layer).type;
+                    if (type === 'symbol') {
+                        state.map.setPaintProperty(layer, 'icon-opacity', opacity);
+                        state.map.setPaintProperty(layer, 'text-opacity', opacity);
+                    } else if (type === 'circle') {
+                        state.map.setPaintProperty(layer, 'circle-opacity', opacity);
+                    }
+                }
+            });
+        } else if (layerName === 'radar') {
+            if (state.map.getLayer('weather-radar')) {
+                state.map.setPaintProperty('weather-radar', 'raster-opacity', opacity);
+            }
         }
-        
+
         saveUIState();
     }
     
@@ -5544,7 +5624,9 @@
                 activeTab: state.ui.activeTab,
                 layerControlsCollapsed: state.ui.layerControlsCollapsed,
                 trafficControlsCollapsed: state.ui.trafficControlsCollapsed,
+                demandControlsCollapsed: state.ui.demandControlsCollapsed,
                 layers: state.layers,
+                layerOpacity: state.layerOpacity,
                 trafficColorMode: state.traffic.colorMode,
                 showTracks: state.traffic.showTracks
             }));
@@ -5579,7 +5661,18 @@
                         }
                     });
                 }
-                
+
+                // Restore layer opacity values
+                if (data.layerOpacity) {
+                    Object.entries(data.layerOpacity).forEach(([layer, opacity]) => {
+                        state.layerOpacity[layer] = opacity;
+                        const slider = document.getElementById('opacity-' + layer);
+                        if (slider) {
+                            slider.value = Math.round(opacity * 100);
+                        }
+                    });
+                }
+
                 // Restore traffic color mode
                 if (data.trafficColorMode) {
                     document.getElementById('traffic-color-mode').value = data.trafficColorMode;
@@ -5594,6 +5687,39 @@
                         tracksCheckbox.checked = data.showTracks;
                     }
                     // Tracks will be loaded after map init when toggle is applied
+                }
+
+                // Restore collapsed states for panels
+                if (data.layerControlsCollapsed) {
+                    const controls = document.getElementById('mapLayerControls');
+                    const chevron = document.getElementById('layerControlsChevron');
+                    if (controls) {
+                        controls.classList.add('collapsed');
+                        state.ui.layerControlsCollapsed = true;
+                        if (chevron) chevron.className = 'fas fa-chevron-right';
+                    }
+                }
+
+                if (data.trafficControlsCollapsed) {
+                    const controls = document.getElementById('trafficControls');
+                    const chevron = document.getElementById('trafficControlsChevron');
+                    const body = controls?.querySelector('.nod-map-controls-body');
+                    if (body) {
+                        body.style.display = 'none';
+                        state.ui.trafficControlsCollapsed = true;
+                        if (chevron) chevron.className = 'fas fa-chevron-right';
+                    }
+                }
+
+                if (data.demandControlsCollapsed) {
+                    const controls = document.getElementById('demandControls');
+                    const chevron = document.getElementById('demandControlsChevron');
+                    const body = controls?.querySelector('.nod-map-controls-body');
+                    if (body) {
+                        body.style.display = 'none';
+                        state.ui.demandControlsCollapsed = true;
+                        if (chevron) chevron.className = 'fas fa-chevron-right';
+                    }
                 }
             }
         } catch (e) {
@@ -5867,7 +5993,12 @@
             if (checkbox) checkbox.checked = true;
         }
 
-        console.log('[NOD] Applied layer visibility state');
+        // Apply saved layer opacity values
+        Object.entries(state.layerOpacity).forEach(([layerName, opacity]) => {
+            setLayerOpacity(layerName, opacity);
+        });
+
+        console.log('[NOD] Applied layer visibility and opacity state');
     }
     
     // =========================================
@@ -5907,6 +6038,7 @@
         toggleSection,
         toggleLayerControls,
         toggleTrafficControls,
+        toggleDemandControls,
         toggleLayer,
         toggleSplitsStrata,
         toggleDemandLayer,

@@ -247,6 +247,9 @@ const NODDemandLayer = (function() {
         const demandControls = document.getElementById('demandControls');
         if (demandControls) demandControls.style.display = 'block';
 
+        // Render monitors list with persisted monitors
+        renderMonitorsList();
+
         console.log('[DemandLayer] Enabled');
     }
 
@@ -312,13 +315,25 @@ const NODDemandLayer = (function() {
             return false;
         }
 
-        // Validate monitor
+        // Validate monitor based on type
         if (monitor.type === 'fix' && !monitor.fix) {
             console.error('[DemandLayer] Fix monitor missing fix name');
             return false;
         }
         if (monitor.type === 'segment' && (!monitor.from || !monitor.to)) {
             console.error('[DemandLayer] Segment monitor missing from/to');
+            return false;
+        }
+        if (monitor.type === 'airway' && !monitor.airway) {
+            console.error('[DemandLayer] Airway monitor missing airway name');
+            return false;
+        }
+        if (monitor.type === 'airway_segment' && (!monitor.airway || !monitor.from || !monitor.to)) {
+            console.error('[DemandLayer] Airway segment monitor missing airway/from/to');
+            return false;
+        }
+        if (monitor.type === 'via_fix' && (!monitor.via || !monitor.filter)) {
+            console.error('[DemandLayer] Via-fix monitor missing via or filter');
             return false;
         }
 
@@ -332,10 +347,11 @@ const NODDemandLayer = (function() {
         state.monitors.push(monitor);
         saveToLocalStorage();
 
-        // Refresh immediately
+        // Refresh immediately and update UI
         if (state.enabled) {
             refresh();
         }
+        renderMonitorsList();
 
         console.log('[DemandLayer] Added monitor:', id);
         return true;
@@ -351,10 +367,11 @@ const NODDemandLayer = (function() {
         state.monitors.splice(idx, 1);
         saveToLocalStorage();
 
-        // Refresh immediately
+        // Refresh immediately and update UI
         if (state.enabled) {
             refresh();
         }
+        renderMonitorsList();
 
         console.log('[DemandLayer] Removed monitor:', id);
         return true;
@@ -367,8 +384,9 @@ const NODDemandLayer = (function() {
         state.monitors = [];
         saveToLocalStorage();
 
-        // Clear map data
+        // Clear map data and update UI
         updateMapData([]);
+        renderMonitorsList();
 
         console.log('[DemandLayer] Cleared all monitors');
     }
@@ -377,12 +395,20 @@ const NODDemandLayer = (function() {
      * Generate monitor ID
      */
     function getMonitorId(monitor) {
-        if (monitor.type === 'fix') {
-            return 'fix_' + monitor.fix.toUpperCase();
-        } else if (monitor.type === 'segment') {
-            return 'segment_' + monitor.from.toUpperCase() + '_' + monitor.to.toUpperCase();
+        switch (monitor.type) {
+            case 'fix':
+                return 'fix_' + monitor.fix.toUpperCase();
+            case 'segment':
+                return 'segment_' + monitor.from.toUpperCase() + '_' + monitor.to.toUpperCase();
+            case 'airway':
+                return 'airway_' + monitor.airway.toUpperCase();
+            case 'airway_segment':
+                return 'airway_' + monitor.airway.toUpperCase() + '_' + monitor.from.toUpperCase() + '_' + monitor.to.toUpperCase();
+            case 'via_fix':
+                return 'via_' + monitor.filter.type + '_' + monitor.filter.code + '_' + monitor.filter.direction + '_' + monitor.via.toUpperCase();
+            default:
+                return 'unknown_' + Date.now();
         }
-        return null;
     }
 
     // =========================================
@@ -902,6 +928,257 @@ const NODDemandLayer = (function() {
     }
 
     // =========================================
+    // Text-Based Monitor Input Parsing
+    // =========================================
+
+    // Known ARTCC codes (3-letter Z-prefixed)
+    const ARTCC_CODES = ['ZNY', 'ZBW', 'ZDC', 'ZOB', 'ZID', 'ZAU', 'ZMP', 'ZKC', 'ZME', 'ZFW',
+                         'ZHU', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZTL', 'ZJX', 'ZMA',
+                         'ZAN', 'ZHN', 'ZSU', 'ZUA'];
+
+    // Common TRACON codes (typically 3 chars, some start with letter + digits)
+    const TRACON_PATTERNS = /^(N90|A80|A90|C90|D01|D10|D21|I90|L30|M98|NCT|NOR|P50|P80|PCT|PHL|POT|S46|S56|SCT|Y90)$/i;
+
+    // Airway patterns (J/V/Q/T followed by numbers)
+    const AIRWAY_PATTERN = /^[JVQT]\d+$/i;
+
+    /**
+     * Parse natural language monitor input string
+     * Supports:
+     *   MERIT               -> fix
+     *   J48                 -> airway
+     *   LANNA J48 MOL       -> airway_segment
+     *   KBOS arrivals via MERIT -> via_fix with airport filter
+     *   N90 departures via WAVEY -> via_fix with tracon filter
+     *   ZDC via J48         -> via_fix with artcc filter
+     */
+    function parseMonitorInput(input) {
+        if (!input || typeof input !== 'string') return null;
+
+        input = input.trim().toUpperCase();
+        if (!input) return null;
+
+        // Pattern 1: "[location] arrivals/departures via [fix/airway]"
+        // Examples: "KBOS arrivals via MERIT", "N90 dep via WAVEY", "ZDC via J48"
+        const viaMatch = input.match(/^(\w+)\s+(arrivals?|arr|inbound|departures?|dep|outbound)?\s*(?:via|through|over)\s+(.+)$/i);
+        if (viaMatch) {
+            const location = viaMatch[1];
+            const directionRaw = viaMatch[2] || '';
+            const viaTarget = viaMatch[3].trim();
+
+            // Determine filter type (airport, tracon, artcc)
+            const filterType = classifyLocation(location);
+            if (!filterType) {
+                // Treat as airport by default
+                filterType.type = 'airport';
+                filterType.code = normalizeAirportCode(location);
+            }
+
+            // Determine direction
+            let direction = 'both';
+            if (/^(arrivals?|arr|inbound)$/i.test(directionRaw)) {
+                direction = 'arr';
+            } else if (/^(departures?|dep|outbound)$/i.test(directionRaw)) {
+                direction = 'dep';
+            }
+
+            // Determine if via is fix or airway
+            const isAirway = AIRWAY_PATTERN.test(viaTarget);
+
+            return {
+                type: 'via_fix',
+                via: viaTarget,
+                via_type: isAirway ? 'airway' : 'fix',
+                filter: {
+                    type: filterType.type,
+                    code: filterType.code,
+                    direction: direction
+                }
+            };
+        }
+
+        // Pattern 2: "[fix] [airway] [fix]" - airway segment
+        // Examples: "LANNA J48 MOL", "MERIT V1 SBJ"
+        const segmentMatch = input.match(/^(\w+)\s+([JVQT]\d+)\s+(\w+)$/i);
+        if (segmentMatch) {
+            return {
+                type: 'airway_segment',
+                airway: segmentMatch[2],
+                from: segmentMatch[1],
+                to: segmentMatch[3]
+            };
+        }
+
+        // Pattern 3: Single airway
+        // Examples: "J48", "V1", "Q100"
+        if (AIRWAY_PATTERN.test(input)) {
+            return {
+                type: 'airway',
+                airway: input
+            };
+        }
+
+        // Pattern 4: Simple segment "FIX1 FIX2" (two fixes)
+        const twoFixMatch = input.match(/^(\w+)\s+(\w+)$/);
+        if (twoFixMatch && !AIRWAY_PATTERN.test(twoFixMatch[1]) && !AIRWAY_PATTERN.test(twoFixMatch[2])) {
+            return {
+                type: 'segment',
+                from: twoFixMatch[1],
+                to: twoFixMatch[2]
+            };
+        }
+
+        // Pattern 5: Single fix (default fallback)
+        // Examples: "MERIT", "CAM", "WAVEY"
+        if (/^\w+$/.test(input)) {
+            return {
+                type: 'fix',
+                fix: input
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Classify a location code as airport, tracon, or artcc
+     */
+    function classifyLocation(code) {
+        code = code.toUpperCase();
+
+        // Check ARTCC (Z-prefixed 3 letters)
+        if (ARTCC_CODES.includes(code)) {
+            return { type: 'artcc', code: code };
+        }
+
+        // Check TRACON pattern
+        if (TRACON_PATTERNS.test(code)) {
+            return { type: 'tracon', code: code };
+        }
+
+        // Assume airport (normalize to ICAO)
+        return { type: 'airport', code: normalizeAirportCode(code) };
+    }
+
+    /**
+     * Normalize airport code to ICAO format
+     * JFK -> KJFK, LAX -> KLAX, KJFK -> KJFK
+     */
+    function normalizeAirportCode(code) {
+        code = code.toUpperCase();
+
+        // Already 4 chars starting with K/C/P - likely ICAO
+        if (code.length === 4 && /^[KCP]/.test(code)) {
+            return code;
+        }
+
+        // 3-letter code (IATA) - add K prefix for US airports
+        if (code.length === 3) {
+            return 'K' + code;
+        }
+
+        return code;
+    }
+
+    /**
+     * Add monitor from text input
+     */
+    function addMonitorFromInput(input) {
+        const parsed = parseMonitorInput(input);
+
+        if (!parsed) {
+            console.warn('[DemandLayer] Could not parse input:', input);
+            showParseError('Invalid input format');
+            return false;
+        }
+
+        // Add the monitor (addMonitor handles renderMonitorsList)
+        const success = addMonitor(parsed);
+
+        if (success) {
+            // Clear input field
+            const inputEl = document.getElementById('demand-monitor-input');
+            if (inputEl) inputEl.value = '';
+        }
+
+        return success;
+    }
+
+    /**
+     * Show parse error feedback
+     */
+    function showParseError(message) {
+        const inputEl = document.getElementById('demand-monitor-input');
+        if (inputEl) {
+            inputEl.classList.add('is-invalid');
+            setTimeout(() => inputEl.classList.remove('is-invalid'), 2000);
+        }
+        console.warn('[DemandLayer] Parse error:', message);
+    }
+
+    /**
+     * Get human-readable label for a monitor
+     */
+    function getMonitorLabel(monitor) {
+        switch (monitor.type) {
+            case 'fix':
+                return monitor.fix;
+            case 'segment':
+                return `${monitor.from} → ${monitor.to}`;
+            case 'airway':
+                return monitor.airway;
+            case 'airway_segment':
+                return `${monitor.from} ${monitor.airway} ${monitor.to}`;
+            case 'via_fix':
+                const dir = monitor.filter.direction === 'arr' ? '↓' :
+                           monitor.filter.direction === 'dep' ? '↑' : '↕';
+                return `${monitor.filter.code}${dir} via ${monitor.via}`;
+            default:
+                return JSON.stringify(monitor);
+        }
+    }
+
+    /**
+     * Render the active monitors list in the UI
+     */
+    function renderMonitorsList() {
+        const container = document.getElementById('demand-monitors-list');
+        if (!container) return;
+
+        if (state.monitors.length === 0) {
+            container.innerHTML = '<div class="text-muted small text-center py-2">No monitors active</div>';
+            return;
+        }
+
+        let html = '';
+        state.monitors.forEach((monitor, idx) => {
+            const id = getMonitorId(monitor);
+            const label = getMonitorLabel(monitor);
+            const typeIcon = monitor.type === 'fix' ? 'fa-map-marker-alt' :
+                            monitor.type === 'airway' ? 'fa-route' :
+                            monitor.type.includes('segment') ? 'fa-arrows-alt-h' :
+                            'fa-filter';
+
+            html += `
+                <div class="demand-monitor-item d-flex align-items-center justify-content-between py-1 px-2 mb-1"
+                     style="background: rgba(255,255,255,0.05); border-radius: 3px; font-size: 11px;">
+                    <span>
+                        <i class="fas ${typeIcon} text-info mr-2" style="width: 14px;"></i>
+                        ${label}
+                    </span>
+                    <button class="btn btn-sm btn-link text-danger p-0"
+                            onclick="NODDemandLayer.removeMonitor('${id}')"
+                            title="Remove monitor">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    // =========================================
     // Public API
     // =========================================
 
@@ -918,6 +1195,10 @@ const NODDemandLayer = (function() {
         setHorizonHours,
         setBucket,
         toggleClickMode,
+        parseMonitorInput,
+        addMonitorFromInput,
+        renderMonitorsList,
+        getMonitorLabel,
         getState: () => ({ ...state }),
         COLORS: DEMAND_COLORS
     };
