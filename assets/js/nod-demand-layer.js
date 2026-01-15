@@ -244,8 +244,9 @@ const NODDemandLayer = (function() {
         const addControls = document.getElementById('demand-add-controls');
         if (addControls) addControls.style.display = 'block';
 
+        // Show demand section in toolbar
         const demandControls = document.getElementById('demandControls');
-        if (demandControls) demandControls.style.display = 'block';
+        if (demandControls) demandControls.style.display = '';
 
         // Render monitors list with persisted monitors
         renderMonitorsList();
@@ -472,6 +473,7 @@ const NODDemandLayer = (function() {
             const count = getDisplayCount(monitor);
             const color = getDemandColor(count, monitor.id, allCounts);
 
+            // Fix monitors - render as points
             if (monitor.type === 'fix' && monitor.lat != null && monitor.lon != null) {
                 fixFeatures.push({
                     type: 'Feature',
@@ -484,11 +486,13 @@ const NODDemandLayer = (function() {
                         fix: monitor.fix,
                         count: count,
                         total: monitor.total,
-                        color: color
+                        color: color,
+                        label: monitor.fix
                     }
                 });
-            } else if (monitor.type === 'segment' &&
-                       monitor.from_lat != null && monitor.to_lat != null) {
+            }
+            // Segment monitors - render as lines
+            else if (monitor.type === 'segment' && monitor.from_lat != null && monitor.to_lat != null) {
                 segmentFeatures.push({
                     type: 'Feature',
                     geometry: {
@@ -504,7 +508,52 @@ const NODDemandLayer = (function() {
                         to_fix: monitor.to_fix,
                         count: count,
                         total: monitor.total,
-                        color: color
+                        color: color,
+                        label: `${monitor.from_fix}→${monitor.to_fix}`
+                    }
+                });
+            }
+            // Airway segment monitors - render as lines
+            else if (monitor.type === 'airway_segment' && monitor.from_lat != null && monitor.to_lat != null) {
+                segmentFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [
+                            [monitor.from_lon, monitor.from_lat],
+                            [monitor.to_lon, monitor.to_lat]
+                        ]
+                    },
+                    properties: {
+                        id: monitor.id,
+                        from_fix: monitor.from_fix,
+                        to_fix: monitor.to_fix,
+                        airway: monitor.airway,
+                        count: count,
+                        total: monitor.total,
+                        color: color,
+                        label: `${monitor.from_fix} ${monitor.airway} ${monitor.to_fix}`
+                    }
+                });
+            }
+            // Via-fix monitors - render as points at via location
+            else if (monitor.type === 'via_fix' && monitor.lat != null && monitor.lon != null) {
+                const label = monitor.filter ?
+                    `${monitor.filter.code}${monitor.filter.direction === 'arr' ? '↓' : monitor.filter.direction === 'dep' ? '↑' : '↕'} via ${monitor.via}` :
+                    monitor.via;
+                fixFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [monitor.lon, monitor.lat]
+                    },
+                    properties: {
+                        id: monitor.id,
+                        fix: monitor.via,
+                        count: count,
+                        total: monitor.total,
+                        color: color,
+                        label: label
                     }
                 });
             }
