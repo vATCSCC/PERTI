@@ -221,7 +221,18 @@
         
         // Initialize draggable legend
         initDraggableLegend();
-        
+
+        // Close toolbar dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nod-toolbar-section')) {
+                document.querySelectorAll('.nod-toolbar-section.open').forEach(s => {
+                    s.classList.remove('open');
+                    const btn = s.querySelector('.nod-toolbar-btn');
+                    if (btn) btn.classList.remove('active');
+                });
+            }
+        });
+
         state.initialized = true;
         console.log('[NOD] Initialization complete');
     }
@@ -3639,47 +3650,41 @@
         }
     }
     
-    function toggleLayerControls() {
-        const controls = document.getElementById('mapLayerControls');
-        const chevron = document.getElementById('layerControlsChevron');
-        
-        controls.classList.toggle('collapsed');
-        chevron.className = controls.classList.contains('collapsed') 
-            ? 'fas fa-chevron-right' 
-            : 'fas fa-chevron-down';
-        
-        state.ui.layerControlsCollapsed = controls.classList.contains('collapsed');
-        saveUIState();
+    /**
+     * Toggle a toolbar section dropdown
+     */
+    function toggleToolbarSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        if (!section) return;
+
+        const wasOpen = section.classList.contains('open');
+
+        // Close all other sections first
+        document.querySelectorAll('.nod-toolbar-section.open').forEach(s => {
+            if (s.id !== sectionId) {
+                s.classList.remove('open');
+                const btn = s.querySelector('.nod-toolbar-btn');
+                if (btn) btn.classList.remove('active');
+            }
+        });
+
+        // Toggle this section
+        section.classList.toggle('open', !wasOpen);
+        const btn = section.querySelector('.nod-toolbar-btn');
+        if (btn) btn.classList.toggle('active', !wasOpen);
     }
-    
+
+    // Legacy toggle functions - redirect to new toolbar system
+    function toggleLayerControls() {
+        toggleToolbarSection('mapLayerControls');
+    }
+
     function toggleTrafficControls() {
-        const controls = document.getElementById('trafficControls');
-        const chevron = document.getElementById('trafficControlsChevron');
-        const body = controls.querySelector('.nod-map-controls-body');
-
-        const isCollapsed = body.style.display === 'none';
-        body.style.display = isCollapsed ? 'block' : 'none';
-        chevron.className = isCollapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-right';
-
-        state.ui.trafficControlsCollapsed = !isCollapsed;
-        saveUIState();
+        toggleToolbarSection('trafficControls');
     }
 
     function toggleDemandControls() {
-        const controls = document.getElementById('demandControls');
-        const chevron = document.getElementById('demandControlsChevron');
-        const body = controls.querySelector('.nod-map-controls-body');
-
-        if (!controls || !body) return;
-
-        const isCollapsed = body.style.display === 'none';
-        body.style.display = isCollapsed ? 'block' : 'none';
-        if (chevron) {
-            chevron.className = isCollapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-right';
-        }
-
-        state.ui.demandControlsCollapsed = !isCollapsed;
-        saveUIState();
+        toggleToolbarSection('demandControls');
     }
 
     function toggleLayer(layerId, visible) {
@@ -6036,6 +6041,7 @@
         togglePanel,
         switchTab,
         toggleSection,
+        toggleToolbarSection,
         toggleLayerControls,
         toggleTrafficControls,
         toggleDemandControls,

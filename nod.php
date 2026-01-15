@@ -425,65 +425,81 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
         .nod-incident-type.weather { background: #6f42c1; color: #fff; }
         .nod-incident-type.other { background: #495057; color: #fff; }
         
-        /* Map Controls Overlay */
-        .nod-map-controls {
+        /* Map Toolbar */
+        .nod-map-toolbar {
             position: absolute;
             top: 10px;
             left: 10px;
+            right: 10px;
             z-index: 100;
-            background: rgba(26, 26, 46, 0.95);
-            border-radius: 4px;
-            border: 1px solid #333;
-            min-width: 200px;
-            max-width: 280px;
-        }
-        
-        .nod-map-controls-header {
-            padding: 8px 12px;
-            background: #16213e;
-            border-bottom: 1px solid #333;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: move;
-            border-radius: 4px 4px 0 0;
-            user-select: none;
+            align-items: flex-start;
+            gap: 8px;
+            pointer-events: none;
         }
-        
-        .nod-map-controls-header:active {
-            cursor: grabbing;
+
+        .nod-toolbar-section {
+            pointer-events: auto;
+            position: relative;
         }
-        
-        .nod-map-controls-header .drag-handle {
-            color: #555;
-            margin-right: 6px;
-            font-size: 10px;
-        }
-        
-        .nod-map-controls-header h6 {
-            margin: 0;
+
+        .nod-toolbar-btn {
+            background: rgba(26, 26, 46, 0.95);
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 8px 14px;
+            color: #aaa;
             font-size: 11px;
             text-transform: uppercase;
-            color: #aaa;
-        }
-        
-        .nod-map-controls-header i.fa-chevron-down,
-        .nod-map-controls-header i.fa-chevron-up,
-        .nod-map-controls-header i.fa-chevron-right {
-            color: #fff;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
         }
-        
-        .nod-map-controls-body {
-            padding: 8px;
-            max-height: 400px; /* Fixed max height to prevent overlap with clock */
+
+        .nod-toolbar-btn:hover {
+            background: rgba(22, 33, 62, 0.98);
+            color: #fff;
+            border-color: #4a9eff;
+        }
+
+        .nod-toolbar-btn.active {
+            background: #16213e;
+            color: #fff;
+            border-color: #4a9eff;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .nod-toolbar-btn i {
+            font-size: 12px;
+        }
+
+        .nod-toolbar-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: rgba(26, 26, 46, 0.98);
+            border: 1px solid #4a9eff;
+            border-top: none;
+            border-radius: 0 4px 4px 4px;
+            min-width: 280px;
+            max-height: 70vh;
             overflow-y: auto;
         }
-        
-        .nod-map-controls.collapsed .nod-map-controls-body {
-            display: none;
+
+        .nod-toolbar-section.open .nod-toolbar-dropdown {
+            display: block;
         }
-        
+
+        .nod-toolbar-dropdown-content {
+            padding: 10px;
+        }
+
+        /* Layer items (shared) */
         .nod-layer-item {
             display: flex;
             align-items: center;
@@ -491,15 +507,15 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
             border-radius: 3px;
             margin-bottom: 2px;
         }
-        
+
         .nod-layer-item:hover {
             background: rgba(255,255,255,0.05);
         }
-        
+
         .nod-layer-item input[type="checkbox"] {
             margin-right: 8px;
         }
-        
+
         .nod-layer-item label {
             margin: 0;
             font-size: 12px;
@@ -507,58 +523,56 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
             cursor: pointer;
             flex: 1;
         }
-        
+
         .nod-layer-color {
             width: 12px;
             height: 12px;
             border-radius: 2px;
             margin-right: 8px;
         }
-        
-        /* Traffic Controls */
-        .nod-traffic-controls {
-            position: absolute;
-            top: 10px;
-            right: 440px;
-            z-index: 100;
-            background: rgba(26, 26, 46, 0.95);
-            border-radius: 4px;
-            border: 1px solid #333;
-            width: 320px;
-            transition: right 0.3s ease;
+
+        /* Toolbar section labels */
+        .nod-toolbar-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #888;
+            margin-bottom: 6px;
+            margin-top: 10px;
+            padding-left: 2px;
         }
-        
-        .nod-traffic-controls .nod-map-controls-body {
-            max-height: none;
-            overflow: visible;
-            padding-bottom: 8px;
+
+        .nod-toolbar-label:first-child {
+            margin-top: 0;
         }
-        
-        .nod-traffic-controls .custom-control-label {
+
+        /* Form controls in toolbar */
+        .nod-toolbar-dropdown .custom-control-label {
             color: #fff;
             font-size: 12px;
         }
-        
-        .nod-traffic-controls .custom-control-label::before,
-        .nod-traffic-controls .custom-control-label::after {
+
+        .nod-toolbar-dropdown .custom-control-label::before,
+        .nod-toolbar-dropdown .custom-control-label::after {
             top: 0.15rem;
         }
         
-        .nod-traffic-controls .form-control-sm {
+        .nod-toolbar-dropdown .form-control-sm {
             font-size: 12px;
             padding: 0.2rem 0.4rem;
         }
-        
-        .nod-traffic-controls select.form-control-sm {
+
+        .nod-toolbar-dropdown select.form-control-sm {
             height: calc(1.5em + 0.5rem + 2px);
         }
-        
-        .nod-traffic-controls.dragging {
-            transition: none;
+
+        /* Fix text readability in toolbar */
+        .nod-toolbar-dropdown span,
+        .nod-toolbar-dropdown .small {
+            color: #d6d7f1;
         }
-        
-        .nod-panel.collapsed ~ .nod-traffic-controls:not(.user-positioned) {
-            right: 10px;
+
+        .nod-toolbar-dropdown .text-muted {
+            color: #999 !important;
         }
         
         /* Clock Display */
@@ -930,13 +944,17 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
     <div class="nod-map-container">
         <div id="nod-map"></div>
         
-        <!-- Map Layer Controls -->
-        <div class="nod-map-controls" id="mapLayerControls">
-            <div class="nod-map-controls-header" data-draggable="mapLayerControls">
-                <h6 onclick="NOD.toggleLayerControls()" style="cursor: pointer; flex: 1;"><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-layer-group mr-2"></i>MAP LAYERS</h6>
-                <i class="fas fa-chevron-down" id="layerControlsChevron" onclick="event.stopPropagation(); NOD.toggleLayerControls()" style="cursor: pointer;"></i>
-            </div>
-            <div class="nod-map-controls-body">
+        <!-- Map Toolbar -->
+        <div class="nod-map-toolbar">
+            <!-- Map Layers Section -->
+            <div class="nod-toolbar-section" id="mapLayerControls">
+                <button class="nod-toolbar-btn" onclick="NOD.toggleToolbarSection('mapLayerControls')">
+                    <i class="fas fa-layer-group"></i>
+                    <span>Map Layers</span>
+                    <i class="fas fa-caret-down"></i>
+                </button>
+                <div class="nod-toolbar-dropdown">
+                    <div class="nod-toolbar-dropdown-content">
                 <!-- Boundaries -->
                 <div class="text-muted small mb-2 mt-1" style="font-size: 10px; text-transform: uppercase;">Boundaries</div>
                 <div class="nod-layer-item">
@@ -1051,17 +1069,20 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                     <label for="layer-radar">NEXRAD Radar</label>
                     <input type="range" class="nod-opacity-slider" id="opacity-radar" min="0" max="100" value="60"
                            title="Opacity" onchange="NOD.setLayerOpacity('radar', this.value/100)">
-                </div>
-            </div>
-        </div>
-        
-        <!-- Traffic Filter Controls (matches route.php Flight Filters) -->
-        <div class="nod-traffic-controls" id="trafficControls">
-            <div class="nod-map-controls-header" data-draggable="trafficControls">
-                <h6 onclick="NOD.toggleTrafficControls()" style="cursor: pointer; flex: 1;"><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-filter mr-2"></i>FLIGHT FILTERS</h6>
-                <i class="fas fa-chevron-down" id="trafficControlsChevron" onclick="event.stopPropagation(); NOD.toggleTrafficControls()" style="cursor: pointer;"></i>
-            </div>
-            <div class="nod-map-controls-body">
+                </div><!-- /nod-layer-item radar -->
+                    </div><!-- /nod-toolbar-dropdown-content -->
+                </div><!-- /nod-toolbar-dropdown -->
+            </div><!-- /nod-toolbar-section mapLayerControls -->
+
+            <!-- Flight Filters Section -->
+            <div class="nod-toolbar-section" id="trafficControls">
+                <button class="nod-toolbar-btn" onclick="NOD.toggleToolbarSection('trafficControls')">
+                    <i class="fas fa-filter"></i>
+                    <span>Flight Filters</span>
+                    <i class="fas fa-caret-down"></i>
+                </button>
+                <div class="nod-toolbar-dropdown" style="min-width: 320px;">
+                    <div class="nod-toolbar-dropdown-content">
                 <!-- Display Options -->
                 <div class="d-flex mb-2 px-2">
                     <div class="custom-control custom-checkbox mr-3">
@@ -1194,17 +1215,20 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                             <i class="fas fa-check"></i>
                         </button>
                     </div>
-                </div>
-            </div>
-        </div>
+                    </div><!-- /stats-actions -->
+                    </div><!-- /nod-toolbar-dropdown-content -->
+                </div><!-- /nod-toolbar-dropdown -->
+            </div><!-- /nod-toolbar-section trafficControls -->
 
-        <!-- Demand Threshold Controls -->
-        <div class="nod-traffic-controls" id="demandControls" style="display: none; top: 220px;">
-            <div class="nod-map-controls-header" data-draggable="demandControls">
-                <h6 onclick="NOD.toggleDemandControls()" style="cursor: pointer; flex: 1;"><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-chart-line mr-2"></i>DEMAND THRESHOLDS</h6>
-                <i class="fas fa-chevron-down" id="demandControlsChevron" onclick="event.stopPropagation(); NOD.toggleDemandControls()" style="cursor: pointer;"></i>
-            </div>
-            <div class="nod-map-controls-body">
+            <!-- Demand Thresholds Section -->
+            <div class="nod-toolbar-section" id="demandControls" style="display: none;">
+                <button class="nod-toolbar-btn" onclick="NOD.toggleToolbarSection('demandControls')">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Demand</span>
+                    <i class="fas fa-caret-down"></i>
+                </button>
+                <div class="nod-toolbar-dropdown" style="min-width: 320px;">
+                    <div class="nod-toolbar-dropdown-content">
                 <!-- Monitor Input -->
                 <div class="form-group mb-2 px-2">
                     <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">ADD MONITOR</label>
@@ -1324,9 +1348,11 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
 
                     <!-- Time Bucket Bar Chart -->
                     <div id="demand-bucket-chart" class="mt-2" style="height: 40px; display: flex; align-items: flex-end;"></div>
-                </div>
-            </div>
-        </div>
+                    </div><!-- /time-view -->
+                    </div><!-- /nod-toolbar-dropdown-content -->
+                </div><!-- /nod-toolbar-dropdown -->
+            </div><!-- /nod-toolbar-section demandControls -->
+        </div><!-- /nod-map-toolbar -->
 
         <!-- UTC Clock -->
         <div class="nod-clock" id="nodClock">
