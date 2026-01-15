@@ -104,9 +104,10 @@
             'public-routes': false,
             splits: false,
             incidents: true,
-            radar: false
+            radar: false,
+            demand: false
         },
-        
+
         // Splits strata visibility
         splitsStrata: {
             low: true,
@@ -264,10 +265,15 @@
             }
             
             initMapLayers();
-            
+
+            // Initialize demand layer module
+            if (typeof NODDemandLayer !== 'undefined') {
+                NODDemandLayer.init(state.map);
+            }
+
             // Load data now that map sources are ready
             loadAllData();
-            
+
             // Apply any saved layer visibility state
             applyLayerState();
         });
@@ -3717,7 +3723,24 @@
         applySplitsStrataFilter();
         saveUIState();
     }
-    
+
+    /**
+     * Toggle demand layer visibility
+     */
+    function toggleDemandLayer(visible) {
+        state.layers.demand = visible;
+
+        if (typeof NODDemandLayer !== 'undefined') {
+            if (visible) {
+                NODDemandLayer.enable();
+            } else {
+                NODDemandLayer.disable();
+            }
+        }
+
+        saveUIState();
+    }
+
     /**
      * Apply strata filter to splits layers
      */
@@ -5836,7 +5859,14 @@
                 }
             }, 1000);
         }
-        
+
+        // Apply demand layer state
+        if (state.layers.demand && typeof NODDemandLayer !== 'undefined') {
+            NODDemandLayer.enable();
+            const checkbox = document.getElementById('layer-demand');
+            if (checkbox) checkbox.checked = true;
+        }
+
         console.log('[NOD] Applied layer visibility state');
     }
     
@@ -5879,6 +5909,7 @@
         toggleTrafficControls,
         toggleLayer,
         toggleSplitsStrata,
+        toggleDemandLayer,
         toggleTrafficLabels,
         toggleTrafficTracks,
         toggleRouteLabels,

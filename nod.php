@@ -973,6 +973,26 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                     <label for="layer-traffic">Live Traffic</label>
                 </div>
                 <div class="nod-layer-item">
+                    <input type="checkbox" id="layer-demand" onchange="NOD.toggleDemandLayer(this.checked)">
+                    <span class="nod-layer-color" style="background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);"></span>
+                    <label for="layer-demand">Traffic Demand</label>
+                </div>
+                <div class="nod-layer-item ml-3" id="demand-add-controls" style="display: none;">
+                    <button class="btn btn-sm btn-outline-info py-0 px-1" id="demand-add-fix-btn"
+                            onclick="NODDemandLayer.toggleClickMode('fix')" title="Click map to add fix monitor">
+                        <i class="fas fa-map-marker-alt"></i> Fix
+                    </button>
+                    <button class="btn btn-sm btn-outline-info py-0 px-1 ml-1" id="demand-add-segment-btn"
+                            onclick="NODDemandLayer.toggleClickMode('segment')" title="Click two points for segment">
+                        <i class="fas fa-route"></i> Segment
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary py-0 px-1 ml-1" onclick="NODDemandLayer.clearMonitors()"
+                            title="Clear all monitors">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                    <span class="small text-muted ml-2" id="demand-click-status" style="display: none;"></span>
+                </div>
+                <div class="nod-layer-item">
                     <input type="checkbox" id="layer-public-routes" checked onchange="NOD.toggleLayer('public-routes', this.checked)">
                     <span class="nod-layer-color" style="background: #17a2b8;"></span>
                     <label for="layer-public-routes">Public Reroutes</label>
@@ -1163,7 +1183,109 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                 </div>
             </div>
         </div>
-        
+
+        <!-- Demand Threshold Controls -->
+        <div class="nod-traffic-controls" id="demandControls" style="display: none; top: 220px;">
+            <div class="nod-map-controls-header" data-draggable="demandControls">
+                <h6><i class="fas fa-grip-vertical drag-handle mr-2"></i><i class="fas fa-chart-line mr-2"></i>DEMAND THRESHOLDS</h6>
+                <i class="fas fa-chevron-down" id="demandControlsChevron"></i>
+            </div>
+            <div class="nod-map-controls-body">
+                <!-- Threshold Mode -->
+                <div class="form-group mb-2 px-2">
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">MODE</label>
+                    <div class="btn-group btn-group-sm d-flex">
+                        <button class="btn btn-outline-light flex-fill active" data-mode="percentile"
+                                onclick="NODDemandLayer.setThresholdMode('percentile')">Percentile</button>
+                        <button class="btn btn-outline-light flex-fill" data-mode="absolute"
+                                onclick="NODDemandLayer.setThresholdMode('absolute')">Absolute</button>
+                    </div>
+                </div>
+
+                <!-- Absolute Thresholds (shown when mode=absolute) -->
+                <div id="absolute-threshold-inputs" class="mb-2 px-2" style="display: none;">
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="nod-layer-color mr-2" style="background: #28a745;"></span>
+                        <span class="small text-muted mr-2" style="width: 50px;">Green:</span>
+                        <span class="small">0 -</span>
+                        <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary mx-1"
+                               id="threshold-green" value="5" style="width: 50px;"
+                               onchange="NODDemandLayer.setAbsoluteThreshold('green', this.value)">
+                    </div>
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="nod-layer-color mr-2" style="background: #ffc107;"></span>
+                        <span class="small text-muted mr-2" style="width: 50px;">Yellow:</span>
+                        <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary"
+                               id="threshold-yellow" value="10" style="width: 50px;"
+                               onchange="NODDemandLayer.setAbsoluteThreshold('yellow', this.value)">
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="nod-layer-color mr-2" style="background: #fd7e14;"></span>
+                        <span class="small text-muted mr-2" style="width: 50px;">Orange:</span>
+                        <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary"
+                               id="threshold-orange" value="15" style="width: 50px;"
+                               onchange="NODDemandLayer.setAbsoluteThreshold('orange', this.value)">
+                    </div>
+                    <div class="small text-muted mt-1">
+                        <span class="nod-layer-color mr-1" style="background: #dc3545; display: inline-block;"></span>
+                        Red: &gt; orange threshold
+                    </div>
+                </div>
+
+                <!-- Percentile Info (shown when mode=percentile) -->
+                <div id="percentile-info" class="mb-2 px-2 small text-muted">
+                    <p class="mb-1">Auto-calculated from data:</p>
+                    <div class="d-flex justify-content-between" style="font-size: 10px;">
+                        <span><span class="nod-layer-color mr-1" style="background: #28a745;"></span>0-50th</span>
+                        <span><span class="nod-layer-color mr-1" style="background: #ffc107;"></span>50-75th</span>
+                        <span><span class="nod-layer-color mr-1" style="background: #fd7e14;"></span>75-90th</span>
+                        <span><span class="nod-layer-color mr-1" style="background: #dc3545;"></span>90th+</span>
+                    </div>
+                    <div id="percentile-values" class="mt-1" style="font-size: 10px;"></div>
+                </div>
+
+                <!-- Horizon Selector -->
+                <div class="form-group mb-2 px-2">
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">PROJECTION HORIZON</label>
+                    <select id="demand-horizon" class="form-control form-control-sm bg-dark text-light border-secondary"
+                            onchange="NODDemandLayer.setHorizonHours(parseInt(this.value))">
+                        <option value="1">1 hour</option>
+                        <option value="2">2 hours</option>
+                        <option value="4" selected>4 hours</option>
+                        <option value="6">6 hours</option>
+                        <option value="8">8 hours</option>
+                        <option value="12">12 hours</option>
+                    </select>
+                </div>
+
+                <!-- Time View -->
+                <div class="form-group mb-2 px-2">
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">TIME VIEW</label>
+                    <div class="d-flex align-items-center mb-2">
+                        <button class="btn btn-sm btn-info mr-2" id="demand-time-now"
+                                onclick="NODDemandLayer.setBucket(null)" title="Show current +60min aggregate">
+                            <i class="fas fa-clock"></i> Now+60m
+                        </button>
+                        <span class="small text-light" id="demand-slider-current">Now+60m</span>
+                    </div>
+
+                    <!-- Time Slider -->
+                    <div id="demand-time-slider-container">
+                        <input type="range" class="custom-range" id="demand-time-slider"
+                               min="0" max="15" value="0" step="1"
+                               oninput="NODDemandLayer.setBucket(parseInt(this.value))">
+                        <div class="d-flex justify-content-between small text-muted mt-1">
+                            <span>Now</span>
+                            <span id="demand-slider-end">+4:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Time Bucket Bar Chart -->
+                    <div id="demand-bucket-chart" class="mt-2" style="height: 40px; display: flex; align-items: flex-end;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- UTC Clock -->
         <div class="nod-clock" id="nodClock">
             <span id="utcTime">--:--:--</span>
@@ -1503,6 +1625,9 @@ window.addEventListener('resize', updateNavbarHeight);
 
 <!-- NOD Module -->
 <script src="assets/js/nod.js"></script>
+
+<!-- NOD Demand Layer -->
+<script src="assets/js/nod-demand-layer.js"></script>
 
 </body>
 </html>
