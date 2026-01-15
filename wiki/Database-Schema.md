@@ -129,6 +129,14 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 | `sim_ref_route_patterns` | 3,989 O-D routes with hourly patterns |
 | `sim_ref_airport_demand` | 107 airports with demand curves |
 
+### Airspace Demand Functions (v17)
+
+| Function | Purpose |
+|----------|---------|
+| `fn_FixDemand` | Flights at a navigation fix in a time window |
+| `fn_AirwaySegmentDemand` | Flights on an airway segment between two fixes |
+| `fn_RouteSegmentDemand` | Flights between two fixes (airway or direct) |
+
 ---
 
 ## Key Relationships
@@ -166,6 +174,8 @@ Critical indexes for performance:
 | `adl_flights` | `idx_phase` | Phase filtering |
 | `adl_flights_history` | `idx_snapshot_utc` | Historical queries |
 | `adl_parsed_routes` | `idx_flight_seq` | Route ordering |
+| `adl_flight_waypoints` | `IX_waypoint_fix_eta` | Fix demand queries (v17) |
+| `adl_flight_waypoints` | `IX_waypoint_airway_eta` | Airway segment queries (v17) |
 
 ---
 

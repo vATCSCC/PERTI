@@ -1,6 +1,6 @@
 # vATCSCC PERTI — Codebase Index (v17)
 
-Generated: 2026-01-14 UTC
+Generated: 2026-01-15 UTC
 
 This index is a comprehensive reference for navigation, call graphs, and high-signal files.
 
@@ -929,6 +929,46 @@ Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
 - Runway configuration detection from ATIS
 - Flight-track-based runway detection fallback
 
+### Airspace Element Demand (NEW v17)
+
+Query traffic demand at navigation fixes, airway segments, and route segments.
+
+#### Airspace Demand API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `api/adl/demand/fix.php` | GET | Flights passing through a specific fix |
+| `api/adl/demand/airway.php` | GET | Flights on an airway segment between two fixes |
+| `api/adl/demand/segment.php` | GET | Flights between two fixes (airway or direct) |
+
+#### Airspace Demand Functions (Azure SQL)
+
+| Function | Purpose |
+|----------|---------|
+| `fn_FixDemand` | Returns flights at a fix with optional TRACON filters |
+| `fn_AirwaySegmentDemand` | Returns flights on an airway segment (requires on_airway match) |
+| `fn_RouteSegmentDemand` | Returns flights between fixes (airway or DCT) |
+
+#### Airspace Demand Indexes
+
+| Index | Table | Purpose |
+|-------|-------|---------|
+| `IX_waypoint_fix_eta` | `adl_flight_waypoints` | Fix demand queries (filtered on eta_utc NOT NULL) |
+| `IX_waypoint_airway_eta` | `adl_flight_waypoints` | Airway segment queries (filtered on on_airway/eta_utc NOT NULL) |
+
+#### API Examples
+
+```
+# Flights over MERIT in next 45 minutes, departing N90
+GET /api/adl/demand/fix?fix=MERIT&minutes=45&dep_tracon=N90
+
+# Flights on J48 between LANNA and MOL
+GET /api/adl/demand/airway?airway=J48&from_fix=LANNA&to_fix=MOL&minutes=180
+
+# Flights between CAM and GONZZ (airway or direct)
+GET /api/adl/demand/segment?from_fix=CAM&to_fix=GONZZ&minutes=180
+```
+
 ---
 
 ## 27) Airport Configuration & ATIS subsystem (NEW v16)
@@ -1141,7 +1181,15 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
 
 ## 31) Changelog
 
-- **v17 (2026-01-13):**
+- **v17 (2026-01-15):**
+  - **Airspace Element Demand (NEW):**
+    - `adl/migrations/demand/001_demand_indexes.sql` — Filtered indexes for fix/airway demand queries
+    - `adl/migrations/demand/002_fn_FixDemand.sql` — Fix demand query function
+    - `adl/migrations/demand/003_fn_AirwaySegmentDemand.sql` — Airway segment demand function
+    - `adl/migrations/demand/004_fn_RouteSegmentDemand.sql` — Route segment demand function (airway or DCT)
+    - `api/adl/demand/fix.php` — Fix demand API endpoint
+    - `api/adl/demand/airway.php` — Airway segment demand API endpoint
+    - `api/adl/demand/segment.php` — Route segment demand API endpoint
   - **ATFM Training Simulator Subsystem:**
     - `simulator.php` — Simulator UI page
     - `simulator/engine/` — Node.js flight engine
@@ -1367,6 +1415,21 @@ _Full table/column listing available in VATSIM_ADL_tree.json project file._
 | `vw_effective_atis` | Effective ATIS source decision (NEW v17) |
 | `vw_config_with_modifiers` | Configs with aggregated modifiers (NEW v17) |
 | `vw_runway_with_modifiers` | Runways with aggregated modifiers (NEW v17) |
+
+### Functions (Airspace Demand — NEW v17)
+
+| Function | Description |
+|----------|-------------|
+| `fn_FixDemand` | Returns flights passing through a fix in a time window (with optional TRACON filters) |
+| `fn_AirwaySegmentDemand` | Returns flights on an airway segment between two fixes (requires on_airway match) |
+| `fn_RouteSegmentDemand` | Returns flights between two fixes, airway or direct (more flexible for VATSIM) |
+
+### Indexes (Airspace Demand — NEW v17)
+
+| Index | Table | Purpose |
+|-------|-------|---------|
+| `IX_waypoint_fix_eta` | `adl_flight_waypoints` | Fix demand queries; filtered on `eta_utc IS NOT NULL` |
+| `IX_waypoint_airway_eta` | `adl_flight_waypoints` | Airway segment queries; filtered on `on_airway/eta_utc IS NOT NULL` |
 
 ---
 

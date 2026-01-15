@@ -92,6 +92,14 @@
 | `sp_SyncRunwayInUse` | [OK] Deployed | [090_runway_sync_proc.sql](../adl/migrations/090_runway_sync_proc.sql) | Runway-in-use synchronization |
 | `fn_GetWeatherCategory` | [OK] Deployed | [084_weather_category_fn.sql](../adl/migrations/084_weather_category_fn.sql) | Weather category classification |
 
+### Airspace Element Demand Functions (NEW v17)
+
+| Function | Status | Location | Description |
+|----------|--------|----------|-------------|
+| `fn_FixDemand` | [OK] Deployed | [002_fn_FixDemand.sql](../adl/migrations/demand/002_fn_FixDemand.sql) | Flights at a navigation fix |
+| `fn_AirwaySegmentDemand` | [OK] Deployed | [003_fn_AirwaySegmentDemand.sql](../adl/migrations/demand/003_fn_AirwaySegmentDemand.sql) | Flights on an airway segment |
+| `fn_RouteSegmentDemand` | [OK] Deployed | [004_fn_RouteSegmentDemand.sql](../adl/migrations/demand/004_fn_RouteSegmentDemand.sql) | Flights between fixes (airway or DCT) |
+
 ### Removed Procedures
 
 | Procedure | Status | Notes |
@@ -225,6 +233,7 @@ python atis_daemon.py
 | **performance/** | 3 files | [OK] Deployed | Aircraft performance |
 | **stats/** | 5 files | [OK] Deployed | Flight statistics |
 | **changelog/** | 7 files | [OK] Deployed | Change tracking triggers |
+| **demand/** | 4 files | [OK] Deployed | Airspace element demand functions (NEW v17) |
 
 ### Airport Configuration & ATIS (NEW v16)
 
@@ -385,6 +394,10 @@ python atis_daemon.py
 | `simulator/engine/` | [DEV] In Progress | Node.js flight engine |
 | `adl/migrations/sim_ref_*.sql` | [OK] Created | Simulator reference data tables |
 | `docs/ATFM_Simulator_Design_Document_v1.md` | [OK] Created | Simulator design reference |
+| `api/adl/demand/fix.php` | [OK] Created | Fix demand API endpoint |
+| `api/adl/demand/airway.php` | [OK] Created | Airway segment demand API |
+| `api/adl/demand/segment.php` | [OK] Created | Route segment demand API |
+| `adl/migrations/demand/*.sql` | [OK] Created | Airspace demand indexes & functions |
 
 ### New Files (v16)
 
