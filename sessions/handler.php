@@ -167,33 +167,33 @@ if (!defined('DEV')) {
                 $_SESSION['VATSIM_CID'] = $obj['cid'];
                 $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
                 $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];
-                setCookie("SELF", $selfcookie, time() + (10 * 365 * 24 * 60 * 60), "/");
-        
+                setCookie("SELF", $obj['selfcookie'], time() + (10 * 365 * 24 * 60 * 60), "/");
+
             } else {
-        
+
                 unset($_SESSION['VATSIM_CID']);
                 unset($_SESSION['VATSIM_FIRST_NAME']);
                 unset($_SESSION['VATSIM_LAST_NAME']);
-                
+
                 session_destroy();
-        
+
                 setCookie("PHPSESSID", "", time() - 3600, "/");
                 setCookie("SELF", "", time() - 3600, "/");
-        
+
             }
         } else {
 
             unset($_SESSION['VATSIM_CID']);
             unset($_SESSION['VATSIM_FIRST_NAME']);
             unset($_SESSION['VATSIM_LAST_NAME']);
-            
+
             session_destroy();
-    
+
             setCookie("PHPSESSID", "", time() - 3600, "/");
             setCookie("SELF", "", time() - 3600, "/");
 
         }
-    
+
     }
 } else {
     $_SESSION['VATSIM_CID'] = 0;
