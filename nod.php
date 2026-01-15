@@ -489,6 +489,8 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
             min-width: 280px;
             max-height: 70vh;
             overflow-y: auto;
+            z-index: 1000;
+            pointer-events: auto;
         }
 
         .nod-toolbar-section.open .nod-toolbar-dropdown {
@@ -497,6 +499,15 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
 
         .nod-toolbar-dropdown-content {
             padding: 10px;
+            pointer-events: auto;
+        }
+
+        /* Ensure buttons and inputs in dropdown are properly clickable */
+        .nod-toolbar-dropdown button,
+        .nod-toolbar-dropdown input,
+        .nod-toolbar-dropdown select,
+        .nod-toolbar-dropdown label {
+            pointer-events: auto;
         }
 
         /* Layer items (shared) */

@@ -222,8 +222,22 @@
         // Initialize draggable legend
         initDraggableLegend();
 
-        // Close toolbar dropdowns when clicking outside
+        // Handle toolbar section click behavior
+        // Only close dropdowns when clicking completely outside toolbar sections
         document.addEventListener('click', (e) => {
+            // Check if click is inside a toolbar dropdown - do nothing, let it handle normally
+            const inDropdown = e.target.closest('.nod-toolbar-dropdown');
+            if (inDropdown) {
+                return; // Don't close - click is inside dropdown content
+            }
+
+            // Check if click is on a toolbar button - let inline onclick handle it
+            const toolbarBtn = e.target.closest('.nod-toolbar-btn');
+            if (toolbarBtn) {
+                return; // Don't close - button's onclick will handle toggle
+            }
+
+            // Click is completely outside all toolbar sections - close all open dropdowns
             if (!e.target.closest('.nod-toolbar-section')) {
                 document.querySelectorAll('.nod-toolbar-section.open').forEach(s => {
                     s.classList.remove('open');
