@@ -175,3 +175,65 @@ function render_dropdown($key, $group, $filepath) {
 
   </div>
 </nav>
+
+<!-- Mobile Offcanvas Menu -->
+<div class="offcanvas-mobile" id="primaryMenu">
+    <div class="offcanvas-header">
+        <span class="offcanvas-title">Menu</span>
+        <button type="button" class="offcanvas-close" aria-label="Close menu">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="offcanvas-body">
+        <ul class="mobile-nav-list">
+            <?php foreach ($nav_config as $key => $group): ?>
+                <?php
+                // Check if this group/item requires permission
+                $requires_perm = isset($group['perm']) && $group['perm'];
+                if ($requires_perm && !$perm) continue;
+
+                // Render as collapsible section or standalone link
+                if (isset($group['items'])): ?>
+                    <li class="mobile-nav-section">
+                        <a class="mobile-nav-header" data-toggle="collapse" href="#mobile-<?= $key ?>" role="button" aria-expanded="false" aria-controls="mobile-<?= $key ?>">
+                            <?= $group['label'] ?>
+                            <i class="fas fa-chevron-down"></i>
+                        </a>
+                        <div class="collapse" id="mobile-<?= $key ?>">
+                            <?php foreach ($group['items'] as $item):
+                                // Check item-level permission
+                                $item_requires_perm = isset($item['perm']) && $item['perm'];
+                                if ($item_requires_perm && !$perm) continue;
+
+                                $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
+                            ?>
+                                <a class="mobile-nav-link" href="<?= $filepath . $item['path'] ?>"<?= $target ?>><?= $item['label'] ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                    </li>
+                <?php else:
+                    $target = isset($group['external']) && $group['external'] ? ' target="_blank"' : '';
+                ?>
+                    <li class="mobile-nav-standalone">
+                        <a class="mobile-nav-link" href="<?= $filepath . $group['path'] ?>"<?= $target ?>><?= $group['label'] ?></a>
+                    </li>
+                <?php endif; ?>
+            <?php endforeach; ?>
+
+            <?php if ($perm): ?>
+                <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <a class="mobile-nav-link" href="<?= $filepath ?>logout">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout (<?= $_SESSION['VATSIM_FIRST_NAME'] ?>)
+                    </a>
+                </li>
+            <?php else: ?>
+                <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <a class="mobile-nav-link" href="<?= $filepath ?>login">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                    </a>
+                </li>
+            <?php endif; ?>
+        </ul>
+    </div>
+</div>
+<div class="offcanvas-backdrop" id="offcanvasBackdrop"></div>

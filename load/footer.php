@@ -9,6 +9,70 @@
 <script src="<?= $filepath; ?>assets/vendor/jarallax/dist/jarallax-element.min.js"></script>
 <script src="<?= $filepath; ?>assets/js/theme.min.js"></script>
 
+<!-- Mobile Navigation Handler -->
+<script>
+(function() {
+    'use strict';
+
+    var offcanvas = document.getElementById('primaryMenu');
+    var backdrop = document.getElementById('offcanvasBackdrop');
+    var closeBtn = document.querySelector('.offcanvas-close');
+    var toggleBtns = document.querySelectorAll('[data-toggle="offcanvas"][data-offcanvas-id="primaryMenu"]');
+
+    function openOffcanvas() {
+        if (offcanvas) {
+            offcanvas.classList.add('show');
+            backdrop.classList.add('show');
+            document.body.classList.add('offcanvas-open');
+        }
+    }
+
+    function closeOffcanvas() {
+        if (offcanvas) {
+            offcanvas.classList.remove('show');
+            backdrop.classList.remove('show');
+            document.body.classList.remove('offcanvas-open');
+        }
+    }
+
+    // Toggle button handlers
+    toggleBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (offcanvas.classList.contains('show')) {
+                closeOffcanvas();
+            } else {
+                openOffcanvas();
+            }
+        });
+    });
+
+    // Close button handler
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeOffcanvas);
+    }
+
+    // Backdrop click closes menu
+    if (backdrop) {
+        backdrop.addEventListener('click', closeOffcanvas);
+    }
+
+    // ESC key closes menu
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && offcanvas && offcanvas.classList.contains('show')) {
+            closeOffcanvas();
+        }
+    });
+
+    // Close on window resize to desktop
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 992 && offcanvas && offcanvas.classList.contains('show')) {
+            closeOffcanvas();
+        }
+    });
+})();
+</script>
+
 <footer class="cs-footer">
     <div class="container-fluid bg-dark pt-5 pb-3">
 
