@@ -1,0 +1,1003 @@
+/* =============================================================================
+   MOBILE.CSS - PERTI Mobile & Tablet Responsive Styles
+   Bootstrap 4.5.2 Compatible
+
+   Breakpoints:
+   - Phone (portrait):     0 - 575px
+   - Phone (landscape):    576px - 767px
+   - Tablet (portrait):    768px - 991px
+   - Tablet (landscape):   992px - 1279px
+   - Desktop:              1280px+
+   ============================================================================= */
+
+/* =============================================================================
+   SECTION 1: CSS VARIABLES
+   ============================================================================= */
+
+:root {
+    --touch-target-min: 44px;
+    --mobile-spacing: 12px;
+    --offcanvas-width: 280px;
+    --navbar-height: 77px;
+}
+
+/* =============================================================================
+   SECTION 2: OFFCANVAS NAVIGATION
+   ============================================================================= */
+
+.offcanvas-mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--offcanvas-width);
+    height: 100vh;
+    height: 100dvh;
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    z-index: 1050;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.offcanvas-mobile.show {
+    transform: translateX(0);
+}
+
+.offcanvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.offcanvas-title {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.offcanvas-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.25rem;
+    padding: 8px;
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.offcanvas-close:hover,
+.offcanvas-close:focus {
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+}
+
+.offcanvas-body {
+    padding: 0;
+}
+
+.mobile-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.mobile-nav-section {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-nav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    color: #fff;
+    font-weight: 500;
+    text-decoration: none !important;
+    min-height: var(--touch-target-min);
+    transition: background 0.2s;
+}
+
+.mobile-nav-header:hover,
+.mobile-nav-header:focus {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    text-decoration: none;
+}
+
+.mobile-nav-header .fa-chevron-down {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+    opacity: 0.7;
+}
+
+.mobile-nav-header[aria-expanded="true"] .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.mobile-nav-link {
+    display: block;
+    padding: 12px 20px 12px 36px;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none !important;
+    min-height: var(--touch-target-min);
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link:focus {
+    background: rgba(255, 255, 255, 0.05);
+    color: #4dd0e1;
+    border-left-color: #4dd0e1;
+    text-decoration: none;
+}
+
+.mobile-nav-standalone {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-nav-standalone .mobile-nav-link {
+    padding-left: 20px;
+    font-weight: 500;
+}
+
+/* Offcanvas Backdrop */
+.offcanvas-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1040;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.offcanvas-backdrop.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Prevent body scroll when offcanvas is open */
+body.offcanvas-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+}
+
+/* Hide offcanvas elements on desktop (992px+) */
+@media (min-width: 992px) {
+    .offcanvas-mobile,
+    .offcanvas-backdrop {
+        display: none !important;
+    }
+
+    body.offcanvas-open {
+        overflow: auto;
+        position: static;
+    }
+}
+
+/* =============================================================================
+   SECTION 3: TOUCH TARGETS & FORM CONTROLS (Tablet + Phone: <992px)
+   ============================================================================= */
+
+@media (max-width: 991.98px) {
+    /* Buttons - minimum touch target */
+    .btn {
+        min-height: var(--touch-target-min);
+        padding: 10px 16px;
+    }
+
+    .btn-sm {
+        min-height: var(--touch-target-min);
+        padding: 8px 14px;
+        font-size: 0.9rem;
+    }
+
+    .btn-xs {
+        min-height: 36px;
+        padding: 6px 10px;
+    }
+
+    /* Form controls */
+    .form-control,
+    .form-control-sm,
+    .custom-select,
+    .custom-select-sm {
+        min-height: var(--touch-target-min);
+        padding: 10px 12px;
+        font-size: 16px; /* Prevents iOS zoom on focus */
+    }
+
+    /* Textarea keeps auto height */
+    textarea.form-control,
+    textarea.form-control-sm {
+        min-height: auto;
+    }
+
+    /* Custom checkboxes and radios */
+    .custom-control {
+        min-height: var(--touch-target-min);
+        padding-left: 2rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .custom-control-label::before,
+    .custom-control-label::after {
+        width: 1.25rem;
+        height: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    /* Bootstrap Select plugin */
+    .bootstrap-select > .dropdown-toggle {
+        min-height: var(--touch-target-min);
+        padding: 10px 12px;
+    }
+
+    /* Dropdown items */
+    .dropdown-item {
+        padding: 12px 16px;
+        min-height: var(--touch-target-min);
+    }
+
+    /* Nav pills and tabs */
+    .nav-link {
+        padding: 12px 16px;
+        min-height: var(--touch-target-min);
+    }
+
+    .nav-pills .nav-link,
+    .nav-tabs .nav-link {
+        padding: 10px 14px;
+    }
+
+    /* Input groups */
+    .input-group > .form-control,
+    .input-group > .custom-select {
+        min-height: var(--touch-target-min);
+    }
+
+    .input-group-text {
+        min-height: var(--touch-target-min);
+        padding: 10px 12px;
+    }
+
+    /* Close buttons */
+    .close {
+        min-width: var(--touch-target-min);
+        min-height: var(--touch-target-min);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Card actions */
+    .card-header .btn,
+    .card-footer .btn {
+        min-height: 40px;
+    }
+}
+
+/* Phone-only form adjustments (<576px) */
+@media (max-width: 575.98px) {
+    /* Scope grids - 2 columns instead of 4 */
+    .scope-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Inline checkboxes stack */
+    .form-check-inline {
+        display: block;
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+
+    /* Form groups full width */
+    .form-inline .form-group {
+        flex: 0 0 100%;
+        margin-bottom: 10px;
+    }
+
+    .form-inline .form-control {
+        width: 100%;
+    }
+
+    /* Button groups stack */
+    .btn-group-vertical-xs {
+        flex-direction: column;
+    }
+
+    .btn-group-vertical-xs > .btn {
+        margin-left: 0 !important;
+        margin-bottom: 4px;
+        border-radius: 4px !important;
+    }
+}
+
+/* =============================================================================
+   SECTION 4: RESPONSIVE TABLES
+   ============================================================================= */
+
+/* Improved table-responsive with momentum scrolling */
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+/* Tablet: Compact table styling (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .table {
+        font-size: 0.85rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 0.5rem 0.4rem;
+    }
+
+    .table-sm th,
+    .table-sm td {
+        padding: 0.35rem 0.3rem;
+    }
+}
+
+/* Phone: Card-style tables (<768px) */
+@media (max-width: 767.98px) {
+    /* Apply card layout to tables with this class */
+    .table-mobile-cards {
+        border: none;
+        background: transparent;
+    }
+
+    .table-mobile-cards thead {
+        display: none;
+    }
+
+    .table-mobile-cards tbody {
+        display: block;
+    }
+
+    .table-mobile-cards tbody tr {
+        display: block;
+        margin-bottom: 12px;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .table-mobile-cards tbody tr:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
+
+    .table-mobile-cards tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+        text-align: right;
+    }
+
+    .table-mobile-cards tbody td:last-child {
+        border-bottom: none;
+    }
+
+    /* Data label from data-label attribute */
+    .table-mobile-cards tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #666;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        flex-shrink: 0;
+        margin-right: 12px;
+        text-align: left;
+    }
+
+    /* Hide label for cells without data-label */
+    .table-mobile-cards tbody td:not([data-label])::before {
+        content: none;
+    }
+
+    /* Primary identifier styling (first cell or ACID/Callsign) */
+    .table-mobile-cards tbody td.td-primary,
+    .table-mobile-cards tbody td[data-label="ACID"],
+    .table-mobile-cards tbody td[data-label="Callsign"] {
+        font-weight: 700;
+        font-size: 1rem;
+        background: #f8f9fa;
+        margin: -12px -12px 8px -12px;
+        padding: 10px 12px !important;
+        border-radius: 8px 8px 0 0;
+        border-bottom: 2px solid #e9ecef;
+        justify-content: flex-start;
+    }
+
+    .table-mobile-cards tbody td.td-primary::before,
+    .table-mobile-cards tbody td[data-label="ACID"]::before,
+    .table-mobile-cards tbody td[data-label="Callsign"]::before {
+        display: none;
+    }
+
+    /* Actions cell full width */
+    .table-mobile-cards tbody td.td-actions {
+        justify-content: center;
+        padding-top: 12px !important;
+        gap: 8px;
+    }
+
+    .table-mobile-cards tbody td.td-actions::before {
+        display: none;
+    }
+
+    /* Badge in table cells */
+    .table-mobile-cards tbody td .badge {
+        font-size: 0.75rem;
+    }
+
+    /* Status colors in cards */
+    .table-mobile-cards tbody tr.table-success {
+        border-left: 4px solid #28a745;
+    }
+
+    .table-mobile-cards tbody tr.table-warning {
+        border-left: 4px solid #ffc107;
+    }
+
+    .table-mobile-cards tbody tr.table-danger {
+        border-left: 4px solid #dc3545;
+    }
+
+    .table-mobile-cards tbody tr.table-info {
+        border-left: 4px solid #17a2b8;
+    }
+}
+
+/* Tables that should always scroll horizontally */
+.table-scroll-always {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Sticky first column for wide tables */
+@media (max-width: 1199.98px) {
+    .table-sticky-col th:first-child,
+    .table-sticky-col td:first-child {
+        position: sticky;
+        left: 0;
+        background: inherit;
+        z-index: 5;
+        box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-sticky-col thead th:first-child {
+        z-index: 6;
+    }
+}
+
+/* =============================================================================
+   SECTION 5: MODALS
+   ============================================================================= */
+
+/* Tablet: Centered modal with max-width (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .modal-lg,
+    .modal-xl {
+        max-width: 90%;
+    }
+
+    .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+}
+
+/* Phone: Full-screen modals (<768px) */
+@media (max-width: 767.98px) {
+    .modal-dialog {
+        margin: 0;
+        max-width: 100%;
+        width: 100%;
+        height: 100%;
+        max-height: 100%;
+    }
+
+    .modal-content {
+        border: none;
+        border-radius: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-lg .modal-content,
+    .modal-xl .modal-content {
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    /* Sticky header */
+    .modal-header {
+        position: sticky;
+        top: 0;
+        background: #fff;
+        z-index: 10;
+        border-radius: 0;
+        padding: 12px 16px;
+        flex-shrink: 0;
+    }
+
+    .modal-title {
+        font-size: 1.1rem;
+    }
+
+    /* Scrollable body */
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: var(--mobile-spacing);
+    }
+
+    /* Sticky footer */
+    .modal-footer {
+        position: sticky;
+        bottom: 0;
+        background: #fff;
+        z-index: 10;
+        padding: 12px 16px;
+        border-radius: 0;
+        flex-shrink: 0;
+        gap: 8px;
+    }
+
+    .modal-footer .btn {
+        flex: 1;
+        margin: 0;
+    }
+
+    /* Form layouts in modals - stack columns */
+    .modal-body .row > [class*="col-md"],
+    .modal-body .row > [class*="col-lg"],
+    .modal-body .form-row > [class*="col-md"],
+    .modal-body .form-row > [class*="col-lg"] {
+        flex: 0 0 100%;
+        max-width: 100%;
+        margin-bottom: 12px;
+    }
+
+    /* Keep col-6 as 50% on phone in modals for compact items */
+    .modal-body .row > .col-6,
+    .modal-body .form-row > .col-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+/* =============================================================================
+   SECTION 6: FIXED PANELS (Simulator, NOD, etc.)
+   ============================================================================= */
+
+/* Tablet: Narrower slide-in panel (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .panel-slide {
+        width: 360px !important;
+        max-width: 360px !important;
+    }
+}
+
+/* Phone: Full-width slide-in panel (<768px) */
+@media (max-width: 767.98px) {
+    .panel-slide {
+        position: fixed !important;
+        right: 0;
+        top: var(--navbar-height);
+        width: 100% !important;
+        max-width: 100% !important;
+        height: calc(100vh - var(--navbar-height));
+        height: calc(100dvh - var(--navbar-height));
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1020;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .panel-slide.show {
+        transform: translateX(0);
+    }
+
+    /* Panel toggle FAB */
+    .panel-toggle-fab {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #fff;
+        border: 2px solid #4dd0e1;
+        z-index: 1010;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .panel-toggle-fab:hover,
+    .panel-toggle-fab:focus {
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        outline: none;
+    }
+
+    .panel-toggle-fab:active {
+        transform: scale(0.95);
+    }
+
+    /* Hide FAB when panel is open */
+    .panel-slide.show ~ .panel-toggle-fab {
+        display: none;
+    }
+}
+
+/* =============================================================================
+   SECTION 7: PAGE-SPECIFIC - PLAN PAGE
+   ============================================================================= */
+
+@media (max-width: 991.98px) {
+    /* Convert vertical nav to horizontal scrolling tabs */
+    .plan-nav.nav.flex-column {
+        flex-direction: row !important;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+        border-bottom: 2px solid #dee2e6;
+        gap: 4px;
+    }
+
+    .plan-nav.nav.flex-column .nav-link {
+        white-space: nowrap;
+        padding: 10px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+
+    .plan-nav.nav.flex-column hr {
+        display: none;
+    }
+
+    /* Sidebar becomes full width */
+    .plan-sidebar {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 16px;
+    }
+
+    /* Main content full width */
+    .plan-content {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+/* =============================================================================
+   SECTION 8: PAGE-SPECIFIC - DEMAND PAGE
+   ============================================================================= */
+
+@media (max-width: 991.98px) {
+    /* Info bar horizontal scroll */
+    .perti-info-bar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+    }
+
+    .perti-info-bar > .row {
+        flex-wrap: nowrap;
+        margin: 0;
+    }
+
+    .perti-info-card {
+        min-width: 140px;
+        flex-shrink: 0;
+    }
+
+    /* Filter panel full width */
+    .demand-filters {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 16px;
+    }
+
+    /* Chart column full width */
+    .demand-chart {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+/* Tablet chart height */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .demand-chart-container {
+        height: 350px;
+        min-height: 320px;
+    }
+}
+
+/* Phone chart height */
+@media (max-width: 767.98px) {
+    .demand-chart-container {
+        height: 280px;
+        min-height: 260px;
+    }
+
+    /* Compact legend */
+    .demand-legend-item {
+        font-size: 0.7rem;
+        margin-right: 8px;
+        margin-bottom: 4px;
+    }
+}
+
+/* =============================================================================
+   SECTION 9: PAGE-SPECIFIC - CONFIGS PAGE
+   ============================================================================= */
+
+@media (max-width: 767.98px) {
+    /* Filter row stacks */
+    .configs-filters .row > [class*="col-md"] {
+        flex: 0 0 100%;
+        max-width: 100%;
+        margin-bottom: 8px;
+    }
+
+    /* Stats grid 2-column */
+    .config-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .config-stats .stat-item {
+        padding: 8px;
+        text-align: center;
+    }
+
+    .config-stats .stat-value {
+        font-size: 1.2rem;
+    }
+
+    /* Bulk actions wrap */
+    .bulk-actions {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .bulk-actions .btn {
+        flex: 1 1 auto;
+        min-width: 100px;
+    }
+}
+
+/* Tablet: 2-column filter row */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .configs-filters .row > .col-md-3 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+/* =============================================================================
+   SECTION 10: PAGE-SPECIFIC - GDT PAGE
+   ============================================================================= */
+
+@media (max-width: 767.98px) {
+    /* Flight table cards */
+    .gdt-flight-table {
+        /* Inherits .table-mobile-cards styles */
+    }
+
+    /* Control panel full width */
+    .gdt-controls {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Map container adjustments */
+    .gdt-map-container {
+        height: 300px;
+        min-height: 280px;
+    }
+}
+
+/* =============================================================================
+   SECTION 11: PAGE-SPECIFIC - SIMULATOR PAGE
+   ============================================================================= */
+
+@media (max-width: 991.98px) {
+    /* Simulator panel becomes slide-in */
+    .sim-panel {
+        position: fixed !important;
+        right: 0;
+        top: var(--navbar-height);
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: unset !important;
+        height: calc(100vh - var(--navbar-height));
+        height: calc(100dvh - var(--navbar-height));
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1020;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #1a1a2e;
+    }
+
+    .sim-panel.show {
+        transform: translateX(0);
+    }
+
+    /* Map takes full width */
+    .sim-map-container {
+        width: 100% !important;
+        height: calc(100vh - var(--navbar-height));
+        height: calc(100dvh - var(--navbar-height));
+    }
+
+    /* Sim buttons larger */
+    .sim-btn {
+        min-height: var(--touch-target-min);
+        padding: 10px 14px;
+    }
+
+    /* Sim inputs larger */
+    .sim-input,
+    .sim-select {
+        min-height: var(--touch-target-min);
+        padding: 10px 12px;
+        font-size: 16px;
+    }
+}
+
+/* Tablet: Narrower simulator panel */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .sim-panel {
+        width: 360px !important;
+        max-width: 360px !important;
+    }
+}
+
+/* =============================================================================
+   SECTION 12: UTILITY CLASSES
+   ============================================================================= */
+
+/* Hide on mobile */
+@media (max-width: 767.98px) {
+    .d-mobile-none {
+        display: none !important;
+    }
+}
+
+/* Hide on tablet */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .d-tablet-none {
+        display: none !important;
+    }
+}
+
+/* Show only on mobile */
+@media (min-width: 768px) {
+    .d-mobile-only {
+        display: none !important;
+    }
+}
+
+/* Show only on tablet */
+@media (max-width: 767.98px), (min-width: 992px) {
+    .d-tablet-only {
+        display: none !important;
+    }
+}
+
+/* Full width on mobile */
+@media (max-width: 767.98px) {
+    .w-mobile-100 {
+        width: 100% !important;
+    }
+}
+
+/* Full width on tablet and below */
+@media (max-width: 991.98px) {
+    .w-tablet-100 {
+        width: 100% !important;
+    }
+}
+
+/* Horizontal scroll container */
+.scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Stack buttons on mobile */
+@media (max-width: 575.98px) {
+    .btn-stack-mobile {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .btn-stack-mobile .btn {
+        width: 100%;
+        margin: 0 !important;
+    }
+}
+
+/* =============================================================================
+   SECTION 13: SCROLLBAR STYLING (TOUCH DEVICES)
+   ============================================================================= */
+
+@media (max-width: 991.98px) {
+    /* Thinner scrollbars on touch devices */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    /* Hide scrollbar but allow scrolling */
+    .scrollbar-hidden {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .scrollbar-hidden::-webkit-scrollbar {
+        display: none;
+    }
+}
