@@ -185,7 +185,7 @@ BEGIN
         UPDATE ft
         SET ft.eta_utc = e.calc_eta,
             ft.eta_runway_utc = e.calc_eta,
-            ft.eta_epoch = DATEDIFF(SECOND, '1970-01-01', e.calc_eta),
+            ft.eta_epoch = DATEDIFF_BIG(SECOND, '1970-01-01', e.calc_eta),
             ft.eta_prefix = e.calc_prefix,
             ft.eta_confidence = e.calc_confidence,
             ft.eta_last_calc_utc = @now,

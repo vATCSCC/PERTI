@@ -533,7 +533,7 @@ BEGIN
         ft.eta_runway_utc = r.final_eta,
         ft.eta_epoch = CASE 
             WHEN r.final_eta IS NOT NULL 
-            THEN DATEDIFF(SECOND, '1970-01-01', r.final_eta) 
+            THEN DATEDIFF_BIG(SECOND, '1970-01-01', r.final_eta) 
             ELSE NULL 
         END,
         ft.eta_prefix = r.final_prefix,
@@ -585,7 +585,7 @@ BEGIN
         r.final_eta,
         r.final_eta,
         CASE WHEN r.final_eta IS NOT NULL
-             THEN DATEDIFF(SECOND, '1970-01-01', r.final_eta)
+             THEN DATEDIFF_BIG(SECOND, '1970-01-01', r.final_eta)
              ELSE NULL END,
         r.final_prefix,
         r.confidence,
