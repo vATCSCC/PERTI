@@ -1,5 +1,11 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.10 - Disable Timeout-Causing Steps
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.11 - Fix DATEDIFF Overflow
+--
+-- Changes from V8.9.10:
+--   - Fixed DATEDIFF overflow: Changed to DATEDIFF_BIG for epoch calculations
+--   - DATEDIFF returns INT which overflows beyond year 2038
+--   - Also fixed in sp_ProcessTrajectoryBatch and sp_CalculateETABatch
+--   - Added ETD validation: reject dates >2 days future or >1 day past
 --
 -- Changes from V8.9.9:
 --   - DISABLED Step 10 (Boundary Detection) - causing query timeouts
@@ -692,27 +698,34 @@ BEGIN
                 WHEN phase <> 'prefile' AND deptime IS NOT NULL AND LEN(deptime) = 4 AND deptime NOT LIKE '%[^0-9]%' THEN 'P'
                 ELSE NULL
             END AS etd_source,
-            CASE
-                WHEN deptime IS NULL OR LEN(deptime) <> 4 OR deptime LIKE '%[^0-9]%' THEN NULL
-                WHEN fp_dof_utc IS NOT NULL
-                THEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(fp_dof_utc AS DATETIME2(0)))
-                WHEN phase IN ('prefile', 'departed', 'taxiing')
-                THEN CASE 
-                    WHEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))) >= @now
-                    THEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0)))
-                    ELSE DATEADD(DAY, 1, DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))))
-                END
-                ELSE CASE 
-                    WHEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))) <= @now
-                    THEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0)))
-                    ELSE DATEADD(DAY, -1, DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))))
-                END
-            END AS etd_utc
-        FROM ETDCalc
+            -- V8.9.11: Validate ETD is within reasonable range (not >2 days future, not >1 day past)
+            CASE WHEN calc_etd IS NOT NULL
+                      AND calc_etd BETWEEN DATEADD(DAY, -1, @now) AND DATEADD(DAY, 2, @now)
+                 THEN calc_etd ELSE NULL END AS etd_utc
+        FROM (
+            SELECT flight_uid, phase, deptime, deptime_minutes, fp_dof_utc, fp_enroute_minutes,
+                CASE
+                    WHEN deptime IS NULL OR LEN(deptime) <> 4 OR deptime LIKE '%[^0-9]%' THEN NULL
+                    WHEN fp_dof_utc IS NOT NULL
+                    THEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(fp_dof_utc AS DATETIME2(0)))
+                    WHEN phase IN ('prefile', 'departed', 'taxiing')
+                    THEN CASE
+                        WHEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))) >= @now
+                        THEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0)))
+                        ELSE DATEADD(DAY, 1, DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))))
+                    END
+                    ELSE CASE
+                        WHEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))) <= @now
+                        THEN DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0)))
+                        ELSE DATEADD(DAY, -1, DATEADD(MINUTE, CONVERT(INT, LEFT(deptime, 2)) * 60 + CONVERT(INT, RIGHT(deptime, 2)), CAST(@today AS DATETIME2(0))))
+                    END
+                END AS calc_etd
+            FROM ETDCalc
+        ) AS sub
     )
     UPDATE ft
     SET ft.etd_utc = er.etd_utc, ft.std_utc = er.etd_utc, ft.etd_source = er.etd_source,
-        ft.etd_epoch = CASE WHEN er.etd_utc IS NOT NULL THEN DATEDIFF(SECOND, '1970-01-01', er.etd_utc) ELSE NULL END,
+        ft.etd_epoch = CASE WHEN er.etd_utc IS NOT NULL THEN DATEDIFF_BIG(SECOND, '1970-01-01', er.etd_utc) ELSE NULL END,
         ft.ete_minutes = er.fp_enroute_minutes,
         ft.departure_bucket_utc = CASE WHEN er.etd_utc IS NOT NULL
             THEN DATEADD(MINUTE, CASE WHEN DATEPART(MINUTE, er.etd_utc) < 15 THEN 0 WHEN DATEPART(MINUTE, er.etd_utc) < 30 THEN 15 WHEN DATEPART(MINUTE, er.etd_utc) < 45 THEN 30 ELSE 45 END, DATEADD(HOUR, DATEDIFF(HOUR, 0, er.etd_utc), 0))
@@ -855,7 +868,7 @@ BEGIN
     
     UPDATE ft SET ft.arrival_bucket_utc = CASE WHEN ft.eta_utc IS NOT NULL
         THEN DATEADD(MINUTE, CASE WHEN DATEPART(MINUTE, ft.eta_utc) < 15 THEN 0 WHEN DATEPART(MINUTE, ft.eta_utc) < 30 THEN 15 WHEN DATEPART(MINUTE, ft.eta_utc) < 45 THEN 30 ELSE 45 END, DATEADD(HOUR, DATEDIFF(HOUR, 0, ft.eta_utc), 0)) ELSE NULL END,
-        ft.eta_epoch = CASE WHEN ft.eta_utc IS NOT NULL THEN DATEDIFF(SECOND, '1970-01-01', ft.eta_utc) ELSE NULL END
+        ft.eta_epoch = CASE WHEN ft.eta_utc IS NOT NULL THEN DATEDIFF_BIG(SECOND, '1970-01-01', ft.eta_utc) ELSE NULL END
     FROM dbo.adl_flight_times ft WHERE ft.eta_utc IS NOT NULL AND ft.arrival_bucket_utc IS NULL;
 
     SET @step8b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
@@ -1013,7 +1026,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.10 created successfully';
-PRINT 'V8.9.10: DISABLED Steps 10 & 11 again - causing query timeouts';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.11 created successfully';
+PRINT 'V8.9.11: Fixed DATEDIFF overflow - changed to DATEDIFF_BIG for epoch calculations';
 PRINT 'Steps 1-9 + 12-13 active, target <5s performance';
 GO
