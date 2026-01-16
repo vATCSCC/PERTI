@@ -392,6 +392,20 @@ const NODDemandLayer = (function() {
     }
 
     // =========================================
+    // NOD Integration Helpers
+    // =========================================
+
+    /**
+     * Update NOD color legend if FEA match mode is active
+     * Called when monitors are added/removed to keep the legend in sync
+     */
+    function updateNODColorLegend() {
+        if (typeof window.NOD !== 'undefined' && window.NOD.renderColorLegend) {
+            window.NOD.renderColorLegend();
+        }
+    }
+
+    // =========================================
     // Monitor Management
     // =========================================
 
@@ -447,6 +461,9 @@ const NODDemandLayer = (function() {
         }
         renderMonitorsList();
 
+        // Update NOD color legend if showing FEA match mode
+        updateNODColorLegend();
+
         console.log('[DemandLayer] Added monitor:', id);
         return true;
     }
@@ -473,6 +490,9 @@ const NODDemandLayer = (function() {
         }
         renderMonitorsList();
 
+        // Update NOD color legend if showing FEA match mode
+        updateNODColorLegend();
+
         console.log('[DemandLayer] Removed monitor:', id);
         return true;
     }
@@ -487,6 +507,9 @@ const NODDemandLayer = (function() {
         // Clear map data and update UI
         updateMapData([]);
         renderMonitorsList();
+
+        // Update NOD color legend if showing FEA match mode
+        updateNODColorLegend();
 
         console.log('[DemandLayer] Cleared all monitors');
     }
