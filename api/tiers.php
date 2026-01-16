@@ -431,7 +431,8 @@ if ($format === 'legacy') {
         "artccs" => []
     ];
 
-    // Get all facility configs grouped by facility
+    // Get all facility configs with their ARTCCs in optimized queries
+    // First, get all configs
     $sql = "
         SELECT
             ff.facility_code AS owner_facility,
@@ -453,12 +454,59 @@ if ($format === 'legacy') {
         exit;
     }
     $facilityConfigs = [];
+    $tierGroupIds = [];
+    $configIds = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $facilityConfigs[] = $row;
+        if (!empty($row['tier_group_id'])) {
+            $tierGroupIds[] = $row['tier_group_id'];
+        } else {
+            $configIds[] = $row['config_id'];
+        }
     }
     sqlsrv_free_stmt($stmt);
 
-    // For each config, get its ARTCCs
+    // Batch fetch tier group members
+    $tierGroupMembers = [];
+    if (!empty($tierGroupIds)) {
+        $placeholders = implode(',', array_fill(0, count($tierGroupIds), '?'));
+        $sql = "
+            SELECT tgm.tier_group_id, f.facility_code
+            FROM dbo.artcc_tier_group_members tgm
+            INNER JOIN dbo.artcc_facilities f ON tgm.facility_id = f.facility_id
+            WHERE tgm.tier_group_id IN ($placeholders) AND f.is_active = 1
+            ORDER BY tgm.tier_group_id, tgm.display_order
+        ";
+        $stmt = sqlsrv_query($conn, $sql, $tierGroupIds);
+        if ($stmt !== false) {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $tierGroupMembers[$row['tier_group_id']][] = $row['facility_code'];
+            }
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+
+    // Batch fetch config members
+    $configMembers = [];
+    if (!empty($configIds)) {
+        $placeholders = implode(',', array_fill(0, count($configIds), '?'));
+        $sql = "
+            SELECT fcm.config_id, f.facility_code
+            FROM dbo.facility_tier_config_members fcm
+            INNER JOIN dbo.artcc_facilities f ON fcm.facility_id = f.facility_id
+            WHERE fcm.config_id IN ($placeholders) AND f.is_active = 1
+            ORDER BY fcm.config_id, fcm.display_order
+        ";
+        $stmt = sqlsrv_query($conn, $sql, $configIds);
+        if ($stmt !== false) {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $configMembers[$row['config_id']][] = $row['facility_code'];
+            }
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+
+    // Build result using cached data
     foreach ($facilityConfigs as $cfg) {
         $ownerFacility = $cfg['owner_facility'];
         $configCode = $cfg['config_code'];
@@ -467,35 +515,12 @@ if ($format === 'legacy') {
             $result['byFacility'][$ownerFacility] = [];
         }
 
-        // Get ARTCCs
+        // Get ARTCCs from cached data
         $artccs = [];
         if (!empty($cfg['tier_group_id'])) {
-            // From tier group
-            $sql = "
-                SELECT f.facility_code
-                FROM dbo.artcc_tier_group_members tgm
-                INNER JOIN dbo.artcc_facilities f ON tgm.facility_id = f.facility_id
-                WHERE tgm.tier_group_id = ? AND f.is_active = 1
-                ORDER BY tgm.display_order
-            ";
-            $stmt2 = sqlsrv_query($conn, $sql, [$cfg['tier_group_id']]);
+            $artccs = $tierGroupMembers[$cfg['tier_group_id']] ?? [];
         } else {
-            // From config members
-            $sql = "
-                SELECT f.facility_code
-                FROM dbo.facility_tier_config_members fcm
-                INNER JOIN dbo.artcc_facilities f ON fcm.facility_id = f.facility_id
-                WHERE fcm.config_id = ? AND f.is_active = 1
-                ORDER BY fcm.display_order
-            ";
-            $stmt2 = sqlsrv_query($conn, $sql, [$cfg['config_id']]);
-        }
-
-        if ($stmt2 !== false) {
-            while ($row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC)) {
-                $artccs[] = $row2['facility_code'];
-            }
-            sqlsrv_free_stmt($stmt2);
+            $artccs = $configMembers[$cfg['config_id']] ?? [];
         }
 
         $result['byFacility'][$ownerFacility][$configCode] = [
