@@ -109,7 +109,7 @@ RETURN (
           -- Via fix filter
           AND (
               (@via_type = 'fix' AND w.fix_name = @via_value)
-              OR (@via_type = 'airway' AND w.on_airway = @via_value)
+              OR (@via_type = 'airway' AND (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + @via_value + ',%')
           )
     ),
 

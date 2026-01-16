@@ -568,7 +568,7 @@ foreach ($airwayMonitors as $idx => $m) {
                     CROSS JOIN TimeBounds tb
                     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
-                    WHERE w.on_airway = ?
+                    WHERE (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + ? + ',%'
                       AND w.eta_utc >= tb.start_time
                       AND w.eta_utc < tb.end_time
                       AND c.is_active = 1
@@ -632,14 +632,14 @@ foreach ($airwayMonitors as $idx => $m) {
         $fallbackSql = "WITH FlightOnAirway AS (
                             SELECT TOP 1 flight_uid
                             FROM dbo.adl_flight_waypoints
-                            WHERE RTRIM(on_airway) = ?
+                            WHERE (',' + ISNULL(on_airway, '') + ',') LIKE '%,' + ? + ',%'
                               AND lat IS NOT NULL
                             ORDER BY waypoint_id DESC
                         )
                         SELECT w.fix_name, w.lat, w.lon, w.sequence_num
                         FROM dbo.adl_flight_waypoints w
                         WHERE w.flight_uid = (SELECT flight_uid FROM FlightOnAirway)
-                          AND RTRIM(w.on_airway) = ?
+                          AND (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + ? + ',%'
                           AND w.lat IS NOT NULL
                         ORDER BY w.sequence_num";
         $fallbackStmt = sqlsrv_query($conn, $fallbackSql, [$airwayName, $airwayName]);
@@ -820,7 +820,7 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
                            AND RTRIM(w2.fix_name) = ?
                            AND w1.lat IS NOT NULL
                            AND w2.lat IS NOT NULL
-                           AND (RTRIM(w1.on_airway) = ? OR RTRIM(w2.on_airway) = ?)
+                           AND ((',' + ISNULL(w1.on_airway, '') + ',') LIKE '%,' + ? + ',%' OR (',' + ISNULL(w2.on_airway, '') + ',') LIKE '%,' + ? + ',%')
                          ORDER BY w1.waypoint_id DESC
                      ),
                      FixSequences AS (
@@ -1050,7 +1050,7 @@ foreach ($viaMonitors as $idx => $m) {
                         CROSS JOIN TimeBounds tb
                         INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
                         INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
-                        WHERE w.on_airway = ?
+                        WHERE (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + ? + ',%'
                           AND w.eta_utc >= tb.start_time
                           AND w.eta_utc < tb.end_time
                           AND c.is_active = 1

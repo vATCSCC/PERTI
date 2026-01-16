@@ -145,7 +145,7 @@ if (!empty($airway)) {
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
             INNER JOIN dbo.adl_flight_waypoints w ON w.flight_uid = c.flight_uid
-            WHERE w.on_airway = ?
+            WHERE (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + ? + ',%'
               AND c.is_active = 1
               AND c.phase NOT IN ('arrived', 'disconnected')
             ORDER BY c.callsign";

@@ -2083,7 +2083,8 @@ const NODDemandLayer = (function() {
         }
 
         const waypointNames = waypoints.map(w => (w.fix_name || w.name || '').toUpperCase());
-        const waypointAirways = waypoints.map(w => (w.on_airway || '').toUpperCase());
+        // on_airway can be comma-separated (e.g., "Q75,T420"), so flatten to array of individual airways
+        const waypointAirways = waypoints.flatMap(w => (w.on_airway || '').toUpperCase().split(',').filter(a => a));
 
         switch (monitor.type) {
             case 'fix':
@@ -2100,7 +2101,7 @@ const NODDemandLayer = (function() {
                 return hasFrom && hasTo;
 
             case 'airway':
-                // Check if any waypoint is on this airway
+                // Check if any waypoint is on this airway (handles comma-separated values)
                 const airwayName = (monitor.airway || '').toUpperCase();
                 return waypointAirways.includes(airwayName);
 
