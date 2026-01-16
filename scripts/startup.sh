@@ -42,8 +42,15 @@ nohup php "${WWWROOT}/scripts/scheduler_daemon.php" --interval=60 >> /home/LogFi
 SCHED_PID=$!
 echo "  scheduler_daemon.php started (PID: $SCHED_PID)"
 
+# Start the archival daemon (trajectory tiering, changelog purge)
+# Runs every 60 min during off-peak (04:00-10:00 UTC), every 4h otherwise
+echo "Starting archival_daemon.php (trajectory + changelog archival)..."
+nohup php "${WWWROOT}/scripts/archival_daemon.php" >> /home/LogFiles/archival.log 2>&1 &
+ARCH_PID=$!
+echo "  archival_daemon.php started (PID: $ARCH_PID)"
+
 echo "========================================"
-echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, ws=$WS_PID, sched=$SCHED_PID"
+echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, ws=$WS_PID, sched=$SCHED_PID, arch=$ARCH_PID"
 echo "========================================"
 
 # Configure Apache WebSocket proxy

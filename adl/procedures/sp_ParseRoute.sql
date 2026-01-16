@@ -357,7 +357,7 @@ BEGIN
         lon FLOAT NULL,          -- Resolved in Phase 4
         fix_type NVARCHAR(20),
         source NVARCHAR(20),
-        on_airway NVARCHAR(10),
+        on_airway NVARCHAR(50),
         on_dp NVARCHAR(20),
         on_star NVARCHAR(20),
         original_token NVARCHAR(100)
@@ -404,22 +404,48 @@ BEGIN
                 SET @pending_dfix = 0;
             END
 
+            -- Track if this fix is an airway endpoint
+            DECLARE @fix_on_airway NVARCHAR(50) = NULL;
+            DECLARE @fix_already_exists BIT = 0;
+
             -- If pending airway, expand it first
             IF @pending_airway IS NOT NULL AND @prev_fix_name IS NOT NULL
             BEGIN
+                -- Mark the START point of this airway (prev_fix already exists, add this airway to it)
+                UPDATE @waypoints
+                SET on_airway = CASE
+                    WHEN on_airway IS NULL THEN @pending_airway
+                    WHEN on_airway NOT LIKE '%' + @pending_airway + '%' THEN on_airway + ',' + @pending_airway
+                    ELSE on_airway END
+                WHERE fix_name = @prev_fix_name
+                  AND seq = (SELECT MAX(seq) FROM @waypoints WHERE fix_name = @prev_fix_name);
+
                 INSERT INTO @waypoints (fix_name, fix_type, source, on_airway, original_token)
                 SELECT fix_name, 'WAYPOINT', 'AIRWAY', @pending_airway, @pending_airway
                 FROM dbo.fn_ExpandAirwayNames(@pending_airway, @prev_fix_name, @t_token)
                 WHERE seq > 1 AND fix_name != @t_token;  -- Skip entry (already added) and exit (add below)
 
+                SET @fix_on_airway = @pending_airway;  -- Mark this fix as airway endpoint
+
+                -- Check if ENDPOINT already exists as previous airway endpoint (airway-to-airway transition)
+                IF EXISTS (SELECT 1 FROM @waypoints WHERE fix_name = @t_token AND on_airway IS NOT NULL)
+                BEGIN
+                    -- Append this airway to existing on_airway (e.g., "Q430,J48")
+                    UPDATE @waypoints
+                    SET on_airway = on_airway + ',' + @pending_airway
+                    WHERE fix_name = @t_token
+                      AND seq = (SELECT MAX(seq) FROM @waypoints WHERE fix_name = @t_token);
+                    SET @fix_already_exists = 1;
+                END
+
                 SET @pending_airway = NULL;
             END
 
-            -- Add this fix
-            IF @t_token NOT IN (ISNULL(@dept_icao,''), ISNULL(@dest_icao,'')) OR @t_type = 'FIX'
+            -- Add this fix (with on_airway if it's an airway endpoint) - skip if already updated
+            IF @fix_already_exists = 0 AND (@t_token NOT IN (ISNULL(@dept_icao,''), ISNULL(@dest_icao,'')) OR @t_type = 'FIX')
             BEGIN
-                INSERT INTO @waypoints (fix_name, fix_type, source, original_token)
-                VALUES (@t_token, CASE @t_type WHEN 'AIRPORT' THEN 'AIRPORT' ELSE 'WAYPOINT' END, 'ROUTE', @t_token);
+                INSERT INTO @waypoints (fix_name, fix_type, source, on_airway, original_token)
+                VALUES (@t_token, CASE @t_type WHEN 'AIRPORT' THEN 'AIRPORT' ELSE 'WAYPOINT' END, 'ROUTE', @fix_on_airway, @t_token);
             END
 
             SET @prev_fix_name = @t_token;
@@ -441,55 +467,133 @@ BEGIN
         END
         ELSE IF @t_type IN ('SID', 'STAR', 'SID_OR_STAR')
         BEGIN
-            -- Look up procedure
+            -- Look up procedure with transition matching
             DECLARE @proc_route NVARCHAR(MAX), @proc_type NVARCHAR(10), @proc_code NVARCHAR(50);
+            DECLARE @star_proc_route NVARCHAR(MAX), @transition_route NVARCHAR(MAX);
+            DECLARE @next_token NVARCHAR(100), @next_type NVARCHAR(20);
             SET @proc_route = NULL;
-            
-            -- Try exact match
-            SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
-            FROM dbo.nav_procedures WHERE computer_code = @t_token;
-            
-            -- Try with wildcards
+            SET @star_proc_route = NULL;
+            SET @transition_route = NULL;
+
+            -- Peek at next token for transition matching
+            SELECT TOP 1 @next_token = token, @next_type = token_type
+            FROM @tokens WHERE seq > @t_seq ORDER BY seq;
+
+            -- Strategy 1: Try transition-specific lookup for DP (next token is transition endpoint)
+            IF @next_type = 'FIX' AND @next_token IS NOT NULL
+            BEGIN
+                -- Try DP with transition: FOLZZ3.FOLZZ where transition ends with ALYRA
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @dtrsn = transition_name
+                FROM dbo.nav_procedures
+                WHERE computer_code LIKE @t_token + '.%'
+                  AND procedure_type = 'DP'
+                  AND (full_route LIKE '% ' + @next_token OR full_route = @next_token
+                       OR transition_name LIKE @next_token + ' %')
+                ORDER BY LEN(full_route);
+            END
+
+            -- Strategy 2: Try STAR with entry fix (previous token)
+            -- Handles both TRANSITION.STAR (e.g., JJEDI.JJEDI4) and STAR.TRANSITION (e.g., LENAR7.RW07)
+            IF @proc_route IS NULL AND @last_fix_for_star IS NOT NULL AND LEN(@last_fix_for_star) BETWEEN 3 AND 5
+            BEGIN
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @strsn = transition_name
+                FROM dbo.nav_procedures
+                WHERE (computer_code LIKE '%.' + @t_token
+                       OR computer_code LIKE @t_token + '.%'
+                       OR computer_code = @t_token)
+                  AND procedure_type = 'STAR'
+                  AND full_route LIKE @last_fix_for_star + ' %'
+                ORDER BY LEN(full_route);
+            END
+
+            -- Strategy 3: Exact match on computer_code
             IF @proc_route IS NULL
             BEGIN
                 SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
-                FROM dbo.nav_procedures WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'DP';
+                FROM dbo.nav_procedures WHERE computer_code = @t_token;
             END
+
+            -- Strategy 4: Wildcard match for DP
             IF @proc_route IS NULL
             BEGIN
                 SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
-                FROM dbo.nav_procedures WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'STAR';
+                FROM dbo.nav_procedures WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'DP'
+                ORDER BY LEN(full_route);
             END
+
+            -- Strategy 5: Wildcard match for STAR (prefer TRANSITION.STAR over STAR.RUNWAY)
+            -- TRANSITION.STAR format (e.g., JJEDI.JJEDI4) gives cleaner routes
             IF @proc_route IS NULL
             BEGIN
                 SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
-                FROM dbo.nav_procedures WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR';
+                FROM dbo.nav_procedures WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR'
+                ORDER BY LEN(full_route);
             END
-            
+            -- Fallback: STAR.RUNWAY format (e.g., JJEDI4.RW26B) - often bloated
+            IF @proc_route IS NULL
+            BEGIN
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
+                FROM dbo.nav_procedures WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'STAR'
+                ORDER BY LEN(full_route);
+            END
+
             IF @proc_route IS NOT NULL
             BEGIN
                 IF @proc_type = 'DP'
                 BEGIN
                     SET @dp_name = @t_token;
                     SET @pending_dfix = 1;  -- Flag to capture next fix as departure fix
-                    -- For SIDs, expand but cap at 15 waypoints to avoid bloat
+
+                    -- Expand SID waypoints (cap at 30)
                     INSERT INTO @waypoints (fix_name, fix_type, source, on_dp, original_token)
-                    SELECT TOP 15 value, 'WAYPOINT', 'SID', @t_token, @t_token
+                    SELECT TOP 30 value, 'WAYPOINT', 'SID', @t_token, @t_token
                     FROM STRING_SPLIT(@proc_route, ' ')
                     WHERE LEN(LTRIM(RTRIM(value))) > 0 AND value NOT LIKE '%/%';
 
                     SELECT TOP 1 @prev_fix_name = fix_name FROM @waypoints WHERE on_dp = @t_token ORDER BY seq DESC;
+
+                    IF @debug = 1
+                    BEGIN
+                        DECLARE @dp_wpt_count INT;
+                        SELECT @dp_wpt_count = COUNT(*) FROM @waypoints WHERE on_dp = @t_token;
+                        PRINT 'SID expanded: ' + @t_token + ' -> ' + ISNULL(@proc_code, '?') +
+                              ' (' + CAST(@dp_wpt_count AS VARCHAR) + ' wpts)';
+                    END
                 END
-                ELSE
+                ELSE  -- STAR processing
                 BEGIN
-                    -- For STARs, DON'T expand - full_route contains all transitions
-                    -- which causes massive bloat (e.g., 65+ waypoints for DSNEE6)
-                    -- Just record the STAR name, the route already has entry fix
                     SET @star_name = @t_token;
                     SET @afix = @last_fix_for_star;
-                    -- Don't insert any waypoints - destination will be added later
+
+                    -- Mark the entry fix (already in waypoints) as on_star
+                    -- This handles dual-membership: fix can be on_airway AND on_star
+                    IF @afix IS NOT NULL
+                    BEGIN
+                        UPDATE @waypoints
+                        SET on_star = @t_token
+                        WHERE fix_name = @afix
+                          AND on_star IS NULL
+                          AND seq = (SELECT MAX(seq) FROM @waypoints WHERE fix_name = @afix);
+                    END
+
+                    -- Expand STAR waypoints (cap at 30), skip entry fix (already marked above)
+                    INSERT INTO @waypoints (fix_name, fix_type, source, on_star, original_token)
+                    SELECT TOP 30 value, 'WAYPOINT', 'STAR', @t_token, @t_token
+                    FROM STRING_SPLIT(@proc_route, ' ')
+                    WHERE LEN(LTRIM(RTRIM(value))) > 0
+                      AND value NOT LIKE '%/%'
+                      AND value != ISNULL(@afix, '');  -- Skip entry fix (already updated above)
+
+                    SELECT TOP 1 @prev_fix_name = fix_name
+                    FROM @waypoints WHERE on_star = @t_token ORDER BY seq DESC;
+
                     IF @debug = 1
-                        PRINT 'STAR detected: ' + @t_token + ' (not expanding)';
+                    BEGIN
+                        DECLARE @star_wpt_count INT;
+                        SELECT @star_wpt_count = COUNT(*) FROM @waypoints WHERE on_star = @t_token;
+                        PRINT 'STAR expanded: ' + @t_token + ' via ' + ISNULL(@afix, 'DIRECT') +
+                              ' (' + CAST(@star_wpt_count AS VARCHAR) + ' wpts)';
+                    END
                 END
             END
             ELSE
@@ -499,6 +603,8 @@ BEGIN
                 VALUES (@t_token, 'WAYPOINT', 'ROUTE', @t_token);
                 SET @prev_fix_name = @t_token;
                 SET @last_fix_for_star = @t_token;
+                IF @debug = 1
+                    PRINT 'Procedure not found, treating as fix: ' + @t_token;
             END
             SET @pending_airway = NULL;
         END
@@ -600,7 +706,7 @@ BEGIN
     -- ========================================================================
     
     DECLARE @wp_seq INT, @wp_name NVARCHAR(50), @wp_lat FLOAT, @wp_lon FLOAT;
-    DECLARE @wp_on_airway NVARCHAR(10);
+    DECLARE @wp_on_airway NVARCHAR(50);
     DECLARE @prev_lat FLOAT = NULL, @prev_lon FLOAT = NULL;
     DECLARE @resolved_lat FLOAT, @resolved_lon FLOAT, @resolved_type NVARCHAR(20);
     
@@ -925,7 +1031,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_ParseRoute v4.1 created - Departure Fix Population';
+PRINT 'sp_ParseRoute v4.5 created - Airway start+end point marking';
 PRINT '';
 PRINT 'Key improvements:';
 PRINT '  - v4.1: Added dfix (departure fix) population';

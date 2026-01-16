@@ -54,7 +54,7 @@ RETURN (
         FROM dbo.adl_flight_waypoints w
         CROSS JOIN TimeBounds tb
         INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
-        WHERE w.on_airway = @airway_name
+        WHERE (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + @airway_name + ',%'
           AND w.eta_utc >= tb.start_time
           AND w.eta_utc < tb.end_time
           AND c.is_active = 1

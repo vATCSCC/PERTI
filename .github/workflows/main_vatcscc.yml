@@ -33,12 +33,23 @@ jobs:
         if: steps.check_files.outputs.files_exists == 'true'
         run: composer validate --no-check-publish && composer install --prefer-dist --no-progress
 
+      # Create deployment package excluding non-PHP directories (sdk/ contains Java/C# which breaks Oryx)
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy
+          rsync -av --exclude='sdk/' \
+                    --exclude='.git/' \
+                    --exclude='.github/' \
+                    --exclude='docs/' \
+                    --exclude='*.md' \
+                    --exclude='nul' \
+                    . deploy/
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: php-app
-          path: .
+          path: ./deploy
 
   deploy:
     runs-on: ubuntu-latest

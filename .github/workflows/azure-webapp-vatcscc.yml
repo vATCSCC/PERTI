@@ -32,6 +32,18 @@ jobs:
       run: |
         composer install --no-interaction --prefer-dist --no-dev
 
+    # Create deployment package excluding non-PHP directories
+    - name: Create deployment package
+      run: |
+        mkdir -p deploy
+        rsync -av --exclude='sdk/' \
+                  --exclude='.git/' \
+                  --exclude='.github/' \
+                  --exclude='docs/' \
+                  --exclude='*.md' \
+                  --exclude='nul' \
+                  . deploy/
+
     # Deploy to Azure Web App
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v3
@@ -40,4 +52,4 @@ jobs:
         # or add this if you're targeting a *slot*:
         # slot-name: 'perti-2025'
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
-        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        package: ./deploy

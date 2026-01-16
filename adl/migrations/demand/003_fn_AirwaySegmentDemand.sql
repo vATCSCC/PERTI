@@ -47,7 +47,7 @@ RETURN (
         SELECT DISTINCT w.flight_uid
         FROM dbo.adl_flight_waypoints w
         INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
-        WHERE w.on_airway = @airway_name
+        WHERE (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + @airway_name + ',%'
           AND w.eta_utc >= ISNULL(@start_utc, GETUTCDATE())
           AND w.eta_utc < DATEADD(MINUTE, @minutes_ahead, ISNULL(@start_utc, GETUTCDATE()))
           AND c.is_active = 1
@@ -60,13 +60,13 @@ RETURN (
         WHERE EXISTS (
             SELECT 1 FROM dbo.adl_flight_waypoints w1
             WHERE w1.flight_uid = f.flight_uid
-              AND w1.on_airway = @airway_name
+              AND (',' + ISNULL(w1.on_airway, '') + ',') LIKE '%,' + @airway_name + ',%'
               AND w1.fix_name = @from_fix
         )
         AND EXISTS (
             SELECT 1 FROM dbo.adl_flight_waypoints w2
             WHERE w2.flight_uid = f.flight_uid
-              AND w2.on_airway = @airway_name
+              AND (',' + ISNULL(w2.on_airway, '') + ',') LIKE '%,' + @airway_name + ',%'
               AND w2.fix_name = @to_fix
         )
     ),
@@ -78,7 +78,7 @@ RETURN (
             MIN(CASE WHEN w.fix_name = @to_fix THEN w.eta_utc END) AS exit_eta
         FROM dbo.adl_flight_waypoints w
         INNER JOIN FlightsWithBothFixes f ON f.flight_uid = w.flight_uid
-        WHERE w.on_airway = @airway_name
+        WHERE (',' + ISNULL(w.on_airway, '') + ',') LIKE '%,' + @airway_name + ',%'
           AND w.fix_name IN (@from_fix, @to_fix)
         GROUP BY w.flight_uid
     )
