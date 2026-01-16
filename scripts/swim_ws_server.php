@@ -92,7 +92,7 @@ $config = [
     'heartbeat_interval' => 30,
     
     // Event polling interval (seconds) 
-    'event_poll_interval' => 0.5,
+    'event_poll_interval' => 0.1,
     
     // Event file (IPC with ADL daemon)
     'event_file' => sys_get_temp_dir() . '/swim_ws_events.json',
