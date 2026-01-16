@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "swim-api-v1-collection",
+    "_postman_id": "6469b3c7-1eef-4426-bcbd-710ab38f44be",
     "name": "VATSIM SWIM API v1",
     "description": "System Wide Information Management (SWIM) API for VATSIM.\n\n## Authentication\nAll endpoints require Bearer token authentication.\n\n## Base URL\n`https://perti.vatcscc.org/api/swim/v1`\n\n## Consumer Use Cases\n\nThis collection is organized by consumer type:\n- **Core API** - Basic CRUD operations\n- **Virtual Airlines** - Fleet tracking, OOOI logging, OTP metrics\n- **Facility/vNAS** - Sector traffic, demand monitoring\n- **TMI Coordination** - Ground stops, GDPs, controlled flights\n- **Data Integration** - Batch ingest, track updates\n\n## SDK Examples\n\nSee Python SDK examples at: `sdk/python/examples/`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
