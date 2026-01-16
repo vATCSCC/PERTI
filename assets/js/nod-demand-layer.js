@@ -71,40 +71,76 @@ const NODDemandLayer = (function() {
         state.map = map;
         loadFromLocalStorage();
 
-        // Add sources and layers when map style is loaded
+        // Add sources and layers - try multiple approaches for reliability
+        const tryAddSources = () => {
+            if (state.sourcesAdded) return true;
+            try {
+                // Check if map style is ready
+                if (!map.getStyle()) {
+                    console.log('[DemandLayer] Map style not ready yet');
+                    return false;
+                }
+                addSourcesAndLayers();
+                return true;
+            } catch (e) {
+                console.error('[DemandLayer] Error adding sources:', e);
+                return false;
+            }
+        };
+
+        // Try immediately
         const styleLoaded = map.isStyleLoaded();
         console.log('[DemandLayer] Style loaded check:', styleLoaded);
 
-        if (styleLoaded) {
-            // Style already loaded - add immediately
-            try {
-                addSourcesAndLayers();
-            } catch (e) {
-                console.error('[DemandLayer] Error adding sources:', e);
-            }
-        } else {
-            // Wait for style to load
-            map.on('style.load', () => {
-                console.log('[DemandLayer] style.load event fired');
-                try {
-                    addSourcesAndLayers();
-                } catch (e) {
-                    console.error('[DemandLayer] Error adding sources on style.load:', e);
-                }
+        if (styleLoaded && map.getStyle()) {
+            tryAddSources();
+        }
+
+        // Also listen for load event
+        if (!state.sourcesAdded) {
+            map.on('load', () => {
+                console.log('[DemandLayer] map.load event fired');
+                tryAddSources();
             });
         }
 
-        // Fallback: if sources still not added after 500ms, try again
-        setTimeout(() => {
-            if (!state.sourcesAdded && map.isStyleLoaded()) {
-                console.log('[DemandLayer] Fallback: attempting to add sources');
-                try {
-                    addSourcesAndLayers();
-                } catch (e) {
-                    console.error('[DemandLayer] Fallback error:', e);
+        // Also listen for style.load event
+        if (!state.sourcesAdded) {
+            map.on('style.load', () => {
+                console.log('[DemandLayer] style.load event fired');
+                tryAddSources();
+            });
+        }
+
+        // Use idle event as another fallback
+        if (!state.sourcesAdded) {
+            map.once('idle', () => {
+                console.log('[DemandLayer] map.idle event fired');
+                tryAddSources();
+            });
+        }
+
+        // Aggressive fallback: poll until sources are added
+        const pollInterval = setInterval(() => {
+            if (state.sourcesAdded) {
+                clearInterval(pollInterval);
+                return;
+            }
+            if (map.getStyle()) {
+                console.log('[DemandLayer] Fallback poll: attempting to add sources');
+                if (tryAddSources()) {
+                    clearInterval(pollInterval);
                 }
             }
-        }, 500);
+        }, 200);
+
+        // Clear interval after 5 seconds to prevent infinite polling
+        setTimeout(() => {
+            clearInterval(pollInterval);
+            if (!state.sourcesAdded) {
+                console.error('[DemandLayer] Failed to add sources after 5 seconds');
+            }
+        }, 5000);
 
         // Set up click handler
         map.on('click', handleMapClick);
