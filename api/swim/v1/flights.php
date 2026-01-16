@@ -5,7 +5,10 @@
  * Returns flight data from the denormalized swim_flights table in SWIM_API database.
  * Data is synced from VATSIM_ADL normalized tables every 15 seconds.
  * 
- * @version 3.0.0 - SWIM_API Database (Azure SQL Basic)
+ * Supports `?format=fixm` parameter for FIXM 4.3.0 aligned field names.
+ * See docs/swim/VATSIM_SWIM_API_Field_Migration.md for complete mapping.
+ * 
+ * @version 3.1.0 - Added FIXM format support
  */
 
 require_once __DIR__ . '/auth.php';
@@ -20,6 +23,12 @@ if (!$conn) {
 }
 
 $auth = swim_init_auth(true, false);
+
+// Get format parameter (legacy or fixm)
+$format = swim_get_param('format', 'legacy');  // legacy | fixm
+if (!in_array($format, ['legacy', 'fixm'])) {
+    $format = 'legacy';
+}
 
 // Get filter parameters
 $status = swim_get_param('status', 'active');
@@ -237,7 +246,11 @@ if ($stmt === false) {
 
 $flights = [];
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    $flights[] = formatFlightRecord($row, $use_swim_db);
+    if ($format === 'fixm') {
+        $flights[] = formatFlightRecordFIXM($row, $use_swim_db);
+    } else {
+        $flights[] = formatFlightRecord($row, $use_swim_db);
+    }
 }
 sqlsrv_free_stmt($stmt);
 
@@ -360,4 +373,139 @@ function formatFlightRecord($row, $use_swim_db = false) {
 function formatDT($dt) {
     if ($dt === null) return null;
     return ($dt instanceof DateTime) ? $dt->format('c') : $dt;
+}
+
+/**
+ * Format flight record using FIXM 4.3.0 aligned field names
+ * 
+ * @param array $row Database row
+ * @param bool $use_swim_db Whether using SWIM_API database
+ * @return array FIXM-formatted flight record
+ */
+function formatFlightRecordFIXM($row, $use_swim_db = false) {
+    $gufi = $row['gufi'] ?? swim_generate_gufi($row['callsign'], $row['fp_dept_icao'], $row['fp_dest_icao']);
+    
+    // Calculate time to destination
+    $time_to_dest = null;
+    if ($row['groundspeed_kts'] > 50 && $row['dist_to_dest_nm'] > 0) {
+        $time_to_dest = round(($row['dist_to_dest_nm'] / $row['groundspeed_kts']) * 60, 1);
+    } elseif ($row['ete_minutes']) {
+        $time_to_dest = $row['ete_minutes'];
+    }
+    
+    $result = [
+        // Root level - FIXM aligned
+        'gufi' => $gufi,
+        'flight_uid' => $row['flight_uid'],
+        'flight_key' => $row['flight_key'],
+        
+        // Identity - FIXM aligned
+        'identity' => [
+            'aircraft_identification' => $row['callsign'],       // was: callsign
+            'pilot_cid' => $row['cid'],                          // was: cid
+            'aircraft_type' => $row['aircraft_type'],
+            'aircraft_type_icao' => $row['aircraft_icao'],       // was: aircraft_icao
+            'aircraft_type_faa' => $row['aircraft_faa'],         // was: aircraft_faa
+            'weight_class' => $row['weight_class'],
+            'wake_turbulence' => $row['wake_category'],          // was: wake_category
+            'operator_icao' => $row['airline_icao'],             // was: airline_icao
+            'operator_name' => $row['airline_name']              // was: airline_name
+        ],
+        
+        // Flight Plan - FIXM aligned
+        'flight_plan' => [
+            'departure_aerodrome' => trim($row['fp_dept_icao'] ?? ''),   // was: departure
+            'arrival_aerodrome' => trim($row['fp_dest_icao'] ?? ''),     // was: destination
+            'alternate_aerodrome' => trim($row['fp_alt_icao'] ?? ''),    // was: alternate
+            'cruising_level' => $row['fp_altitude_ft'],                  // was: cruise_altitude
+            'cruising_speed' => $row['fp_tas_kts'],                      // was: cruise_speed
+            'route_text' => $row['fp_route'],                            // was: route
+            'remarks' => $row['fp_remarks'],
+            'flight_rules_category' => $row['fp_rule'],                  // was: flight_rules
+            'departure_airspace' => $row['fp_dept_artcc'],               // was: departure_artcc
+            'arrival_airspace' => $row['fp_dest_artcc'],                 // was: destination_artcc
+            'departure_tracon' => $row['fp_dept_tracon'],
+            'arrival_tracon' => $row['fp_dest_tracon'],                  // was: destination_tracon
+            'departure_point' => $row['dfix'],                           // was: departure_fix
+            'sid' => $row['dp_name'],                                    // was: departure_procedure
+            'arrival_point' => $row['afix'],                             // was: arrival_fix
+            'star' => $row['star_name'],                                 // was: arrival_procedure
+            'departure_runway' => $row['dep_runway'],
+            'arrival_runway' => $row['arr_runway']
+        ],
+        
+        // Position - FIXM aligned
+        'position' => [
+            'latitude' => $row['lat'] !== null ? floatval($row['lat']) : null,
+            'longitude' => $row['lon'] !== null ? floatval($row['lon']) : null,
+            'altitude' => $row['altitude_ft'],                           // was: altitude_ft
+            'track' => $row['heading_deg'],                              // was: heading
+            'ground_speed' => $row['groundspeed_kts'],                   // was: ground_speed_kts
+            'true_airspeed' => $row['true_airspeed_kts'] ?? null,        // was: true_airspeed_kts
+            'vertical_rate' => $row['vertical_rate_fpm'],                // was: vertical_rate_fpm
+            'current_airspace' => $row['current_artcc'],                 // was: current_artcc
+            'current_tracon' => $row['current_tracon'],
+            'current_airport_zone' => $row['current_zone']               // was: current_zone
+        ],
+        
+        // Progress - FIXM aligned
+        'progress' => [
+            'flight_status' => $row['phase'],                            // was: phase
+            'is_active' => (bool)$row['is_active'],
+            'distance_to_destination' => $row['dist_to_dest_nm'] !== null ? floatval($row['dist_to_dest_nm']) : null,  // was: distance_remaining_nm
+            'distance_flown' => $row['dist_flown_nm'] !== null ? floatval($row['dist_flown_nm']) : null,
+            'great_circle_distance' => $row['gcd_nm'] !== null ? floatval($row['gcd_nm']) : null,  // was: gcd_nm
+            'total_flight_distance' => $row['route_total_nm'] !== null ? floatval($row['route_total_nm']) : null,  // was: route_total_nm
+            'percent_complete' => $row['pct_complete'] !== null ? floatval($row['pct_complete']) : null,  // was: pct_complete
+            'time_to_destination' => $time_to_dest                       // was: time_to_dest_min
+        ],
+        
+        // Times - FIXM aligned (OOOI terminology)
+        'times' => [
+            'estimated_off_block_time' => formatDT($row['etd_utc']),     // was: etd (EOBT)
+            'estimated_time_of_departure' => formatDT($row['etd_runway_utc'] ?? null),  // was: etd_runway (ETD)
+            'estimated_time_of_arrival' => formatDT($row['eta_utc']),    // was: eta (ETA)
+            'estimated_runway_arrival' => formatDT($row['eta_runway_utc']),  // was: eta_runway
+            'eta_source' => $row['eta_source'],
+            'eta_method' => $row['eta_method'],
+            'estimated_elapsed_time' => $row['ete_minutes'],             // was: ete_minutes (ETE)
+            'actual_off_block_time' => formatDT($row['out_utc']),        // was: out (AOBT)
+            'actual_time_of_departure' => formatDT($row['off_utc']),     // was: off (ATOT)
+            'actual_landing_time' => formatDT($row['on_utc']),           // was: on (ALDT)
+            'actual_in_block_time' => formatDT($row['in_utc']),          // was: in (AIBT)
+            'controlled_time_of_departure' => formatDT($row['ctd_utc']), // was: ctd (CTD)
+            'controlled_time_of_arrival' => formatDT($row['cta_utc']),   // was: cta (CTA)
+            'edct' => formatDT($row['edct_utc'])                          // already standard (EDCT)
+        ],
+        
+        // TMI - FIXM aligned
+        'tmi' => [
+            'is_controlled' => ($row['gs_held'] == 1 || $row['ctl_type'] !== null),
+            'ground_stop_held' => $row['gs_held'] == 1,
+            'ground_stop_release_time' => formatDT($row['gs_release_utc']),  // was: gs_release
+            'control_type' => $row['ctl_type'],
+            'program_name' => $row['ctl_prgm'],                          // was: control_program
+            'control_element' => $row['ctl_element'],
+            'exempt_indicator' => (bool)$row['is_exempt'],               // was: is_exempt
+            'exempt_reason' => $row['exempt_reason'],
+            'delay_value' => $row['delay_minutes'],                      // was: delay_minutes
+            'delay_status' => $row['delay_status'],
+            'slot_time' => formatDT($row['slot_time_utc']),
+            'program_id' => $row['program_id'],
+            'slot_id' => $row['slot_id']
+        ],
+        
+        // Metadata - FIXM aligned
+        'data_source' => 'vatcscc',                                      // was: _source
+        'first_tracked_time' => formatDT($row['first_seen_utc']),        // was: _first_seen
+        'position_time' => formatDT($row['last_seen_utc']),              // was: _last_seen
+        'logon_time' => formatDT($row['logon_time_utc'])                 // was: _logon_time
+    ];
+    
+    // Add sync metadata if using SWIM_API database
+    if ($use_swim_db && isset($row['last_sync_utc'])) {
+        $result['last_sync_time'] = formatDT($row['last_sync_utc']);     // was: _last_sync
+    }
+    
+    return $result;
 }

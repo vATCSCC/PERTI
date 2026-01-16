@@ -1,16 +1,18 @@
 # VATSIM SWIM Implementation Tracker
 
-**Last Updated:** 2026-01-16 14:00 UTC  
-**Status:** Phase 1 - COMPLETE, Phase 2 - PLANNING  
+**Last Updated:** 2026-01-16 16:00 UTC  
+**Status:** Phase 2 - IN PROGRESS  
 **Repository:** `VATSIM PERTI/PERTI/`
 
 ---
 
-## Current Focus: Phase 2 Planning
+## Current Focus: Phase 2 Implementation
 
-Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` parameter support. Track and metering ingest endpoints are ready for integration testing.
+Phase 2 implements real-time WebSocket distribution of flight data. Core server components are complete and ready for testing.
 
-**Key Document:** [VATSIM_SWIM_API_Field_Migration.md](./VATSIM_SWIM_API_Field_Migration.md)
+**Key Documents:**
+- [SWIM_Phase2_RealTime_Design.md](./SWIM_Phase2_RealTime_Design.md) - Full design document
+- [VATSIM_SWIM_API_Field_Migration.md](./VATSIM_SWIM_API_Field_Migration.md) - FIXM field mapping
 
 ---
 
@@ -20,7 +22,7 @@ Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` param
 |-------|--------|----------|
 | Phase 0: Infrastructure | ✅ COMPLETE | 100% |
 | Phase 1: Standards & Docs | ✅ COMPLETE | 100% |
-| Phase 2: Real-Time | ⏳ PLANNING | 0% |
+| Phase 2: Real-Time | 🔨 IN PROGRESS | 60% |
 | Phase 3: Integrations | ⏳ PENDING | 0% |
 
 ---
@@ -35,49 +37,29 @@ Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` param
 | Integrate sync into ADL daemon | ✅ | 2-minute interval |
 | Clean SWIM objects from VATSIM_ADL | ✅ | All removed |
 
-### Sync Performance
-
-| Metric | Value |
-|--------|-------|
-| Sync interval | 2 minutes |
-| Sync duration | ~30 seconds |
-| Flights synced | ~2,000 |
-| DTU utilization | ~25% |
-
 ---
 
 ## ✅ Phase 1: Standards & Documentation (COMPLETE)
-
-### Documentation Complete
 
 | Task | Status | Notes |
 |------|--------|-------|
 | OpenAPI 3.0 specification | ✅ | `openapi.yaml` |
 | Swagger UI documentation | ✅ | `index.html` |
 | Postman collection | ✅ | 22 requests |
-| Aviation standards catalog | ✅ | FIXM, AIXM, IWXXM, ARINC, etc. |
-| Standards cross-reference | ✅ | FIXM ↔ TFMS ↔ VATSIM mapping |
-| SWIM API field migration guide | ✅ | 79 fields mapped to FIXM |
-
-### Implementation Complete
-
-| Task | Status | Notes |
-|------|--------|-------|
-| FIXM field names in `formatFlightRecord()` | ✅ | `formatFlightRecordFIXM()` added |
-| `?format=fixm` query parameter option | ✅ | Supported on `/flights` and `/flight` |
-| `ingest/track.php` endpoint | ✅ | For vNAS/CRC integration |
-| `ingest/metering.php` endpoint | ✅ | For SimTraffic integration |
+| Aviation standards catalog | ✅ | FIXM, AIXM, IWXXM, etc. |
+| FIXM field names in API | ✅ | `?format=fixm` parameter |
+| Ingest endpoints | ✅ | track.php, metering.php |
 
 ---
 
-## ⏳ Phase 2: Real-Time Distribution (PLANNING)
+## 🔨 Phase 2: Real-Time Distribution (IN PROGRESS)
 
 ### Architecture
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│   ADL Daemon    │─────▶│  Event Publisher │─────▶│  WebSocket Hub  │
-│  (15s refresh)  │ emit │  (on ADL update) │ push │  (SignalR/WS)   │
+│   ADL Daemon    │─────▶│   Event File    │◀────▶│  WebSocket Hub  │
+│  (15s refresh)  │ emit │  (IPC queue)    │ poll │  (Ratchet PHP)  │
 └─────────────────┘      └─────────────────┘      └────────┬────────┘
                                                            │
                          ┌─────────────────────────────────┴───────┐
@@ -89,21 +71,57 @@ Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` param
 
 ### Tasks
 
-| Task | Priority | Effort | Status |
-|------|----------|--------|--------|
-| WebSocket server implementation | Medium | 16h | ⏳ |
-| Event publishing on ADL refresh | Medium | 8h | ⏳ |
-| Subscription channel filtering | Medium | 8h | ⏳ |
-| Client reconnection handling | Medium | 4h | ⏳ |
-| Message format (delta vs full) | Low | 4h | ⏳ |
+| Task | Effort | Status | Notes |
+|------|--------|--------|-------|
+| composer.json with Ratchet | 1h | ✅ | Ready for `composer install` |
+| WebSocketServer.php class | 4h | ✅ | Core server component |
+| ClientConnection.php class | 2h | ✅ | Connection wrapper |
+| SubscriptionManager.php class | 3h | ✅ | Channel subscriptions |
+| publish.php internal endpoint | 1h | ✅ | IPC via file |
+| swim_ws_server.php daemon | 3h | ✅ | Main server daemon |
+| swim_ws_events.php detection | 3h | ✅ | Event detection module |
+| swim-ws-client.js library | 2h | ✅ | JavaScript client |
+| ADL daemon integration | 2h | ⏳ | Add event publishing |
+| Authentication from DB | 2h | ⏳ | Validate API keys |
+| Azure App Service config | 2h | ⏳ | WebSocket support |
+| End-to-end testing | 4h | ⏳ | Local testing |
+| Production deployment | 2h | ⏳ | Deploy and monitor |
 
-### Technology Options
+### Files Created
 
-| Option | Pros | Cons |
-|--------|------|------|
-| Azure SignalR (Free) | Easy setup, managed | 20 connections/20K msgs/day limit |
-| PHP Ratchet WebSocket | No extra cost, full control | More dev work, must host |
-| Pusher/Ably | Very easy, reliable | Monthly cost ($49+) |
+| File | Purpose |
+|------|---------|
+| `composer.json` | Package dependencies (Ratchet) |
+| `api/swim/v1/ws/WebSocketServer.php` | Core server class |
+| `api/swim/v1/ws/ClientConnection.php` | Client wrapper |
+| `api/swim/v1/ws/SubscriptionManager.php` | Subscription management |
+| `api/swim/v1/ws/publish.php` | Internal publish endpoint |
+| `api/swim/v1/ws/swim-ws-client.js` | JavaScript client |
+| `scripts/swim_ws_server.php` | Server daemon |
+| `scripts/swim_ws_events.php` | Event detection module |
+| `docs/swim/SWIM_Phase2_RealTime_Design.md` | Design document |
+
+### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `flight.position` | Single position update |
+| `flight.positions` | Batched position updates |
+| `flight.created` | New flight filed |
+| `flight.departed` | OFF time detected |
+| `flight.arrived` | IN time detected |
+| `flight.deleted` | Pilot disconnected |
+| `tmi.issued` | New GS/GDP created |
+| `tmi.released` | TMI ended |
+| `system.heartbeat` | Server heartbeat |
+
+### Next Steps
+
+1. **Run `composer install`** to install Ratchet dependencies
+2. **Add WebSocket config** to vatsim_adl_daemon.php
+3. **Test locally** with swim_ws_server.php
+4. **Configure Azure** for WebSocket support
+5. **Deploy** and monitor
 
 ---
 
@@ -124,35 +142,17 @@ Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` param
 
 | Document | Status | Description |
 |----------|--------|-------------|
-| `README.md` | ✅ Updated | Quick start guide |
+| `README.md` | ✅ | Quick start guide |
 | `VATSIM_SWIM_Design_Document_v1.md` | ✅ | Full architecture |
-| `SWIM_TODO.md` | ✅ Updated | This file |
-| `openapi.yaml` | ✅ | OpenAPI 3.0 spec |
-| `index.html` | ✅ | Swagger UI |
+| `SWIM_Phase2_RealTime_Design.md` | ✅ NEW | WebSocket design |
+| `SWIM_TODO.md` | ✅ | This file |
 
 ### Standards Documentation
 
 | Document | Status | Description |
 |----------|--------|-------------|
-| `Aviation_Data_Standards_Cross_Reference.md` | ✅ | Industry standards catalog |
-| `VATSIM_SWIM_API_Field_Migration.md` | ✅ | FIXM field mapping (API layer) |
-| `VATSIM_SWIM_FIXM_Field_Mapping.md` | ⚠️ Superseded | Use API_Field_Migration instead |
-
-### Schema References
-
-| Document | Status | Description |
-|----------|--------|-------------|
-| `ADL_NORMALIZED_SCHEMA_REFERENCE.md` | ✅ | Source database schema |
-| `ADL_FLIGHTS_SCHEMA_REFERENCE.md` | ✅ | Legacy monolithic schema |
-
----
-
-## ⚠️ Files to Clean Up
-
-| File | Action | Reason |
-|------|--------|--------|
-| `adl/migrations/050_swim_field_migration.sql` | DELETE | Incorrect scope (targeted ADL, not SWIM API) |
-| `VATSIM_SWIM_FIXM_Field_Mapping.md` | KEEP (reference) | Superseded by API_Field_Migration.md |
+| `Aviation_Data_Standards_Cross_Reference.md` | ✅ | Industry standards |
+| `VATSIM_SWIM_API_Field_Migration.md` | ✅ | FIXM field mapping |
 
 ---
 
@@ -161,15 +161,15 @@ Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` param
 | Component | Monthly Cost |
 |-----------|--------------|
 | SWIM_API (Azure SQL Basic) | $5 |
-| VATSIM_ADL (protected) | Variable (internal only) |
+| WebSocket (Ratchet self-hosted) | $0 |
 | **Total SWIM Cost** | **$5/month** |
 
 ---
 
 ## 🔗 API Endpoints Status
 
-| Endpoint | Version | Status | Format Support |
-|----------|---------|--------|----------------|
+| Endpoint | Version | Status | Notes |
+|----------|---------|--------|-------|
 | `GET /api/swim/v1` | 1.0 | ✅ | — |
 | `GET /api/swim/v1/flights` | 3.1 | ✅ | `?format=fixm` |
 | `GET /api/swim/v1/flight` | 2.1 | ✅ | `?format=fixm` |
@@ -179,56 +179,42 @@ Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` param
 | `POST /api/swim/v1/ingest/adl` | 1.0 | ✅ | — |
 | `POST /api/swim/v1/ingest/track` | 1.0 | ✅ | — |
 | `POST /api/swim/v1/ingest/metering` | 1.0 | ✅ | — |
+| `WS /api/swim/v1/ws` | 1.0 | 🔨 | Phase 2 |
 
 ---
 
 ## 📝 Change Log
 
+### 2026-01-16 Session 7 - Phase 2 Started
+- ✅ Created Phase 2 design document (SWIM_Phase2_RealTime_Design.md)
+- ✅ Added composer.json with Ratchet dependency
+- ✅ Created WebSocketServer.php core class
+- ✅ Created ClientConnection.php wrapper
+- ✅ Created SubscriptionManager.php for subscriptions
+- ✅ Created publish.php internal endpoint
+- ✅ Created swim_ws_server.php daemon script
+- ✅ Created swim_ws_events.php event detection module
+- ✅ Created swim-ws-client.js JavaScript client library
+- ⏳ Pending: `composer install`, daemon integration, testing
+
 ### 2026-01-16 Session 6 - Phase 1 Complete
-- ✅ Implemented `formatFlightRecordFIXM()` in flights.php (79 fields mapped)
-- ✅ Added `?format=fixm` parameter to `/flights` endpoint
-- ✅ Updated flight.php with `formatDetailedFlightRecordFIXM()` function
-- ✅ Added `?format=fixm` parameter to `/flight` endpoint
-- ✅ Created `ingest/track.php` endpoint for vNAS/CRC track data
-- ✅ Created `ingest/metering.php` endpoint for SimTraffic metering data
-- ✅ Updated README.md to reflect Phase 1 complete
-- ✅ Updated TODO.md with completion status
+- ✅ Implemented FIXM field naming with `?format=fixm`
+- ✅ Created track.php and metering.php ingest endpoints
 - 🎉 Phase 1 Complete!
 
-### 2026-01-16 Session 5 - Standards Documentation
-- ✅ Created Aviation Data Standards Cross Reference document
-- ✅ Created SWIM API Field Migration guide (FIXM/TFMS alignment)
-- ✅ Clarified: field migration applies to API output layer only
-- ✅ Documented 79 API response fields with FIXM mappings
-- ✅ Established `vATCSCC:` extension namespace for VATSIM-specific fields
-
-### 2026-01-16 Session 4 - API Documentation Complete
-- ✅ Created comprehensive OpenAPI 3.0 specification
-- ✅ Created Swagger UI documentation page
-- ✅ Created Postman collection with 22 requests
-
-### 2026-01-16 Session 3 - Infrastructure Complete
-- ✅ Created SWIM_API database (Azure SQL Basic $5/mo)
-- ✅ Deployed swim_flights table with full 75-column schema
-- ✅ Created sp_Swim_BulkUpsert
-- ✅ Integrated SWIM sync into ADL daemon (2-minute interval)
-- ✅ Cleaned all SWIM objects from VATSIM_ADL
-
-### 2026-01-16 Sessions 1-2 - Code Migration
-- ✅ Updated config.php and connect.php
-- ✅ Updated all API endpoints with connection fallback
-
-### 2026-01-15 - Initial Implementation
-- ✅ Created API structure and endpoints
-- ✅ Implemented authentication and rate limiting
+### 2026-01-16 Sessions 1-5 - Foundation
+- ✅ Created SWIM_API database
+- ✅ Created API documentation
+- ✅ Implemented all REST endpoints
 
 ---
 
 ## 🚀 Next Session Priorities
 
-1. **Delete incorrect file:** `adl/migrations/050_swim_field_migration.sql`
-2. **Phase 2 Design:** Choose WebSocket technology (Azure SignalR vs PHP Ratchet)
-3. **Phase 2 Implementation:** Event publishing from ADL daemon
+1. **Run `composer install`** in project root
+2. **Test WebSocket server** with `php scripts/swim_ws_server.php --debug`
+3. **Integrate event detection** into ADL daemon
+4. **Test end-to-end** with JavaScript client
 
 ---
 
