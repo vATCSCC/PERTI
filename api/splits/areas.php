@@ -19,7 +19,7 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 // Handle preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     ob_end_clean();
     http_response_code(204);
     exit;
@@ -46,13 +46,13 @@ if (!isset($conn_adl) || $conn_adl === false) {
     exit;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     switch ($method) {
         case 'GET':
             // List areas, optionally filtered by ARTCC
-            $artcc = isset($_GET['artcc']) ? strtoupper(trim($_GET['artcc'])) : null;
+            $artcc = isset($_GET['artcc']) ? get_upper('artcc') : null;
             
             if ($artcc) {
                 $sql = "SELECT id, artcc, area_name, sectors, description, color, created_by, 
@@ -150,7 +150,7 @@ try {
                 exit;
             }
             
-            $id = intval($_GET['id']);
+            $id = get_int('id');
             $input = json_decode(file_get_contents('php://input'), true);
             
             if (!$input) {
@@ -216,7 +216,7 @@ try {
                 exit;
             }
             
-            $id = intval($_GET['id']);
+            $id = get_int('id');
             $input = json_decode(file_get_contents('php://input'), true);
             
             if (!$input) {
@@ -274,7 +274,7 @@ try {
                 exit;
             }
             
-            $id = intval($_GET['id']);
+            $id = get_int('id');
             
             $sql = "DELETE FROM splits_areas WHERE id = ?";
             $stmt = sqlsrv_query($conn_adl, $sql, [$id]);

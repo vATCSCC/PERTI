@@ -36,9 +36,9 @@ try {
 
 $type = isset($_GET['type']) ? $_GET['type'] : 'workload';
 $boundary = isset($_GET['boundary']) ? strtoupper($_GET['boundary']) : null;
-$flight_uid = isset($_GET['flight_uid']) ? intval($_GET['flight_uid']) : null;
-$hours = isset($_GET['hours']) ? min(intval($_GET['hours']), 12) : 2;
-$limit = isset($_GET['limit']) ? min(intval($_GET['limit']), 500) : 100;
+$flight_uid = isset($_GET['flight_uid']) ? get_int('flight_uid') : null;
+$hours = isset($_GET['hours']) ? min(get_int('hours'), 12) : 2;
+$limit = isset($_GET['limit']) ? min(get_int('limit'), 500) : 100;
 
 try {
     switch ($type) {

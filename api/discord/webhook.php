@@ -30,7 +30,7 @@ if ($webhook_handler_path) require_once($webhook_handler_path);
 if ($message_parser_path) require_once($message_parser_path);
 
 // Only accept POST requests
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     sendJsonError(405, 'Method not allowed');
 }
 

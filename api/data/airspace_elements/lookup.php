@@ -33,7 +33,7 @@ try {
 $type = isset($_GET['type']) ? strtolower($_GET['type']) : 'boundaries';
 $search = isset($_GET['search']) ? trim($_GET['search']) : null;
 $boundary_type = isset($_GET['boundary_type']) ? strtoupper($_GET['boundary_type']) : null;
-$limit = isset($_GET['limit']) ? min(intval($_GET['limit']), 500) : 100;
+$limit = isset($_GET['limit']) ? min(get_int('limit'), 500) : 100;
 
 try {
     switch ($type) {

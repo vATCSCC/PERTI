@@ -13,11 +13,11 @@ include("../../../load/connect.php");
 $domain = strip_tags(SITE_DOMAIN);
 
 
-$id = strip_tags($_POST['id']);
-$weather = strip_tags($_POST['weather']);
-$arrive = strip_tags($_POST['arrive']);
-$depart = strip_tags($_POST['depart']);
-$comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'])));
+$id = post_input('id');
+$weather = post_input('weather');
+$arrive = post_input('arrive');
+$depart = post_input('depart');
+$comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'] ?? '')));
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE p_configs SET weather='$weather', arrive='$arrive', depart='$depart', aar='', adr='', comments='$comments' WHERE id=$id");

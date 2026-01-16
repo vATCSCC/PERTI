@@ -30,7 +30,7 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
 }
 
-$p_id = strip_tags($_GET['p_id']);
+$p_id = get_input('p_id');
 
 if (isset($_GET['position_facility'])) {
     $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility='DCC' OR position_facility='VATCAN' OR position_facility='ECFMP'")->fetch_assoc();

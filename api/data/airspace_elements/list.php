@@ -33,7 +33,7 @@ try {
 
 $category = isset($_GET['category']) ? $_GET['category'] : null;
 $type = isset($_GET['type']) ? strtoupper($_GET['type']) : null;
-$active = isset($_GET['active']) ? intval($_GET['active']) : 1;
+$active = isset($_GET['active']) ? get_int('active') : 1;
 $search = isset($_GET['search']) ? $_GET['search'] : null;
 
 try {

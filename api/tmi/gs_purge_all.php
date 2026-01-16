@@ -2,7 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 // Allow preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -48,7 +48,7 @@ function sqlsrv_fetch_value($conn, $sql, $params = []) {
 // "Purge All EDCTs": remove all local control fields from dbo.adl_flights
 // and clear simulated GS rows from dbo.adl_flights_gs.
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
         'status'  => 'error',
         'message' => 'Method not allowed. Use POST.'

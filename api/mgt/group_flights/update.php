@@ -41,14 +41,14 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 
 $entity = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['entity'])));
-$dep = strip_tags($_POST['dep']);
-$arr = strip_tags($_POST['arr']);
-$etd = strip_tags($_POST['etd']);
-$eta = strip_tags($_POST['eta']);
-$pilot_quantity = strip_tags($_POST['pilot_quantity']);
+$dep = post_input('dep');
+$arr = post_input('arr');
+$etd = post_input('etd');
+$eta = post_input('eta');
+$pilot_quantity = post_input('pilot_quantity');
 $route = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['route'])));
 
 // Insert Data into Database

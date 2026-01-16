@@ -2,7 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 // Allow preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -63,7 +63,7 @@ function get_table_columns_lower($conn, $table_name) {
 // "Send Actual GS": merge simulated GS fields from dbo.adl_flights_gs into normalized tables
 // (adl_flight_times and adl_flight_tmi), then clear the simulated rows from dbo.adl_flights_gs.
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
         'status'  => 'error',
         'message' => 'Method not allowed. Use POST.'

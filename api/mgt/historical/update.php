@@ -41,12 +41,12 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 $title = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['title'])));
-$date = strip_tags($_POST['date']);
+$date = post_input('date');
 $summary = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['summary'])));
-$image_url = strip_tags($_POST['image_url']);
-$source_url = strip_tags($_POST['source_url']);
+$image_url = post_input('image_url');
+$source_url = post_input('source_url');
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE p_historical SET title='$title', date='$date', summary='$summary', image_url='$image_url', source_url='$source_url' WHERE id=$id");

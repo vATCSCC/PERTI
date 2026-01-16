@@ -41,10 +41,10 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
-$position_facility = strip_tags($_POST['position_facility']);
-$position_name = strip_tags($_POST['position_name']);
-$personnel_ois = strip_tags($_POST['personnel_ois']);
+$id = post_input('id');
+$position_facility = post_input('position_facility');
+$position_name = post_input('position_name');
+$personnel_ois = post_input('personnel_ois');
 $personnel_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['personnel_name'])));
 
 // Insert Data into Database

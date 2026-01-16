@@ -41,13 +41,13 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
+$p_id = post_input('p_id');
 $entity = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['entity'])));
-$dep = strip_tags($_POST['dep']);
-$arr = strip_tags($_POST['arr']);
-$etd = strip_tags($_POST['etd']);
-$eta = strip_tags($_POST['eta']);
-$pilot_quantity = strip_tags($_POST['pilot_quantity']);
+$dep = post_input('dep');
+$arr = post_input('arr');
+$etd = post_input('etd');
+$eta = post_input('eta');
+$pilot_quantity = post_input('pilot_quantity');
 $route = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['route'])));
 
 

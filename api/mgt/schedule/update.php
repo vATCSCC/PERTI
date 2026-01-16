@@ -41,13 +41,13 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 
-$p_cid = strip_tags($_POST['p_cid']);
-$e_cid = strip_tags($_POST['e_cid']);
-$r_cid = strip_tags($_POST['r_cid']);
-$t_cid = strip_tags($_POST['t_cid']);
-$i_cid = strip_tags($_POST['i_cid']);
+$p_cid = post_input('p_cid');
+$e_cid = post_input('e_cid');
+$r_cid = post_input('r_cid');
+$t_cid = post_input('t_cid');
+$i_cid = post_input('i_cid');
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE assigned SET p_cid=$p_cid, e_cid=$e_cid, r_cid=$r_cid, t_cid=$t_cid, i_cid=$i_cid WHERE id=$id");

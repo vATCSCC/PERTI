@@ -42,7 +42,7 @@ if ($perm == true) {
 // (E)
 
 $comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'])));
-$p_id = strip_tags($_POST['p_id']);
+$p_id = post_input('p_id');
 
 // Insert Data into Database
 try {

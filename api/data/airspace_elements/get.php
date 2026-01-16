@@ -28,7 +28,7 @@ try {
     exit;
 }
 
-$element_id = isset($_GET['element_id']) ? intval($_GET['element_id']) : null;
+$element_id = isset($_GET['element_id']) ? get_int('element_id') : null;
 
 if (!$element_id) {
     http_response_code(400);

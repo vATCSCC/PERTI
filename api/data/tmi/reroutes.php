@@ -61,8 +61,8 @@ try {
                 updated_utc DESC";
     
     // Limit/offset
-    $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 100;
-    $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
+    $limit = isset($_GET['limit']) ? get_int('limit') : 100;
+    $offset = isset($_GET['offset']) ? get_int('offset') : 0;
     $sql .= " OFFSET $offset ROWS FETCH NEXT $limit ROWS ONLY";
     
     // Execute

@@ -13,12 +13,12 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-$cs = isset($_GET['cs']) ? strtoupper(trim($_GET['cs'])) : '';
+$cs = isset($_GET['cs']) ? get_upper('cs') : '';
 if ($cs === '') {
     http_response_code(400);
     echo json_encode(['status' => 'error', 'message' => 'Missing callsign (?cs=)']);

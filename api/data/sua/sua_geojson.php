@@ -44,10 +44,10 @@ if (!$data || !isset($data['features'])) {
 $features = $data['features'];
 
 // Apply filters
-$search = isset($_GET['search']) ? strtoupper(trim($_GET['search'])) : null;
+$search = isset($_GET['search']) ? get_upper('search') : null;
 $type_filter = isset($_GET['type']) ? array_map('strtoupper', explode(',', $_GET['type'])) : null;
 $group_filter = isset($_GET['group']) ? array_map('strtoupper', explode(',', $_GET['group'])) : null;
-$artcc_filter = isset($_GET['artcc']) ? strtoupper(trim($_GET['artcc'])) : null;
+$artcc_filter = isset($_GET['artcc']) ? get_upper('artcc') : null;
 
 if ($search || $type_filter || $group_filter || $artcc_filter) {
     $features = array_filter($features, function($f) use ($search, $type_filter, $group_filter, $artcc_filter) {

@@ -57,7 +57,7 @@ $times = [
     '20',
 ];
 
-$p_id = strip_tags($_GET['p_id']);
+$p_id = get_input('p_id');
 
 $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_terminal_init WHERE p_id='$p_id'")->fetch_assoc();
 

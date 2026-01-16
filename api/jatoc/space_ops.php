@@ -14,7 +14,7 @@ if (!isset($conn_sqli) || $conn_sqli->connect_error) {
     exit;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method !== 'GET') {
     http_response_code(405);

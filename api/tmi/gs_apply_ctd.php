@@ -6,7 +6,7 @@
 header('Content-Type: application/json');
 
 // Basic CORS allowance for same-site XHR; adjust as needed.
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }

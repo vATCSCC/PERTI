@@ -195,7 +195,7 @@ function generateFallback($conn, $icao) {
 
 $singleAirport = isset($_GET['airport']) ? strtoupper($_GET['airport']) : null;
 $startFrom = isset($_GET['start']) ? strtoupper($_GET['start']) : null;
-$batchSize = isset($_GET['batch']) ? intval($_GET['batch']) : 10;
+$batchSize = isset($_GET['batch']) ? get_int('batch') : 10;
 
 echo "=======================================================================\n";
 echo "  PERTI OSM Airport Geometry Import (Web)\n";

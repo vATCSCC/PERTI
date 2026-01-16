@@ -42,8 +42,8 @@ if ($conn === false) {
 }
 
 // Parse parameters
-$type = isset($_GET['type']) ? strtoupper(trim($_GET['type'])) : null;
-$airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : null;
+$type = isset($_GET['type']) ? get_upper('type') : null;
+$airport = isset($_GET['airport']) ? get_upper('airport') : null;
 $date = isset($_GET['date']) ? $_GET['date'] : null;
 $days = isset($_GET['days']) ? (int)$_GET['days'] : 7;
 

@@ -41,15 +41,15 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 
-$staffing = strip_tags($_POST['staffing']);
-$tactical = strip_tags($_POST['tactical']);
-$other = strip_tags($_POST['other']);
-$perti = strip_tags($_POST['perti']);
-$ntml = strip_tags($_POST['ntml']);
-$tmi = strip_tags($_POST['tmi']);
-$ace = strip_tags($_POST['ace']);
+$staffing = post_input('staffing');
+$tactical = post_input('tactical');
+$other = post_input('other');
+$perti = post_input('perti');
+$ntml = post_input('ntml');
+$tmi = post_input('tmi');
+$ace = post_input('ace');
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE r_scores SET staffing='$staffing', tactical='$tactical', other='$other', perti='$perti', ntml='$ntml', tmi='$tmi', ace='$ace' WHERE id=$id");

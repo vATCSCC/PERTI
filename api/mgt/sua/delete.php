@@ -40,7 +40,7 @@ if (!$conn_adl) {
 }
 
 // Get POST data
-$id = isset($_POST['id']) ? intval($_POST['id']) : null;
+$id = isset($_POST['id']) ? post_int('id') : null;
 $hard_delete = isset($_POST['hard_delete']) && $_POST['hard_delete'] === 'true';
 
 if (!$id) {

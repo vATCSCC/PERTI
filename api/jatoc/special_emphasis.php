@@ -18,7 +18,7 @@ require_once __DIR__ . '/auth.php';
 
 JatocAuth::setConnection($conn_adl);
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // POST and DELETE require DCC role (special_emphasis permission)
 if ($method === 'POST' || $method === 'DELETE') {

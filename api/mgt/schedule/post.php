@@ -41,9 +41,9 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 $title = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['title'])));
-$date = strip_tags($_POST['date']);
+$date = post_input('date');
 
 // Insert Data into Database
 try {

@@ -41,12 +41,12 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
+$p_id = post_input('p_id');
 $title = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['title'])));
-$date = strip_tags($_POST['date']);
+$date = post_input('date');
 $summary = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['summary'])));
-$image_url = strip_tags($_POST['image_url']);
-$source_url = strip_tags($_POST['source_url']);
+$image_url = post_input('image_url');
+$source_url = post_input('source_url');
 
 // Insert Data into Database
 try {

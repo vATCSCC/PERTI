@@ -41,10 +41,10 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
+$p_id = post_input('p_id');
 $location = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['location'])));
 $context = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['context'])));
-$date = strip_tags($_POST['date']);
+$date = post_input('date');
 $impact = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['impact'])));
 
 

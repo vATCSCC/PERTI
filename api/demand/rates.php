@@ -43,7 +43,7 @@ if (!function_exists('sqlsrv_connect')) {
 }
 
 // Get airport parameter
-$airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : '';
+$airport = isset($_GET['airport']) ? get_upper('airport') : '';
 
 if (empty($airport)) {
     http_response_code(400);

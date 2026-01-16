@@ -55,7 +55,7 @@ try {
         exit;
     }
     
-    $id = intval($_POST['id']);
+    $id = post_int('id');
     $action = $_POST['action'];
     $newStatus = $ACTIONS[$action];
     

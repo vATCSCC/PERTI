@@ -5,7 +5,7 @@
 require_once 'sessions/handler.php';
 require_once 'load/connect.php';
 
-$rerouteId = isset($_GET['id']) ? intval($_GET['id']) : null;
+$rerouteId = isset($_GET['id']) ? get_int('id') : null;
 $reroute = null;
 $pageMode = 'new';
 

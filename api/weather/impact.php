@@ -65,7 +65,7 @@ if ($conn === false) {
 // Parse parameters
 // ---------------------------------------------------------------------------
 
-$flightUid = isset($_GET['flight_uid']) ? intval($_GET['flight_uid']) : null;
+$flightUid = isset($_GET['flight_uid']) ? get_int('flight_uid') : null;
 $summary = isset($_GET['summary']) && $_GET['summary'] == '1';
 $affected = isset($_GET['affected']) && $_GET['affected'] == '1';
 

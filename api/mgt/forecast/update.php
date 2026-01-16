@@ -41,10 +41,10 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
-$date = strip_tags($_POST['date']);
+$id = post_input('id');
+$date = post_input('date');
 $summary = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['summary'])));
-$image_url = strip_tags($_POST['image_url']);
+$image_url = post_input('image_url');
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE p_forecast SET date='$date', summary='$summary', image_url='$image_url' WHERE id=$id");

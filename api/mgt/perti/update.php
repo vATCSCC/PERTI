@@ -37,16 +37,16 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 
 $event_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['event_name'])));
-$event_date = strip_tags($_POST['event_date']);
-$event_start = strip_tags($_POST['event_start']);
-$event_end_date = strip_tags($_POST['event_end_date']);
-$event_end_time = strip_tags($_POST['event_end_time']);
-$event_banner = strip_tags($_POST['event_banner']);
-$oplevel = strip_tags($_POST['oplevel']);
-$hotline = strip_tags($_POST['hotline']);
+$event_date = post_input('event_date');
+$event_start = post_input('event_start');
+$event_end_date = post_input('event_end_date');
+$event_end_time = post_input('event_end_time');
+$event_banner = post_input('event_banner');
+$oplevel = post_input('oplevel');
+$hotline = post_input('hotline');
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline' WHERE id=$id");

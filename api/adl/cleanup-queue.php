@@ -22,7 +22,7 @@ if (!isset($conn_adl) || $conn_adl === null || $conn_adl === false) {
 
 // Determine if this is a dry run or actual execution
 $dryRun = true;
-if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['run'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || isset($_GET['run'])) {
     $dryRun = false;
 }
 

@@ -26,7 +26,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     exit(0);
 }
 
@@ -35,7 +35,7 @@ define('ENGINE_URL', getenv('ATFM_ENGINE_URL') ?: 'http://localhost:3001');
 
 // Handle both GET and POST
 $input = [];
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
 } else {
     $input = $_GET;

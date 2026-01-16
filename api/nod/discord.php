@@ -44,7 +44,7 @@ $DISCORD_CONFIGURED = defined('DISCORD_BOT_TOKEN') && DISCORD_BOT_TOKEN !== '';
 $discordApi = new DiscordAPI();
 $messageParser = new DiscordMessageParser();
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? 'status';
 
 try {

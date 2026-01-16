@@ -65,12 +65,12 @@ function adl_sql_error_message() {
 }
 
 // Parse parameters
-$airway = isset($_GET['airway']) ? strtoupper(trim($_GET['airway'])) : '';
-$fromFix = isset($_GET['from_fix']) ? strtoupper(trim($_GET['from_fix'])) : '';
-$toFix = isset($_GET['to_fix']) ? strtoupper(trim($_GET['to_fix'])) : '';
+$airway = isset($_GET['airway']) ? get_upper('airway') : '';
+$fromFix = isset($_GET['from_fix']) ? get_upper('from_fix') : '';
+$toFix = isset($_GET['to_fix']) ? get_upper('to_fix') : '';
 $minutes = isset($_GET['minutes']) ? (int)$_GET['minutes'] : 60;
 $minutes = max(5, min(720, $minutes)); // Clamp to 5-720 minutes
-$format = isset($_GET['format']) ? strtolower(trim($_GET['format'])) : 'list';
+$format = isset($_GET['format']) ? get_lower('format') : 'list';
 
 // Validate required parameters
 $missing = [];

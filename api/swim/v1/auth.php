@@ -197,7 +197,7 @@ class SwimResponse {
     }
     
     public static function handlePreflight() {
-        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
             self::setCorsHeaders();
             http_response_code(204);
             exit;

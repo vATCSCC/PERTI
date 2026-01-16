@@ -41,7 +41,7 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
+$p_id = post_input('p_id');
 
 $init_s = strip_tags(str_replace("`", "&#039;", $_POST['staffing']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
 $staffing = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_s));

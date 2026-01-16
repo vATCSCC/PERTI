@@ -24,7 +24,7 @@ if (!isset($conn_adl) || $conn_adl === false) {
 }
 
 // Only accept POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'POST required']);
     exit;
 }

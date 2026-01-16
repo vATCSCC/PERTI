@@ -26,7 +26,7 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
         'status' => 'error',
         'message' => 'Method not allowed. Use POST.'

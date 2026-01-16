@@ -35,9 +35,9 @@ if ($perm === true) {
         exit;
     }
 
-    $init_id     = intval($_POST['init_id']);
-    $time        = strip_tags($_POST['time']);
-    $probability = intval($_POST['probability']);
+    $init_id     = post_int('init_id');
+    $time        = post_input('time');
+    $probability = post_int('probability');
 
     if ($probability < 0) {
         $probability = 0;

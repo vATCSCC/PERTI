@@ -42,8 +42,8 @@ if ($perm == true) {
 // (E)
 
 // Collect POST data
-$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
-$status = isset($_POST['status']) ? intval($_POST['status']) : 0;
+$id = isset($_POST['id']) ? post_int('id') : 0;
+$status = isset($_POST['status']) ? post_int('status') : 0;
 
 $name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['name'] ?? "")));
 $ctl_element = strip_tags($_POST['ctl_element'] ?? "");
@@ -51,7 +51,7 @@ $element_type = strip_tags($_POST['element_type'] ?? "APT");
 $airports = strip_tags(strtoupper($_POST['airports'] ?? ""));
 $start_utc = strip_tags($_POST['start_utc'] ?? "");
 $end_utc = strip_tags($_POST['end_utc'] ?? "");
-$prob_ext = isset($_POST['prob_ext']) ? intval($_POST['prob_ext']) : 0;
+$prob_ext = isset($_POST['prob_ext']) ? post_int('prob_ext') : 0;
 $origin_centers = strip_tags(strtoupper($_POST['origin_centers'] ?? ""));
 $origin_airports = strip_tags(strtoupper($_POST['origin_airports'] ?? ""));
 $flt_incl_carrier = strip_tags(strtoupper($_POST['flt_incl_carrier'] ?? ""));

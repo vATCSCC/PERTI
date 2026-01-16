@@ -22,9 +22,9 @@ if (!isset($conn_adl) || $conn_adl === null || $conn_adl === false) {
     exit;
 }
 
-$clearQueue = ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['clear']));
-$airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : null;
-$limit = isset($_GET['limit']) ? min(100, max(1, intval($_GET['limit']))) : 10;
+$clearQueue = (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || isset($_GET['clear']));
+$airport = isset($_GET['airport']) ? get_upper('airport') : null;
+$limit = isset($_GET['limit']) ? min(100, max(1, get_int('limit'))) : 10;
 
 $result = [
     'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),

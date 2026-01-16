@@ -41,7 +41,7 @@ if ($conn === false) {
 }
 
 // Parse parameters
-$artcc = isset($_GET['artcc']) ? strtoupper(trim($_GET['artcc'])) : null;
+$artcc = isset($_GET['artcc']) ? get_upper('artcc') : null;
 $date = isset($_GET['date']) ? $_GET['date'] : null;
 $days = isset($_GET['days']) ? (int)$_GET['days'] : 7;
 

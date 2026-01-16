@@ -40,12 +40,12 @@ if ($perm == true) {
 // (E)
 
 // Get form data - accept both 'id' and 'config_id' for backwards compatibility
-$id = isset($_POST['config_id']) ? intval($_POST['config_id']) : (isset($_POST['id']) ? intval($_POST['id']) : 0);
-$airport = isset($_POST['airport_faa']) ? strtoupper(trim(strip_tags($_POST['airport_faa']))) : (isset($_POST['airport']) ? strtoupper(trim(strip_tags($_POST['airport']))) : '');
-$config_name = isset($_POST['config_name']) ? trim(strip_tags($_POST['config_name'])) : 'Default';
-$config_code = isset($_POST['config_code']) ? trim(strip_tags($_POST['config_code'])) : null;
-$arr_runways = isset($_POST['arr_runways']) ? trim(strip_tags($_POST['arr_runways'])) : (isset($_POST['arr']) ? trim(strip_tags($_POST['arr'])) : '');
-$dep_runways = isset($_POST['dep_runways']) ? trim(strip_tags($_POST['dep_runways'])) : (isset($_POST['dep']) ? trim(strip_tags($_POST['dep'])) : '');
+$id = isset($_POST['config_id']) ? post_int('config_id') : (isset($_POST['id']) ? post_int('id') : 0);
+$airport = isset($_POST['airport_faa']) ? strtoupper(trim(post_input('airport_faa'))) : (isset($_POST['airport']) ? strtoupper(trim(post_input('airport'))) : '');
+$config_name = isset($_POST['config_name']) ? trim(post_input('config_name')) : 'Default';
+$config_code = isset($_POST['config_code']) ? trim(post_input('config_code')) : null;
+$arr_runways = isset($_POST['arr_runways']) ? trim(post_input('arr_runways')) : (isset($_POST['arr']) ? trim(post_input('arr')) : '');
+$dep_runways = isset($_POST['dep_runways']) ? trim(post_input('dep_runways')) : (isset($_POST['dep']) ? trim(post_input('dep')) : '');
 
 // Build ICAO from FAA
 $airport_faa = $airport;
@@ -53,30 +53,30 @@ $airport_icao = (strlen($airport) == 3) ? 'K' . $airport : $airport;
 
 // Get VATSIM rates
 $vatsim_rates = [
-    ['weather' => 'VMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_vmc_aar']) ? intval($_POST['vatsim_vmc_aar']) : null],
-    ['weather' => 'LVMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_lvmc_aar']) ? intval($_POST['vatsim_lvmc_aar']) : null],
-    ['weather' => 'IMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_imc_aar']) ? intval($_POST['vatsim_imc_aar']) : null],
-    ['weather' => 'LIMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_limc_aar']) ? intval($_POST['vatsim_limc_aar']) : null],
-    ['weather' => 'VLIMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_vlimc_aar']) ? intval($_POST['vatsim_vlimc_aar']) : null],
-    ['weather' => 'VMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_vmc_adr']) ? intval($_POST['vatsim_vmc_adr']) : null],
-    ['weather' => 'LVMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_lvmc_adr']) ? intval($_POST['vatsim_lvmc_adr']) : null],
-    ['weather' => 'IMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_imc_adr']) ? intval($_POST['vatsim_imc_adr']) : null],
-    ['weather' => 'LIMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_limc_adr']) ? intval($_POST['vatsim_limc_adr']) : null],
-    ['weather' => 'VLIMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_vlimc_adr']) ? intval($_POST['vatsim_vlimc_adr']) : null],
+    ['weather' => 'VMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_vmc_aar']) ? post_int('vatsim_vmc_aar') : null],
+    ['weather' => 'LVMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_lvmc_aar']) ? post_int('vatsim_lvmc_aar') : null],
+    ['weather' => 'IMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_imc_aar']) ? post_int('vatsim_imc_aar') : null],
+    ['weather' => 'LIMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_limc_aar']) ? post_int('vatsim_limc_aar') : null],
+    ['weather' => 'VLIMC', 'type' => 'ARR', 'value' => isset($_POST['vatsim_vlimc_aar']) ? post_int('vatsim_vlimc_aar') : null],
+    ['weather' => 'VMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_vmc_adr']) ? post_int('vatsim_vmc_adr') : null],
+    ['weather' => 'LVMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_lvmc_adr']) ? post_int('vatsim_lvmc_adr') : null],
+    ['weather' => 'IMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_imc_adr']) ? post_int('vatsim_imc_adr') : null],
+    ['weather' => 'LIMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_limc_adr']) ? post_int('vatsim_limc_adr') : null],
+    ['weather' => 'VLIMC', 'type' => 'DEP', 'value' => isset($_POST['vatsim_vlimc_adr']) ? post_int('vatsim_vlimc_adr') : null],
 ];
 
 // Get Real-World rates
 $rw_rates = [
-    ['weather' => 'VMC', 'type' => 'ARR', 'value' => isset($_POST['rw_vmc_aar']) ? intval($_POST['rw_vmc_aar']) : null],
-    ['weather' => 'LVMC', 'type' => 'ARR', 'value' => isset($_POST['rw_lvmc_aar']) ? intval($_POST['rw_lvmc_aar']) : null],
-    ['weather' => 'IMC', 'type' => 'ARR', 'value' => isset($_POST['rw_imc_aar']) ? intval($_POST['rw_imc_aar']) : null],
-    ['weather' => 'LIMC', 'type' => 'ARR', 'value' => isset($_POST['rw_limc_aar']) ? intval($_POST['rw_limc_aar']) : null],
-    ['weather' => 'VLIMC', 'type' => 'ARR', 'value' => isset($_POST['rw_vlimc_aar']) ? intval($_POST['rw_vlimc_aar']) : null],
-    ['weather' => 'VMC', 'type' => 'DEP', 'value' => isset($_POST['rw_vmc_adr']) ? intval($_POST['rw_vmc_adr']) : null],
-    ['weather' => 'LVMC', 'type' => 'DEP', 'value' => isset($_POST['rw_lvmc_adr']) ? intval($_POST['rw_lvmc_adr']) : null],
-    ['weather' => 'IMC', 'type' => 'DEP', 'value' => isset($_POST['rw_imc_adr']) ? intval($_POST['rw_imc_adr']) : null],
-    ['weather' => 'LIMC', 'type' => 'DEP', 'value' => isset($_POST['rw_limc_adr']) ? intval($_POST['rw_limc_adr']) : null],
-    ['weather' => 'VLIMC', 'type' => 'DEP', 'value' => isset($_POST['rw_vlimc_adr']) ? intval($_POST['rw_vlimc_adr']) : null],
+    ['weather' => 'VMC', 'type' => 'ARR', 'value' => isset($_POST['rw_vmc_aar']) ? post_int('rw_vmc_aar') : null],
+    ['weather' => 'LVMC', 'type' => 'ARR', 'value' => isset($_POST['rw_lvmc_aar']) ? post_int('rw_lvmc_aar') : null],
+    ['weather' => 'IMC', 'type' => 'ARR', 'value' => isset($_POST['rw_imc_aar']) ? post_int('rw_imc_aar') : null],
+    ['weather' => 'LIMC', 'type' => 'ARR', 'value' => isset($_POST['rw_limc_aar']) ? post_int('rw_limc_aar') : null],
+    ['weather' => 'VLIMC', 'type' => 'ARR', 'value' => isset($_POST['rw_vlimc_aar']) ? post_int('rw_vlimc_aar') : null],
+    ['weather' => 'VMC', 'type' => 'DEP', 'value' => isset($_POST['rw_vmc_adr']) ? post_int('rw_vmc_adr') : null],
+    ['weather' => 'LVMC', 'type' => 'DEP', 'value' => isset($_POST['rw_lvmc_adr']) ? post_int('rw_lvmc_adr') : null],
+    ['weather' => 'IMC', 'type' => 'DEP', 'value' => isset($_POST['rw_imc_adr']) ? post_int('rw_imc_adr') : null],
+    ['weather' => 'LIMC', 'type' => 'DEP', 'value' => isset($_POST['rw_limc_adr']) ? post_int('rw_limc_adr') : null],
+    ['weather' => 'VLIMC', 'type' => 'DEP', 'value' => isset($_POST['rw_vlimc_adr']) ? post_int('rw_vlimc_adr') : null],
 ];
 
 // Validate required fields

@@ -69,10 +69,10 @@ if ($conn === false) {
 }
 
 // Get request parameters
-$facility = isset($_GET['facility']) ? strtoupper(trim($_GET['facility'])) : '';
-$config = isset($_GET['config']) ? strtoupper(trim($_GET['config'])) : '';
-$group = isset($_GET['group']) ? strtoupper(trim($_GET['group'])) : '';
-$format = isset($_GET['format']) ? strtolower(trim($_GET['format'])) : 'standard';
+$facility = isset($_GET['facility']) ? get_upper('facility') : '';
+$config = isset($_GET['config']) ? get_upper('config') : '';
+$group = isset($_GET['group']) ? get_upper('group') : '';
+$format = isset($_GET['format']) ? get_lower('format') : 'standard';
 
 // ===========================================================================
 // CSV Format: Return data in TierInfo.csv format for gdt.js compatibility

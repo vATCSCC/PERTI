@@ -21,7 +21,7 @@ include("../../load/config.php");
 include("../../load/connect.php");
 
 // Get plan ID
-$plan_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$plan_id = isset($_GET['id']) ? get_int('id') : 0;
 
 if ($plan_id <= 0) {
     echo json_encode([

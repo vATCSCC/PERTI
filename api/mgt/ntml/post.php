@@ -120,8 +120,8 @@ if (!isset($_POST['protocol']) || !isset($_POST['determinant'])) {
 }
 
 // Get form data
-$protocol = strip_tags($_POST['protocol']);
-$determinant = strip_tags($_POST['determinant']);
+$protocol = post_input('protocol');
+$determinant = post_input('determinant');
 $production = isset($_POST['production']) && $_POST['production'] === '1';
 ntml_debug_log('Form data extracted', ['protocol' => $protocol, 'determinant' => $determinant, 'production' => $production]);
 

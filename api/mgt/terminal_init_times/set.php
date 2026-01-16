@@ -34,8 +34,8 @@ if (!isset($_POST['id']) || !isset($_POST['probability'])) {
     exit();
 }
 
-$id = intval($_POST['id']);
-$probability = intval($_POST['probability']);
+$id = post_int('id');
+$probability = post_int('probability');
 
 // Normalize: anything >= 4 is treated as Actual (4)
 if ($probability < 0) {

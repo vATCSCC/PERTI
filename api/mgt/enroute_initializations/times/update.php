@@ -28,8 +28,8 @@ if ($perm === true) {
         exit;
     }
 
-    $id          = intval($_POST['id']);
-    $probability = intval($_POST['probability']);
+    $id          = post_int('id');
+    $probability = post_int('probability');
 
     if ($probability < 0) {
         $probability = 0;

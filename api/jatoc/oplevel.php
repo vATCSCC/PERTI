@@ -17,7 +17,7 @@ require_once __DIR__ . '/auth.php';
 
 JatocAuth::setConnection($conn_adl);
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // PUT requires ops_level permission
 if ($method === 'PUT') {

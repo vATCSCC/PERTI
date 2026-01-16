@@ -26,7 +26,7 @@ if (!isset($conn_adl) || !$conn_adl) {
     exit;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method !== 'POST') {
     http_response_code(405);

@@ -29,7 +29,7 @@ try {
         exit;
     }
     
-    $id = intval($_GET['id']);
+    $id = get_int('id');
     
     // Fetch reroute definition
     $sql = "SELECT * FROM dbo.tmi_reroutes WHERE id = ?";

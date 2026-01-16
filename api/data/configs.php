@@ -176,7 +176,7 @@ function formatRunwayList($runwayStr) {
     return implode(' ', $formatted);
 }
 
-$search = isset($_GET['search']) ? strip_tags($_GET['search']) : '';
+$search = isset($_GET['search']) ? get_input('search') : '';
 
 // Check if ADL connection is available
 if (!$conn_adl) {
