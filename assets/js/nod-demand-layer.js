@@ -84,6 +84,17 @@ const NODDemandLayer = (function() {
             if (horizonSelect) {
                 horizonSelect.value = state.settings.horizonHours;
             }
+
+            // Trigger NOD traffic layer update if FEA match mode is active
+            // This ensures flights are re-colored after monitors are loaded
+            if (state.monitors.length > 0) {
+                updateNODColorLegend();
+                // Also trigger traffic layer refresh if NOD is available
+                if (typeof window.NOD !== 'undefined' && window.NOD.updateTrafficLayer) {
+                    console.log('[DemandLayer] Triggering traffic layer update after monitors loaded');
+                    window.NOD.updateTrafficLayer();
+                }
+            }
         });
 
         // Add sources and layers - try multiple approaches for reliability
@@ -2180,11 +2191,15 @@ const NODDemandLayer = (function() {
     /**
      * Get the FEA match result for a flight
      * Returns the first matching monitor's color, or null if no match
+     * NOTE: This works independently of state.enabled - monitors can be used
+     * for flight coloring even when the demand layer visualization is disabled
      * @param {Object} flight - Flight object
      * @returns {Object|null} { color, label, index } or null
      */
     function getFlightFEAMatch(flight) {
-        if (!state.enabled || state.monitors.length === 0) {
+        // Only check if monitors exist - don't require state.enabled
+        // This allows FEA match coloring to work even when demand visualization is off
+        if (state.monitors.length === 0) {
             return null;
         }
 
@@ -2204,11 +2219,14 @@ const NODDemandLayer = (function() {
 
     /**
      * Get all FEA matches for a flight (if it matches multiple monitors)
+     * NOTE: This works independently of state.enabled - monitors can be used
+     * for flight coloring even when the demand layer visualization is disabled
      * @param {Object} flight - Flight object
      * @returns {Array} Array of { color, label, index }
      */
     function getFlightFEAMatches(flight) {
-        if (!state.enabled || state.monitors.length === 0) {
+        // Only check if monitors exist - don't require state.enabled
+        if (state.monitors.length === 0) {
             return [];
         }
 

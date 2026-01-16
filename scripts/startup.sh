@@ -36,8 +36,14 @@ nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim
 WS_PID=$!
 echo "  swim_ws_server.php started (PID: $WS_PID)"
 
+# Start the unified scheduler daemon (splits, routes auto-activation)
+echo "Starting scheduler_daemon.php (checks every 60s)..."
+nohup php "${WWWROOT}/scripts/scheduler_daemon.php" --interval=60 >> /home/LogFiles/scheduler.log 2>&1 &
+SCHED_PID=$!
+echo "  scheduler_daemon.php started (PID: $SCHED_PID)"
+
 echo "========================================"
-echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, ws=$WS_PID"
+echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, ws=$WS_PID, sched=$SCHED_PID"
 echo "========================================"
 
 # Configure Apache WebSocket proxy
