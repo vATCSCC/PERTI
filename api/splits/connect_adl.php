@@ -6,8 +6,9 @@
  * For use by API endpoints that only need the ADL database.
  */
 
-// Load config directly
+// Load config and input helpers
 require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/input.php';
 
 // Helper for ADL SQL Server error messages
 if (!function_exists('adl_sql_error_message')) {
