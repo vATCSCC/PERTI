@@ -21,6 +21,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: public, max-age=300'); // Cache for 5 minutes
 
 require_once(__DIR__ . "/../load/config.php");
+require_once(__DIR__ . "/../load/input.php");
 
 // Check ADL database configuration
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
