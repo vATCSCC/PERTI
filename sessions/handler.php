@@ -8,6 +8,7 @@ if (session_status() == PHP_SESSION_NONE) {
 // Session Start (E)
 
 include_once(dirname(__DIR__, 1) . '/load/config.php');
+require_once(dirname(__DIR__, 1) . '/load/input.php');
 
 // Generate Current IP Address
 if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
