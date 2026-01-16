@@ -41,12 +41,15 @@ PRESSURE_LEVELS_BY_ALTITUDE = {
 }
 
 # Database connection - Azure SQL
+# Credentials loaded from environment variables for security
+# Set these in your environment or .env file:
+#   WIND_DB_SERVER, WIND_DB_NAME, WIND_DB_USER, WIND_DB_PASSWORD
 DB_CONFIG = {
     'driver': '{ODBC Driver 18 for SQL Server}',
-    'server': 'tcp:vatsim.database.windows.net,1433',
-    'database': 'VATSIM_ADL',
-    'username': 'adl_api_user',
-    'password': '***REMOVED***',
+    'server': os.environ.get('WIND_DB_SERVER', 'tcp:vatsim.database.windows.net,1433'),
+    'database': os.environ.get('WIND_DB_NAME', 'VATSIM_ADL'),
+    'username': os.environ.get('WIND_DB_USER', 'adl_api_user'),
+    'password': os.environ.get('WIND_DB_PASSWORD'),  # Required - no default
     'encrypt': 'yes',
     'trust_cert': 'no'
 }
@@ -87,6 +90,14 @@ def check_dependencies():
 def get_db_connection():
     """Create database connection."""
     import pyodbc
+
+    # Validate required password
+    if not DB_CONFIG['password']:
+        raise ValueError(
+            "Database password not set. Set WIND_DB_PASSWORD environment variable.\n"
+            "Example: set WIND_DB_PASSWORD=your_password"
+        )
+
     conn_str = (
         f"DRIVER={DB_CONFIG['driver']};"
         f"SERVER={DB_CONFIG['server']};"
@@ -385,7 +396,16 @@ def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
                 for j, lon_idx in enumerate(lon_indices):
                     lon = lons[lon_idx]
 
-                    if np.isnan(u_kts[i, j]):
+                    # Check ALL values for NaN/inf before adding
+                    u_val = u_kts[i, j]
+                    v_val = v_kts[i, j]
+                    spd_val = speed_kts[i, j]
+                    dir_val = direction[i, j]
+
+                    if (np.isnan(u_val) or np.isnan(v_val) or
+                        np.isnan(spd_val) or np.isnan(dir_val) or
+                        np.isinf(u_val) or np.isinf(v_val) or
+                        np.isinf(spd_val) or np.isinf(dir_val)):
                         continue
 
                     std_lon = lon if lon <= 180 else lon - 360
@@ -394,10 +414,10 @@ def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
                         'lat': round(float(lat), 2),
                         'lon': round(float(std_lon), 2),
                         'pressure_hpa': int(level),
-                        'wind_speed_kts': round(float(speed_kts[i, j]), 1),
-                        'wind_dir_deg': int(round(direction[i, j])),
-                        'wind_u_kts': round(float(u_kts[i, j]), 2),
-                        'wind_v_kts': round(float(v_kts[i, j]), 2)
+                        'wind_speed_kts': round(float(spd_val), 1),
+                        'wind_dir_deg': int(round(dir_val)) % 360,
+                        'wind_u_kts': round(float(u_val), 2),
+                        'wind_v_kts': round(float(v_val), 2)
                     })
 
     except Exception as e:
@@ -416,86 +436,117 @@ def parse_grib_full_region(grib_path, resolution, pressure_levels, debug=False):
 
 
 def insert_wind_data(conn, wind_data, tier, model_run_str, valid_time_str, forecast_hour, debug=False):
-    """Insert wind data into database with tier using bulk operations."""
+    """Insert wind data into database with tier using raw SQL VALUES (bypasses pyodbc issues)."""
+    import math
+
     cursor = conn.cursor()
 
-    # Enable fast executemany for bulk inserts
-    cursor.fast_executemany = True
+    # Format datetime strings for SQL
+    valid_time_sql = valid_time_str.replace(' ', 'T')  # ISO format
+    model_run_sql = model_run_str.replace(' ', 'T')
 
-    # Convert datetime strings to datetime objects for proper pyodbc handling
-    model_run_dt = datetime.datetime.strptime(model_run_str, "%Y-%m-%d %H:%M:%S")
-    valid_time_dt = datetime.datetime.strptime(valid_time_str, "%Y-%m-%d %H:%M:%S")
+    # Prepare validated data as SQL value strings
+    value_rows = []
+    skipped = 0
+    for point in wind_data:
+        try:
+            lat = round(float(point['lat']), 2)
+            lon = round(float(point['lon']), 2)
+            pressure = int(point['pressure_hpa'])
+            speed = round(float(point['wind_speed_kts']), 1)
+            direction = int(point['wind_dir_deg']) % 360
+            u = round(float(point['wind_u_kts']), 2)
+            v = round(float(point['wind_v_kts']), 2)
 
-    # Prepare batch data with explicit type conversions
-    batch_data = [
-        (
-            float(point['lat']),
-            float(point['lon']),
-            int(point['pressure_hpa']),
-            valid_time_dt,
-            float(point['wind_speed_kts']),
-            int(point['wind_dir_deg']),
-            float(point['wind_u_kts']),
-            float(point['wind_v_kts']),
-            int(forecast_hour),
-            model_run_dt,
-            int(tier)
-        )
-        for point in wind_data
-    ]
+            # Skip NaN/inf
+            if (math.isnan(lat) or math.isnan(lon) or math.isnan(speed) or
+                math.isnan(u) or math.isnan(v) or
+                math.isinf(speed) or math.isinf(u) or math.isinf(v)):
+                skipped += 1
+                continue
 
-    # Use temp table + MERGE for fast bulk upsert
-    try:
-        # Create temp table - schema matches wind_grid table
-        cursor.execute("""
-            IF OBJECT_ID('tempdb..#wind_import') IS NOT NULL DROP TABLE #wind_import;
-            CREATE TABLE #wind_import (
-                lat DECIMAL(5,2), lon DECIMAL(6,2), pressure_hpa INT,
-                valid_time_utc DATETIME2(0), wind_speed_kts DECIMAL(5,1),
-                wind_dir_deg SMALLINT, wind_u_kts DECIMAL(6,2), wind_v_kts DECIMAL(6,2),
-                forecast_hour INT, model_run_utc DATETIME2(0), tier TINYINT
-            );
-        """)
+            # Clamp to SQL limits
+            speed = max(-9999.9, min(9999.9, speed))
+            u = max(-9999.99, min(9999.99, u))
+            v = max(-9999.99, min(9999.99, v))
 
-        # Bulk insert into temp table
-        cursor.executemany("""
-            INSERT INTO #wind_import VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, batch_data)
+            # Build SQL value tuple string
+            value_rows.append(
+                f"({lat},{lon},{pressure},'{valid_time_sql}',{speed},{direction},{u},{v},{int(forecast_hour)},'{model_run_sql}',{int(tier)})"
+            )
+        except (ValueError, TypeError):
+            skipped += 1
+            continue
 
-        # Single MERGE from temp table
-        cursor.execute("""
-            MERGE dbo.wind_grid AS target
-            USING #wind_import AS source
-            ON target.lat = source.lat
-               AND target.lon = source.lon
-               AND target.pressure_hpa = source.pressure_hpa
-               AND target.valid_time_utc = source.valid_time_utc
-            WHEN MATCHED THEN
-                UPDATE SET
-                    wind_speed_kts = source.wind_speed_kts,
-                    wind_dir_deg = source.wind_dir_deg,
-                    wind_u_kts = source.wind_u_kts,
-                    wind_v_kts = source.wind_v_kts,
-                    forecast_hour = source.forecast_hour,
-                    model_run_utc = source.model_run_utc,
-                    tier = source.tier,
-                    fetched_utc = SYSUTCDATETIME()
-            WHEN NOT MATCHED THEN
-                INSERT (lat, lon, pressure_hpa, wind_speed_kts, wind_dir_deg,
-                        wind_u_kts, wind_v_kts, forecast_hour, model_run_utc, valid_time_utc, tier)
-                VALUES (source.lat, source.lon, source.pressure_hpa, source.wind_speed_kts,
-                        source.wind_dir_deg, source.wind_u_kts, source.wind_v_kts,
-                        source.forecast_hour, source.model_run_utc, source.valid_time_utc, source.tier);
-        """)
+    if debug and skipped > 0:
+        print(f"      Skipped {skipped} invalid rows")
 
-        conn.commit()
-        return len(batch_data)
-
-    except Exception as e:
-        if debug:
-            print(f"      Bulk insert error: {e}")
-        conn.rollback()
+    if not value_rows:
         return 0
+
+    # Insert using raw SQL VALUES - much faster and avoids pyodbc type issues
+    # SQL Server allows ~1000 rows per INSERT VALUES statement
+    ROWS_PER_INSERT = 1000
+    BATCH_SIZE = 50000  # Rows per temp table batch
+    total_inserted = 0
+
+    for batch_start in range(0, len(value_rows), BATCH_SIZE):
+        batch = value_rows[batch_start:batch_start + BATCH_SIZE]
+        try:
+            # Create temp table
+            cursor.execute("""
+                IF OBJECT_ID('tempdb..#wind_import') IS NOT NULL DROP TABLE #wind_import;
+                CREATE TABLE #wind_import (
+                    lat DECIMAL(5,2), lon DECIMAL(6,2), pressure_hpa INT,
+                    valid_time_utc DATETIME2(0), wind_speed_kts DECIMAL(5,1),
+                    wind_dir_deg SMALLINT, wind_u_kts DECIMAL(6,2), wind_v_kts DECIMAL(6,2),
+                    forecast_hour INT, model_run_utc DATETIME2(0), tier TINYINT
+                );
+            """)
+
+            # Insert in chunks of 1000 rows per statement
+            for i in range(0, len(batch), ROWS_PER_INSERT):
+                chunk = batch[i:i + ROWS_PER_INSERT]
+                sql = "INSERT INTO #wind_import VALUES " + ",".join(chunk)
+                cursor.execute(sql)
+
+            # MERGE from temp table to target
+            cursor.execute("""
+                MERGE dbo.wind_grid AS target
+                USING #wind_import AS source
+                ON target.lat = source.lat
+                   AND target.lon = source.lon
+                   AND target.pressure_hpa = source.pressure_hpa
+                   AND target.valid_time_utc = source.valid_time_utc
+                WHEN MATCHED THEN
+                    UPDATE SET
+                        wind_speed_kts = source.wind_speed_kts,
+                        wind_dir_deg = source.wind_dir_deg,
+                        wind_u_kts = source.wind_u_kts,
+                        wind_v_kts = source.wind_v_kts,
+                        forecast_hour = source.forecast_hour,
+                        model_run_utc = source.model_run_utc,
+                        tier = source.tier,
+                        fetched_utc = SYSUTCDATETIME()
+                WHEN NOT MATCHED THEN
+                    INSERT (lat, lon, pressure_hpa, wind_speed_kts, wind_dir_deg,
+                            wind_u_kts, wind_v_kts, forecast_hour, model_run_utc, valid_time_utc, tier)
+                    VALUES (source.lat, source.lon, source.pressure_hpa, source.wind_speed_kts,
+                            source.wind_dir_deg, source.wind_u_kts, source.wind_v_kts,
+                            source.forecast_hour, source.model_run_utc, source.valid_time_utc, source.tier);
+            """)
+            conn.commit()
+            total_inserted += len(batch)
+
+        except Exception as e:
+            if debug:
+                print(f"      Batch {batch_start//BATCH_SIZE + 1} error: {e}")
+                if batch:
+                    print(f"      Sample: {batch[0]}")
+                    print(f"      Types: {[type(x).__name__ for x in batch[0]]}")
+            conn.rollback()
+
+    return total_inserted
 
 
 def main():

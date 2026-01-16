@@ -127,6 +127,13 @@ $config = [
     'runway_detection_enabled'  => true,
     'runway_detection_interval' => 120,   // Run every N cycles (120 = every 30 minutes)
     'runway_detection_timeout'  => 60,    // SP timeout in seconds
+
+    // Wind adjustment calculation (tiered, decoupled from ETA)
+    // Runs on separate timer to avoid slowing down main ADL refresh
+    // Uses tiered intervals internally: Tier 0 (30s) to Tier 4 (10min) based on flight relevance
+    'wind_enabled'        => true,
+    'wind_interval'       => 2,      // Run every N cycles (2 = every 30 seconds)
+    'wind_timeout'        => 30,     // SP timeout in seconds
 ];
 
 // ============================================================================
@@ -842,6 +849,43 @@ function executeRunwayDetection($conn, array $config): ?array {
 }
 
 // ============================================================================
+// WIND ADJUSTMENT CALCULATION (Tiered)
+// ============================================================================
+
+/**
+ * Execute tiered wind adjustment calculation.
+ * Calls sp_UpdateFlightWindAdjustments which:
+ * - Calculates wind tier for each flight (0-7 based on relevance/phase/distance)
+ * - Only updates flights due for calculation based on their tier interval
+ * - Uses grid-based wind when available, falls back to GS-based estimate
+ * - Updates adl_flight_times.eta_wind_adj_kts for use by ETA calculation
+ */
+function executeWindCalculation($conn, array $config): ?array {
+    $startTime = microtime(true);
+
+    $sql = "EXEC dbo.sp_UpdateFlightWindAdjustments @debug = 0";
+    $options = ['QueryTimeout' => $config['wind_timeout']];
+
+    $stmt = @sqlsrv_query($conn, $sql, [], $options);
+
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        logWarn("Wind calculation SP failed", ['error' => json_encode($errors)]);
+        return null;
+    }
+
+    // The SP returns @updated_count as OUTPUT param, but we'll just measure time
+    // and rely on the daemon stats for tracking
+    sqlsrv_free_stmt($stmt);
+
+    $elapsedMs = round((microtime(true) - $startTime) * 1000);
+
+    return [
+        'elapsed_ms' => $elapsedMs,
+    ];
+}
+
+// ============================================================================
 // CONNECTION HEALTH CHECK (Fast)
 // ============================================================================
 
@@ -915,6 +959,9 @@ function runDaemon(array $config): void {
         'runway_detect_runs'   => 0,
         'runway_configs_found' => 0,
         'runway_detect_ms'     => 0,
+        // Wind calculation stats
+        'wind_runs'            => 0,
+        'wind_total_ms'        => 0,
     ];
     
     // Signal handling
@@ -1037,6 +1084,19 @@ function runDaemon(array $config): void {
                 }
             }
 
+            // 5d. Wind adjustment calculation (tiered, every 30 seconds)
+            // Runs independently from ETA calculation to avoid slowing down main refresh
+            // Uses internal tiering: Tier 0 flights (approaching) updated every 30s,
+            // Tier 4 flights (oceanic) updated every 10min
+            $windResult = null;
+            if ($config['wind_enabled'] && $stats['runs'] % $config['wind_interval'] === 0) {
+                $windResult = executeWindCalculation($conn, $config);
+                if ($windResult !== null) {
+                    $stats['wind_runs']++;
+                    $stats['wind_total_ms'] += $windResult['elapsed_ms'];
+                }
+            }
+
             // 6. Update stats
             $stats['successes']++;
             $stats['total_sp_ms'] += $spMs;
@@ -1134,6 +1194,7 @@ function runDaemon(array $config): void {
 
             $avgBndMs = $stats['boundary_runs'] > 0 ? round($stats['boundary_total_ms'] / $stats['boundary_runs']) : 0;
             $avgRwyMs = $stats['runway_detect_runs'] > 0 ? round($stats['runway_detect_ms'] / $stats['runway_detect_runs']) : 0;
+            $avgWindMs = $stats['wind_runs'] > 0 ? round($stats['wind_total_ms'] / $stats['wind_runs']) : 0;
 
             logInfo("=== Stats @ run {$stats['runs']} ===", [
                 'uptime_min'    => $uptime,
@@ -1151,6 +1212,8 @@ function runDaemon(array $config): void {
                 'rwy_runs'      => $stats['runway_detect_runs'],
                 'rwy_configs'   => $stats['runway_configs_found'],
                 'avg_rwy_ms'    => $avgRwyMs,
+                'wind_runs'     => $stats['wind_runs'],
+                'avg_wind_ms'   => $avgWindMs,
             ]);
 
             // Run ATIS tiered cleanup every 100 cycles (~25 min)

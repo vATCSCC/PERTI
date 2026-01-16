@@ -65,6 +65,7 @@ if (!$conn_sqli) {
 // -------------------------------------------------------------------------
 
 $conn_adl = null;
+$conn_swim = null;
 
 if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
     defined('ADL_SQL_USERNAME') && defined('ADL_SQL_PASSWORD')) {
@@ -89,6 +90,69 @@ if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
 } else {
     // ADL constants not defined; this is fine if ADL is optional for this environment
     // error_log("ADL SQL constants not defined; ADL connection not established.");
+}
+
+// -------------------------------------------------------------------------
+// SWIM API Database (Azure SQL Basic - dedicated for public API)
+// -------------------------------------------------------------------------
+// This is a fixed-cost ($5/mo) database to serve public SWIM API queries
+// without incurring Serverless scaling costs on VATSIM_ADL.
+// Data is synced from VATSIM_ADL every 15 seconds via sp_Swim_SyncFromAdl.
+// -------------------------------------------------------------------------
+
+if (defined('SWIM_SQL_HOST') && defined('SWIM_SQL_DATABASE') &&
+    defined('SWIM_SQL_USERNAME') && defined('SWIM_SQL_PASSWORD')) {
+
+    if (function_exists('sqlsrv_connect')) {
+        $swimConnectionInfo = [
+            "Database" => SWIM_SQL_DATABASE,
+            "UID"      => SWIM_SQL_USERNAME,
+            "PWD"      => SWIM_SQL_PASSWORD
+        ];
+
+        $conn_swim = sqlsrv_connect(SWIM_SQL_HOST, $swimConnectionInfo);
+
+        if ($conn_swim === false) {
+            // Log, but do not kill the request - fall back to $conn_adl if needed
+            error_log("SWIM API SQL connection failed: " . adl_sql_error_message());
+        }
+    }
+}
+
+// -------------------------------------------------------------------------
+// Helper: Trigger SWIM sync after ADL refresh
+// -------------------------------------------------------------------------
+// Call this function at the end of your ADL daemon refresh cycle to sync
+// data to the SWIM_API database. This is the cheapest sync method ($0).
+// -------------------------------------------------------------------------
+
+if (!function_exists('swim_trigger_sync')) {
+    /**
+     * Trigger SWIM API data sync from VATSIM_ADL
+     * Call this after ADL daemon refresh completes
+     * 
+     * @return array ['success' => bool, 'message' => string, 'duration_ms' => int]
+     */
+    function swim_trigger_sync() {
+        global $conn_swim;
+        
+        if (!$conn_swim) {
+            return ['success' => false, 'message' => 'SWIM connection not available', 'duration_ms' => 0];
+        }
+        
+        $start = microtime(true);
+        $result = sqlsrv_query($conn_swim, "EXEC dbo.sp_Swim_SyncFromAdl");
+        $duration = round((microtime(true) - $start) * 1000);
+        
+        if ($result === false) {
+            $error = adl_sql_error_message();
+            error_log("SWIM sync failed: " . $error);
+            return ['success' => false, 'message' => $error, 'duration_ms' => $duration];
+        }
+        
+        sqlsrv_free_stmt($result);
+        return ['success' => true, 'message' => 'Sync completed', 'duration_ms' => $duration];
+    }
 }
 
 ?>
