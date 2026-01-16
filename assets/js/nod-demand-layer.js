@@ -2094,14 +2094,16 @@ const NODDemandLayer = (function() {
                 return waypointAirways.includes(airwayName);
 
             case 'airway_segment':
-                // Check if on correct airway and has both endpoint fixes
+                // Check if flight has both endpoint fixes
+                // Note: on_airway field is often not populated for entry/exit fixes,
+                // so we match if both fixes are present in the route
                 const airway = (monitor.airway || '').toUpperCase();
                 const from = (monitor.from || '').toUpperCase();
                 const to = (monitor.to || '').toUpperCase();
-                const onAirway = waypointAirways.includes(airway);
                 const hasFromFix = waypointNames.includes(from);
                 const hasToFix = waypointNames.includes(to);
-                return onAirway && hasFromFix && hasToFix;
+                // Match if both fixes are present - the airway is implied by the segment definition
+                return hasFromFix && hasToFix;
 
             case 'via_fix':
                 // Check via fix/airway and apply origin/destination filters
