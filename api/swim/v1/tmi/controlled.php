@@ -17,6 +17,14 @@
 
 require_once __DIR__ . '/../auth.php';
 
+// Get database connections with fallback
+global $conn_swim, $conn_adl;
+$conn = $conn_swim ?: $conn_adl;  // Prefer SWIM_API for bulk queries
+
+if (!$conn) {
+    SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+}
+
 $auth = swim_init_auth(true, false);
 
 // Get filter parameters
@@ -102,7 +110,7 @@ $count_sql = "
     LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
     $where_sql
 ";
-$count_stmt = sqlsrv_query($conn_adl, $count_sql, $params);
+$count_stmt = sqlsrv_query($conn, $count_sql, $params);
 if ($count_stmt === false) {
     SwimResponse::error('Database error', 500, 'DB_ERROR');
 }
@@ -167,7 +175,7 @@ $sql = "
 $params[] = $offset;
 $params[] = $per_page;
 
-$stmt = sqlsrv_query($conn_adl, $sql, $params);
+$stmt = sqlsrv_query($conn, $sql, $params);
 if ($stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');

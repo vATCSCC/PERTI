@@ -1,9 +1,9 @@
 # VATSIM SWIM (System Wide Information Management)
-# Design Document v1.1
+# Design Document v1.2
 
 **Document Status:** IN DEVELOPMENT  
-**Version:** 1.1  
-**Date:** 2026-01-15  
+**Version:** 1.2  
+**Date:** 2026-01-16  
 **Author:** vATCSCC Development Team  
 **Classification:** Public  
 
@@ -14,10 +14,10 @@
 1. [Executive Summary](#1-executive-summary)
 2. [Vision & Objectives](#2-vision--objectives)
 3. [Architecture Overview](#3-architecture-overview)
-4. [Unified Flight Record](#4-unified-flight-record)
-5. [Integration Specifications](#5-integration-specifications)
+4. [Infrastructure & Cost](#4-infrastructure--cost)
+5. [Unified Flight Record](#5-unified-flight-record)
 6. [API Design](#6-api-design)
-7. [Security & Authentication](#8-security--authentication)
+7. [Security & Authentication](#7-security--authentication)
 8. [Implementation Status](#8-implementation-status)
 9. [Implementation Roadmap](#9-implementation-roadmap)
 10. [Appendices](#10-appendices)
@@ -47,6 +47,7 @@ SWIM provides:
 - **Real-Time Distribution**: Sub-second updates via WebSocket/Event streaming
 - **Authoritative Data Model**: Clear ownership rules for each data domain
 - **Open API**: Enabling innovation across the VATSIM ecosystem
+- **Cost-Optimized Infrastructure**: Dedicated cheap database isolates API load from internal systems
 
 ---
 
@@ -62,6 +63,7 @@ SWIM provides:
 2. **Real-Time Sync**: All systems see the same data simultaneously
 3. **TMI Consistency**: Ground stops and delays applied uniformly
 4. **Open Ecosystem**: Enable third-party innovation
+5. **Cost Efficiency**: Dedicated infrastructure prevents API load from impacting internal systems
 
 ---
 
@@ -70,38 +72,219 @@ SWIM provides:
 ### 3.1 High-Level Architecture
 
 ```
-PUBLISHERS                    SWIM HUB                      SUBSCRIBERS
-───────────                   ────────                      ───────────
-┌─────────┐                 ┌──────────┐                   ┌─────────┐
-│ vATCSCC │──ADL/TMI───────▶│          │──────────────────▶│   CRC   │
-│ vNAS    │──Track─────────▶│  Azure   │──────────────────▶│EuroScope│
-│ CRC     │──Tags──────────▶│   SQL    │──────────────────▶│ vPilot  │
-│SimTraff │──Metering──────▶│          │──────────────────▶│SimAware │
-│Simulator│──Telemetry─────▶│ + MySQL  │──────────────────▶│  VAs    │
-│SimBrief │──OFP───────────▶│          │──────────────────▶│Analytics│
-└─────────┘                 └──────────┘                   └─────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           INTERNAL SYSTEMS                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                     │   │
+│  │   ┌─────────────┐     ┌─────────────────────────────────────┐      │   │
+│  │   │   VATSIM    │     │        VATSIM_ADL (Azure SQL)       │      │   │
+│  │   │    API      │────▶│           Serverless                │      │   │
+│  │   └─────────────┘     │   (Internal use only - expensive)   │      │   │
+│  │                       └──────────────────┬──────────────────┘      │   │
+│  │                                          │                         │   │
+│  │   ┌─────────────┐                        │ (sync every 15 sec)     │   │
+│  │   │   MySQL     │                        │                         │   │
+│  │   │  (PERTI)    │                        ▼                         │   │
+│  │   └──────┬──────┘     ┌──────────────────────────────────────┐    │   │
+│  │          │            │     SWIM_API Database (Azure SQL)    │    │   │
+│  │          │            │        Basic Tier ($5/month)         │    │   │
+│  │          └───────────▶│    (Dedicated for public API)        │    │   │
+│  │                       └──────────────────┬───────────────────┘    │   │
+│  │                                          │                         │   │
+│  └──────────────────────────────────────────┼─────────────────────────┘   │
+│                                             │                              │
+└─────────────────────────────────────────────┼──────────────────────────────┘
+                                              │
+                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PUBLIC SWIM API                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                     │   │
+│  │   ┌─────────────────┐    ┌─────────────────┐                       │   │
+│  │   │  REST API       │    │  WebSocket      │                       │   │
+│  │   │  /api/swim/v1/  │    │  /api/swim/v1/  │                       │   │
+│  │   │                 │    │  stream         │                       │   │
+│  │   └────────┬────────┘    └────────┬────────┘                       │   │
+│  │            │                      │                                 │   │
+│  │            └──────────┬───────────┘                                │   │
+│  │                       │                                             │   │
+│  │                       ▼                                             │   │
+│  │   ┌─────────────────────────────────────────────────────────────┐  │   │
+│  │   │                    SUBSCRIBERS                              │  │   │
+│  │   │  CRC │ EuroScope │ vPilot │ SimAware │ VAs │ Analytics     │  │   │
+│  │   └─────────────────────────────────────────────────────────────┘  │   │
+│  │                                                                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 Data Sources
+### 3.2 Key Design Principle: Database Isolation
 
-| Source | Database | Key Tables |
-|--------|----------|------------|
-| Flight Data (ADL) | Azure SQL (VATSIM_ADL) | `adl_flights` |
-| Ground Stops | MySQL (PERTI) | `tmi_ground_stops` |
-| GDP Programs | Azure SQL (VATSIM_ADL) | `gdp_log` |
-| Airport Info | Azure SQL (VATSIM_ADL) | `apts` |
+**CRITICAL:** The public SWIM API must NEVER query VATSIM_ADL directly.
+
+| Database | Purpose | Tier | Cost | Access |
+|----------|---------|------|------|--------|
+| **VATSIM_ADL** | Internal ADL processing | Serverless | Variable (expensive) | Internal only |
+| **SWIM_API** | Public API queries | Basic | $5/month (fixed) | Public API |
+| **MySQL (PERTI)** | Ground stops, site data | Existing | Already paid | Both |
+
+**Why?**
+- VATSIM_ADL Serverless charges per vCore-second of usage
+- External API traffic could cost $500-7,500/month if querying directly
+- Dedicated Basic tier has fixed $5/month cost regardless of query volume
+- Isolates public load from internal processing
+
+### 3.3 Data Flow
+
+```
+1. VATSIM API → VATSIM_ADL (every 15 sec via sp_Adl_RefreshFromVatsim_Normalized)
+2. VATSIM_ADL → SWIM_API (every 15 sec via sp_Swim_SyncFromAdl)
+3. MySQL → SWIM_API (every 15 sec for ground stops)
+4. SWIM_API → Public REST/WebSocket API
+```
 
 ---
 
-## 4. Unified Flight Record
+## 4. Infrastructure & Cost
 
-### 4.1 GUFI (Globally Unique Flight Identifier)
+### 4.1 Target Monthly Cost: ~$21-47/month
+
+| Service | Purpose | Tier | Monthly Cost |
+|---------|---------|------|--------------|
+| **Azure SQL (SWIM_API)** | Dedicated API database | Basic | **$5** |
+| Azure Redis (optional) | Hot cache for high traffic | Basic C0 | $16 |
+| Azure Functions | Processing (if needed) | Consumption | **FREE** |
+| Azure SignalR | WebSocket (Phase 2) | Free | **FREE** |
+| Azure Storage | Archives | LRS | $2-3 |
+| **TOTAL (Minimum)** | | | **~$7-8/month** |
+| **TOTAL (With Redis)** | | | **~$21-24/month** |
+
+### 4.2 SWIM_API Database Schema
+
+The dedicated SWIM_API database contains denormalized, read-optimized tables:
+
+```sql
+-- Core flight data (synced from VATSIM_ADL normalized tables)
+CREATE TABLE swim_flights (
+    flight_uid BIGINT PRIMARY KEY,
+    flight_key NVARCHAR(64),
+    gufi NVARCHAR(64),
+    callsign NVARCHAR(16),
+    cid INT,
+    
+    -- Position
+    lat DECIMAL(9,6),
+    lon DECIMAL(10,6),
+    altitude_ft INT,
+    heading_deg SMALLINT,
+    groundspeed_kts INT,
+    
+    -- Flight Plan
+    fp_dept_icao CHAR(4),
+    fp_dest_icao CHAR(4),
+    fp_altitude_ft INT,
+    fp_route NVARCHAR(MAX),
+    fp_dept_artcc NVARCHAR(8),
+    fp_dest_artcc NVARCHAR(8),
+    
+    -- Progress
+    phase NVARCHAR(16),
+    is_active BIT,
+    dist_to_dest_nm DECIMAL(10,2),
+    pct_complete DECIMAL(5,2),
+    
+    -- Times
+    eta_utc DATETIME2,
+    out_utc DATETIME2,
+    off_utc DATETIME2,
+    on_utc DATETIME2,
+    in_utc DATETIME2,
+    
+    -- TMI
+    gs_held BIT,
+    ctl_type NVARCHAR(8),
+    ctl_prgm NVARCHAR(32),
+    slot_time_utc DATETIME2,
+    delay_minutes INT,
+    
+    -- Aircraft
+    aircraft_type NVARCHAR(8),
+    weight_class NCHAR(1),
+    airline_icao NVARCHAR(4),
+    
+    -- Metadata
+    last_sync_utc DATETIME2 DEFAULT GETUTCDATE(),
+    
+    INDEX IX_swim_flights_active (is_active, callsign),
+    INDEX IX_swim_flights_dept (fp_dept_icao),
+    INDEX IX_swim_flights_dest (fp_dest_icao),
+    INDEX IX_swim_flights_artcc (fp_dest_artcc)
+);
+
+-- API keys (can stay in SWIM_API or VATSIM_ADL)
+CREATE TABLE swim_api_keys (...);
+
+-- Audit log
+CREATE TABLE swim_audit_log (...);
+```
+
+### 4.3 Sync Procedure
+
+```sql
+-- Runs every 15 seconds after ADL refresh
+CREATE PROCEDURE sp_Swim_SyncFromAdl
+AS
+BEGIN
+    -- Merge active flights from normalized ADL tables
+    MERGE swim_flights AS target
+    USING (
+        SELECT 
+            c.flight_uid, c.flight_key, c.callsign, c.cid,
+            pos.lat, pos.lon, pos.altitude_ft, pos.heading_deg, pos.groundspeed_kts,
+            fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_altitude_ft, fp.fp_route,
+            fp.fp_dept_artcc, fp.fp_dest_artcc,
+            c.phase, c.is_active, pos.dist_to_dest_nm, pos.pct_complete,
+            t.eta_utc, t.out_utc, t.off_utc, t.on_utc, t.in_utc,
+            tmi.gs_held, tmi.ctl_type, tmi.ctl_prgm, tmi.slot_time_utc, tmi.delay_minutes,
+            fp.aircraft_type, ac.weight_class, ac.airline_icao
+        FROM VATSIM_ADL.dbo.adl_flight_core c
+        LEFT JOIN VATSIM_ADL.dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
+        LEFT JOIN VATSIM_ADL.dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        LEFT JOIN VATSIM_ADL.dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+        LEFT JOIN VATSIM_ADL.dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
+        LEFT JOIN VATSIM_ADL.dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
+        WHERE c.is_active = 1 OR c.last_seen_utc > DATEADD(HOUR, -2, GETUTCDATE())
+    ) AS source ON target.flight_uid = source.flight_uid
+    WHEN MATCHED THEN UPDATE SET ...
+    WHEN NOT MATCHED THEN INSERT ...;
+    
+    -- Remove stale flights
+    DELETE FROM swim_flights 
+    WHERE is_active = 0 AND last_sync_utc < DATEADD(HOUR, -2, GETUTCDATE());
+END;
+```
+
+### 4.4 Cost Comparison
+
+| Scenario | Direct VATSIM_ADL | Dedicated SWIM_API |
+|----------|-------------------|-------------------|
+| 10K requests/day | ~$15-45/mo | **$5/mo** |
+| 100K requests/day | ~$150-450/mo | **$5/mo** |
+| 1M requests/day | ~$1,500-4,500/mo | **$5/mo** |
+| 10M requests/day | ~$15,000+/mo | **$5/mo** |
+
+---
+
+## 5. Unified Flight Record
+
+### 5.1 GUFI (Globally Unique Flight Identifier)
 
 Format: `VAT-YYYYMMDD-CALLSIGN-DEPT-DEST`
 
 Example: `VAT-20260115-UAL123-KJFK-KLAX`
 
-### 4.2 Data Authority Matrix
+### 5.2 Data Authority Matrix
 
 | Field Path | Authoritative Source | Can Override |
 |------------|---------------------|--------------|
@@ -113,87 +296,6 @@ Example: `VAT-20260115-UAL123-KJFK-KLAX`
 | `track.*` | VNAS/CRC | Yes |
 | `metering.*` | SIMTRAFFIC | Yes |
 | `telemetry.*` | SIMULATOR | Yes |
-
-### 4.3 adl_flights Column Reference
-
-All SWIM API queries use these verified column names from the `adl_flights` table:
-
-**Position Data:**
-| Column | Description |
-|--------|-------------|
-| `lat` | Latitude (decimal) |
-| `lon` | Longitude (decimal) |
-| `altitude_ft` | Altitude in feet |
-| `heading_deg` | Heading in degrees |
-| `groundspeed_kts` | Ground speed in knots |
-
-**Flight Plan Data (all prefixed with `fp_`):**
-| Column | Description |
-|--------|-------------|
-| `fp_dept_icao` | Departure airport ICAO |
-| `fp_dest_icao` | Destination airport ICAO |
-| `fp_alt_icao` | Alternate airport ICAO |
-| `fp_altitude_ft` | Cruise altitude |
-| `fp_tas_kts` | True airspeed |
-| `fp_route` | Filed route |
-| `fp_remarks` | Remarks field |
-| `fp_rule` | Flight rules (I/V) |
-| `fp_dept_artcc` | Departure ARTCC |
-| `fp_dest_artcc` | Destination ARTCC |
-
-**TMI Data:**
-| Column | Description |
-|--------|-------------|
-| `gs_flag` | Ground stop flag (1/0) |
-| `ctl_type` | Control type |
-| `ctl_program` | Control program |
-| `ctl_element` | Control element |
-| `ctl_exempt` | Exempt flag |
-| `gdp_program_id` | GDP program ID |
-| `gdp_slot_index` | GDP slot index |
-| `gdp_slot_time_utc` | GDP slot time |
-
-**Time Data:**
-| Column | Description |
-|--------|-------------|
-| `first_seen_utc` | First seen timestamp |
-| `last_seen_utc` | Last seen timestamp |
-| `out_utc`, `off_utc`, `on_utc`, `in_utc` | OOOI times |
-| `eta_runway_utc` | ETA at runway |
-| `estimated_arr_utc` | Estimated arrival |
-
-**Distance/Time:**
-| Column | Description |
-|--------|-------------|
-| `gcd_nm` | Great circle distance in NM |
-| `ete_minutes` | Estimated time enroute |
-
----
-
-## 5. Integration Specifications
-
-### 5.1 vATCSCC/PERTI (Phase 1 - Current)
-- **Role:** Authoritative for ADL/TMI
-- **Frequency:** Every 15 seconds (via ADL refresh)
-- **Data:** Flights, positions, TMI status
-
-### 5.2 vNAS (Phase 2 - Future)
-- **Role:** Authoritative for Track/ATC
-- **Frequency:** 1-5 Hz
-- **Protocol:** WebSocket/Event Hub
-
-### 5.3 CRC (Phase 2 - Future)
-- **Role:** Bidirectional ATC client
-- **Inbound:** TMI status, metering
-- **Outbound:** Track, tags, handoffs
-
-### 5.4 SimTraffic (Phase 2 - Future)
-- **Role:** Metering data provider
-- **Data:** STA, sequence, delays
-
-### 5.5 Simulator Telemetry (Phase 3 - Future)
-- **Protocol:** To be determined
-- **Data:** Position, FMS, fuel, autopilot
 
 ---
 
@@ -224,10 +326,10 @@ Authorization: Bearer {api_key}
 |--------|----------|--------|-------------|
 | GET | `/api/swim/v1` | ✅ Done | API info |
 | GET | `/api/swim/v1/flights` | ✅ Done | List flights with filters |
-| GET | `/api/swim/v1/flights/{gufi}` | ⏳ Pending | Get single flight by GUFI |
+| GET | `/api/swim/v1/flight` | ✅ Done | Get single flight |
 | GET | `/api/swim/v1/positions` | ✅ Done | Bulk positions (GeoJSON) |
-| GET | `/api/swim/v1/tmi/programs` | ✅ Done | Active TMI programs |
-| GET | `/api/swim/v1/tmi/controlled` | ⏳ Pending | TMI-controlled flights |
+| GET | `/api/swim/v1/tmi/programs` | ⚠️ Error | Active TMI programs |
+| GET | `/api/swim/v1/tmi/controlled` | ✅ Done | TMI-controlled flights |
 | POST | `/api/swim/v1/ingest/adl` | ✅ Done | Ingest ADL data |
 | POST | `/api/swim/v1/ingest/track` | ⏳ Pending | Ingest track data |
 | POST | `/api/swim/v1/ingest/metering` | ⏳ Pending | Ingest metering data |
@@ -241,7 +343,7 @@ Authorization: Bearer {api_key}
 
 1. Client sends request with `Authorization: Bearer {api_key}` header
 2. `auth.php` middleware validates key format and tier
-3. Key lookup in `swim_api_keys` table (or fallback for development)
+3. Key lookup in `swim_api_keys` table
 4. Rate limit check via APCu cache
 5. Access logged to `swim_audit_log`
 
@@ -251,58 +353,70 @@ Allowed origins:
 - `https://perti.vatcscc.org`
 - `https://vatcscc.org`
 - `https://swim.vatcscc.org`
-- `http://localhost:3000` (development)
-- `http://localhost:8080` (development)
+- `http://localhost:*` (development)
 
 ---
 
 ## 8. Implementation Status
 
-### 8.1 Completed (Phase 1 Foundation)
+### 8.1 Current State (v1 - Temporary)
+
+⚠️ **Current implementation queries VATSIM_ADL directly** - this is temporary and must be migrated to the dedicated SWIM_API database before heavy public use.
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| API Endpoints | ✅ Functional | Querying VATSIM_ADL (temporary) |
+| Authentication | ✅ Complete | Working |
+| Rate Limiting | ✅ Complete | APCu-based |
+| SWIM_API Database | ❌ Not Created | **BLOCKING** |
+| Sync Procedure | ❌ Not Created | **BLOCKING** |
+
+### 8.2 Migration Tasks (REQUIRED)
+
+| Task | Priority | Effort | Status |
+|------|----------|--------|--------|
+| Create SWIM_API database (Azure SQL Basic) | **CRITICAL** | 1h | ❌ |
+| Create swim_flights table | **CRITICAL** | 1h | ❌ |
+| Create sp_Swim_SyncFromAdl | **CRITICAL** | 2h | ❌ |
+| Update API endpoints to query SWIM_API | **CRITICAL** | 2h | ❌ |
+| Schedule sync job (every 15 sec) | **CRITICAL** | 1h | ❌ |
+| Test API against SWIM_API | High | 2h | ❌ |
+
+### 8.3 Completed Components
 
 | Component | Location | Status |
 |-----------|----------|--------|
 | Configuration | `load/swim_config.php` | ✅ Complete |
 | Auth Middleware | `api/swim/v1/auth.php` | ✅ Complete |
 | API Router | `api/swim/v1/index.php` | ✅ Complete |
-| Flights Endpoint | `api/swim/v1/flights.php` | ✅ Complete |
-| Positions Endpoint | `api/swim/v1/positions.php` | ✅ Complete |
-| TMI Programs | `api/swim/v1/tmi/programs.php` | ✅ Complete |
-| ADL Ingest | `api/swim/v1/ingest/adl.php` | ✅ Complete |
-| DB Migration | `database/migrations/swim/001_swim_tables.sql` | ✅ Complete |
-
-### 8.2 Pending (Phase 1 Remaining)
-
-| Component | Priority | Notes |
-|-----------|----------|-------|
-| Single flight endpoint (`/flights/{gufi}`) | High | Next sprint |
-| TMI controlled endpoint | High | Next sprint |
-| Track ingest endpoint | Medium | For vNAS integration |
-| Metering ingest endpoint | Medium | For SimTraffic integration |
-| API Reference documentation | High | Needed for partners |
-
-### 8.3 Future (Phase 2+)
-
-| Component | Phase | Notes |
-|-----------|-------|-------|
-| WebSocket server | 2 | Real-time distribution |
-| Event publishing | 2 | Hook into ADL refresh |
-| vNAS integration | 2 | Track data |
-| CRC plugin | 2 | Bidirectional sync |
-| SimTraffic integration | 2 | Metering data |
-| Telemetry collection | 3 | Simulator data |
+| Flights Endpoint | `api/swim/v1/flights.php` | ⚠️ Needs DB switch |
+| Flight Endpoint | `api/swim/v1/flight.php` | ⚠️ Needs DB switch |
+| Positions Endpoint | `api/swim/v1/positions.php` | ⚠️ Needs DB switch |
+| TMI Programs | `api/swim/v1/tmi/programs.php` | ⚠️ Has error |
+| TMI Controlled | `api/swim/v1/tmi/controlled.php` | ⚠️ Needs DB switch |
 
 ---
 
 ## 9. Implementation Roadmap
 
-### Phase 1: Foundation (Weeks 1-4) - CURRENT
+### Phase 0: Infrastructure (IMMEDIATE - REQUIRED)
+
+| Task | Owner | Status |
+|------|-------|--------|
+| Create Azure SQL Basic database "SWIM_API" | DevOps | ❌ |
+| Create swim_flights table | Dev | ❌ |
+| Create sp_Swim_SyncFromAdl procedure | Dev | ❌ |
+| Update connection strings in swim_config.php | Dev | ❌ |
+| Update API endpoints to use SWIM_API | Dev | ❌ |
+| Test all endpoints | QA | ❌ |
+
+### Phase 1: Foundation (Weeks 1-4) - IN PROGRESS
 
 | Week | Focus | Status |
 |------|-------|--------|
 | 1-2 | Design & Architecture | ✅ Complete |
 | 2-3 | Core API Implementation | ✅ Complete |
-| 3-4 | Database Migration & Testing | 🔄 In Progress |
+| 3-4 | **Infrastructure Migration** | 🔄 In Progress |
 
 ### Phase 2: Real-Time Distribution (Weeks 5-8)
 
@@ -311,19 +425,12 @@ Allowed origins:
 | 5-6 | WebSocket server, subscription management |
 | 7-8 | Event publishing, vNAS integration |
 
-### Phase 3: Telemetry Integration (Weeks 9-12)
+### Phase 3: Partner Integrations (Weeks 9-12)
 
 | Week | Focus |
 |------|-------|
-| 9-10 | Telemetry schema, IoT endpoint |
-| 11-12 | SimConnect integration, pilot client spec |
-
-### Phase 4: Partner Integrations (Weeks 13-16)
-
-| Week | Focus |
-|------|-------|
-| 13-14 | SimBrief webhook, VA integrations |
-| 15-16 | CRC plugin, EuroScope integration |
+| 9-10 | CRC plugin, EuroScope integration |
+| 11-12 | SimTraffic, Virtual Airlines |
 
 ---
 
@@ -350,13 +457,16 @@ VATSIM PERTI/PERTI/
 │   ├── auth.php              # Authentication middleware
 │   ├── index.php             # API router
 │   ├── flights.php           # Flights endpoint
+│   ├── flight.php            # Single flight endpoint
 │   ├── positions.php         # GeoJSON positions
 │   ├── ingest/
 │   │   └── adl.php           # ADL ingest
 │   └── tmi/
-│       └── programs.php      # TMI programs
+│       ├── programs.php      # TMI programs
+│       └── controlled.php    # TMI controlled flights
 ├── database/migrations/swim/
-│   └── 001_swim_tables.sql   # Database schema
+│   ├── 001_swim_tables.sql   # API keys, audit tables
+│   └── 002_swim_api_database.sql  # Dedicated SWIM_API schema
 ├── docs/swim/
 │   ├── README.md             # Overview
 │   ├── VATSIM_SWIM_Design_Document_v1.md
@@ -369,7 +479,7 @@ VATSIM PERTI/PERTI/
 
 - [SWIM README](./README.md) - Quick start guide
 - [SWIM TODO](./SWIM_TODO.md) - Implementation tracker
-- [PERTI Status](../STATUS.md) - System status dashboard
+- [Normalized Schema Reference](./ADL_NORMALIZED_SCHEMA_REFERENCE.md) - Source data schema
 
 ---
 

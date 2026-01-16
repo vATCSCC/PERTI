@@ -16,6 +16,15 @@
 
 require_once __DIR__ . '/auth.php';
 
+// Single flight lookups use VATSIM_ADL for full detail (minimal cost impact)
+// The swim_flights table doesn't have all detailed columns
+global $conn_swim, $conn_adl;
+$conn = $conn_adl ?: $conn_swim;  // Prefer ADL for full detail
+
+if (!$conn) {
+    SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+}
+
 $auth = swim_init_auth(true, false);
 
 // Get identifier parameters
@@ -135,7 +144,7 @@ $sql = "
     ORDER BY c.last_seen_utc DESC
 ";
 
-$stmt = sqlsrv_query($conn_adl, $sql, $params);
+$stmt = sqlsrv_query($conn, $sql, $params);
 if ($stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');

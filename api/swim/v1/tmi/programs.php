@@ -6,10 +6,18 @@
  * Ground Stops: MySQL (tmi_ground_stops)
  * GDP Programs: Azure SQL (gdp_log)
  * 
- * @version 1.1.0
+ * @version 1.2.0 - Added error handling
  */
 
 require_once __DIR__ . '/../auth.php';
+
+// Get database connections
+// MySQL: $conn_sqli for Ground Stops (tmi_ground_stops table)
+// Azure SQL: $conn_adl for GDP programs (gdp_log table)
+global $conn_sqli, $conn_adl, $conn_swim;
+
+// GDP queries can use SWIM_API if available, fall back to VATSIM_ADL
+$conn_sql = $conn_swim ?: $conn_adl;
 
 $auth = swim_init_auth(true, false);
 
@@ -30,64 +38,72 @@ $response = [
 
 // GROUND STOPS - MySQL
 if ($type === 'all' || $type === 'gs') {
-    $gs_where = [];
-    $gs_params = [];
-    $gs_types = '';
-    
-    if ($include_history) {
-        $gs_where[] = "(status = 1 OR (status != 1 AND end_utc >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 HOUR)))";
-    } else {
-        $gs_where[] = "status = 1";
-    }
-    
-    if ($airport) {
-        $airport_list = array_map('trim', explode(',', strtoupper($airport)));
-        $placeholders = implode(',', array_fill(0, count($airport_list), '?'));
-        $gs_where[] = "ctl_element IN ($placeholders)";
-        $gs_params = array_merge($gs_params, $airport_list);
-        $gs_types .= str_repeat('s', count($airport_list));
-    }
-    
-    $gs_sql = "SELECT name, ctl_element, element_type, airports, start_utc, end_utc, prob_ext,
-                      origin_centers, origin_airports, comments, adv_number, advisory_text, status
-               FROM tmi_ground_stops WHERE " . implode(' AND ', $gs_where) . " ORDER BY ctl_element";
-    
-    if (!empty($gs_params)) {
-        $gs_stmt = $con->prepare($gs_sql);
-        if ($gs_stmt) {
-            $gs_stmt->bind_param($gs_types, ...$gs_params);
-            $gs_stmt->execute();
-            $gs_result = $gs_stmt->get_result();
+    // Check if MySQL connection is available
+    if (isset($conn_sqli) && $conn_sqli) {
+        $gs_where = [];
+        $gs_params = [];
+        $gs_types = '';
+        
+        if ($include_history) {
+            $gs_where[] = "(status = 1 OR (status != 1 AND end_utc >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 HOUR)))";
+        } else {
+            $gs_where[] = "status = 1";
         }
-    } else {
-        $gs_result = $con->query($gs_sql);
-    }
-    
-    if ($gs_result) {
-        while ($row = $gs_result->fetch_assoc()) {
-            $airport_info = getAirportInfo($row['ctl_element']);
-            
-            if ($artcc) {
-                $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
-                if ($airport_info && !in_array($airport_info['artcc'], $artcc_list)) continue;
+        
+        if ($airport) {
+            $airport_list = array_map('trim', explode(',', strtoupper($airport)));
+            $placeholders = implode(',', array_fill(0, count($airport_list), '?'));
+            $gs_where[] = "ctl_element IN ($placeholders)";
+            $gs_params = array_merge($gs_params, $airport_list);
+            $gs_types .= str_repeat('s', count($airport_list));
+        }
+        
+        $gs_sql = "SELECT name, ctl_element, element_type, airports, start_utc, end_utc, prob_ext,
+                          origin_centers, origin_airports, comments, adv_number, advisory_text, status
+                   FROM tmi_ground_stops WHERE " . implode(' AND ', $gs_where) . " ORDER BY ctl_element";
+        
+        try {
+            if (!empty($gs_params)) {
+                $gs_stmt = $conn_sqli->prepare($gs_sql);
+                if ($gs_stmt) {
+                    $gs_stmt->bind_param($gs_types, ...$gs_params);
+                    $gs_stmt->execute();
+                    $gs_result = $gs_stmt->get_result();
+                }
+            } else {
+                $gs_result = $conn_sqli->query($gs_sql);
             }
             
-            $response['ground_stops'][] = [
-                'type' => 'ground_stop',
-                'airport' => $row['ctl_element'],
-                'airport_name' => $airport_info ? $airport_info['name'] : null,
-                'artcc' => $airport_info ? $airport_info['artcc'] : null,
-                'name' => $row['name'],
-                'reason' => $row['comments'],
-                'probability_of_extension' => intval($row['prob_ext']),
-                'times' => ['start' => $row['start_utc'], 'end' => $row['end_utc']],
-                'advisory' => ['number' => $row['adv_number'], 'text' => $row['advisory_text']],
-                'is_active' => ($row['status'] == 1)
-            ];
-            
-            if ($row['status'] == 1) $response['summary']['active_ground_stops']++;
+            if ($gs_result) {
+                while ($row = $gs_result->fetch_assoc()) {
+                    $airport_info = getAirportInfo($row['ctl_element']);
+                    
+                    if ($artcc) {
+                        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
+                        if ($airport_info && !in_array($airport_info['artcc'], $artcc_list)) continue;
+                    }
+                    
+                    $response['ground_stops'][] = [
+                        'type' => 'ground_stop',
+                        'airport' => $row['ctl_element'],
+                        'airport_name' => $airport_info ? $airport_info['name'] : null,
+                        'artcc' => $airport_info ? $airport_info['artcc'] : null,
+                        'name' => $row['name'],
+                        'reason' => $row['comments'],
+                        'probability_of_extension' => intval($row['prob_ext']),
+                        'times' => ['start' => $row['start_utc'], 'end' => $row['end_utc']],
+                        'advisory' => ['number' => $row['adv_number'], 'text' => $row['advisory_text']],
+                        'is_active' => ($row['status'] == 1)
+                    ];
+                    
+                    if ($row['status'] == 1) $response['summary']['active_ground_stops']++;
+                }
+                if (isset($gs_stmt)) $gs_stmt->close();
+            }
+        } catch (Exception $e) {
+            // Log error but continue - GDPs may still work
+            error_log("SWIM TMI Programs - MySQL error: " . $e->getMessage());
         }
-        if (isset($gs_stmt)) $gs_stmt->close();
     }
 }
 
@@ -128,7 +144,7 @@ if ($type === 'all' || $type === 'gdp') {
         WHERE " . implode(' AND ', $gdp_where) . "
         ORDER BY g.ctl_element";
     
-    $gdp_stmt = sqlsrv_query($conn_adl, $gdp_sql, $gdp_params);
+    $gdp_stmt = sqlsrv_query($conn_sql, $gdp_sql, $gdp_params);
     if ($gdp_stmt !== false) {
         while ($row = sqlsrv_fetch_array($gdp_stmt, SQLSRV_FETCH_ASSOC)) {
             $response['gdp_programs'][] = [
@@ -160,6 +176,10 @@ if ($type === 'all' || $type === 'gdp') {
             if ($row['status'] === 'ACTIVE') $response['summary']['active_gdp_programs']++;
         }
         sqlsrv_free_stmt($gdp_stmt);
+    } else {
+        // Log SQL Server error
+        $errors = sqlsrv_errors();
+        error_log("SWIM TMI Programs - SQL Server error: " . ($errors[0]['message'] ?? 'Unknown'));
     }
 }
 
@@ -172,8 +192,11 @@ $response['summary']['total_controlled_airports'] = count($controlled_airports);
 SwimResponse::success($response, ['source' => 'vatcscc', 'type_filter' => $type]);
 
 function getAirportInfo($icao) {
-    global $conn_adl;
-    $stmt = sqlsrv_query($conn_adl, "SELECT ICAO_ID, ARPT_NAME, RESP_ARTCC_ID FROM dbo.apts WHERE ICAO_ID = ?", [$icao]);
+    global $conn_adl, $conn_swim;
+    $conn = $conn_swim ?: $conn_adl;
+    if (!$conn) return null;
+    
+    $stmt = sqlsrv_query($conn, "SELECT ICAO_ID, ARPT_NAME, RESP_ARTCC_ID FROM dbo.apts WHERE ICAO_ID = ?", [$icao]);
     if ($stmt === false) return null;
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);

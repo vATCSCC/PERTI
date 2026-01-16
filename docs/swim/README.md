@@ -2,62 +2,48 @@
 
 > Centralized data exchange hub for real-time flight information sharing across the VATSIM ecosystem.
 
-**Status:** Phase 1 - Foundation (In Progress)  
-**Version:** 1.1.0  
-**Last Updated:** 2026-01-15
+[![Status](https://img.shields.io/badge/status-phase_0_infrastructure-orange)]()
+[![Version](https://img.shields.io/badge/api_version-1.0-blue)]()
+[![Cost](https://img.shields.io/badge/target_cost-$7--24/mo-green)]()
+
+## ⚠️ Current Status
+
+**Phase 0: Infrastructure Migration Required**
+
+The API is functional but currently queries VATSIM_ADL Serverless directly, which would be expensive under load. Before public release, we need to:
+
+1. Create dedicated `SWIM_API` database (Azure SQL Basic, $5/month)
+2. Implement sync procedure from VATSIM_ADL
+3. Update API endpoints to use the dedicated database
+
+See [SWIM_TODO.md](./SWIM_TODO.md) for detailed migration tasks.
 
 ---
 
 ## Quick Links
 
-- [Design Document](./VATSIM_SWIM_Design_Document_v1.md) - Full architecture and specification
-- [Implementation Tracker](./SWIM_TODO.md) - What's done, what's next
-- [System Status](../STATUS.md) - PERTI system dashboard
+- [Design Document](./VATSIM_SWIM_Design_Document_v1.md) - Full architecture & specifications
+- [Implementation Tracker](./SWIM_TODO.md) - Current status & tasks
+- [Normalized Schema](./ADL_NORMALIZED_SCHEMA_REFERENCE.md) - Source data schema
+- [API Endpoint](https://perti.vatcscc.org/api/swim/v1/) - Live API
 
 ---
 
-## What is SWIM?
+## Architecture
 
-SWIM provides a **single source of truth** for VATSIM flight data, enabling:
+```
+┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐
+│    VATSIM_ADL       │      │     SWIM_API        │      │    Public API       │
+│  (Serverless)       │─────▶│   (Basic $5/mo)     │─────▶│    Endpoints        │
+│  Internal only      │ sync │  Dedicated for API  │      │                     │
+└─────────────────────┘ 15s  └─────────────────────┘      └─────────────────────┘
+```
 
-- ✅ Consistent TMI (Ground Stop/GDP) application across all facilities
-- ✅ Real-time position and track data sharing
-- ✅ Unified flight record with data from all sources
-- ✅ Metering coordination between SimTraffic and ATC clients (planned)
-- ✅ Enhanced ATC client displays (TMI status in tags) (planned)
-
----
-
-## Current Implementation Status
-
-### ✅ Completed (Phase 1)
-
-| Component | Description |
-|-----------|-------------|
-| **API Endpoints** | 5 endpoints ready for testing |
-| **Authentication** | Bearer token with tiered API keys |
-| **Database Schema** | 5 tables + 3 stored procedures |
-| **Documentation** | Design doc, README, TODO tracker |
-
-### ⏳ Pending (Next Sprint)
-
-| Component | Description |
-|-----------|-------------|
-| **Deploy Migration** | Run `001_swim_tables.sql` on Azure |
-| **Single Flight API** | GET by GUFI |
-| **API Reference** | OpenAPI/Swagger documentation |
-
-### 📅 Future (Phase 2+)
-
-| Component | Description |
-|-----------|-------------|
-| **WebSocket** | Real-time distribution |
-| **vNAS Integration** | Track data exchange |
-| **CRC Plugin** | Bidirectional sync |
+**Key Principle:** Public API traffic NEVER hits VATSIM_ADL directly. This keeps costs predictable (~$7-24/month vs $500-7,500+/month).
 
 ---
 
-## API Overview
+## API Endpoints
 
 ### Base URL
 ```
@@ -69,121 +55,94 @@ https://perti.vatcscc.org/api/swim/v1
 Authorization: Bearer {api_key}
 ```
 
-### Endpoints
+### Available Endpoints
 
-| Method | Endpoint | Status | Description |
-|--------|----------|--------|-------------|
-| GET | `/` | ✅ | API info (no auth) |
-| GET | `/flights` | ✅ | List flights with filters |
-| GET | `/flights/{gufi}` | ⏳ | Get single flight |
-| GET | `/positions` | ✅ | Bulk positions (GeoJSON) |
-| GET | `/tmi/programs` | ✅ | Active GS/GDP programs |
-| POST | `/ingest/adl` | ✅ | Ingest ADL data |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | API info (no auth) |
+| GET | `/flights` | List flights with filters |
+| GET | `/flight` | Single flight by GUFI/flight_uid |
+| GET | `/positions` | Bulk positions (GeoJSON) |
+| GET | `/tmi/programs` | Active TMI programs |
+| GET | `/tmi/controlled` | TMI-controlled flights |
 
-### Example Requests
+### Example Usage
 
 ```bash
-# API Info (no auth required)
+# Get API info (no auth required)
 curl https://perti.vatcscc.org/api/swim/v1/
 
-# List active flights (requires auth)
+# List active flights
 curl -H "Authorization: Bearer swim_dev_test_001" \
      "https://perti.vatcscc.org/api/swim/v1/flights?status=active&per_page=10"
 
-# Flights by destination
+# Get single flight
 curl -H "Authorization: Bearer swim_dev_test_001" \
-     "https://perti.vatcscc.org/api/swim/v1/flights?dest_icao=KJFK,KLGA,KEWR"
+     "https://perti.vatcscc.org/api/swim/v1/flight?flight_uid=12345"
 
-# GeoJSON positions for an ARTCC
+# Get positions as GeoJSON
 curl -H "Authorization: Bearer swim_dev_test_001" \
      "https://perti.vatcscc.org/api/swim/v1/positions?artcc=ZNY"
-
-# Active TMI programs
-curl -H "Authorization: Bearer swim_dev_test_001" \
-     "https://perti.vatcscc.org/api/swim/v1/tmi/programs"
 ```
 
 ---
 
-## File Structure
+## Cost Structure
 
-```
-VATSIM PERTI/PERTI/
-├── api/swim/v1/
-│   ├── auth.php              # Authentication middleware
-│   ├── index.php             # API router/info
-│   ├── flights.php           # Flight list endpoint
-│   ├── positions.php         # GeoJSON positions
-│   ├── ingest/
-│   │   └── adl.php           # ADL data ingest
-│   └── tmi/
-│       └── programs.php      # TMI programs (GS/GDP)
-│
-├── database/migrations/swim/
-│   └── 001_swim_tables.sql   # Database schema
-│
-├── docs/swim/
-│   ├── README.md             # This file
-│   ├── VATSIM_SWIM_Design_Document_v1.md
-│   └── SWIM_TODO.md          # Implementation tracker
-│
-└── load/
-    └── swim_config.php       # Configuration
-```
+### Target Infrastructure (~$7-24/month)
 
----
+| Service | Purpose | Cost |
+|---------|---------|------|
+| Azure SQL Basic | SWIM_API database | $5/mo |
+| Azure Redis (optional) | High-traffic cache | $16/mo |
+| Azure Storage | Archives | $2-3/mo |
+| **TOTAL** | | **$7-24/mo** |
 
-## Data Sources
+### Why Not Query VATSIM_ADL Directly?
 
-SWIM queries data from two databases:
+VATSIM_ADL uses Azure SQL Serverless which charges per vCore-second:
 
-| Data | Database | Table |
-|------|----------|-------|
-| Flight Data | Azure SQL (VATSIM_ADL) | `adl_flights` |
-| Ground Stops | MySQL (PERTI) | `tmi_ground_stops` |
-| GDP Programs | Azure SQL (VATSIM_ADL) | `gdp_log` |
-| Airport Info | Azure SQL (VATSIM_ADL) | `apts` |
-
----
-
-## GUFI Format
-
-Globally Unique Flight Identifier:
-```
-VAT-YYYYMMDD-CALLSIGN-DEPT-DEST
-```
-
-Example: `VAT-20260115-UAL123-KJFK-KLAX`
+| API Traffic | Direct VATSIM_ADL | Dedicated SWIM_API |
+|-------------|-------------------|-------------------|
+| 10K req/day | ~$15-45/mo | **$5/mo** |
+| 100K req/day | ~$150-450/mo | **$5/mo** |
+| 1M req/day | ~$1,500-4,500/mo | **$5/mo** |
 
 ---
 
 ## API Key Tiers
 
-| Tier | Prefix | Rate Limit | Write Access |
-|------|--------|-----------|--------------|
-| System | `swim_sys_` | 10,000/min | Yes |
-| Partner | `swim_par_` | 1,000/min | Limited |
-| Developer | `swim_dev_` | 100/min | No |
-| Public | `swim_pub_` | 30/min | No |
+| Tier | Rate Limit | Write Access | Use Case |
+|------|-----------|--------------|----------|
+| System | 10,000/min | Yes | Internal services |
+| Partner | 1,000/min | Limited | vNAS, CRC, SimTraffic |
+| Developer | 100/min | No | Third-party apps |
+| Public | 30/min | No | General access |
 
 ---
 
-## Next Steps
+## Data Sources
 
-1. **Deploy Database Migration** - Run `001_swim_tables.sql` on Azure SQL
-2. **Test API Endpoints** - Verify functionality with Postman/curl
-3. **Create Single Flight Endpoint** - `GET /flights/{gufi}`
-4. **API Documentation** - Generate OpenAPI spec
-5. **Integrate with ADL Refresh** - Publish updates on flight changes
+| Data | Source | Update Frequency |
+|------|--------|-----------------|
+| Flight positions | VATSIM API | 15 seconds |
+| Flight plans | VATSIM API | On change |
+| TMI (GS/GDP) | vATCSCC | Real-time |
+| OOOI times | vATCSCC | On detection |
+| Aircraft data | ACD reference | Static |
+
+---
+
+## Related Documentation
+
+- [VATSIM_SWIM_Design_Document_v1.md](./VATSIM_SWIM_Design_Document_v1.md) - Complete design specification
+- [SWIM_TODO.md](./SWIM_TODO.md) - Implementation tracker
+- [ADL_NORMALIZED_SCHEMA_REFERENCE.md](./ADL_NORMALIZED_SCHEMA_REFERENCE.md) - Database schema
 
 ---
 
 ## Contact
 
-- **Project:** vATCSCC PERTI
 - **Email:** dev@vatcscc.org
 - **Discord:** vATCSCC Server
-
----
-
-*Part of the vATCSCC/PERTI project*
+- **Repository:** VATSIM PERTI/PERTI
