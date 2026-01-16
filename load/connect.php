@@ -77,7 +77,9 @@ if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
         $connectionInfo = [
             "Database" => ADL_SQL_DATABASE,
             "UID"      => ADL_SQL_USERNAME,
-            "PWD"      => ADL_SQL_PASSWORD
+            "PWD"      => ADL_SQL_PASSWORD,
+            "LoginTimeout" => 30,
+            "ConnectionPooling" => 1
         ];
 
         $conn_adl = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
@@ -110,7 +112,9 @@ if (defined('SWIM_SQL_HOST') && defined('SWIM_SQL_DATABASE') &&
         $swimConnectionInfo = [
             "Database" => SWIM_SQL_DATABASE,
             "UID"      => SWIM_SQL_USERNAME,
-            "PWD"      => SWIM_SQL_PASSWORD
+            "PWD"      => SWIM_SQL_PASSWORD,
+            "LoginTimeout" => 30,
+            "ConnectionPooling" => 1
         ];
 
         $conn_swim = sqlsrv_connect(SWIM_SQL_HOST, $swimConnectionInfo);
