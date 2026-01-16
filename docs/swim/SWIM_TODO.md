@@ -1,240 +1,234 @@
 # VATSIM SWIM Implementation Tracker
 
-**Last Updated:** 2026-01-16 05:00 UTC  
-**Status:** Phase 0 - Infrastructure ✅ COMPLETE  
+**Last Updated:** 2026-01-16 14:00 UTC  
+**Status:** Phase 1 - COMPLETE, Phase 2 - PLANNING  
 **Repository:** `VATSIM PERTI/PERTI/`
 
 ---
 
-## ✅ Infrastructure Migration COMPLETE
+## Current Focus: Phase 2 Planning
 
-**Problem Solved:** API endpoints were querying VATSIM_ADL Serverless directly, risking $500-7,500+/month costs.
+Phase 1 is complete. All FIXM field naming implemented with `?format=fixm` parameter support. Track and metering ingest endpoints are ready for integration testing.
 
-**Solution Deployed:** Dedicated SWIM_API database (Azure SQL Basic, $5/month fixed) with PHP-based sync from ADL daemon.
+**Key Document:** [VATSIM_SWIM_API_Field_Migration.md](./VATSIM_SWIM_API_Field_Migration.md)
 
 ---
 
 ## Quick Status
 
-| Category | Complete | In Progress | Pending | Total |
-|----------|----------|-------------|---------|-------|
-| Infrastructure | **5** | 0 | 0 | 5 |
-| API Endpoints | 6 | 0 | 2 | 8 |
-| Database Tables | 5 | 0 | 0 | 5 |
-| Documentation | 7 | 0 | 0 | 7 |
+| Phase | Status | Progress |
+|-------|--------|----------|
+| Phase 0: Infrastructure | ✅ COMPLETE | 100% |
+| Phase 1: Standards & Docs | ✅ COMPLETE | 100% |
+| Phase 2: Real-Time | ⏳ PLANNING | 0% |
+| Phase 3: Integrations | ⏳ PENDING | 0% |
 
 ---
 
 ## ✅ Phase 0: Infrastructure (COMPLETE)
 
-| Task | Priority | Status | Notes |
-|------|----------|--------|-------|
-| Create Azure SQL Basic database `SWIM_API` | **CRITICAL** | ✅ | $5/month fixed cost |
-| Run database migration (swim_flights table) | **CRITICAL** | ✅ | 003_swim_api_database_fixed.sql |
-| Create `sp_Swim_BulkUpsert` stored procedure | **CRITICAL** | ✅ | 004_swim_bulk_upsert_sp.sql |
-| Add SWIM_API connection to config | **CRITICAL** | ✅ | config.php + connect.php |
-| Integrate sync into ADL daemon | **CRITICAL** | ✅ | swim_sync.php V2 with batch SP |
-| Clean SWIM objects from VATSIM_ADL | **CRITICAL** | ✅ | All SWIM tables/SPs removed |
-
-### Current Architecture
-
-```
-┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐
-│    VATSIM_ADL       │      │     SWIM_API        │      │    Public API       │
-│  (Serverless $$$)   │─────▶│   (Basic $5/mo)     │─────▶│    Endpoints        │
-│  Internal only      │ PHP  │  Dedicated for API  │      │                     │
-└─────────────────────┘ 2min └─────────────────────┘      └─────────────────────┘
-```
+| Task | Status | Notes |
+|------|--------|-------|
+| Create Azure SQL Basic database `SWIM_API` | ✅ | $5/month fixed cost |
+| Deploy swim_flights table (75 columns) | ✅ | Full schema |
+| Create `sp_Swim_BulkUpsert` stored procedure | ✅ | MERGE-based batch |
+| Integrate sync into ADL daemon | ✅ | 2-minute interval |
+| Clean SWIM objects from VATSIM_ADL | ✅ | All removed |
 
 ### Sync Performance
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Sync interval | 2 minutes | Every 8th daemon cycle |
-| Sync duration | ~30 seconds | 2,000 flights × 75 columns |
-| Data staleness | 30s - 2.5 min | Acceptable for no active consumers |
-| DTU utilization | ~25% | Comfortable headroom |
+| Metric | Value |
+|--------|-------|
+| Sync interval | 2 minutes |
+| Sync duration | ~30 seconds |
+| Flights synced | ~2,000 |
+| DTU utilization | ~25% |
 
 ---
 
-## ✅ Completed Items
+## ✅ Phase 1: Standards & Documentation (COMPLETE)
 
-### Infrastructure
+### Documentation Complete
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| SWIM_API Database | ✅ Created | Azure SQL Basic $5/mo |
-| swim_flights table | ✅ Created | Full 75-column schema |
-| sp_Swim_BulkUpsert | ✅ Created | MERGE-based batch upsert |
-| swim_sync.php | ✅ V2 | Batch SP with legacy fallback |
-| ADL Daemon Integration | ✅ Complete | 2-min sync interval |
-| VATSIM_ADL Cleanup | ✅ Complete | No SWIM objects remain |
-
-### API Endpoints
-
-| Endpoint | Version | Status | Database |
-|----------|---------|--------|----------|
-| `GET /api/swim/v1` | 1.0 | ✅ Working | None |
-| `GET /api/swim/v1/flights` | 2.0 | ✅ Working | SWIM_API (fallback ADL) |
-| `GET /api/swim/v1/flight` | 2.0 | ✅ Working | ADL (full detail) |
-| `GET /api/swim/v1/positions` | 2.0 | ✅ Working | SWIM_API (fallback ADL) |
-| `GET /api/swim/v1/tmi/controlled` | 2.0 | ✅ Working | SWIM_API (fallback ADL) |
-| `GET /api/swim/v1/tmi/programs` | 1.2 | ✅ Fixed | MySQL |
-| `POST /api/swim/v1/ingest/adl` | 1.0 | ✅ Working | VATSIM_ADL (correct) |
-
-### Database Objects (SWIM_API only)
-
-| Object | Type | Status |
-|--------|------|--------|
-| swim_flights | Table | ✅ Deployed |
-| swim_api_keys | Table | ✅ Deployed |
-| swim_audit_log | Table | ✅ Deployed |
-| swim_ground_stops | Table | ✅ Deployed |
-| vw_swim_active_flights | View | ✅ Deployed |
-| vw_swim_tmi_controlled | View | ✅ Deployed |
-| sp_Swim_BulkUpsert | SP | ✅ Deployed |
-
-### Configuration Files
-
-| File | Status | Notes |
+| Task | Status | Notes |
 |------|--------|-------|
-| `load/config.php` | ✅ Updated | SWIM_SQL_* constants added |
-| `load/connect.php` | ✅ Updated | $conn_swim + swim_trigger_sync() |
-| `scripts/swim_sync.php` | ✅ V2 | Batch SP support |
-| `scripts/vatsim_adl_daemon.php` | ✅ Updated | SWIM integration, 2-min interval |
+| OpenAPI 3.0 specification | ✅ | `openapi.yaml` |
+| Swagger UI documentation | ✅ | `index.html` |
+| Postman collection | ✅ | 22 requests |
+| Aviation standards catalog | ✅ | FIXM, AIXM, IWXXM, ARINC, etc. |
+| Standards cross-reference | ✅ | FIXM ↔ TFMS ↔ VATSIM mapping |
+| SWIM API field migration guide | ✅ | 79 fields mapped to FIXM |
+
+### Implementation Complete
+
+| Task | Status | Notes |
+|------|--------|-------|
+| FIXM field names in `formatFlightRecord()` | ✅ | `formatFlightRecordFIXM()` added |
+| `?format=fixm` query parameter option | ✅ | Supported on `/flights` and `/flight` |
+| `ingest/track.php` endpoint | ✅ | For vNAS/CRC integration |
+| `ingest/metering.php` endpoint | ✅ | For SimTraffic integration |
 
 ---
 
-## ⏳ Phase 1: Remaining Tasks
+## ⏳ Phase 2: Real-Time Distribution (PLANNING)
+
+### Architecture
+
+```
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│   ADL Daemon    │─────▶│  Event Publisher │─────▶│  WebSocket Hub  │
+│  (15s refresh)  │ emit │  (on ADL update) │ push │  (SignalR/WS)   │
+└─────────────────┘      └─────────────────┘      └────────┬────────┘
+                                                           │
+                         ┌─────────────────────────────────┴───────┐
+                         │                                         │
+                    ┌────▼────┐  ┌────────┐  ┌────────┐  ┌────────▼┐
+                    │   CRC   │  │ vNAS   │  │SimAware│  │  vPilot │
+                    └─────────┘  └────────┘  └────────┘  └─────────┘
+```
+
+### Tasks
 
 | Task | Priority | Effort | Status |
 |------|----------|--------|--------|
-| Create OpenAPI/Swagger spec | Medium | 4h | ✅ |
-| Create Postman collection | Medium | 2h | ❌ |
-| Implement `ingest/track.php` | Low | 3h | ❌ |
-| Implement `ingest/metering.php` | Low | 3h | ❌ |
+| WebSocket server implementation | Medium | 16h | ⏳ |
+| Event publishing on ADL refresh | Medium | 8h | ⏳ |
+| Subscription channel filtering | Medium | 8h | ⏳ |
+| Client reconnection handling | Medium | 4h | ⏳ |
+| Message format (delta vs full) | Low | 4h | ⏳ |
+
+### Technology Options
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Azure SignalR (Free) | Easy setup, managed | 20 connections/20K msgs/day limit |
+| PHP Ratchet WebSocket | No extra cost, full control | More dev work, must host |
+| Pusher/Ably | Very easy, reliable | Monthly cost ($49+) |
 
 ---
 
-## 📋 Phase 2: Real-Time (Future)
+## ⏳ Phase 3: Partner Integrations (FUTURE)
 
 | Task | Priority | Effort |
 |------|----------|--------|
-| WebSocket server | Medium | 16h |
-| Event publishing on ADL refresh | Medium | 8h |
-| Subscription channel filtering | Medium | 8h |
-| vNAS integration | Low | 20h |
+| vNAS integration | Medium | 20h |
+| CRC plugin | Low | 12h |
+| EuroScope integration | Low | 12h |
+| SimTraffic metering feed | Low | 8h |
+
+---
+
+## 📁 Documentation Inventory
+
+### Core Documents
+
+| Document | Status | Description |
+|----------|--------|-------------|
+| `README.md` | ✅ Updated | Quick start guide |
+| `VATSIM_SWIM_Design_Document_v1.md` | ✅ | Full architecture |
+| `SWIM_TODO.md` | ✅ Updated | This file |
+| `openapi.yaml` | ✅ | OpenAPI 3.0 spec |
+| `index.html` | ✅ | Swagger UI |
+
+### Standards Documentation
+
+| Document | Status | Description |
+|----------|--------|-------------|
+| `Aviation_Data_Standards_Cross_Reference.md` | ✅ | Industry standards catalog |
+| `VATSIM_SWIM_API_Field_Migration.md` | ✅ | FIXM field mapping (API layer) |
+| `VATSIM_SWIM_FIXM_Field_Mapping.md` | ⚠️ Superseded | Use API_Field_Migration instead |
+
+### Schema References
+
+| Document | Status | Description |
+|----------|--------|-------------|
+| `ADL_NORMALIZED_SCHEMA_REFERENCE.md` | ✅ | Source database schema |
+| `ADL_FLIGHTS_SCHEMA_REFERENCE.md` | ✅ | Legacy monolithic schema |
+
+---
+
+## ⚠️ Files to Clean Up
+
+| File | Action | Reason |
+|------|--------|--------|
+| `adl/migrations/050_swim_field_migration.sql` | DELETE | Incorrect scope (targeted ADL, not SWIM API) |
+| `VATSIM_SWIM_FIXM_Field_Mapping.md` | KEEP (reference) | Superseded by API_Field_Migration.md |
 
 ---
 
 ## 💰 Cost Summary
 
-### Current (DEPLOYED)
-
-| Component | Cost | Notes |
-|-----------|------|-------|
-| SWIM_API (Azure SQL Basic) | $5/mo | Fixed, unlimited queries |
-| VATSIM_ADL (Serverless) | Variable | Protected from API load |
-| **TOTAL** | **~$5/mo** | Plus existing infrastructure |
-
-### Future Options
-
-| Scenario | Change | Cost Impact |
-|----------|--------|-------------|
-| Need faster sync | Upgrade to S0 | +$10/mo ($15 total) |
-| High API traffic | Add Redis cache | +$16/mo |
-| Real-time WebSocket | Azure SignalR Free | $0 |
+| Component | Monthly Cost |
+|-----------|--------------|
+| SWIM_API (Azure SQL Basic) | $5 |
+| VATSIM_ADL (protected) | Variable (internal only) |
+| **Total SWIM Cost** | **$5/month** |
 
 ---
 
-## 🧪 Testing Checklist
+## 🔗 API Endpoints Status
 
-### Post-Migration (SWIM_API) ✅
-- [x] SWIM_API database created and accessible
-- [x] swim_flights table populated (~2,000 flights)
-- [x] sp_Swim_BulkUpsert working (~30s for full sync)
-- [x] ADL daemon syncing every 2 minutes
-- [x] API endpoints using SWIM_API with ADL fallback
-- [x] No SWIM objects in VATSIM_ADL
-
-### Performance Verified
-- [x] swim_ms: ~30,000ms (acceptable for 2-min interval)
-- [x] DTU utilization: ~25%
-- [x] No impact on ADL refresh cycle
-
----
-
-## 📁 File Inventory
-
-### Database Migrations (`database/migrations/swim/`)
-
-| File | Target DB | Status |
-|------|-----------|--------|
-| `001_swim_tables.sql` | (deprecated) | Replaced |
-| `002_swim_api_database.sql` | SWIM_API | Superseded |
-| `003_swim_api_database_fixed.sql` | SWIM_API | ✅ Deployed |
-| `004_swim_bulk_upsert_sp.sql` | SWIM_API | ✅ Deployed |
-
-### API Files (`api/swim/v1/`)
-
-| File | DB Connection | Status |
-|------|---------------|--------|
-| `index.php` | None | ✅ OK |
-| `auth.php` | `$conn_swim ?: $conn_adl` | ✅ Updated |
-| `flights.php` | `$conn_swim ?: $conn_adl` | ✅ Updated |
-| `flight.php` | `$conn_adl ?: $conn_swim` | ✅ Updated |
-| `positions.php` | `$conn_swim ?: $conn_adl` | ✅ Updated |
-| `tmi/programs.php` | `$conn_sqli` | ✅ Fixed |
-| `tmi/controlled.php` | `$conn_swim ?: $conn_adl` | ✅ Updated |
-| `ingest/adl.php` | `$conn_adl` | ✅ OK |
+| Endpoint | Version | Status | Format Support |
+|----------|---------|--------|----------------|
+| `GET /api/swim/v1` | 1.0 | ✅ | — |
+| `GET /api/swim/v1/flights` | 3.1 | ✅ | `?format=fixm` |
+| `GET /api/swim/v1/flight` | 2.1 | ✅ | `?format=fixm` |
+| `GET /api/swim/v1/positions` | 2.0 | ✅ | — |
+| `GET /api/swim/v1/tmi/programs` | 1.2 | ✅ | — |
+| `GET /api/swim/v1/tmi/controlled` | 2.0 | ✅ | — |
+| `POST /api/swim/v1/ingest/adl` | 1.0 | ✅ | — |
+| `POST /api/swim/v1/ingest/track` | 1.0 | ✅ | — |
+| `POST /api/swim/v1/ingest/metering` | 1.0 | ✅ | — |
 
 ---
 
 ## 📝 Change Log
 
-### 2026-01-16 Session 4 - OpenAPI Spec Complete
+### 2026-01-16 Session 6 - Phase 1 Complete
+- ✅ Implemented `formatFlightRecordFIXM()` in flights.php (79 fields mapped)
+- ✅ Added `?format=fixm` parameter to `/flights` endpoint
+- ✅ Updated flight.php with `formatDetailedFlightRecordFIXM()` function
+- ✅ Added `?format=fixm` parameter to `/flight` endpoint
+- ✅ Created `ingest/track.php` endpoint for vNAS/CRC track data
+- ✅ Created `ingest/metering.php` endpoint for SimTraffic metering data
+- ✅ Updated README.md to reflect Phase 1 complete
+- ✅ Updated TODO.md with completion status
+- 🎉 Phase 1 Complete!
+
+### 2026-01-16 Session 5 - Standards Documentation
+- ✅ Created Aviation Data Standards Cross Reference document
+- ✅ Created SWIM API Field Migration guide (FIXM/TFMS alignment)
+- ✅ Clarified: field migration applies to API output layer only
+- ✅ Documented 79 API response fields with FIXM mappings
+- ✅ Established `vATCSCC:` extension namespace for VATSIM-specific fields
+
+### 2026-01-16 Session 4 - API Documentation Complete
 - ✅ Created comprehensive OpenAPI 3.0 specification
-- 📄 File: `docs/swim/openapi.yaml`
-- 📋 Documented all 7 endpoints with full request/response schemas
-- 🔐 Included authentication tiers and rate limiting documentation
-- 📊 Added all component schemas (Flight, TMI, Position, etc.)
+- ✅ Created Swagger UI documentation page
+- ✅ Created Postman collection with 22 requests
 
 ### 2026-01-16 Session 3 - Infrastructure Complete
 - ✅ Created SWIM_API database (Azure SQL Basic $5/mo)
 - ✅ Deployed swim_flights table with full 75-column schema
-- ✅ Created sp_Swim_BulkUpsert with ISNULL fixes for BIT columns
-- ✅ Updated swim_sync.php to V2 with batch SP support
-- ✅ Integrated SWIM sync into ADL daemon
-- ✅ Set 2-minute sync interval for cost efficiency
-- ✅ Fixed duplicate logging (disabled stdout on Azure)
-- ✅ Fixed getSwimConnection() return type
+- ✅ Created sp_Swim_BulkUpsert
+- ✅ Integrated SWIM sync into ADL daemon (2-minute interval)
 - ✅ Cleaned all SWIM objects from VATSIM_ADL
-- ✅ Verified architecture: SWIM_API is standalone, ADL is internal-only
-- 📊 Sync performance: ~30s per cycle, 25% DTU utilization
 
-### 2026-01-16 Session 2 - Code Migration Complete
-- ✅ Updated config.php with SWIM_API database credentials
-- ✅ Updated connect.php with $conn_swim connection
+### 2026-01-16 Sessions 1-2 - Code Migration
+- ✅ Updated config.php and connect.php
 - ✅ Updated all API endpoints with connection fallback
-- ✅ Fixed tmi/programs.php MySQL connection bug
 
-### 2026-01-16 Session 1 - Infrastructure Architecture
-- ⚠️ Documented cost risk of direct VATSIM_ADL queries
-- 📋 Created Phase 0 infrastructure migration plan
-- 📝 Updated design document to v1.2
-
-### 2026-01-15 Sessions 1-4 - Initial Implementation
+### 2026-01-15 - Initial Implementation
 - ✅ Created API structure and endpoints
 - ✅ Implemented authentication and rate limiting
-- ✅ Migrated to normalized ADL schema
 
 ---
 
-## 🔗 Quick Links
+## 🚀 Next Session Priorities
 
-- [Design Document](./VATSIM_SWIM_Design_Document_v1.md)
-- [Session Transition](./SWIM_Session_Transition_20260116.md)
-- [API Base URL](https://perti.vatcscc.org/api/swim/v1/)
+1. **Delete incorrect file:** `adl/migrations/050_swim_field_migration.sql`
+2. **Phase 2 Design:** Choose WebSocket technology (Azure SignalR vs PHP Ratchet)
+3. **Phase 2 Implementation:** Event publishing from ADL daemon
 
 ---
 
