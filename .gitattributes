@@ -1,0 +1,16 @@
+# Ensure shell scripts always have Unix line endings
+*.sh text eol=lf
+
+# PHP files
+*.php text eol=lf
+
+# SQL files
+*.sql text eol=lf
+
+# Config files
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Prevent Windows line ending issues
+* text=auto
