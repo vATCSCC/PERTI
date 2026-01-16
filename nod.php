@@ -1259,6 +1259,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                         </optgroup>
                         <optgroup label="Route Matching">
                             <option value="reroute_match">Public Reroute Match</option>
+                            <option value="fea_match">FEA Match (Demand Monitor)</option>
                         </optgroup>
                     </select>
                 </div>

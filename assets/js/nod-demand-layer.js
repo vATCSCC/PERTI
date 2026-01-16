@@ -557,7 +557,13 @@ const NODDemandLayer = (function() {
             // Debug: log monitor data
             if (data.monitors && data.monitors.length > 0) {
                 data.monitors.forEach((m, i) => {
-                    console.log(`[DemandLayer] Monitor ${i}: id=${m.id}, type=${m.type}, lat=${m.lat}, lon=${m.lon}, total=${m.total}`);
+                    if (m.type === 'airway_segment' || m.type === 'segment') {
+                        console.log(`[DemandLayer] Monitor ${i}: id=${m.id}, type=${m.type}, from_lat=${m.from_lat}, to_lat=${m.to_lat}, geometry=${m.geometry ? m.geometry.length + ' pts' : 'none'}, total=${m.total}`);
+                    } else if (m.type === 'airway') {
+                        console.log(`[DemandLayer] Monitor ${i}: id=${m.id}, type=${m.type}, lat=${m.lat}, geometry=${m.geometry ? m.geometry.length + ' pts' : 'none'}, total=${m.total}`);
+                    } else {
+                        console.log(`[DemandLayer] Monitor ${i}: id=${m.id}, type=${m.type}, lat=${m.lat}, lon=${m.lon}, total=${m.total}`);
+                    }
                 });
             } else {
                 console.warn('[DemandLayer] API returned 0 monitors despite sending', state.monitors.length);
@@ -1331,8 +1337,9 @@ const NODDemandLayer = (function() {
     // Common TRACON codes (typically 3 chars, some start with letter + digits)
     const TRACON_PATTERNS = /^(N90|A80|A90|C90|D01|D10|D21|I90|L30|M98|NCT|NOR|P50|P80|PCT|PHL|POT|S46|S56|SCT|Y90)$/i;
 
-    // Airway patterns (J/V/Q/T followed by numbers)
-    const AIRWAY_PATTERN = /^[JVQT]\d+$/i;
+    // Airway patterns (J/V/Q/T/Y/L/M/A/B/G/R followed by numbers)
+    // J = Jet routes, V = Victor routes, Q/T = RNAV, Y = RNAV, L/M/A/B/G/R = International
+    const AIRWAY_PATTERN = /^[JVQTYLMABGR]\d+$/i;
 
     /**
      * Parse natural language monitor input string
@@ -1438,8 +1445,8 @@ const NODDemandLayer = (function() {
         }
 
         // Pattern 2: "[fix] [airway] [fix]" - airway segment
-        // Examples: "LANNA J48 MOL", "MERIT V1 SBJ"
-        const segmentMatch = input.match(/^(\w+)\s+([JVQT]\d+)\s+(\w+)$/i);
+        // Examples: "LANNA J48 MOL", "MERIT V1 SBJ", "REMIS Y280 LEV"
+        const segmentMatch = input.match(/^(\w+)\s+([JVQTYLMABGR]\d+)\s+(\w+)$/i);
         if (segmentMatch) {
             return {
                 type: 'airway_segment',
@@ -1990,6 +1997,212 @@ const NODDemandLayer = (function() {
     }
 
     // =========================================
+    // FEA Flight Matching
+    // =========================================
+
+    /**
+     * Distinct colors for FEA monitors (avoid traffic colors)
+     */
+    const FEA_COLORS = [
+        '#17a2b8', // Cyan
+        '#e83e8c', // Pink
+        '#6f42c1', // Purple
+        '#20c997', // Teal
+        '#fd7e14', // Orange
+        '#6610f2', // Indigo
+        '#007bff', // Blue
+        '#28a745', // Green
+        '#ffc107', // Yellow
+        '#dc3545', // Red
+        '#795548', // Brown
+        '#607d8b', // Blue-gray
+    ];
+
+    /**
+     * Get the color assigned to a monitor by its index
+     */
+    function getMonitorColor(monitorIndex) {
+        return FEA_COLORS[monitorIndex % FEA_COLORS.length];
+    }
+
+    /**
+     * Check if a flight matches a specific monitor
+     * @param {Object} flight - Flight object with waypoints_json
+     * @param {Object} monitor - Monitor definition
+     * @returns {boolean} True if flight matches the monitor
+     */
+    function flightMatchesMonitor(flight, monitor) {
+        // Get waypoints from flight
+        let waypoints = null;
+        if (flight.waypoints_json) {
+            try {
+                waypoints = typeof flight.waypoints_json === 'string'
+                    ? JSON.parse(flight.waypoints_json)
+                    : flight.waypoints_json;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        if (!waypoints || !Array.isArray(waypoints) || waypoints.length === 0) {
+            return false;
+        }
+
+        const waypointNames = waypoints.map(w => (w.fix_name || w.name || '').toUpperCase());
+        const waypointAirways = waypoints.map(w => (w.on_airway || '').toUpperCase());
+
+        switch (monitor.type) {
+            case 'fix':
+                // Check if any waypoint matches the fix name
+                const fixName = (monitor.fix || '').toUpperCase();
+                return waypointNames.includes(fixName);
+
+            case 'segment':
+                // Check if waypoints contain both from and to fixes
+                const fromFix = (monitor.from || '').toUpperCase();
+                const toFix = (monitor.to || '').toUpperCase();
+                const hasFrom = waypointNames.includes(fromFix);
+                const hasTo = waypointNames.includes(toFix);
+                return hasFrom && hasTo;
+
+            case 'airway':
+                // Check if any waypoint is on this airway
+                const airwayName = (monitor.airway || '').toUpperCase();
+                return waypointAirways.includes(airwayName);
+
+            case 'airway_segment':
+                // Check if on correct airway and has both endpoint fixes
+                const airway = (monitor.airway || '').toUpperCase();
+                const from = (monitor.from || '').toUpperCase();
+                const to = (monitor.to || '').toUpperCase();
+                const onAirway = waypointAirways.includes(airway);
+                const hasFromFix = waypointNames.includes(from);
+                const hasToFix = waypointNames.includes(to);
+                return onAirway && hasFromFix && hasToFix;
+
+            case 'via_fix':
+                // Check via fix/airway and apply origin/destination filters
+                const viaValue = (monitor.via || '').toUpperCase();
+                const viaType = (monitor.via_type || 'fix').toLowerCase();
+                const filter = monitor.filter || {};
+
+                // First check if flight goes through via point
+                let passesVia = false;
+                if (viaType === 'airway') {
+                    passesVia = waypointAirways.includes(viaValue);
+                } else {
+                    passesVia = waypointNames.includes(viaValue);
+                }
+
+                if (!passesVia) return false;
+
+                // Apply filter (airport/tracon/artcc, direction)
+                if (filter.type && filter.code) {
+                    const filterCode = filter.code.toUpperCase();
+                    const direction = (filter.direction || 'both').toLowerCase();
+
+                    // Get flight origin/destination info
+                    const flightDep = (flight.departure || flight.fp_dept_icao || '').toUpperCase();
+                    const flightDest = (flight.destination || flight.fp_dest_icao || '').toUpperCase();
+                    const flightDepTracon = (flight.fp_dept_tracon || '').toUpperCase();
+                    const flightDestTracon = (flight.fp_dest_tracon || '').toUpperCase();
+                    const flightDepArtcc = (flight.fp_dept_artcc || '').toUpperCase();
+                    const flightDestArtcc = (flight.fp_dest_artcc || '').toUpperCase();
+
+                    let matchesDep = false;
+                    let matchesArr = false;
+
+                    switch (filter.type.toLowerCase()) {
+                        case 'airport':
+                            matchesDep = flightDep === filterCode || flightDep === 'K' + filterCode;
+                            matchesArr = flightDest === filterCode || flightDest === 'K' + filterCode;
+                            break;
+                        case 'tracon':
+                            matchesDep = flightDepTracon === filterCode;
+                            matchesArr = flightDestTracon === filterCode;
+                            break;
+                        case 'artcc':
+                            matchesDep = flightDepArtcc === filterCode;
+                            matchesArr = flightDestArtcc === filterCode;
+                            break;
+                    }
+
+                    if (direction === 'arr' && !matchesArr) return false;
+                    if (direction === 'dep' && !matchesDep) return false;
+                    if (direction === 'both' && !matchesDep && !matchesArr) return false;
+                }
+
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Get all active monitors with their assigned colors
+     * @returns {Array} Array of { monitor, label, color, index }
+     */
+    function getActiveMonitors() {
+        return state.monitors.map((monitor, idx) => ({
+            monitor,
+            label: getMonitorLabel(monitor),
+            color: getMonitorColor(idx),
+            index: idx
+        }));
+    }
+
+    /**
+     * Get the FEA match result for a flight
+     * Returns the first matching monitor's color, or null if no match
+     * @param {Object} flight - Flight object
+     * @returns {Object|null} { color, label, index } or null
+     */
+    function getFlightFEAMatch(flight) {
+        if (!state.enabled || state.monitors.length === 0) {
+            return null;
+        }
+
+        for (let i = 0; i < state.monitors.length; i++) {
+            const monitor = state.monitors[i];
+            if (flightMatchesMonitor(flight, monitor)) {
+                return {
+                    color: getMonitorColor(i),
+                    label: getMonitorLabel(monitor),
+                    index: i
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get all FEA matches for a flight (if it matches multiple monitors)
+     * @param {Object} flight - Flight object
+     * @returns {Array} Array of { color, label, index }
+     */
+    function getFlightFEAMatches(flight) {
+        if (!state.enabled || state.monitors.length === 0) {
+            return [];
+        }
+
+        const matches = [];
+        for (let i = 0; i < state.monitors.length; i++) {
+            const monitor = state.monitors[i];
+            if (flightMatchesMonitor(flight, monitor)) {
+                matches.push({
+                    color: getMonitorColor(i),
+                    label: getMonitorLabel(monitor),
+                    index: i
+                });
+            }
+        }
+
+        return matches;
+    }
+
+    // =========================================
     // Public API
     // =========================================
 
@@ -2014,7 +2227,14 @@ const NODDemandLayer = (function() {
         closeFlightDetailsPopup,
         showMonitorFlights,
         getState: () => ({ ...state }),
-        COLORS: DEMAND_COLORS
+        COLORS: DEMAND_COLORS,
+        // FEA matching functions
+        FEA_COLORS,
+        getMonitorColor,
+        getActiveMonitors,
+        getFlightFEAMatch,
+        getFlightFEAMatches,
+        flightMatchesMonitor
     };
 })();
 
