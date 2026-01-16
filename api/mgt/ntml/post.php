@@ -183,7 +183,7 @@ if ($result !== null && isset($result['id'])) {
 // ============================================
 
 function buildNTMLMessage($protocol, $data) {
-    $determinant = strip_tags($data['determinant']);
+    $determinant = strip_tags($data['determinant'] ?? '');
     $timestamp = gmdate('Hi') . 'Z';
     
     switch ($protocol) {

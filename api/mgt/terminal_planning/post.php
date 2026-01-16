@@ -41,29 +41,30 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = post_input('p_id');
-$facility_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['facility_name'])));
+$p_id = post_int('p_id');
 
-$init_c = strip_tags(str_replace("`", "&#039;", $_POST['comments']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
+// Safely get POST values with null checks
+$facility_raw = isset($_POST['facility_name']) ? $_POST['facility_name'] : '';
+$facility_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $facility_raw)));
+
+$comments_raw = isset($_POST['comments']) ? $_POST['comments'] : '';
+$init_c = strip_tags(str_replace("`", "&#039;", $comments_raw), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
 $comments = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_c));
 
 
-// Insert Data into Database
+// Insert Data into Database using prepared statement
 try {
-
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO p_terminal_planning (facility_name, comments, p_id)
-    VALUES ('$facility_name', '$comments', '$p_id')";
-
-    $conn_pdo->exec($sql);
+    // Use prepared statement to prevent SQL injection
+    $sql = "INSERT INTO p_terminal_planning (facility_name, comments, p_id) VALUES (?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$facility_name, $comments, $p_id]);
 
     $conn_pdo->commit();
     http_response_code(200);
 }
-
 catch (PDOException $e) {
     $conn_pdo->rollback();
     http_response_code(500);
