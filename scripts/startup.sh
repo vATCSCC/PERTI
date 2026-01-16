@@ -11,9 +11,10 @@ echo "PERTI Daemon Startup - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "WWWROOT: $WWWROOT"
 echo "========================================"
 
-# Configure nginx URL rewriting (Azure uses nginx as reverse proxy)
+# Configure nginx URL rewriting (Azure PHP 8 uses nginx, not Apache)
+# Per Azure docs: https://azureossd.github.io/2021/09/02/php-8-rewrite-rule/
 echo "Configuring nginx for extensionless URLs..."
-cat > /etc/nginx/conf.d/default.conf << 'NGINXCONF'
+cat > /home/default << 'NGINXCONF'
 server {
     listen 8080;
     listen [::]:8080;
@@ -66,8 +67,9 @@ server {
 }
 NGINXCONF
 
-# Restart nginx to pick up new config
-nginx -s reload 2>/dev/null || true
+# Copy to nginx sites-enabled and reload
+cp /home/default /etc/nginx/sites-enabled/default
+service nginx reload 2>/dev/null || nginx -s reload 2>/dev/null || true
 echo "nginx configured"
 
 # Start the combined VATSIM ADL daemon (ingestion + ATIS processing every 15s)
