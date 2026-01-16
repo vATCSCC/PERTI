@@ -34,6 +34,7 @@ if (!file_exists($configPath)) {
 
 require_once $configPath;
 require_once __DIR__ . '/atis_parser.php';
+require_once __DIR__ . '/swim_ws_events.php';
 
 // Verify ADL constants exist
 if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') || !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
@@ -142,6 +143,11 @@ $config = [
     // Serverless costs on VATSIM_ADL. Runs after each ADL refresh cycle.
     'swim_enabled'        => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
     'swim_interval'       => 8,      // Run every N cycles (8 = every 2 minutes)
+
+    // WebSocket real-time events
+    // Publishes flight events to connected WebSocket clients after each refresh
+    'websocket_enabled'   => true,
+    'websocket_positions' => false,  // Position updates (high volume - disabled by default)
 ];
 
 // ============================================================================
@@ -464,43 +470,26 @@ function extractAtisFromJson(array $data): array {
 /**
  * Detect weather conditions from ATIS text.
  * Returns: 'bad', 'clear', or 'normal'
- *
- * Bad weather indicators:
- * - Precipitation (RA, SN, TS, FZ, etc.)
- * - Low visibility (<3SM or <5000m)
- * - Low ceiling (BKN/OVC below 1000ft)
- * - Strong winds (>20kt or gusts)
- *
- * Clear weather indicators:
- * - SKC, CLR, CAVOK, FEW/SCT only
- * - Visibility 10SM+ or 9999
- * - No precipitation
  */
 function detectWeatherCondition(string $atisText): string {
     $text = strtoupper($atisText);
 
     // Bad weather patterns
     $badPatterns = [
-        // Precipitation
-        '/\b(?:RA|SN|DZ|GR|GS|PL|IC|UP|SG|SS|DS)\b/',  // Rain, snow, drizzle, hail, etc.
-        '/\b(?:\+|\-)?(?:TS|FZ|SH)/',  // Thunderstorm, freezing, showers
-        '/\bVC(?:SH|TS)/',  // Vicinity showers/thunderstorms
-        // Obscuration
-        '/\b(?:FG|BR|HZ|FU|VA|DU|SA)\b/',  // Fog, mist, haze, smoke, volcanic ash, dust, sand
-        // Low visibility (less than 3SM or 5000m)
-        '/\b[012]SM\b/',  // 0-2 SM
-        '/\b[0-4]\d{3}\b/',  // 0000-4999 meters
-        '/\bM?1\/[24]SM\b/',  // 1/4SM, 1/2SM
-        // Low ceiling
-        '/\b(?:BKN|OVC)0(?:0[1-9]|10)\b/',  // BKN/OVC 100-1000ft (001-010)
-        '/\bVV0(?:0[1-9]|10)\b/',  // Vertical visibility 100-1000ft
-        // Strong winds
-        '/\b\d{3}(?:2[5-9]|[3-9]\d)(?:G\d{2})?KT\b/',  // 25+ knots
-        '/\b\d{3}\d{2}G\d{2}KT\b/',  // Any gusts
-        // Specific conditions
+        '/\b(?:RA|SN|DZ|GR|GS|PL|IC|UP|SG|SS|DS)\b/',
+        '/\b(?:\+|\-)?(?:TS|FZ|SH)/',
+        '/\bVC(?:SH|TS)/',
+        '/\b(?:FG|BR|HZ|FU|VA|DU|SA)\b/',
+        '/\b[012]SM\b/',
+        '/\b[0-4]\d{3}\b/',
+        '/\bM?1\/[24]SM\b/',
+        '/\b(?:BKN|OVC)0(?:0[1-9]|10)\b/',
+        '/\bVV0(?:0[1-9]|10)\b/',
+        '/\b\d{3}(?:2[5-9]|[3-9]\d)(?:G\d{2})?KT\b/',
+        '/\b\d{3}\d{2}G\d{2}KT\b/',
         '/\bWIND\s*SHEAR\b/',
         '/\bMICROBURST\b/',
-        '/\bLLWS\b/',  // Low-level wind shear
+        '/\bLLWS\b/',
     ];
 
     foreach ($badPatterns as $pattern) {
@@ -509,14 +498,12 @@ function detectWeatherCondition(string $atisText): string {
         }
     }
 
-    // Clear weather patterns (only if no bad weather found)
     $clearPatterns = [
-        '/\b(?:SKC|CLR|CAVOK|NSC)\b/',  // Sky clear, CAVOK
-        '/\b(?:10SM|P6SM)\b/',  // Good visibility
-        '/\b9999\b/',  // CAVOK visibility
+        '/\b(?:SKC|CLR|CAVOK|NSC)\b/',
+        '/\b(?:10SM|P6SM)\b/',
+        '/\b9999\b/',
     ];
 
-    // Check for only FEW/SCT clouds (no BKN/OVC)
     $hasClear = false;
     foreach ($clearPatterns as $pattern) {
         if (preg_match($pattern, $text)) {
@@ -525,7 +512,6 @@ function detectWeatherCondition(string $atisText): string {
         }
     }
 
-    // If we have clear indicators AND no significant clouds
     if ($hasClear && !preg_match('/\b(?:BKN|OVC)\d{3}\b/', $text)) {
         return 'clear';
     }
@@ -533,82 +519,47 @@ function detectWeatherCondition(string $atisText): string {
     return 'normal';
 }
 
-/**
- * Check if current time is near METAR update (around top of hour).
- */
 function isNearMetarUpdate(int $windowMins = 5): bool {
     $minute = (int)gmdate('i');
-    // METARs typically update around :53-:00
     return ($minute >= (60 - $windowMins) || $minute <= $windowMins);
 }
 
-/**
- * Determine base tier for an airport.
- * Tier 1: ASPM77
- * Tier 2: Non-ASPM77 US + Canada/LatAm/Caribbean
- * Tier 3: All others (Europe, Asia, etc.)
- */
 function getBaseTier(string $airport, array $config): int {
-    // Check ASPM77
     if (in_array($airport, $config['aspm77'])) {
         return 1;
     }
-
-    // Check regional prefixes (Canada, LatAm, Caribbean)
     $prefix = substr($airport, 0, 1);
     if (in_array($prefix, $config['tier2_prefixes'])) {
         return 2;
     }
-
-    // Check if US airport (non-ASPM77)
     if ($prefix === 'K' || $prefix === 'P') {
         return 2;
     }
-
-    // All others (Europe, Asia, etc.)
     return 3;
 }
 
-/**
- * Get effective tier with dynamic weather adjustments.
- *
- * Rules:
- * - Near METAR update time: ASPM77 -> Tier 0
- * - Bad weather + ASPM77: -> Tier 0
- * - Bad weather + NOT ASPM77: -> Tier 1
- * - Clear weather + Tier 3: -> Tier 4
- */
 function getEffectiveTier(string $airport, string $atisText, array $config): int {
     $baseTier = getBaseTier($airport, $config);
     $weather = detectWeatherCondition($atisText);
     $isMetarTime = isNearMetarUpdate($config['metar_window_mins'] ?? 5);
     $isAspm77 = in_array($airport, $config['aspm77']);
 
-    // Near METAR update: boost ASPM77 airports to Tier 0
     if ($isMetarTime && $isAspm77) {
         return 0;
     }
-
-    // Bad weather adjustments
     if ($weather === 'bad') {
         if ($isAspm77) {
-            return 0;  // ASPM77 with bad weather -> Tier 0
+            return 0;
         } else {
-            return min($baseTier, 1);  // Non-ASPM77 with bad weather -> at most Tier 1
+            return min($baseTier, 1);
         }
     }
-
-    // Clear weather: downgrade Tier 3 to Tier 4
     if ($weather === 'clear' && $baseTier >= 3) {
         return 4;
     }
-
     return $baseTier;
 }
 
-/**
- * Get ATIS records to process for this cycle based on dynamic tiers.
- */
 function getAtisForCycle(array $atisList, array $config, int $cycleNum): array {
     $filtered = [];
     $intervals = $config['atis_tier_intervals'];
@@ -616,14 +567,11 @@ function getAtisForCycle(array $atisList, array $config, int $cycleNum): array {
     foreach ($atisList as $atis) {
         $airport = $atis['airport_icao'];
         $text = $atis['atis_text'] ?? '';
-
-        // Determine effective tier for this airport
         $tier = getEffectiveTier($airport, $text, $config);
-        $interval = $intervals[$tier] ?? $intervals[3];  // Default to Tier 3 interval
+        $interval = $intervals[$tier] ?? $intervals[3];
 
-        // Check if this cycle should process this tier
         if ($cycleNum % $interval === 0) {
-            $atis['_tier'] = $tier;  // Add tier info for logging
+            $atis['_tier'] = $tier;
             $filtered[] = $atis;
         }
     }
@@ -631,10 +579,6 @@ function getAtisForCycle(array $atisList, array $config, int $cycleNum): array {
     return $filtered;
 }
 
-/**
- * Process and import ATIS data.
- * Uses batch processing to eliminate per-ATIS DB round-trips.
- */
 function processAtis($conn, array $atisList): array {
     if (empty($atisList)) {
         return ['imported' => 0, 'parsed' => 0, 'skipped' => 0];
@@ -644,7 +588,6 @@ function processAtis($conn, array $atisList): array {
     $parsed = 0;
     $skipped = 0;
 
-    // Import ATIS records
     $json = json_encode($atisList);
     $sql = "EXEC dbo.sp_ImportVatsimAtis @json = ?";
     $stmt = @sqlsrv_query($conn, $sql, [&$json]);
@@ -655,7 +598,6 @@ function processAtis($conn, array $atisList): array {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Get pending ATIS (500 handles peak METAR spikes with 300+ ATIS)
     $sql = "EXEC dbo.sp_GetPendingAtis @limit = 500";
     $stmt = @sqlsrv_query($conn, $sql);
 
@@ -663,15 +605,12 @@ function processAtis($conn, array $atisList): array {
         return ['imported' => $imported, 'parsed' => 0, 'skipped' => 0];
     }
 
-    // Phase 1: Parse all ATIS in memory (fast - ~0.3ms each)
     $batch = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $atisId = (int)$row['atis_id'];
         $text = $row['atis_text'] ?? '';
-
         $result = parseAtisRunways($text);
 
-        // Build runway array for this ATIS
         $runways = [];
         if (!empty($result['landing']) || !empty($result['departing'])) {
             $all = array_unique(array_merge($result['landing'], $result['departing']));
@@ -694,7 +633,6 @@ function processAtis($conn, array $atisList): array {
     }
     sqlsrv_free_stmt($stmt);
 
-    // Phase 2: Batch import all parsed results (one DB call)
     if (!empty($batch)) {
         $batchJson = json_encode($batch);
         $sql = "EXEC dbo.sp_ImportRunwaysInUseBatch @json = ?";
@@ -715,15 +653,6 @@ function processAtis($conn, array $atisList): array {
 // ATIS TIERED CLEANUP
 // ============================================================================
 
-/**
- * Run tiered ATIS cleanup.
- * Calls sp_CleanupOldAtis which uses tiered retention:
- *   Tier 0: Never delete (ASPM77 + event airports)
- *   Tier 1: 30 days (CA/MX/LATAM majors)
- *   Tier 2: 7 days (Global majors)
- *   Tier 3: 24 hours (Americas non-major)
- *   Tier 4: 1 hour (Global non-major)
- */
 function runAtisCleanup($conn): ?array {
     $sql = "EXEC dbo.sp_CleanupOldAtis @dry_run = 0";
     $stmt = @sqlsrv_query($conn, $sql);
@@ -754,10 +683,6 @@ function runAtisCleanup($conn): ?array {
 // BOUNDARY & CROSSINGS BACKGROUND PROCESSING
 // ============================================================================
 
-/**
- * Execute background boundary detection and planned crossings calculation.
- * Runs separately from main refresh to avoid blocking.
- */
 function executeBoundaryProcessing($conn, array $config): ?array {
     $startTime = microtime(true);
 
@@ -789,10 +714,6 @@ function executeBoundaryProcessing($conn, array $config): ?array {
     ];
 }
 
-/**
- * Get count of flights pending boundary detection.
- * Used for adaptive interval calculation.
- */
 function getBoundaryPendingCount($conn): int {
     $sql = "SELECT COUNT(*) AS cnt
             FROM dbo.adl_flight_core c
@@ -819,11 +740,6 @@ function getBoundaryPendingCount($conn): int {
 // RUNWAY DETECTION FROM FLIGHT TRACKS
 // ============================================================================
 
-/**
- * Execute runway detection from flight track data.
- * Analyzes recent departures/arrivals to detect active runway configurations.
- * Runs every 30 minutes to build historical detection data.
- */
 function executeRunwayDetection($conn, array $config): ?array {
     $startTime = microtime(true);
 
@@ -860,14 +776,6 @@ function executeRunwayDetection($conn, array $config): ?array {
 // WIND ADJUSTMENT CALCULATION (Tiered)
 // ============================================================================
 
-/**
- * Execute tiered wind adjustment calculation.
- * Calls sp_UpdateFlightWindAdjustments which:
- * - Calculates wind tier for each flight (0-7 based on relevance/phase/distance)
- * - Only updates flights due for calculation based on their tier interval
- * - Uses grid-based wind when available, falls back to GS-based estimate
- * - Updates adl_flight_times.eta_wind_adj_kts for use by ETA calculation
- */
 function executeWindCalculation($conn, array $config): ?array {
     $startTime = microtime(true);
 
@@ -882,8 +790,6 @@ function executeWindCalculation($conn, array $config): ?array {
         return null;
     }
 
-    // The SP returns @updated_count as OUTPUT param, but we'll just measure time
-    // and rely on the daemon stats for tracking
     sqlsrv_free_stmt($stmt);
 
     $elapsedMs = round((microtime(true) - $startTime) * 1000);
@@ -897,10 +803,6 @@ function executeWindCalculation($conn, array $config): ?array {
 // SWIM API SYNC
 // ============================================================================
 
-/**
- * Get SWIM_API database connection.
- * Uses separate connection from VATSIM_ADL.
- */
 function getSwimConnection() {
     if (!defined('SWIM_SQL_HOST') || !defined('SWIM_SQL_DATABASE') ||
         !defined('SWIM_SQL_USERNAME') || !defined('SWIM_SQL_PASSWORD')) {
@@ -923,14 +825,9 @@ function getSwimConnection() {
     return $conn !== false ? $conn : null;
 }
 
-/**
- * Execute SWIM sync from VATSIM_ADL to SWIM_API.
- * Uses the swim_sync.php script which handles the data transfer.
- */
 function executeSwimSync($conn_adl, $conn_swim): ?array {
     static $syncScriptLoaded = false;
 
-    // Load sync script if not already loaded
     if (!$syncScriptLoaded) {
         $syncScript = __DIR__ . '/swim_sync.php';
         if (file_exists($syncScript)) {
@@ -946,8 +843,6 @@ function executeSwimSync($conn_adl, $conn_swim): ?array {
         return null;
     }
 
-    // The sync function uses global $conn_adl and $conn_swim
-    // Set them temporarily for the sync
     $GLOBALS['conn_adl'] = $conn_adl;
     $GLOBALS['conn_swim'] = $conn_swim;
 
@@ -995,6 +890,7 @@ function runDaemon(array $config): void {
         'database'  => $config['db_name'],
         'warn_ms'   => $config['warn_sp_ms'],
         'crit_ms'   => $config['critical_sp_ms'],
+        'websocket' => $config['websocket_enabled'] ? 'enabled' : 'disabled',
     ]);
     
     // Establish initial connection
@@ -1010,7 +906,7 @@ function runDaemon(array $config): void {
             $reconnectAttempts++;
             logError("Connection attempt {$reconnectAttempts} failed", ['error' => $e->getMessage()]);
             if ($reconnectAttempts < $maxReconnectAttempts) {
-                sleep(min(30, $reconnectAttempts * 5));  // Exponential backoff capped at 30s
+                sleep(min(30, $reconnectAttempts * 5));
             }
         }
     }
@@ -1059,7 +955,13 @@ function runDaemon(array $config): void {
         'swim_runs'            => 0,
         'swim_synced'          => 0,
         'swim_total_ms'        => 0,
+        // WebSocket stats
+        'ws_events'            => 0,
+        'ws_runs'              => 0,
     ];
+    
+    // WebSocket: Track last refresh time for event detection
+    $lastRefreshTime = null;
     
     // Signal handling
     $running = true;
@@ -1098,7 +1000,6 @@ function runDaemon(array $config): void {
             // 3. Quick parse to get pilot count (for logging)
             $pilotCount = 0;
             if (preg_match('/"pilots"\s*:\s*\[/', $jsonData)) {
-                // Count pilots by counting callsign occurrences (fast regex, avoids full JSON parse)
                 $pilotCount = preg_match_all('/"callsign"\s*:/', $jsonData);
             }
             
@@ -1113,7 +1014,6 @@ function runDaemon(array $config): void {
             $atisParsed = 0;
             $atisSkipped = 0;
             if ($config['atis_enabled']) {
-                // Decode JSON for ATIS extraction
                 $vatsimData = json_decode($jsonData, true);
                 if ($vatsimData) {
                     $allAtis = extractAtisFromJson($vatsimData);
@@ -1132,18 +1032,16 @@ function runDaemon(array $config): void {
             // Free memory
             unset($jsonData);
 
-            // 5b. Boundary & Crossings processing (adaptive interval based on pending count)
+            // 5b. Boundary & Crossings processing (adaptive interval)
             $boundaryResult = null;
             $boundaryPending = 0;
             if ($config['boundary_enabled']) {
-                // Check pending count to determine interval (only check every 2 cycles to reduce overhead)
                 static $lastBoundaryPending = 0;
                 if ($stats['runs'] % 2 === 0) {
                     $lastBoundaryPending = getBoundaryPendingCount($conn);
                 }
                 $boundaryPending = $lastBoundaryPending;
 
-                // Adaptive interval: fast (30s) when backlog exists, slow (60s) when caught up
                 $boundaryInterval = ($boundaryPending > $config['boundary_adaptive_threshold'])
                     ? $config['boundary_interval_fast']
                     : $config['boundary_interval_slow'];
@@ -1168,7 +1066,6 @@ function runDaemon(array $config): void {
                     $stats['runway_configs_found'] += $runwayResult['configs_inserted'];
                     $stats['runway_detect_ms'] += $runwayResult['elapsed_ms'];
 
-                    // Log runway detection results
                     if ($runwayResult['configs_inserted'] > 0) {
                         logInfo("Runway detection completed", [
                             'airports' => $runwayResult['airports_analyzed'],
@@ -1182,9 +1079,6 @@ function runDaemon(array $config): void {
             }
 
             // 5d. Wind adjustment calculation (tiered, every 30 seconds)
-            // Runs independently from ETA calculation to avoid slowing down main refresh
-            // Uses internal tiering: Tier 0 flights (approaching) updated every 30s,
-            // Tier 4 flights (oceanic) updated every 10min
             $windResult = null;
             if ($config['wind_enabled'] && $stats['runs'] % $config['wind_interval'] === 0) {
                 $windResult = executeWindCalculation($conn, $config);
@@ -1194,8 +1088,7 @@ function runDaemon(array $config): void {
                 }
             }
 
-            // 5e. SWIM API sync (sync flight data to SWIM_API for public API)
-            // Runs after ADL refresh to keep API data fresh (~15 second latency)
+            // 5e. SWIM API sync (every 2 minutes)
             $swimResult = null;
             if ($config['swim_enabled'] && $conn_swim !== null && $stats['runs'] % $config['swim_interval'] === 0) {
                 $swimResult = executeSwimSync($conn, $conn_swim);
@@ -1204,6 +1097,21 @@ function runDaemon(array $config): void {
                     $stats['swim_synced'] += $swimResult['flights_synced'];
                     $stats['swim_total_ms'] += $swimResult['elapsed_ms'];
                 }
+            }
+
+            // 5f. WebSocket real-time events
+            $wsResult = null;
+            if ($config['websocket_enabled']) {
+                $currentTime = gmdate('Y-m-d H:i:s');
+                
+                if ($lastRefreshTime !== null) {
+                    $wsResult = swim_processWebSocketEvents($conn, $lastRefreshTime, $config['websocket_positions']);
+                    if ($wsResult !== null && $wsResult['total_events'] > 0) {
+                        $stats['ws_runs']++;
+                        $stats['ws_events'] += $wsResult['total_events'];
+                    }
+                }
+                $lastRefreshTime = $currentTime;
             }
 
             // 6. Update stats
@@ -1235,7 +1143,6 @@ function runDaemon(array $config): void {
                 'sp_ms'    => $spMs,
             ];
 
-            // Add ATIS stats when processed this cycle
             if ($atisImported > 0 || $atisParsed > 0 || $atisSkipped > 0) {
                 $logContext['atis'] = $atisImported;
                 $logContext['parsed'] = $atisParsed;
@@ -1244,7 +1151,6 @@ function runDaemon(array $config): void {
                 }
             }
 
-            // Add boundary stats when processed this cycle
             if ($boundaryResult !== null) {
                 $logContext['bnd_ms'] = $boundaryResult['elapsed_ms'];
                 $logContext['bnd_pending'] = $boundaryPending;
@@ -1257,7 +1163,6 @@ function runDaemon(array $config): void {
                 }
             }
 
-            // Add SWIM sync stats when processed this cycle
             if ($swimResult !== null) {
                 $logContext['swim_ms'] = $swimResult['elapsed_ms'];
                 $logContext['swim_sync'] = $swimResult['flights_synced'];
@@ -1266,19 +1171,21 @@ function runDaemon(array $config): void {
                 }
             }
 
+            if ($wsResult !== null && $wsResult['total_events'] > 0) {
+                $logContext['ws_events'] = $wsResult['total_events'];
+            }
+
             logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", $logContext);
 
-            // V8.9: Log step timings when slow (>5s) for diagnosis
+            // V8.9: Log step timings when slow (>5s)
             if ($spMs >= $config['warn_sp_ms'] && !empty($spResult['steps'])) {
-                // Find top 5 slowest steps
                 $steps = $spResult['steps'];
                 arsort($steps);
                 $topSteps = array_slice($steps, 0, 5, true);
 
-                // Format: "step=ms, step=ms, ..."
                 $stepParts = [];
                 foreach ($topSteps as $step => $ms) {
-                    if ($ms > 100) {  // Only show steps >100ms
+                    if ($ms > 100) {
                         $stepParts[] = "{$step}={$ms}ms";
                     }
                 }
@@ -1292,7 +1199,6 @@ function runDaemon(array $config): void {
             $stats['failures']++;
             logError("Refresh #{$stats['runs']} FAILED", ['error' => $e->getMessage()]);
             
-            // Attempt reconnection
             try {
                 @sqlsrv_close($conn);
                 $conn = getConnection($config);
@@ -1332,9 +1238,10 @@ function runDaemon(array $config): void {
                 'avg_rwy_ms'    => $avgRwyMs,
                 'wind_runs'     => $stats['wind_runs'],
                 'avg_wind_ms'   => $avgWindMs,
+                'ws_runs'       => $stats['ws_runs'],
+                'ws_events'     => $stats['ws_events'],
             ]);
 
-            // Run ATIS tiered cleanup every 100 cycles (~25 min)
             if ($conn !== null) {
                 $cleanupResult = runAtisCleanup($conn);
                 if ($cleanupResult !== null && $cleanupResult['total'] > 0) {
@@ -1351,12 +1258,10 @@ function runDaemon(array $config): void {
             usleep((int)($sleepTime * 1000000));
         }
         
-        // Process signals
         if (function_exists('pcntl_signal_dispatch')) {
             pcntl_signal_dispatch();
         }
         
-        // Reconnect if connection was lost
         if ($conn === null && $running) {
             try {
                 $conn = getConnection($config);
@@ -1384,19 +1289,16 @@ function runDaemon(array $config): void {
 // ENTRY POINT
 // ============================================================================
 
-// Check prerequisites
 if (!extension_loaded('sqlsrv')) {
     die("ERROR: sqlsrv extension not loaded.\n" .
         "Linux: sudo pecl install sqlsrv\n" .
         "Windows: Download from Microsoft and enable in php.ini\n");
 }
 
-// Check for curl (optional but recommended)
 if (!function_exists('curl_init')) {
     logWarn("cURL not available, using file_get_contents (slower)");
 }
 
-// Prevent multiple instances (simple lock file)
 $lockFile = __DIR__ . '/vatsim_adl.lock';
 $lockFp = fopen($lockFile, 'c+');
 if (!flock($lockFp, LOCK_EX | LOCK_NB)) {
@@ -1406,10 +1308,8 @@ ftruncate($lockFp, 0);
 fwrite($lockFp, (string)getmypid());
 fflush($lockFp);
 
-// Run
 runDaemon($config);
 
-// Cleanup
 flock($lockFp, LOCK_UN);
 fclose($lockFp);
 @unlink($lockFile);
