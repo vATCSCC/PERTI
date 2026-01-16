@@ -11,6 +11,65 @@ echo "PERTI Daemon Startup - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "WWWROOT: $WWWROOT"
 echo "========================================"
 
+# Configure nginx URL rewriting (Azure uses nginx as reverse proxy)
+echo "Configuring nginx for extensionless URLs..."
+cat > /etc/nginx/conf.d/default.conf << 'NGINXCONF'
+server {
+    listen 8080;
+    listen [::]:8080;
+    root /home/site/wwwroot;
+    index index.php index.html;
+    server_name _;
+    port_in_redirect off;
+
+    # Handle /login directory
+    location = /login {
+        rewrite ^/login/?$ /login/index.php last;
+    }
+
+    # Main location block - try file, then .php, then 404
+    location / {
+        try_files $uri $uri/ $uri.php?$query_string @php;
+    }
+
+    # Fallback to PHP handler
+    location @php {
+        rewrite ^(.*)$ $1.php last;
+    }
+
+    # PHP-FPM handler
+    location ~ \.php$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param HTTPS on;
+        fastcgi_read_timeout 300;
+    }
+
+    # WebSocket proxy for SWIM API
+    location /api/swim/v1/ws {
+        proxy_pass http://127.0.0.1:8090;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+    }
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+}
+NGINXCONF
+
+# Restart nginx to pick up new config
+nginx -s reload 2>/dev/null || true
+echo "nginx configured"
+
 # Start the combined VATSIM ADL daemon (ingestion + ATIS processing every 15s)
 # This PHP daemon handles both flight data AND ATIS runway parsing
 echo "Starting vatsim_adl_daemon.php (combined ingestion + ATIS)..."
@@ -53,31 +112,7 @@ echo "========================================"
 echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, ws=$WS_PID, sched=$SCHED_PID, arch=$ARCH_PID"
 echo "========================================"
 
-# Configure Apache WebSocket proxy
-echo "Configuring Apache WebSocket proxy..."
-
-# Enable required modules (may already be enabled)
-a2enmod proxy proxy_http proxy_wstunnel 2>/dev/null || true
-
-# Create WebSocket proxy config
-cat > /etc/apache2/conf-available/swim-websocket.conf << 'WSCONF'
-# SWIM WebSocket Proxy - Route /api/swim/v1/ws to internal Ratchet server
-<IfModule mod_proxy.c>
-    <IfModule mod_proxy_wstunnel.c>
-        ProxyRequests Off
-        ProxyPreserveHost On
-        ProxyPass /api/swim/v1/ws ws://127.0.0.1:8090/
-        ProxyPassReverse /api/swim/v1/ws ws://127.0.0.1:8090/
-        ProxyTimeout 3600
-    </IfModule>
-</IfModule>
-WSCONF
-
-# Enable the config
-a2enconf swim-websocket 2>/dev/null || true
-
-echo "Apache WebSocket proxy configured"
-echo "========================================"
-
-# Start the default Apache server (required for App Service)
-apache2-foreground
+# Start PHP-FPM in foreground (nginx handles HTTP, PHP-FPM handles PHP)
+# Azure PHP container already has nginx running, we just need PHP-FPM
+echo "Starting PHP-FPM..."
+php-fpm -F
