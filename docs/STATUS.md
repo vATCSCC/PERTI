@@ -1,6 +1,6 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-01-13
+> **Last Updated:** 2026-01-16
 > **System Version:** v17 - Main Branch
 
 ---
@@ -21,6 +21,83 @@
 | **Airport Config (NEW v16)** | [OK] Active | Runway configuration & rate management |
 | **Rate Suggestions (NEW v16)** | [OK] Active | Weather-aware AAR/ADR recommendations |
 | **ATFM Simulator (NEW v17)** | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
+| **SWIM API (NEW v17)** | [DEV] Phase 1 | System Wide Information Management API |
+
+---
+
+## SWIM API Subsystem (NEW v17)
+
+> **Documentation:** [docs/swim/](./swim/)  
+> **Status:** Phase 0 - Infrastructure Migration (BLOCKING)
+
+SWIM (System Wide Information Management) provides centralized flight data exchange across the VATSIM ecosystem.
+
+### ⚠️ Infrastructure Migration Required
+
+**Current Problem:** API endpoints query VATSIM_ADL Serverless directly = expensive under load ($500-7,500+/mo)
+
+**Solution:** Create dedicated `SWIM_API` database (Azure SQL Basic, **$5/month fixed**)
+
+```
+┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐
+│    VATSIM_ADL       │      │     SWIM_API        │      │    Public API       │
+│  (Serverless $$)   │─────▶│   (Basic $5/mo)     │─────▶│    Endpoints        │
+│  Internal only      │ sync │  Dedicated for API  │      │                     │
+└─────────────────────┘ 15s  └─────────────────────┘      └─────────────────────┘
+```
+
+### Blocking Tasks
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create Azure SQL Basic `SWIM_API` | [ERR] Blocking | $5/mo fixed cost |
+| Run `002_swim_api_database.sql` | [ERR] Blocking | Creates swim_flights table |
+| Add `$conn_swim` to config | [ERR] Blocking | New connection string |
+| Update endpoints to use SWIM_API | [ERR] Blocking | Change from `$conn_adl` |
+| Schedule sync (every 15 sec) | [ERR] Blocking | After ADL refresh |
+
+### API Endpoints
+
+| Endpoint | Status | Description |
+|----------|--------|-------------|
+| `GET /api/swim/v1` | [OK] Working | API info/router |
+| `GET /api/swim/v1/flights` | [WARN] Needs DB switch | List flights (1,100+ active) |
+| `GET /api/swim/v1/flight` | [WARN] Needs DB switch | Single flight lookup |
+| `GET /api/swim/v1/positions` | [WARN] Needs DB switch | Bulk positions (GeoJSON) |
+| `GET /api/swim/v1/tmi/programs` | [ERR] 500 Error | Active TMI programs |
+| `GET /api/swim/v1/tmi/controlled` | [WARN] Needs DB switch | TMI-controlled flights |
+| `POST /api/swim/v1/ingest/adl` | [OK] Working | ADL data ingest |
+
+### SWIM Files
+
+| File | Location | Status |
+|------|----------|--------|
+| Configuration | `load/swim_config.php` | [WARN] Needs SWIM_API connection |
+| Auth Middleware | `api/swim/v1/auth.php` | [WARN] Needs DB switch |
+| Flights Endpoint | `api/swim/v1/flights.php` | [WARN] Needs DB switch |
+| Flight Endpoint | `api/swim/v1/flight.php` | [WARN] Needs DB switch |
+| Positions Endpoint | `api/swim/v1/positions.php` | [WARN] Needs DB switch |
+| TMI Programs | `api/swim/v1/tmi/programs.php` | [ERR] 500 error |
+| TMI Controlled | `api/swim/v1/tmi/controlled.php` | [WARN] Needs DB switch |
+| ADL Ingest | `api/swim/v1/ingest/adl.php` | [OK] Complete |
+| DB Migration (existing) | `database/migrations/swim/001_swim_tables.sql` | [OK] Deployed to VATSIM_ADL |
+| DB Migration (new) | `database/migrations/swim/002_swim_api_database.sql` | [ERR] Not deployed |
+
+### SWIM Database Architecture
+
+| Database | Purpose | Tier | Cost | API Access |
+|----------|---------|------|------|------------|
+| **VATSIM_ADL** | Internal ADL processing | Serverless | Variable | ❌ No (internal only) |
+| **SWIM_API** | Public API queries | Basic | $5/mo fixed | ✅ Yes |
+| **MySQL (PERTI)** | Ground stops, site data | Existing | Already paid | ✅ Yes |
+
+### Cost Comparison
+
+| API Traffic | Direct VATSIM_ADL | Dedicated SWIM_API |
+|-------------|-------------------|-------------------|
+| 10K req/day | ~$15-45/mo | **$5/mo** |
+| 100K req/day | ~$150-450/mo | **$5/mo** |
+| 1M req/day | ~$1,500-4,500/mo | **$5/mo** |
 
 ---
 

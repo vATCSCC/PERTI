@@ -1,6 +1,12 @@
 -- ============================================================================
--- sp_CalculateETABatch.sql (V3.3 - Prefile ETA Bug Fix)
+-- sp_CalculateETABatch.sql (V3.4 - Wind Integration)
 -- Consolidated batch ETA calculation - Single Source of Truth
+--
+-- V3.4 Changes:
+--   - Integrated pre-calculated wind adjustment from separate wind process
+--   - Cruise/enroute and climbing phases now use wind-adjusted effective speed
+--   - Wind adjustment only applied when significant (>5 kts) to avoid noise
+--   - Works with sp_UpdateFlightWindAdjustments for tiered wind calculation
 --
 -- V3.3 Changes:
 --   - Fixed: dist_source was missing from #eta_results output
@@ -111,7 +117,9 @@ BEGIN
         ft.on_utc,
         ft.in_utc,
         ft.ata_runway_utc,
-        ft.eta_utc AS current_eta
+        ft.eta_utc AS current_eta,
+        -- V3.4: Pre-calculated wind adjustment from separate wind process
+        ft.eta_wind_adj_kts AS precalc_wind_adj
     INTO #eta_work
     FROM dbo.adl_flight_core c
     LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid  -- V3.1: LEFT JOIN for prefiles
@@ -310,7 +318,9 @@ BEGIN
             w.is_simbrief,
             w.stepclimb_count,
             w.speed_source,
-            
+            -- V3.4: Pre-calculated wind adjustment
+            w.precalc_wind_adj,
+
             -- V2: TOD distance using final cruise altitude (more accurate for step climbs)
             (w.filed_alt - w.dest_elev) / 1000.0 * 3.0 AS tod_dist,
             
@@ -363,10 +373,15 @@ BEGIN
                 WHEN e.phase = 'descending' THEN
                     e.dist_to_dest_nm / NULLIF(e.descent_speed, 0) * 60
                 
-                -- Cruise/enroute
+                -- Cruise/enroute (V3.4: Use wind-adjusted cruise speed when available)
                 WHEN e.phase IN ('enroute', 'cruise') THEN
                     CASE WHEN e.dist_to_dest_nm > e.tod_dist
-                         THEN (e.dist_to_dest_nm - e.tod_dist) / NULLIF(e.cruise_speed, 0) * 60
+                         -- V3.4: Apply wind adjustment to cruise portion if significant
+                         THEN (e.dist_to_dest_nm - e.tod_dist) / NULLIF(
+                             CASE WHEN e.precalc_wind_adj IS NOT NULL AND ABS(e.precalc_wind_adj) > 5
+                                  THEN e.cruise_speed + e.precalc_wind_adj
+                                  ELSE e.cruise_speed
+                             END, 0) * 60
                          ELSE 0
                     END
                     + CASE WHEN e.dist_to_dest_nm > e.tod_dist
@@ -374,11 +389,15 @@ BEGIN
                            ELSE e.dist_to_dest_nm / NULLIF(e.descent_speed, 0) * 60
                     END
                 
-                -- Climbing
+                -- Climbing (V3.4: Use wind-adjusted cruise speed when available)
                 WHEN e.phase IN ('departed', 'climbing') THEN
                     e.toc_dist / NULLIF(e.climb_speed, 0) * 60
                     + CASE WHEN (e.dist_to_dest_nm - e.toc_dist - e.tod_dist) > 0
-                           THEN (e.dist_to_dest_nm - e.toc_dist - e.tod_dist) / NULLIF(e.cruise_speed, 0) * 60
+                           THEN (e.dist_to_dest_nm - e.toc_dist - e.tod_dist) / NULLIF(
+                               CASE WHEN e.precalc_wind_adj IS NOT NULL AND ABS(e.precalc_wind_adj) > 5
+                                    THEN e.cruise_speed + e.precalc_wind_adj
+                                    ELSE e.cruise_speed
+                               END, 0) * 60
                            ELSE 0
                     END
                     + e.tod_dist / NULLIF(e.descent_speed, 0) * 60
@@ -619,8 +638,11 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_CalculateETABatch V3.3 (Prefile ETA Bug Fix)';
+PRINT 'Created sp_CalculateETABatch V3.4 (Wind Integration)';
 PRINT '';
+PRINT 'V3.4: Integrated pre-calculated wind adjustment into ETA calculations';
+PRINT '      - Uses eta_wind_adj_kts from separate wind process (sp_UpdateFlightWindAdjustments)';
+PRINT '      - Cruise/enroute and climbing phases use wind-adjusted effective speed';
 PRINT 'V3.3: Fixed dist_source missing from #eta_results (broke eta_dist_source UPDATE)';
 PRINT 'V3.2: Prefiles now get ETA calculations using GCD distance';
 PRINT 'V3.1: Sets eta_dist_source for analysis';

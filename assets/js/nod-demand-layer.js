@@ -493,24 +493,34 @@ const NODDemandLayer = (function() {
      * Fetch demand data from API
      */
     async function refresh() {
+        console.log('[DemandLayer] refresh() called, enabled:', state.enabled, 'monitors:', state.monitors.length);
+
         if (!state.enabled || state.monitors.length === 0) {
+            console.log('[DemandLayer] Skipping refresh: enabled=' + state.enabled + ', monitors=' + state.monitors.length);
             updateMapData([]);
             return;
         }
 
         try {
+            const monitorsJson = JSON.stringify(state.monitors);
+            console.log('[DemandLayer] Sending monitors to API:', monitorsJson);
+
             const params = new URLSearchParams({
-                monitors: JSON.stringify(state.monitors),
+                monitors: monitorsJson,
                 bucket_minutes: state.settings.bucketMinutes,
                 horizon_hours: state.settings.horizonHours
             });
 
-            const response = await fetch(`${CONFIG.apiEndpoint}?${params}`);
+            const url = `${CONFIG.apiEndpoint}?${params}`;
+            console.log('[DemandLayer] API URL:', url.substring(0, 200) + '...');
+
+            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
 
             const data = await response.json();
+            console.log('[DemandLayer] API response:', JSON.stringify(data).substring(0, 500));
             state.demandData = data;
 
             // Log any SQL errors from API
@@ -519,10 +529,12 @@ const NODDemandLayer = (function() {
             }
 
             // Debug: log monitor data
-            if (data.monitors) {
+            if (data.monitors && data.monitors.length > 0) {
                 data.monitors.forEach((m, i) => {
-                    console.log(`[DemandLayer] Monitor ${i}: type=${m.type}, lat=${m.lat}, lon=${m.lon}, total=${m.total}`);
+                    console.log(`[DemandLayer] Monitor ${i}: id=${m.id}, type=${m.type}, lat=${m.lat}, lon=${m.lon}, total=${m.total}`);
                 });
+            } else {
+                console.warn('[DemandLayer] API returned 0 monitors despite sending', state.monitors.length);
             }
 
             // Update map visualization
@@ -627,6 +639,24 @@ const NODDemandLayer = (function() {
                         total: monitor.total,
                         color: color,
                         label: `${monitor.from_fix} ${monitor.airway} ${monitor.to_fix}`
+                    }
+                });
+            }
+            // Full airway monitors - render as points at airway start
+            else if (monitor.type === 'airway' && monitor.lat != null && monitor.lon != null) {
+                fixFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [monitor.lon, monitor.lat]
+                    },
+                    properties: {
+                        id: monitor.id,
+                        fix: monitor.airway,
+                        count: count,
+                        total: monitor.total,
+                        color: color,
+                        label: monitor.airway
                     }
                 });
             }
