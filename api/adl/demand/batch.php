@@ -389,9 +389,20 @@ foreach ($monitors as $idx => $m) {
 // Track errors for debugging
 $sqlErrors = [];
 
-// Process batch monitors (fix, segment) using fn_BatchDemandBucketed
-if (!empty($batchMonitors)) {
-    $batchJson = json_encode(array_values($batchMonitors));
+// Separate monitors WITH flight filters (need inline SQL) from those WITHOUT (can use SQL functions)
+$batchMonitorsNoFilter = [];
+$batchMonitorsWithFilter = [];
+foreach ($batchMonitors as $idx => $m) {
+    if (!empty($m['flight_filter'])) {
+        $batchMonitorsWithFilter[$idx] = $m;
+    } else {
+        $batchMonitorsNoFilter[$idx] = $m;
+    }
+}
+
+// Process batch monitors WITHOUT flight filters using fn_BatchDemandBucketed
+if (!empty($batchMonitorsNoFilter)) {
+    $batchJson = json_encode(array_values($batchMonitorsNoFilter));
     $sql = "SELECT * FROM dbo.fn_BatchDemandBucketed(?, ?, ?, NULL) ORDER BY monitor_idx, bucket_num";
     $params = [$batchJson, $bucketMinutes, $horizonHours];
 
@@ -400,7 +411,7 @@ if (!empty($batchMonitors)) {
         $sqlErrors[] = ['function' => 'fn_BatchDemandBucketed', 'error' => adl_sql_error_message()];
     } else {
         // Map batch index back to original index
-        $batchIndexMap = array_keys($batchMonitors);
+        $batchIndexMap = array_keys($batchMonitorsNoFilter);
 
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $batchIdx = (int)$row['monitor_idx'] - 1; // 0-indexed
@@ -434,11 +445,144 @@ if (!empty($batchMonitors)) {
     }
 }
 
-// Process airway monitors using fn_AirwayDemandBucketed
+// Process batch monitors WITH flight filters using inline SQL
+foreach ($batchMonitorsWithFilter as $idx => $m) {
+    $monitorIdx = $idx + 1;
+    $filterResult = buildFlightFilterClause($m['flight_filter'] ?? []);
+    $filterClause = $filterResult['clause'];
+    $filterParams = $filterResult['params'];
+
+    if ($m['type'] === 'fix') {
+        // Fix monitor with flight filter - inline SQL
+        $fixName = strtoupper($m['fix']);
+        $sql = "WITH TimeBounds AS (
+                    SELECT GETUTCDATE() AS start_time,
+                           DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                ),
+                BucketCounts AS (
+                    SELECT
+                        DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ? AS bucket_num,
+                        COUNT(DISTINCT w.flight_uid) AS flight_count
+                    FROM dbo.adl_flight_waypoints w
+                    CROSS JOIN TimeBounds tb
+                    INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                    WHERE w.fix_name = ?
+                      AND w.eta_utc >= tb.start_time
+                      AND w.eta_utc < tb.end_time
+                      AND c.is_active = 1
+                      AND c.phase NOT IN ('arrived', 'disconnected')
+                      $filterClause
+                    GROUP BY DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ?
+                )
+                SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+        $params = array_merge([$horizonHours, $bucketMinutes, $fixName], $filterParams, [$bucketMinutes]);
+
+        $stmt = sqlsrv_query($conn, $sql, $params);
+        if ($stmt === false) {
+            $sqlErrors[] = ['monitor' => $monitorData[$monitorIdx]['id'], 'error' => adl_sql_error_message()];
+        } else {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $bucketNum = (int)$row['bucket_num'];
+                $count = (int)$row['flight_count'];
+                if ($bucketNum >= 0 && $bucketNum < $numBuckets) {
+                    $monitorData[$monitorIdx]['counts'][$bucketNum] = $count;
+                    $monitorData[$monitorIdx]['total'] += $count;
+                }
+            }
+            sqlsrv_free_stmt($stmt);
+        }
+    } else if ($m['type'] === 'segment') {
+        // Segment monitor with flight filter - inline SQL
+        $fromFix = strtoupper($m['from']);
+        $toFix = strtoupper($m['to']);
+        $sql = "WITH TimeBounds AS (
+                    SELECT GETUTCDATE() AS start_time,
+                           DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                ),
+                FlightsWithBothFixes AS (
+                    SELECT c.flight_uid
+                    FROM dbo.adl_flight_core c
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                    WHERE c.is_active = 1
+                      AND c.phase NOT IN ('arrived', 'disconnected')
+                      AND EXISTS (SELECT 1 FROM dbo.adl_flight_waypoints w1 WHERE w1.flight_uid = c.flight_uid AND w1.fix_name = ?)
+                      AND EXISTS (SELECT 1 FROM dbo.adl_flight_waypoints w2 WHERE w2.flight_uid = c.flight_uid AND w2.fix_name = ?)
+                      $filterClause
+                ),
+                FlightEntryTimes AS (
+                    SELECT f.flight_uid,
+                           (SELECT TOP 1 w.eta_utc FROM dbo.adl_flight_waypoints w WHERE w.flight_uid = f.flight_uid AND w.fix_name = ? ORDER BY w.sequence_num) AS entry_eta
+                    FROM FlightsWithBothFixes f
+                ),
+                BucketCounts AS (
+                    SELECT
+                        DATEDIFF(MINUTE, tb.start_time, fe.entry_eta) / ? AS bucket_num,
+                        COUNT(DISTINCT fe.flight_uid) AS flight_count
+                    FROM FlightEntryTimes fe
+                    CROSS JOIN TimeBounds tb
+                    WHERE fe.entry_eta >= tb.start_time AND fe.entry_eta < tb.end_time
+                    GROUP BY DATEDIFF(MINUTE, tb.start_time, fe.entry_eta) / ?
+                )
+                SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+        $params = array_merge([$horizonHours, $fromFix, $toFix], $filterParams, [$fromFix, $bucketMinutes, $bucketMinutes]);
+
+        $stmt = sqlsrv_query($conn, $sql, $params);
+        if ($stmt === false) {
+            $sqlErrors[] = ['monitor' => $monitorData[$monitorIdx]['id'], 'error' => adl_sql_error_message()];
+        } else {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $bucketNum = (int)$row['bucket_num'];
+                $count = (int)$row['flight_count'];
+                if ($bucketNum >= 0 && $bucketNum < $numBuckets) {
+                    $monitorData[$monitorIdx]['counts'][$bucketNum] = $count;
+                    $monitorData[$monitorIdx]['total'] += $count;
+                }
+            }
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+}
+
+// Process airway monitors using fn_AirwayDemandBucketed (or inline SQL with filters)
 foreach ($airwayMonitors as $idx => $m) {
     $monitorIdx = $idx + 1;
-    $sql = "SELECT * FROM dbo.fn_AirwayDemandBucketed(?, ?, ?, NULL)";
-    $params = [strtoupper($m['airway']), $bucketMinutes, $horizonHours];
+    $airwayName = strtoupper($m['airway']);
+
+    // Check if this monitor has a flight filter
+    if (!empty($m['flight_filter'])) {
+        // Use inline SQL with flight filter
+        $filterResult = buildFlightFilterClause($m['flight_filter']);
+        $filterClause = $filterResult['clause'];
+        $filterParams = $filterResult['params'];
+
+        $sql = "WITH TimeBounds AS (
+                    SELECT GETUTCDATE() AS start_time,
+                           DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                ),
+                BucketCounts AS (
+                    SELECT
+                        DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ? AS bucket_num,
+                        COUNT(DISTINCT w.flight_uid) AS flight_count
+                    FROM dbo.adl_flight_waypoints w
+                    CROSS JOIN TimeBounds tb
+                    INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                    WHERE w.on_airway = ?
+                      AND w.eta_utc >= tb.start_time
+                      AND w.eta_utc < tb.end_time
+                      AND c.is_active = 1
+                      AND c.phase NOT IN ('arrived', 'disconnected')
+                      $filterClause
+                    GROUP BY DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ?
+                )
+                SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+        $params = array_merge([$horizonHours, $bucketMinutes, $airwayName], $filterParams, [$bucketMinutes]);
+    } else {
+        // Use SQL function without filter
+        $sql = "SELECT * FROM dbo.fn_AirwayDemandBucketed(?, ?, ?, NULL)";
+        $params = [$airwayName, $bucketMinutes, $horizonHours];
+    }
 
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
@@ -485,11 +629,55 @@ foreach ($airwayMonitors as $idx => $m) {
     }
 }
 
-// Process airway segment monitors using fn_AirwaySegmentDemandBucketed
+// Process airway segment monitors using fn_AirwaySegmentDemandBucketed (or inline SQL with filters)
 foreach ($airwaySegmentMonitors as $idx => $m) {
     $monitorIdx = $idx + 1;
-    $sql = "SELECT * FROM dbo.fn_AirwaySegmentDemandBucketed(?, ?, ?, ?, ?, NULL)";
-    $params = [strtoupper($m['airway']), strtoupper($m['from']), strtoupper($m['to']), $bucketMinutes, $horizonHours];
+    $airwayName = strtoupper($m['airway']);
+    $fromFix = strtoupper($m['from']);
+    $toFix = strtoupper($m['to']);
+
+    // Check if this monitor has a flight filter
+    if (!empty($m['flight_filter'])) {
+        // Use inline SQL with flight filter
+        $filterResult = buildFlightFilterClause($m['flight_filter']);
+        $filterClause = $filterResult['clause'];
+        $filterParams = $filterResult['params'];
+
+        $sql = "WITH TimeBounds AS (
+                    SELECT GETUTCDATE() AS start_time,
+                           DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                ),
+                FlightsWithBothFixes AS (
+                    SELECT c.flight_uid
+                    FROM dbo.adl_flight_core c
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                    WHERE c.is_active = 1
+                      AND c.phase NOT IN ('arrived', 'disconnected')
+                      AND EXISTS (SELECT 1 FROM dbo.adl_flight_waypoints w1 WHERE w1.flight_uid = c.flight_uid AND w1.fix_name = ?)
+                      AND EXISTS (SELECT 1 FROM dbo.adl_flight_waypoints w2 WHERE w2.flight_uid = c.flight_uid AND w2.fix_name = ?)
+                      $filterClause
+                ),
+                FlightEntryTimes AS (
+                    SELECT f.flight_uid,
+                           (SELECT TOP 1 w.eta_utc FROM dbo.adl_flight_waypoints w WHERE w.flight_uid = f.flight_uid AND w.fix_name = ? ORDER BY w.sequence_num) AS entry_eta
+                    FROM FlightsWithBothFixes f
+                ),
+                BucketCounts AS (
+                    SELECT
+                        DATEDIFF(MINUTE, tb.start_time, fe.entry_eta) / ? AS bucket_num,
+                        COUNT(DISTINCT fe.flight_uid) AS flight_count
+                    FROM FlightEntryTimes fe
+                    CROSS JOIN TimeBounds tb
+                    WHERE fe.entry_eta >= tb.start_time AND fe.entry_eta < tb.end_time
+                    GROUP BY DATEDIFF(MINUTE, tb.start_time, fe.entry_eta) / ?
+                )
+                SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+        $params = array_merge([$horizonHours, $fromFix, $toFix], $filterParams, [$fromFix, $bucketMinutes, $bucketMinutes]);
+    } else {
+        // Use SQL function without filter
+        $sql = "SELECT * FROM dbo.fn_AirwaySegmentDemandBucketed(?, ?, ?, ?, ?, NULL)";
+        $params = [$airwayName, $fromFix, $toFix, $bucketMinutes, $horizonHours];
+    }
 
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
@@ -600,17 +788,110 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
     }
 }
 
-// Process via_fix monitors using fn_ViaDemandBucketed
+// Process via_fix monitors using fn_ViaDemandBucketed (or inline SQL with flight filters)
 foreach ($viaMonitors as $idx => $m) {
     $monitorIdx = $idx + 1;
-    $filterType = $m['filter']['type'] ?? 'airport';
-    $filterCode = strtoupper($m['filter']['code'] ?? '');
+    $locationFilterType = $m['filter']['type'] ?? 'airport';
+    $locationFilterCode = strtoupper($m['filter']['code'] ?? '');
     $direction = $m['filter']['direction'] ?? 'both';
     $viaValue = strtoupper($m['via']);
     $viaType = $m['via_type'] ?? 'fix';
 
-    $sql = "SELECT * FROM dbo.fn_ViaDemandBucketed(?, ?, ?, ?, ?, ?, ?, NULL)";
-    $params = [$filterType, $filterCode, $direction, $viaValue, $viaType, $bucketMinutes, $horizonHours];
+    // Check if this monitor has a flight filter
+    if (!empty($m['flight_filter'])) {
+        // Use inline SQL with flight filter
+        $flightFilterResult = buildFlightFilterClause($m['flight_filter']);
+        $flightFilterClause = $flightFilterResult['clause'];
+        $flightFilterParams = $flightFilterResult['params'];
+
+        // Build location filter clause
+        $locationClause = "1=1";
+        switch ($locationFilterType) {
+            case 'airport':
+                if ($direction === 'arr') {
+                    $locationClause = "fp.fp_dest_icao = ?";
+                } else if ($direction === 'dep') {
+                    $locationClause = "fp.fp_dept_icao = ?";
+                } else {
+                    $locationClause = "(fp.fp_dest_icao = ? OR fp.fp_dept_icao = ?)";
+                }
+                break;
+            case 'tracon':
+                if ($direction === 'arr') {
+                    $locationClause = "fp.fp_dest_tracon = ?";
+                } else if ($direction === 'dep') {
+                    $locationClause = "fp.fp_dept_tracon = ?";
+                } else {
+                    $locationClause = "(fp.fp_dest_tracon = ? OR fp.fp_dept_tracon = ?)";
+                }
+                break;
+            case 'artcc':
+                if ($direction === 'arr') {
+                    $locationClause = "fp.fp_dest_artcc = ?";
+                } else if ($direction === 'dep') {
+                    $locationClause = "fp.fp_dept_artcc = ?";
+                } else {
+                    $locationClause = "(fp.fp_dest_artcc = ? OR fp.fp_dept_artcc = ?)";
+                }
+                break;
+        }
+        $locationParams = ($direction === 'both') ? [$locationFilterCode, $locationFilterCode] : [$locationFilterCode];
+
+        if ($viaType === 'fix') {
+            $sql = "WITH TimeBounds AS (
+                        SELECT GETUTCDATE() AS start_time,
+                               DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                    ),
+                    BucketCounts AS (
+                        SELECT
+                            DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ? AS bucket_num,
+                            COUNT(DISTINCT w.flight_uid) AS flight_count
+                        FROM dbo.adl_flight_waypoints w
+                        CROSS JOIN TimeBounds tb
+                        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                        WHERE w.fix_name = ?
+                          AND w.eta_utc >= tb.start_time
+                          AND w.eta_utc < tb.end_time
+                          AND c.is_active = 1
+                          AND c.phase NOT IN ('arrived', 'disconnected')
+                          AND $locationClause
+                          $flightFilterClause
+                        GROUP BY DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ?
+                    )
+                    SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+            $params = array_merge([$horizonHours, $bucketMinutes, $viaValue], $locationParams, $flightFilterParams, [$bucketMinutes]);
+        } else {
+            // Via airway
+            $sql = "WITH TimeBounds AS (
+                        SELECT GETUTCDATE() AS start_time,
+                               DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                    ),
+                    BucketCounts AS (
+                        SELECT
+                            DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ? AS bucket_num,
+                            COUNT(DISTINCT w.flight_uid) AS flight_count
+                        FROM dbo.adl_flight_waypoints w
+                        CROSS JOIN TimeBounds tb
+                        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                        WHERE w.on_airway = ?
+                          AND w.eta_utc >= tb.start_time
+                          AND w.eta_utc < tb.end_time
+                          AND c.is_active = 1
+                          AND c.phase NOT IN ('arrived', 'disconnected')
+                          AND $locationClause
+                          $flightFilterClause
+                        GROUP BY DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ?
+                    )
+                    SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+            $params = array_merge([$horizonHours, $bucketMinutes, $viaValue], $locationParams, $flightFilterParams, [$bucketMinutes]);
+        }
+    } else {
+        // Use SQL function without flight filter
+        $sql = "SELECT * FROM dbo.fn_ViaDemandBucketed(?, ?, ?, ?, ?, ?, ?, NULL)";
+        $params = [$locationFilterType, $locationFilterCode, $direction, $viaValue, $viaType, $bucketMinutes, $horizonHours];
+    }
 
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
