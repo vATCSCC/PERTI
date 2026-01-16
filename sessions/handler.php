@@ -57,8 +57,8 @@ if (!defined('DEV')) {
         curl_close($ch);
         // END: cUrl to Session Check Script
     
-        if ($json && $obj['status'] == "success") {
-    
+        if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
+
             $_SESSION['VATSIM_CID'] = $obj['cid'];
             $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
             $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];
@@ -73,7 +73,7 @@ if (!defined('DEV')) {
 
                 $fields = [
                     'ip' => $ip,
-                    'cid' => strip_tags($_SESSION['VATSIM_CID'])
+                    'cid' => session_get('VATSIM_CID', '')
                 ];
             
                 $fields_string = http_build_query($fields);
@@ -96,15 +96,15 @@ if (!defined('DEV')) {
                 curl_close($ch);
                 // END: cUrl to Session Check Script
             
-                if ($json && $obj['status'] == "success") {
-            
+                if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
+
                     $_SESSION['VATSIM_CID'] = $obj['cid'];
                     $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
                     $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];
                     setCookie("SELF", $selfcookie, time() + (10 * 365 * 24 * 60 * 60), "/");
-            
+
                 } else {
-            
+
                     unset($_SESSION['VATSIM_CID']);
                     unset($_SESSION['VATSIM_FIRST_NAME']);
                     unset($_SESSION['VATSIM_LAST_NAME']);
@@ -139,7 +139,7 @@ if (!defined('DEV')) {
 
             $fields = [
                 'ip' => $ip,
-                'cid' => strip_tags($_SESSION['VATSIM_CID'])
+                'cid' => session_get('VATSIM_CID', '')
             ];
         
             $fields_string = http_build_query($fields);
@@ -162,8 +162,8 @@ if (!defined('DEV')) {
             curl_close($ch);
             // END: cUrl to Session Check Script
         
-            if ($json && $obj['status'] == "success") {
-        
+            if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
+
                 $_SESSION['VATSIM_CID'] = $obj['cid'];
                 $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
                 $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];

@@ -54,6 +54,13 @@ $patterns = [
         'description' => 'strip_tags($_COOKIE[...]) -> cookie_get(...)'
     ],
 
+    // Pattern 3b: strip_tags($_SESSION['key']) -> session_get('key', '')
+    [
+        'pattern' => '/strip_tags\(\$_SESSION\[([\'"])([a-zA-Z_][a-zA-Z0-9_]*)\1\]\)/',
+        'replacement' => 'session_get(\'$2\', \'\')',
+        'description' => 'strip_tags($_SESSION[...]) -> session_get(...)'
+    ],
+
     // Pattern 4: intval($_GET['key']) -> get_int('key')
     [
         'pattern' => '/intval\(\$_GET\[([\'"])([a-zA-Z_][a-zA-Z0-9_]*)\1\]\)/',
@@ -156,7 +163,7 @@ foreach ($files as $filePath) {
     $fileChanges = [];
 
     // Apply safe patterns (skip the complex one that needs manual review)
-    $safePatterns = array_slice($patterns, 0, 9); // First 9 patterns are safe auto-replacements
+    $safePatterns = array_slice($patterns, 0, 10); // First 10 patterns are safe auto-replacements
 
     foreach ($safePatterns as $patternInfo) {
         $count = 0;
