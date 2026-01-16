@@ -77,6 +77,13 @@ const NODDemandLayer = (function() {
                 refresh();
             }
             renderMonitorsList();
+            updateSliderRange();  // Set slider to match saved horizon
+
+            // Sync horizon dropdown with saved setting
+            const horizonSelect = document.getElementById('demand-horizon');
+            if (horizonSelect) {
+                horizonSelect.value = state.settings.horizonHours;
+            }
         });
 
         // Add sources and layers - try multiple approaches for reliability
@@ -972,12 +979,45 @@ const NODDemandLayer = (function() {
         state.settings.horizonHours = hours;
         saveToLocalStorage();
 
+        // Update slider max and end label
+        updateSliderRange();
+
+        // Reset bucket selection if current selection is beyond new range
+        const maxBuckets = Math.floor((hours * 60) / state.settings.bucketMinutes);
+        if (state.settings.selectedBucket !== null && state.settings.selectedBucket >= maxBuckets) {
+            state.settings.selectedBucket = null;
+        }
+
         // Refresh immediately with new horizon
         if (state.enabled) {
             refresh();
         }
 
         console.log('[DemandLayer] Horizon hours:', hours);
+    }
+
+    /**
+     * Update slider range based on current horizon and bucket settings
+     */
+    function updateSliderRange() {
+        const slider = document.getElementById('demand-time-slider');
+        const endLabel = document.getElementById('demand-slider-end');
+
+        if (!slider) return;
+
+        // Calculate max buckets: (hours * 60 minutes) / bucket_minutes - 1
+        const maxBuckets = Math.floor((state.settings.horizonHours * 60) / state.settings.bucketMinutes) - 1;
+        slider.max = maxBuckets;
+
+        // Update end label (e.g., "+4:00", "+6:00")
+        if (endLabel) {
+            const totalMinutes = state.settings.horizonHours * 60;
+            const hours = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            endLabel.textContent = `+${hours}:${mins.toString().padStart(2, '0')}`;
+        }
+
+        console.log('[DemandLayer] Slider range updated: max=' + maxBuckets);
     }
 
     /**
