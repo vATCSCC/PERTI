@@ -32,13 +32,24 @@ info:
     Example: `VAT-20260115-UAL123-KJFK-KLAX`
     
     ## Data Sources
-    
-    SWIM aggregates data from multiple authoritative sources:
+
+    SWIM aggregates data from multiple authoritative sources (per FAA CDM spec):
     - **VATSIM**: Identity and flight plan data
-    - **VATCSCC/PERTI**: ADL, TMI, OOOI times, demand
-    - **vNAS/CRC**: Track data, ATC automation
-    - **SimTraffic**: Metering data
-    - **SimBrief**: OFP integration
+    - **VATCSCC/PERTI**: ADL, TMI, controlled times (EDCT, CTD, CTA, TOBT)
+    - **vNAS/CRC/EuroScope**: Track data, ATC automation
+    - **SimTraffic**: TBFM-style metering (eta_runway, sta_meter_fix)
+    - **ACARS/Hoppie**: OOOI actuals (T11-T14: out/off/on/in times)
+    - **Virtual Airlines**: CDM predictions (T1-T4: LRTD/LRTA/LGTD/LGTA), schedules (STD/STA)
+    - **SimBrief**: OFP data, fallback for schedules and ETAs
+    - **Simulator**: Pilot flight sim telemetry (FMC data, position)
+
+    ## Source Priority (OOOI Times)
+
+    For OOOI times, higher-priority sources override lower ones:
+    1. ACARS (Hoppie, etc.) - authoritative
+    2. Virtual Airlines - better detection than raw sim
+    3. Simulator - raw telemetry
+    4. VATCSCC - ADL parsing fallback
     
   version: 1.0.0
   contact:
@@ -101,6 +112,7 @@ paths:
                       GET /api/swim/v1/tmi/controlled: Flights under TMI control
                     ingest:
                       POST /api/swim/v1/ingest/adl: Ingest ADL flight data
+                      POST /api/swim/v1/ingest/track: Ingest track position data
                   authentication:
                     type: Bearer token
                     header: "Authorization: Bearer {api_key}"
@@ -496,6 +508,80 @@ paths:
               example:
                 error: true
                 message: 'Source "developer" is not authorized to write ADL data.'
+                status: 403
+                code: NOT_AUTHORITATIVE
+
+  /ingest/track:
+    post:
+      tags:
+        - Ingest
+      summary: Ingest Track Position Data
+      description: |
+        Receives real-time track/position updates from authoritative sources
+        (vNAS, CRC, EuroScope, AOC systems).
+
+        **Requires write access** (system or partner tier API key with track authority).
+
+        Maximum batch size: 1000 tracks per request (higher limit for frequent updates).
+
+        Updates position data for existing flights in swim_flights table.
+        Flights not found are logged but not created.
+      operationId: ingestTrack
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackIngestRequest'
+            example:
+              tracks:
+                - callsign: UAL123
+                  latitude: 40.6413
+                  longitude: -73.7781
+                  altitude_ft: 35000
+                  ground_speed_kts: 450
+                  heading_deg: 270
+                  vertical_rate_fpm: -500
+                  squawk: "1200"
+                  track_source: radar
+      responses:
+        '200':
+          description: Track ingest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackIngestResponse'
+              example:
+                success: true
+                data:
+                  processed: 100
+                  updated: 95
+                  not_found: 5
+                  errors: 0
+                  error_details: []
+                timestamp: "2026-01-16T12:00:00Z"
+                meta:
+                  source: vnas
+                  batch_size: 100
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: 'Source "developer" is not authorized to write track data.'
                 status: 403
                 code: NOT_AUTHORITATIVE
 
@@ -1507,6 +1593,215 @@ components:
               adl:
                 type: object
                 description: Additional ADL fields
+              # Position data (AOC/flight sim telemetry)
+              latitude:
+                type: number
+                format: double
+                description: Current latitude
+              longitude:
+                type: number
+                format: double
+                description: Current longitude
+              altitude_ft:
+                type: integer
+                description: Current altitude (feet MSL)
+              heading_deg:
+                type: integer
+                minimum: 0
+                maximum: 360
+                description: Current heading (degrees magnetic)
+              groundspeed_kts:
+                type: integer
+                description: Current ground speed (knots)
+              vertical_rate_fpm:
+                type: integer
+                description: Vertical rate (feet per minute, + = climb, - = descend)
+              # OOOI times (CDM T11-T14 - from ACARS/VA/simulator)
+              # Priority: ACARS > Virtual Airline > simulator > VATCSCC
+              out_utc:
+                type: string
+                format: date-time
+                description: T13 - Actual Off-Block Time (AOBT) - Gate departure/pushback
+              off_utc:
+                type: string
+                format: date-time
+                description: T11 - Actual Takeoff Time (ATOT) - Wheels up
+              on_utc:
+                type: string
+                format: date-time
+                description: T12 - Actual Landing Time (ALDT) - Wheels down
+              in_utc:
+                type: string
+                format: date-time
+                description: T14 - Actual In-Block Time (AIBT) - Gate arrival
+              # FMC/Generic times
+              eta_utc:
+                type: string
+                format: date-time
+                description: Estimated time of arrival (from FMC)
+              etd_utc:
+                type: string
+                format: date-time
+                description: Estimated time of departure (from FMC)
+              # Schedule times (OAG analog - from VA/SimBrief)
+              std_utc:
+                type: string
+                format: date-time
+                description: Scheduled Time of Departure (published schedule)
+              sta_utc:
+                type: string
+                format: date-time
+                description: Scheduled Time of Arrival (published schedule)
+              # CDM T1-T4 airline predictions (from Virtual Airlines)
+              lrtd_utc:
+                type: string
+                format: date-time
+                description: T1 - Airline Runway Time of Departure (VA predicted)
+              lrta_utc:
+                type: string
+                format: date-time
+                description: T2 - Airline Runway Time of Arrival (VA predicted)
+              lgtd_utc:
+                type: string
+                format: date-time
+                description: T3 - Airline Gate Time of Departure (VA predicted)
+              lgta_utc:
+                type: string
+                format: date-time
+                description: T4 - Airline Gate Time of Arrival (VA predicted)
+              # CDM T7-T8 earliest acceptable times (VA constraint)
+              ertd_utc:
+                type: string
+                format: date-time
+                description: T7 - Earliest Runway Time of Departure (VA constraint)
+              erta_utc:
+                type: string
+                format: date-time
+                description: T8 - Earliest Runway Time of Arrival (VA constraint)
+              # TMI controlled times (VATCSCC only)
+              tobt_utc:
+                type: string
+                format: date-time
+                description: Target Off-Block Time (CDM pushback target - VATCSCC only)
+              # Metering times
+              eta_runway_utc:
+                type: string
+                format: date-time
+                description: ETA at runway threshold (from metering system)
+              sta_meter_fix_utc:
+                type: string
+                format: date-time
+                description: Scheduled time at meter fix (TBFM-style)
+
+    TrackIngestRequest:
+      type: object
+      required:
+        - tracks
+      properties:
+        tracks:
+          type: array
+          maxItems: 1000
+          description: Array of track position updates
+          items:
+            type: object
+            required:
+              - callsign
+              - latitude
+              - longitude
+            properties:
+              callsign:
+                type: string
+                description: Aircraft callsign
+                example: UAL123
+              latitude:
+                type: number
+                format: double
+                minimum: -90
+                maximum: 90
+                description: Latitude in decimal degrees
+                example: 40.6413
+              longitude:
+                type: number
+                format: double
+                minimum: -180
+                maximum: 180
+                description: Longitude in decimal degrees
+                example: -73.7781
+              altitude_ft:
+                type: integer
+                description: Altitude in feet MSL
+                example: 35000
+              ground_speed_kts:
+                type: integer
+                description: Ground speed in knots
+                example: 450
+              heading_deg:
+                type: integer
+                minimum: 0
+                maximum: 360
+                description: Heading in degrees magnetic
+                example: 270
+              vertical_rate_fpm:
+                type: integer
+                description: Vertical rate (feet per minute, + = climb, - = descend)
+                example: -500
+              squawk:
+                type: string
+                pattern: '^\d{4}$'
+                description: Transponder squawk code
+                example: "1200"
+              track_source:
+                type: string
+                enum: [radar, ads-b, mlat, mode-s, acars]
+                description: Source of track data
+                example: radar
+              timestamp:
+                type: string
+                format: date-time
+                description: Track observation time (ISO 8601)
+
+    TrackIngestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            processed:
+              type: integer
+              description: Total tracks processed
+            updated:
+              type: integer
+              description: Flights successfully updated
+            not_found:
+              type: integer
+              description: Tracks for unknown callsigns (skipped)
+            errors:
+              type: integer
+              description: Count of errors
+            error_details:
+              type: array
+              maxItems: 10
+              items:
+                type: object
+                properties:
+                  index:
+                    type: integer
+                  callsign:
+                    type: string
+                  error:
+                    type: string
+        timestamp:
+          type: string
+          format: date-time
+        meta:
+          type: object
+          properties:
+            source:
+              type: string
+            batch_size:
+              type: integer
 
     IngestResponse:
       type: object

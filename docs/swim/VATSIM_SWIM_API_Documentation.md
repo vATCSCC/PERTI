@@ -388,6 +388,131 @@ Returns active Traffic Management Initiatives (Ground Stops, GDPs).
 
 Returns flights currently under TMI control.
 
+### 3.7 ADL Flight Ingest
+
+**Endpoint:** `POST /api/swim/v1/ingest/adl`
+
+Receives flight data from authoritative sources. Requires write access (system or partner tier).
+
+**Maximum batch size:** 500 flights per request
+
+**Request Body:**
+```json
+{
+  "flights": [
+    {
+      "callsign": "UAL123",
+      "dept_icao": "KJFK",
+      "dest_icao": "KLAX",
+      "cid": 1234567,
+      "aircraft_type": "B738",
+      "route": "DCT JFK J584 ORD J64 LAX",
+      "phase": "ENROUTE",
+      "is_active": true,
+      "latitude": 40.1234,
+      "longitude": -74.5678,
+      "altitude_ft": 35000,
+      "heading_deg": 270,
+      "groundspeed_kts": 450,
+      "vertical_rate_fpm": -500,
+      "out_utc": "2026-01-16T14:05:00Z",
+      "off_utc": "2026-01-16T14:18:00Z",
+      "eta_utc": "2026-01-16T18:45:00Z",
+      "tmi": {
+        "ctl_type": "GDP",
+        "slot_time_utc": "2026-01-16T18:30:00Z",
+        "delay_minutes": 45
+      }
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "processed": 1,
+    "created": 0,
+    "updated": 1,
+    "errors": 0,
+    "error_details": []
+  },
+  "timestamp": "2026-01-16T12:00:00Z",
+  "meta": {
+    "source": "vatcscc",
+    "batch_size": 1
+  }
+}
+```
+
+### 3.8 Track Position Ingest
+
+**Endpoint:** `POST /api/swim/v1/ingest/track`
+
+Receives real-time track/position updates from authoritative sources (vNAS, CRC, EuroScope, AOC systems).
+
+**Maximum batch size:** 1000 tracks per request (higher limit for frequent position updates)
+
+**Request Body:**
+```json
+{
+  "tracks": [
+    {
+      "callsign": "UAL123",
+      "latitude": 40.6413,
+      "longitude": -73.7781,
+      "altitude_ft": 35000,
+      "ground_speed_kts": 450,
+      "heading_deg": 270,
+      "vertical_rate_fpm": -500,
+      "squawk": "1200",
+      "track_source": "radar"
+    }
+  ]
+}
+```
+
+**Track Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `callsign` | string | Yes | Aircraft callsign |
+| `latitude` | number | Yes | Latitude (-90 to 90) |
+| `longitude` | number | Yes | Longitude (-180 to 180) |
+| `altitude_ft` | integer | No | Altitude in feet MSL |
+| `ground_speed_kts` | integer | No | Ground speed in knots |
+| `heading_deg` | integer | No | Heading (0-360) |
+| `vertical_rate_fpm` | integer | No | Vertical rate (+ = climb, - = descend) |
+| `squawk` | string | No | Transponder code (4 digits) |
+| `track_source` | string | No | `radar`, `ads-b`, `mlat`, `mode-s`, `acars` |
+| `timestamp` | datetime | No | Observation time (ISO 8601) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "processed": 100,
+    "updated": 95,
+    "not_found": 5,
+    "errors": 0,
+    "error_details": []
+  },
+  "timestamp": "2026-01-16T12:00:00Z",
+  "meta": {
+    "source": "vnas",
+    "batch_size": 100
+  }
+}
+```
+
+**Notes:**
+- Tracks are matched by callsign to existing active flights
+- Flights not found are skipped (not_found count) but not considered errors
+- Use this endpoint for high-frequency position updates from radar/ADS-B systems
+
 ---
 
 ## 4. WebSocket Real-Time API
@@ -623,7 +748,67 @@ function swim_generate_gufi($callsign, $dept_icao, $dest_icao, $date = null) {
 | `MINIT` | Minutes-in-Trail |
 | `AFP` | Airspace Flow Program |
 
-### 5.4 FIXM Field Mapping
+### 5.4 AOC Telemetry Fields
+
+Virtual Airlines and flight simulator integrations can push telemetry data via the ADL ingest endpoint.
+
+**OOOI Times (Out/Off/On/In):**
+
+| Field | Description | Source |
+|-------|-------------|--------|
+| `out_utc` | Gate departure (pushback) | AOC/ACARS |
+| `off_utc` | Wheels up (takeoff) | AOC/ACARS |
+| `on_utc` | Wheels down (landing) | AOC/ACARS |
+| `in_utc` | Gate arrival | AOC/ACARS |
+
+**FMC Times:**
+
+| Field | Description | Source |
+|-------|-------------|--------|
+| `eta_utc` | Estimated time of arrival | FMC/AOC |
+| `etd_utc` | Estimated time of departure | FMC/AOC |
+
+**Position Telemetry:**
+
+| Field | Description | Source |
+|-------|-------------|--------|
+| `vertical_rate_fpm` | Climb/descent rate (ft/min) | Flight sim |
+| `latitude` | Current position | Flight sim |
+| `longitude` | Current position | Flight sim |
+| `altitude_ft` | Current altitude (MSL) | Flight sim |
+| `heading_deg` | Current heading | Flight sim |
+| `groundspeed_kts` | Ground speed | Flight sim |
+
+**Example: Virtual Airline PIREP Integration**
+```json
+{
+  "flights": [
+    {
+      "callsign": "VPA123",
+      "dept_icao": "KJFK",
+      "dest_icao": "KLAX",
+      "cid": 1234567,
+      "out_utc": "2026-01-16T14:05:00Z",
+      "off_utc": "2026-01-16T14:18:00Z",
+      "latitude": 40.1234,
+      "longitude": -98.5678,
+      "altitude_ft": 35000,
+      "groundspeed_kts": 485,
+      "vertical_rate_fpm": 0,
+      "eta_utc": "2026-01-16T18:45:00Z"
+    }
+  ]
+}
+```
+
+**Data Authority Rules:**
+
+The telemetry data source must be authorized to write the field:
+- `SIMULATOR` source: Authoritative for `telemetry` fields, can override
+- `VIRTUAL_AIRLINE` source: Authoritative for `airline` fields
+- Other sources cannot write telemetry fields unless explicitly allowed
+
+### 5.5 FIXM Field Mapping
 
 The API supports both legacy and FIXM-aligned field names via the `?format=fixm` parameter.
 
@@ -783,14 +968,72 @@ $SWIM_KEY_PREFIXES = [
 **Data Sources:**
 ```php
 $SWIM_DATA_SOURCES = [
-    'VATSIM'         => 'vatsim',
-    'VATCSCC'        => 'vatcscc',
-    'VNAS'           => 'vnas',
-    'CRC'            => 'crc',
-    'SIMTRAFFIC'     => 'simtraffic',
-    'SIMBRIEF'       => 'simbrief'
+    // Core sources
+    'VATSIM'          => 'vatsim',           // Identity and flight plans
+    'VATCSCC'         => 'vatcscc',          // ADL, TMI, demand
+
+    // Track/position sources
+    'VNAS'            => 'vnas',             // Track data, ATC automation
+    'CRC'             => 'crc',              // Track data, tags
+    'EUROSCOPE'       => 'euroscope',        // Track data
+
+    // ACARS sources
+    'ACARS'           => 'acars',            // Generic ACARS (OOOI times)
+    'HOPPIE'          => 'hoppie',           // Hoppie ACARS
+
+    // Metering sources
+    'SIMTRAFFIC'      => 'simtraffic',       // TBFM-style metering
+    'TOPSKY'          => 'topsky',           // TopSky EuroScope AMAN
+
+    // External sources
+    'SIMBRIEF'        => 'simbrief',         // OFP data
+    'SIMULATOR'       => 'simulator',        // Pilot sim telemetry
+    'VIRTUAL_AIRLINE' => 'virtual_airline',  // VA AOC systems (schedules, CDM)
+
+    // Future
+    'VFDS'            => 'vfds',             // vFlightDataSystems
 ];
 ```
+
+**Source Priority Rankings (per FAA CDM spec):**
+
+| Data Type | Priority Order (highest first) |
+|-----------|-------------------------------|
+| Track Position | vNAS → CRC → EuroScope → simulator → ACARS |
+| OOOI Times | ACARS → Virtual Airline → simulator → VATCSCC |
+| Schedule (STD/STA) | Virtual Airline → SimBrief → VATCSCC |
+| Metering | SimTraffic → VATCSCC → vNAS → TopSky |
+| General Times | SimTraffic → VATCSCC → vNAS → vFDS → SimBrief → simulator |
+
+**CDM Time Fields (FAA ADL T-Field Reference):**
+
+| Field | CDM Ref | Description | Authority |
+|-------|---------|-------------|-----------|
+| `std_utc` | - | Scheduled Time of Departure | VA/SimBrief |
+| `sta_utc` | - | Scheduled Time of Arrival | VA/SimBrief |
+| `lrtd_utc` | T1 | Airline Runway Time of Departure | Virtual Airline |
+| `lrta_utc` | T2 | Airline Runway Time of Arrival | Virtual Airline |
+| `lgtd_utc` | T3 | Airline Gate Time of Departure | Virtual Airline |
+| `lgta_utc` | T4 | Airline Gate Time of Arrival | Virtual Airline |
+| `ertd_utc` | T7 | Earliest Runway Time of Departure | Virtual Airline |
+| `erta_utc` | T8 | Earliest Runway Time of Arrival | Virtual Airline |
+| `out_utc` | T13 | Actual Off-Block (AOBT) | ACARS/VA/sim |
+| `off_utc` | T11 | Actual Takeoff (ATOT) | ACARS/VA/sim |
+| `on_utc` | T12 | Actual Landing (ALDT) | ACARS/VA/sim |
+| `in_utc` | T14 | Actual In-Block (AIBT) | ACARS/VA/sim |
+| `edct_utc` | - | Expected Departure Clearance Time | VATCSCC only |
+| `ctd_utc` | - | Controlled Time of Departure | VATCSCC only |
+| `cta_utc` | - | Controlled Time of Arrival | VATCSCC only |
+| `tobt_utc` | - | Target Off-Block Time | VATCSCC only |
+
+**Merge Behaviors:**
+
+| Behavior | Description |
+|----------|-------------|
+| `priority_based` | Higher priority source always wins (OOOI times) |
+| `immutable` | Only authoritative source can write (TMI, schedules) |
+| `variable` | Accepts newer timestamps (ETAs, metering) |
+| `monotonic` | Rejects older timestamps (position data) |
 
 **Cache TTL:**
 ```php
