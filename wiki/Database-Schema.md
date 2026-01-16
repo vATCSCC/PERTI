@@ -137,6 +137,12 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 | `fn_AirwaySegmentDemand` | Flights on an airway segment between two fixes |
 | `fn_RouteSegmentDemand` | Flights between two fixes (airway or direct) |
 
+### Demand Monitors (v17)
+
+| Table | Purpose |
+|-------|---------|
+| `demand_monitors` | Shared demand monitor definitions (fix, segment, airway, via_fix types) |
+
 ---
 
 ## Key Relationships

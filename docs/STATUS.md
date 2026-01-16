@@ -120,6 +120,7 @@ SWIM (System Wide Information Management) provides centralized flight data excha
 | `sp_CalculateETA` | [OK] Deployed | [sp_CalculateETA.sql](../adl/procedures/sp_CalculateETA.sql) | Computes single flight ETA |
 | `sp_CalculateETABatch` | [OK] Deployed | [sp_CalculateETABatch.sql](../adl/procedures/sp_CalculateETABatch.sql) | Batch ETA calculation |
 | `sp_CalculateWaypointETA` | [OK] Deployed | [sp_CalculateWaypointETA.sql](../adl/procedures/sp_CalculateWaypointETA.sql) | ETA at specific waypoints |
+| `sp_CalculateWaypointETABatch_Tiered` | [OK] NEW v17 | [sp_CalculateWaypointETABatch_Tiered.sql](../adl/procedures/sp_CalculateWaypointETABatch_Tiered.sql) | Tiered waypoint ETA processing (daemon) |
 | `sp_ProcessTrajectoryBatch` | [OK] Deployed | [sp_ProcessTrajectoryBatch.sql](../adl/procedures/sp_ProcessTrajectoryBatch.sql) | Batch trajectory logging |
 | `sp_LogTrajectory` | [OK] Deployed | [sp_LogTrajectory.sql](../adl/procedures/sp_LogTrajectory.sql) | Records trajectory snapshots |
 | `fn_GetTrajectoryTier` | [OK] Deployed | [fn_GetTrajectoryTier.sql](../adl/procedures/fn_GetTrajectoryTier.sql) | Trajectory logging frequency |
@@ -134,6 +135,7 @@ SWIM (System Wide Information Management) provides centralized flight data excha
 | `sp_DetectZoneTransition` | [OK] Deployed | [sp_DetectZoneTransition.sql](../adl/procedures/sp_DetectZoneTransition.sql) | Individual zone detection |
 | `fn_DetectCurrentZone` | [OK] Deployed | [fn_DetectCurrentZone.sql](../adl/procedures/fn_DetectCurrentZone.sql) | Current zone identification |
 | `sp_ProcessBoundaryDetectionBatch` | [WARN] Modified | [sp_ProcessBoundaryDetectionBatch.sql](../adl/procedures/sp_ProcessBoundaryDetectionBatch.sql) | Batch boundary crossing detection |
+| `sp_ProcessBoundaryAndCrossings_Background` | [OK] NEW v17 | [sp_ProcessBoundaryAndCrossings_Background.sql](../adl/procedures/sp_ProcessBoundaryAndCrossings_Background.sql) | Background boundary/crossing processing (daemon) |
 | `sp_ImportAirportGeometry` | [OK] Deployed | [sp_ImportAirportGeometry.sql](../adl/procedures/sp_ImportAirportGeometry.sql) | Airport zone geometry import |
 
 ### Data Synchronization
@@ -192,8 +194,10 @@ SWIM (System Wide Information Management) provides centralized flight data excha
 | Daemon | Status | Location | Interval | Purpose |
 |--------|--------|----------|----------|---------|
 | Parse Queue Daemon | [WARN] Modified | [parse_queue_daemon.php](../adl/php/parse_queue_daemon.php) | 5s (configurable) | Continuous route parsing |
+| Waypoint ETA Daemon | [OK] NEW v17 | [waypoint_eta_daemon.php](../adl/php/waypoint_eta_daemon.php) | 15s (tiered) | Waypoint ETA calculation |
+| Boundary Daemon | [OK] NEW v17 | [boundary_daemon.php](../adl/php/boundary_daemon.php) | 15s (adaptive) | ARTCC/TRACON boundary detection |
 
-**Usage:**
+**Parse Queue Usage:**
 ```bash
 # Continuous loop mode
 php parse_queue_daemon.php --loop
@@ -203,6 +207,27 @@ php parse_queue_daemon.php --batch=100
 
 # Custom interval (seconds)
 php parse_queue_daemon.php --loop --interval=10
+```
+
+**Waypoint ETA Daemon Usage:**
+```bash
+# Run continuously with tiered processing
+php waypoint_eta_daemon.php --loop
+
+# Process only tier 0 (imminent crossings)
+php waypoint_eta_daemon.php --tier=0
+
+# Custom interval and batch size
+php waypoint_eta_daemon.php --loop --interval=15 --flights=500
+```
+
+**Boundary Daemon Usage:**
+```bash
+# Run continuously
+php boundary_daemon.php --loop
+
+# Custom batch size
+php boundary_daemon.php --loop --flights=200 --crossings=100
 ```
 
 ### Import Scripts
