@@ -1,0 +1,821 @@
+{
+  "info": {
+    "_postman_id": "727e256c-62ac-4f15-b3de-5ae223eb040a",
+    "name": "VATSIM SWIM API v1",
+    "description": "System Wide Information Management (SWIM) API for VATSIM.\n\nSWIM provides a centralized data exchange hub enabling real-time flight information sharing across the VATSIM ecosystem.\n\n## Authentication\n\nAll endpoints require Bearer token authentication. Set your API key in the collection variables or environment.\n\n## API Key Tiers\n\n| Tier | Prefix | Rate Limit | Write Access |\n|------|--------|------------|-------------|\n| System | `swim_sys_` | 10,000/min | Full |\n| Partner | `swim_par_` | 1,000/min | Limited |\n| Developer | `swim_dev_` | 100/min | Read-only |\n| Public | `swim_pub_` | 30/min | Read-only |\n\n## Documentation\n\nhttps://perti.vatcscc.org/docs/swim/",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Info",
+      "item": [
+        {
+          "name": "Get API Info",
+          "id": "77f4e325-2a44-4856-a39a-3a89d6ed7614",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Returns API version, available endpoints, and authentication information."
+          },
+          "response": []
+        }
+      ],
+      "id": "7d3f6794-3115-4700-a5f9-fe014ed8d251",
+      "description": "API information and status"
+    },
+    {
+      "name": "Flights",
+      "item": [
+        {
+          "name": "List Flights",
+          "id": "d0f399ca-2af6-416d-b5d2-c836cb85a5e2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?status=active&per_page=100&page=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "active",
+                  "description": "Filter by status: active, completed, all"
+                },
+                {
+                  "key": "dept_icao",
+                  "value": "KJFK,KEWR",
+                  "description": "Filter by departure airport(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "dest_icao",
+                  "value": "KLAX,KSFO",
+                  "description": "Filter by destination airport(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "artcc",
+                  "value": "ZNY,ZLA",
+                  "description": "Filter by destination ARTCC(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "callsign",
+                  "value": "UAL*",
+                  "description": "Filter by callsign pattern (* wildcard)",
+                  "disabled": true
+                },
+                {
+                  "key": "tmi_controlled",
+                  "value": "true",
+                  "description": "Filter to TMI-controlled flights only",
+                  "disabled": true
+                },
+                {
+                  "key": "phase",
+                  "value": "ENROUTE,DESCENT",
+                  "description": "Filter by flight phase(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "per_page",
+                  "value": "100",
+                  "description": "Results per page (1-1000)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                }
+              ]
+            },
+            "description": "Returns a paginated list of flights with optional filters.\n\nData is sourced from the SWIM_API database which syncs from VATSIM_ADL every 2 minutes."
+          },
+          "response": []
+        },
+        {
+          "name": "List Flights - By Departure",
+          "id": "97638c92-9768-46c4-9720-6ad60049dabc",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?dept_icao=KJFK,KEWR,KLGA&status=active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "dept_icao",
+                  "value": "KJFK,KEWR,KLGA"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            },
+            "description": "Example: Get all active flights departing from New York area airports."
+          },
+          "response": []
+        },
+        {
+          "name": "List Flights - By Destination ARTCC",
+          "id": "854f7300-4225-4c3c-a252-905aafc90044",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?artcc=ZLA&status=active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "artcc",
+                  "value": "ZLA"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            },
+            "description": "Example: Get all active flights destined for Los Angeles Center airspace."
+          },
+          "response": []
+        },
+        {
+          "name": "List Flights - TMI Controlled Only",
+          "id": "5b0f349c-1a7f-45e6-8204-ff74a85f65f7",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?tmi_controlled=true&status=active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "tmi_controlled",
+                  "value": "true"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            },
+            "description": "Example: Get all flights currently under TMI control (Ground Stop, GDP, etc.)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Flight - By GUFI",
+          "id": "9e304a13-ea63-40f6-9157-aa5f0a64222f",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flight?gufi=VAT-20260115-UAL123-KJFK-KLAX",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flight"
+              ],
+              "query": [
+                {
+                  "key": "gufi",
+                  "value": "VAT-20260115-UAL123-KJFK-KLAX",
+                  "description": "GUFI format: VAT-YYYYMMDD-CALLSIGN-DEPT-DEST"
+                },
+                {
+                  "key": "include_history",
+                  "value": "false",
+                  "description": "Include inactive flights in search",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns detailed information for a single flight by GUFI.\n\nGUFI format: `VAT-YYYYMMDD-CALLSIGN-DEPT-DEST`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Flight - By flight_uid",
+          "id": "07b43a64-5652-47de-b1d9-b5389f00f047",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flight?flight_uid=123456",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flight"
+              ],
+              "query": [
+                {
+                  "key": "flight_uid",
+                  "value": "123456",
+                  "description": "Internal flight unique identifier"
+                }
+              ]
+            },
+            "description": "Returns detailed information for a single flight by internal flight_uid."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Flight - By flight_key",
+          "id": "887b6650-7989-4468-bd29-de009576f2c0",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flight?flight_key=UAL123_KJFK_KLAX_20260115",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flight"
+              ],
+              "query": [
+                {
+                  "key": "flight_key",
+                  "value": "UAL123_KJFK_KLAX_20260115",
+                  "description": "Flight key string"
+                }
+              ]
+            },
+            "description": "Returns detailed information for a single flight by flight_key."
+          },
+          "response": []
+        }
+      ],
+      "id": "9d115791-4883-4446-ace7-87ec07d3004c",
+      "description": "Flight data retrieval endpoints"
+    },
+    {
+      "name": "Positions",
+      "item": [
+        {
+          "name": "Get All Positions (GeoJSON)",
+          "id": "e5424acc-6cb7-49ec-b417-f11418a4c487",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/positions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "dept_icao",
+                  "value": "KJFK",
+                  "description": "Filter by departure airport(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "dest_icao",
+                  "value": "KLAX",
+                  "description": "Filter by destination airport(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "artcc",
+                  "value": "ZNY",
+                  "description": "Filter by destination ARTCC(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "bounds",
+                  "value": "-125.0,24.0,-66.0,50.0",
+                  "description": "Bounding box: minLon,minLat,maxLon,maxLat",
+                  "disabled": true
+                },
+                {
+                  "key": "tmi_controlled",
+                  "value": "true",
+                  "description": "TMI-controlled flights only",
+                  "disabled": true
+                },
+                {
+                  "key": "phase",
+                  "value": "ENROUTE",
+                  "description": "Filter by flight phase(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "include_route",
+                  "value": "true",
+                  "description": "Include route string in properties",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns current positions of all active flights in GeoJSON FeatureCollection format.\n\nIdeal for map visualization."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Positions - CONUS Bounding Box",
+          "id": "b1be893c-92a2-41e0-8ec5-7eaf5c0bf86e",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/positions?bounds=-125.0,24.0,-66.0,50.0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "bounds",
+                  "value": "-125.0,24.0,-66.0,50.0",
+                  "description": "Continental US bounding box"
+                }
+              ]
+            },
+            "description": "Example: Get positions within Continental US bounds."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Positions - By Destination",
+          "id": "752229b3-76e2-4445-88df-675774d23ad7",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/positions?dest_icao=KJFK&include_route=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "dest_icao",
+                  "value": "KJFK"
+                },
+                {
+                  "key": "include_route",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Example: Get positions of all flights inbound to JFK with route strings."
+          },
+          "response": []
+        }
+      ],
+      "id": "8854f94c-5409-4ed7-b951-7edce98a484c",
+      "description": "Flight position data in GeoJSON format for map visualization"
+    },
+    {
+      "name": "TMI",
+      "item": [
+        {
+          "name": "Get Active TMI Programs",
+          "id": "c84b60d8-87dd-46ae-bc39-9fc09eeb2ef1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/programs?type=all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "programs"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "all",
+                  "description": "Filter by type: all, gs, gdp"
+                },
+                {
+                  "key": "airport",
+                  "value": "KJFK,KEWR",
+                  "description": "Filter by affected airport(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "artcc",
+                  "value": "ZNY",
+                  "description": "Filter by ARTCC",
+                  "disabled": true
+                },
+                {
+                  "key": "include_history",
+                  "value": "true",
+                  "description": "Include recently ended programs (last 2 hours)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns active Traffic Management Initiative programs including Ground Stops and Ground Delay Programs."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ground Stops Only",
+          "id": "b9d39468-f6de-4551-bbe6-4566f60e7737",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/programs?type=gs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "programs"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "gs"
+                }
+              ]
+            },
+            "description": "Example: Get only active Ground Stops."
+          },
+          "response": []
+        },
+        {
+          "name": "Get GDP Programs Only",
+          "id": "a8508b79-e28e-41a4-8070-634dcfa30f76",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/programs?type=gdp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "programs"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "gdp"
+                }
+              ]
+            },
+            "description": "Example: Get only active Ground Delay Programs."
+          },
+          "response": []
+        },
+        {
+          "name": "Get TMI Programs - By Airport",
+          "id": "31b3a078-f814-4ed1-bd4f-169ccf5fb96f",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/programs?airport=KJFK&include_history=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "programs"
+              ],
+              "query": [
+                {
+                  "key": "airport",
+                  "value": "KJFK"
+                },
+                {
+                  "key": "include_history",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Example: Get TMI programs affecting JFK, including recently ended."
+          },
+          "response": []
+        },
+        {
+          "name": "Get TMI-Controlled Flights",
+          "id": "59f76ff6-cea2-45f6-b55b-f4cd99e2de07",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/controlled?type=all&per_page=100&page=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "controlled"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "all",
+                  "description": "Filter by TMI type: all, gs, gdp, afp, reroute"
+                },
+                {
+                  "key": "airport",
+                  "value": "KJFK",
+                  "description": "Filter by destination airport(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "artcc",
+                  "value": "ZNY",
+                  "description": "Filter by destination ARTCC(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "dept_icao",
+                  "value": "KORD",
+                  "description": "Filter by departure airport(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "phase",
+                  "value": "ENROUTE",
+                  "description": "Filter by flight phase(s)",
+                  "disabled": true
+                },
+                {
+                  "key": "include_exempt",
+                  "value": "true",
+                  "description": "Include exempt flights",
+                  "disabled": true
+                },
+                {
+                  "key": "per_page",
+                  "value": "100"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Returns flights currently under TMI control with statistics."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ground Stop Held Flights",
+          "id": "715eab42-0517-425d-a594-cb4b563c54db",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/controlled?type=gs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "controlled"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "gs"
+                }
+              ]
+            },
+            "description": "Example: Get only flights held by Ground Stops."
+          },
+          "response": []
+        },
+        {
+          "name": "Get GDP-Controlled Flights",
+          "id": "2e29ed4c-093b-4d7a-95fd-3c1bb9219481",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/controlled?type=gdp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "controlled"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "gdp"
+                }
+              ]
+            },
+            "description": "Example: Get only flights with GDP slot assignments."
+          },
+          "response": []
+        },
+        {
+          "name": "Get TMI Flights - By Destination",
+          "id": "4dbb338c-c590-498f-a371-90dc4bea6d82",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/controlled?airport=KJFK,KEWR,KLGA",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "controlled"
+              ],
+              "query": [
+                {
+                  "key": "airport",
+                  "value": "KJFK,KEWR,KLGA"
+                }
+              ]
+            },
+            "description": "Example: Get TMI-controlled flights destined for New York area airports."
+          },
+          "response": []
+        }
+      ],
+      "id": "a9fb4504-f4bc-47e8-ba22-d2ed7e8caebb",
+      "description": "Traffic Management Initiative data - programs and controlled flights"
+    },
+    {
+      "name": "Ingest",
+      "item": [
+        {
+          "name": "Ingest ADL Data",
+          "id": "1e401add-da16-498a-b4ea-200ad62851f9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"cid\": 1234567,\n            \"aircraft_type\": \"B738\",\n            \"route\": \"DEEZZ5 DEEZZ J584 ORD J64 RIIVR2\",\n            \"current_phase\": \"ENROUTE\",\n            \"is_active\": true,\n            \"tmi\": {\n                \"ctl_type\": \"GDP\",\n                \"slot_time_utc\": \"2026-01-15T18:30:00Z\",\n                \"delay_minutes\": 45\n            }\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            },
+            "description": "Receives ADL (Aggregate Demand List) data from authoritative sources.\n\n**Requires write access** (system or partner tier API key).\n\nMaximum batch size: 500 flights per request."
+          },
+          "response": []
+        },
+        {
+          "name": "Ingest ADL Data - Minimal",
+          "id": "2fdb2ed2-286b-41ac-bf24-bbca4cf1df1e",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"DAL456\",\n            \"dept_icao\": \"KATL\",\n            \"dest_icao\": \"KMIA\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            },
+            "description": "Example: Minimal required fields for ADL ingest (callsign, dept_icao, dest_icao)."
+          },
+          "response": []
+        },
+        {
+          "name": "Ingest ADL Data - Batch",
+          "id": "65cb6f5a-10ec-45c8-aedb-69e376cbc725",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"aircraft_type\": \"B738\"\n        },\n        {\n            \"callsign\": \"DAL456\",\n            \"dept_icao\": \"KATL\",\n            \"dest_icao\": \"KMIA\",\n            \"aircraft_type\": \"A320\"\n        },\n        {\n            \"callsign\": \"AAL789\",\n            \"dept_icao\": \"KDFW\",\n            \"dest_icao\": \"KORD\",\n            \"aircraft_type\": \"B738\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            },
+            "description": "Example: Batch ingest of multiple flights (max 500 per request)."
+          },
+          "response": []
+        }
+      ],
+      "id": "0451bb06-5515-46c5-b370-16a85843dbf7",
+      "description": "Data ingestion endpoints (write access required)"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{api_key}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "id": "a9b44d23-d810-404a-a653-07a1ccd434c3",
+      "key": "base_url",
+      "value": "https://perti.vatcscc.org/api/swim/v1",
+      "type": "string"
+    },
+    {
+      "id": "176a9030-d831-48d0-9460-c576819a16c6",
+      "key": "api_key",
+      "value": "swim_dev_your_key_here",
+      "type": "string"
+    }
+  ]
+}
