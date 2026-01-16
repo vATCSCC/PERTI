@@ -24,7 +24,7 @@ if ($discord_api_path) require_once($discord_api_path);
 $discord = new DiscordAPI();
 
 // Route request
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     switch ($method) {

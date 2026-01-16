@@ -24,13 +24,13 @@ if (!$conn_adl) {
     exit;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     switch ($method) {
         case 'GET':
             if (isset($_GET['id'])) {
-                getPreset($conn_adl, intval($_GET['id']));
+                getPreset($conn_adl, get_int('id'));
             } else {
                 listPresets($conn_adl, $_GET['artcc'] ?? null);
             }
@@ -48,7 +48,7 @@ try {
                 exit;
             }
             $data = json_decode(file_get_contents('php://input'), true);
-            updatePreset($conn_adl, intval($_GET['id']), $data);
+            updatePreset($conn_adl, get_int('id'), $data);
             break;
 
         case 'PATCH':
@@ -59,7 +59,7 @@ try {
                 exit;
             }
             $data = json_decode(file_get_contents('php://input'), true);
-            patchPosition($conn_adl, intval($_GET['position_id']), $data);
+            patchPosition($conn_adl, get_int('position_id'), $data);
             break;
 
         case 'DELETE':
@@ -68,7 +68,7 @@ try {
                 echo json_encode(['error' => 'Missing preset ID']);
                 exit;
             }
-            deletePreset($conn_adl, intval($_GET['id']));
+            deletePreset($conn_adl, get_int('id'));
             break;
             
         default:

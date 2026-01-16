@@ -156,7 +156,7 @@ function buildFlightFilterClause($filter, $coreAlias = 'c', $planAlias = 'fp') {
 }
 
 // Parse parameters
-$type = isset($_GET['type']) ? strtolower(trim($_GET['type'])) : '';
+$type = isset($_GET['type']) ? get_lower('type') : '';
 $minutesAhead = isset($_GET['minutes_ahead']) ? (int)$_GET['minutes_ahead'] : 60;
 $minutesAhead = max(15, min(720, $minutesAhead)); // 15 min to 12 hours
 
@@ -197,7 +197,7 @@ if (empty($type)) {
 // Validate type-specific parameters
 switch ($type) {
     case 'fix':
-        $fix = isset($_GET['fix']) ? strtoupper(trim($_GET['fix'])) : '';
+        $fix = isset($_GET['fix']) ? get_upper('fix') : '';
         if (empty($fix)) {
             http_response_code(400);
             echo json_encode(["error" => "Missing required parameter: fix"]);
@@ -207,8 +207,8 @@ switch ($type) {
         break;
 
     case 'segment':
-        $from = isset($_GET['from']) ? strtoupper(trim($_GET['from'])) : '';
-        $to = isset($_GET['to']) ? strtoupper(trim($_GET['to'])) : '';
+        $from = isset($_GET['from']) ? get_upper('from') : '';
+        $to = isset($_GET['to']) ? get_upper('to') : '';
         if (empty($from) || empty($to)) {
             http_response_code(400);
             echo json_encode(["error" => "Missing required parameters: from, to"]);
@@ -218,7 +218,7 @@ switch ($type) {
         break;
 
     case 'airway':
-        $airway = isset($_GET['airway']) ? strtoupper(trim($_GET['airway'])) : '';
+        $airway = isset($_GET['airway']) ? get_upper('airway') : '';
         if (empty($airway)) {
             http_response_code(400);
             echo json_encode(["error" => "Missing required parameter: airway"]);
@@ -228,9 +228,9 @@ switch ($type) {
         break;
 
     case 'airway_segment':
-        $airway = isset($_GET['airway']) ? strtoupper(trim($_GET['airway'])) : '';
-        $from = isset($_GET['from']) ? strtoupper(trim($_GET['from'])) : '';
-        $to = isset($_GET['to']) ? strtoupper(trim($_GET['to'])) : '';
+        $airway = isset($_GET['airway']) ? get_upper('airway') : '';
+        $from = isset($_GET['from']) ? get_upper('from') : '';
+        $to = isset($_GET['to']) ? get_upper('to') : '';
         if (empty($airway) || empty($from) || empty($to)) {
             http_response_code(400);
             echo json_encode(["error" => "Missing required parameters: airway, from, to"]);
@@ -240,11 +240,11 @@ switch ($type) {
         break;
 
     case 'via_fix':
-        $via = isset($_GET['via']) ? strtoupper(trim($_GET['via'])) : '';
-        $viaType = isset($_GET['via_type']) ? strtolower(trim($_GET['via_type'])) : 'fix';
-        $filterType = isset($_GET['filter_type']) ? strtolower(trim($_GET['filter_type'])) : '';
-        $filterCode = isset($_GET['filter_code']) ? strtoupper(trim($_GET['filter_code'])) : '';
-        $direction = isset($_GET['direction']) ? strtolower(trim($_GET['direction'])) : 'both';
+        $via = isset($_GET['via']) ? get_upper('via') : '';
+        $viaType = isset($_GET['via_type']) ? get_lower('via_type') : 'fix';
+        $filterType = isset($_GET['filter_type']) ? get_lower('filter_type') : '';
+        $filterCode = isset($_GET['filter_code']) ? get_upper('filter_code') : '';
+        $direction = isset($_GET['direction']) ? get_lower('direction') : 'both';
 
         if (empty($via) || empty($filterType) || empty($filterCode)) {
             http_response_code(400);

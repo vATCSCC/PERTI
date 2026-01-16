@@ -41,13 +41,13 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
-$airport = strip_tags($_POST['airport']);
-$weather = strip_tags($_POST['weather']);
-$arrive = strip_tags($_POST['arrive']);
-$depart = strip_tags($_POST['depart']);
-$aar = strip_tags($_POST['aar']);
-$adr = strip_tags($_POST['adr']);
+$p_id = post_input('p_id');
+$airport = post_input('airport');
+$weather = post_input('weather');
+$arrive = post_input('arrive');
+$depart = post_input('depart');
+$aar = post_input('aar');
+$adr = post_input('adr');
 $comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'])));
 
 // Insert Data into Database

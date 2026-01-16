@@ -41,10 +41,10 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
-$date = strip_tags($_POST['date']);
+$p_id = post_input('p_id');
+$date = post_input('date');
 $summary = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['summary'])));
-$image_url = strip_tags($_POST['image_url']);
+$image_url = post_input('image_url');
 
 // Insert Data into Database
 try {

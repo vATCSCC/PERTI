@@ -41,11 +41,11 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 
 $location = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['location'])));
 $context = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['context'])));
-$date = strip_tags($_POST['date']);
+$date = post_input('date');
 $impact = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['impact'])));
 
 // Insert Data into Database

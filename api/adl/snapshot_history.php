@@ -24,7 +24,7 @@ if (!isset($_SESSION['VATSIM_CID']) && !defined('DEV')) {
 try {
     $source = $_POST['source'] ?? 'ADL';
     $flightKeys = isset($_POST['flight_keys']) ? trim($_POST['flight_keys']) : null;
-    $activeOnly = isset($_POST['active_only']) ? intval($_POST['active_only']) : 1;
+    $activeOnly = isset($_POST['active_only']) ? post_int('active_only') : 1;
     
     // Check if stored procedure exists
     $checkSql = "SELECT COUNT(*) as cnt FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.sp_snapshot_adl_to_history') AND type = 'P'";

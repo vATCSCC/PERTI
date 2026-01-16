@@ -19,7 +19,7 @@ if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
     $ip = $_SERVER['REMOTE_ADDR'];
 }
 
-$selfcookie = strip_tags($_COOKIE["SELF"]); 
+$selfcookie = cookie_get('SELF'); 
 
 $query = "UPDATE users SET last_session_ip='', last_selfcookie='' WHERE last_session_ip='$ip' AND last_selfcookie='$selfcookie'";
 

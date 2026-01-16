@@ -18,7 +18,7 @@ $connect_path = realpath(__DIR__ . '/../../load/connect.php');
 if ($config_path) include($config_path);
 if ($connect_path) include($connect_path);
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
     exit;

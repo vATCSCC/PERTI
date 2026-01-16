@@ -41,7 +41,7 @@ if ($conn === false) {
 }
 
 // Parse parameters
-$icao = isset($_GET['icao']) ? strtoupper(trim($_GET['icao'])) : null;
+$icao = isset($_GET['icao']) ? get_upper('icao') : null;
 $date = isset($_GET['date']) ? $_GET['date'] : null;
 $days = isset($_GET['days']) ? (int)$_GET['days'] : 7;
 

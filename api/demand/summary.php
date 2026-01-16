@@ -60,11 +60,11 @@ if ($conn === false) {
 }
 
 // Get parameters
-$airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : '';
+$airport = isset($_GET['airport']) ? get_upper('airport') : '';
 $start = isset($_GET['start']) ? trim($_GET['start']) : null;
 $end = isset($_GET['end']) ? trim($_GET['end']) : null;
 $timeBin = isset($_GET['time_bin']) ? trim($_GET['time_bin']) : null; // For drill-down
-$direction = isset($_GET['direction']) ? strtolower(trim($_GET['direction'])) : 'both';
+$direction = isset($_GET['direction']) ? get_lower('direction') : 'both';
 
 // Validate airport
 if (empty($airport) || strlen($airport) !== 4) {

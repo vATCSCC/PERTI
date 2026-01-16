@@ -40,11 +40,11 @@ try {
     $intFields = ['status', 'altitude_min', 'altitude_max', 'exempt_active_only'];
     
     // Determine if update or insert
-    $isUpdate = isset($_POST['id']) && is_numeric($_POST['id']) && intval($_POST['id']) > 0;
+    $isUpdate = isset($_POST['id']) && is_numeric($_POST['id']) && post_int('id') > 0;
     
     if ($isUpdate) {
         // UPDATE existing reroute
-        $id = intval($_POST['id']);
+        $id = post_int('id');
         
         // Check exists
         $checkSql = "SELECT id, status FROM dbo.tmi_reroutes WHERE id = ?";
@@ -96,7 +96,7 @@ try {
         $setClauses[] = "updated_utc = GETUTCDATE()";
         
         // Track activation time if status changed to active
-        $newStatus = isset($_POST['status']) ? intval($_POST['status']) : $existing['status'];
+        $newStatus = isset($_POST['status']) ? post_int('status') : $existing['status'];
         if ($newStatus == 2 && $existing['status'] != 2) {
             $setClauses[] = "activated_utc = GETUTCDATE()";
         }

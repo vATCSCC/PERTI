@@ -26,7 +26,7 @@ define('DISCORD_MAX_LENGTH', 2000);
 // Check configuration
 $WEBHOOK_CONFIGURED = defined('DISCORD_WEBHOOK_ADVISORIES') && DISCORD_WEBHOOK_ADVISORIES !== '';
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? 'post';
 
 try {

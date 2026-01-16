@@ -43,8 +43,8 @@ if ($conn === false) {
 }
 
 // Parse parameters
-$origin = isset($_GET['origin']) ? strtoupper(trim($_GET['origin'])) : null;
-$dest = isset($_GET['dest']) ? strtoupper(trim($_GET['dest'])) : null;
+$origin = isset($_GET['origin']) ? get_upper('origin') : null;
+$dest = isset($_GET['dest']) ? get_upper('dest') : null;
 $date = isset($_GET['date']) ? $_GET['date'] : null;
 $days = isset($_GET['days']) ? (int)$_GET['days'] : 7;
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;

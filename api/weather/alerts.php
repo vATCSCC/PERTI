@@ -73,9 +73,9 @@ if ($conn === false) {
 // 2) Parse parameters
 // ---------------------------------------------------------------------------
 
-$alertType = isset($_GET['type']) ? strtoupper(trim($_GET['type'])) : null;
-$hazard = isset($_GET['hazard']) ? strtoupper(trim($_GET['hazard'])) : null;
-$format = isset($_GET['format']) ? strtolower(trim($_GET['format'])) : 'json';
+$alertType = isset($_GET['type']) ? get_upper('type') : null;
+$hazard = isset($_GET['hazard']) ? get_upper('hazard') : null;
+$format = isset($_GET['format']) ? get_lower('format') : 'json';
 
 // ---------------------------------------------------------------------------
 // 3) Query active alerts

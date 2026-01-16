@@ -12,7 +12,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -179,7 +179,7 @@ switch ($action) {
     case 'contains':
         $lat = floatval($_GET['lat'] ?? 0);
         $lon = floatval($_GET['lon'] ?? 0);
-        $alt = isset($_GET['alt']) ? intval($_GET['alt']) : null;
+        $alt = isset($_GET['alt']) ? get_int('alt') : null;
         
         if ($lat == 0 || $lon == 0) {
             echo json_encode(['error' => 'Invalid coordinates']);

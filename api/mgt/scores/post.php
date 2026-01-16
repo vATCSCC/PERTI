@@ -41,14 +41,14 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
-$staffing = strip_tags($_POST['staffing']);
-$tactical = strip_tags($_POST['tactical']);
-$other = strip_tags($_POST['other']);
-$perti = strip_tags($_POST['perti']);
-$ntml = strip_tags($_POST['ntml']);
-$tmi = strip_tags($_POST['tmi']);
-$ace = strip_tags($_POST['ace']);
+$p_id = post_input('p_id');
+$staffing = post_input('staffing');
+$tactical = post_input('tactical');
+$other = post_input('other');
+$perti = post_input('perti');
+$ntml = post_input('ntml');
+$tmi = post_input('tmi');
+$ace = post_input('ace');
 
 
 // Insert Data into Database

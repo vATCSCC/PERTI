@@ -41,13 +41,13 @@ if (!$conn_adl) {
 }
 
 // Get POST data
-$name = isset($_POST['name']) ? strip_tags($_POST['name']) : null;
-$artcc = isset($_POST['artcc']) ? strtoupper(strip_tags($_POST['artcc'])) : null;
-$start_utc = isset($_POST['start_utc']) ? strip_tags($_POST['start_utc']) : null;
-$end_utc = isset($_POST['end_utc']) ? strip_tags($_POST['end_utc']) : null;
-$lower_alt = isset($_POST['lower_alt']) ? strip_tags($_POST['lower_alt']) : 'FL180';
-$upper_alt = isset($_POST['upper_alt']) ? strip_tags($_POST['upper_alt']) : 'FL350';
-$description = isset($_POST['description']) ? strip_tags($_POST['description']) : null;
+$name = isset($_POST['name']) ? post_input('name') : null;
+$artcc = isset($_POST['artcc']) ? strtoupper(post_input('artcc')) : null;
+$start_utc = isset($_POST['start_utc']) ? post_input('start_utc') : null;
+$end_utc = isset($_POST['end_utc']) ? post_input('end_utc') : null;
+$lower_alt = isset($_POST['lower_alt']) ? post_input('lower_alt') : 'FL180';
+$upper_alt = isset($_POST['upper_alt']) ? post_input('upper_alt') : 'FL350';
+$description = isset($_POST['description']) ? post_input('description') : null;
 $geometry = isset($_POST['geometry']) ? $_POST['geometry'] : null;
 $created_by = $_SESSION['VATSIM_CID'];
 

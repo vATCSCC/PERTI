@@ -13,11 +13,11 @@ include("../../../load/connect.php");
 $domain = strip_tags(SITE_DOMAIN);
 
 
-$id = strip_tags($_POST['id']);
+$id = post_input('id');
 
-$staffing_status = strip_tags($_POST['staffing_status']);
-$staffing_quantity = strip_tags($_POST['staffing_quantity']);
-$comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'])));
+$staffing_status = post_input('staffing_status');
+$staffing_quantity = post_input('staffing_quantity');
+$comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'] ?? '')));
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE p_enroute_staffing SET staffing_status='$staffing_status', staffing_quantity='$staffing_quantity', comments='$comments' WHERE id=$id");

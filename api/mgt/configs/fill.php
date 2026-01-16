@@ -41,9 +41,9 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
-$aar = strip_tags($_POST['aar']);
-$adr = strip_tags($_POST['adr']);
+$id = post_input('id');
+$aar = post_input('aar');
+$adr = post_input('adr');
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE p_configs SET aar='$aar', adr='$adr' WHERE id=$id");

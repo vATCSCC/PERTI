@@ -2,7 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 // Allow preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -98,7 +98,7 @@ function sqlsrv_fetch_value($conn, $sql, $params = []) {
 // then re-seed dbo.adl_flights_gs from the most current dbo.adl_flights using the provided GS filters
 // WITHOUT applying simulated control changes.
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
         'status'  => 'error',
         'message' => 'Method not allowed. Use POST.'

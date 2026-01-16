@@ -20,7 +20,7 @@ require_once __DIR__ . '/auth.php';
 
 JatocAuth::setConnection($conn_adl);
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // PUT requires DCC role (daily_ops permission)
 if ($method === 'PUT') {

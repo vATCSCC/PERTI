@@ -61,7 +61,7 @@ if ($conn === false) {
 }
 
 // Handle different HTTP methods
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 switch ($method) {
     case 'GET':
@@ -84,8 +84,8 @@ sqlsrv_close($conn);
  * GET - List overrides for an airport or get specific override
  */
 function handleGet($conn) {
-    $airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : '';
-    $overrideId = isset($_GET['id']) ? intval($_GET['id']) : null;
+    $airport = isset($_GET['airport']) ? get_upper('airport') : '';
+    $overrideId = isset($_GET['id']) ? get_int('id') : null;
 
     // Normalize airport code
     if (!empty($airport) && strlen($airport) === 3 && !preg_match('/^[PK]/', $airport)) {
@@ -299,8 +299,8 @@ function handlePost($conn) {
  * DELETE - Cancel an override
  */
 function handleDelete($conn) {
-    $overrideId = isset($_GET['id']) ? intval($_GET['id']) : null;
-    $airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : '';
+    $overrideId = isset($_GET['id']) ? get_int('id') : null;
+    $airport = isset($_GET['airport']) ? get_upper('airport') : '';
 
     // Normalize airport
     if (!empty($airport) && strlen($airport) === 3 && !preg_match('/^[PK]/', $airport)) {

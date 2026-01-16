@@ -24,7 +24,7 @@ if (!isset($conn_adl) || !$conn_adl) {
     exit;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     switch ($method) {
@@ -62,8 +62,8 @@ function handleGet($conn) {
     $status = $_GET['status'] ?? 'ACTIVE';
     $type = $_GET['type'] ?? null;
     $date = $_GET['date'] ?? null;
-    $days = isset($_GET['days']) ? intval($_GET['days']) : null;
-    $id = isset($_GET['id']) ? intval($_GET['id']) : null;
+    $days = isset($_GET['days']) ? get_int('days') : null;
+    $id = isset($_GET['id']) ? get_int('id') : null;
     
     // Single advisory lookup
     if ($id) {

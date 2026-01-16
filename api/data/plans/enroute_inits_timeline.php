@@ -48,7 +48,7 @@ if (defined('DEV') && DEV) {
     }
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Valid levels and TMI types
 $levels = [
@@ -79,7 +79,7 @@ function toMysql($dt) {
 
 switch ($method) {
     case 'GET':
-        $p_id = isset($_GET['p_id']) ? intval($_GET['p_id']) : 0;
+        $p_id = isset($_GET['p_id']) ? get_int('p_id') : 0;
         
         if ($p_id <= 0) {
             http_response_code(400);
@@ -260,7 +260,7 @@ switch ($method) {
             exit;
         }
         
-        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        $id = isset($_GET['id']) ? get_int('id') : 0;
         
         if ($id <= 0) {
             http_response_code(400);

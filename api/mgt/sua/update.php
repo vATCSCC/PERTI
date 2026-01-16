@@ -40,13 +40,13 @@ if (!$conn_adl) {
 }
 
 // Get POST data
-$id = isset($_POST['id']) ? intval($_POST['id']) : null;
-$start_utc = isset($_POST['start_utc']) ? strip_tags($_POST['start_utc']) : null;
-$end_utc = isset($_POST['end_utc']) ? strip_tags($_POST['end_utc']) : null;
-$lower_alt = isset($_POST['lower_alt']) ? strip_tags($_POST['lower_alt']) : null;
-$upper_alt = isset($_POST['upper_alt']) ? strip_tags($_POST['upper_alt']) : null;
-$remarks = isset($_POST['remarks']) ? strip_tags($_POST['remarks']) : null;
-$status = isset($_POST['status']) ? strtoupper(strip_tags($_POST['status'])) : null;
+$id = isset($_POST['id']) ? post_int('id') : null;
+$start_utc = isset($_POST['start_utc']) ? post_input('start_utc') : null;
+$end_utc = isset($_POST['end_utc']) ? post_input('end_utc') : null;
+$lower_alt = isset($_POST['lower_alt']) ? post_input('lower_alt') : null;
+$upper_alt = isset($_POST['upper_alt']) ? post_input('upper_alt') : null;
+$remarks = isset($_POST['remarks']) ? post_input('remarks') : null;
+$status = isset($_POST['status']) ? strtoupper(post_input('status')) : null;
 
 // Validation
 if (!$id) {

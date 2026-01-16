@@ -86,16 +86,16 @@ $helper = new AdlQueryHelper();
 
 $callsign = '';
 if (isset($_GET['cs'])) {
-    $callsign = strtoupper(trim($_GET['cs']));
+    $callsign = get_upper('cs');
 } elseif (isset($_GET['callsign'])) {
-    $callsign = strtoupper(trim($_GET['callsign']));
+    $callsign = get_upper('callsign');
 }
 
-$dep = isset($_GET['dep']) ? strtoupper(trim($_GET['dep'])) : '';
-$arr = isset($_GET['arr']) ? strtoupper(trim($_GET['arr'])) : '';
+$dep = isset($_GET['dep']) ? get_upper('dep') : '';
+$arr = isset($_GET['arr']) ? get_upper('arr') : '';
 
 // active flag: default is only active flights
-$activeParam = isset($_GET['active']) ? strtolower(trim($_GET['active'])) : '1';
+$activeParam = isset($_GET['active']) ? get_lower('active') : '1';
 $activeOnly = ($activeParam !== 'all' && $activeParam !== '0' && $activeParam !== 'false' && $activeParam !== 'no');
 
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10000;

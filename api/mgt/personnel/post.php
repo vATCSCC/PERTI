@@ -43,7 +43,7 @@ if ($perm == true) {
 
 $first_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['first_name'])));
 $last_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['last_name'])));
-$n_cid = strip_tags($_POST['cid']);
+$n_cid = post_input('cid');
 
 // Insert Data into Database
 try {

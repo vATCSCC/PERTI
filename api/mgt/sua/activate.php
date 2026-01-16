@@ -41,16 +41,16 @@ if (!$conn_adl) {
 }
 
 // Get POST data
-$sua_id = isset($_POST['sua_id']) ? strip_tags($_POST['sua_id']) : null;
-$sua_type = isset($_POST['sua_type']) ? strtoupper(strip_tags($_POST['sua_type'])) : null;
-$tfr_subtype = isset($_POST['tfr_subtype']) ? strtoupper(strip_tags($_POST['tfr_subtype'])) : null;
-$name = isset($_POST['name']) ? strip_tags($_POST['name']) : null;
-$artcc = isset($_POST['artcc']) ? strtoupper(strip_tags($_POST['artcc'])) : null;
-$start_utc = isset($_POST['start_utc']) ? strip_tags($_POST['start_utc']) : null;
-$end_utc = isset($_POST['end_utc']) ? strip_tags($_POST['end_utc']) : null;
-$lower_alt = isset($_POST['lower_alt']) ? strip_tags($_POST['lower_alt']) : null;
-$upper_alt = isset($_POST['upper_alt']) ? strip_tags($_POST['upper_alt']) : null;
-$remarks = isset($_POST['remarks']) ? strip_tags($_POST['remarks']) : null;
+$sua_id = isset($_POST['sua_id']) ? post_input('sua_id') : null;
+$sua_type = isset($_POST['sua_type']) ? strtoupper(post_input('sua_type')) : null;
+$tfr_subtype = isset($_POST['tfr_subtype']) ? strtoupper(post_input('tfr_subtype')) : null;
+$name = isset($_POST['name']) ? post_input('name') : null;
+$artcc = isset($_POST['artcc']) ? strtoupper(post_input('artcc')) : null;
+$start_utc = isset($_POST['start_utc']) ? post_input('start_utc') : null;
+$end_utc = isset($_POST['end_utc']) ? post_input('end_utc') : null;
+$lower_alt = isset($_POST['lower_alt']) ? post_input('lower_alt') : null;
+$upper_alt = isset($_POST['upper_alt']) ? post_input('upper_alt') : null;
+$remarks = isset($_POST['remarks']) ? post_input('remarks') : null;
 $created_by = $_SESSION['VATSIM_CID'];
 
 // Validation

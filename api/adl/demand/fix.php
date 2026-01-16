@@ -65,12 +65,12 @@ function adl_sql_error_message() {
 }
 
 // Parse parameters
-$fix = isset($_GET['fix']) ? strtoupper(trim($_GET['fix'])) : '';
+$fix = isset($_GET['fix']) ? get_upper('fix') : '';
 $minutes = isset($_GET['minutes']) ? (int)$_GET['minutes'] : 60;
 $minutes = max(5, min(720, $minutes)); // Clamp to 5-720 minutes
-$depTracon = isset($_GET['dep_tracon']) && !empty($_GET['dep_tracon']) ? strtoupper(trim($_GET['dep_tracon'])) : null;
-$arrTracon = isset($_GET['arr_tracon']) && !empty($_GET['arr_tracon']) ? strtoupper(trim($_GET['arr_tracon'])) : null;
-$format = isset($_GET['format']) ? strtolower(trim($_GET['format'])) : 'list';
+$depTracon = isset($_GET['dep_tracon']) && !empty($_GET['dep_tracon']) ? get_upper('dep_tracon') : null;
+$arrTracon = isset($_GET['arr_tracon']) && !empty($_GET['arr_tracon']) ? get_upper('arr_tracon') : null;
+$format = isset($_GET['format']) ? get_lower('format') : 'list';
 
 // Validate required parameter
 if (empty($fix)) {

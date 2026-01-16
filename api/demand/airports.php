@@ -60,8 +60,8 @@ if ($conn === false) {
 }
 
 // Get filter parameters
-$category = isset($_GET['category']) ? strtolower(trim($_GET['category'])) : 'all';
-$artcc = isset($_GET['artcc']) ? strtoupper(trim($_GET['artcc'])) : '';
+$category = isset($_GET['category']) ? get_lower('category') : 'all';
+$artcc = isset($_GET['artcc']) ? get_upper('artcc') : '';
 $tier = isset($_GET['tier']) ? trim($_GET['tier']) : '';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 

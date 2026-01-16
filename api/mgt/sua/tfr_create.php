@@ -41,15 +41,15 @@ if (!$conn_adl) {
 }
 
 // Get POST data
-$tfr_subtype = isset($_POST['tfr_subtype']) ? strtoupper(strip_tags($_POST['tfr_subtype'])) : 'OTHER';
-$name = isset($_POST['name']) ? strip_tags($_POST['name']) : null;
-$artcc = isset($_POST['artcc']) ? strtoupper(strip_tags($_POST['artcc'])) : null;
-$start_utc = isset($_POST['start_utc']) ? strip_tags($_POST['start_utc']) : null;
-$end_utc = isset($_POST['end_utc']) ? strip_tags($_POST['end_utc']) : null;
-$lower_alt = isset($_POST['lower_alt']) ? strip_tags($_POST['lower_alt']) : 'GND';
-$upper_alt = isset($_POST['upper_alt']) ? strip_tags($_POST['upper_alt']) : 'UNLTD';
-$remarks = isset($_POST['remarks']) ? strip_tags($_POST['remarks']) : null;
-$notam_number = isset($_POST['notam_number']) ? strip_tags($_POST['notam_number']) : null;
+$tfr_subtype = isset($_POST['tfr_subtype']) ? strtoupper(post_input('tfr_subtype')) : 'OTHER';
+$name = isset($_POST['name']) ? post_input('name') : null;
+$artcc = isset($_POST['artcc']) ? strtoupper(post_input('artcc')) : null;
+$start_utc = isset($_POST['start_utc']) ? post_input('start_utc') : null;
+$end_utc = isset($_POST['end_utc']) ? post_input('end_utc') : null;
+$lower_alt = isset($_POST['lower_alt']) ? post_input('lower_alt') : 'GND';
+$upper_alt = isset($_POST['upper_alt']) ? post_input('upper_alt') : 'UNLTD';
+$remarks = isset($_POST['remarks']) ? post_input('remarks') : null;
+$notam_number = isset($_POST['notam_number']) ? post_input('notam_number') : null;
 $geometry = isset($_POST['geometry']) ? $_POST['geometry'] : null;
 $created_by = $_SESSION['VATSIM_CID'];
 

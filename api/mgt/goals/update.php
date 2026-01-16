@@ -41,8 +41,8 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_POST['id']);
-$comments = strip_tags($_POST['comments']);
+$id = post_input('id');
+$comments = post_input('comments');
 
 // Insert Data into Database
 $query = $conn_sqli->query("UPDATE p_op_goals SET comments='$comments' WHERE id=$id");

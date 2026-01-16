@@ -28,13 +28,13 @@ if ($perm === true) {
         exit;
     }
 
-    $init_id = intval($_POST['init_id']);
-    $time    = strip_tags($_POST['time']);
+    $init_id = post_int('init_id');
+    $time    = post_input('time');
 
     // Optional probability; default to 0 (CDW) if not provided
     $probability = 0;
     if (isset($_POST['probability']) && $_POST['probability'] !== '') {
-        $probability = intval($_POST['probability']);
+        $probability = post_int('probability');
     }
 
     if ($probability < 0) {

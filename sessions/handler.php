@@ -26,7 +26,7 @@ if (strpos($rawip, ':') !== false) {
 
 if (!defined('DEV')) {
     if (isset($_COOKIE["SELF"])) {
-        $selfcookie = strip_tags($_COOKIE["SELF"]);        
+        $selfcookie = cookie_get('SELF');        
     
         // START: cUrl to Session Check Script
         $url = "https://" . SITE_DOMAIN . "/sessions/query.php";

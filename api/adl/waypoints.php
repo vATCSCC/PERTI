@@ -71,9 +71,9 @@ $flight_uid = isset($_GET['uid']) ? (int)$_GET['uid'] : 0;
 $flight_key = isset($_GET['key']) ? trim($_GET['key']) : '';
 $callsign = '';
 if (isset($_GET['cs'])) {
-    $callsign = strtoupper(trim($_GET['cs']));
+    $callsign = get_upper('cs');
 } elseif (isset($_GET['callsign'])) {
-    $callsign = strtoupper(trim($_GET['callsign']));
+    $callsign = get_upper('callsign');
 }
 
 // Validate input

@@ -41,10 +41,10 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = strip_tags($_POST['p_id']);
+$p_id = post_input('p_id');
 $facility_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['facility_name'])));
-$staffing_status = strip_tags($_POST['staffing_status']);
-$staffing_quantity = strip_tags($_POST['staffing_quantity']);
+$staffing_status = post_input('staffing_status');
+$staffing_quantity = post_input('staffing_quantity');
 $comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'])));
 
 

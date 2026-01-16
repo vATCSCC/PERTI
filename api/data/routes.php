@@ -30,7 +30,7 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
 }
 
-$search = strip_tags($_GET['search']);
+$search = get_input('search');
 
 $query = mysqli_query($conn_sqli, ("SELECT * FROM route_cdr WHERE rte_orig LIKE '%$search%' ORDER BY cdr_code ASC LIMIT 50"));
 

@@ -60,12 +60,12 @@ if ($conn === false) {
 }
 
 // Get parameters
-$airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : '';
-$granularity = isset($_GET['granularity']) ? strtolower(trim($_GET['granularity'])) : 'hourly';
-$direction = isset($_GET['direction']) ? strtolower(trim($_GET['direction'])) : 'both';
+$airport = isset($_GET['airport']) ? get_upper('airport') : '';
+$granularity = isset($_GET['granularity']) ? get_lower('granularity') : 'hourly';
+$direction = isset($_GET['direction']) ? get_lower('direction') : 'both';
 $start = isset($_GET['start']) ? trim($_GET['start']) : null;
 $end = isset($_GET['end']) ? trim($_GET['end']) : null;
-$timeBasis = isset($_GET['time_basis']) ? strtolower(trim($_GET['time_basis'])) : 'eta'; // 'eta' or 'ctd'
+$timeBasis = isset($_GET['time_basis']) ? get_lower('time_basis') : 'eta'; // 'eta' or 'ctd'
 $programId = isset($_GET['program_id']) ? (int)$_GET['program_id'] : null;
 
 // Validate airport

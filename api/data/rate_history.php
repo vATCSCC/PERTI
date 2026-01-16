@@ -19,9 +19,9 @@ if (!$conn_adl) {
     exit();
 }
 
-$configId = isset($_GET['config_id']) ? intval($_GET['config_id']) : 0;
-$days = isset($_GET['days']) ? intval($_GET['days']) : 30;
-$limit = isset($_GET['limit']) ? min(100, intval($_GET['limit'])) : 50;
+$configId = isset($_GET['config_id']) ? get_int('config_id') : 0;
+$days = isset($_GET['days']) ? get_int('days') : 30;
+$limit = isset($_GET['limit']) ? min(100, get_int('limit')) : 50;
 
 if ($configId > 0) {
     // Get history for specific config

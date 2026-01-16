@@ -32,7 +32,7 @@ if (!$discord->isConfigured()) {
 }
 
 // Route request
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     switch ($method) {

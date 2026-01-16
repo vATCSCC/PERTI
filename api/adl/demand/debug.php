@@ -46,9 +46,9 @@ if ($conn === false) {
     exit;
 }
 
-$callsign = isset($_GET['callsign']) ? strtoupper(trim($_GET['callsign'])) : '';
-$fix = isset($_GET['fix']) ? strtoupper(trim($_GET['fix'])) : '';
-$airway = isset($_GET['airway']) ? strtoupper(trim($_GET['airway'])) : '';
+$callsign = isset($_GET['callsign']) ? get_upper('callsign') : '';
+$fix = isset($_GET['fix']) ? get_upper('fix') : '';
+$airway = isset($_GET['airway']) ? get_upper('airway') : '';
 
 $result = [];
 

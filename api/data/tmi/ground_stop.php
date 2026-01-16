@@ -12,7 +12,7 @@ include("../../../load/connect.php");
 
 header('Content-Type: application/json');
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$id = isset($_GET['id']) ? get_int('id') : 0;
 
 $result = [
     'id' => 0

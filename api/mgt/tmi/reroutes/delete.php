@@ -28,7 +28,7 @@ try {
         exit;
     }
     
-    $id = intval($_POST['id']);
+    $id = post_int('id');
     
     // Check exists and get info for logging
     $checkSql = "SELECT id, name, status FROM dbo.tmi_reroutes WHERE id = ?";

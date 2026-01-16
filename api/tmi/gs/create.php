@@ -40,7 +40,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 // Handle CORS preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -49,7 +49,7 @@ define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
 
 // Only allow POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
         'status' => 'error',
         'message' => 'Method not allowed. Use POST.'

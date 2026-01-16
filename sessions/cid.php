@@ -8,8 +8,8 @@ if (!isset($_POST['cid']) || !isset($_POST['ip'])) {
 }
 
 // Setting Values
-$cid = strip_tags($_POST['cid']);
-$ip = strip_tags($_POST['ip']);
+$cid = post_input('cid');
+$ip = post_input('ip');
 
 $result_check_valid = ("SELECT COUNT(*) as 'total', cid, first_name, last_name, last_selfcookie FROM users WHERE last_session_ip='$ip' AND cid='$cid'");
 $count_check_valid = mysqli_query($conn_sqli, $result_check_valid);

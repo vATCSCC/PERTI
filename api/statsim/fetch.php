@@ -24,7 +24,7 @@ include("../../load/config.php");
 include("../../load/connect.php");
 
 // Get request method
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Parse parameters
 $params = [];

@@ -77,12 +77,12 @@ $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 $callsign = '';
 if (isset($_GET['cs'])) {
-    $callsign = strtoupper(trim($_GET['cs']));
+    $callsign = get_upper('cs');
 } elseif (isset($_GET['callsign'])) {
-    $callsign = strtoupper(trim($_GET['callsign']));
+    $callsign = get_upper('callsign');
 }
 
-$activeParam = isset($_GET['active']) ? strtolower(trim($_GET['active'])) : '';
+$activeParam = isset($_GET['active']) ? get_lower('active') : '';
 
 // Validate input
 if ($id <= 0 && $callsign === '') {

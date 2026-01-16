@@ -39,8 +39,8 @@ if ($perm == true) {
         exit;
     }
 
-    $id          = strip_tags($_POST['id']);
-    $probability = strip_tags($_POST['probability']);
+    $id          = post_input('id');
+    $probability = post_input('probability');
 
     // Normalize probability range (0-4; 4 = Actual)
     $probability = (int)$probability;
