@@ -174,6 +174,12 @@ PERTI/
 - `GET /api/adl/stats.php` - Flight statistics
 - `GET /api/adl/snapshot_history.php` - Historical snapshots
 
+### Airspace Element Demand (v17)
+
+- `GET /api/adl/demand/fix.php` - Flights at a navigation fix
+- `GET /api/adl/demand/airway.php` - Flights on an airway segment
+- `GET /api/adl/demand/segment.php` - Flights between two fixes (airway or DCT)
+
 ### TMI Operations
 
 **New GS API (v15):**
@@ -317,6 +323,17 @@ For detailed technical documentation, see:
   - `api/simulator/*.php` — Simulator API endpoints (navdata, engine, routes, traffic)
   - `simulator/engine/` — Node.js headless flight simulation
 
+- **Airspace Element Demand (NEW v17):**
+  - Query traffic at navigation fixes, airway segments, and route segments
+  - Table-valued SQL functions for efficient demand analysis
+  - `api/adl/demand/*.php` — Demand API endpoints (fix, airway, segment)
+  - Support for both airway-based and direct (DCT) route queries
+
+- **Config Modifiers & ATIS Priority (NEW v17):**
+  - Structured modifier categories for runway configurations
+  - Enhanced ATIS source selection: ARR+DEP > COMB > single
+  - New views for effective ATIS determination
+
 - **Previous v15/v16 Updates:**
   - GDT Ground Stop NTML Architecture with complete program lifecycle
   - ADL Schema Cleanup (unified `phase` column)
@@ -333,4 +350,4 @@ For issues or questions about PERTI, contact the vATCSCC development team.
 
 ---
 
-*Last updated: 2026-01-10*
+*Last updated: 2026-01-15*

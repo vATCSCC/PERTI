@@ -176,6 +176,149 @@ Returns boundary crossing data.
 
 ---
 
+## Airspace Element Demand APIs (v17)
+
+Query traffic demand at navigation fixes, airway segments, and route segments.
+
+### GET /api/adl/demand/fix.php
+
+Returns flights passing through a specific navigation fix.
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `fix` | string | Navigation fix identifier (required) |
+| `minutes` | int | Time window in minutes (default: 60, max: 720) |
+| `dep_tracon` | string | Filter by departure TRACON |
+| `arr_tracon` | string | Filter by arrival TRACON |
+| `format` | string | 'list' (default) or 'count' |
+
+**Example:**
+
+```
+GET /api/adl/demand/fix?fix=MERIT&minutes=45&dep_tracon=N90
+```
+
+**Response:**
+
+```json
+{
+  "fix": "MERIT",
+  "time_window_minutes": 45,
+  "filters": { "dep_tracon": "N90" },
+  "count": 12,
+  "generated_utc": "2026-01-15T14:30:00Z",
+  "flights": [
+    {
+      "flight_uid": "abc123",
+      "callsign": "DAL456",
+      "departure": "KLGA",
+      "destination": "KORD",
+      "aircraft_type": "B739",
+      "eta_at_fix": "2026-01-15T14:45:00Z",
+      "minutes_until_fix": 15,
+      "phase": "cruise"
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/adl/demand/airway.php
+
+Returns flights on an airway segment between two fixes.
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `airway` | string | Airway identifier (required, e.g., J48, V1) |
+| `from_fix` | string | Segment start fix (required) |
+| `to_fix` | string | Segment end fix (required) |
+| `minutes` | int | Time window in minutes (default: 60, max: 720) |
+| `format` | string | 'list' (default) or 'count' |
+
+**Example:**
+
+```
+GET /api/adl/demand/airway?airway=J48&from_fix=LANNA&to_fix=MOL&minutes=180
+```
+
+**Response:**
+
+```json
+{
+  "airway": "J48",
+  "segment": { "from": "LANNA", "to": "MOL" },
+  "time_window_minutes": 180,
+  "count": 8,
+  "generated_utc": "2026-01-15T14:30:00Z",
+  "flights": [
+    {
+      "flight_uid": "def456",
+      "callsign": "UAL789",
+      "departure": "KBOS",
+      "destination": "KORD",
+      "entry_eta": "2026-01-15T15:00:00Z",
+      "exit_eta": "2026-01-15T15:12:00Z",
+      "segment_minutes": 12,
+      "direction": "forward"
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/adl/demand/segment.php
+
+Returns flights passing through two fixes in sequence (airway or direct).
+
+Unlike the airway endpoint, this does not require flights to have filed via an airway. It finds any flights whose parsed route includes both fixes, useful for VATSIM where pilots often file direct (DCT) routes.
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `from_fix` | string | First fix (required) |
+| `to_fix` | string | Second fix (required) |
+| `minutes` | int | Time window in minutes (default: 60, max: 720) |
+| `format` | string | 'list' (default) or 'count' |
+
+**Example:**
+
+```
+GET /api/adl/demand/segment?from_fix=CAM&to_fix=GONZZ&minutes=180
+```
+
+**Response:**
+
+```json
+{
+  "segment": { "from": "CAM", "to": "GONZZ" },
+  "time_window_minutes": 180,
+  "count": 5,
+  "generated_utc": "2026-01-15T22:00:00Z",
+  "flights": [
+    {
+      "flight_uid": "ghi789",
+      "callsign": "AAL123",
+      "departure": "KMIA",
+      "destination": "KJFK",
+      "entry_eta": "2026-01-15T22:15:00Z",
+      "exit_eta": "2026-01-15T22:28:00Z",
+      "segment_minutes": 13,
+      "direction": "forward",
+      "on_airway": "J48"
+    }
+  ]
+}
+```
+
+---
+
 ## See Also
 
 - [[API Reference]] - Complete API overview

@@ -18,16 +18,44 @@ This document tracks significant changes to PERTI across versions.
 - Reference data: 3,989 O-D route patterns, 107 airports, 17 carriers
 - Web-based interface with MapLibre visualization
 
+#### Airspace Element Demand
+
+- Query traffic demand at navigation fixes, airway segments, and route segments
+- Table-valued SQL functions for efficient demand analysis
+- Support for both airway-based and direct (DCT) route queries
+- TRACON-based filtering for facility-specific queries
+
+#### Config Modifiers System
+
+- Structured modifier categories for runway configurations
+- Categories: PARALLEL_OPS, APPROACH_TYPE, TRAFFIC_BIAS, VISIBILITY_CAT, SPECIAL_OPS, TIME_RESTRICT, WEATHER_OPS, NAMED
+- Migrated from free-text modifiers to normalized schema
+
+#### ATIS Type Priority Logic
+
+- Enhanced ATIS source selection: ARR+DEP > COMB > single
+- Views for effective ATIS determination across split ATIS scenarios
+- Improved weather data sourcing for rate suggestions
+
 ### API Additions (v17)
 
 - `GET /api/simulator/navdata.php` - Navigation data for routing
 - `GET/POST /api/simulator/engine.php` - Engine control
 - `GET /api/simulator/routes.php` - Route pattern data
 - `GET/POST /api/simulator/traffic.php` - Traffic generation
+- `GET /api/adl/demand/fix.php` - Flights at a navigation fix
+- `GET /api/adl/demand/airway.php` - Flights on an airway segment
+- `GET /api/adl/demand/segment.php` - Flights between two fixes (airway or DCT)
 
 ### Database Changes (v17)
 
 - New tables: `sim_ref_carrier_lookup`, `sim_ref_route_patterns`, `sim_ref_airport_demand`
+- New tables: `modifier_category`, `modifier_type`, `config_modifier`
+- New functions: `fn_FixDemand`, `fn_AirwaySegmentDemand`, `fn_RouteSegmentDemand`
+- New views: `vw_current_atis_by_type`, `vw_effective_atis`, `vw_config_with_modifiers`, `vw_runway_with_modifiers`
+- New indexes: `IX_waypoint_fix_eta`, `IX_waypoint_airway_eta` (filtered indexes for demand queries)
+- Migrations 092-095: Config modifiers, ATIS type priority
+- Migrations demand/001-004: Airspace demand indexes and functions
 - Data sourced from BTS On-Time Performance (20.6M flight records)
 
 ---
@@ -197,6 +225,13 @@ This document tracks significant changes to PERTI across versions.
 
 ## Migration Notes
 
+### Upgrading to v17
+
+1. Apply migrations 092-095 to Azure SQL (config modifiers, ATIS priority)
+2. Apply migrations demand/001-004 to Azure SQL (airspace demand functions)
+3. Deploy new API endpoints (api/adl/demand/*)
+4. Install Node.js simulator engine if using ATFM Simulator
+
 ### Upgrading to v16
 
 1. Apply migrations 079-091 to Azure SQL
@@ -231,11 +266,11 @@ This document tracks significant changes to PERTI across versions.
 
 ### v18 (Planned)
 
-- ATFM Simulator Phase 1 (GS/GDP implementation)
-- Enhanced GDP slot management
+- ATFM Simulator Phase 2 (Enhanced GDP slot management, AFP support)
 - Reroute compliance automation
 - StatSim v2 integration
 - Performance dashboard
+- Airspace demand visualization UI
 
 ---
 
