@@ -66,11 +66,11 @@ if (!defined('DEV')) {
     
         } else {
     
-            if (isset($_COOKIE['PHPSESSID']) || isset($_SESSION['VATSIM_CID'])) {
+            if (isset($_SESSION['VATSIM_CID'])) {
                 // START: cUrl to Session Check Script
                 $url = "https://" . SITE_DOMAIN . "/sessions/cid.php";
-            
-            
+
+
                 $fields = [
                     'ip' => $ip,
                     'cid' => strip_tags($_SESSION['VATSIM_CID'])
@@ -132,11 +132,11 @@ if (!defined('DEV')) {
     
     } else {
     
-        if (isset($_COOKIE['PHPSESSID']) || isset($_SESSION['VATSIM_CID'])) {
+        if (isset($_SESSION['VATSIM_CID'])) {
             // START: cUrl to Session Check Script
             $url = "https://" . SITE_DOMAIN . "/sessions/cid.php";
-        
-        
+
+
             $fields = [
                 'ip' => $ip,
                 'cid' => strip_tags($_SESSION['VATSIM_CID'])
