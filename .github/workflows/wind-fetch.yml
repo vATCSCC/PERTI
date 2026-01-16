@@ -1,0 +1,58 @@
+# Wind Data Fetcher - GitHub Actions
+#
+# Fetches NOAA GFS wind data every 6 hours and loads into Azure SQL wind_grid table.
+# Runs on GitHub's infrastructure, independent of local machine or web server.
+#
+# Schedule: 04:00, 10:00, 16:00, 22:00 UTC (~4 hours after each GFS model run)
+#
+# Required secret: WIND_DB_PASSWORD (set in GitHub repo Settings > Secrets)
+
+name: Wind Data Fetch
+
+on:
+  schedule:
+    # Run ~4 hours after each GFS model run (00Z, 06Z, 12Z, 18Z)
+    - cron: '0 4,10,16,22 * * *'
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+jobs:
+  fetch-wind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-data
+
+      - name: Install ODBC Driver for SQL Server
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install numpy xarray cfgrib eccodes pyodbc requests
+
+      - name: Fetch wind data (Tiers 0 and 1)
+        env:
+          WIND_DB_PASSWORD: ${{ secrets.WIND_DB_PASSWORD }}
+        run: |
+          cd services/wind
+          python fetch_noaa_gfs.py --tier=0,1
+
+      - name: Report completion
+        if: success()
+        run: echo "Wind data fetch completed successfully at $(date -u)"
