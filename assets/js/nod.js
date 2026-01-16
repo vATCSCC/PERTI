@@ -6113,7 +6113,9 @@
         toggleFlightRoute,
         clearFlightRoutes,
         drawAllFilteredRoutes,
-        isFlightRouteDisplayed
+        isFlightRouteDisplayed,
+        // Legend functions (for external updates)
+        renderColorLegend
     };
     
     // Auto-initialize when DOM is ready
