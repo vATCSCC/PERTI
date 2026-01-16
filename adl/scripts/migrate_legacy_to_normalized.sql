@@ -34,30 +34,40 @@ SELECT @max_flight_uid = ISNULL(MAX(flight_uid), 0) FROM dbo.adl_flight_core;
 PRINT 'Current max flight_uid: ' + CAST(@max_flight_uid AS VARCHAR);
 
 -- Insert unique flights that don't already exist
+;WITH FlightAgg AS (
+    SELECT
+        flight_key,
+        MAX(cid) AS cid,
+        MAX(callsign) AS callsign,
+        MAX(flight_id) AS flight_id,
+        MIN(snapshot_utc) AS first_seen_utc,
+        MAX(snapshot_utc) AS last_seen_utc
+    FROM dbo.adl_flights_history
+    GROUP BY flight_key
+)
 INSERT INTO dbo.adl_flight_core (
     flight_key, cid, callsign, flight_id, phase, last_source, is_active,
     first_seen_utc, last_seen_utc, logon_time_utc,
     adl_date, adl_time, snapshot_utc
 )
-SELECT DISTINCT
-    h.flight_key,
-    h.cid,
-    h.callsign,
-    h.flight_id,
-    'disconnected' AS phase,  -- Historical flights are disconnected
+SELECT
+    fa.flight_key,
+    fa.cid,
+    fa.callsign,
+    fa.flight_id,
+    'disconnected' AS phase,
     'legacy' AS last_source,
     0 AS is_active,
-    MIN(h.snapshot_utc) OVER (PARTITION BY h.flight_key) AS first_seen_utc,
-    MAX(h.snapshot_utc) OVER (PARTITION BY h.flight_key) AS last_seen_utc,
+    fa.first_seen_utc,
+    fa.last_seen_utc,
     NULL AS logon_time_utc,
-    CAST(MIN(h.snapshot_utc) OVER (PARTITION BY h.flight_key) AS DATE) AS adl_date,
-    CAST(MIN(h.snapshot_utc) OVER (PARTITION BY h.flight_key) AS TIME) AS adl_time,
-    MAX(h.snapshot_utc) OVER (PARTITION BY h.flight_key) AS snapshot_utc
-FROM dbo.adl_flights_history h
+    CAST(fa.first_seen_utc AS DATE) AS adl_date,
+    CAST(fa.first_seen_utc AS TIME) AS adl_time,
+    fa.last_seen_utc AS snapshot_utc
+FROM FlightAgg fa
 WHERE NOT EXISTS (
-    SELECT 1 FROM dbo.adl_flight_core c WHERE c.flight_key = h.flight_key
-)
-GROUP BY h.flight_key, h.cid, h.callsign, h.flight_id;
+    SELECT 1 FROM dbo.adl_flight_core c WHERE c.flight_key = fa.flight_key
+);
 
 SET @flights_inserted = @@ROWCOUNT;
 PRINT 'Flights inserted: ' + CAST(@flights_inserted AS VARCHAR);

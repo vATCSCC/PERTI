@@ -43,6 +43,17 @@ class WebSocketServer implements MessageComponentInterface
     
     /** @var int Key cache TTL in seconds */
     protected $keyCacheTtl = 300;
+    
+    /** @var array Connection counts per tier */
+    protected $connectionsByTier = [];
+    
+    /** @var array Max connections per tier */
+    protected $tierLimits = [
+        'public' => 5,
+        'developer' => 50,
+        'partner' => 500,
+        'system' => 10000,
+    ];
 
     /**
      * Close codes
@@ -179,11 +190,31 @@ class WebSocketServer implements MessageComponentInterface
             }
         }
         
+        // Check tier connection limits
+        $tier = $client->getTier() ?? 'public';
+        $maxConnections = $this->tierLimits[$tier] ?? $this->tierLimits['public'];
+        $currentConnections = $this->connectionsByTier[$tier] ?? 0;
+        
+        if ($currentConnections >= $maxConnections) {
+            $this->log('WARN', 'Tier limit reached', [
+                'tier' => $tier,
+                'current' => $currentConnections,
+                'max' => $maxConnections,
+            ]);
+            $this->sendError($conn, 'CONNECTION_LIMIT', "Connection limit reached for tier: {$tier}");
+            $conn->close(self::CLOSE_RATE_LIMITED);
+            return;
+        }
+        
+        // Increment tier connection count
+        $this->connectionsByTier[$tier] = $currentConnections + 1;
+        
         // Store client
         $this->clients->attach($conn, $client);
         
         $this->log('INFO', 'Client connected', [
             'id' => $client->getId(),
+            'tier' => $tier,
             'remote' => $client->getRemoteAddress(),
             'total' => $this->clients->count(),
         ]);
@@ -413,6 +444,12 @@ class WebSocketServer implements MessageComponentInterface
         /** @var ClientConnection $client */
         $client = $this->clients[$conn];
         
+        // Decrement tier connection count
+        $tier = $client->getTier() ?? 'public';
+        if (isset($this->connectionsByTier[$tier]) && $this->connectionsByTier[$tier] > 0) {
+            $this->connectionsByTier[$tier]--;
+        }
+        
         // Clean up subscriptions
         $this->subscriptions->unsubscribeAll($client->getId());
         
@@ -421,6 +458,7 @@ class WebSocketServer implements MessageComponentInterface
         
         $this->log('INFO', 'Client disconnected', [
             'id' => $client->getId(),
+            'tier' => $tier,
             'total' => $this->clients->count(),
         ]);
     }
@@ -638,6 +676,7 @@ class WebSocketServer implements MessageComponentInterface
     {
         return array_merge($this->stats, [
             'connected_clients' => $this->clients->count(),
+            'connections_by_tier' => $this->connectionsByTier,
             'uptime_seconds' => time() - $this->startTime,
             'subscriptions' => $this->subscriptions->getStats(),
         ]);

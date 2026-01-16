@@ -3834,7 +3834,7 @@ const SplitsController = {
                 <div class="split-item ${isEditing ? 'active' : ''}" data-index="${i}">
                     <div class="split-item-header">
                         <div class="split-item-name">
-                            <span class="split-item-color" style="background: ${pos.color}"></span>
+                            <input type="color" class="preset-pos-color-picker" value="${pos.color}" data-index="${i}" title="Change color">
                             ${pos.name}
                             ${pos.frequency ? `<small class="text-muted ml-1">${pos.frequency}</small>` : ''}
                         </div>
@@ -3877,6 +3877,26 @@ const SplitsController = {
             item.addEventListener('click', () => {
                 const idx = parseInt(item.dataset.index);
                 this.selectPresetPositionForEditing(idx);
+            });
+        });
+
+        // Color picker events for preset positions
+        container.querySelectorAll('.preset-pos-color-picker').forEach(picker => {
+            picker.addEventListener('input', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(e.target.dataset.index);
+                this._presetPositions[idx].color = e.target.value;
+                this.loadPresetArtccOnMap(this._presetArtcc); // Update map preview
+            });
+
+            picker.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(e.target.dataset.index);
+                this.savePresetPositionColor(idx, e.target.value);
+            });
+
+            picker.addEventListener('click', (e) => {
+                e.stopPropagation(); // Don't select row when clicking color picker
             });
         });
     },
@@ -3963,7 +3983,35 @@ const SplitsController = {
         this.renderPresetPositionsList();
         this.loadPresetArtccOnMap(this._presetArtcc);
     },
-    
+
+    /**
+     * Save just the color for a preset position (quick update from color picker)
+     */
+    async savePresetPositionColor(index, color) {
+        const pos = this._presetPositions[index];
+        if (!pos || !pos.id) {
+            // Position not yet saved to DB - color will be saved when preset is saved
+            console.log('[SPLITS] Position not yet persisted, color will save with preset');
+            return;
+        }
+
+        try {
+            const response = await fetch(`api/splits/presets.php?position_id=${pos.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ color: color })
+            });
+
+            if (response.ok) {
+                console.log(`[SPLITS] Saved color ${color} for preset position ${pos.id}`);
+            } else {
+                console.warn('[SPLITS] Failed to save preset position color');
+            }
+        } catch (err) {
+            console.error('[SPLITS] Failed to save preset position color:', err);
+        }
+    },
+
     // ═══════════════════════════════════════════════════════════════════
     // PRESET SECTOR SELECTION
     // ═══════════════════════════════════════════════════════════════════

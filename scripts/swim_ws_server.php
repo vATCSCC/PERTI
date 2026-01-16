@@ -200,6 +200,10 @@ function runServer(array $config): void
         'auth_enabled' => $config['auth_enabled'],
         'rate_limit_msg_per_sec' => $config['rate_limit_msg_per_sec'],
         'debug' => $config['debug'],
+        'db_host' => $config['db_host'],
+        'db_name' => $config['db_name'],
+        'db_user' => $config['db_user'],
+        'db_pass' => $config['db_pass'],
     ]);
     
     // Set logger

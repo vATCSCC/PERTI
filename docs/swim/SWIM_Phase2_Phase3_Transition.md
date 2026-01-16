@@ -1,357 +1,218 @@
 # SWIM WebSocket Phase 2/3 Transition Summary
 
-**Date:** 2026-01-16  
-**Session:** WebSocket integration deployment  
-**Status:** Phase 2 ~85% complete, ready for production hardening
+**Last Updated:** 2026-01-16 07:45 UTC  
+**Status:** Phase 2 ~95% complete, Phase 3 Python SDK complete
 
 ---
 
-## Updates (2026-01-16 Session 2)
+## Current Status Overview
 
-### Completed This Session
+| Component | Status | Notes |
+|-----------|--------|-------|
+| WebSocket Server | ✅ Running | Port 8090, Apache proxy active |
+| External WSS Access | ✅ Working | `wss://perti.vatcscc.org/api/swim/v1/ws` |
+| Event Detection | ✅ Working | Departures, arrivals, positions |
+| Database Auth | ✅ Implemented | Validates against `swim_api_keys` |
+| Python SDK | ✅ Complete | `sdk/python/` |
+| Tier Rate Limits | ⏳ Pending | Last Phase 2 item |
 
-1. **Poll interval optimization** - Reduced from 500ms to 100ms in `swim_ws_server.php`
-   - Latency improvement: ~200ms saved (50ms avg vs 250ms avg)
-   - Cost: $0 (no new infrastructure)
+---
+
+## Session Log (2026-01-16)
+
+### Session 3 (Current) - DB Auth + Docs
+
+**Completed:**
+1. **Database authentication implemented** in `WebSocketServer.php`
+   - Validates API keys against `dbo.swim_api_keys` table
+   - 5-minute key cache to reduce DB queries
+   - Checks `is_active` and `expires_at` fields
+   - Updates `last_used_at` on successful auth
+   - Graceful fallback to debug mode if DB unavailable
+
+2. **`swim_api_keys` table created** in VATSIM_ADL
+   - Schema with tier, expiration, IP whitelist support
+   - Dev key created: `swim_dev_hp_test`
+
+3. **`system.heartbeat` channel** added to valid channels list
+
+**Files Modified:**
+- `api/swim/v1/ws/WebSocketServer.php` - Full auth implementation
+- `scripts/swim_ws_server.php` - Added DB config from `load/config.php`
+
+### Session 2 - Poll Optimization + Python SDK
+
+**Completed:**
+1. **Poll interval reduced** from 500ms to 100ms
+   - Latency: ~50ms avg (down from ~250ms)
+   - Cost: $0
 
 2. **Python SDK created** - `sdk/python/swim_client/`
-   - Full async WebSocket client with auto-reconnect
-   - Typed event data classes (FlightEvent, TMIEvent, PositionBatch)
-   - Decorator-based event handlers
-   - Subscription filters (airports, ARTCCs, callsigns, bbox)
+   - Async WebSocket client with auto-reconnect
+   - Typed event data classes
+   - Decorator-based handlers
    - 4 example scripts
+   - Tested and working in production
 
-### Redis Decision
+3. **Redis deferred** - File-based IPC adequate for now
 
-Redis ($16/mo) deferred until caching layer is needed. Current file-based IPC with 100ms polling adds only ~50ms latency on a 15-second refresh cycle (0.3%).
+### Session 1 - Core Deployment
 
----
-
-## What Was Completed This Session
-
-### Core WebSocket Infrastructure ✅
-
-| Component | File | Status |
-|-----------|------|--------|
-| WebSocket Server | `scripts/swim_ws_server.php` | Deployed, port 8090 |
-| Event Detection | `scripts/swim_ws_events.php` | Deployed, schema-aligned |
-| ADL Integration | `scripts/vatsim_adl_daemon.php` | Deployed, `ws_events` logging |
-| Startup Script | `scripts/startup.sh` | Updated with WS + Apache proxy |
-| JS Client Library | `api/swim/v1/ws/swim-ws-client.js` | Deployed |
-| Design Doc | `docs/swim/SWIM_Phase2_RealTime_Design.md` | Updated to COMPLETE |
-
-### Key Fixes Applied
-
-1. **Port change:** 8080 → 8090 (8080 used by Apache)
-2. **Column mappings:**
-   - `created_at` → `first_seen_utc`
-   - `last_seen` → `last_seen_utc`
-   - `p.dep` → `p.fp_dept_icao`
-   - `p.arr` → `p.fp_dest_icao`
-   - `p.equipment` → `p.aircraft_equip`
-   - `p.route` → `p.fp_route`
-
-### Verified Working
-
-```
-[2026-01-16 07:02:27Z] [INFO] Refresh #5 {"pilots":756,"sp_ms":4892,"ws_events":6}
-```
-
-- Internal WebSocket connection: ✅ 101 Switching Protocols
-- Event detection: ✅ 8 events in 60-second window
-- ADL daemon logging: ✅ Shows `ws_events` count
+**Completed:**
+- WebSocket server deployed (port 8090)
+- Apache proxy configured
+- Event detection integrated with ADL daemon
+- JavaScript client library created
+- External WSS connection verified
 
 ---
 
 ## Phase 2 Remaining Tasks
 
-### 1. External WebSocket Access (~30 min)
+### 1. Tier Rate Limits (~1 hour)
 
-Apache proxy configured in `startup.sh` but needs container restart to take effect.
+Enforce connection limits per API key tier.
 
-**Test after restart:**
-```bash
-# From local machine
-wscat -c "wss://perti.vatcscc.org/api/swim/v1/ws?api_key=test-key"
-```
+**Tier limits:**
 
-**If proxy not working, manually apply:**
-```bash
-# SSH into Azure
-a2enmod proxy proxy_http proxy_wstunnel
-cat > /etc/apache2/conf-available/swim-websocket.conf << 'EOF'
-<IfModule mod_proxy.c>
-    <IfModule mod_proxy_wstunnel.c>
-        ProxyRequests Off
-        ProxyPreserveHost On
-        ProxyPass /api/swim/v1/ws ws://127.0.0.1:8090/
-        ProxyPassReverse /api/swim/v1/ws ws://127.0.0.1:8090/
-        ProxyTimeout 3600
-    </IfModule>
-</IfModule>
-EOF
-a2enconf swim-websocket
-service apache2 reload
-```
+| Tier | Max Connections | Rate Limit (msg/sec) |
+|------|-----------------|----------------------|
+| public | 5 | 10 |
+| developer | 50 | 100 |
+| partner | 500 | 1000 |
+| system | Unlimited | Unlimited |
 
-### 2. Database Authentication (~2 hours)
+**Implementation location:** `WebSocketServer.php` in `onOpen()` method
 
-Currently using debug mode (`test-key` accepted). Need to validate against `swim_api_keys` table.
-
-**File to modify:** `scripts/swim_ws_server.php`
-
-**Current code (line ~180):**
 ```php
-// Debug mode - accept any key
-if ($this->config['debug']) {
-    return 'pro';  // Give full access in debug
+// Track connections per tier
+protected $connectionsByTier = [];
+
+// In onOpen(), after auth:
+$tier = $client->getTier();
+$maxConns = $this->getTierMaxConnections($tier);
+$currentConns = $this->connectionsByTier[$tier] ?? 0;
+
+if ($currentConns >= $maxConns) {
+    $this->sendError($conn, 'CONNECTION_LIMIT', "Tier limit reached");
+    $conn->close(self::CLOSE_RATE_LIMITED);
+    return;
 }
+
+$this->connectionsByTier[$tier]++;
 ```
-
-**Replace with:**
-```php
-// Validate API key against database
-$sql = "SELECT tier, is_active FROM dbo.swim_api_keys WHERE api_key = ?";
-$stmt = sqlsrv_query($this->dbConn, $sql, [$apiKey]);
-if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    if ($row['is_active']) {
-        return $row['tier'];
-    }
-}
-return null;  // Invalid key
-```
-
-**Also need:** Database connection in WebSocket server (currently only ADL daemon has it).
-
-### 3. Rate Limiting by Tier (~1 hour)
-
-**Tier limits (from design doc):**
-
-| Tier | Max Connections | Rate Limit |
-|------|-----------------|------------|
-| Free | 5 | 10 msg/sec |
-| Basic | 50 | 100 msg/sec |
-| Pro | 500 | 1000 msg/sec |
-| Enterprise | Unlimited | Unlimited |
-
-**Implementation location:** `scripts/swim_ws_server.php` in `onOpen()` method
 
 ---
 
-## Phase 3 Tasks
+## Phase 3 Status
 
-### 3.1 Redis IPC (4-6 hours)
+| Task | Est. Hours | Status | Notes |
+|------|------------|--------|-------|
+| Python SDK | 12h | ✅ DONE | `sdk/python/` |
+| Redis IPC | 4-6h | ⏸️ Deferred | File IPC adequate |
+| Message Compression | 2h | ⏳ Pending | For large position batches |
+| Historical Replay | 8h | ⏳ Pending | Requires event storage |
+| C# SDK | 12h | ⏳ As needed | |
+| Java SDK | 12h | ⏳ As needed | |
+| Metrics Dashboard | 4h | ⏳ Pending | |
 
-Replace file-based event queue with Redis pub/sub for lower latency.
+### Redis Decision
 
-**Current flow:**
-```
-ADL Daemon → /tmp/swim_ws_events.json → WS Server polls file
-```
-
-**Target flow:**
-```
-ADL Daemon → Redis PUBLISH → WS Server SUBSCRIBE (instant)
-```
-
-**Files to modify:**
-- `scripts/swim_ws_events.php` - Publish to Redis instead of file
-- `scripts/swim_ws_server.php` - Subscribe to Redis channel
-
-**Redis commands:**
-```php
-// Publisher (in swim_ws_events.php)
-$redis->publish('swim:events', json_encode($events));
-
-// Subscriber (in swim_ws_server.php)
-$redis->subscribe(['swim:events'], function($redis, $channel, $message) {
-    $this->broadcastEvents(json_decode($message, true));
-});
-```
-
-### 3.2 Message Compression (2 hours)
-
-Add gzip for position batches when `flight.positions` enabled.
-
-```php
-// In WebSocket server broadcast
-if ($event['type'] === 'flight.positions' && count($event['data']) > 100) {
-    $compressed = gzencode(json_encode($event));
-    // Send with compression header
-}
-```
-
-### 3.3 Historical Replay (8 hours)
-
-Allow clients to request missed events after reconnect.
-
-**New message type:**
-```json
-{
-    "action": "replay",
-    "since": "2026-01-16T14:00:00Z",
-    "channels": ["flight.departed", "flight.arrived"]
-}
-```
-
-**Requires:** Event storage table (currently events are ephemeral)
-
-### 3.4 Client SDKs (12 hours each)
-
-Create libraries for:
-- Python (`swim-client-python`) ✅ COMPLETE
-- C# (`SWIM.Client`)
-- Java (`swim-client-java`)
-
-**Python SDK Location:** `sdk/python/`
-
-**Installation:**
-```bash
-cd sdk/python
-pip install -e .
-```
-
-**Quick Start:**
-```python
-from swim_client import SWIMClient
-
-client = SWIMClient('your-api-key')
-
-@client.on('flight.departed')
-def on_departure(data, timestamp):
-    print(f"{data.callsign} departed {data.dep}")
-
-client.subscribe(['flight.departed', 'flight.arrived'])
-client.run()
-```
-
-**Examples:**
-- `examples/basic_example.py` - Simple event handling
-- `examples/airport_monitor.py` - Monitor specific airports
-- `examples/position_tracker.py` - Track flight positions
-- `examples/tmi_monitor.py` - Monitor Ground Stops, GDPs
-
-### 3.5 Metrics Dashboard (4 hours)
-
-Track and display:
-- Active connections by tier
-- Events per minute by type
-- Average latency (ADL refresh → client delivery)
-- Error rates
+Redis ($16/mo) deferred. Current architecture:
+- File-based IPC with 100ms polling
+- Adds ~50ms latency on 15-second cycle (0.3%)
+- Deploy Redis when API caching layer needed
 
 ---
 
-## File Locations
+## File Reference
+
+### Core Files
 
 | File | Purpose |
 |------|---------|
 | `scripts/swim_ws_server.php` | WebSocket server daemon |
 | `scripts/swim_ws_events.php` | Event detection queries |
-| `scripts/vatsim_adl_daemon.php` | Main daemon (calls event detection) |
-| `scripts/startup.sh` | Azure startup (starts WS server) |
-| `api/swim/v1/ws/swim-ws-client.js` | JavaScript client library |
-| `docs/swim/SWIM_Phase2_RealTime_Design.md` | Design documentation |
+| `scripts/startup.sh` | Azure startup script |
+| `api/swim/v1/ws/WebSocketServer.php` | Server class with auth |
+| `api/swim/v1/ws/ClientConnection.php` | Client wrapper |
+| `api/swim/v1/ws/SubscriptionManager.php` | Subscription management |
+| `api/swim/v1/ws/swim-ws-client.js` | JavaScript client |
+
+### SDK Files
+
+| File | Purpose |
+|------|---------|
+| `sdk/python/swim_client/__init__.py` | Package exports |
+| `sdk/python/swim_client/client.py` | Main SWIMClient class |
+| `sdk/python/swim_client/events.py` | Event types & data classes |
+| `sdk/python/examples/basic_example.py` | Simple usage |
+| `sdk/python/examples/airport_monitor.py` | Airport-specific monitoring |
+| `sdk/python/examples/position_tracker.py` | Position tracking |
+| `sdk/python/examples/tmi_monitor.py` | TMI event monitoring |
 
 ---
 
-## Commands Reference
+## Database Reference
 
-### Start/Restart Services (Azure SSH)
-
-```bash
-# WebSocket server
-rm -f /home/site/wwwroot/scripts/swim_ws.lock
-nohup php /home/site/wwwroot/scripts/swim_ws_server.php --debug > /home/LogFiles/swim_ws.log 2>&1 &
-
-# ADL daemon
-pkill -f vatsim_adl_daemon
-rm -f /home/site/wwwroot/scripts/vatsim_adl.lock
-nohup php /home/site/wwwroot/scripts/vatsim_adl_daemon.php > /home/LogFiles/vatsim_adl.log 2>&1 &
-```
-
-### Check Status
-
-```bash
-# Running processes
-ps aux | grep -E "swim_ws|vatsim_adl" | grep -v grep
-
-# WebSocket log
-tail -f /home/LogFiles/swim_ws.log
-
-# ADL daemon log (look for ws_events)
-tail -f /home/LogFiles/vatsim_adl.log
-```
-
-### Test Event Detection
-
-```bash
-cat > /tmp/test_events.php << 'PHPEOF'
-<?php
-require '/home/site/wwwroot/load/config.php';
-require '/home/site/wwwroot/scripts/swim_ws_events.php';
-$conn = sqlsrv_connect(ADL_SQL_HOST, [
-    'Database' => ADL_SQL_DATABASE,
-    'Uid' => ADL_SQL_USERNAME,
-    'PWD' => ADL_SQL_PASSWORD,
-    'Encrypt' => true,
-    'TrustServerCertificate' => false
-]);
-$lastRefresh = gmdate('Y-m-d H:i:s', strtotime('-60 seconds'));
-$result = swim_processWebSocketEvents($conn, $lastRefresh, false);
-print_r($result);
-PHPEOF
-php /tmp/test_events.php
-```
-
-### Test Internal WebSocket
-
-```bash
-curl -i -N \
-  -H "Connection: Upgrade" \
-  -H "Upgrade: websocket" \
-  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
-  -H "Sec-WebSocket-Version: 13" \
-  "http://localhost:8090/?api_key=test-key"
-```
-
----
-
-## Database Schema Reference
-
-### Event Detection Queries Use:
-
-| Table | Columns Used |
-|-------|--------------|
-| `adl_flight_core` | `flight_uid`, `callsign`, `is_active`, `first_seen_utc`, `last_seen_utc` |
-| `adl_flight_plan` | `flight_uid`, `fp_dept_icao`, `fp_dest_icao`, `aircraft_equip`, `fp_route` |
-| `adl_flight_times` | `flight_uid`, `off_utc`, `in_utc` |
-| `adl_flight_position` | `flight_uid`, `lat`, `lon`, `altitude_ft`, `groundspeed_kts`, `heading_deg` |
-| `tmi_programs` | `program_id`, `program_type`, `airport_icao`, `start_time`, `end_time`, `status`, `created_at` |
-
-### API Keys Table:
+### swim_api_keys Table (VATSIM_ADL)
 
 ```sql
--- swim_api_keys (in SWIM_API database)
-CREATE TABLE swim_api_keys (
-    api_key VARCHAR(64) PRIMARY KEY,
-    owner_name VARCHAR(100),
-    owner_email VARCHAR(100),
-    tier VARCHAR(20) DEFAULT 'free',  -- free, basic, pro, enterprise
-    is_active BIT DEFAULT 1,
-    created_at DATETIME2 DEFAULT GETUTCDATE(),
-    last_used_at DATETIME2
+CREATE TABLE dbo.swim_api_keys (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    api_key NVARCHAR(64) NOT NULL UNIQUE,
+    tier NVARCHAR(20) NOT NULL DEFAULT 'public',
+    owner_name NVARCHAR(100) NOT NULL,
+    owner_email NVARCHAR(255),
+    source_id NVARCHAR(50),
+    can_write BIT NOT NULL DEFAULT 0,
+    allowed_sources NVARCHAR(MAX),
+    ip_whitelist NVARCHAR(MAX),
+    description NVARCHAR(500),
+    expires_at DATETIME2,
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    last_used_at DATETIME2,
+    is_active BIT NOT NULL DEFAULT 1
 );
 ```
 
+### Current Keys
+
+| Key | Tier | Owner |
+|-----|------|-------|
+| `swim_dev_hp_test` | developer | HP |
+| `swim_dev_613DB0CD-...` | developer | HP |
+
 ---
 
-## Priority Order for Completion
+## Operations Reference
 
-1. **External WSS test** - Verify after next container restart
-2. **Database auth** - Replace debug mode
-3. **Tier rate limits** - Enforce connection limits
-4. **Redis IPC** - Phase 3 priority (lower latency)
-5. **Client SDKs** - As consumers request them
+### Restart WebSocket Server
+
+```bash
+# SSH into Azure
+pkill -f swim_ws_server
+rm -f /home/site/wwwroot/scripts/swim_ws.lock
+nohup php /home/site/wwwroot/scripts/swim_ws_server.php --debug > /home/LogFiles/swim_ws.log 2>&1 &
+```
+
+### Monitor Logs
+
+```bash
+# WebSocket server
+tail -f /home/LogFiles/swim_ws.log
+
+# ADL daemon (shows ws_events count)
+tail -f /home/LogFiles/vatsim_adl.log
+```
+
+### Test Python SDK
+
+```powershell
+cd sdk/python
+pip install -e .
+python examples/basic_example.py swim_dev_hp_test
+```
 
 ---
 
@@ -359,8 +220,18 @@ CREATE TABLE swim_api_keys (
 
 | Metric | Target | Current |
 |--------|--------|---------|
-| Event latency | < 15 seconds | ~15 sec (ADL cycle) |
-| Events detected | 10-50 per cycle | 2-10 observed |
-| Internal WS test | ✅ Working | ✅ Done |
-| External WS test | Pending | After restart |
-| Auth validation | DB-backed | Debug mode |
+| External WSS | ✅ Working | ✅ Verified |
+| DB Auth | ✅ Implemented | ✅ Done |
+| Python SDK | ✅ Complete | ✅ Tested |
+| Event latency | < 15 sec | ~15 sec |
+| Events/cycle | 10-50 | 2-10 |
+| Tier rate limits | Pending | ⏳ |
+
+---
+
+## Next Steps (Priority Order)
+
+1. **Deploy updated WebSocketServer.php** - DB auth now implemented
+2. **Implement tier rate limits** - Last Phase 2 item
+3. **Test with real API key** - Verify DB auth works end-to-end
+4. **C#/Java SDKs** - When consumers request them
