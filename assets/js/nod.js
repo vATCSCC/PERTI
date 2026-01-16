@@ -6124,7 +6124,9 @@
         drawAllFilteredRoutes,
         isFlightRouteDisplayed,
         // Legend functions (for external updates)
-        renderColorLegend
+        renderColorLegend,
+        // Traffic layer refresh (for FEA match coloring sync)
+        updateTrafficLayer
     };
     
     // Auto-initialize when DOM is ready
