@@ -151,17 +151,18 @@ function getPreset($conn, $id) {
     }
     
     // Get positions
-    $sql = "SELECT id, position_name, sectors, color, frequency, sort_order, filters
-            FROM dbo.splits_preset_positions 
-            WHERE preset_id = ? 
+    $sql = "SELECT id, position_name, sectors, color, frequency, sort_order, filters, strata_filter
+            FROM dbo.splits_preset_positions
+            WHERE preset_id = ?
             ORDER BY sort_order";
     $stmt = sqlsrv_query($conn, $sql, [$id]);
-    
+
     $positions = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         // Parse JSON fields
         $row['sectors'] = json_decode($row['sectors'], true) ?: [];
         $row['filters'] = json_decode($row['filters'], true);
+        $row['strata_filter'] = json_decode($row['strata_filter'], true);
         $positions[] = $row;
     }
     
@@ -211,10 +212,10 @@ function createPreset($conn, $data) {
         
         // Insert positions
         foreach ($positions as $i => $pos) {
-            $sql = "INSERT INTO dbo.splits_preset_positions 
-                    (preset_id, position_name, sectors, color, frequency, sort_order, filters)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
-            
+            $sql = "INSERT INTO dbo.splits_preset_positions
+                    (preset_id, position_name, sectors, color, frequency, sort_order, filters, strata_filter)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
             $stmt = sqlsrv_query($conn, $sql, [
                 $presetId,
                 $pos['name'] ?? $pos['position_name'],
@@ -222,9 +223,10 @@ function createPreset($conn, $data) {
                 $pos['color'] ?? '#4dabf7',
                 $pos['frequency'] ?? null,
                 $pos['sort_order'] ?? $i,
-                isset($pos['filters']) ? json_encode($pos['filters']) : null
+                isset($pos['filters']) ? json_encode($pos['filters']) : null,
+                isset($pos['strataFilter']) ? json_encode($pos['strataFilter']) : null
             ]);
-            
+
             if ($stmt === false) {
                 throw new Exception('Failed to insert position');
             }
@@ -281,10 +283,10 @@ function updatePreset($conn, $id, $data) {
         // Re-insert positions
         $positions = $data['positions'] ?? [];
         foreach ($positions as $i => $pos) {
-            $sql = "INSERT INTO dbo.splits_preset_positions 
-                    (preset_id, position_name, sectors, color, frequency, sort_order, filters)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
-            
+            $sql = "INSERT INTO dbo.splits_preset_positions
+                    (preset_id, position_name, sectors, color, frequency, sort_order, filters, strata_filter)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
             $stmt = sqlsrv_query($conn, $sql, [
                 $id,
                 $pos['name'] ?? $pos['position_name'],
@@ -292,9 +294,10 @@ function updatePreset($conn, $id, $data) {
                 $pos['color'] ?? '#4dabf7',
                 $pos['frequency'] ?? null,
                 $pos['sort_order'] ?? $i,
-                isset($pos['filters']) ? json_encode($pos['filters']) : null
+                isset($pos['filters']) ? json_encode($pos['filters']) : null,
+                isset($pos['strataFilter']) ? json_encode($pos['strataFilter']) : null
             ]);
-            
+
             if ($stmt === false) {
                 throw new Exception('Failed to insert position');
             }
@@ -362,6 +365,11 @@ function patchPosition($conn, $positionId, $data) {
     if (array_key_exists('color', $data)) {
         $updates[] = "color = ?";
         $params[] = $data['color'];
+    }
+
+    if (array_key_exists('strata_filter', $data)) {
+        $updates[] = "strata_filter = ?";
+        $params[] = $data['strata_filter'] ? json_encode($data['strata_filter']) : null;
     }
 
     if (empty($updates)) {

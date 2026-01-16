@@ -1259,6 +1259,11 @@ const SplitsController = {
         document.getElementById('preset-clear-all-sectors')?.addEventListener('click', () => this.presetClearAllSectors());
         document.getElementById('preset-done-selecting-btn')?.addEventListener('click', () => this.presetDoneSelectingSectors());
         document.getElementById('preset-select-on-map-btn')?.addEventListener('click', () => this.enablePresetMapSelection());
+
+        // Preset strata filter checkboxes
+        ['preset-strata-low', 'preset-strata-high', 'preset-strata-superhigh'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => this.loadPresetSectorGrid());
+        });
         
         // Preset sector input
         document.getElementById('preset-sector-input-apply-btn')?.addEventListener('click', () => this.applyPresetSectorInput());
@@ -3689,11 +3694,13 @@ const SplitsController = {
             this._editingPresetId = presetId;
             this._presetArtcc = preset.artcc;
             this._presetPositions = (preset.positions || []).map(p => ({
+                id: p.id,  // Preserve position ID for PATCH updates
                 name: p.position_name,
                 sectors: p.sectors || [],
                 color: p.color || '#4dabf7',
                 frequency: p.frequency || null,
-                filters: p.filters || null
+                filters: p.filters || null,
+                strataFilter: p.strata_filter || null
             }));
             this._editingPresetPositionIndex = -1;
             
@@ -3763,32 +3770,49 @@ const SplitsController = {
     
     loadPresetArtccOnMap(artcc) {
         if (!this.map || !artcc) return;
-        
+
         const sectors = this.getSectorsForArtcc(artcc);
         const features = [];
         const labelFeatures = [];
-        
-        // Track assigned sectors
+
+        // Track assigned sectors with their position info and strata filter
         const assignedSectors = new Map();
         this._presetPositions.forEach(pos => {
+            const sf = pos.strataFilter || { low: true, high: true, superhigh: true };
             (pos.sectors || []).forEach(sectorId => {
-                assignedSectors.set(sectorId, { name: pos.name, color: pos.color });
+                assignedSectors.set(sectorId, { name: pos.name, color: pos.color, strataFilter: sf });
             });
         });
-        
+
         sectors.forEach(sector => {
             const sectorGeom = this.findSectorGeometry(sector.id);
             if (!sectorGeom) return;
-            
+
             const assigned = assignedSectors.get(sector.id);
+
+            // Check if sector's strata is enabled for this position
+            if (assigned) {
+                const sf = assigned.strataFilter;
+                const sectorStrata = sectorGeom.boundary_type; // 'low', 'high', or 'superhigh'
+                if (sectorStrata && sf[sectorStrata] === false) {
+                    // Strata is disabled for this position - show as unassigned
+                    features.push({
+                        type: 'Feature',
+                        properties: { sector_id: sector.id, color: '#444444', selected: false },
+                        geometry: sectorGeom.geometry
+                    });
+                    return;
+                }
+            }
+
             const color = assigned ? assigned.color : '#444444';
-            
+
             features.push({
                 type: 'Feature',
                 properties: { sector_id: sector.id, color: color, selected: !!assigned },
                 geometry: sectorGeom.geometry
             });
-            
+
             if (sectorGeom.centroid) {
                 labelFeatures.push({
                     type: 'Feature',
@@ -3797,14 +3821,14 @@ const SplitsController = {
                 });
             }
         });
-        
+
         if (this.map.getSource('sectors')) {
             this.map.getSource('sectors').setData({ type: 'FeatureCollection', features });
         }
         if (this.map.getSource('sector-labels')) {
             this.map.getSource('sector-labels').setData({ type: 'FeatureCollection', features: labelFeatures });
         }
-        
+
         const center = this.artccCenters[artcc];
         if (center) this.map.flyTo({ center, zoom: 6 });
     },
@@ -3830,6 +3854,7 @@ const SplitsController = {
         container.innerHTML = positions.map((pos, i) => {
             const sectors = pos.sectors || [];
             const isEditing = i === this._editingPresetPositionIndex;
+            const sf = pos.strataFilter || { low: true, high: true, superhigh: true };
             return `
                 <div class="split-item ${isEditing ? 'active' : ''}" data-index="${i}">
                     <div class="split-item-header">
@@ -3845,6 +3870,21 @@ const SplitsController = {
                         </div>
                     </div>
                     <div class="split-item-sectors">${sectors.length} sector${sectors.length !== 1 ? 's' : ''}: ${sectors.slice(0, 6).join(', ')}${sectors.length > 6 ? '...' : ''}</div>
+                    <div class="position-strata-toggles mt-1" style="font-size: 11px;">
+                        <span class="text-muted mr-1">Strata:</span>
+                        <label class="mr-2 mb-0" style="cursor: pointer;">
+                            <input type="checkbox" class="pos-strata-toggle" data-index="${i}" data-strata="low" ${sf.low !== false ? 'checked' : ''}>
+                            <span style="background:#228B22; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+                        </label>
+                        <label class="mr-2 mb-0" style="cursor: pointer;">
+                            <input type="checkbox" class="pos-strata-toggle" data-index="${i}" data-strata="high" ${sf.high !== false ? 'checked' : ''}>
+                            <span style="background:#FF6347; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+                        </label>
+                        <label class="mb-0" style="cursor: pointer;">
+                            <input type="checkbox" class="pos-strata-toggle" data-index="${i}" data-strata="superhigh" ${sf.superhigh !== false ? 'checked' : ''}>
+                            <span style="background:#9932CC; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+                        </label>
+                    </div>
                 </div>`;
         }).join('');
         
@@ -3897,6 +3937,25 @@ const SplitsController = {
 
             picker.addEventListener('click', (e) => {
                 e.stopPropagation(); // Don't select row when clicking color picker
+            });
+        });
+
+        // Per-position strata toggle events
+        container.querySelectorAll('.pos-strata-toggle').forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(e.target.dataset.index);
+                const strata = e.target.dataset.strata;
+                const pos = this._presetPositions[idx];
+                if (!pos.strataFilter) {
+                    pos.strataFilter = { low: true, high: true, superhigh: true };
+                }
+                pos.strataFilter[strata] = e.target.checked;
+                this.loadPresetArtccOnMap(this._presetArtcc); // Update map preview
+            });
+
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation(); // Don't select row when clicking toggle
             });
         });
     },
@@ -4032,13 +4091,27 @@ const SplitsController = {
     loadPresetSectorGrid() {
         const container = document.getElementById('preset-sector-grid');
         if (!container || !this._presetArtcc) return;
-        
-        const sectors = this.getSectorsForArtcc(this._presetArtcc);
+
+        // Get strata filter state
+        const showLow = document.getElementById('preset-strata-low')?.checked ?? true;
+        const showHigh = document.getElementById('preset-strata-high')?.checked ?? true;
+        const showSuper = document.getElementById('preset-strata-superhigh')?.checked ?? true;
+
+        let sectors = this.getSectorsForArtcc(this._presetArtcc);
+
+        // Filter by strata
+        sectors = sectors.filter(s => {
+            if (s.type === 'low' && !showLow) return false;
+            if (s.type === 'high' && !showHigh) return false;
+            if (s.type === 'superhigh' && !showSuper) return false;
+            return true;
+        });
+
         if (sectors.length === 0) {
-            container.innerHTML = '<div class="text-muted">No sectors found</div>';
+            container.innerHTML = '<div class="text-muted">No sectors found (check strata filters)</div>';
             return;
         }
-        
+
         // Get assigned sectors from all positions
         const assignedByOthers = new Set();
         this._presetPositions.forEach((pos, i) => {
