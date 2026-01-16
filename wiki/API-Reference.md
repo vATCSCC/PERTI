@@ -451,6 +451,52 @@ GET /api/adl/demand/segment?from_fix=CAM&to_fix=GONZZ&minutes=180
 | `direction` | 'forward' or 'reverse' based on sequence order |
 | `on_airway` | Airway identifier if filed via an airway |
 
+### GET /api/adl/demand/batch.php
+
+Returns time-bucketed demand counts for multiple monitors in a single call. Efficiently queries traffic at multiple fixes/segments with results grouped into time buckets.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `monitors` | JSON | Array of monitor definitions (required) |
+| `bucket_minutes` | int | Time bucket size (default: 15, min: 5, max: 60) |
+| `horizon_hours` | int | Projection horizon (default: 4, max: 12) |
+
+**Monitor types:** `fix`, `segment`, `airway`, `airway_segment`, `via_fix`
+
+**Example:**
+
+```http
+GET /api/adl/demand/batch?monitors=[{"type":"fix","fix":"MERIT"}]&bucket_minutes=15
+```
+
+### /api/adl/demand/monitors.php
+
+CRUD operations for shared demand monitors that persist across sessions.
+
+**Access:** Authenticated
+
+| Method | Description |
+|--------|-------------|
+| GET | List all active monitors |
+| POST | Create a new monitor |
+| DELETE | Remove a monitor (by `id` or `monitor_key`) |
+
+### GET /api/adl/demand/details.php
+
+Returns individual flights captured by a demand monitor.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | string | Monitor type (required) |
+| `fix/from/to/airway` | string | Type-specific identifiers |
+| `minutes_ahead` | int | Time window (default: 60, max: 720) |
+| `airline` | string | Filter by airline prefix |
+| `aircraft_category` | string | HEAVY, LARGE, or SMALL |
+
 ---
 
 ## Public Routes APIs
