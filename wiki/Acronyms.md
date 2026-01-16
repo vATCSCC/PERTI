@@ -15,6 +15,7 @@ This reference defines acronyms and terminology used throughout PERTI and VATSIM
 | **JATOC** | Joint Air Traffic Operations Command |
 | **NOD** | NAS Operations Dashboard |
 | **TSD** | Traffic Situation Display |
+| **NTML** | National Traffic Management Log - record of TMI actions |
 
 ---
 
@@ -28,6 +29,8 @@ This reference defines acronyms and terminology used throughout PERTI and VATSIM
 | **GDP** | Ground Delay Program |
 | **AFP** | Airspace Flow Program - controls departure times for flights arriving at an FCA |
 | **EDCT** | Expect Departure Clearance Time |
+| **CTA** | Controlled Time of Arrival - assigned arrival slot |
+| **ETD** | Estimated Time of Departure |
 | **MIT** | Miles-in-Trail |
 | **MINIT** | Minutes-in-Trail |
 | **AAR** | Airport Arrival Rate (arrivals per hour) |
