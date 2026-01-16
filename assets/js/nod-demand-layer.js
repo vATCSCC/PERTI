@@ -51,7 +51,8 @@ const NODDemandLayer = (function() {
         clickMode: null,             // null, 'fix', or 'segment'
         segmentFirstClick: null,     // For segment mode: { lat, lon, fix }
         refreshTimer: null,
-        sourcesAdded: false
+        sourcesAdded: false,
+        detailsPopup: null           // MapLibre popup for flight details
     };
 
     // =========================================
@@ -71,11 +72,39 @@ const NODDemandLayer = (function() {
         loadFromLocalStorage();
 
         // Add sources and layers when map style is loaded
-        if (map.isStyleLoaded()) {
-            addSourcesAndLayers();
+        const styleLoaded = map.isStyleLoaded();
+        console.log('[DemandLayer] Style loaded check:', styleLoaded);
+
+        if (styleLoaded) {
+            // Style already loaded - add immediately
+            try {
+                addSourcesAndLayers();
+            } catch (e) {
+                console.error('[DemandLayer] Error adding sources:', e);
+            }
         } else {
-            map.on('style.load', addSourcesAndLayers);
+            // Wait for style to load
+            map.on('style.load', () => {
+                console.log('[DemandLayer] style.load event fired');
+                try {
+                    addSourcesAndLayers();
+                } catch (e) {
+                    console.error('[DemandLayer] Error adding sources on style.load:', e);
+                }
+            });
         }
+
+        // Fallback: if sources still not added after 500ms, try again
+        setTimeout(() => {
+            if (!state.sourcesAdded && map.isStyleLoaded()) {
+                console.log('[DemandLayer] Fallback: attempting to add sources');
+                try {
+                    addSourcesAndLayers();
+                } catch (e) {
+                    console.error('[DemandLayer] Fallback error:', e);
+                }
+            }
+        }, 500);
 
         // Set up click handler
         map.on('click', handleMapClick);
@@ -87,9 +116,14 @@ const NODDemandLayer = (function() {
      * Add MapLibre sources and layers for demand visualization
      */
     function addSourcesAndLayers() {
+        console.log('[DemandLayer] addSourcesAndLayers called, sourcesAdded:', state.sourcesAdded);
         if (state.sourcesAdded) return;
 
         const map = state.map;
+        if (!map) {
+            console.error('[DemandLayer] addSourcesAndLayers: no map instance');
+            return;
+        }
 
         // Add fix monitors source (GeoJSON Points)
         map.addSource('demand-fixes-source', {
@@ -221,6 +255,9 @@ const NODDemandLayer = (function() {
 
         state.sourcesAdded = true;
         console.log('[DemandLayer] Sources and layers added');
+
+        // Initialize click handlers for showing flight details
+        initMapClickHandlers();
     }
 
     // =========================================
@@ -1241,15 +1278,30 @@ const NODDemandLayer = (function() {
                             monitor.type.includes('segment') ? 'fa-arrows-alt-h' :
                             'fa-filter';
 
+            // Get count from current demand data
+            let count = null;
+            if (state.demandData && state.demandData.monitors) {
+                const monitorData = state.demandData.monitors.find(m => m.id === id);
+                if (monitorData) {
+                    count = getDisplayCount(monitorData);
+                }
+            }
+
+            const countBadge = count !== null
+                ? `<span class="demand-count-badge" style="background: ${getDemandColor(count, id, [])}; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; margin-left: 6px;">${count}</span>`
+                : '';
+
             html += `
                 <div class="demand-monitor-item d-flex align-items-center justify-content-between py-1 px-2 mb-1"
-                     style="background: rgba(255,255,255,0.05); border-radius: 3px; font-size: 11px;">
+                     style="background: rgba(255,255,255,0.05); border-radius: 3px; font-size: 11px; cursor: pointer;"
+                     onclick="NODDemandLayer.showMonitorFlights(${idx})"
+                     title="Click to see flights">
                     <span>
                         <i class="fas ${typeIcon} text-info mr-2" style="width: 14px;"></i>
-                        ${label}
+                        ${label}${countBadge}
                     </span>
                     <button class="btn btn-sm btn-link text-danger p-0"
-                            onclick="NODDemandLayer.removeMonitor('${id}')"
+                            onclick="event.stopPropagation(); NODDemandLayer.removeMonitor('${id}')"
                             title="Remove monitor">
                         <i class="fas fa-times"></i>
                     </button>
@@ -1258,6 +1310,343 @@ const NODDemandLayer = (function() {
         });
 
         container.innerHTML = html;
+    }
+
+    /**
+     * Show flights for a monitor from the list (index-based)
+     */
+    async function showMonitorFlights(idx) {
+        if (idx < 0 || idx >= state.monitors.length) return;
+
+        const monitor = state.monitors[idx];
+        const label = getMonitorLabel(monitor);
+
+        // Show in a side panel or modal instead of map popup
+        const container = document.getElementById('demand-flights-detail');
+        if (!container) {
+            // Fallback: show in alert or console
+            console.log('[DemandLayer] showMonitorFlights: no container, fetching...');
+            try {
+                const flights = await fetchFlightDetails(monitor);
+                console.log(`[DemandLayer] ${label}: ${flights.length} flights`, flights);
+            } catch (e) {
+                console.error('[DemandLayer] Failed to fetch flights:', e);
+            }
+            return;
+        }
+
+        // Show loading
+        container.innerHTML = `
+            <div class="demand-flights-header d-flex justify-content-between align-items-center mb-2">
+                <span class="font-weight-bold">${label}</span>
+                <button class="btn btn-sm btn-link text-muted p-0" onclick="document.getElementById('demand-flights-detail').style.display='none'">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="text-center py-3">
+                <i class="fas fa-spinner fa-spin"></i> Loading...
+            </div>
+        `;
+        container.style.display = 'block';
+
+        try {
+            const flights = await fetchFlightDetails(monitor);
+            renderFlightsInPanel(container, label, flights);
+        } catch (error) {
+            container.innerHTML = `
+                <div class="demand-flights-header d-flex justify-content-between align-items-center mb-2">
+                    <span class="font-weight-bold">${label}</span>
+                    <button class="btn btn-sm btn-link text-muted p-0" onclick="document.getElementById('demand-flights-detail').style.display='none'">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="text-danger text-center py-3">Failed to load flights</div>
+            `;
+        }
+    }
+
+    /**
+     * Render flights in the side panel
+     */
+    function renderFlightsInPanel(container, label, flights) {
+        if (!flights || flights.length === 0) {
+            container.innerHTML = `
+                <div class="demand-flights-header d-flex justify-content-between align-items-center mb-2">
+                    <span class="font-weight-bold">${label}</span>
+                    <button class="btn btn-sm btn-link text-muted p-0" onclick="document.getElementById('demand-flights-detail').style.display='none'">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="text-muted text-center py-3">No flights in time window</div>
+            `;
+            return;
+        }
+
+        const rows = flights.map(f => {
+            const eta = f.minutes_until >= 0 ? `+${f.minutes_until}m` : `${f.minutes_until}m`;
+            return `
+                <tr onclick="NODDemandLayer.selectFlight(${f.flight_uid})" style="cursor: pointer;">
+                    <td style="color: #4a9eff; font-weight: 600;">${f.callsign}</td>
+                    <td>${f.departure} → ${f.destination}</td>
+                    <td class="text-muted">${f.aircraft_type}</td>
+                    <td class="text-success text-right">${eta}</td>
+                </tr>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="demand-flights-header d-flex justify-content-between align-items-center mb-2">
+                <span class="font-weight-bold">${label}</span>
+                <span class="badge badge-info">${flights.length} flights</span>
+                <button class="btn btn-sm btn-link text-muted p-0" onclick="document.getElementById('demand-flights-detail').style.display='none'">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="max-height: 250px; overflow-y: auto;">
+                <table class="table table-sm table-dark mb-0" style="font-size: 11px;">
+                    <thead>
+                        <tr>
+                            <th>Callsign</th>
+                            <th>Route</th>
+                            <th>Type</th>
+                            <th class="text-right">ETA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    // =========================================
+    // Flight Details Popup
+    // =========================================
+
+    /**
+     * Initialize click handlers for demand elements on the map
+     */
+    function initMapClickHandlers() {
+        if (!state.map) return;
+
+        // Click handler for fix monitors
+        state.map.on('click', 'demand-fixes-core', handleDemandClick);
+
+        // Click handler for segment monitors
+        state.map.on('click', 'demand-segments-core', handleDemandClick);
+
+        // Change cursor on hover
+        state.map.on('mouseenter', 'demand-fixes-core', () => {
+            state.map.getCanvas().style.cursor = 'pointer';
+        });
+        state.map.on('mouseleave', 'demand-fixes-core', () => {
+            if (!state.clickMode) state.map.getCanvas().style.cursor = '';
+        });
+        state.map.on('mouseenter', 'demand-segments-core', () => {
+            state.map.getCanvas().style.cursor = 'pointer';
+        });
+        state.map.on('mouseleave', 'demand-segments-core', () => {
+            if (!state.clickMode) state.map.getCanvas().style.cursor = '';
+        });
+
+        console.log('[DemandLayer] Map click handlers initialized');
+    }
+
+    /**
+     * Handle click on demand element to show flight details
+     */
+    async function handleDemandClick(e) {
+        if (!e.features || e.features.length === 0) return;
+        if (state.clickMode) return; // Don't show details while in add mode
+
+        e.preventDefault();
+        e.originalEvent.stopPropagation();
+
+        const feature = e.features[0];
+        const props = feature.properties;
+
+        // Find the monitor from state
+        const monitorId = props.id;
+        const monitor = findMonitorById(monitorId);
+
+        if (!monitor) {
+            console.warn('[DemandLayer] Monitor not found:', monitorId);
+            return;
+        }
+
+        // Show loading popup
+        showFlightDetailsPopup(e.lngLat, monitor, null, true);
+
+        // Fetch flight details
+        try {
+            const flights = await fetchFlightDetails(monitor);
+            showFlightDetailsPopup(e.lngLat, monitor, flights, false);
+        } catch (error) {
+            console.error('[DemandLayer] Failed to fetch flight details:', error);
+            showFlightDetailsPopup(e.lngLat, monitor, [], false, 'Failed to load flights');
+        }
+    }
+
+    /**
+     * Find monitor by ID
+     */
+    function findMonitorById(id) {
+        return state.monitors.find(m => getMonitorId(m) === id) || null;
+    }
+
+    /**
+     * Fetch flight details from API
+     */
+    async function fetchFlightDetails(monitor) {
+        const params = new URLSearchParams();
+        params.set('type', monitor.type);
+        params.set('minutes_ahead', state.settings.horizonHours * 60);
+
+        switch (monitor.type) {
+            case 'fix':
+                params.set('fix', monitor.fix);
+                break;
+            case 'segment':
+                params.set('from', monitor.from);
+                params.set('to', monitor.to);
+                break;
+            case 'airway':
+                params.set('airway', monitor.airway);
+                break;
+            case 'airway_segment':
+                params.set('airway', monitor.airway);
+                params.set('from', monitor.from);
+                params.set('to', monitor.to);
+                break;
+            case 'via_fix':
+                params.set('via', monitor.via);
+                params.set('via_type', monitor.via_type || 'fix');
+                params.set('filter_type', monitor.filter.type);
+                params.set('filter_code', monitor.filter.code);
+                params.set('direction', monitor.filter.direction);
+                break;
+        }
+
+        const response = await fetch(`api/adl/demand/details.php?${params}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.flights || [];
+    }
+
+    /**
+     * Show flight details in a popup
+     */
+    function showFlightDetailsPopup(lngLat, monitor, flights, loading = false, error = null) {
+        // Remove existing popup
+        if (state.detailsPopup) {
+            state.detailsPopup.remove();
+        }
+
+        const label = getMonitorLabel(monitor);
+        let content = '';
+
+        if (loading) {
+            content = `
+                <div class="demand-details-popup">
+                    <div class="popup-header">${label}</div>
+                    <div class="popup-loading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading flights...
+                    </div>
+                </div>
+            `;
+        } else if (error) {
+            content = `
+                <div class="demand-details-popup">
+                    <div class="popup-header">${label}</div>
+                    <div class="popup-error text-danger">${error}</div>
+                </div>
+            `;
+        } else if (!flights || flights.length === 0) {
+            content = `
+                <div class="demand-details-popup">
+                    <div class="popup-header">${label}</div>
+                    <div class="popup-empty text-muted">No flights in time window</div>
+                </div>
+            `;
+        } else {
+            const flightRows = flights.slice(0, 15).map(f => {
+                const eta = f.minutes_until >= 0 ? `+${f.minutes_until}m` : `${f.minutes_until}m`;
+                return `
+                    <tr onclick="NODDemandLayer.selectFlight(${f.flight_uid})" style="cursor:pointer;">
+                        <td class="callsign">${f.callsign}</td>
+                        <td class="route">${f.departure} → ${f.destination}</td>
+                        <td class="aircraft">${f.aircraft_type}</td>
+                        <td class="eta">${eta}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const moreText = flights.length > 15 ? `<div class="popup-more text-muted">+${flights.length - 15} more flights</div>` : '';
+
+            content = `
+                <div class="demand-details-popup">
+                    <div class="popup-header">
+                        <span>${label}</span>
+                        <span class="popup-count">${flights.length} flights</span>
+                    </div>
+                    <table class="popup-flights">
+                        <thead>
+                            <tr>
+                                <th>Callsign</th>
+                                <th>Route</th>
+                                <th>Type</th>
+                                <th>ETA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${flightRows}
+                        </tbody>
+                    </table>
+                    ${moreText}
+                </div>
+            `;
+        }
+
+        // Create MapLibre popup
+        state.detailsPopup = new maplibregl.Popup({
+            closeOnClick: true,
+            closeButton: true,
+            maxWidth: '350px',
+            className: 'demand-popup'
+        })
+        .setLngLat(lngLat)
+        .setHTML(content)
+        .addTo(state.map);
+    }
+
+    /**
+     * Select a flight and highlight it on the map
+     */
+    function selectFlight(flightUid) {
+        // If NOD has a flight selection function, use it
+        if (typeof NOD !== 'undefined' && NOD.selectFlight) {
+            NOD.selectFlight(flightUid);
+        }
+        // Close the popup
+        if (state.detailsPopup) {
+            state.detailsPopup.remove();
+            state.detailsPopup = null;
+        }
+        console.log('[DemandLayer] Selected flight:', flightUid);
+    }
+
+    /**
+     * Close flight details popup
+     */
+    function closeFlightDetailsPopup() {
+        if (state.detailsPopup) {
+            state.detailsPopup.remove();
+            state.detailsPopup = null;
+        }
     }
 
     // =========================================
@@ -1281,6 +1670,9 @@ const NODDemandLayer = (function() {
         addMonitorFromInput,
         renderMonitorsList,
         getMonitorLabel,
+        selectFlight,
+        closeFlightDetailsPopup,
+        showMonitorFlights,
         getState: () => ({ ...state }),
         COLORS: DEMAND_COLORS
     };
