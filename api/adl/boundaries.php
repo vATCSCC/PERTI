@@ -18,6 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 }
 
 require_once(__DIR__ . "/../../load/config.php");
+require_once(__DIR__ . "/../../load/input.php");
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
     !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {
@@ -41,17 +42,17 @@ if ($conn === false) {
     exit;
 }
 
-$action = $_GET['action'] ?? 'list';
+$action = get_lower('action') ?: 'list';
 
 switch ($action) {
-    
+
     /**
      * List boundaries by type
      * GET /api/adl/boundaries.php?action=list&type=ARTCC
      */
     case 'list':
-        $type = $_GET['type'] ?? null;
-        $artcc = $_GET['artcc'] ?? null;
+        $type = has_get('type') ? get_upper('type') : null;
+        $artcc = has_get('artcc') ? get_upper('artcc') : null;
         
         $sql = "SELECT 
             boundary_id,
@@ -102,8 +103,8 @@ switch ($action) {
      * GET /api/adl/boundaries.php?action=geojson&type=ARTCC
      */
     case 'geojson':
-        $type = $_GET['type'] ?? null;
-        $artcc = $_GET['artcc'] ?? null;
+        $type = has_get('type') ? get_upper('type') : null;
+        $artcc = has_get('artcc') ? get_upper('artcc') : null;
         
         $sql = "SELECT 
             boundary_id,
@@ -177,9 +178,9 @@ switch ($action) {
      * Returns ALL overlapping sectors by type
      */
     case 'contains':
-        $lat = floatval($_GET['lat'] ?? 0);
-        $lon = floatval($_GET['lon'] ?? 0);
-        $alt = isset($_GET['alt']) ? get_int('alt') : null;
+        $lat = get_float('lat');
+        $lon = get_float('lon');
+        $alt = has_get('alt') ? get_int('alt') : null;
         
         if ($lat == 0 || $lon == 0) {
             echo json_encode(['error' => 'Invalid coordinates']);
@@ -304,8 +305,8 @@ switch ($action) {
      * Returns multi-sector assignments
      */
     case 'flight':
-        $flightUid = $_GET['uid'] ?? null;
-        $callsign = $_GET['callsign'] ?? null;
+        $flightUid = has_get('uid') ? get_input('uid') : null;
+        $callsign = has_get('callsign') ? get_upper('callsign') : null;
         
         $sql = "SELECT 
             fc.flight_uid,

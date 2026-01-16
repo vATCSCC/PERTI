@@ -41,31 +41,30 @@ if ($perm == true) {
 }
 // (E)
 
-$id = post_input('id');
+$id = post_int('id');
 
-$init_s = strip_tags(str_replace("`", "&#039;", $_POST['staffing']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$staffing = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_s));
+// Allowed HTML tags for rich text fields
+$allowedTags = "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>";
 
-$init_t = strip_tags(str_replace("`", "&#039;", $_POST['tactical']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$tactical = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_t));
+// Safe input sanitization function
+function sanitizeRichText($key, $allowedTags) {
+    $raw = isset($_POST[$key]) ? $_POST[$key] : '';
+    $cleaned = strip_tags(str_replace("`", "&#039;", $raw), $allowedTags);
+    return preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $cleaned));
+}
 
-$init_o = strip_tags(str_replace("`", "&#039;", $_POST['other']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$other = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_o));
+$staffing = sanitizeRichText('staffing', $allowedTags);
+$tactical = sanitizeRichText('tactical', $allowedTags);
+$other = sanitizeRichText('other', $allowedTags);
+$perti = sanitizeRichText('perti', $allowedTags);
+$ntml = sanitizeRichText('ntml', $allowedTags);
+$tmi = sanitizeRichText('tmi', $allowedTags);
+$ace = sanitizeRichText('ace', $allowedTags);
 
-$init_p = strip_tags(str_replace("`", "&#039;", $_POST['perti']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$perti = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_p));
-
-$init_n = strip_tags(str_replace("`", "&#039;", $_POST['ntml']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$ntml = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_n));
-
-$init_m = strip_tags(str_replace("`", "&#039;", $_POST['tmi']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$tmi = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_m));
-
-$init_a = strip_tags(str_replace("`", "&#039;", $_POST['perti']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$ace = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_a));
-
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE r_comments SET staffing='$staffing', tactical='$tactical', other='$other', ntml='$ntml', tmi='$tmi', ace='$ace' WHERE id=$id");
+// Update Data using prepared statement to prevent SQL injection
+$stmt = $conn_sqli->prepare("UPDATE r_comments SET staffing=?, tactical=?, other=?, ntml=?, tmi=?, ace=? WHERE id=?");
+$stmt->bind_param("ssssssi", $staffing, $tactical, $other, $ntml, $tmi, $ace, $id);
+$query = $stmt->execute();
 
 if ($query) {
     http_response_code('200');

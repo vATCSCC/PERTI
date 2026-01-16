@@ -41,7 +41,7 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_REQUEST['id']);
+$id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
 // Protected CID from config - always allowed, cannot be deleted
 $protected_cid = defined('PROTECTED_CID') ? PROTECTED_CID : '';
