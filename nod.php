@@ -921,7 +921,124 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
             background: #444;
             border-radius: 3px;
         }
-        
+
+        /* =========================================
+         * Demand Details Popup
+         * ========================================= */
+
+        .demand-popup .maplibregl-popup-content {
+            background: rgba(26, 26, 46, 0.98);
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 0;
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .demand-popup .maplibregl-popup-close-button {
+            color: #aaa;
+            font-size: 18px;
+            padding: 4px 8px;
+        }
+
+        .demand-popup .maplibregl-popup-close-button:hover {
+            color: #fff;
+            background: transparent;
+        }
+
+        .demand-popup .maplibregl-popup-tip {
+            border-top-color: #444;
+        }
+
+        .demand-details-popup {
+            min-width: 280px;
+            max-width: 350px;
+        }
+
+        .demand-details-popup .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(74, 158, 255, 0.15);
+            border-bottom: 1px solid #333;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .demand-details-popup .popup-count {
+            background: #4a9eff;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .demand-details-popup .popup-loading,
+        .demand-details-popup .popup-error,
+        .demand-details-popup .popup-empty {
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .demand-details-popup .popup-flights {
+            width: 100%;
+            font-size: 11px;
+            border-collapse: collapse;
+        }
+
+        .demand-details-popup .popup-flights thead th {
+            background: rgba(0,0,0,0.3);
+            padding: 6px 8px;
+            text-align: left;
+            color: #aaa;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .demand-details-popup .popup-flights tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.1s;
+        }
+
+        .demand-details-popup .popup-flights tbody tr:hover {
+            background: rgba(74, 158, 255, 0.1);
+        }
+
+        .demand-details-popup .popup-flights tbody td {
+            padding: 5px 8px;
+        }
+
+        .demand-details-popup .popup-flights .callsign {
+            font-weight: 600;
+            color: #4a9eff;
+        }
+
+        .demand-details-popup .popup-flights .route {
+            color: #ccc;
+        }
+
+        .demand-details-popup .popup-flights .aircraft {
+            color: #888;
+        }
+
+        .demand-details-popup .popup-flights .eta {
+            text-align: right;
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .demand-details-popup .popup-more {
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 10px;
+            border-top: 1px solid #333;
+        }
+
         /* Responsive */
         @media (max-width: 992px) {
             .nod-panel {
@@ -1264,6 +1381,11 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
                 <!-- Active Monitors List -->
                 <div id="demand-monitors-list" class="px-2 mb-2" style="max-height: 100px; overflow-y: auto;">
                     <div class="text-muted small text-center py-2">No monitors active</div>
+                </div>
+
+                <!-- Flight Details Panel (shown when clicking a monitor) -->
+                <div id="demand-flights-detail" class="px-2 mb-2" style="display: none; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 8px;">
+                    <!-- Content populated dynamically -->
                 </div>
 
                 <hr class="my-2 border-secondary">
