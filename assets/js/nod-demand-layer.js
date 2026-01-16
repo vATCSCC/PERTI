@@ -645,16 +645,24 @@ const NODDemandLayer = (function() {
                     }
                 });
             }
-            // Airway segment monitors - render as lines
+            // Airway segment monitors - render as lines with full geometry if available
             else if (monitor.type === 'airway_segment' && monitor.from_lat != null && monitor.to_lat != null) {
+                // Use full geometry array if available, otherwise fall back to from/to endpoints
+                let coordinates;
+                if (monitor.geometry && Array.isArray(monitor.geometry) && monitor.geometry.length >= 2) {
+                    coordinates = monitor.geometry; // Already in [lon, lat] format
+                } else {
+                    coordinates = [
+                        [monitor.from_lon, monitor.from_lat],
+                        [monitor.to_lon, monitor.to_lat]
+                    ];
+                }
+
                 segmentFeatures.push({
                     type: 'Feature',
                     geometry: {
                         type: 'LineString',
-                        coordinates: [
-                            [monitor.from_lon, monitor.from_lat],
-                            [monitor.to_lon, monitor.to_lat]
-                        ]
+                        coordinates: coordinates
                     },
                     properties: {
                         id: monitor.id,
@@ -668,23 +676,43 @@ const NODDemandLayer = (function() {
                     }
                 });
             }
-            // Full airway monitors - render as points at airway start
+            // Full airway monitors - render as lines if geometry available, else point
             else if (monitor.type === 'airway' && monitor.lat != null && monitor.lon != null) {
-                fixFeatures.push({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [monitor.lon, monitor.lat]
-                    },
-                    properties: {
-                        id: monitor.id,
-                        fix: monitor.airway,
-                        count: count,
-                        total: monitor.total,
-                        color: color,
-                        label: monitor.airway
-                    }
-                });
+                // If full geometry is available, render as line
+                if (monitor.geometry && Array.isArray(monitor.geometry) && monitor.geometry.length >= 2) {
+                    segmentFeatures.push({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: monitor.geometry
+                        },
+                        properties: {
+                            id: monitor.id,
+                            airway: monitor.airway,
+                            count: count,
+                            total: monitor.total,
+                            color: color,
+                            label: monitor.airway
+                        }
+                    });
+                } else {
+                    // Fallback to point if no geometry
+                    fixFeatures.push({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [monitor.lon, monitor.lat]
+                        },
+                        properties: {
+                            id: monitor.id,
+                            fix: monitor.airway,
+                            count: count,
+                            total: monitor.total,
+                            color: color,
+                            label: monitor.airway
+                        }
+                    });
+                }
             }
             // Via-fix monitors - render as points at via location
             else if (monitor.type === 'via_fix' && monitor.lat != null && monitor.lon != null) {
@@ -1315,11 +1343,60 @@ const NODDemandLayer = (function() {
      *   KBOS arrivals via MERIT -> via_fix with airport filter
      *   N90 departures via WAVEY -> via_fix with tracon filter
      *   ZDC via J48         -> via_fix with artcc filter
+     *
+     * Flight filters (append to any pattern):
+     *   MERIT airline:UAL              -> fix with airline filter
+     *   J48 type:B738                  -> airway with aircraft_type filter
+     *   KBOS arr via MERIT category:HEAVY -> via_fix with aircraft_category filter
+     *   MERIT origin:KJFK dest:KLAX    -> fix with origin/destination filter
      */
     function parseMonitorInput(input) {
         if (!input || typeof input !== 'string') return null;
 
         input = input.trim().toUpperCase();
+        if (!input) return null;
+
+        // Extract flight filter key:value pairs from the end
+        // Patterns: airline:UAL, type:B738, category:HEAVY, origin:KJFK, dest:KLAX
+        const flightFilter = {};
+        let cleanedInput = input;
+
+        // Extract filter patterns from the input
+        const filterPatterns = [
+            { regex: /\s+AIRLINE:(\w+)/i, key: 'airline' },
+            { regex: /\s+TYPE:(\w+)/i, key: 'aircraft_type' },
+            { regex: /\s+CATEGORY:(HEAVY|LARGE|SMALL)/i, key: 'aircraft_category' },
+            { regex: /\s+ORIGIN:(\w+)/i, key: 'origin' },
+            { regex: /\s+DEST(?:INATION)?:(\w+)/i, key: 'destination' }
+        ];
+
+        filterPatterns.forEach(({ regex, key }) => {
+            const match = cleanedInput.match(regex);
+            if (match) {
+                let value = match[1];
+                // Normalize airport codes for origin/destination
+                if (key === 'origin' || key === 'destination') {
+                    value = normalizeAirportCode(value);
+                }
+                flightFilter[key] = value;
+                cleanedInput = cleanedInput.replace(regex, '').trim();
+            }
+        });
+
+        // Now parse the cleaned input (without filter parts)
+        const result = parseMonitorCore(cleanedInput);
+
+        if (result && Object.keys(flightFilter).length > 0) {
+            result.flight_filter = flightFilter;
+        }
+
+        return result;
+    }
+
+    /**
+     * Core monitor parsing (without flight filters)
+     */
+    function parseMonitorCore(input) {
         if (!input) return null;
 
         // Pattern 1: "[location] arrivals/departures via [fix/airway]"
@@ -1331,11 +1408,10 @@ const NODDemandLayer = (function() {
             const viaTarget = viaMatch[3].trim();
 
             // Determine filter type (airport, tracon, artcc)
-            const filterType = classifyLocation(location);
+            let filterType = classifyLocation(location);
             if (!filterType) {
                 // Treat as airport by default
-                filterType.type = 'airport';
-                filterType.code = normalizeAirportCode(location);
+                filterType = { type: 'airport', code: normalizeAirportCode(location) };
             }
 
             // Determine direction
@@ -1771,6 +1847,25 @@ const NODDemandLayer = (function() {
                 params.set('filter_code', monitor.filter.code);
                 params.set('direction', monitor.filter.direction);
                 break;
+        }
+
+        // Add flight filter parameters if present
+        if (monitor.flight_filter) {
+            if (monitor.flight_filter.airline) {
+                params.set('airline', monitor.flight_filter.airline);
+            }
+            if (monitor.flight_filter.aircraft_type) {
+                params.set('aircraft_type', monitor.flight_filter.aircraft_type);
+            }
+            if (monitor.flight_filter.aircraft_category) {
+                params.set('aircraft_category', monitor.flight_filter.aircraft_category);
+            }
+            if (monitor.flight_filter.origin) {
+                params.set('origin', monitor.flight_filter.origin);
+            }
+            if (monitor.flight_filter.destination) {
+                params.set('destination', monitor.flight_filter.destination);
+            }
         }
 
         const response = await fetch(`api/adl/demand/details.php?${params}`);
