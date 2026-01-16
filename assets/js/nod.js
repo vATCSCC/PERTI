@@ -1354,7 +1354,8 @@
                                 color: pos.color || getPositionColor(pos.position_name),
                                 artcc: artcc,
                                 config_name: config.config_name,
-                                frequency: pos.frequency || null
+                                frequency: pos.frequency || null,
+                                strata_filter: pos.strata_filter || null
                             };
                             // Also map without ARTCC prefix (e.g., "15" for "ZAB15")
                             if (sectorLabel.startsWith(artcc)) {
@@ -1411,11 +1412,19 @@
                         const sectorNum = (props.sector || props.id || '').toString().toUpperCase().trim();
                         
                         // Check for position match - try multiple formats
-                        const posInfo = sectorPositionMap[sectorLabel] || 
+                        const posInfo = sectorPositionMap[sectorLabel] ||
                                        sectorPositionMap[sectorNum] ||
                                        sectorPositionMap[featureArtcc + sectorNum];
-                        
+
                         if (posInfo) {
+                            // Check if this strata is allowed by the position's strata_filter
+                            // strata_filter is {low: bool, high: bool, superhigh: bool} or null (show all)
+                            const strataFilter = posInfo.strata_filter;
+                            if (strataFilter && strataFilter[boundaryType] === false) {
+                                // This strata is filtered out for this position
+                                continue;
+                            }
+
                             matchCount++;
                             features.push({
                                 type: 'Feature',

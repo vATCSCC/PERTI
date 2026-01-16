@@ -54,17 +54,17 @@ sqlsrv_free_stmt($stmt);
 if (!empty($config_ids)) {
     $placeholders = implode(',', array_fill(0, count($config_ids), '?'));
     $sql = "SELECT config_id, position_name, color, sectors, sort_order,
-                   frequency, controller_oi, filters, start_time_utc, end_time_utc
-            FROM splits_positions 
+                   frequency, controller_oi, filters, strata_filter, start_time_utc, end_time_utc
+            FROM splits_positions
             WHERE config_id IN ($placeholders)
             ORDER BY config_id, sort_order";
-    
+
     $stmt = sqlsrv_query($conn_adl, $sql, $config_ids);
-    
+
     // Fallback if new columns don't exist yet
     if ($stmt === false) {
         $sql = "SELECT config_id, position_name, color, sectors, sort_order, start_time_utc, end_time_utc
-                FROM splits_positions 
+                FROM splits_positions
                 WHERE config_id IN ($placeholders)
                 ORDER BY config_id, sort_order";
         $stmt = sqlsrv_query($conn_adl, $sql, $config_ids);
@@ -80,6 +80,10 @@ if (!empty($config_ids)) {
             // Parse filters JSON if present
             if (isset($row['filters']) && is_string($row['filters'])) {
                 $row['filters'] = json_decode($row['filters'], true);
+            }
+            // Parse strata_filter JSON if present
+            if (isset($row['strata_filter']) && is_string($row['strata_filter'])) {
+                $row['strata_filter'] = json_decode($row['strata_filter'], true);
             }
             // Convert DateTime objects to strings
             foreach (['start_time_utc', 'end_time_utc'] as $field) {
