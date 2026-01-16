@@ -39,3 +39,9 @@ Thumbs.db
 
 # Reference PDFs (FAA documentation)
 docs/*.pdf
+
+# Python build artifacts
+__pycache__/
+*.egg-info/
+*.pyc
+*.pyo
