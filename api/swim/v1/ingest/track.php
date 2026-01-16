@@ -2,10 +2,10 @@
 /**
  * VATSIM SWIM API v1 - Track Data Ingest Endpoint
  * 
- * Receives real-time track data from authoritative sources (vNAS, CRC, EuroScope).
- * Updates position and track information in the flight cache.
+ * Receives real-time track data from authoritative sources (vNAS, CRC, EuroScope, AOC).
+ * Updates position and track information in the swim_flights table.
  * 
- * @version 1.0.0
+ * @version 1.2.0 - Fixed database connection, removed true_airspeed (not in schema)
  * @since 2026-01-16
  * 
  * Expected payload:
@@ -17,12 +17,10 @@
  *       "longitude": -73.7781,          // Required
  *       "altitude_ft": 35000,           // Optional (feet MSL)
  *       "ground_speed_kts": 450,        // Optional (knots)
- *       "true_airspeed_kts": 440,       // Optional (knots)
  *       "heading_deg": 270,             // Optional (0-360 magnetic)
- *       "vertical_rate_fpm": 0,         // Optional (feet per minute)
+ *       "vertical_rate_fpm": -500,      // Optional (feet per minute, + = climb, - = descend)
  *       "squawk": "1200",               // Optional (transponder code)
- *       "mode_c": true,                 // Optional (mode C available)
- *       "track_source": "radar",        // Optional (radar|ads-b|mlat|mode-s)
+ *       "track_source": "radar",        // Optional (radar|ads-b|mlat|mode-s|acars)
  *       "timestamp": "2026-01-16T12:00:00Z"  // Optional (ISO 8601)
  *     }
  *   ]
@@ -30,6 +28,13 @@
  */
 
 require_once __DIR__ . '/../auth.php';
+
+// Use SWIM_API database for all operations
+global $conn_swim;
+
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
+}
 
 // Require authentication with write access
 $auth = swim_init_auth(true, true);
@@ -67,7 +72,7 @@ $errors = [];
 
 foreach ($tracks as $index => $track) {
     try {
-        $result = processTrackUpdate($track, $auth->getSourceId());
+        $result = processTrackUpdate($track, $auth->getSourceId(), $conn_swim);
         if ($result['status'] === 'updated') {
             $updated++;
         } elseif ($result['status'] === 'not_found') {
@@ -97,9 +102,7 @@ SwimResponse::success([
 /**
  * Process a single track update
  */
-function processTrackUpdate($track, $source) {
-    global $conn_adl;
-    
+function processTrackUpdate($track, $source, $conn) {
     // Validate required fields
     if (empty($track['callsign'])) {
         throw new Exception('Missing required field: callsign');
@@ -120,13 +123,13 @@ function processTrackUpdate($track, $source) {
         throw new Exception('Invalid longitude: must be between -180 and 180');
     }
     
-    // Look up flight by callsign (most recent active flight)
-    $check_sql = "SELECT TOP 1 id, gufi, flight_key 
-                  FROM dbo.swim_flight_cache 
-                  WHERE callsign = ? AND status = 'active'
-                  ORDER BY created_at DESC";
+    // Look up flight by callsign (most recent active flight) in swim_flights
+    $check_sql = "SELECT TOP 1 flight_uid, gufi 
+                  FROM dbo.swim_flights 
+                  WHERE callsign = ? AND is_active = 1
+                  ORDER BY last_seen_utc DESC";
     
-    $check_stmt = sqlsrv_query($conn_adl, $check_sql, [$callsign]);
+    $check_stmt = sqlsrv_query($conn, $check_sql, [$callsign]);
     if ($check_stmt === false) {
         throw new Exception('Database error looking up flight');
     }
@@ -139,52 +142,17 @@ function processTrackUpdate($track, $source) {
         return ['status' => 'not_found', 'callsign' => $callsign];
     }
     
-    // Build track data object
-    $track_data = [
-        'latitude' => $lat,
-        'longitude' => $lon,
-        'altitude_ft' => isset($track['altitude_ft']) ? intval($track['altitude_ft']) : null,
-        'ground_speed_kts' => isset($track['ground_speed_kts']) ? intval($track['ground_speed_kts']) : null,
-        'true_airspeed_kts' => isset($track['true_airspeed_kts']) ? intval($track['true_airspeed_kts']) : null,
-        'heading_deg' => isset($track['heading_deg']) ? intval($track['heading_deg']) : null,
-        'vertical_rate_fpm' => isset($track['vertical_rate_fpm']) ? intval($track['vertical_rate_fpm']) : null,
-        'squawk' => $track['squawk'] ?? null,
-        'mode_c' => isset($track['mode_c']) ? (bool)$track['mode_c'] : null,
-        'track_source' => $track['track_source'] ?? $source,
-        'timestamp' => $track['timestamp'] ?? gmdate('c'),
-        '_source' => $source,
-        '_updated' => gmdate('c')
-    ];
-    
-    $track_json = json_encode($track_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    
-    // Update swim_flight_cache with track data
-    // We update unified_record and track_updated_at timestamp
-    $update_sql = "UPDATE dbo.swim_flight_cache 
-                   SET track_updated_at = GETUTCDATE(),
-                       updated_at = GETUTCDATE(),
-                       version = version + 1
-                   WHERE id = ?";
-    
-    $stmt = sqlsrv_query($conn_adl, $update_sql, [$existing['id']]);
-    if ($stmt === false) {
-        throw new Exception('Failed to update track data');
-    }
-    sqlsrv_free_stmt($stmt);
-    
-    // Also update the denormalized swim_flights table if it exists
-    // (This is the primary table used by the API)
-    $swim_update_sql = "UPDATE dbo.swim_flights
-                        SET lat = ?,
-                            lon = ?,
-                            altitude_ft = COALESCE(?, altitude_ft),
-                            groundspeed_kts = COALESCE(?, groundspeed_kts),
-                            heading_deg = COALESCE(?, heading_deg),
-                            vertical_rate_fpm = COALESCE(?, vertical_rate_fpm),
-                            true_airspeed_kts = COALESCE(?, true_airspeed_kts),
-                            last_seen_utc = GETUTCDATE(),
-                            last_sync_utc = GETUTCDATE()
-                        WHERE callsign = ? AND is_active = 1";
+    // Build update - only columns that exist in schema
+    $update_sql = "UPDATE dbo.swim_flights
+                   SET lat = ?,
+                       lon = ?,
+                       altitude_ft = COALESCE(?, altitude_ft),
+                       groundspeed_kts = COALESCE(?, groundspeed_kts),
+                       heading_deg = COALESCE(?, heading_deg),
+                       vertical_rate_fpm = COALESCE(?, vertical_rate_fpm),
+                       last_seen_utc = GETUTCDATE(),
+                       last_sync_utc = GETUTCDATE()
+                   WHERE flight_uid = ?";
     
     $params = [
         $lat,
@@ -193,15 +161,15 @@ function processTrackUpdate($track, $source) {
         isset($track['ground_speed_kts']) ? intval($track['ground_speed_kts']) : null,
         isset($track['heading_deg']) ? intval($track['heading_deg']) : null,
         isset($track['vertical_rate_fpm']) ? intval($track['vertical_rate_fpm']) : null,
-        isset($track['true_airspeed_kts']) ? intval($track['true_airspeed_kts']) : null,
-        $callsign
+        $existing['flight_uid']
     ];
     
-    $swim_stmt = sqlsrv_query($conn_adl, $swim_update_sql, $params);
-    // Don't fail if swim_flights table doesn't exist yet
-    if ($swim_stmt) {
-        sqlsrv_free_stmt($swim_stmt);
+    $stmt = sqlsrv_query($conn, $update_sql, $params);
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        throw new Exception('Failed to update track: ' . ($errors[0]['message'] ?? 'Unknown'));
     }
+    sqlsrv_free_stmt($stmt);
     
     return ['status' => 'updated', 'gufi' => $existing['gufi']];
 }
