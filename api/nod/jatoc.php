@@ -104,9 +104,11 @@ try {
             $result['ops_level'] = [
                 'level' => (int)$ops_row['ops_level'],
                 'reason' => $ops_row['reason'] ?? null,
-                'updated_at' => ($ops_row['set_at'] instanceof DateTime)
-                    ? $ops_row['set_at']->format('Y-m-d\TH:i:s\Z')
-                    : $ops_row['set_at']
+                'updated_at' => isset($ops_row['set_at'])
+                    ? (($ops_row['set_at'] instanceof DateTime)
+                        ? $ops_row['set_at']->format('Y-m-d\TH:i:s\Z')
+                        : $ops_row['set_at'])
+                    : null
             ];
         }
         sqlsrv_free_stmt($ops_stmt);
