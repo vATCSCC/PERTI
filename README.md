@@ -25,8 +25,20 @@ PERTI (Plan, Execute, Review, Train, and Improve) is a comprehensive web-based t
 |------|-----|-------------|
 | **GDT** | `/gdt.php` | Ground Delay Tool - FSM-style GDP interface |
 | **Route Plotter** | `/route.php` | TSD-style live flight map with route plotting & weather radar |
+| **Demand** | `/demand.php` | Airport demand analysis with rate suggestions |
 | **Reroutes** | `/reroutes.php` | Reroute authoring and monitoring |
 | **Splits** | `/splits.php` | Sector/position split configuration |
+| **NTML** | `/ntml.php` | National Traffic Management Log quick entry |
+| **Advisory Builder** | `/advisory-builder.php` | TFMS-style advisory creation |
+| **ATFM Simulator** | `/simulator.php` | TMU training simulator (v17) |
+
+### Configuration & Administration (Authentication Required)
+
+| Page | URL | Description |
+|------|-----|-------------|
+| **Airport Configs** | `/configs.php` | Runway configurations and rate management |
+| **Airspace Elements** | `/airspace-elements.php` | Custom airspace element management |
+| **System Status** | `/status.php` | System health dashboard and diagnostics |
 
 ### Planning & Scheduling (Authentication Required)
 
@@ -179,6 +191,9 @@ PERTI/
 - `GET /api/adl/demand/fix.php` - Flights at a navigation fix
 - `GET /api/adl/demand/airway.php` - Flights on an airway segment
 - `GET /api/adl/demand/segment.php` - Flights between two fixes (airway or DCT)
+- `GET /api/adl/demand/batch.php` - Multi-monitor time-bucketed demand
+- `GET/POST/DELETE /api/adl/demand/monitors.php` - Demand monitor CRUD
+- `GET /api/adl/demand/details.php` - Individual flights for a monitor
 
 ### TMI Operations
 
@@ -350,4 +365,4 @@ For issues or questions about PERTI, contact the vATCSCC development team.
 
 ---
 
-*Last updated: 2026-01-15*
+*Last updated: 2026-01-16*

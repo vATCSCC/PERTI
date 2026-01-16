@@ -156,7 +156,12 @@ $config = [
     // then SP reads from staging tables instead of using OPENJSON.
     // This shifts ~3-5s of SQL compute to fixed-cost PHP, saving ~50% on Serverless costs.
     'staged_refresh_enabled' => true,  // Enable PHP-side JSON parsing
-    'staged_batch_size'      => 500,   // Rows per INSERT batch
+    'staged_batch_size'      => 70,    // Rows per INSERT batch (max ~72 due to 2100 param limit)
+
+    // V9.1 TVP Mode - use Table-Valued Parameters instead of batched INSERTs
+    // Reduces ~43 round trips to 1 round trip for ~3000 pilots
+    // Requires: dbo.PilotStagingType and dbo.PrefileStagingType created in DB
+    'use_tvp'                => true,  // Use TVP for staging inserts (faster)
 ];
 
 // ============================================================================
@@ -646,6 +651,139 @@ function clearStagingTables($conn): void {
     if ($stmt !== false) {
         sqlsrv_free_stmt($stmt);
     }
+}
+
+// ============================================================================
+// V9.1 TVP INSERT FUNCTIONS
+// Uses Table-Valued Parameters for O(1) insert time regardless of row count
+// ============================================================================
+
+/**
+ * Insert pilots to staging using TVP (single round-trip).
+ * @param resource $conn SQL Server connection
+ * @param array $pilots Parsed pilot records
+ * @param string $batchId UUID for this batch
+ * @return int Number of rows inserted
+ */
+function insertPilotsViaTVP($conn, array $pilots, string $batchId): int {
+    if (empty($pilots)) return 0;
+
+    // Convert pilot records to TVP row format (array of arrays)
+    // Column order must match dbo.PilotStagingType exactly
+    $tvpRows = [];
+    foreach ($pilots as $p) {
+        $tvpRows[] = [
+            $p['cid'],
+            $p['callsign'],
+            $p['lat'],
+            $p['lon'],
+            $p['altitude_ft'],
+            $p['groundspeed_kts'],
+            $p['heading_deg'],
+            $p['qnh_in_hg'],
+            $p['qnh_mb'],
+            $p['flight_server'],
+            $p['logon_time'],
+            $p['fp_rule'],
+            $p['dept_icao'],
+            $p['dest_icao'],
+            $p['alt_icao'],
+            $p['route'],
+            $p['remarks'],
+            $p['altitude_filed_raw'],
+            $p['tas_filed_raw'],
+            $p['dep_time_z'],
+            $p['enroute_time_raw'],
+            $p['fuel_time_raw'],
+            $p['aircraft_faa_raw'],
+            $p['aircraft_short'],
+            $p['fp_dof_raw'],
+            $p['flight_key'],
+            $p['route_hash'],
+            $p['airline_icao'],
+        ];
+    }
+
+    // TVP parameter structure for sqlsrv
+    $tvpParam = [
+        "PilotStagingType" => $tvpRows
+    ];
+
+    $sql = "EXEC dbo.sp_InsertPilotsFromTVP @pilots = ?, @batch_id = ?";
+    $params = [
+        [$tvpParam, SQLSRV_PARAM_IN, null, SQLSRV_SQLTYPE_TABLE],
+        $batchId
+    ];
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        throw new Exception("TVP pilot insert failed: " . json_encode($errors));
+    }
+
+    // Read the result (rows_inserted)
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $inserted = $row['rows_inserted'] ?? count($pilots);
+
+    sqlsrv_free_stmt($stmt);
+    return $inserted;
+}
+
+/**
+ * Insert prefiles to staging using TVP (single round-trip).
+ */
+function insertPrefilesViaTVP($conn, array $prefiles, string $batchId): int {
+    if (empty($prefiles)) return 0;
+
+    // Convert prefile records to TVP row format
+    // Column order must match dbo.PrefileStagingType exactly
+    $tvpRows = [];
+    foreach ($prefiles as $pf) {
+        $tvpRows[] = [
+            $pf['cid'],
+            $pf['callsign'],
+            $pf['fp_rule'],
+            $pf['dept_icao'],
+            $pf['dest_icao'],
+            $pf['alt_icao'],
+            $pf['route'],
+            $pf['remarks'],
+            $pf['altitude_filed_raw'],
+            $pf['tas_filed_raw'],
+            $pf['dep_time_z'],
+            $pf['enroute_time_raw'],
+            $pf['aircraft_faa_raw'],
+            $pf['aircraft_short'],
+            $pf['flight_key'],
+            $pf['route_hash'],
+        ];
+    }
+
+    // TVP parameter structure for sqlsrv
+    $tvpParam = [
+        "PrefileStagingType" => $tvpRows
+    ];
+
+    $sql = "EXEC dbo.sp_InsertPrefilesFromTVP @prefiles = ?, @batch_id = ?";
+    $params = [
+        [$tvpParam, SQLSRV_PARAM_IN, null, SQLSRV_SQLTYPE_TABLE],
+        $batchId
+    ];
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        throw new Exception("TVP prefile insert failed: " . json_encode($errors));
+    }
+
+    // Read the result (rows_inserted)
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $inserted = $row['rows_inserted'] ?? count($prefiles);
+
+    sqlsrv_free_stmt($stmt);
+    return $inserted;
 }
 
 /**
@@ -1244,7 +1382,9 @@ function runDaemon(array $config): void {
         'warn_ms'   => $config['warn_sp_ms'],
         'crit_ms'   => $config['critical_sp_ms'],
         'websocket' => $config['websocket_enabled'] ? 'enabled' : 'disabled',
-        'mode'      => $config['staged_refresh_enabled'] ? 'staged (V9.0)' : 'legacy',
+        'mode'      => $config['staged_refresh_enabled']
+                        ? ($config['use_tvp'] ? 'staged+tvp (V9.1)' : 'staged (V9.0)')
+                        : 'legacy',
     ]);
     
     // Establish initial connection
@@ -1373,8 +1513,8 @@ function runDaemon(array $config): void {
             $insertMs = 0;
 
             if ($config['staged_refresh_enabled']) {
-                // === V9.0 STAGED REFRESH ===
-                // PHP parses JSON (~100ms) + bulk insert (~200ms) vs SQL OPENJSON (3-5s)
+                // === V9.0/V9.1 STAGED REFRESH ===
+                // PHP parses JSON (~100ms) + bulk insert vs SQL OPENJSON (3-5s)
 
                 // 4a. Parse pilots in PHP
                 $stagingStart = microtime(true);
@@ -1382,12 +1522,20 @@ function runDaemon(array $config): void {
                 $parsedPrefiles = parseVatsimPrefiles($vatsimData);
                 $stagingMs = round((microtime(true) - $stagingStart) * 1000);
 
-                // 4b. Clear staging tables and insert
+                // 4b. Insert to staging tables
                 $insertStart = microtime(true);
                 $batchId = generateBatchId();
-                clearStagingTables($conn);
-                $insertedPilots = insertPilotsToStaging($conn, $parsedPilots, $batchId, $config['staged_batch_size']);
-                $insertedPrefiles = insertPrefilesToStaging($conn, $parsedPrefiles, $batchId, $config['staged_batch_size']);
+
+                if ($config['use_tvp']) {
+                    // V9.1: TVP mode - single round trip per table (~50ms total)
+                    $insertedPilots = insertPilotsViaTVP($conn, $parsedPilots, $batchId);
+                    $insertedPrefiles = insertPrefilesViaTVP($conn, $parsedPrefiles, $batchId);
+                } else {
+                    // V9.0: Batched INSERTs (~43 round trips for 3K pilots)
+                    clearStagingTables($conn);
+                    $insertedPilots = insertPilotsToStaging($conn, $parsedPilots, $batchId, $config['staged_batch_size']);
+                    $insertedPrefiles = insertPrefilesToStaging($conn, $parsedPrefiles, $batchId, $config['staged_batch_size']);
+                }
                 $insertMs = round((microtime(true) - $insertStart) * 1000);
 
                 // 4c. Execute staged refresh SP
@@ -1395,8 +1543,9 @@ function runDaemon(array $config): void {
                 $spMs = $spResult['elapsed_ms'];
 
                 // Log staging performance on first run or every 100 runs
+                $insertMode = $config['use_tvp'] ? 'tvp' : 'batched';
                 if ($stats['runs'] == 1 || $stats['runs'] % 100 === 0) {
-                    logInfo("Staged refresh: parse={$parseMs}ms, staging={$stagingMs}ms, insert={$insertMs}ms, sp={$spMs}ms", [
+                    logInfo("Staged refresh ({$insertMode}): parse={$parseMs}ms, staging={$stagingMs}ms, insert={$insertMs}ms, sp={$spMs}ms", [
                         'pilots' => $insertedPilots,
                         'prefiles' => $insertedPrefiles,
                     ]);
@@ -1655,9 +1804,9 @@ function runDaemon(array $config): void {
                 'ws_events'     => $stats['ws_events'],
             ];
 
-            // Add V9.0 staging stats if enabled
+            // Add V9.0/V9.1 staging stats if enabled
             if ($config['staged_refresh_enabled']) {
-                $statsContext['mode'] = 'staged';
+                $statsContext['mode'] = $config['use_tvp'] ? 'tvp' : 'batched';
                 $statsContext['avg_stg_ms'] = $avgStagingMs;
                 $statsContext['avg_ins_ms'] = $avgInsertMs;
             }
