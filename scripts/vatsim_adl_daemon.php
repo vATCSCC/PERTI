@@ -148,6 +148,15 @@ $config = [
     // Publishes flight events to connected WebSocket clients after each refresh
     'websocket_enabled'   => true,
     'websocket_positions' => false,  // Position updates (high volume - disabled by default)
+
+    // =============================================
+    // V9.0 Staged Refresh Architecture
+    // =============================================
+    // When enabled, JSON is parsed in PHP and inserted into staging tables,
+    // then SP reads from staging tables instead of using OPENJSON.
+    // This shifts ~3-5s of SQL compute to fixed-cost PHP, saving ~50% on Serverless costs.
+    'staged_refresh_enabled' => true,  // Enable PHP-side JSON parsing
+    'staged_batch_size'      => 500,   // Rows per INSERT batch
 ];
 
 // ============================================================================
@@ -388,6 +397,350 @@ function executeRefreshSP($conn, string $jsonData, int $timeout): array {
     }
 
     return $result;
+}
+
+// ============================================================================
+// V9.0 STAGED REFRESH FUNCTIONS
+// PHP parses JSON and inserts to staging tables, then SP reads from staging
+// ============================================================================
+
+/**
+ * Parse pilots from VATSIM JSON into structured arrays.
+ * @param array $vatsimData Decoded VATSIM JSON
+ * @return array Array of pilot records ready for staging insert
+ */
+function parseVatsimPilots(array $vatsimData): array {
+    $pilots = [];
+
+    foreach ($vatsimData['pilots'] ?? [] as $p) {
+        $fp = $p['flight_plan'] ?? [];
+
+        // Build flight_key: cid|callsign|dept|dest|deptime
+        $flightKey = ($p['cid'] ?? '') . '|' .
+                     ($p['callsign'] ?? '') . '|' .
+                     ($fp['departure'] ?? '') . '|' .
+                     ($fp['arrival'] ?? '') . '|' .
+                     ($fp['deptime'] ?? '');
+
+        // Calculate route_hash (SHA2-256)
+        $routeHashInput = ($fp['route'] ?? '') . '|' . ($fp['remarks'] ?? '');
+        $routeHash = hash('sha256', $routeHashInput, true); // Binary
+
+        // Extract airline ICAO from callsign
+        $callsign = $p['callsign'] ?? '';
+        $airlineIcao = null;
+        if (strlen($callsign) >= 4 && preg_match('/^[A-Z]{3}[0-9]/', $callsign)) {
+            $airlineIcao = substr($callsign, 0, 3);
+        }
+
+        $pilots[] = [
+            'cid' => (int)($p['cid'] ?? 0),
+            'callsign' => substr($callsign, 0, 16),
+            'lat' => isset($p['latitude']) ? (float)$p['latitude'] : null,
+            'lon' => isset($p['longitude']) ? (float)$p['longitude'] : null,
+            'altitude_ft' => isset($p['altitude']) ? (int)$p['altitude'] : null,
+            'groundspeed_kts' => isset($p['groundspeed']) ? (int)$p['groundspeed'] : null,
+            'heading_deg' => isset($p['heading']) ? (int)$p['heading'] : null,
+            'qnh_in_hg' => isset($p['qnh_i_hg']) ? (float)$p['qnh_i_hg'] : null,
+            'qnh_mb' => isset($p['qnh_mb']) ? (int)$p['qnh_mb'] : null,
+            'flight_server' => isset($p['server']) ? substr($p['server'], 0, 32) : null,
+            'logon_time' => $p['logon_time'] ?? null,
+            'fp_rule' => isset($fp['flight_rules']) ? substr($fp['flight_rules'], 0, 1) : null,
+            'dept_icao' => isset($fp['departure']) ? substr($fp['departure'], 0, 4) : null,
+            'dest_icao' => isset($fp['arrival']) ? substr($fp['arrival'], 0, 4) : null,
+            'alt_icao' => isset($fp['alternate']) ? substr($fp['alternate'], 0, 4) : null,
+            'route' => $fp['route'] ?? null,
+            'remarks' => $fp['remarks'] ?? null,
+            'altitude_filed_raw' => isset($fp['altitude']) ? substr($fp['altitude'], 0, 16) : null,
+            'tas_filed_raw' => isset($fp['cruise_tas']) ? substr($fp['cruise_tas'], 0, 16) : null,
+            'dep_time_z' => isset($fp['deptime']) ? substr($fp['deptime'], 0, 4) : null,
+            'enroute_time_raw' => isset($fp['enroute_time']) ? substr($fp['enroute_time'], 0, 8) : null,
+            'fuel_time_raw' => isset($fp['fuel_time']) ? substr($fp['fuel_time'], 0, 8) : null,
+            'aircraft_faa_raw' => isset($fp['aircraft_faa']) ? substr($fp['aircraft_faa'], 0, 32) : null,
+            'aircraft_short' => isset($fp['aircraft_short']) ? substr($fp['aircraft_short'], 0, 8) : null,
+            'fp_dof_raw' => isset($fp['dof']) ? substr($fp['dof'], 0, 16) : null,
+            'flight_key' => $flightKey,
+            'route_hash' => $routeHash,
+            'airline_icao' => $airlineIcao,
+        ];
+    }
+
+    return $pilots;
+}
+
+/**
+ * Parse prefiles from VATSIM JSON into structured arrays.
+ * @param array $vatsimData Decoded VATSIM JSON
+ * @return array Array of prefile records ready for staging insert
+ */
+function parseVatsimPrefiles(array $vatsimData): array {
+    $prefiles = [];
+
+    foreach ($vatsimData['prefiles'] ?? [] as $pf) {
+        $fp = $pf['flight_plan'] ?? [];
+
+        if (empty($pf['callsign'])) continue;
+
+        // Build flight_key
+        $flightKey = ($pf['cid'] ?? '') . '|' .
+                     ($pf['callsign'] ?? '') . '|' .
+                     ($fp['departure'] ?? '') . '|' .
+                     ($fp['arrival'] ?? '') . '|' .
+                     ($fp['deptime'] ?? '');
+
+        // Calculate route_hash (MD5 for prefiles, matching SP)
+        $routeHashInput = $fp['route'] ?? '';
+        $routeHash = md5($routeHashInput, true); // Binary
+
+        $prefiles[] = [
+            'cid' => (int)($pf['cid'] ?? 0),
+            'callsign' => substr($pf['callsign'] ?? '', 0, 16),
+            'fp_rule' => isset($fp['flight_rules']) ? substr($fp['flight_rules'], 0, 1) : null,
+            'dept_icao' => isset($fp['departure']) ? substr($fp['departure'], 0, 4) : null,
+            'dest_icao' => isset($fp['arrival']) ? substr($fp['arrival'], 0, 4) : null,
+            'alt_icao' => isset($fp['alternate']) ? substr($fp['alternate'], 0, 4) : null,
+            'route' => $fp['route'] ?? null,
+            'remarks' => $fp['remarks'] ?? null,
+            'altitude_filed_raw' => isset($fp['altitude']) ? substr($fp['altitude'], 0, 16) : null,
+            'tas_filed_raw' => isset($fp['cruise_tas']) ? substr($fp['cruise_tas'], 0, 16) : null,
+            'dep_time_z' => isset($fp['deptime']) ? substr($fp['deptime'], 0, 4) : null,
+            'enroute_time_raw' => isset($fp['enroute_time']) ? substr($fp['enroute_time'], 0, 8) : null,
+            'aircraft_faa_raw' => isset($fp['aircraft_faa']) ? substr($fp['aircraft_faa'], 0, 32) : null,
+            'aircraft_short' => isset($fp['aircraft_short']) ? substr($fp['aircraft_short'], 0, 8) : null,
+            'flight_key' => $flightKey,
+            'route_hash' => $routeHash,
+        ];
+    }
+
+    return $prefiles;
+}
+
+/**
+ * Clear staging tables and insert pilots in batches.
+ * @param resource $conn SQL Server connection
+ * @param array $pilots Parsed pilot records
+ * @param string $batchId UUID for this batch
+ * @param int $batchSize Rows per INSERT statement
+ * @return int Number of rows inserted
+ */
+function insertPilotsToStaging($conn, array $pilots, string $batchId, int $batchSize = 500): int {
+    if (empty($pilots)) return 0;
+
+    $inserted = 0;
+    $batches = array_chunk($pilots, $batchSize);
+
+    foreach ($batches as $batch) {
+        $values = [];
+        $params = [];
+        $paramIndex = 0;
+
+        foreach ($batch as $p) {
+            $placeholders = [];
+
+            // Each field becomes a parameter
+            $fields = [
+                'cid', 'callsign', 'lat', 'lon', 'altitude_ft', 'groundspeed_kts',
+                'heading_deg', 'qnh_in_hg', 'qnh_mb', 'flight_server', 'logon_time',
+                'fp_rule', 'dept_icao', 'dest_icao', 'alt_icao', 'route', 'remarks',
+                'altitude_filed_raw', 'tas_filed_raw', 'dep_time_z', 'enroute_time_raw',
+                'fuel_time_raw', 'aircraft_faa_raw', 'aircraft_short', 'fp_dof_raw',
+                'flight_key', 'route_hash', 'airline_icao'
+            ];
+
+            foreach ($fields as $field) {
+                $placeholders[] = '?';
+                $params[] = $p[$field];
+            }
+
+            // Add batch_id
+            $placeholders[] = '?';
+            $params[] = $batchId;
+
+            $values[] = '(' . implode(',', $placeholders) . ')';
+        }
+
+        $sql = "INSERT INTO dbo.adl_staging_pilots (
+            cid, callsign, lat, lon, altitude_ft, groundspeed_kts,
+            heading_deg, qnh_in_hg, qnh_mb, flight_server, logon_time,
+            fp_rule, dept_icao, dest_icao, alt_icao, route, remarks,
+            altitude_filed_raw, tas_filed_raw, dep_time_z, enroute_time_raw,
+            fuel_time_raw, aircraft_faa_raw, aircraft_short, fp_dof_raw,
+            flight_key, route_hash, airline_icao, batch_id
+        ) VALUES " . implode(',', $values);
+
+        $stmt = sqlsrv_query($conn, $sql, $params);
+
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            throw new Exception("Staging insert failed: " . json_encode($errors));
+        }
+
+        $inserted += sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $inserted;
+}
+
+/**
+ * Insert prefiles into staging table.
+ */
+function insertPrefilesToStaging($conn, array $prefiles, string $batchId, int $batchSize = 500): int {
+    if (empty($prefiles)) return 0;
+
+    $inserted = 0;
+    $batches = array_chunk($prefiles, $batchSize);
+
+    foreach ($batches as $batch) {
+        $values = [];
+        $params = [];
+
+        foreach ($batch as $pf) {
+            $placeholders = [];
+
+            $fields = [
+                'cid', 'callsign', 'fp_rule', 'dept_icao', 'dest_icao', 'alt_icao',
+                'route', 'remarks', 'altitude_filed_raw', 'tas_filed_raw',
+                'dep_time_z', 'enroute_time_raw', 'aircraft_faa_raw', 'aircraft_short',
+                'flight_key', 'route_hash'
+            ];
+
+            foreach ($fields as $field) {
+                $placeholders[] = '?';
+                $params[] = $pf[$field];
+            }
+
+            // Add batch_id
+            $placeholders[] = '?';
+            $params[] = $batchId;
+
+            $values[] = '(' . implode(',', $placeholders) . ')';
+        }
+
+        $sql = "INSERT INTO dbo.adl_staging_prefiles (
+            cid, callsign, fp_rule, dept_icao, dest_icao, alt_icao,
+            route, remarks, altitude_filed_raw, tas_filed_raw,
+            dep_time_z, enroute_time_raw, aircraft_faa_raw, aircraft_short,
+            flight_key, route_hash, batch_id
+        ) VALUES " . implode(',', $values);
+
+        $stmt = sqlsrv_query($conn, $sql, $params);
+
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            throw new Exception("Prefile staging insert failed: " . json_encode($errors));
+        }
+
+        $inserted += sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $inserted;
+}
+
+/**
+ * Clear staging tables before new batch.
+ */
+function clearStagingTables($conn): void {
+    $stmt = sqlsrv_query($conn, "EXEC dbo.sp_ClearStagingTables");
+    if ($stmt !== false) {
+        sqlsrv_free_stmt($stmt);
+    }
+}
+
+/**
+ * Execute the staged refresh SP (reads from staging tables).
+ * @param resource $conn SQL Server connection
+ * @param string $batchId UUID for this batch
+ * @param int $timeout Query timeout in seconds
+ * @return array Result with stats and timings
+ */
+function executeStagedRefreshSP($conn, string $batchId, int $timeout): array {
+    $startTime = microtime(true);
+
+    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?";
+    $options = ['QueryTimeout' => $timeout];
+
+    $stmt = sqlsrv_query($conn, $sql, [$batchId], $options);
+
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        throw new Exception("Staged SP execution failed: " . json_encode($errors));
+    }
+
+    $result = [
+        'success'    => true,
+        'elapsed_ms' => 0,
+        'stats'      => null,
+        'steps'      => null,
+    ];
+
+    // Read result set (same structure as original SP)
+    do {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row && isset($row['pilots_received']) && isset($row['step1_json_ms'])) {
+            $result['stats'] = [
+                'pilots'      => $row['pilots_received'] ?? 0,
+                'new'         => $row['new_flights'] ?? 0,
+                'updated'     => $row['updated_flights'] ?? 0,
+                'routes'      => $row['routes_queued'] ?? 0,
+                'etds'        => $row['etds_calculated'] ?? 0,
+                'etas'        => $row['etas_calculated'] ?? 0,
+                'traj'        => $row['trajectories_logged'] ?? 0,
+                'zones'       => $row['zone_transitions'] ?? 0,
+                'boundaries'  => $row['boundary_transitions'] ?? 0,
+                'crossings'   => $row['crossings_calculated'] ?? 0,
+            ];
+
+            $result['steps'] = [
+                '1_staging'   => $row['step1_json_ms'] ?? 0,  // Now staging read
+                '1b_enrich'   => $row['step1b_enrich_ms'] ?? 0,
+                '2_core'      => $row['step2_core_ms'] ?? 0,
+                '2a_prefile'  => $row['step2a_prefile_ms'] ?? 0,
+                '2b_times'    => $row['step2b_times_ms'] ?? 0,
+                '3_position'  => $row['step3_position_ms'] ?? 0,
+                '4_flightplan'=> $row['step4_flightplan_ms'] ?? 0,
+                '4b_etd'      => $row['step4b_etd_ms'] ?? 0,
+                '4c_simbrief' => $row['step4c_simbrief_ms'] ?? 0,
+                '5_queue'     => $row['step5_queue_ms'] ?? 0,
+                '6_aircraft'  => $row['step6_aircraft_ms'] ?? 0,
+                '7_inactive'  => $row['step7_inactive_ms'] ?? 0,
+                '8_trajectory'=> $row['step8_trajectory_ms'] ?? 0,
+                '8b_bucket'   => $row['step8b_bucket_ms'] ?? 0,
+                '8c_waypoint' => $row['step8c_waypoint_ms'] ?? 0,
+                '9_zone'      => $row['step9_zone_ms'] ?? 0,
+                '10_boundary' => $row['step10_boundary_ms'] ?? 0,
+                '11_crossings'=> $row['step11_crossings_ms'] ?? 0,
+                '12_log'      => $row['step12_log_ms'] ?? 0,
+                '13_snapshot' => $row['step13_snapshot_ms'] ?? 0,
+            ];
+
+            $result['elapsed_ms'] = $row['elapsed_ms'] ?? 0;
+            break;
+        }
+    } while (sqlsrv_next_result($stmt));
+
+    while (sqlsrv_next_result($stmt)) {
+        // Drain remaining results
+    }
+
+    sqlsrv_free_stmt($stmt);
+
+    if ($result['elapsed_ms'] == 0) {
+        $result['elapsed_ms'] = round((microtime(true) - $startTime) * 1000);
+    }
+
+    return $result;
+}
+
+/**
+ * Generate a UUID v4 for batch tracking.
+ */
+function generateBatchId(): string {
+    $data = random_bytes(16);
+    $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+    $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
 }
 
 // ============================================================================
@@ -891,6 +1244,7 @@ function runDaemon(array $config): void {
         'warn_ms'   => $config['warn_sp_ms'],
         'crit_ms'   => $config['critical_sp_ms'],
         'websocket' => $config['websocket_enabled'] ? 'enabled' : 'disabled',
+        'mode'      => $config['staged_refresh_enabled'] ? 'staged (V9.0)' : 'legacy',
     ]);
     
     // Establish initial connection
@@ -958,6 +1312,9 @@ function runDaemon(array $config): void {
         // WebSocket stats
         'ws_events'            => 0,
         'ws_runs'              => 0,
+        // V9.0 Staging stats
+        'total_staging_ms'     => 0,
+        'total_insert_ms'      => 0,
     ];
     
     // WebSocket: Track last refresh time for event detection
@@ -997,40 +1354,81 @@ function runDaemon(array $config): void {
                 throw new Exception("Failed to fetch VATSIM data or response too small");
             }
             
-            // 3. Quick parse to get pilot count (for logging)
-            $pilotCount = 0;
-            if (preg_match('/"pilots"\s*:\s*\[/', $jsonData)) {
-                $pilotCount = preg_match_all('/"callsign"\s*:/', $jsonData);
-            }
-            
+            // 3. Decode JSON (needed for both staged and legacy paths)
             $jsonSizeKb = round(strlen($jsonData) / 1024);
-            
+            $parseStart = microtime(true);
+            $vatsimData = json_decode($jsonData, true);
+            $parseMs = round((microtime(true) - $parseStart) * 1000);
+
+            if (!$vatsimData || !isset($vatsimData['pilots'])) {
+                throw new Exception("Failed to parse VATSIM JSON");
+            }
+
+            $pilotCount = count($vatsimData['pilots'] ?? []);
+
             // 4. Execute stored procedure for flights
-            $spResult = executeRefreshSP($conn, $jsonData, $config['sp_timeout']);
-            $spMs = $spResult['elapsed_ms'];
+            // V9.0: Use staged refresh (PHP parses JSON, inserts to staging tables)
+            // or legacy (pass JSON string to SP for OPENJSON parsing)
+            $stagingMs = 0;
+            $insertMs = 0;
+
+            if ($config['staged_refresh_enabled']) {
+                // === V9.0 STAGED REFRESH ===
+                // PHP parses JSON (~100ms) + bulk insert (~200ms) vs SQL OPENJSON (3-5s)
+
+                // 4a. Parse pilots in PHP
+                $stagingStart = microtime(true);
+                $parsedPilots = parseVatsimPilots($vatsimData);
+                $parsedPrefiles = parseVatsimPrefiles($vatsimData);
+                $stagingMs = round((microtime(true) - $stagingStart) * 1000);
+
+                // 4b. Clear staging tables and insert
+                $insertStart = microtime(true);
+                $batchId = generateBatchId();
+                clearStagingTables($conn);
+                $insertedPilots = insertPilotsToStaging($conn, $parsedPilots, $batchId, $config['staged_batch_size']);
+                $insertedPrefiles = insertPrefilesToStaging($conn, $parsedPrefiles, $batchId, $config['staged_batch_size']);
+                $insertMs = round((microtime(true) - $insertStart) * 1000);
+
+                // 4c. Execute staged refresh SP
+                $spResult = executeStagedRefreshSP($conn, $batchId, $config['sp_timeout']);
+                $spMs = $spResult['elapsed_ms'];
+
+                // Log staging performance on first run or every 100 runs
+                if ($stats['runs'] == 1 || $stats['runs'] % 100 === 0) {
+                    logInfo("Staged refresh: parse={$parseMs}ms, staging={$stagingMs}ms, insert={$insertMs}ms, sp={$spMs}ms", [
+                        'pilots' => $insertedPilots,
+                        'prefiles' => $insertedPrefiles,
+                    ]);
+                }
+            } else {
+                // === LEGACY REFRESH ===
+                // Pass raw JSON to SP, uses OPENJSON (3-5s at 3000 pilots)
+                $spResult = executeRefreshSP($conn, $jsonData, $config['sp_timeout']);
+                $spMs = $spResult['elapsed_ms'];
+            }
+
+            // Free raw JSON string (we have vatsimData now)
+            unset($jsonData);
 
             // 5. Process ATIS (with dynamic tiered intervals)
             $atisImported = 0;
             $atisParsed = 0;
             $atisSkipped = 0;
-            if ($config['atis_enabled']) {
-                $vatsimData = json_decode($jsonData, true);
-                if ($vatsimData) {
-                    $allAtis = extractAtisFromJson($vatsimData);
-                    $tieredAtis = getAtisForCycle($allAtis, $config, $stats['runs']);
+            if ($config['atis_enabled'] && $vatsimData) {
+                $allAtis = extractAtisFromJson($vatsimData);
+                $tieredAtis = getAtisForCycle($allAtis, $config, $stats['runs']);
 
-                    if (!empty($tieredAtis)) {
-                        $atisResult = processAtis($conn, $tieredAtis);
-                        $atisImported = $atisResult['imported'];
-                        $atisParsed = $atisResult['parsed'];
-                        $atisSkipped = $atisResult['skipped'] ?? 0;
-                    }
+                if (!empty($tieredAtis)) {
+                    $atisResult = processAtis($conn, $tieredAtis);
+                    $atisImported = $atisResult['imported'];
+                    $atisParsed = $atisResult['parsed'];
+                    $atisSkipped = $atisResult['skipped'] ?? 0;
                 }
-                unset($vatsimData);
             }
 
-            // Free memory
-            unset($jsonData);
+            // Free parsed data
+            unset($vatsimData);
 
             // 5b. Boundary & Crossings processing (adaptive interval)
             $boundaryResult = null;
@@ -1125,6 +1523,12 @@ function runDaemon(array $config): void {
                 $stats['max_sp_ms'] = $spMs;
             }
 
+            // V9.0 Staging stats
+            if ($config['staged_refresh_enabled']) {
+                $stats['total_staging_ms'] += $stagingMs;
+                $stats['total_insert_ms'] += $insertMs;
+            }
+
             // 7. Log with performance level
             $logLevel = 'INFO';
             $perfNote = '';
@@ -1142,6 +1546,13 @@ function runDaemon(array $config): void {
                 'fetch_ms' => $fetchMs,
                 'sp_ms'    => $spMs,
             ];
+
+            // Add staging metrics when using V9.0 staged refresh
+            if ($config['staged_refresh_enabled'] && ($stagingMs > 0 || $insertMs > 0)) {
+                $logContext['parse_ms'] = $parseMs;
+                $logContext['stg_ms'] = $stagingMs;
+                $logContext['ins_ms'] = $insertMs;
+            }
 
             if ($atisImported > 0 || $atisParsed > 0 || $atisSkipped > 0) {
                 $logContext['atis'] = $atisImported;
@@ -1219,8 +1630,10 @@ function runDaemon(array $config): void {
             $avgBndMs = $stats['boundary_runs'] > 0 ? round($stats['boundary_total_ms'] / $stats['boundary_runs']) : 0;
             $avgRwyMs = $stats['runway_detect_runs'] > 0 ? round($stats['runway_detect_ms'] / $stats['runway_detect_runs']) : 0;
             $avgWindMs = $stats['wind_runs'] > 0 ? round($stats['wind_total_ms'] / $stats['wind_runs']) : 0;
+            $avgStagingMs = $stats['successes'] > 0 ? round($stats['total_staging_ms'] / $stats['successes']) : 0;
+            $avgInsertMs = $stats['successes'] > 0 ? round($stats['total_insert_ms'] / $stats['successes']) : 0;
 
-            logInfo("=== Stats @ run {$stats['runs']} ===", [
+            $statsContext = [
                 'uptime_min'    => $uptime,
                 'success_rate'  => "{$successRate}%",
                 'avg_sp_ms'     => $avgSpMs,
@@ -1240,7 +1653,16 @@ function runDaemon(array $config): void {
                 'avg_wind_ms'   => $avgWindMs,
                 'ws_runs'       => $stats['ws_runs'],
                 'ws_events'     => $stats['ws_events'],
-            ]);
+            ];
+
+            // Add V9.0 staging stats if enabled
+            if ($config['staged_refresh_enabled']) {
+                $statsContext['mode'] = 'staged';
+                $statsContext['avg_stg_ms'] = $avgStagingMs;
+                $statsContext['avg_ins_ms'] = $avgInsertMs;
+            }
+
+            logInfo("=== Stats @ run {$stats['runs']} ===", $statsContext);
 
             if ($conn !== null) {
                 $cleanupResult = runAtisCleanup($conn);
