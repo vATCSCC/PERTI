@@ -601,10 +601,10 @@ foreach ($airwayMonitors as $idx => $m) {
     }
 
     // Look up full airway geometry (all segments along the airway)
-    $airwayName = strtoupper($m['airway']);
+    $airwayName = strtoupper(trim($m['airway']));
     $airwaySql = "SELECT from_fix, to_fix, sequence_num, from_lat, from_lon, to_lat, to_lon
                   FROM dbo.airway_segments
-                  WHERE airway_name = ?
+                  WHERE RTRIM(airway_name) = ?
                   ORDER BY sequence_num";
     $airwayStmt = sqlsrv_query($conn, $airwaySql, [$airwayName]);
 
@@ -626,6 +626,41 @@ foreach ($airwayMonitors as $idx => $m) {
         // Use first point for label position
         $monitorData[$monitorIdx]['lat'] = $geometry[0][1];
         $monitorData[$monitorIdx]['lon'] = $geometry[0][0];
+    } else {
+        // Fallback: Get geometry from actual flight waypoints on this airway
+        // Find a flight that uses this airway and extract all waypoints on it
+        $fallbackSql = "WITH FlightOnAirway AS (
+                            SELECT TOP 1 flight_uid
+                            FROM dbo.adl_flight_waypoints
+                            WHERE RTRIM(on_airway) = ?
+                              AND lat IS NOT NULL
+                            ORDER BY waypoint_id DESC
+                        )
+                        SELECT w.fix_name, w.lat, w.lon, w.sequence_num
+                        FROM dbo.adl_flight_waypoints w
+                        WHERE w.flight_uid = (SELECT flight_uid FROM FlightOnAirway)
+                          AND RTRIM(w.on_airway) = ?
+                          AND w.lat IS NOT NULL
+                        ORDER BY w.sequence_num";
+        $fallbackStmt = sqlsrv_query($conn, $fallbackSql, [$airwayName, $airwayName]);
+
+        $airwayGeometry = [];
+        if ($fallbackStmt) {
+            while ($row = sqlsrv_fetch_array($fallbackStmt, SQLSRV_FETCH_ASSOC)) {
+                $airwayGeometry[] = [(float)$row['lon'], (float)$row['lat']];
+            }
+            sqlsrv_free_stmt($fallbackStmt);
+        }
+
+        if (count($airwayGeometry) >= 2) {
+            $monitorData[$monitorIdx]['geometry'] = $airwayGeometry;
+            $monitorData[$monitorIdx]['lat'] = $airwayGeometry[0][1];
+            $monitorData[$monitorIdx]['lon'] = $airwayGeometry[0][0];
+        } else if (count($airwayGeometry) === 1) {
+            // Single point fallback
+            $monitorData[$monitorIdx]['lat'] = $airwayGeometry[0][1];
+            $monitorData[$monitorIdx]['lon'] = $airwayGeometry[0][0];
+        }
     }
 }
 
@@ -696,14 +731,14 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
     }
 
     // Look up full airway segment geometry (all fixes along the airway between from and to)
-    $airwayName = strtoupper($m['airway']);
-    $fromFix = strtoupper($m['from']);
-    $toFix = strtoupper($m['to']);
+    $airwayName = strtoupper(trim($m['airway']));
+    $fromFix = strtoupper(trim($m['from']));
+    $toFix = strtoupper(trim($m['to']));
 
     // First, get sequence numbers for from and to fixes on this airway
-    $seqSql = "SELECT from_fix, to_fix, sequence_num, from_lat, from_lon, to_lat, to_lon
+    $seqSql = "SELECT RTRIM(from_fix) AS from_fix, RTRIM(to_fix) AS to_fix, sequence_num, from_lat, from_lon, to_lat, to_lon
                FROM dbo.airway_segments
-               WHERE airway_name = ?
+               WHERE RTRIM(airway_name) = ?
                ORDER BY sequence_num";
     $seqStmt = sqlsrv_query($conn, $seqSql, [$airwayName]);
 
@@ -714,9 +749,13 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
 
     if ($seqStmt) {
         while ($row = sqlsrv_fetch_array($seqStmt, SQLSRV_FETCH_ASSOC)) {
+            // Trim whitespace from fix names for comparison
+            $rowFromFix = strtoupper(trim($row['from_fix'] ?? ''));
+            $rowToFix = strtoupper(trim($row['to_fix'] ?? ''));
+
             $segments[] = [
-                'from_fix' => $row['from_fix'],
-                'to_fix' => $row['to_fix'],
+                'from_fix' => $rowFromFix,
+                'to_fix' => $rowToFix,
                 'seq' => (int)$row['sequence_num'],
                 'from_lat' => (float)$row['from_lat'],
                 'from_lon' => (float)$row['from_lon'],
@@ -724,16 +763,16 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
                 'to_lon' => (float)$row['to_lon']
             ];
             // Find sequence of from/to fixes
-            if ($row['from_fix'] === $fromFix && $fromSeq === null) {
+            if ($rowFromFix === $fromFix && $fromSeq === null) {
                 $fromSeq = (int)$row['sequence_num'];
             }
-            if ($row['to_fix'] === $fromFix && $fromSeq === null) {
+            if ($rowToFix === $fromFix && $fromSeq === null) {
                 $fromSeq = (int)$row['sequence_num'] + 1;
             }
-            if ($row['from_fix'] === $toFix && $toSeq === null) {
+            if ($rowFromFix === $toFix && $toSeq === null) {
                 $toSeq = (int)$row['sequence_num'];
             }
-            if ($row['to_fix'] === $toFix && $toSeq === null) {
+            if ($rowToFix === $toFix && $toSeq === null) {
                 $toSeq = (int)$row['sequence_num'] + 1;
             }
         }
@@ -762,7 +801,7 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
         }
     }
 
-    // If geometry was found, use it; otherwise fall back to just from/to
+    // If geometry was found from airway_segments, use it
     if (!empty($geometry)) {
         $monitorData[$monitorIdx]['geometry'] = $geometry;
         $monitorData[$monitorIdx]['from_lat'] = $geometry[0][1];
@@ -770,20 +809,91 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
         $monitorData[$monitorIdx]['to_lat'] = $geometry[count($geometry)-1][1];
         $monitorData[$monitorIdx]['to_lon'] = $geometry[count($geometry)-1][0];
     } else {
-        // Fallback: just look up from/to fix coordinates
-        $fixSql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN (?, ?)";
-        $fixStmt = sqlsrv_query($conn, $fixSql, [$fromFix, $toFix]);
-        if ($fixStmt) {
-            while ($row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
-                if (strtoupper($row['fix_name']) === $monitorData[$monitorIdx]['from_fix']) {
-                    $monitorData[$monitorIdx]['from_lat'] = (float)$row['lat'];
-                    $monitorData[$monitorIdx]['from_lon'] = (float)$row['lon'];
-                } else if (strtoupper($row['fix_name']) === $monitorData[$monitorIdx]['to_fix']) {
-                    $monitorData[$monitorIdx]['to_lat'] = (float)$row['lat'];
-                    $monitorData[$monitorIdx]['to_lon'] = (float)$row['lon'];
+        // Fallback: Get geometry from actual flight waypoint data
+        // Find a flight that goes through both fixes and extract the segment between them
+        $routeSql = "WITH FlightWithBothFixes AS (
+                         SELECT TOP 1 w1.flight_uid
+                         FROM dbo.adl_flight_waypoints w1
+                         INNER JOIN dbo.adl_flight_waypoints w2 ON w2.flight_uid = w1.flight_uid
+                         WHERE RTRIM(w1.fix_name) = ?
+                           AND RTRIM(w2.fix_name) = ?
+                           AND w1.lat IS NOT NULL
+                           AND w2.lat IS NOT NULL
+                         ORDER BY w1.waypoint_id DESC
+                     ),
+                     FixSequences AS (
+                         SELECT
+                             (SELECT TOP 1 sequence_num FROM dbo.adl_flight_waypoints
+                              WHERE flight_uid = (SELECT flight_uid FROM FlightWithBothFixes)
+                                AND RTRIM(fix_name) = ?) AS from_seq,
+                             (SELECT TOP 1 sequence_num FROM dbo.adl_flight_waypoints
+                              WHERE flight_uid = (SELECT flight_uid FROM FlightWithBothFixes)
+                                AND RTRIM(fix_name) = ?) AS to_seq
+                     )
+                     SELECT w.fix_name, w.lat, w.lon, w.sequence_num
+                     FROM dbo.adl_flight_waypoints w
+                     CROSS JOIN FixSequences fs
+                     WHERE w.flight_uid = (SELECT flight_uid FROM FlightWithBothFixes)
+                       AND w.lat IS NOT NULL
+                       AND w.sequence_num >= CASE WHEN fs.from_seq < fs.to_seq THEN fs.from_seq ELSE fs.to_seq END
+                       AND w.sequence_num <= CASE WHEN fs.from_seq < fs.to_seq THEN fs.to_seq ELSE fs.from_seq END
+                     ORDER BY CASE WHEN fs.from_seq < fs.to_seq THEN w.sequence_num ELSE -w.sequence_num END";
+        $routeStmt = sqlsrv_query($conn, $routeSql, [$fromFix, $toFix, $fromFix, $toFix]);
+
+        $routeGeometry = [];
+        if ($routeStmt) {
+            while ($row = sqlsrv_fetch_array($routeStmt, SQLSRV_FETCH_ASSOC)) {
+                $routeGeometry[] = [(float)$row['lon'], (float)$row['lat']];
+            }
+            sqlsrv_free_stmt($routeStmt);
+        }
+
+        if (count($routeGeometry) >= 2) {
+            $monitorData[$monitorIdx]['geometry'] = $routeGeometry;
+            $monitorData[$monitorIdx]['from_lat'] = $routeGeometry[0][1];
+            $monitorData[$monitorIdx]['from_lon'] = $routeGeometry[0][0];
+            $monitorData[$monitorIdx]['to_lat'] = $routeGeometry[count($routeGeometry)-1][1];
+            $monitorData[$monitorIdx]['to_lon'] = $routeGeometry[count($routeGeometry)-1][0];
+        } else {
+            // Final fallback: just get endpoint coordinates from nav_fixes or waypoints
+            $fixSql = "SELECT RTRIM(fix_name) AS fix_name, lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) IN (?, ?)";
+            $fixStmt = sqlsrv_query($conn, $fixSql, [$fromFix, $toFix]);
+            if ($fixStmt) {
+                while ($row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
+                    $fixName = strtoupper(trim($row['fix_name'] ?? ''));
+                    if ($fixName === $monitorData[$monitorIdx]['from_fix']) {
+                        $monitorData[$monitorIdx]['from_lat'] = (float)$row['lat'];
+                        $monitorData[$monitorIdx]['from_lon'] = (float)$row['lon'];
+                    } else if ($fixName === $monitorData[$monitorIdx]['to_fix']) {
+                        $monitorData[$monitorIdx]['to_lat'] = (float)$row['lat'];
+                        $monitorData[$monitorIdx]['to_lon'] = (float)$row['lon'];
+                    }
+                }
+                sqlsrv_free_stmt($fixStmt);
+            }
+
+            // If still missing, try adl_flight_waypoints for individual points
+            if ($monitorData[$monitorIdx]['from_lat'] === null || $monitorData[$monitorIdx]['to_lat'] === null) {
+                $wpSql = "SELECT TOP 2 RTRIM(fix_name) AS fix_name, lat, lon
+                          FROM dbo.adl_flight_waypoints
+                          WHERE RTRIM(fix_name) IN (?, ?)
+                            AND lat IS NOT NULL
+                          ORDER BY waypoint_id DESC";
+                $wpStmt = sqlsrv_query($conn, $wpSql, [$fromFix, $toFix]);
+                if ($wpStmt) {
+                    while ($row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
+                        $fixName = strtoupper(trim($row['fix_name'] ?? ''));
+                        if ($fixName === $monitorData[$monitorIdx]['from_fix'] && $monitorData[$monitorIdx]['from_lat'] === null) {
+                            $monitorData[$monitorIdx]['from_lat'] = (float)$row['lat'];
+                            $monitorData[$monitorIdx]['from_lon'] = (float)$row['lon'];
+                        } else if ($fixName === $monitorData[$monitorIdx]['to_fix'] && $monitorData[$monitorIdx]['to_lat'] === null) {
+                            $monitorData[$monitorIdx]['to_lat'] = (float)$row['lat'];
+                            $monitorData[$monitorIdx]['to_lon'] = (float)$row['lon'];
+                        }
+                    }
+                    sqlsrv_free_stmt($wpStmt);
                 }
             }
-            sqlsrv_free_stmt($fixStmt);
         }
     }
 }
@@ -911,40 +1021,82 @@ foreach ($viaMonitors as $idx => $m) {
 
     // Look up via fix coordinates (if via_type is 'fix')
     if ($viaType === 'fix') {
-        $fixSql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE fix_name = ?";
+        $fixSql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) = ?";
         $fixStmt = sqlsrv_query($conn, $fixSql, [$viaValue]);
         if ($fixStmt && $row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
             $monitorData[$monitorIdx]['lat'] = (float)$row['lat'];
             $monitorData[$monitorIdx]['lon'] = (float)$row['lon'];
         }
         if ($fixStmt) sqlsrv_free_stmt($fixStmt);
+
+        // Fallback: try adl_flight_waypoints if nav_fixes doesn't have it
+        if ($monitorData[$monitorIdx]['lat'] === null) {
+            $wpSql = "SELECT TOP 1 lat, lon FROM dbo.adl_flight_waypoints WHERE RTRIM(fix_name) = ? AND lat IS NOT NULL ORDER BY waypoint_id DESC";
+            $wpStmt = sqlsrv_query($conn, $wpSql, [$viaValue]);
+            if ($wpStmt && $row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
+                $monitorData[$monitorIdx]['lat'] = (float)$row['lat'];
+                $monitorData[$monitorIdx]['lon'] = (float)$row['lon'];
+            }
+            if ($wpStmt) sqlsrv_free_stmt($wpStmt);
+        }
     }
 }
 
 // Look up missing coordinates for fix/segment monitors
 foreach ($monitorData as $monitorIdx => &$monitor) {
     if ($monitor['type'] === 'fix' && $monitor['lat'] === null) {
-        $fixSql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE fix_name = ?";
+        $fixSql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) = ?";
         $fixStmt = sqlsrv_query($conn, $fixSql, [$monitor['fix']]);
         if ($fixStmt && $row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
             $monitor['lat'] = (float)$row['lat'];
             $monitor['lon'] = (float)$row['lon'];
         }
         if ($fixStmt) sqlsrv_free_stmt($fixStmt);
+
+        // Fallback: try adl_flight_waypoints
+        if ($monitor['lat'] === null) {
+            $wpSql = "SELECT TOP 1 lat, lon FROM dbo.adl_flight_waypoints WHERE RTRIM(fix_name) = ? AND lat IS NOT NULL ORDER BY waypoint_id DESC";
+            $wpStmt = sqlsrv_query($conn, $wpSql, [$monitor['fix']]);
+            if ($wpStmt && $row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
+                $monitor['lat'] = (float)$row['lat'];
+                $monitor['lon'] = (float)$row['lon'];
+            }
+            if ($wpStmt) sqlsrv_free_stmt($wpStmt);
+        }
     } else if ($monitor['type'] === 'segment' && $monitor['from_lat'] === null) {
-        $fixSql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN (?, ?)";
+        $fixSql = "SELECT RTRIM(fix_name) AS fix_name, lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) IN (?, ?)";
         $fixStmt = sqlsrv_query($conn, $fixSql, [$monitor['from_fix'], $monitor['to_fix']]);
         if ($fixStmt) {
             while ($row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
-                if (strtoupper($row['fix_name']) === $monitor['from_fix']) {
+                $fixName = strtoupper(trim($row['fix_name'] ?? ''));
+                if ($fixName === $monitor['from_fix']) {
                     $monitor['from_lat'] = (float)$row['lat'];
                     $monitor['from_lon'] = (float)$row['lon'];
-                } else if (strtoupper($row['fix_name']) === $monitor['to_fix']) {
+                } else if ($fixName === $monitor['to_fix']) {
                     $monitor['to_lat'] = (float)$row['lat'];
                     $monitor['to_lon'] = (float)$row['lon'];
                 }
             }
             sqlsrv_free_stmt($fixStmt);
+        }
+
+        // Fallback: try adl_flight_waypoints for any still-missing coordinates
+        if ($monitor['from_lat'] === null || $monitor['to_lat'] === null) {
+            $wpSql = "SELECT TOP 2 RTRIM(fix_name) AS fix_name, lat, lon FROM dbo.adl_flight_waypoints WHERE RTRIM(fix_name) IN (?, ?) AND lat IS NOT NULL ORDER BY waypoint_id DESC";
+            $wpStmt = sqlsrv_query($conn, $wpSql, [$monitor['from_fix'], $monitor['to_fix']]);
+            if ($wpStmt) {
+                while ($row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
+                    $fixName = strtoupper(trim($row['fix_name'] ?? ''));
+                    if ($fixName === $monitor['from_fix'] && $monitor['from_lat'] === null) {
+                        $monitor['from_lat'] = (float)$row['lat'];
+                        $monitor['from_lon'] = (float)$row['lon'];
+                    } else if ($fixName === $monitor['to_fix'] && $monitor['to_lat'] === null) {
+                        $monitor['to_lat'] = (float)$row['lat'];
+                        $monitor['to_lon'] = (float)$row['lon'];
+                    }
+                }
+                sqlsrv_free_stmt($wpStmt);
+            }
         }
     }
 }

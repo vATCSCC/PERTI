@@ -141,7 +141,7 @@ $config = [
     // SWIM_API is Azure SQL Basic ($5/mo) - dedicated for API queries to avoid
     // Serverless costs on VATSIM_ADL. Runs after each ADL refresh cycle.
     'swim_enabled'        => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
-    'swim_interval'       => 4,      // Run every N cycles (4 = every 60 seconds)
+    'swim_interval'       => 8,      // Run every N cycles (8 = every 2 minutes)
 ];
 
 // ============================================================================
