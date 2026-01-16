@@ -1,7 +1,7 @@
 # VATSIM SWIM Implementation Tracker
 
-**Last Updated:** 2026-01-16 14:00 UTC  
-**Status:** Phase 2 COMPLETE ✅  
+**Last Updated:** 2026-01-16 18:30 UTC  
+**Status:** Phase 3 IN PROGRESS  
 **Repository:** `VATSIM PERTI/PERTI/`
 
 ---
@@ -13,18 +13,25 @@
 | Phase 0: Infrastructure | ✅ COMPLETE | 100% |
 | Phase 1: REST API & Docs | ✅ COMPLETE | 100% |
 | Phase 2: Real-Time WebSocket | ✅ COMPLETE | 100% |
-| Phase 3: SDKs & Integrations | 🔨 IN PROGRESS | Python done |
+| Phase 3: SDKs & Integrations | 🔨 IN PROGRESS | Python + AOC Telemetry |
 
 ---
 
-## 🎉 Phase 2 Complete!
+## 🎉 Latest: AOC Telemetry Support
 
-All WebSocket functionality is live and production-ready:
+Virtual Airlines can now push flight sim telemetry via the ingest API:
 
-- ✅ Real-time flight events streaming
-- ✅ Database-backed API key authentication
-- ✅ Tier-based connection limits enforced
-- ✅ Python SDK available
+| Field | Type | Description |
+|-------|------|-------------|
+| `vertical_rate_fpm` | INT | Climb/descent rate (+ = climb, - = descent) |
+| `out_utc` | DATETIME | OOOI - Gate departure |
+| `off_utc` | DATETIME | OOOI - Wheels up |
+| `on_utc` | DATETIME | OOOI - Wheels down |
+| `in_utc` | DATETIME | OOOI - Gate arrival |
+| `eta_utc` | DATETIME | FMC-calculated ETA |
+| `etd_utc` | DATETIME | Expected departure |
+
+**Note:** These fields already exist in `swim_flights` schema - no migration needed.
 
 ---
 
@@ -49,7 +56,7 @@ All WebSocket functionality is live and production-ready:
 | Postman collection | ✅ |
 | FIXM field naming | ✅ |
 | All REST endpoints | ✅ |
-| Ingest endpoints | ✅ |
+| Ingest endpoints (ADL + Track) | ✅ |
 
 ---
 
@@ -58,41 +65,9 @@ All WebSocket functionality is live and production-ready:
 | Task | Status | Notes |
 |------|--------|-------|
 | Ratchet WebSocket server | ✅ | Port 8090 |
-| `WebSocketServer.php` class | ✅ | Full implementation |
-| `ClientConnection.php` class | ✅ | Connection wrapper |
-| `SubscriptionManager.php` class | ✅ | Channel subscriptions |
-| `swim_ws_server.php` daemon | ✅ | Main server |
-| `swim_ws_events.php` detection | ✅ | Flight & TMI events |
-| `swim-ws-client.js` library | ✅ | Browser client |
-| Apache WebSocket proxy | ✅ | In startup.sh |
-| ADL daemon integration | ✅ | Event publishing |
-| External WSS access | ✅ | Tested working |
 | Database authentication | ✅ | `swim_api_keys` validation |
-| Key caching | ✅ | 5-min TTL |
-| Poll interval optimization | ✅ | 100ms |
-| **Tier-based rate limits** | ✅ | Connection limits enforced |
-
-### Tier Limits
-
-| Tier | Max Connections | Use Case |
-|------|-----------------|----------|
-| public | 5 | Basic consumers |
-| developer | 50 | Testing/development |
-| partner | 500 | Integration partners |
-| system | 10,000 | Trusted systems |
-
-### Event Types
-
-| Event | Description |
-|-------|-------------|
-| `flight.created` | New pilot connected |
-| `flight.departed` | Wheels up detected |
-| `flight.arrived` | Wheels down detected |
-| `flight.deleted` | Pilot disconnected |
-| `flight.positions` | Batched position updates |
-| `tmi.issued` | New GS/GDP created |
-| `tmi.released` | TMI ended |
-| `system.heartbeat` | Server keepalive |
+| Tier-based connection limits | ✅ | Enforced per tier |
+| External WSS access | ✅ | Via Apache proxy |
 
 ---
 
@@ -103,12 +78,34 @@ All WebSocket functionality is live and production-ready:
 | Task | Status | Location |
 |------|--------|----------|
 | Python SDK | ✅ COMPLETE | `sdk/python/` |
+| AOC Telemetry Ingest | ✅ COMPLETE | `api/swim/v1/ingest/` |
 
-### Deferred ⏸️
+### AOC Telemetry Details
 
-| Task | Reason |
-|------|--------|
-| Redis IPC | File-based IPC adequate (~50ms latency) |
+**Endpoints:**
+- `POST /ingest/adl` - Full flight data with telemetry
+- `POST /ingest/track` - High-frequency position updates (1000/batch)
+
+**Example - Push with Vertical Rate:**
+```json
+POST /api/swim/v1/ingest/adl
+{
+  "flights": [{
+    "callsign": "DLH401",
+    "dept_icao": "KJFK",
+    "dest_icao": "EDDF",
+    "altitude_ft": 35000,
+    "groundspeed_kts": 485,
+    "vertical_rate_fpm": -1800,
+    "off_utc": "2026-01-16T14:45:00Z"
+  }]
+}
+```
+
+**Data Flow:**
+- VATSIM sync provides: position, groundspeed, heading, altitude
+- AOC ingest adds: vertical_rate_fpm, OOOI times, ETA
+- Zone detection fallback: OOOI times when airport geometry available (~201 airports)
 
 ### Pending ⏳
 
@@ -116,9 +113,13 @@ All WebSocket functionality is live and production-ready:
 |------|------------|----------|
 | C# SDK | 12h | As needed |
 | Java SDK | 12h | As needed |
-| Message compression | 2h | Low |
-| Historical replay | 8h | Low |
-| Metrics dashboard | 4h | Low |
+
+### Deferred ⏸️
+
+| Task | Reason |
+|------|--------|
+| Redis IPC | File-based IPC adequate |
+| ADL vertical rate calculation | Not needed - receive from AOC |
 
 ---
 
@@ -127,27 +128,20 @@ All WebSocket functionality is live and production-ready:
 ```
 PERTI/
 ├── api/swim/v1/
+│   ├── ingest/
+│   │   ├── adl.php      # v3.2.0 - telemetry support
+│   │   ├── track.php    # v1.2.0 - high-freq positions
+│   │   └── metering.php
 │   ├── ws/
-│   │   ├── WebSocketServer.php    # Server with auth + rate limits
-│   │   ├── ClientConnection.php
-│   │   ├── SubscriptionManager.php
-│   │   └── swim-ws-client.js
+│   │   └── WebSocketServer.php
 │   ├── flights.php
-│   ├── positions.php
-│   └── tmi/
-├── scripts/
-│   ├── swim_ws_server.php
-│   ├── swim_ws_events.php
-│   └── startup.sh
-├── sdk/
-│   └── python/
-│       ├── swim_client/
-│       ├── examples/
-│       └── README.md
+│   └── positions.php
+├── sdk/python/
+│   └── swim_client/
 └── docs/swim/
-    ├── SWIM_TODO.md
-    ├── SWIM_Phase2_Phase3_Transition.md
-    └── openapi.yaml
+    ├── VATSIM_SWIM_API_Documentation.md
+    ├── openapi.yaml
+    └── VATSIM_SWIM_API.postman_collection.json
 ```
 
 ---
@@ -164,54 +158,46 @@ PERTI/
 
 ## 🔗 API Endpoints
 
-| Endpoint | Status |
-|----------|--------|
-| `GET /api/swim/v1` | ✅ |
-| `GET /api/swim/v1/flights` | ✅ |
-| `GET /api/swim/v1/flight` | ✅ |
-| `GET /api/swim/v1/positions` | ✅ |
-| `GET /api/swim/v1/tmi/programs` | ✅ |
-| `GET /api/swim/v1/tmi/controlled` | ✅ |
-| `WS /api/swim/v1/ws` | ✅ |
-
----
-
-## 🔑 API Keys
-
-**Table:** `VATSIM_ADL.dbo.swim_api_keys`
-
-**Create new key:**
-```sql
-INSERT INTO dbo.swim_api_keys (api_key, tier, owner_name, owner_email, description)
-VALUES ('swim_' + LOWER(CONVERT(VARCHAR(36), NEWID())), 'developer', 'Name', 'email@example.com', 'Description');
-```
+| Endpoint | Method | Status |
+|----------|--------|--------|
+| `/api/swim/v1` | GET | ✅ |
+| `/api/swim/v1/flights` | GET | ✅ |
+| `/api/swim/v1/flight` | GET | ✅ |
+| `/api/swim/v1/positions` | GET | ✅ |
+| `/api/swim/v1/tmi/programs` | GET | ✅ |
+| `/api/swim/v1/tmi/controlled` | GET | ✅ |
+| `/api/swim/v1/ingest/adl` | POST | ✅ |
+| `/api/swim/v1/ingest/track` | POST | ✅ |
+| `/api/swim/v1/ws` | WS | ✅ |
 
 ---
 
 ## 📝 Change Log
 
-### 2026-01-16 Session 3 (Final)
+### 2026-01-16 Session 4 (AOC Telemetry)
+- ✅ Added vertical_rate_fpm support to ingest/adl.php
+- ✅ Added OOOI times support (out/off/on/in_utc)
+- ✅ Added eta_utc/etd_utc support
+- ✅ Fixed ingest/track.php database connection
+- ✅ Updated Postman collection with AOC examples
+- ✅ Verified no migration needed - columns exist in schema
+
+### 2026-01-16 Session 3 (Phase 2 Complete)
 - ✅ Database authentication implemented
-- ✅ Tier-based connection limits implemented
-- ✅ `swim_api_keys` table created
+- ✅ Tier-based connection limits
 - ✅ Phase 2 COMPLETE
 
-### 2026-01-16 Session 2
-- ✅ Poll interval: 500ms → 100ms
-- ✅ Python SDK created and tested
-
-### 2026-01-16 Session 1
+### 2026-01-16 Sessions 1-2
 - ✅ WebSocket server deployed
-- ✅ External WSS access verified
-- ✅ Event detection working
+- ✅ Python SDK created
 
 ---
 
 ## 🚀 Next Priorities
 
-1. **C#/Java SDKs** — When consumers need them
-2. **Metrics dashboard** — Track usage patterns
-3. **Redis** — When caching layer needed
+1. **Test AOC telemetry** with live virtual airline
+2. **C#/Java SDKs** — When consumers need them
+3. **Expand airport geometry** — For better OOOI detection
 
 ---
 

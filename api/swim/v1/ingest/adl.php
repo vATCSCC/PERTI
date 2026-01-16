@@ -7,7 +7,7 @@
  * 
  * Uses SWIM_API database exclusively (not VATSIM_ADL).
  * 
- * @version 3.0.0 - SWIM_API database only
+ * @version 3.2.0 - Removed true_airspeed_kts (not in schema), all other telemetry works
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -107,6 +107,7 @@ function processFlightUpdate($flight, $source, $conn) {
         $update_params = [];
         
         // Build dynamic update based on provided fields
+        // Telemetry fields: vertical_rate_fpm, OOOI times, ETA/ETD
         $field_map = [
             'aircraft_type' => 'aircraft_type',
             'aircraft_icao' => 'aircraft_icao',
@@ -117,11 +118,28 @@ function processFlightUpdate($flight, $source, $conn) {
             'alternate' => 'fp_alt_icao',
             'phase' => 'phase',
             'is_active' => 'is_active',
+            // Position data
             'latitude' => 'lat',
             'longitude' => 'lon',
+            'lat' => 'lat',
+            'lon' => 'lon',
             'altitude' => 'altitude_ft',
+            'altitude_ft' => 'altitude_ft',
             'heading' => 'heading_deg',
-            'ground_speed' => 'groundspeed_kts'
+            'heading_deg' => 'heading_deg',
+            'ground_speed' => 'groundspeed_kts',
+            'groundspeed_kts' => 'groundspeed_kts',
+            // Telemetry from AOC/flight sim
+            'vertical_rate' => 'vertical_rate_fpm',
+            'vertical_rate_fpm' => 'vertical_rate_fpm',
+            // OOOI times from AOC/ACARS
+            'out_utc' => 'out_utc',
+            'off_utc' => 'off_utc',
+            'on_utc' => 'on_utc',
+            'in_utc' => 'in_utc',
+            // ETA/ETD from FMC
+            'eta_utc' => 'eta_utc',
+            'etd_utc' => 'etd_utc'
         ];
         
         foreach ($field_map as $input_field => $db_field) {
@@ -197,6 +215,9 @@ function processFlightUpdate($flight, $source, $conn) {
                 aircraft_type, aircraft_icao,
                 phase, is_active,
                 lat, lon, altitude_ft, heading_deg, groundspeed_kts,
+                vertical_rate_fpm,
+                out_utc, off_utc, on_utc, in_utc,
+                eta_utc, etd_utc,
                 first_seen_utc, last_seen_utc, last_sync_utc
             ) VALUES (
                 ?, ?, ?, ?, ?,
@@ -205,6 +226,9 @@ function processFlightUpdate($flight, $source, $conn) {
                 ?, ?,
                 ?, ?,
                 ?, ?, ?, ?, ?,
+                ?,
+                ?, ?, ?, ?,
+                ?, ?,
                 GETUTCDATE(), GETUTCDATE(), GETUTCDATE()
             )
         ";
@@ -229,7 +253,14 @@ function processFlightUpdate($flight, $source, $conn) {
             $flight['longitude'] ?? $flight['lon'] ?? null,
             $flight['altitude'] ?? $flight['altitude_ft'] ?? null,
             $flight['heading'] ?? $flight['heading_deg'] ?? null,
-            $flight['ground_speed'] ?? $flight['groundspeed_kts'] ?? null
+            $flight['ground_speed'] ?? $flight['groundspeed_kts'] ?? null,
+            $flight['vertical_rate'] ?? $flight['vertical_rate_fpm'] ?? null,
+            $flight['out_utc'] ?? null,
+            $flight['off_utc'] ?? null,
+            $flight['on_utc'] ?? null,
+            $flight['in_utc'] ?? null,
+            $flight['eta_utc'] ?? null,
+            $flight['etd_utc'] ?? null
         ];
         
         $stmt = sqlsrv_query($conn, $insert_sql, $insert_params);
