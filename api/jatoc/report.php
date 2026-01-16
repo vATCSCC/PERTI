@@ -149,7 +149,7 @@ function genReportData($conn, $id) {
 
     // Add all updates with proper event type names
     foreach ($updates as $u) {
-        $eventType = JATOC_UPDATE_TYPES[$u['type']] ?? ucfirst(strtolower($u['type']));
+        $eventType = JATOC_UPDATE_TYPES[$u['type']] ?? ucfirst(strtolower($u['type'] ?? 'unknown'));
         $timeline[] = [
             'event' => $eventType,
             'timestamp' => $u['timestamp'],

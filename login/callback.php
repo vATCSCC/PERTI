@@ -43,11 +43,11 @@ if (isset($_GET['code'])) {
     $obj = json_decode($json, true);
     // END: cUrl to VATSIM Connect
 
-    // ---> 
-    $token_type = $obj['token_type'];
-    $access_token = $obj['access_token'];
+    // ---> Check if we got a valid response
+    $token_type = $obj['token_type'] ?? null;
+    $access_token = $obj['access_token'] ?? null;
 
-    if (isset($access_token)) {
+    if ($access_token) {
         // START: cUrl to VATSIM Connect (/api/user)
         $array = [
             "Authorization: $token_type $access_token",
@@ -67,9 +67,9 @@ if (isset($_GET['code'])) {
         curl_close($ch_at);
         // END: cUrl to VATSIM Connect 
 
-        $cid = $obj_at['data']['cid'];
+        $cid = $obj_at['data']['cid'] ?? null;
 
-        if (isset($cid)) {
+        if ($cid) {
             $check_query = "SELECT COUNT(*) as 'total', first_name, last_name FROM users WHERE cid=$cid";
             $check_run = mysqli_query($conn_sqli, $check_query);
 
@@ -80,13 +80,13 @@ if (isset($_GET['code'])) {
                 $first_name = $check_array['first_name'];
                 $last_name = $check_array['last_name'];
 
-                    // Generate Current IP Address
+                    // Generate Current IP Address (use server_get for safe access)
                     if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-                        $rawip = strip_tags($_SERVER['HTTP_CLIENT_IP']);
+                        $rawip = server_get('HTTP_CLIENT_IP');
                     } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                        $rawip = strip_tags($_SERVER['HTTP_X_FORWARDED_FOR']);
+                        $rawip = server_get('HTTP_X_FORWARDED_FOR');
                     } else {
-                        $rawip = strip_tags($_SERVER['REMOTE_ADDR']);
+                        $rawip = server_get('REMOTE_ADDR', '127.0.0.1');
                     }
 
                     if (strpos($rawip, ':') !== false) {
@@ -132,9 +132,10 @@ function sessionstart($cid, $first_name, $last_name) {
     // Generate Initial Session
     session_regenerate_id();
 
-    $_SESSION["VATSIM_CID"] = strip_tags($cid);
-    $_SESSION["VATSIM_FIRST_NAME"] = strip_tags($first_name);
-    $_SESSION["VATSIM_LAST_NAME"] = strip_tags($last_name);
+    // Safely sanitize values (handle potential null)
+    $_SESSION["VATSIM_CID"] = strip_tags($cid ?? '');
+    $_SESSION["VATSIM_FIRST_NAME"] = strip_tags($first_name ?? '');
+    $_SESSION["VATSIM_LAST_NAME"] = strip_tags($last_name ?? '');
 
 }
 

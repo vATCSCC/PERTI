@@ -53,21 +53,22 @@ while ($data = mysqli_fetch_array($query)) {
     $event_end_date = $data['event_end_date'] ?? '';
     $event_end_time = $data['event_end_time'] ?? '';
 
-    // Get badge abbreviation for hotline
-    $hotline_badge = $hotline_badges[$data['hotline']] ?? $data['hotline'][0];
+    // Get badge abbreviation for hotline (safely handle null)
+    $hotline = $data['hotline'] ?? '';
+    $hotline_badge = $hotline_badges[$hotline] ?? ($hotline !== '' ? substr($hotline, 0, 1) : 'UNK');
 
     // Add region icons for international hotline events
     $icon_prefix = '';
-    if (strpos($data['hotline'], 'Canada') === 0) {
+    if ($hotline !== '' && strpos($hotline, 'Canada') === 0) {
         $icon_prefix = '<img src="https://flagcdn.com/20x15/ca.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
-    } elseif ($data['hotline'] === 'Mexico') {
+    } elseif ($hotline === 'Mexico') {
         $icon_prefix = '<img src="https://flagcdn.com/20x15/mx.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
-    } elseif ($data['hotline'] === 'Caribbean') {
+    } elseif ($hotline === 'Caribbean') {
         $icon_prefix = '<i class="fas fa-tree fa-sm text-success" style="margin-right: 4px;"></i>';
     }
 
     echo '<tr>';
-    echo '<td>'.$icon_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$data['hotline'].' Hotline">'.$hotline_badge.'</span></td>';
+    echo '<td>'.$icon_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$hotline.' Hotline">'.$hotline_badge.'</span></td>';
     
     // Start Date
     echo '<td class="text-center">'.$data['event_date'].'</td>';

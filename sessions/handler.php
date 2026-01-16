@@ -10,13 +10,13 @@ if (session_status() == PHP_SESSION_NONE) {
 include_once(dirname(__DIR__, 1) . '/load/config.php');
 require_once(dirname(__DIR__, 1) . '/load/input.php');
 
-// Generate Current IP Address
+// Generate Current IP Address (use server_get for safe access)
 if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-    $rawip = strip_tags($_SERVER['HTTP_CLIENT_IP']);
+    $rawip = server_get('HTTP_CLIENT_IP');
 } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-    $rawip = strip_tags($_SERVER['HTTP_X_FORWARDED_FOR']);
+    $rawip = server_get('HTTP_X_FORWARDED_FOR');
 } else {
-    $rawip = strip_tags($_SERVER['REMOTE_ADDR']);
+    $rawip = server_get('REMOTE_ADDR', '127.0.0.1');
 }
 
 if (strpos($rawip, ':') !== false) {
