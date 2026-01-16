@@ -3,7 +3,7 @@
 > Centralized data exchange hub for real-time flight information sharing across the VATSIM ecosystem.
 
 [![Status](https://img.shields.io/badge/status-production-brightgreen)]()
-[![Phase](https://img.shields.io/badge/phase_2-complete-brightgreen)]()
+[![Phase](https://img.shields.io/badge/phase_3-in_progress-yellow)]()
 [![Cost](https://img.shields.io/badge/cost-$5/mo-brightgreen)]()
 
 ## ✅ Status: Production Ready
@@ -13,7 +13,7 @@
 | Phase 0: Infrastructure | ✅ Complete |
 | Phase 1: REST API | ✅ Complete |
 | Phase 2: WebSocket | ✅ Complete |
-| Phase 3: SDKs | 🔨 Python done |
+| Phase 3: SDKs & Integrations | 🔨 Python + AOC Telemetry done |
 
 **Live Features:**
 - REST API with FIXM field naming
@@ -21,6 +21,7 @@
 - Database-backed authentication
 - Tier-based rate limits
 - Python SDK
+- **NEW:** AOC Telemetry Ingest (vertical rate, OOOI times)
 
 ---
 
@@ -68,18 +69,74 @@ swim.on('flight.departed', (data) => {
 
 ---
 
+## 🆕 AOC Telemetry Integration
+
+Virtual airlines can push flight sim telemetry via the ingest API:
+
+### Push Telemetry with Vertical Rate
+
+```bash
+curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
+  -H "Authorization: Bearer swim_par_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flights": [{
+      "callsign": "DLH401",
+      "dept_icao": "KJFK",
+      "dest_icao": "EDDF",
+      "altitude_ft": 35000,
+      "groundspeed_kts": 485,
+      "vertical_rate_fpm": -1800
+    }]
+  }'
+```
+
+### Push OOOI Times
+
+```bash
+curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
+  -H "Authorization: Bearer swim_par_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flights": [{
+      "callsign": "DLH401",
+      "dept_icao": "KJFK",
+      "dest_icao": "EDDF",
+      "out_utc": "2026-01-16T14:30:00Z",
+      "off_utc": "2026-01-16T14:45:00Z"
+    }]
+  }'
+```
+
+### Supported Telemetry Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `vertical_rate_fpm` | INT | Climb/descent rate (+ = climb, - = descend) |
+| `out_utc` | DATETIME | OOOI - Gate departure |
+| `off_utc` | DATETIME | OOOI - Wheels up |
+| `on_utc` | DATETIME | OOOI - Wheels down |
+| `in_utc` | DATETIME | OOOI - Gate arrival |
+| `eta_utc` | DATETIME | FMC-calculated ETA |
+| `etd_utc` | DATETIME | Expected departure |
+
+---
+
 ## API Endpoints
 
 **Base URL:** `https://perti.vatcscc.org/api/swim/v1`
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /` | API info (no auth) |
-| `GET /flights` | List flights |
-| `GET /flight` | Single flight by GUFI |
-| `GET /positions` | Bulk positions (GeoJSON) |
-| `GET /tmi/programs` | Active TMI programs |
-| `WS /ws` | Real-time WebSocket |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | API info (no auth) |
+| `/flights` | GET | List flights |
+| `/flight` | GET | Single flight by GUFI |
+| `/positions` | GET | Bulk positions (GeoJSON) |
+| `/tmi/programs` | GET | Active TMI programs |
+| `/tmi/controlled` | GET | TMI-controlled flights |
+| `/ingest/adl` | POST | Ingest flight data (write access) |
+| `/ingest/track` | POST | High-freq position updates (write access) |
+| `/ws` | WS | Real-time WebSocket |
 
 ---
 
@@ -110,12 +167,12 @@ swim.on('flight.departed', (data) => {
 
 ## API Key Tiers
 
-| Tier | Connections | Rate Limit |
-|------|-------------|------------|
-| public | 5 | 30/min |
-| developer | 50 | 100/min |
-| partner | 500 | 1000/min |
-| system | 10,000 | 10000/min |
+| Tier | Connections | Rate Limit | Write Access |
+|------|-------------|------------|--------------|
+| public | 5 | 30/min | No |
+| developer | 50 | 100/min | No |
+| partner | 500 | 1000/min | Yes |
+| system | 10,000 | 10000/min | Yes |
 
 **Request a key:** Contact dev@vatcscc.org
 
@@ -136,10 +193,12 @@ swim.on('flight.departed', (data) => {
 
 | Document | Description |
 |----------|-------------|
+| [API Documentation](./VATSIM_SWIM_API_Documentation.md) | Full API reference |
 | [Implementation Tracker](./SWIM_TODO.md) | Current status |
-| [Transition Summary](./SWIM_Phase2_Phase3_Transition.md) | Recent changes |
+| [AOC Telemetry Transition](./SWIM_Session_Transition_20260116_AOCTelemetry.md) | Latest changes |
 | [OpenAPI Spec](./openapi.yaml) | REST API spec |
 | [Swagger UI](./index.html) | Interactive docs |
+| [Postman Collection](./VATSIM_SWIM_API.postman_collection.json) | API examples |
 
 ---
 

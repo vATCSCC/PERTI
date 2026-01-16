@@ -1,100 +1,448 @@
 {
-	"info": {
-		"_postman_id": "swim-api-v1-collection",
-		"name": "VATSIM SWIM API v1",
-		"description": "System Wide Information Management (SWIM) API for VATSIM.\n\n## Authentication\nAll endpoints require Bearer token authentication.\n\n## Base URL\n`https://perti.vatcscc.org/api/swim/v1`",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"auth": {
-		"type": "bearer",
-		"bearer": [{"key": "token", "value": "{{api_key}}", "type": "string"}]
-	},
-	"variable": [
-		{"key": "base_url", "value": "https://perti.vatcscc.org/api/swim/v1"},
-		{"key": "api_key", "value": "swim_dev_your_key_here"}
-	],
-	"item": [
-		{
-			"name": "Flights",
-			"item": [
-				{"name": "List Active Flights", "request": {"method": "GET", "url": {"raw": "{{base_url}}/flights?status=active&per_page=100", "host": ["{{base_url}}"], "path": ["flights"], "query": [{"key": "status", "value": "active"}, {"key": "per_page", "value": "100"}]}}},
-				{"name": "Filter by Callsign", "request": {"method": "GET", "url": {"raw": "{{base_url}}/flights?callsign=UAL*&status=active", "host": ["{{base_url}}"], "path": ["flights"], "query": [{"key": "callsign", "value": "UAL*"}, {"key": "status", "value": "active"}]}}},
-				{"name": "Filter by Destination", "request": {"method": "GET", "url": {"raw": "{{base_url}}/flights?dest_icao=KJFK&status=active", "host": ["{{base_url}}"], "path": ["flights"], "query": [{"key": "dest_icao", "value": "KJFK"}, {"key": "status", "value": "active"}]}}},
-				{"name": "Get Single Flight", "request": {"method": "GET", "url": {"raw": "{{base_url}}/flight?gufi=VAT-20260116-UAL123-KJFK-KLAX", "host": ["{{base_url}}"], "path": ["flight"], "query": [{"key": "gufi", "value": "VAT-20260116-UAL123-KJFK-KLAX"}]}}}
-			]
-		},
-		{
-			"name": "Positions",
-			"item": [
-				{"name": "Get All Positions (GeoJSON)", "request": {"method": "GET", "url": {"raw": "{{base_url}}/positions", "host": ["{{base_url}}"], "path": ["positions"]}}},
-				{"name": "Positions by Destination", "request": {"method": "GET", "url": {"raw": "{{base_url}}/positions?dest_icao=KJFK", "host": ["{{base_url}}"], "path": ["positions"], "query": [{"key": "dest_icao", "value": "KJFK"}]}}}
-			]
-		},
-		{
-			"name": "TMI",
-			"item": [
-				{"name": "Get Active Programs", "request": {"method": "GET", "url": {"raw": "{{base_url}}/tmi/programs", "host": ["{{base_url}}"], "path": ["tmi", "programs"]}}},
-				{"name": "Get Controlled Flights", "request": {"method": "GET", "url": {"raw": "{{base_url}}/tmi/controlled", "host": ["{{base_url}}"], "path": ["tmi", "controlled"]}}}
-			]
-		},
-		{
-			"name": "Ingest",
-			"item": [
-				{"name": "Create Pre-file", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n    \"flights\": [{\n        \"callsign\": \"UAL123\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"KLAX\",\n        \"aircraft_type\": \"B738\",\n        \"route\": \"DEEZZ5 DEEZZ J584 ORD\",\n        \"cruise_altitude\": 35000,\n        \"phase\": \"prefile\"\n    }]\n}"}, "url": {"raw": "{{base_url}}/ingest/adl", "host": ["{{base_url}}"], "path": ["ingest", "adl"]}}},
-				{"name": "Update TMI Status", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n    \"flights\": [{\n        \"callsign\": \"UAL123\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"KLAX\",\n        \"tmi\": {\n            \"ctl_type\": \"GDP\",\n            \"slot_time_utc\": \"2026-01-16T18:30:00Z\",\n            \"delay_minutes\": 45\n        }\n    }]\n}"}, "url": {"raw": "{{base_url}}/ingest/adl", "host": ["{{base_url}}"], "path": ["ingest", "adl"]}}}
-			],
-			"description": "Write access required (partner/system tier)"
-		},
-		{
-			"name": "Virtual Airline (AOC)",
-			"item": [
-				{
-					"name": "Get Airline Flights",
-					"request": {"method": "GET", "url": {"raw": "{{base_url}}/flights?callsign=DLH*&status=active", "host": ["{{base_url}}"], "path": ["flights"], "query": [{"key": "callsign", "value": "DLH*"}, {"key": "status", "value": "active"}]}},
-					"description": "Get all active flights for your airline (replace DLH with your ICAO code)"
-				},
-				{
-					"name": "Push Telemetry with Vertical Rate",
-					"request": {
-						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
-						"body": {"mode": "raw", "raw": "{\n    \"flights\": [{\n        \"callsign\": \"DLH401\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"EDDF\",\n        \"phase\": \"climbing\",\n        \"latitude\": 41.2345,\n        \"longitude\": -72.5678,\n        \"altitude_ft\": 18500,\n        \"heading_deg\": 65,\n        \"groundspeed_kts\": 320,\n        \"vertical_rate_fpm\": 2200\n    }]\n}"},
-						"url": {"raw": "{{base_url}}/ingest/adl", "host": ["{{base_url}}"], "path": ["ingest", "adl"]}
-					},
-					"description": "Push telemetry with vertical_rate_fpm from flight sim.\n\nPositive = climbing, Negative = descending"
-				},
-				{
-					"name": "Push Telemetry - Descent",
-					"request": {
-						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
-						"body": {"mode": "raw", "raw": "{\n    \"flights\": [{\n        \"callsign\": \"DLH401\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"EDDF\",\n        \"phase\": \"descending\",\n        \"latitude\": 50.1234,\n        \"longitude\": 7.5678,\n        \"altitude_ft\": 12000,\n        \"heading_deg\": 95,\n        \"groundspeed_kts\": 280,\n        \"vertical_rate_fpm\": -1800\n    }]\n}"},
-						"url": {"raw": "{{base_url}}/ingest/adl", "host": ["{{base_url}}"], "path": ["ingest", "adl"]}
-					},
-					"description": "Descending flight: -1800 fpm"
-				},
-				{
-					"name": "Push OOOI Times (ACARS)",
-					"request": {
-						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
-						"body": {"mode": "raw", "raw": "{\n    \"flights\": [{\n        \"callsign\": \"DLH401\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"EDDF\",\n        \"out_utc\": \"2026-01-16T14:30:00Z\",\n        \"off_utc\": \"2026-01-16T14:45:00Z\",\n        \"on_utc\": \"2026-01-16T22:15:00Z\",\n        \"in_utc\": \"2026-01-16T22:25:00Z\"\n    }]\n}"},
-						"url": {"raw": "{{base_url}}/ingest/adl", "host": ["{{base_url}}"], "path": ["ingest", "adl"]}
-					},
-					"description": "Push OOOI times from ACARS:\n- OUT: Left gate\n- OFF: Wheels up\n- ON: Wheels down\n- IN: Arrived at gate"
-				},
-				{
-					"name": "Track Update (High-Frequency)",
-					"request": {
-						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
-						"body": {"mode": "raw", "raw": "{\n    \"tracks\": [{\n        \"callsign\": \"DLH401\",\n        \"latitude\": 54.5123,\n        \"longitude\": -24.8765,\n        \"altitude_ft\": 39000,\n        \"ground_speed_kts\": 486,\n        \"heading_deg\": 78,\n        \"vertical_rate_fpm\": 0\n    }]\n}"},
-						"url": {"raw": "{{base_url}}/ingest/track", "host": ["{{base_url}}"], "path": ["ingest", "track"]}
-					},
-					"description": "High-frequency position streaming (every 5-10 sec).\nMax 1000 tracks per request."
-				}
-			],
-			"description": "AOC integration - push telemetry from flight sim.\n\nSupported fields:\n- vertical_rate_fpm (climb/descent rate)\n- out_utc, off_utc, on_utc, in_utc (OOOI times)\n- eta_utc, etd_utc (FMC times)"
-		}
-	]
+  "info": {
+    "_postman_id": "swim-api-v1-collection",
+    "name": "VATSIM SWIM API v1",
+    "description": "System Wide Information Management (SWIM) API for VATSIM.\n\n## Authentication\nAll endpoints require Bearer token authentication.\n\n## Base URL\n`https://perti.vatcscc.org/api/swim/v1`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Flights",
+      "item": [
+        {
+          "name": "List Active Flights",
+          "id": "7428a720-8f27-49a5-be86-c344d224c65e",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?status=active&per_page=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "per_page",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by Callsign",
+          "id": "2da1d2c3-b237-4fce-a599-015992e88222",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?callsign=UAL*&status=active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "callsign",
+                  "value": "UAL*"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by Destination",
+          "id": "377a17b0-d2e1-4e5d-9ff9-394a67ca3940",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?dest_icao=KJFK&status=active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "dest_icao",
+                  "value": "KJFK"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Flight",
+          "id": "b674fdb6-b4cd-4eda-bc27-6b86d13c4adc",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flight?gufi=VAT-20260116-UAL123-KJFK-KLAX",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flight"
+              ],
+              "query": [
+                {
+                  "key": "gufi",
+                  "value": "VAT-20260116-UAL123-KJFK-KLAX"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "5b7cc24e-d810-4f83-81c5-bb3f575ae4da"
+    },
+    {
+      "name": "Positions",
+      "item": [
+        {
+          "name": "Get All Positions (GeoJSON)",
+          "id": "7a1cc110-1bd6-42d2-8df3-2677d93a0fb4",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/positions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "positions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Positions by Destination",
+          "id": "e5522117-4d86-4c08-90aa-01db8492b13e",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/positions?dest_icao=KJFK",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "dest_icao",
+                  "value": "KJFK"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "888e2ac7-60d5-40ab-ab27-4c80e2f7c401"
+    },
+    {
+      "name": "TMI",
+      "item": [
+        {
+          "name": "Get Active Programs",
+          "id": "71c9c14a-6cfc-4c4b-a7bf-f424d40fe052",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/programs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "programs"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Controlled Flights",
+          "id": "fcfdfb41-555f-4d40-9911-b919b23c86aa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tmi/controlled",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tmi",
+                "controlled"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "223201b1-e9ee-493b-b399-af3ae198ad70"
+    },
+    {
+      "name": "Ingest",
+      "item": [
+        {
+          "name": "Create Pre-file",
+          "id": "6e0266a4-b5ba-4aa2-9905-0c4f48884524",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [{\n        \"callsign\": \"UAL123\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"KLAX\",\n        \"aircraft_type\": \"B738\",\n        \"route\": \"DEEZZ5 DEEZZ J584 ORD\",\n        \"cruise_altitude\": 35000,\n        \"phase\": \"prefile\"\n    }]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update TMI Status",
+          "id": "613cb3cd-0ace-4f21-9e73-000cb159ba4a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [{\n        \"callsign\": \"UAL123\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"KLAX\",\n        \"tmi\": {\n            \"ctl_type\": \"GDP\",\n            \"slot_time_utc\": \"2026-01-16T18:30:00Z\",\n            \"delay_minutes\": 45\n        }\n    }]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "dfb438bd-5fc6-4fa7-91cb-2fab4dd16af5",
+      "description": "Write access required (partner/system tier)"
+    },
+    {
+      "name": "Virtual Airline (AOC)",
+      "item": [
+        {
+          "name": "Get Airline Flights",
+          "id": "56c38bea-3d80-4fe9-8f22-079aab8c0437",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/flights?callsign=DLH*&status=active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "flights"
+              ],
+              "query": [
+                {
+                  "key": "callsign",
+                  "value": "DLH*"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Push Telemetry with Vertical Rate",
+          "id": "eaf1b6fa-3305-44a3-a072-6432ae552a1c",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [{\n        \"callsign\": \"DLH401\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"EDDF\",\n        \"phase\": \"climbing\",\n        \"latitude\": 41.2345,\n        \"longitude\": -72.5678,\n        \"altitude_ft\": 18500,\n        \"heading_deg\": 65,\n        \"groundspeed_kts\": 320,\n        \"vertical_rate_fpm\": 2200\n    }]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Push Telemetry - Descent",
+          "id": "356478a2-e508-40e8-888d-eba1a0a8e3f5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [{\n        \"callsign\": \"DLH401\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"EDDF\",\n        \"phase\": \"descending\",\n        \"latitude\": 50.1234,\n        \"longitude\": 7.5678,\n        \"altitude_ft\": 12000,\n        \"heading_deg\": 95,\n        \"groundspeed_kts\": 280,\n        \"vertical_rate_fpm\": -1800\n    }]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Push OOOI Times (ACARS)",
+          "id": "2a3f4c2f-7dff-4965-be75-bb832559e155",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"flights\": [{\n        \"callsign\": \"DLH401\",\n        \"dept_icao\": \"KJFK\",\n        \"dest_icao\": \"EDDF\",\n        \"out_utc\": \"2026-01-16T14:30:00Z\",\n        \"off_utc\": \"2026-01-16T14:45:00Z\",\n        \"on_utc\": \"2026-01-16T22:15:00Z\",\n        \"in_utc\": \"2026-01-16T22:25:00Z\"\n    }]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/adl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "adl"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Track Update (High-Frequency)",
+          "id": "8458f85f-64d9-478d-ad7c-7e97b886e56e",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tracks\": [{\n        \"callsign\": \"DLH401\",\n        \"latitude\": 54.5123,\n        \"longitude\": -24.8765,\n        \"altitude_ft\": 39000,\n        \"ground_speed_kts\": 486,\n        \"heading_deg\": 78,\n        \"vertical_rate_fpm\": 0\n    }]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingest/track",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingest",
+                "track"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "293f7fa6-28f0-4553-ad82-f5722ad89caa",
+      "description": "AOC integration - push telemetry from flight sim.\n\nSupported fields:\n- vertical_rate_fpm (climb/descent rate)\n- out_utc, off_utc, on_utc, in_utc (OOOI times)\n- eta_utc, etd_utc (FMC times)"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{api_key}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "id": "f29b81f2-6c5e-4440-96f8-40e95ce46917",
+      "key": "base_url",
+      "value": "https://perti.vatcscc.org/api/swim/v1"
+    },
+    {
+      "id": "1d684e69-3dec-4a63-aefb-1715d38eb370",
+      "key": "api_key",
+      "value": "swim_dev_your_key_here"
+    }
+  ]
 }
