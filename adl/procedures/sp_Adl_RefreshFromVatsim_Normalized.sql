@@ -1,5 +1,10 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.11 - Fix DATEDIFF Overflow
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.12 - Disable Waypoint ETA (moved to daemon)
+--
+-- Changes from V8.9.11:
+--   - DISABLED Step 8c (Waypoint ETA) - moved to waypoint_eta_daemon.php
+--   - Uses sp_CalculateWaypointETABatch_Tiered for tiered processing
+--   - Fixes scaling issue at high pilot counts (5-10s at 3000 pilots)
 --
 -- Changes from V8.9.10:
 --   - Fixed DATEDIFF overflow: Changed to DATEDIFF_BIG for epoch calculations
@@ -875,13 +880,17 @@ BEGIN
 
     -- ========================================================================
     -- Step 8c: Waypoint ETA Calculation (V8.6)
+    -- DISABLED 2026-01-16: Moved to separate waypoint_eta_daemon.php
+    -- Uses sp_CalculateWaypointETABatch_Tiered for tiered processing
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
-    
-    IF OBJECT_ID('dbo.sp_CalculateWaypointETABatch', 'P') IS NOT NULL
-    BEGIN
-        EXEC dbo.sp_CalculateWaypointETABatch @waypoint_count = @waypoint_etas OUTPUT;
-    END
+
+    -- DISABLED: Causing scaling issues at high pilot counts (5-10s at 3000 pilots)
+    -- Now runs in separate daemon with tiered intervals
+    -- IF OBJECT_ID('dbo.sp_CalculateWaypointETABatch', 'P') IS NOT NULL
+    -- BEGIN
+    --     EXEC dbo.sp_CalculateWaypointETABatch @waypoint_count = @waypoint_etas OUTPUT;
+    -- END
 
     SET @step8c_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
@@ -1026,7 +1035,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.11 created successfully';
-PRINT 'V8.9.11: Fixed DATEDIFF overflow - changed to DATEDIFF_BIG for epoch calculations';
-PRINT 'Steps 1-9 + 12-13 active, target <5s performance';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.12 created successfully';
+PRINT 'V8.9.12: Disabled Step 8c (Waypoint ETA) - moved to waypoint_eta_daemon.php';
+PRINT 'Steps 1-8b, 8d, 9, 12-13 active, target <5s performance';
 GO

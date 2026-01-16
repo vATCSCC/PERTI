@@ -1,75 +1,50 @@
-# Postman Collections & API Documentation
+# Postman Configuration
 
-## Canonical Locations
+## OpenAPI as Source of Truth
 
-| API | Postman Collection | OpenAPI Spec |
-|-----|-------------------|--------------|
-| **PERTI API** | `postman/collections/PERTI API.postman_collection.json` | `api-docs/openapi.yaml` |
-| **SWIM API** | `docs/swim/VATSIM_SWIM_API.postman_collection.json` | `docs/swim/openapi.yaml` |
+We maintain OpenAPI specs only - Postman collections are generated on-demand by importing the specs.
 
-## PERTI API
+### Import into Postman
 
-Internal VATSIM PERTI platform API for:
-- ADL (Aggregate Demand List) flight data
-- TMI (Traffic Management Initiatives) - GDP, Ground Stops
-- Demand analysis and forecasting
-- Sector configurations
-- Route management
+| API | Import This File |
+|-----|------------------|
+| **PERTI API** | `api-docs/openapi.yaml` |
+| **SWIM API** | `docs/swim/openapi.yaml` |
 
-**Import into Postman:**
-```
-postman/collections/PERTI API.postman_collection.json
-```
+**Steps:**
+1. Open Postman
+2. Click **Import**
+3. Select the OpenAPI YAML file
+4. Postman generates the collection automatically
 
-## SWIM API
-
-External System Wide Information Management API for third-party integrations:
-- Virtual Airlines (fleet tracking, OOOI, telemetry)
-- Facility/vNAS (sector traffic, demand monitoring)
-- TMI Coordination (programs, controlled flights)
-- Data providers (CRC, EuroScope)
-
-**Import into Postman:**
-```
-docs/swim/VATSIM_SWIM_API.postman_collection.json
-```
-
-**SDK Examples:** `sdk/python/examples/`
+Re-import whenever the OpenAPI spec is updated.
 
 ## Directory Structure
 
 ```
 postman/
-├── collections/
-│   ├── PERTI API.postman_collection.json  # ← PERTI API (active)
-│   └── _deprecated/                       # Old duplicates - safe to delete
 ├── environments/
 │   └── SWIM_Development.postman_environment.json
 ├── globals/
 │   └── workspace.postman_globals.json
-├── specs/
-│   ├── README.md                          # Points to canonical specs
-│   └── _deprecated/                       # Postman stub files - safe to delete
-└── README.md                              # This file
-
-docs/swim/
-├── openapi.yaml                           # ← SWIM API OpenAPI spec (active)
-├── VATSIM_SWIM_API.postman_collection.json # ← SWIM API Postman collection (active)
-└── ...
-
-api-docs/
-├── openapi.yaml                           # ← PERTI API OpenAPI spec (active)
-└── index.php                              # Swagger UI viewer
+└── README.md
 ```
 
 ## Environments
 
 | Environment | Description |
 |-------------|-------------|
-| `SWIM_Development` | Development/testing environment variables |
+| `SWIM_Development` | Development/testing variables for SWIM API |
 
-## Deprecated Files
+## CLI Testing (Newman)
 
-Duplicate/stub files have been moved to `_deprecated/` folders and can be safely deleted:
-- `collections/_deprecated/` - Duplicate Postman collections
-- `specs/_deprecated/` - Postman-generated stub OpenAPI specs
+For automated testing, use Newman with the OpenAPI spec:
+
+```bash
+# Install newman and openapi-to-postman
+npm install -g newman newman-reporter-html openapi-to-postmanv2
+
+# Convert and run
+openapi2postmanv2 -s docs/swim/openapi.yaml -o /tmp/swim.json
+newman run /tmp/swim.json -e postman/environments/SWIM_Development.postman_environment.json
+```
