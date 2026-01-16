@@ -378,6 +378,81 @@ Applies manual rate override.
 
 ---
 
+## Airspace Element Demand APIs (v17)
+
+Query traffic demand at navigation fixes, airway segments, and route segments. These endpoints call table-valued functions in Azure SQL for efficient demand analysis.
+
+### GET /api/adl/demand/fix.php
+
+Returns flights passing through a specific navigation fix within a time window.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fix` | string | Navigation fix identifier (required) |
+| `minutes` | int | Time window in minutes (default: 60, max: 720) |
+| `dep_tracon` | string | Filter by departure TRACON (e.g., N90) |
+| `arr_tracon` | string | Filter by arrival TRACON |
+| `format` | string | 'list' (default) or 'count' |
+
+**Example:**
+
+```http
+GET /api/adl/demand/fix?fix=MERIT&minutes=45&dep_tracon=N90
+```
+
+### GET /api/adl/demand/airway.php
+
+Returns flights on an airway segment between two fixes. Requires the flight to have filed via the specified airway.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `airway` | string | Airway identifier (required, e.g., J48, V1, Q100) |
+| `from_fix` | string | Segment start fix (required) |
+| `to_fix` | string | Segment end fix (required) |
+| `minutes` | int | Time window in minutes (default: 60, max: 720) |
+| `format` | string | 'list' (default) or 'count' |
+
+**Example:**
+
+```http
+GET /api/adl/demand/airway?airway=J48&from_fix=LANNA&to_fix=MOL&minutes=180
+```
+
+### GET /api/adl/demand/segment.php
+
+Returns flights passing through two fixes in sequence, regardless of whether they filed via an airway or direct (DCT). More flexible than the airway endpoint for VATSIM where pilots often file direct routes.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from_fix` | string | First fix (required) |
+| `to_fix` | string | Second fix (required) |
+| `minutes` | int | Time window in minutes (default: 60, max: 720) |
+| `format` | string | 'list' (default) or 'count' |
+
+**Example:**
+
+```http
+GET /api/adl/demand/segment?from_fix=CAM&to_fix=GONZZ&minutes=180
+```
+
+**Response fields:**
+
+| Field | Description |
+|-------|-------------|
+| `entry_eta` | ETA at the first fix |
+| `exit_eta` | ETA at the second fix |
+| `segment_minutes` | Time to traverse the segment |
+| `direction` | 'forward' or 'reverse' based on sequence order |
+| `on_airway` | Airway identifier if filed via an airway |
+
+---
+
 ## Public Routes APIs
 
 Shared route advisories for coordination.

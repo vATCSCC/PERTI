@@ -37,6 +37,8 @@ This reference defines acronyms and terminology used throughout PERTI and VATSIM
 | **FCA** | Flow Constrained Area - airspace element used with AFPs |
 | **FEA** | Flow Evaluation Area - airspace element for traffic analysis |
 | **CDM** | Collaborative Decision Making |
+| **ATFM** | Air Traffic Flow Management |
+| **DCT** | Direct (routing between two points without following an airway) |
 
 ---
 
