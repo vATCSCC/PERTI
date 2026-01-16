@@ -30,8 +30,40 @@ nohup php "${WWWROOT}/adl/php/boundary_daemon.php" --loop --interval=30 >> /home
 BOUNDARY_PID=$!
 echo "  boundary_daemon.php started (PID: $BOUNDARY_PID)"
 
+# Start the SWIM WebSocket server (real-time flight events on port 8090)
+echo "Starting swim_ws_server.php (WebSocket on port 8090)..."
+nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim_ws.log 2>&1 &
+WS_PID=$!
+echo "  swim_ws_server.php started (PID: $WS_PID)"
+
 echo "========================================"
-echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
+echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, ws=$WS_PID"
+echo "========================================"
+
+# Configure Apache WebSocket proxy
+echo "Configuring Apache WebSocket proxy..."
+
+# Enable required modules (may already be enabled)
+a2enmod proxy proxy_http proxy_wstunnel 2>/dev/null || true
+
+# Create WebSocket proxy config
+cat > /etc/apache2/conf-available/swim-websocket.conf << 'WSCONF'
+# SWIM WebSocket Proxy - Route /api/swim/v1/ws to internal Ratchet server
+<IfModule mod_proxy.c>
+    <IfModule mod_proxy_wstunnel.c>
+        ProxyRequests Off
+        ProxyPreserveHost On
+        ProxyPass /api/swim/v1/ws ws://127.0.0.1:8090/
+        ProxyPassReverse /api/swim/v1/ws ws://127.0.0.1:8090/
+        ProxyTimeout 3600
+    </IfModule>
+</IfModule>
+WSCONF
+
+# Enable the config
+a2enconf swim-websocket 2>/dev/null || true
+
+echo "Apache WebSocket proxy configured"
 echo "========================================"
 
 # Start the default Apache server (required for App Service)
