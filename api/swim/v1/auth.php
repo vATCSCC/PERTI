@@ -99,34 +99,16 @@ class SwimAuth {
         $stmt = sqlsrv_query($this->conn_swim, $sql, [$api_key]);
         
         if ($stmt === false) {
-            return $this->getFallbackKeyInfo($api_key);
+            // Log the database error but don't expose details
+            error_log('SWIM Auth: Database query failed - ' . print_r(sqlsrv_errors(), true));
+            return null;
         }
         
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
         
-        return $row ?: $this->getFallbackKeyInfo($api_key);
-    }
-    
-    private function getFallbackKeyInfo($api_key) {
-        $tier = swim_get_key_tier($api_key);
-        if (!$tier) return null;
-        
-        return [
-            'id' => 0,
-            'api_key' => $api_key,
-            'tier' => $tier,
-            'owner_name' => 'Development',
-            'owner_email' => 'dev@vatcscc.org',
-            'source_id' => 'vatcscc',
-            'can_write' => ($tier === 'system' || $tier === 'partner'),
-            'allowed_sources' => null,
-            'ip_whitelist' => null,
-            'expires_at' => null,
-            'created_at' => date('Y-m-d H:i:s'),
-            'last_used_at' => null,
-            'is_active' => 1
-        ];
+        // No fallback - key must exist in database
+        return $row ?: null;
     }
     
     private function checkRateLimit($key_info) {
