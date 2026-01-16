@@ -25,7 +25,7 @@ REM CONFIGURATION - Edit these values
 REM ============================================================================
 
 REM Database password (REQUIRED - set this before running)
-set WIND_DB_PASSWORD=ADL_WIND_DB
+set WIND_DB_PASSWORD=CAMRN@11000
 
 REM Optional: Override defaults if needed
 REM set WIND_DB_SERVER=tcp:vatsim.database.windows.net,1433
@@ -33,7 +33,7 @@ REM set WIND_DB_NAME=VATSIM_ADL
 REM set WIND_DB_USER=adl_api_user
 
 REM Conda environment name (if using conda)
-set CONDA_ENV=base
+set CONDA_ENV=wind
 
 REM Log file location
 set LOG_DIR=%~dp0logs

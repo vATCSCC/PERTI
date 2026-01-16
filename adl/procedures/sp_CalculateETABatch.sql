@@ -1,6 +1,13 @@
 -- ============================================================================
--- sp_CalculateETABatch.sql (V3.4 - Wind Integration)
+-- sp_CalculateETABatch.sql (V3.5 - Segment Wind Integration)
 -- Consolidated batch ETA calculation - Single Source of Truth
+--
+-- V3.5 Changes:
+--   - Segment-based wind: Uses separate wind adjustments for climb/cruise/descent
+--   - Reads eta_wind_climb_kts, eta_wind_cruise_kts, eta_wind_descent_kts
+--   - Applies appropriate wind to each flight phase's time calculation
+--   - More accurate ETA especially for climbing/descending flights
+--   - Works with sp_UpdateFlightWindAdjustments_V2
 --
 -- V3.4 Changes:
 --   - Integrated pre-calculated wind adjustment from separate wind process
@@ -37,12 +44,12 @@
 --   - Route distance integration (NEW in V3)
 --   - Step climb speed/altitude integration
 --   - TMI delay handling (EDCT/CTA)
---   - Wind component estimation
+--   - Segment wind integration (NEW in V3.5)
 --   - Full phase handling
 --   - TOD distance and ETA calculation
 --   - Efficient set-based batch processing
 --
--- Date: 2026-01-07
+-- Date: 2026-01-15
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -60,13 +67,13 @@ CREATE PROCEDURE dbo.sp_CalculateETABatch
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     DECLARE @now DATETIME2(0) = SYSUTCDATETIME();
     DECLARE @start_time DATETIME2(3) = SYSDATETIME();
     DECLARE @step_time DATETIME2(3);
-    
+
     SET @eta_count = 0;
-    
+
     -- ========================================================================
     -- Step 1: Build work table with flight data (including SimBrief data)
     -- ========================================================================
@@ -75,9 +82,9 @@ BEGIN
         SET @step_time = SYSDATETIME();
         PRINT 'Step 1: Building work table...';
     END
-    
+
     DROP TABLE IF EXISTS #eta_work;
-    
+
     SELECT
         c.flight_uid,
         c.phase,
@@ -118,8 +125,11 @@ BEGIN
         ft.in_utc,
         ft.ata_runway_utc,
         ft.eta_utc AS current_eta,
-        -- V3.4: Pre-calculated wind adjustment from separate wind process
-        ft.eta_wind_adj_kts AS precalc_wind_adj
+        -- V3.5: Segment wind adjustments
+        ft.eta_wind_adj_kts AS precalc_wind_adj,
+        ft.eta_wind_climb_kts AS wind_climb,
+        ft.eta_wind_cruise_kts AS wind_cruise,
+        ft.eta_wind_descent_kts AS wind_descent
     INTO #eta_work
     FROM dbo.adl_flight_core c
     LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid  -- V3.1: LEFT JOIN for prefiles
@@ -130,13 +140,13 @@ BEGIN
     LEFT JOIN dbo.adl_flight_times ft ON ft.flight_uid = c.flight_uid
     WHERE c.is_active = 1
       AND (p.lat IS NOT NULL OR c.phase = 'prefile');  -- V3.1: Include prefiles without position
-    
+
     IF @debug = 1
     BEGIN
         PRINT '  Work table rows: ' + CAST(@@ROWCOUNT AS VARCHAR);
         PRINT '  Duration: ' + CAST(DATEDIFF(MILLISECOND, @step_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
-    
+
     -- ========================================================================
     -- Step 1b: Add step climb cruise speed data (NEW in V2)
     -- Get average cruise speed from step climbs for SimBrief flights
@@ -146,16 +156,16 @@ BEGIN
         SET @step_time = SYSDATETIME();
         PRINT 'Step 1b: Loading step climb speeds...';
     END
-    
+
     ALTER TABLE #eta_work ADD
         simbrief_cruise_kts INT NULL,
         simbrief_cruise_mach DECIMAL(4,3) NULL;
-    
+
     -- Get weighted average cruise speed from step climbs
     -- Use a temp table instead of CTE for compatibility
     DROP TABLE IF EXISTS #step_speeds;
-    
-    SELECT 
+
+    SELECT
         sc.flight_uid,
         AVG(sc.speed_kts) AS avg_speed_kts,
         AVG(sc.speed_mach) AS avg_speed_mach,
@@ -166,15 +176,15 @@ BEGIN
     INNER JOIN #eta_work w ON w.flight_uid = sc.flight_uid
     WHERE sc.speed_kts IS NOT NULL OR sc.speed_mach IS NOT NULL
     GROUP BY sc.flight_uid;
-    
+
     UPDATE w
     SET w.simbrief_cruise_kts = COALESCE(ss.max_speed_kts, ss.avg_speed_kts),
         w.simbrief_cruise_mach = COALESCE(ss.max_speed_mach, ss.avg_speed_mach)
     FROM #eta_work w
     INNER JOIN #step_speeds ss ON ss.flight_uid = w.flight_uid;
-    
+
     DROP TABLE IF EXISTS #step_speeds;
-    
+
     IF @debug = 1
     BEGIN
         DECLARE @simbrief_speed_count INT;
@@ -182,7 +192,7 @@ BEGIN
         PRINT '  Flights with SimBrief cruise speed: ' + CAST(@simbrief_speed_count AS VARCHAR);
         PRINT '  Duration: ' + CAST(DATEDIFF(MILLISECOND, @step_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
-    
+
     -- ========================================================================
     -- Step 2: Build performance lookup table
     -- ========================================================================
@@ -191,9 +201,9 @@ BEGIN
         SET @step_time = SYSDATETIME();
         PRINT 'Step 2: Building performance lookup...';
     END
-    
+
     DROP TABLE IF EXISTS #perf_lookup;
-    
+
     SELECT DISTINCT
         aircraft_icao,
         weight_class,
@@ -201,13 +211,13 @@ BEGIN
     INTO #perf_lookup
     FROM #eta_work
     WHERE aircraft_icao IS NOT NULL;
-    
+
     ALTER TABLE #perf_lookup ADD
         climb_speed_kias INT NULL,
         cruise_speed_ktas INT NULL,
         descent_speed_kias INT NULL,
         perf_source NVARCHAR(32) NULL;
-    
+
     UPDATE pl
     SET pl.climb_speed_kias = perf.climb_speed_kias,
         pl.cruise_speed_ktas = perf.cruise_speed_ktas,
@@ -215,17 +225,17 @@ BEGIN
         pl.perf_source = perf.source
     FROM #perf_lookup pl
     CROSS APPLY dbo.fn_GetAircraftPerformance(
-        pl.aircraft_icao, 
-        pl.weight_class, 
+        pl.aircraft_icao,
+        pl.weight_class,
         pl.engine_type
     ) perf;
-    
+
     UPDATE #perf_lookup
     SET climb_speed_kias = ISNULL(climb_speed_kias, 280),
         cruise_speed_ktas = ISNULL(cruise_speed_ktas, 450),
         descent_speed_kias = ISNULL(descent_speed_kias, 280),
         perf_source = ISNULL(perf_source, 'DEFAULT');
-    
+
     IF @debug = 1
     BEGIN
         DECLARE @perf_lookup_count INT;
@@ -233,7 +243,7 @@ BEGIN
         PRINT '  Performance lookup rows: ' + CAST(@perf_lookup_count AS VARCHAR);
         PRINT '  Duration: ' + CAST(DATEDIFF(MILLISECOND, @step_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
-    
+
     -- ========================================================================
     -- Step 3: Add performance to work table (with SimBrief override)
     -- ========================================================================
@@ -242,57 +252,66 @@ BEGIN
         cruise_speed INT NULL,
         descent_speed INT NULL,
         speed_source NVARCHAR(16) NULL;
-    
+
     UPDATE w
     SET w.climb_speed = ISNULL(pl.climb_speed_kias, 280),
         -- V2: Use SimBrief cruise speed if available, else aircraft performance
         w.cruise_speed = COALESCE(
             w.simbrief_cruise_kts,  -- SimBrief step climb speed (priority)
-            CASE WHEN w.simbrief_cruise_mach IS NOT NULL 
+            CASE WHEN w.simbrief_cruise_mach IS NOT NULL
                  THEN CAST(w.simbrief_cruise_mach * 600 AS INT)  -- Rough Mach to TAS @ FL350
                  ELSE NULL END,
             pl.cruise_speed_ktas,   -- Aircraft performance lookup
             450                      -- Default
         ),
         w.descent_speed = ISNULL(pl.descent_speed_kias, 280),
-        w.speed_source = CASE 
+        w.speed_source = CASE
             WHEN w.simbrief_cruise_kts IS NOT NULL THEN 'SIMBRIEF_TAS'
             WHEN w.simbrief_cruise_mach IS NOT NULL THEN 'SIMBRIEF_MACH'
             WHEN pl.cruise_speed_ktas IS NOT NULL THEN 'AIRCRAFT_PERF'
             ELSE 'DEFAULT'
         END
     FROM #eta_work w
-    LEFT JOIN #perf_lookup pl 
+    LEFT JOIN #perf_lookup pl
         ON pl.aircraft_icao = w.aircraft_icao
         AND pl.weight_class = w.weight_class
         AND ISNULL(pl.engine_type, '') = ISNULL(w.engine_type, '');
-    
+
     -- Set defaults for any remaining NULLs
     UPDATE #eta_work
     SET climb_speed = ISNULL(climb_speed, 280),
         cruise_speed = ISNULL(cruise_speed, 450),
         descent_speed = ISNULL(descent_speed, 280),
         speed_source = ISNULL(speed_source, 'DEFAULT');
-    
+
     IF @debug = 1
     BEGIN
-        SELECT 
-            speed_source, 
+        SELECT
+            speed_source,
             COUNT(*) AS flights,
             AVG(cruise_speed) AS avg_cruise_speed
         FROM #eta_work
         GROUP BY speed_source;
+
+        -- V3.5: Show wind coverage
+        DECLARE @with_segment_wind INT, @with_any_wind INT;
+        SELECT
+            @with_segment_wind = COUNT(CASE WHEN wind_climb IS NOT NULL OR wind_descent IS NOT NULL THEN 1 END),
+            @with_any_wind = COUNT(CASE WHEN precalc_wind_adj IS NOT NULL THEN 1 END)
+        FROM #eta_work;
+        PRINT '  Flights with segment winds: ' + CAST(@with_segment_wind AS VARCHAR);
+        PRINT '  Flights with any wind: ' + CAST(@with_any_wind AS VARCHAR);
     END
-    
+
     -- ========================================================================
-    -- Step 4: Calculate ETA values (V2 with step climb awareness)
+    -- Step 4: Calculate ETA values (V3.5 with segment wind)
     -- ========================================================================
     IF @debug = 1
     BEGIN
         SET @step_time = SYSDATETIME();
-        PRINT 'Step 4: Calculating ETAs...';
+        PRINT 'Step 4: Calculating ETAs with segment winds...';
     END
-    
+
     ;WITH EtaCalc AS (
         SELECT
             w.flight_uid,
@@ -318,91 +337,165 @@ BEGIN
             w.is_simbrief,
             w.stepclimb_count,
             w.speed_source,
-            -- V3.4: Pre-calculated wind adjustment
+            -- V3.5: Segment wind adjustments
             w.precalc_wind_adj,
+            w.wind_climb,
+            w.wind_cruise,
+            w.wind_descent,
 
             -- V2: TOD distance using final cruise altitude (more accurate for step climbs)
             (w.filed_alt - w.dest_elev) / 1000.0 * 3.0 AS tod_dist,
-            
+
             -- TOC distance: 2nm per 1000ft climb
-            CASE 
-                WHEN w.altitude_ft < w.filed_alt 
-                THEN (w.filed_alt - ISNULL(w.altitude_ft, 0)) / 1000.0 * 2.0 
-                ELSE 0 
+            CASE
+                WHEN w.altitude_ft < w.filed_alt
+                THEN (w.filed_alt - ISNULL(w.altitude_ft, 0)) / 1000.0 * 2.0
+                ELSE 0
             END AS toc_dist,
-            
+
             -- Determine if arrived
-            CASE 
+            CASE
                 WHEN w.phase IN ('on', 'in', 'arrived') THEN 1
                 WHEN w.current_eta IS NOT NULL AND @now >= w.current_eta THEN 1
                 ELSE 0
             END AS is_arrived,
-            
+
             -- Actual arrival time
-            CASE 
+            CASE
                 WHEN w.phase = 'in' THEN COALESCE(w.in_utc, w.on_utc, w.ata_runway_utc, @now)
                 WHEN w.phase = 'on' THEN COALESCE(w.on_utc, w.ata_runway_utc, @now)
                 WHEN w.phase = 'arrived' THEN COALESCE(w.ata_runway_utc, w.on_utc, @now)
                 ELSE NULL
             END AS actual_arrival,
-            
+
             -- TMI delay
-            CASE 
+            CASE
                 WHEN w.edct_utc IS NOT NULL AND w.phase IN ('prefile', 'taxiing', 'unknown', 'parking', 'gate')
-                THEN CASE WHEN DATEDIFF(MINUTE, @now, w.edct_utc) > 0 
-                          THEN DATEDIFF(MINUTE, @now, w.edct_utc) 
+                THEN CASE WHEN DATEDIFF(MINUTE, @now, w.edct_utc) > 0
+                          THEN DATEDIFF(MINUTE, @now, w.edct_utc)
                           ELSE 0 END
                 ELSE 0
             END AS tmi_delay
-            
+
         FROM #eta_work w
     ),
     EtaTime AS (
         SELECT
             e.*,
-            
-            -- Calculate time to destination
-            CASE 
+
+            -- V3.5: Calculate effective speeds with segment wind adjustments
+            -- Climb: climb_speed + wind_climb (or wind_cruise as fallback for climbing flights)
+            CASE
+                WHEN e.wind_climb IS NOT NULL AND ABS(e.wind_climb) > 5
+                THEN e.climb_speed + e.wind_climb
+                WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                THEN e.climb_speed + (e.wind_cruise * 0.5)  -- 50% of cruise wind during climb
+                ELSE e.climb_speed
+            END AS eff_climb_speed,
+
+            -- Cruise: cruise_speed + wind_cruise (or precalc_wind_adj as fallback)
+            CASE
+                WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                THEN e.cruise_speed + e.wind_cruise
+                WHEN e.precalc_wind_adj IS NOT NULL AND ABS(e.precalc_wind_adj) > 5
+                THEN e.cruise_speed + e.precalc_wind_adj
+                ELSE e.cruise_speed
+            END AS eff_cruise_speed,
+
+            -- Descent: descent_speed + wind_descent (or wind_cruise * 0.7 as fallback)
+            CASE
+                WHEN e.wind_descent IS NOT NULL AND ABS(e.wind_descent) > 5
+                THEN e.descent_speed + e.wind_descent
+                WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                THEN e.descent_speed + (e.wind_cruise * 0.7)  -- 70% of cruise wind during descent
+                ELSE e.descent_speed
+            END AS eff_descent_speed,
+
+            -- Calculate time to destination using effective speeds
+            CASE
                 WHEN e.is_arrived = 1 THEN 0
-                
-                -- Final approach
+
+                -- Final approach (use actual GS when close and descending)
                 WHEN e.phase = 'descending' AND e.dist_to_dest_nm < 50 THEN
                     e.dist_to_dest_nm / NULLIF(e.groundspeed_kts, 0) * 60
-                
-                -- Descent phase
+
+                -- Descent phase: Apply descent wind
                 WHEN e.phase = 'descending' THEN
-                    e.dist_to_dest_nm / NULLIF(e.descent_speed, 0) * 60
-                
-                -- Cruise/enroute (V3.4: Use wind-adjusted cruise speed when available)
+                    e.dist_to_dest_nm / NULLIF(
+                        CASE
+                            WHEN e.wind_descent IS NOT NULL AND ABS(e.wind_descent) > 5
+                            THEN e.descent_speed + e.wind_descent
+                            WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                            THEN e.descent_speed + (e.wind_cruise * 0.7)
+                            ELSE e.descent_speed
+                        END, 0) * 60
+
+                -- Cruise/enroute: Apply cruise wind + descent wind
                 WHEN e.phase IN ('enroute', 'cruise') THEN
                     CASE WHEN e.dist_to_dest_nm > e.tod_dist
-                         -- V3.4: Apply wind adjustment to cruise portion if significant
+                         -- Cruise portion with cruise wind
                          THEN (e.dist_to_dest_nm - e.tod_dist) / NULLIF(
-                             CASE WHEN e.precalc_wind_adj IS NOT NULL AND ABS(e.precalc_wind_adj) > 5
-                                  THEN e.cruise_speed + e.precalc_wind_adj
-                                  ELSE e.cruise_speed
+                             CASE
+                                 WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                                 THEN e.cruise_speed + e.wind_cruise
+                                 WHEN e.precalc_wind_adj IS NOT NULL AND ABS(e.precalc_wind_adj) > 5
+                                 THEN e.cruise_speed + e.precalc_wind_adj
+                                 ELSE e.cruise_speed
                              END, 0) * 60
                          ELSE 0
                     END
+                    -- Descent portion with descent wind
                     + CASE WHEN e.dist_to_dest_nm > e.tod_dist
-                           THEN e.tod_dist / NULLIF(e.descent_speed, 0) * 60
-                           ELSE e.dist_to_dest_nm / NULLIF(e.descent_speed, 0) * 60
+                           THEN e.tod_dist / NULLIF(
+                               CASE
+                                   WHEN e.wind_descent IS NOT NULL AND ABS(e.wind_descent) > 5
+                                   THEN e.descent_speed + e.wind_descent
+                                   WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                                   THEN e.descent_speed + (e.wind_cruise * 0.7)
+                                   ELSE e.descent_speed
+                               END, 0) * 60
+                           ELSE e.dist_to_dest_nm / NULLIF(
+                               CASE
+                                   WHEN e.wind_descent IS NOT NULL AND ABS(e.wind_descent) > 5
+                                   THEN e.descent_speed + e.wind_descent
+                                   ELSE e.descent_speed
+                               END, 0) * 60
                     END
-                
-                -- Climbing (V3.4: Use wind-adjusted cruise speed when available)
+
+                -- Climbing: Apply climb wind + cruise wind + descent wind
                 WHEN e.phase IN ('departed', 'climbing') THEN
-                    e.toc_dist / NULLIF(e.climb_speed, 0) * 60
+                    -- Climb portion with climb wind
+                    e.toc_dist / NULLIF(
+                        CASE
+                            WHEN e.wind_climb IS NOT NULL AND ABS(e.wind_climb) > 5
+                            THEN e.climb_speed + e.wind_climb
+                            WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                            THEN e.climb_speed + (e.wind_cruise * 0.5)
+                            ELSE e.climb_speed
+                        END, 0) * 60
+                    -- Cruise portion with cruise wind
                     + CASE WHEN (e.dist_to_dest_nm - e.toc_dist - e.tod_dist) > 0
                            THEN (e.dist_to_dest_nm - e.toc_dist - e.tod_dist) / NULLIF(
-                               CASE WHEN e.precalc_wind_adj IS NOT NULL AND ABS(e.precalc_wind_adj) > 5
-                                    THEN e.cruise_speed + e.precalc_wind_adj
-                                    ELSE e.cruise_speed
+                               CASE
+                                   WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                                   THEN e.cruise_speed + e.wind_cruise
+                                   WHEN e.precalc_wind_adj IS NOT NULL AND ABS(e.precalc_wind_adj) > 5
+                                   THEN e.cruise_speed + e.precalc_wind_adj
+                                   ELSE e.cruise_speed
                                END, 0) * 60
                            ELSE 0
                     END
-                    + e.tod_dist / NULLIF(e.descent_speed, 0) * 60
-                
-                -- Taxiing
+                    -- Descent portion with descent wind
+                    + e.tod_dist / NULLIF(
+                        CASE
+                            WHEN e.wind_descent IS NOT NULL AND ABS(e.wind_descent) > 5
+                            THEN e.descent_speed + e.wind_descent
+                            WHEN e.wind_cruise IS NOT NULL AND ABS(e.wind_cruise) > 5
+                            THEN e.descent_speed + (e.wind_cruise * 0.7)
+                            ELSE e.descent_speed
+                        END, 0) * 60
+
+                -- Taxiing (no wind adjustment for taxi/initial climb estimate)
                 WHEN e.phase IN ('taxiing', 'taxi') THEN
                     12
                     + (e.filed_alt - e.dest_elev) / 1000.0 * 2.0 / NULLIF(e.climb_speed, 0) * 60
@@ -413,49 +506,54 @@ BEGIN
                     END
                     + e.tod_dist / NULLIF(e.descent_speed, 0) * 60
                     + e.tmi_delay
-                
-                -- Pre-file: V3 uses total_route_dist
+
+                -- Pre-file: V3 uses total_route_dist (no wind - too early)
                 ELSE
                     15
                     + ISNULL(e.dist_to_dest_nm, e.total_route_dist) / NULLIF(e.cruise_speed, 0) * 60 * 1.15
                     + e.tmi_delay
-                    
+
             END AS time_to_dest_min,
-            
-            -- V2: Confidence boost for SimBrief flights with step climb data
-            CASE 
+
+            -- V3.5: Higher confidence when segment winds available
+            CASE
                 WHEN e.is_arrived = 1 THEN 1.00
                 WHEN e.phase = 'descending' AND e.dist_to_dest_nm < 50 THEN 0.95
+                WHEN e.phase = 'descending' AND e.wind_descent IS NOT NULL THEN 0.94  -- Segment wind boost
                 WHEN e.phase = 'descending' THEN 0.92
-                WHEN e.phase IN ('enroute', 'cruise') AND e.is_simbrief = 1 AND e.stepclimb_count > 0 THEN 0.92  -- Higher confidence with SimBrief
+                WHEN e.phase IN ('enroute', 'cruise') AND e.is_simbrief = 1 AND e.stepclimb_count > 0 AND e.wind_cruise IS NOT NULL THEN 0.94
+                WHEN e.phase IN ('enroute', 'cruise') AND e.wind_cruise IS NOT NULL THEN 0.92  -- Segment wind boost
+                WHEN e.phase IN ('enroute', 'cruise') AND e.is_simbrief = 1 AND e.stepclimb_count > 0 THEN 0.92
                 WHEN e.phase IN ('enroute', 'cruise') THEN 0.88
+                WHEN e.phase IN ('climbing', 'departed') AND e.is_simbrief = 1 AND e.wind_climb IS NOT NULL THEN 0.88  -- Segment wind boost
+                WHEN e.phase IN ('climbing', 'departed') AND e.wind_climb IS NOT NULL THEN 0.86
                 WHEN e.phase IN ('climbing', 'departed') AND e.is_simbrief = 1 THEN 0.85
                 WHEN e.phase IN ('climbing', 'departed') THEN 0.82
                 WHEN e.phase IN ('taxiing', 'taxi') THEN 0.75
                 WHEN e.phase IN ('parking', 'gate') THEN 0.70
                 ELSE 0.65
             END AS confidence,
-            
+
             -- ETA prefix
-            CASE 
+            CASE
                 WHEN e.is_arrived = 1 THEN 'A'
                 WHEN e.cta_utc IS NOT NULL THEN 'C'
                 WHEN e.edct_utc IS NOT NULL AND e.phase IN ('prefile', 'taxiing', 'unknown', 'parking', 'gate') THEN 'C'
                 WHEN e.phase IN ('prefile', 'unknown') THEN 'P'
                 ELSE 'E'
             END AS eta_prefix,
-            
-            -- Wind component
-            CASE 
+
+            -- Wind component (legacy - GS-based for display)
+            CASE
                 WHEN e.phase IN ('enroute', 'cruise') AND e.groundspeed_kts > 0 THEN
-                    CASE 
+                    CASE
                         WHEN e.groundspeed_kts - e.cruise_speed > 100 THEN 100
                         WHEN e.groundspeed_kts - e.cruise_speed < -100 THEN -100
                         ELSE e.groundspeed_kts - e.cruise_speed
                     END
                 ELSE 0
             END AS wind_component
-            
+
         FROM EtaCalc e
     ),
     EtaFinal AS (
@@ -476,37 +574,40 @@ BEGIN
             et.stepclimb_count,
             et.speed_source,
             et.dist_source,  -- V3: Track distance source
-            
-            CASE 
+            et.wind_climb,
+            et.wind_cruise,
+            et.wind_descent,
+
+            CASE
                 WHEN et.is_arrived = 1 THEN et.actual_arrival
                 WHEN et.time_to_dest_min IS NULL OR et.time_to_dest_min < 0 THEN NULL
                 ELSE DATEADD(MINUTE, CAST(et.time_to_dest_min AS INT), @now)
             END AS calc_eta,
-            
-            CASE 
+
+            CASE
                 WHEN et.is_arrived = 1 THEN NULL
                 WHEN et.phase IN ('descending', 'on', 'in', 'arrived') THEN NULL
                 WHEN et.dist_to_dest_nm <= et.tod_dist THEN NULL
                 WHEN et.groundspeed_kts > 0 THEN
-                    DATEADD(MINUTE, 
-                        CAST((et.dist_to_dest_nm - et.tod_dist) / NULLIF(et.groundspeed_kts, 0) * 60 AS INT), 
+                    DATEADD(MINUTE,
+                        CAST((et.dist_to_dest_nm - et.tod_dist) / NULLIF(et.groundspeed_kts, 0) * 60 AS INT),
                         @now)
                 ELSE NULL
             END AS tod_eta,
-            
+
             et.phase
-            
+
         FROM EtaTime et
     )
     SELECT
         ef.flight_uid,
-        CASE 
+        CASE
             WHEN ef.is_arrived = 1 THEN ef.calc_eta
             WHEN ef.cta_utc IS NOT NULL AND ef.calc_eta IS NOT NULL AND ef.cta_utc > ef.calc_eta THEN ef.cta_utc
             ELSE ef.calc_eta
         END AS final_eta,
         ef.calc_eta,
-        CASE 
+        CASE
             WHEN ef.is_arrived = 1 THEN 'A'
             WHEN ef.cta_utc IS NOT NULL AND ef.calc_eta IS NOT NULL AND ef.cta_utc > ef.calc_eta THEN 'C'
             ELSE ef.eta_prefix
@@ -518,17 +619,18 @@ BEGIN
         ef.tod_dist,
         ef.tod_eta,
         ef.dist_source,  -- V3.1: Include dist_source for UPDATE
-        -- V3: Track method with distance source
+        -- V3.5: Track method with segment wind indicator
         CASE
-            WHEN ef.dist_source = 'ROUTE' AND ef.is_simbrief = 1 THEN 'V3_ROUTE_SB'
-            WHEN ef.dist_source = 'ROUTE' THEN 'V3_ROUTE'
-            WHEN ef.is_simbrief = 1 AND ef.stepclimb_count > 0 THEN 'V3_SB'
-            WHEN ef.speed_source = 'SIMBRIEF_TAS' OR ef.speed_source = 'SIMBRIEF_MACH' THEN 'V3_SB'
-            ELSE 'V3'
+            WHEN ef.wind_climb IS NOT NULL OR ef.wind_descent IS NOT NULL THEN 'V35_SEG_WIND'
+            WHEN ef.dist_source = 'ROUTE' AND ef.is_simbrief = 1 THEN 'V35_ROUTE_SB'
+            WHEN ef.dist_source = 'ROUTE' THEN 'V35_ROUTE'
+            WHEN ef.is_simbrief = 1 AND ef.stepclimb_count > 0 THEN 'V35_SB'
+            WHEN ef.speed_source = 'SIMBRIEF_TAS' OR ef.speed_source = 'SIMBRIEF_MACH' THEN 'V35_SB'
+            ELSE 'V35'
         END AS eta_method
     INTO #eta_results
     FROM EtaFinal ef;
-    
+
     IF @debug = 1
     BEGIN
         DECLARE @eta_result_count INT;
@@ -537,7 +639,7 @@ BEGIN
         SELECT eta_method, COUNT(*) AS flights FROM #eta_results GROUP BY eta_method;
         PRINT '  Duration: ' + CAST(DATEDIFF(MILLISECOND, @step_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
-    
+
     -- ========================================================================
     -- Step 5: Update flight_times table
     -- ========================================================================
@@ -546,14 +648,14 @@ BEGIN
         SET @step_time = SYSDATETIME();
         PRINT 'Step 5: Updating flight_times...';
     END
-    
+
     UPDATE ft
     SET ft.eta_utc = r.final_eta,
         ft.eta_runway_utc = r.final_eta,
-        ft.eta_epoch = CASE 
-            WHEN r.final_eta IS NOT NULL 
-            THEN DATEDIFF_BIG(SECOND, '1970-01-01', r.final_eta) 
-            ELSE NULL 
+        ft.eta_epoch = CASE
+            WHEN r.final_eta IS NOT NULL
+            THEN DATEDIFF_BIG(SECOND, '1970-01-01', r.final_eta)
+            ELSE NULL
         END,
         ft.eta_prefix = r.final_prefix,
         ft.eta_confidence = r.confidence,
@@ -569,15 +671,15 @@ BEGIN
         ft.times_updated_utc = @now
     FROM dbo.adl_flight_times ft
     INNER JOIN #eta_results r ON r.flight_uid = ft.flight_uid;
-    
+
     SET @eta_count = @@ROWCOUNT;
-    
+
     IF @debug = 1
     BEGIN
         PRINT '  Rows updated: ' + CAST(@eta_count AS VARCHAR);
         PRINT '  Duration: ' + CAST(DATEDIFF(MILLISECOND, @step_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
-    
+
     -- ========================================================================
     -- Step 6: Insert rows for flights without times record
     -- ========================================================================
@@ -623,35 +725,32 @@ BEGIN
         SELECT 1 FROM dbo.adl_flight_times ft
         WHERE ft.flight_uid = r.flight_uid
     );
-    
+
     IF @debug = 1
     BEGIN
         PRINT '  New rows inserted: ' + CAST(@@ROWCOUNT AS VARCHAR);
         PRINT 'Total duration: ' + CAST(DATEDIFF(MILLISECOND, @start_time, SYSDATETIME()) AS VARCHAR) + 'ms';
     END
-    
+
     -- Cleanup
     DROP TABLE IF EXISTS #eta_work;
     DROP TABLE IF EXISTS #perf_lookup;
     DROP TABLE IF EXISTS #eta_results;
-    
+
 END
 GO
 
-PRINT 'Created sp_CalculateETABatch V3.4 (Wind Integration)';
+PRINT 'Created sp_CalculateETABatch V3.5 (Segment Wind Integration)';
 PRINT '';
-PRINT 'V3.4: Integrated pre-calculated wind adjustment into ETA calculations';
-PRINT '      - Uses eta_wind_adj_kts from separate wind process (sp_UpdateFlightWindAdjustments)';
-PRINT '      - Cruise/enroute and climbing phases use wind-adjusted effective speed';
-PRINT 'V3.3: Fixed dist_source missing from #eta_results (broke eta_dist_source UPDATE)';
+PRINT 'V3.5: Segment-based wind integration for improved ETA accuracy';
+PRINT '      - Uses eta_wind_climb_kts for climb phase time calculation';
+PRINT '      - Uses eta_wind_cruise_kts for cruise phase time calculation';
+PRINT '      - Uses eta_wind_descent_kts for descent phase time calculation';
+PRINT '      - Fallback logic: segment wind -> precalc_wind_adj -> no wind';
+PRINT '      - Method tracking: V35_SEG_WIND when segment winds used';
+PRINT '';
+PRINT 'V3.4: Single weighted wind adjustment for cruise only';
+PRINT 'V3.3: Fixed dist_source missing from #eta_results';
 PRINT 'V3.2: Prefiles now get ETA calculations using GCD distance';
-PRINT 'V3.1: Sets eta_dist_source for analysis';
-PRINT 'V3 Enhancements:';
-PRINT '  - Uses parsed route_dist_nm when available (more accurate than GCD)';
-PRINT '  - Falls back to gcd_nm when route not parsed';
-PRINT '  - Method tracking: V3_ROUTE_SB, V3_ROUTE, V3_SB, V3';
 PRINT '';
-PRINT 'V2 Features retained:';
-PRINT '  - SimBrief step climb speed integration';
-PRINT '  - final_alt_ft for accurate TOD calculation';
 GO
