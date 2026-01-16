@@ -1300,7 +1300,16 @@ if (!function_exists('curl_init')) {
 }
 
 $lockFile = __DIR__ . '/vatsim_adl.lock';
-$lockFp = fopen($lockFile, 'c+');
+$lockFp = @fopen($lockFile, 'c+');
+if ($lockFp === false) {
+    // Try system temp directory as fallback
+    $lockFile = sys_get_temp_dir() . '/vatsim_adl.lock';
+    $lockFp = @fopen($lockFile, 'c+');
+    if ($lockFp === false) {
+        die("ERROR: Cannot create lock file. Tried:\n  - " . __DIR__ . "/vatsim_adl.lock\n  - {$lockFile}\n");
+    }
+    logInfo("Using fallback lock file: {$lockFile}");
+}
 if (!flock($lockFp, LOCK_EX | LOCK_NB)) {
     die("ERROR: Another instance is already running (lock file: {$lockFile})\n");
 }
