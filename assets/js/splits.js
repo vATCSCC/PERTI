@@ -5443,7 +5443,8 @@ const SplitsController = {
 
         const publishImmediately = document.getElementById('publish-immediately')?.checked;
         const startTime = this.currentConfig.startTime;
-        const hasFutureStartTime = startTime && new Date(startTime) > new Date();
+        // Append 'Z' to treat as UTC
+        const hasFutureStartTime = startTime && new Date(startTime + 'Z') > new Date();
 
         if (hasFutureStartTime) {
             // Future start time = Schedule (regardless of checkbox)
@@ -5462,7 +5463,9 @@ const SplitsController = {
     
     formatDisplayTime(isoString) {
         if (!isoString) return '-';
-        const d = new Date(isoString);
+        // Append 'Z' to treat input as UTC (datetime-local inputs don't include timezone)
+        const utcString = isoString.endsWith('Z') || isoString.includes('+') ? isoString : isoString + 'Z';
+        const d = new Date(utcString);
         return d.toUTCString().replace('GMT', 'Z');
     },
     
@@ -5476,7 +5479,7 @@ const SplitsController = {
         // Determine status based on start time and publish checkbox
         let status;
         const hasFutureStartTime = this.currentConfig.startTime &&
-            new Date(this.currentConfig.startTime) > new Date();
+            new Date(this.currentConfig.startTime + 'Z') > new Date();
 
         if (hasFutureStartTime) {
             // Future start time = scheduled (will become active when time arrives)
@@ -5722,8 +5725,8 @@ const SplitsController = {
         let html = '';
         this.scheduledConfigs.forEach(config => {
             const positions = config.positions || [];
-            const startTime = config.start_time_utc ? new Date(config.start_time_utc + 'Z') : null;
-            const endTime = config.end_time_utc ? new Date(config.end_time_utc + 'Z') : null;
+            const startTime = config.start_time_utc ? new Date(config.start_time_utc.endsWith('Z') ? config.start_time_utc : config.start_time_utc + 'Z') : null;
+            const endTime = config.end_time_utc ? new Date(config.end_time_utc.endsWith('Z') ? config.end_time_utc : config.end_time_utc + 'Z') : null;
             
             // Calculate countdown
             let countdownText = '';
