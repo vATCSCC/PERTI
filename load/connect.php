@@ -6,6 +6,9 @@
 
 include_once("config.php");
 
+// Include safe input handling functions for PHP 8.2+
+require_once(__DIR__ . '/input.php');
+
 // -------------------------------------------------------------------------
 // Helper for ADL SQL Server error messages (used by Azure SQL connection)
 // -------------------------------------------------------------------------

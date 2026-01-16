@@ -15,6 +15,7 @@ header('Content-Type: application/json; charset=utf-8');
 // ---------------------------------------------------------------------------
 
 require_once("../../load/config.php"); // should define ADL_SQL_HOST, ADL_SQL_DATABASE, ADL_SQL_USERNAME, ADL_SQL_PASSWORD
+require_once("../../load/input.php"); // Safe input functions for PHP 8.2+
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
     !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {
