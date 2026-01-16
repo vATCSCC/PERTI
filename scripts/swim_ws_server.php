@@ -80,7 +80,7 @@ use React\Socket\SocketServer;
 $config = [
     // Server
     'host' => '0.0.0.0',
-    'port' => 8080,
+    'port' => 8090,
     
     // Authentication
     'auth_enabled' => true,

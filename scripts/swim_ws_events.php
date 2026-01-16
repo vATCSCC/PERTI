@@ -8,7 +8,7 @@
  * Include this file in vatsim_adl_daemon.php to enable real-time events.
  * 
  * @package PERTI\SWIM\WebSocket
- * @version 1.0.0
+ * @version 1.0.1
  * @since 2026-01-16
  */
 
@@ -28,10 +28,10 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
         SELECT 
             c.callsign,
             c.flight_uid,
-            p.dep,
-            p.arr,
-            p.equipment,
-            p.route,
+            p.fp_dept_icao,
+            p.fp_dest_icao,
+            p.aircraft_equip,
+            p.fp_route,
             pos.lat,
             pos.lon,
             pos.altitude_ft,
@@ -40,7 +40,7 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
         FROM dbo.adl_flight_core c
         JOIN dbo.adl_flight_plan p ON p.flight_uid = c.flight_uid
         LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
-        WHERE c.created_at > ?
+        WHERE c.first_seen_utc > ?
           AND c.is_active = 1
     ";
     
@@ -52,10 +52,10 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
                 'data' => [
                     'callsign' => $row['callsign'],
                     'flight_uid' => $row['flight_uid'],
-                    'dep' => $row['dep'],
-                    'arr' => $row['arr'],
-                    'equipment' => $row['equipment'],
-                    'route' => $row['route'],
+                    'dep' => $row['fp_dept_icao'],
+                    'arr' => $row['fp_dest_icao'],
+                    'equipment' => $row['aircraft_equip'],
+                    'route' => $row['fp_route'],
                     'latitude' => $row['lat'],
                     'longitude' => $row['lon'],
                     'altitude_ft' => $row['altitude_ft'],
@@ -73,8 +73,8 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
             c.callsign,
             c.flight_uid,
             t.off_utc,
-            p.dep,
-            p.arr
+            p.fp_dept_icao,
+            p.fp_dest_icao
         FROM dbo.adl_flight_core c
         JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
         JOIN dbo.adl_flight_plan p ON p.flight_uid = c.flight_uid
@@ -95,8 +95,8 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
                 'data' => [
                     'callsign' => $row['callsign'],
                     'flight_uid' => $row['flight_uid'],
-                    'dep' => $row['dep'],
-                    'arr' => $row['arr'],
+                    'dep' => $row['fp_dept_icao'],
+                    'arr' => $row['fp_dest_icao'],
                     'off_utc' => $offUtc,
                 ],
             ];
@@ -110,8 +110,8 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
             c.callsign,
             c.flight_uid,
             t.in_utc,
-            p.dep,
-            p.arr
+            p.fp_dept_icao,
+            p.fp_dest_icao
         FROM dbo.adl_flight_core c
         JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
         JOIN dbo.adl_flight_plan p ON p.flight_uid = c.flight_uid
@@ -131,8 +131,8 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
                 'data' => [
                     'callsign' => $row['callsign'],
                     'flight_uid' => $row['flight_uid'],
-                    'dep' => $row['dep'],
-                    'arr' => $row['arr'],
+                    'dep' => $row['fp_dept_icao'],
+                    'arr' => $row['fp_dest_icao'],
                     'in_utc' => $inUtc,
                 ],
             ];
@@ -145,10 +145,10 @@ function swim_detectFlightEvents($conn, string $lastRefresh): array
         SELECT 
             c.callsign,
             c.flight_uid,
-            c.last_seen
+            c.last_seen_utc
         FROM dbo.adl_flight_core c
         WHERE c.is_active = 0
-          AND c.last_seen > ?
+          AND c.last_seen_utc > ?
     ";
     
     $stmt = @sqlsrv_query($conn, $sql, [$lastRefresh]);
@@ -190,8 +190,8 @@ function swim_detectPositionUpdates($conn, string $lastRefresh): array
             pos.groundspeed_kts,
             pos.heading_deg,
             pos.vertical_rate_fpm,
-            p.dep,
-            p.arr
+            p.fp_dept_icao,
+            p.fp_dest_icao
         FROM dbo.adl_flight_core c
         JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
         JOIN dbo.adl_flight_plan p ON p.flight_uid = c.flight_uid
@@ -213,8 +213,8 @@ function swim_detectPositionUpdates($conn, string $lastRefresh): array
                 'heading_deg' => (int)$row['heading_deg'],
                 'vertical_rate_fpm' => (int)($row['vertical_rate_fpm'] ?? 0),
                 'current_artcc' => $row['current_artcc'],
-                'dep' => $row['dep'],
-                'arr' => $row['arr'],
+                'dep' => $row['fp_dept_icao'],
+                'arr' => $row['fp_dest_icao'],
             ];
         }
         sqlsrv_free_stmt($stmt);
@@ -381,6 +381,7 @@ function swim_processWebSocketEvents($conn, string $lastRefresh, bool $includePo
     $allEvents = array_merge($allEvents, $flightEvents);
     
     // Detect position updates (optionally)
+    $positionEvents = [];
     if ($includePositions) {
         $positionEvents = swim_detectPositionUpdates($conn, $lastRefresh);
         $allEvents = array_merge($allEvents, $positionEvents);
