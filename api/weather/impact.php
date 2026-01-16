@@ -27,6 +27,7 @@ header('Cache-Control: max-age=15'); // Cache for 15 seconds
 // ---------------------------------------------------------------------------
 
 require_once("../../load/config.php");
+require_once("../../load/input.php");
 
 if (!defined("ADL_SQL_HOST")) {
     http_response_code(500);

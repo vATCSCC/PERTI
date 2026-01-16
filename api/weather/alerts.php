@@ -28,6 +28,7 @@ header('Cache-Control: max-age=60'); // Cache for 1 minute
 // ---------------------------------------------------------------------------
 
 require_once("../../load/config.php");
+require_once("../../load/input.php");
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
     !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {
