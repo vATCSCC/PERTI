@@ -1,192 +1,175 @@
 # VATSIM SWIM Implementation - Session Transition Summary
 
-**Date:** 2026-01-15  
-**Session:** Initial SWIM API Implementation  
-**Status:** Phase 1 Foundation - Core API Complete, Pending Deployment
+**Date:** 2026-01-16  
+**Sessions:** 1-4 (Initial through Normalized Schema Migration)  
+**Status:** Phase 0 Infrastructure Migration Required (BLOCKING)
 
 ---
 
-## What Was Accomplished This Session
+## ⚠️ CRITICAL: Infrastructure Migration Required
 
-### 1. File Structure Established
+**Current Problem:** API endpoints query VATSIM_ADL Serverless directly, which will be expensive under public API load ($500-7,500+/month).
 
-All SWIM files are now in the **correct** location: `VATSIM PERTI\PERTI\`
+**Solution:** Create dedicated `SWIM_API` database (Azure SQL Basic, $5/month fixed) and sync from VATSIM_ADL.
+
+**Migration Script:** `database/migrations/swim/002_swim_api_database.sql`
+
+---
+
+## Architecture (Correct Design)
+
+```
+┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐
+│    VATSIM_ADL       │      │     SWIM_API        │      │    Public API       │
+│  (Serverless $$$)   │─────▶│   (Basic $5/mo)     │─────▶│    Endpoints        │
+│  Internal only      │ sync │  Dedicated for API  │      │                     │
+└─────────────────────┘ 15s  └─────────────────────┘      └─────────────────────┘
+```
+
+**Key Principle:** Public API traffic should NEVER hit VATSIM_ADL directly.
+
+| Database | Purpose | Tier | Cost | API Access |
+|----------|---------|------|------|------------|
+| **VATSIM_ADL** | Internal ADL processing | Serverless | Variable | ❌ No |
+| **SWIM_API** | Public API queries | Basic | $5/mo fixed | ✅ Yes |
+| **MySQL (PERTI)** | Ground stops, site data | Existing | Already paid | ✅ Yes |
+
+---
+
+## Current State (Session 4 Complete)
+
+### What Works ✅
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| API Structure | ✅ Complete | All endpoints in `api/swim/v1/` |
+| Authentication | ✅ Complete | Bearer token, tiers, rate limiting |
+| Normalized Schema | ✅ Complete | JOINs across 6 ADL tables |
+| GeoJSON Positions | ✅ Complete | 1,000+ positions returned |
+| TMI Controlled | ✅ Complete | Returns controlled flights |
+| Documentation | ✅ Complete | Design doc v1.2, TODO, README |
+
+### What's Broken/Pending ❌
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **SWIM_API Database** | ❌ Not created | **BLOCKING** - $5/mo Azure SQL Basic |
+| **Sync Procedure** | ❌ Not created | **BLOCKING** - `sp_Swim_SyncFromAdl` |
+| **Connection Switch** | ❌ Pending | Change from `$conn_adl` to `$conn_swim` |
+| `tmi/programs.php` | ❌ 500 Error | MySQL connection issue |
+
+---
+
+## File Structure
 
 ```
 VATSIM PERTI\PERTI\
 ├── api/swim/v1/
-│   ├── auth.php              ✅ Authentication middleware (SwimAuth, SwimResponse classes)
-│   ├── index.php             ✅ API router/info endpoint
-│   ├── flights.php           ✅ Flight list with filters (verified columns)
-│   ├── positions.php         ✅ GeoJSON positions (verified columns)
+│   ├── auth.php              ✅ Authentication middleware
+│   ├── index.php             ✅ API router
+│   ├── flights.php           ⚠️ Needs DB switch
+│   ├── flight.php            ⚠️ Needs DB switch
+│   ├── positions.php         ⚠️ Needs DB switch
 │   ├── ingest/
-│   │   └── adl.php           ✅ ADL data ingest endpoint
+│   │   └── adl.php           ✅ OK (writes to source)
 │   └── tmi/
-│       └── programs.php      ✅ TMI programs (MySQL GS + Azure SQL GDP)
+│       ├── programs.php      ❌ 500 error
+│       └── controlled.php    ⚠️ Needs DB switch
 │
 ├── database/migrations/swim/
-│   └── 001_swim_tables.sql   ✅ Complete schema (5 tables, 3 stored procs)
+│   ├── 001_swim_tables.sql   ✅ API keys, audit (in VATSIM_ADL)
+│   └── 002_swim_api_database.sql  📋 Dedicated database schema
 │
 ├── docs/swim/
-│   ├── README.md             ✅ Quick-start guide
-│   ├── VATSIM_SWIM_Design_Document_v1.md  ✅ Full design spec
-│   └── SWIM_TODO.md          ✅ Implementation tracker
+│   ├── README.md             ✅ Updated with architecture
+│   ├── VATSIM_SWIM_Design_Document_v1.md  ✅ v1.2 with cost analysis
+│   ├── SWIM_TODO.md          ✅ Updated with Phase 0 tasks
+│   └── ADL_NORMALIZED_SCHEMA_REFERENCE.md  ✅ Source schema
 │
 └── load/
-    └── swim_config.php       ✅ Configuration (GUFI helpers, rate limits, data authority)
+    └── swim_config.php       ⚠️ Needs SWIM_API connection
 ```
-
-### 2. Column Name Verification
-
-All API queries use **verified** column names from `VATSIM_ADL_tree.json`:
-
-| API Field | Actual Column |
-|-----------|---------------|
-| departure | `fp_dept_icao` |
-| destination | `fp_dest_icao` |
-| artcc | `fp_dest_artcc` |
-| latitude | `lat` |
-| longitude | `lon` |
-| altitude | `altitude_ft` |
-| heading | `heading_deg` |
-| ground_speed | `groundspeed_kts` |
-| eta | `eta_runway_utc` |
-| distance | `gcd_nm` |
-| time_remaining | `ete_minutes` |
-| phase | `phase` |
-| created_at | `first_seen_utc` |
-| updated_at | `last_seen_utc` |
-
-**TMI Columns:** `gs_flag`, `ctl_type`, `ctl_program`, `gdp_program_id`, `gdp_slot_time_utc`
-
-### 3. Documentation Updated
-
-- `docs/STATUS.md` - Added SWIM section to system dashboard
-- `docs/swim/README.md` - Comprehensive quick-start guide
-- `docs/swim/VATSIM_SWIM_Design_Document_v1.md` - Full architecture doc
-- `docs/swim/SWIM_TODO.md` - Implementation tracker with checklists
 
 ---
 
-## What Needs to Be Done Next
+## Migration Tasks (BLOCKING)
 
-### Priority 1: Deploy Database Migration
+| Task | Priority | Effort | Status |
+|------|----------|--------|--------|
+| Create Azure SQL Basic `SWIM_API` database | **CRITICAL** | 1h | ❌ |
+| Run `002_swim_api_database.sql` migration | **CRITICAL** | 30m | ❌ |
+| Add `$conn_swim` to `swim_config.php` | **CRITICAL** | 30m | ❌ |
+| Update endpoints to use `$conn_swim` | **CRITICAL** | 2h | ❌ |
+| Schedule sync (every 15 sec) | **CRITICAL** | 1h | ❌ |
+| Fix `tmi/programs.php` error | High | 1h | ❌ |
+| Test all endpoints | High | 2h | ❌ |
 
-```sql
--- Connect to VATSIM_ADL Azure SQL database
--- Run: database/migrations/swim/001_swim_tables.sql
+---
 
--- Verify tables created:
-SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE 'swim_%';
--- Expected: swim_api_keys, swim_audit_log, swim_subscriptions, swim_flight_cache, swim_webhook_endpoints
+## Cost Comparison
 
--- Verify API keys:
-SELECT api_key, tier, owner_name FROM dbo.swim_api_keys;
-```
+| API Traffic | Direct VATSIM_ADL | Dedicated SWIM_API |
+|-------------|-------------------|-------------------|
+| 10K req/day | ~$15-45/mo | **$5/mo** |
+| 100K req/day | ~$150-450/mo | **$5/mo** |
+| 1M req/day | ~$1,500-4,500/mo | **$5/mo** |
+| 10M req/day | ~$15,000+/mo | **$5/mo** |
 
-### Priority 2: Test API Endpoints
+---
+
+## Next Session Actions
+
+### Option A: Create SWIM_API Database (Recommended)
 
 ```bash
-# API Info (no auth)
-curl https://perti.vatcscc.org/api/swim/v1/
+# 1. Create database in Azure Portal
+az sql db create --name SWIM_API --server <server> --resource-group <rg> --service-objective Basic
 
-# Flights (with auth)
-curl -H "Authorization: Bearer swim_dev_test_001" \
-     "https://perti.vatcscc.org/api/swim/v1/flights?status=active&per_page=10"
+# 2. Run migration
+# Connect to SWIM_API and run: database/migrations/swim/002_swim_api_database.sql
 
-# Positions (GeoJSON)
-curl -H "Authorization: Bearer swim_dev_test_001" \
-     "https://perti.vatcscc.org/api/swim/v1/positions?artcc=ZNY"
+# 3. Update swim_config.php with new connection
 
-# TMI Programs
-curl -H "Authorization: Bearer swim_dev_test_001" \
-     "https://perti.vatcscc.org/api/swim/v1/tmi/programs"
+# 4. Update all API endpoints
 ```
 
-### Priority 3: Create Missing Endpoints
+### Option B: Proceed with Current Architecture (Not Recommended)
 
-| Endpoint | File | Description |
-|----------|------|-------------|
-| `GET /flights/{gufi}` | `api/swim/v1/flight.php` | Single flight by GUFI |
-| `GET /tmi/controlled` | `api/swim/v1/tmi/controlled.php` | TMI-controlled flights list |
-
-### Priority 4: Create API Documentation
-
-- Generate OpenAPI/Swagger spec
-- Create Postman collection for testing
-
-### Priority 5: Phase 2 Planning
-
-- WebSocket server for real-time distribution
-- Hook ADL refresh to publish SWIM updates
-- vNAS integration planning
+Continue using VATSIM_ADL directly but be aware of cost risk under load.
 
 ---
 
-## Key Technical Details
+## API Test Results (Current)
 
-### Database Connections
+```bash
+# All tests use VATSIM_ADL (will switch to SWIM_API after migration)
 
-| Variable | Database | Purpose |
-|----------|----------|---------|
-| `$conn_adl` | Azure SQL (VATSIM_ADL) | Flight data, GDP, airports |
-| `$con` | MySQL (PERTI) | Ground stops, user data |
-
-### TMI Data Sources
-
-- **Ground Stops:** MySQL `tmi_ground_stops` table
-- **GDP Programs:** Azure SQL `gdp_log` table
-- **Flight TMI flags:** Azure SQL `adl_flights` columns (`gs_flag`, `ctl_type`, etc.)
-
-### API Authentication
-
-- Bearer token in Authorization header
-- Key tiers: `swim_sys_` (system), `swim_par_` (partner), `swim_dev_` (developer), `swim_pub_` (public)
-- Fallback mode for development when `swim_api_keys` table doesn't exist yet
-
-### GUFI Format
-
-```
-VAT-YYYYMMDD-CALLSIGN-DEPT-DEST
-Example: VAT-20260115-UAL123-KJFK-KLAX
+GET /api/swim/v1/           ✅ API info (1,108 active flights)
+GET /api/swim/v1/flights    ✅ Returns flights with normalized schema
+GET /api/swim/v1/flight     ✅ Single flight lookup
+GET /api/swim/v1/positions  ✅ GeoJSON (1,002 positions)
+GET /api/swim/v1/tmi/controlled  ✅ TMI-controlled flights
+GET /api/swim/v1/tmi/programs    ❌ 500 Error
 ```
 
 ---
 
-## Files in Wrong Location (Can Be Deleted)
+## Reference Documents
 
-The following files exist in `jpeterson1346\PERTI\` (wrong location) and should be deleted to avoid confusion:
-
-```
-jpeterson1346\PERTI\
-├── api\swim\           # DELETE - old location
-├── config\swim_config.php  # DELETE - old location
-├── database\migrations\003_create_swim_tables.sql  # DELETE - old format
-└── docs\swim\          # DELETE - old location
-```
-
-All current work is in `VATSIM PERTI\PERTI\`.
+- `docs/swim/VATSIM_SWIM_Design_Document_v1.md` - Full architecture (v1.2)
+- `docs/swim/SWIM_TODO.md` - Implementation tracker
+- `docs/swim/ADL_NORMALIZED_SCHEMA_REFERENCE.md` - Source schema
+- `database/migrations/swim/002_swim_api_database.sql` - SWIM_API schema
 
 ---
 
-## Reference Documents in Project Knowledge
+## Starting Next Session
 
-- `/mnt/project/VATSIM_ADL_tree.json` - Complete adl_flights schema
-- `/mnt/project/VATSIM_PERTI_tree.json` - MySQL database schema
-- `/mnt/project/assistant_codebase_index_v13.md` - Codebase reference
+Prompt suggestion:
 
----
-
-## Starting the Next Session
-
-Prompt suggestion for continuing:
-
-> "Continue SWIM implementation. Last session created the core API (flights, positions, tmi/programs, ingest/adl) with verified column names. Migration file is ready at `database/migrations/swim/001_swim_tables.sql`. Next steps: deploy migration to Azure, test endpoints, create single flight endpoint (`/flights/{gufi}`), create TMI controlled endpoint. See `docs/swim/SWIM_TODO.md` for full tracker."
+> "Continue SWIM implementation. **BLOCKING:** Need to create dedicated SWIM_API database (Azure SQL Basic $5/mo) to avoid expensive VATSIM_ADL queries. Migration script ready at `database/migrations/swim/002_swim_api_database.sql`. See `docs/swim/SWIM_TODO.md` for Phase 0 infrastructure tasks. Current API works but queries expensive Serverless database."
 
 ---
 
-## Contact
-
-- **Repository:** `VATSIM PERTI\PERTI\`
-- **Documentation:** `docs/swim/`
-- **Email:** dev@vatcscc.org
+**Contact:** dev@vatcscc.org  
+**Repository:** VATSIM PERTI/PERTI

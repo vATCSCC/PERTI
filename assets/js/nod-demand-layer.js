@@ -69,7 +69,15 @@ const NODDemandLayer = (function() {
         }
 
         state.map = map;
-        loadFromLocalStorage();
+
+        // Load monitors from localStorage immediately, then merge with API
+        loadMonitors().then(() => {
+            // After loading, refresh if enabled
+            if (state.enabled) {
+                refresh();
+            }
+            renderMonitorsList();
+        });
 
         // Add sources and layers - try multiple approaches for reliability
         const tryAddSources = () => {
@@ -218,7 +226,7 @@ const NODDemandLayer = (function() {
             type: 'symbol',
             source: 'demand-fixes-source',
             layout: {
-                'text-field': ['concat', ['get', 'fix'], '\n', ['to-string', ['get', 'count']]],
+                'text-field': ['concat', 'FEA_', ['get', 'label'], '/', ['to-string', ['get', 'count']], 'FLTS'],
                 'text-size': 11,
                 'text-anchor': 'top',
                 'text-offset': [0, 1.2],
@@ -274,7 +282,7 @@ const NODDemandLayer = (function() {
             type: 'symbol',
             source: 'demand-segments-source',
             layout: {
-                'text-field': ['concat', ['get', 'from_fix'], '-', ['get', 'to_fix'], '\n', ['to-string', ['get', 'count']]],
+                'text-field': ['concat', 'FEA_', ['get', 'label'], '/', ['to-string', ['get', 'count']], 'FLTS'],
                 'text-size': 10,
                 'symbol-placement': 'line-center',
                 'text-allow-overlap': true
@@ -421,6 +429,11 @@ const NODDemandLayer = (function() {
         state.monitors.push(monitor);
         saveToLocalStorage();
 
+        // Save to global API (async, don't block)
+        saveMonitorToAPI(monitor).then(() => {
+            // Optionally update UI after API save
+        });
+
         // Refresh immediately and update UI
         if (state.enabled) {
             refresh();
@@ -438,8 +451,14 @@ const NODDemandLayer = (function() {
         const idx = state.monitors.findIndex(m => getMonitorId(m) === id);
         if (idx === -1) return false;
 
+        const monitor = state.monitors[idx];
         state.monitors.splice(idx, 1);
         saveToLocalStorage();
+
+        // Delete from global API if it was a global monitor (async, don't block)
+        if (monitor._global) {
+            deleteMonitorFromAPI(id);
+        }
 
         // Refresh immediately and update UI
         if (state.enabled) {
@@ -1069,11 +1088,117 @@ const NODDemandLayer = (function() {
     }
 
     // =========================================
-    // Persistence
+    // Persistence (Global API + localStorage fallback)
     // =========================================
 
     /**
-     * Save state to localStorage
+     * Load monitors from global API
+     */
+    async function loadFromAPI() {
+        try {
+            const response = await fetch('api/adl/demand/monitors.php');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            if (!data.monitors || !Array.isArray(data.monitors)) return;
+
+            // Convert API format to internal monitor format
+            const apiMonitors = data.monitors.map(m => ({
+                id: m.key,
+                ...m.definition,
+                _apiId: m.id,
+                _global: true
+            }));
+
+            // Merge with existing monitors (API takes precedence)
+            const existingKeys = new Set(apiMonitors.map(m => m.id));
+            const localOnly = state.monitors.filter(m => !existingKeys.has(m.id) && !m._global);
+
+            state.monitors = [...apiMonitors, ...localOnly];
+            console.log('[DemandLayer] Loaded', apiMonitors.length, 'global monitors from API');
+        } catch (error) {
+            console.warn('[DemandLayer] Failed to load from API:', error);
+        }
+    }
+
+    /**
+     * Save monitor to global API
+     */
+    async function saveMonitorToAPI(monitor) {
+        try {
+            const response = await fetch('api/adl/demand/monitors.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: monitor.type,
+                    definition: monitor,
+                    label: getMonitorLabel(monitor),
+                    created_by: null
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const result = await response.json();
+            if (result.success) {
+                monitor._global = true;
+                monitor._apiId = result.id;
+                console.log('[DemandLayer] Saved monitor to API:', result.key);
+            }
+            return result;
+        } catch (error) {
+            console.warn('[DemandLayer] Failed to save monitor to API:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Delete monitor from global API
+     */
+    async function deleteMonitorFromAPI(monitorId) {
+        try {
+            const response = await fetch(`api/adl/demand/monitors.php?monitor_key=${encodeURIComponent(monitorId)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const result = await response.json();
+            console.log('[DemandLayer] Deleted monitor from API:', monitorId);
+            return result;
+        } catch (error) {
+            console.warn('[DemandLayer] Failed to delete monitor from API:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get human-readable label for a monitor
+     */
+    function getMonitorLabel(monitor) {
+        switch (monitor.type) {
+            case 'fix':
+                return monitor.fix;
+            case 'segment':
+                return `${monitor.from}-${monitor.to}`;
+            case 'airway':
+                return monitor.airway;
+            case 'airway_segment':
+                return `${monitor.from} ${monitor.airway} ${monitor.to}`;
+            case 'via_fix':
+                if (monitor.filter) {
+                    const dir = monitor.filter.direction === 'arr' ? '↓' :
+                                monitor.filter.direction === 'dep' ? '↑' : '↕';
+                    return `${monitor.filter.code}${dir} via ${monitor.via}`;
+                }
+                return monitor.via;
+            default:
+                return monitor.id || 'Unknown';
+        }
+    }
+
+    /**
+     * Save state to localStorage (as fallback/cache)
      */
     function saveToLocalStorage() {
         try {
@@ -1106,10 +1231,24 @@ const NODDemandLayer = (function() {
                 Object.assign(state.settings, data.settings);
             }
 
-            console.log('[DemandLayer] Loaded', state.monitors.length, 'monitors from storage');
+            console.log('[DemandLayer] Loaded', state.monitors.length, 'monitors from localStorage');
         } catch (error) {
             console.warn('[DemandLayer] Failed to load from localStorage:', error);
         }
+    }
+
+    /**
+     * Load monitors - from API first, then localStorage as fallback
+     */
+    async function loadMonitors() {
+        // First load from localStorage for immediate display
+        loadFromLocalStorage();
+
+        // Then load from API and merge
+        await loadFromAPI();
+
+        // Save merged state back to localStorage
+        saveToLocalStorage();
     }
 
     // =========================================

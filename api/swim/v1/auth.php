@@ -20,13 +20,13 @@ require_once __DIR__ . '/../../../load/swim_config.php';
  */
 class SwimAuth {
     
-    private $conn_adl;
+    private $conn_swim;
     private $api_key = null;
     private $key_info = null;
     private $error = null;
     
-    public function __construct($conn_adl) {
-        $this->conn_adl = $conn_adl;
+    public function __construct($conn_swim) {
+        $this->conn_swim = $conn_swim;
     }
     
     public function authenticate() {
@@ -96,7 +96,7 @@ class SwimAuth {
                        allowed_sources, ip_whitelist, expires_at, created_at, last_used_at, is_active
                 FROM dbo.swim_api_keys WHERE api_key = ? AND is_active = 1";
         
-        $stmt = sqlsrv_query($this->conn_adl, $sql, [$api_key]);
+        $stmt = sqlsrv_query($this->conn_swim, $sql, [$api_key]);
         
         if ($stmt === false) {
             return $this->getFallbackKeyInfo($api_key);
@@ -142,11 +142,11 @@ class SwimAuth {
     }
     
     private function logAccess() {
-        if (!$this->key_info) return;
-        @sqlsrv_query($this->conn_adl, 
+        if (!$this->key_info || !$this->conn_swim) return;
+        @sqlsrv_query($this->conn_swim, 
             "UPDATE dbo.swim_api_keys SET last_used_at = GETUTCDATE() WHERE id = ?",
             [$this->key_info['id']]);
-        @sqlsrv_query($this->conn_adl,
+        @sqlsrv_query($this->conn_swim,
             "INSERT INTO dbo.swim_audit_log (api_key_id, endpoint, method, ip_address, user_agent, request_time)
              VALUES (?, ?, ?, ?, ?, GETUTCDATE())",
             [$this->key_info['id'], $_SERVER['REQUEST_URI'] ?? '', $_SERVER['REQUEST_METHOD'] ?? 'GET',
@@ -224,11 +224,18 @@ class SwimResponse {
 }
 
 function swim_init_auth($require_auth = true, $require_write = false) {
-    global $conn_adl;
+    global $conn_swim, $conn_adl;
     SwimResponse::handlePreflight();
     if (!$require_auth) return null;
     
-    $auth = new SwimAuth($conn_adl);
+    // Use SWIM_API database if available, fall back to VATSIM_ADL during migration
+    $conn = $conn_swim ?: $conn_adl;
+    
+    if (!$conn) {
+        SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+    }
+    
+    $auth = new SwimAuth($conn);
     if (!$auth->authenticate()) {
         SwimResponse::error($auth->getError(), 401, 'UNAUTHORIZED');
     }
