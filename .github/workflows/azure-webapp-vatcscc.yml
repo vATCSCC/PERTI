@@ -45,6 +45,17 @@ jobs:
                   --exclude='nul' \
                   . deploy/
 
+    # Verify critical files are in deployment package
+    - name: Verify deployment package
+      run: |
+        echo "=== Verifying deployment package ==="
+        echo "scripts/startup.sh:"
+        ls -la deploy/scripts/startup.sh || echo "ERROR: startup.sh missing!"
+        echo "adl/php/waypoint_eta_daemon.php:"
+        ls -la deploy/adl/php/waypoint_eta_daemon.php || echo "ERROR: waypoint_eta_daemon.php missing!"
+        echo "=== Scripts directory contents ==="
+        ls -la deploy/scripts/*.sh || echo "No .sh files found"
+
     # Deploy to Azure Web App
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v3
