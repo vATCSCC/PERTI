@@ -41,46 +41,42 @@ if ($perm == true) {
 }
 // (E)
 
-$p_id = post_input('p_id');
+$p_id = post_int('p_id');
 
-$init_s = strip_tags(str_replace("`", "&#039;", $_POST['staffing']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$staffing = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_s));
+// Allowed HTML tags for rich text fields
+$allowedTags = "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>";
 
-$init_t = strip_tags(str_replace("`", "&#039;", $_POST['tactical']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$tactical = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_t));
+// Safe input sanitization function
+function sanitizeRichText($key, $allowedTags) {
+    $raw = isset($_POST[$key]) ? $_POST[$key] : '';
+    $cleaned = strip_tags(str_replace("`", "&#039;", $raw), $allowedTags);
+    return preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $cleaned));
+}
 
-$init_o = strip_tags(str_replace("`", "&#039;", $_POST['other']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$other = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_o));
-
-$init_p = strip_tags(str_replace("`", "&#039;", $_POST['perti']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$perti = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_p));
-
-$init_n = strip_tags(str_replace("`", "&#039;", $_POST['ntml']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$ntml = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_n));
-
-$init_m = strip_tags(str_replace("`", "&#039;", $_POST['tmi']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$tmi = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_m));
-
-$init_a = strip_tags(str_replace("`", "&#039;", $_POST['perti']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
-$ace = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_a));
+$staffing = sanitizeRichText('staffing', $allowedTags);
+$tactical = sanitizeRichText('tactical', $allowedTags);
+$other = sanitizeRichText('other', $allowedTags);
+$perti = sanitizeRichText('perti', $allowedTags);
+$ntml = sanitizeRichText('ntml', $allowedTags);
+$tmi = sanitizeRichText('tmi', $allowedTags);
+$ace = sanitizeRichText('ace', $allowedTags);
 
 
-// Insert Data into Database
+// Insert Data into Database using prepared statement
 try {
-
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
+    // Use prepared statement to prevent SQL injection
     $sql = "INSERT INTO r_comments (p_id, staffing, tactical, other, perti, ntml, tmi, ace)
-    VALUES ('$p_id', '$staffing', '$tactical', '$other', '$perti', '$ntml', '$tmi', '$ace')";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-    $conn_pdo->exec($sql);
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$p_id, $staffing, $tactical, $other, $perti, $ntml, $tmi, $ace]);
 
     $conn_pdo->commit();
     http_response_code(200);
 }
-
 catch (PDOException $e) {
     $conn_pdo->rollback();
     http_response_code(500);

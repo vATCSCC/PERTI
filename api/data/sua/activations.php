@@ -29,29 +29,36 @@ if (!$conn_adl) {
     exit;
 }
 
-// Build query
+// Build query with parameterized queries for security
 $where = [];
 $params = [];
 
-// Status filter
-if (isset($_GET['status'])) {
-    $statuses = array_map('trim', explode(',', strtoupper($_GET['status'])));
-    $placeholders = implode(',', array_map(function($s) { return "'" . addslashes($s) . "'"; }, $statuses));
-    $where[] = "status IN ($placeholders)";
+// Status filter (using parameterized IN clause)
+if (has_get('status')) {
+    $statusInput = get_upper('status');
+    $statuses = array_map('trim', explode(',', $statusInput));
+    $validStatuses = array_filter($statuses, fn($s) => in_array($s, ['SCHEDULED', 'ACTIVE', 'EXPIRED', 'CANCELLED']));
+    if (!empty($validStatuses)) {
+        $placeholders = implode(',', array_fill(0, count($validStatuses), '?'));
+        $where[] = "status IN ($placeholders)";
+        $params = array_merge($params, $validStatuses);
+    }
 }
 
-// Type filter
-if (isset($_GET['type'])) {
-    $where[] = "sua_type = '" . addslashes(strtoupper($_GET['type'])) . "'";
+// Type filter (parameterized)
+if (has_get('type')) {
+    $where[] = "sua_type = ?";
+    $params[] = get_upper('type');
 }
 
-// ARTCC filter
-if (isset($_GET['artcc'])) {
-    $where[] = "artcc = '" . addslashes(strtoupper($_GET['artcc'])) . "'";
+// ARTCC filter (parameterized)
+if (has_get('artcc')) {
+    $where[] = "artcc = ?";
+    $params[] = get_upper('artcc');
 }
 
 // Active only filter (currently within time window)
-if (isset($_GET['active_only']) && $_GET['active_only'] === 'true') {
+if (get_lower('active_only') === 'true') {
     $where[] = "start_utc <= GETUTCDATE() AND end_utc >= GETUTCDATE()";
 }
 
@@ -61,7 +68,7 @@ $sql = "SELECT id, sua_id, sua_type, tfr_subtype, name, artcc,
                remarks, notam_number, created_by, created_at, updated_at";
 
 // Include geometry if requested
-if (isset($_GET['include_geometry']) && $_GET['include_geometry'] === 'true') {
+if (get_lower('include_geometry') === 'true') {
     $sql .= ", geometry";
 }
 
@@ -73,7 +80,7 @@ if (!empty($where)) {
 
 $sql .= " ORDER BY start_utc ASC";
 
-$stmt = sqlsrv_query($conn_adl, $sql);
+$stmt = sqlsrv_query($conn_adl, $sql, $params);
 
 if ($stmt === false) {
     http_response_code(500);

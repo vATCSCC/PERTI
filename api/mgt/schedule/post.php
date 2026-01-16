@@ -41,26 +41,24 @@ if ($perm == true) {
 }
 // (E)
 
-$id = post_input('id');
-$title = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['title'])));
+$id = post_int('id');
+$titleRaw = isset($_POST['title']) ? $_POST['title'] : '';
+$title = strip_tags(html_entity_decode(str_replace("`", "&#039;", $titleRaw)));
 $date = post_input('date');
 
-// Insert Data into Database
+// Insert Data into Database using prepared statement
 try {
-
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO assigned (e_id, e_title, e_date)
-    VALUES ($id, '$title', '$date')";
-
-    $conn_pdo->exec($sql);
+    // Use prepared statement to prevent SQL injection
+    $sql = "INSERT INTO assigned (e_id, e_title, e_date) VALUES (?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$id, $title, $date]);
 
     $conn_pdo->commit();
     http_response_code(200);
 }
-
 catch (PDOException $e) {
     $conn_pdo->rollback();
     http_response_code(500);

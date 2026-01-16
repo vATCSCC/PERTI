@@ -41,7 +41,7 @@ if ($perm == true) {
 }
 // (E)
 
-$id = strip_tags($_REQUEST['id']);
+$id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
 // Insert Data into Database
 $query = $conn_sqli->query("DELETE FROM p_enroute_planning WHERE id=$id");

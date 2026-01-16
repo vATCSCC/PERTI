@@ -104,10 +104,24 @@ $patterns = [
         'description' => '$method = $_SERVER[REQUEST_METHOD] -> with ?? fallback'
     ],
 
-    // Pattern 10: $_GET['key'] ?? 'default' is already safe, skip
-    // Pattern 11: isset($_GET['key']) ? ... is already safe, skip
+    // Pattern 10: strip_tags($_REQUEST['id']) -> isset check with intval (for delete endpoints)
+    [
+        'pattern' => '/\$id\s*=\s*strip_tags\(\$_REQUEST\[([\'"])id\1\]\);/',
+        'replacement' => '$id = isset($_REQUEST[\'id\']) ? intval($_REQUEST[\'id\']) : 0;',
+        'description' => '$id = strip_tags($_REQUEST[id]) -> isset check with intval'
+    ],
 
-    // Pattern 12: Direct $_POST['key'] in complex expressions - add ?? ''
+    // Pattern 11: General strip_tags($_REQUEST['key']) -> isset check
+    [
+        'pattern' => '/strip_tags\(\$_REQUEST\[([\'"])([a-zA-Z_][a-zA-Z0-9_]*)\1\]\)/',
+        'replacement' => '(isset($_REQUEST[\'$2\']) ? strip_tags($_REQUEST[\'$2\']) : \'\')',
+        'description' => 'strip_tags($_REQUEST[...]) -> with isset check'
+    ],
+
+    // Pattern 12: $_GET['key'] ?? 'default' is already safe, skip
+    // Pattern 13: isset($_GET['key']) ? ... is already safe, skip
+
+    // Pattern 14: Direct $_POST['key'] in complex expressions - add ?? ''
     // This is tricky, so we'll handle specific common cases
     [
         'pattern' => '/str_replace\([^)]+,\s*\$_POST\[([\'"])([a-zA-Z_][a-zA-Z0-9_]*)\1\]\)/',
@@ -163,7 +177,7 @@ foreach ($files as $filePath) {
     $fileChanges = [];
 
     // Apply safe patterns (skip the complex one that needs manual review)
-    $safePatterns = array_slice($patterns, 0, 10); // First 10 patterns are safe auto-replacements
+    $safePatterns = array_slice($patterns, 0, 12); // First 12 patterns are safe auto-replacements
 
     foreach ($safePatterns as $patternInfo) {
         $count = 0;

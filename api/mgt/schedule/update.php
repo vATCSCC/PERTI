@@ -41,16 +41,18 @@ if ($perm == true) {
 }
 // (E)
 
-$id = post_input('id');
+$id = post_int('id');
 
-$p_cid = post_input('p_cid');
-$e_cid = post_input('e_cid');
-$r_cid = post_input('r_cid');
-$t_cid = post_input('t_cid');
-$i_cid = post_input('i_cid');
+$p_cid = post_int('p_cid');
+$e_cid = post_int('e_cid');
+$r_cid = post_int('r_cid');
+$t_cid = post_int('t_cid');
+$i_cid = post_int('i_cid');
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE assigned SET p_cid=$p_cid, e_cid=$e_cid, r_cid=$r_cid, t_cid=$t_cid, i_cid=$i_cid WHERE id=$id");
+// Update Data using prepared statement to prevent SQL injection
+$stmt = $conn_sqli->prepare("UPDATE assigned SET p_cid=?, e_cid=?, r_cid=?, t_cid=?, i_cid=? WHERE id=?");
+$stmt->bind_param("iiiiii", $p_cid, $e_cid, $r_cid, $t_cid, $i_cid, $id);
+$query = $stmt->execute();
 
 if ($query) {
     http_response_code('200');
