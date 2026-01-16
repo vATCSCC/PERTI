@@ -386,19 +386,15 @@ if ($format === 'legacy') {
     }
     sqlsrv_free_stmt($stmt);
 
-    // Get tier types
+    // Get tier types (optional - table may not exist)
     $sql = "SELECT tier_type_code, tier_type_label FROM dbo.artcc_tier_types WHERE is_active = 1 ORDER BY display_order";
     $stmt = sqlsrv_query($conn, $sql);
-    if ($stmt === false) {
-        http_response_code(500);
-        echo json_encode(["success" => false, "error" => "Failed to query tier types", "sql_error" => adl_sql_error_message()]);
-        sqlsrv_close($conn);
-        exit;
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $result['tierTypes'][$row['tier_type_code']] = $row['tier_type_label'];
+        }
+        sqlsrv_free_stmt($stmt);
     }
-    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        $result['tierTypes'][$row['tier_type_code']] = $row['tier_type_label'];
-    }
-    sqlsrv_free_stmt($stmt);
 
     // Get global tier groups (ALL, ALL+CANADA, etc.)
     $globalGroups = ['ALL', 'ALL+CANADA'];
