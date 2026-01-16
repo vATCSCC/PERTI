@@ -17,7 +17,15 @@ if (!$conn_adl) {
     exit;
 }
 
-$sql = "SELECT id, artcc, config_name, status, start_time_utc, end_time_utc FROM splits_configs WHERE status = 'active' ORDER BY artcc";
+// Active means: status='active' AND currently within the time window
+// - start_time_utc must be NULL (immediate) or in the past/present
+// - end_time_utc must be NULL (indefinite) or in the future
+$sql = "SELECT id, artcc, config_name, status, start_time_utc, end_time_utc
+        FROM splits_configs
+        WHERE status = 'active'
+          AND (start_time_utc IS NULL OR start_time_utc <= GETUTCDATE())
+          AND (end_time_utc IS NULL OR end_time_utc > GETUTCDATE())
+        ORDER BY artcc";
 $stmt = sqlsrv_query($conn_adl, $sql);
 
 if ($stmt === false) {
