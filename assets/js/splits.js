@@ -4063,6 +4063,19 @@ const SplitsController = {
 
             if (response.ok) {
                 console.log(`[SPLITS] Saved color ${color} for preset position ${pos.id}`);
+
+                // Update cache and refresh presets layer if this preset is being viewed
+                if (this._editingPresetId && this.presetDataCache?.[this._editingPresetId]) {
+                    const cachedPreset = this.presetDataCache[this._editingPresetId];
+                    const cachedPos = cachedPreset.positions?.find(p => p.id === pos.id);
+                    if (cachedPos) {
+                        cachedPos.color = color;
+                    }
+                    // Refresh presets layer if visible
+                    if (this.visiblePresets?.has(this._editingPresetId)) {
+                        this.updatePresetsLayer();
+                    }
+                }
             } else {
                 console.warn('[SPLITS] Failed to save preset position color');
             }
