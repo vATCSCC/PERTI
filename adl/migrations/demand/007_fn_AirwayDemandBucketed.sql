@@ -138,38 +138,28 @@ RETURN (
                     ISNULL(@start_utc, GETUTCDATE())) AS end_time
     ),
 
-    -- Find flights on this airway in time window
-    FlightsOnAirway AS (
-        SELECT DISTINCT w.flight_uid
-        FROM dbo.adl_flight_waypoints w
-        CROSS JOIN TimeBounds tb
-        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
-        WHERE w.on_airway = @airway_name
-          AND w.eta_utc >= tb.start_time
-          AND w.eta_utc < tb.end_time
-          AND c.is_active = 1
-          AND c.phase NOT IN ('arrived', 'disconnected')
-    ),
-
-    -- Filter to flights with BOTH bounding fixes on this airway
+    -- Find active flights that have BOTH endpoint fixes in their route
+    -- Note: Don't require on_airway to be set for endpoint fixes, just check fix_name
     FlightsWithBothFixes AS (
-        SELECT f.flight_uid
-        FROM FlightsOnAirway f
-        WHERE EXISTS (
-            SELECT 1 FROM dbo.adl_flight_waypoints w1
-            WHERE w1.flight_uid = f.flight_uid
-              AND w1.on_airway = @airway_name
-              AND w1.fix_name = @from_fix
-        )
-        AND EXISTS (
-            SELECT 1 FROM dbo.adl_flight_waypoints w2
-            WHERE w2.flight_uid = f.flight_uid
-              AND w2.on_airway = @airway_name
-              AND w2.fix_name = @to_fix
-        )
+        SELECT c.flight_uid
+        FROM dbo.adl_flight_core c
+        WHERE c.is_active = 1
+          AND c.phase NOT IN ('arrived', 'disconnected')
+          -- Has from_fix in route
+          AND EXISTS (
+              SELECT 1 FROM dbo.adl_flight_waypoints w1
+              WHERE w1.flight_uid = c.flight_uid
+                AND w1.fix_name = @from_fix
+          )
+          -- Has to_fix in route
+          AND EXISTS (
+              SELECT 1 FROM dbo.adl_flight_waypoints w2
+              WHERE w2.flight_uid = c.flight_uid
+                AND w2.fix_name = @to_fix
+          )
     ),
 
-    -- Get entry time for each flight (at from_fix)
+    -- Get entry time for each flight (at from_fix) in time window
     FlightEntryTimes AS (
         SELECT
             f.flight_uid,
@@ -178,8 +168,7 @@ RETURN (
         FROM FlightsWithBothFixes f
         CROSS JOIN TimeBounds tb
         INNER JOIN dbo.adl_flight_waypoints w ON w.flight_uid = f.flight_uid
-        WHERE w.on_airway = @airway_name
-          AND w.fix_name = @from_fix
+        WHERE w.fix_name = @from_fix
           AND w.eta_utc >= tb.start_time
           AND w.eta_utc < tb.end_time
     ),
