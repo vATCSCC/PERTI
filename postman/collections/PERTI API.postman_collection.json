@@ -27,7 +27,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/adl/current?cs=AAL123&callsign=string&dep=KJFK&arr=KLAX&active=1&limit=10000",
+                  "raw": "{{baseUrl}}/adl/current?dep=KJFK&arr=KLAX&active=1&limit=10000",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -37,34 +37,42 @@
                   ],
                   "query": [
                     {
-                      "description": "Filter by callsign (case-insensitive, converted to uppercase)",
                       "key": "cs",
-                      "value": "AAL123"
+                      "value": "AAL123",
+                      "description": "Filter by callsign (case-insensitive, converted to uppercase)",
+                      "uuid": "7beff686-00fd-43e4-b200-3ac74c6dce9e",
+                      "disabled": true
                     },
                     {
-                      "description": "Alias for cs parameter",
                       "key": "callsign",
-                      "value": "string"
+                      "value": "string",
+                      "description": "Alias for cs parameter",
+                      "uuid": "0d3dfb31-5f86-488f-bce6-e96c274bd9ca",
+                      "disabled": true
                     },
                     {
-                      "description": "Filter by departure airport (ICAO code)",
                       "key": "dep",
-                      "value": "KJFK"
+                      "value": "KJFK",
+                      "description": "Filter by departure airport (ICAO code)",
+                      "uuid": "44be6efb-42fc-4678-afe5-25d9cab49572"
                     },
                     {
-                      "description": "Filter by arrival airport (ICAO code)",
                       "key": "arr",
-                      "value": "KLAX"
+                      "value": "KLAX",
+                      "description": "Filter by arrival airport (ICAO code)",
+                      "uuid": "612843ca-c0bf-466f-b28c-6980cccf6bae"
                     },
                     {
-                      "description": "Filter active flights only.\n- \"1\", \"true\", \"yes\" = active only (default)\n- \"0\", \"false\", \"no\", \"all\" = include inactive\n",
                       "key": "active",
-                      "value": "1"
+                      "value": "1",
+                      "description": "Filter active flights only.\n- \"1\", \"true\", \"yes\" = active only (default)\n- \"0\", \"false\", \"no\", \"all\" = include inactive\n",
+                      "uuid": "fa1f3a56-268d-4956-8a54-ab37038f26a7"
                     },
                     {
-                      "description": "Maximum number of flights to return (1-15000)",
                       "key": "limit",
-                      "value": "10000"
+                      "value": "10000",
+                      "description": "Maximum number of flights to return (1-15000)",
+                      "uuid": "c710769e-e6d1-4bdc-b6ea-55a0e004f978"
                     }
                   ]
                 },
@@ -10204,7 +10212,7 @@
   ],
   "variable": [
     {
-      "id": "e5b3e511-5d48-47b9-b19f-bc3b37d1f4f4",
+      "id": "596d4379-340d-4fbc-9ad2-5fe9b0da0235",
       "key": "baseUrl",
       "value": "/api"
     }
