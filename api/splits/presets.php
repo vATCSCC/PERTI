@@ -50,7 +50,18 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             updatePreset($conn_adl, intval($_GET['id']), $data);
             break;
-            
+
+        case 'PATCH':
+            // Partial update for a position (e.g., color only)
+            if (!isset($_GET['position_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing position_id']);
+                exit;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            patchPosition($conn_adl, intval($_GET['position_id']), $data);
+            break;
+
         case 'DELETE':
             if (!isset($_GET['id'])) {
                 http_response_code(400);
@@ -327,9 +338,55 @@ function deletePreset($conn, $id) {
             'success' => true,
             'message' => 'Preset deleted successfully'
         ]);
-        
+
     } catch (Exception $e) {
         sqlsrv_rollback($conn);
         throw $e;
     }
+}
+
+/**
+ * Partial update for a position (e.g., color only)
+ */
+function patchPosition($conn, $positionId, $data) {
+    if (!$data) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid JSON input']);
+        return;
+    }
+
+    // Build update query for provided fields only
+    $updates = [];
+    $params = [];
+
+    if (array_key_exists('color', $data)) {
+        $updates[] = "color = ?";
+        $params[] = $data['color'];
+    }
+
+    if (empty($updates)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No valid fields to update']);
+        return;
+    }
+
+    $params[] = $positionId;
+
+    $sql = "UPDATE dbo.splits_preset_positions SET " . implode(", ", $updates) . " WHERE id = ?";
+    $stmt = sqlsrv_query($conn, $sql, $params);
+
+    if ($stmt === false) {
+        throw new Exception("Update failed: " . adl_sql_error_message());
+    }
+
+    $affected = sqlsrv_rows_affected($stmt);
+    sqlsrv_free_stmt($stmt);
+
+    if ($affected === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Position not found']);
+        return;
+    }
+
+    echo json_encode(['success' => true, 'message' => 'Position updated successfully']);
 }
