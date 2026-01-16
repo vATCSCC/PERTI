@@ -176,11 +176,22 @@ function processFlightUpdate($flight, $source, $conn) {
         
     } else {
         // Insert new flight
+        // Generate a unique flight_uid for ingest-created flights
+        // Use range 900000000+ to avoid conflicts with sync'd flights from VATSIM_ADL
+        $uid_sql = "SELECT ISNULL(MAX(flight_uid), 900000000) + 1 as next_uid FROM dbo.swim_flights WHERE flight_uid >= 900000000";
+        $uid_stmt = sqlsrv_query($conn, $uid_sql);
+        if ($uid_stmt === false) {
+            throw new Exception('Failed to generate flight_uid');
+        }
+        $uid_row = sqlsrv_fetch_array($uid_stmt, SQLSRV_FETCH_ASSOC);
+        $flight_uid = $uid_row['next_uid'] ?? 900000001;
+        sqlsrv_free_stmt($uid_stmt);
+        
         $flight_key = $flight['flight_key'] ?? sprintf('%s|%s|%s|%s', $callsign, $dept_icao, $dest_icao, gmdate('Ymd'));
         
         $insert_sql = "
             INSERT INTO dbo.swim_flights (
-                gufi, flight_key, callsign, cid,
+                flight_uid, gufi, flight_key, callsign, cid,
                 fp_dept_icao, fp_dest_icao, fp_alt_icao,
                 fp_altitude_ft, fp_tas_kts, fp_route,
                 aircraft_type, aircraft_icao,
@@ -188,7 +199,7 @@ function processFlightUpdate($flight, $source, $conn) {
                 lat, lon, altitude_ft, heading_deg, groundspeed_kts,
                 first_seen_utc, last_seen_utc, last_sync_utc
             ) VALUES (
-                ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
                 ?, ?, ?,
                 ?, ?, ?,
                 ?, ?,
@@ -199,6 +210,7 @@ function processFlightUpdate($flight, $source, $conn) {
         ";
         
         $insert_params = [
+            $flight_uid,
             $gufi,
             $flight_key,
             $callsign,
