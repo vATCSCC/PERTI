@@ -19,6 +19,17 @@ if (!$conn_adl) {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+/**
+ * Trigger the scheduler to recalculate next run time
+ * Called after creating/updating configs with scheduled status
+ */
+function triggerScheduler() {
+    // Non-blocking trigger - just update the scheduler state to run soon
+    global $conn_adl;
+    $sql = "UPDATE scheduler_state SET next_run_at = GETUTCDATE() WHERE id = 1";
+    sqlsrv_query($conn_adl, $sql);
+}
+
 if ($method === 'GET') {
     $id = $_GET['id'] ?? null;
     
@@ -238,10 +249,15 @@ if ($method === 'POST') {
         }
     }
     
+    // Trigger scheduler if config is scheduled or active
+    if (in_array($status, ['scheduled', 'active'])) {
+        triggerScheduler();
+    }
+
     http_response_code(201);
     echo json_encode([
-        'success' => true, 
-        'id' => $config_id, 
+        'success' => true,
+        'id' => $config_id,
         'positions_inserted' => $positions_inserted,
         'message' => "Config created with $positions_inserted positions"
     ]);
@@ -359,6 +375,11 @@ if ($method === 'PUT') {
             }
         }
         
+        // Trigger scheduler if status changed to scheduled/active
+        if (isset($input['status']) && in_array($input['status'], ['scheduled', 'active'])) {
+            triggerScheduler();
+        }
+
         echo json_encode([
             'success' => true,
             'id' => $id,
@@ -366,6 +387,11 @@ if ($method === 'PUT') {
             'message' => "Config updated with $positions_inserted positions"
         ]);
     } else {
+        // Trigger scheduler if status changed to scheduled/active
+        if (isset($input['status']) && in_array($input['status'], ['scheduled', 'active'])) {
+            triggerScheduler();
+        }
+
         echo json_encode(['success' => true, 'id' => $id, 'message' => 'Config updated']);
     }
     exit;
