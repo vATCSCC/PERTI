@@ -1,0 +1,1548 @@
+openapi: 3.0.3
+info:
+  title: VATSIM SWIM API
+  description: |
+    System Wide Information Management (SWIM) API for VATSIM.
+    
+    SWIM provides a centralized data exchange hub enabling real-time flight information 
+    sharing across the VATSIM ecosystem. It serves as a single source of truth for flight 
+    data, enabling consistent Traffic Management Initiative (TMI) implementation, 
+    synchronized arrival/departure times, and seamless data exchange between VATSIM systems.
+    
+    ## Authentication
+    
+    All endpoints require Bearer token authentication:
+    ```
+    Authorization: Bearer {api_key}
+    ```
+    
+    ## API Key Tiers
+    
+    | Tier | Prefix | Rate Limit | Write Access |
+    |------|--------|------------|--------------|
+    | System | `swim_sys_` | 10,000/min | Full |
+    | Partner | `swim_par_` | 1,000/min | Limited |
+    | Developer | `swim_dev_` | 100/min | Read-only |
+    | Public | `swim_pub_` | 30/min | Read-only |
+    
+    ## GUFI Format
+    
+    Globally Unique Flight Identifier format: `VAT-YYYYMMDD-CALLSIGN-DEPT-DEST`
+    
+    Example: `VAT-20260115-UAL123-KJFK-KLAX`
+    
+    ## Data Sources
+    
+    SWIM aggregates data from multiple authoritative sources:
+    - **VATSIM**: Identity and flight plan data
+    - **VATCSCC/PERTI**: ADL, TMI, OOOI times, demand
+    - **vNAS/CRC**: Track data, ATC automation
+    - **SimTraffic**: Metering data
+    - **SimBrief**: OFP integration
+    
+  version: 1.0.0
+  contact:
+    name: vATCSCC Development Team
+    email: dev@vatcscc.org
+    url: https://vatcscc.org
+  license:
+    name: Proprietary
+    url: https://vatcscc.org/terms
+
+servers:
+  - url: https://perti.vatcscc.org/api/swim/v1
+    description: Production server
+
+tags:
+  - name: Info
+    description: API information and status
+  - name: Flights
+    description: Flight data retrieval
+  - name: Positions
+    description: Flight position data (GeoJSON)
+  - name: TMI
+    description: Traffic Management Initiative data
+  - name: Ingest
+    description: Data ingestion endpoints (write access required)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /:
+    get:
+      tags:
+        - Info
+      summary: API Information
+      description: Returns API version, available endpoints, and authentication information.
+      operationId: getApiInfo
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiInfoResponse'
+              example:
+                success: true
+                data:
+                  name: VATSIM SWIM API
+                  version: "1.0.0"
+                  description: System Wide Information Management for VATSIM
+                  documentation: https://perti.vatcscc.org/docs/swim/
+                  endpoints:
+                    flights:
+                      GET /api/swim/v1/flights: List flights with filters
+                      GET /api/swim/v1/flight: Get single flight by GUFI or flight_key
+                    positions:
+                      GET /api/swim/v1/positions: Bulk flight positions (GeoJSON)
+                    tmi:
+                      GET /api/swim/v1/tmi/programs: Active TMI programs (GS/GDP)
+                      GET /api/swim/v1/tmi/controlled: Flights under TMI control
+                    ingest:
+                      POST /api/swim/v1/ingest/adl: Ingest ADL flight data
+                  authentication:
+                    type: Bearer token
+                    header: "Authorization: Bearer {api_key}"
+                    tiers:
+                      system: "10,000 req/min, full write"
+                      partner: "1,000 req/min, limited write"
+                      developer: "100 req/min, read-only"
+                      public: "30 req/min, read-only"
+                  contact:
+                    email: dev@vatcscc.org
+                    discord: vATCSCC Server
+                timestamp: "2026-01-16T12:00:00Z"
+                meta:
+                  server_time: "2026-01-16T12:00:00Z"
+                  api_prefix: /api/swim/v1
+
+  /flights:
+    get:
+      tags:
+        - Flights
+      summary: List Flights
+      description: |
+        Returns a paginated list of flights with optional filters.
+        
+        Data is sourced from the SWIM_API database which syncs from VATSIM_ADL 
+        every 2 minutes. For real-time data, consider the WebSocket stream (Phase 2).
+      operationId: listFlights
+      parameters:
+        - name: status
+          in: query
+          description: Filter by flight status
+          schema:
+            type: string
+            enum: [active, completed, all]
+            default: active
+        - name: dept_icao
+          in: query
+          description: Filter by departure airport(s). Comma-separated ICAO codes.
+          schema:
+            type: string
+          example: KJFK,KEWR,KLGA
+        - name: dest_icao
+          in: query
+          description: Filter by destination airport(s). Comma-separated ICAO codes.
+          schema:
+            type: string
+          example: KLAX,KSFO
+        - name: artcc
+          in: query
+          description: Filter by destination ARTCC(s). Comma-separated facility IDs.
+          schema:
+            type: string
+          example: ZNY,ZDC
+        - name: callsign
+          in: query
+          description: Filter by callsign pattern. Use `*` as wildcard.
+          schema:
+            type: string
+          example: UAL*
+        - name: tmi_controlled
+          in: query
+          description: Filter to only flights under TMI control (GS held or controlled)
+          schema:
+            type: string
+            enum: ['true', 'false', '1', '0']
+        - name: phase
+          in: query
+          description: Filter by flight phase(s). Comma-separated values.
+          schema:
+            type: string
+          example: ENROUTE,DESCENT
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: Paginated list of flights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightsListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /flight:
+    get:
+      tags:
+        - Flights
+      summary: Get Single Flight
+      description: |
+        Returns detailed information for a single flight identified by GUFI, 
+        flight_uid, or flight_key.
+        
+        This endpoint queries VATSIM_ADL directly for full detail (minimal cost 
+        impact for single-record lookups).
+      operationId: getFlight
+      parameters:
+        - name: gufi
+          in: query
+          description: Globally Unique Flight Identifier (VAT-YYYYMMDD-CALLSIGN-DEPT-DEST)
+          schema:
+            type: string
+          example: VAT-20260115-UAL123-KJFK-KLAX
+        - name: flight_uid
+          in: query
+          description: Internal flight unique identifier
+          schema:
+            type: integer
+            format: int64
+        - name: flight_key
+          in: query
+          description: Flight key string
+          schema:
+            type: string
+        - name: include_history
+          in: query
+          description: Include inactive/historical flights in search
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'false'
+      responses:
+        '200':
+          description: Flight details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightDetailResponse'
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "Missing required parameter: gufi, flight_uid, or flight_key"
+                status: 400
+                code: MISSING_PARAM
+        '404':
+          description: Flight not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "Flight not found"
+                status: 404
+                code: NOT_FOUND
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /positions:
+    get:
+      tags:
+        - Positions
+      summary: Get Flight Positions (GeoJSON)
+      description: |
+        Returns current positions of all active flights in GeoJSON FeatureCollection format.
+        
+        Ideal for map visualization. Each feature includes callsign, aircraft type,
+        altitude, heading, groundspeed, and TMI status.
+      operationId: getPositions
+      parameters:
+        - name: dept_icao
+          in: query
+          description: Filter by departure airport(s)
+          schema:
+            type: string
+        - name: dest_icao
+          in: query
+          description: Filter by destination airport(s)
+          schema:
+            type: string
+        - name: artcc
+          in: query
+          description: Filter by destination ARTCC(s)
+          schema:
+            type: string
+        - name: bounds
+          in: query
+          description: Geographic bounding box (minLon,minLat,maxLon,maxLat)
+          schema:
+            type: string
+          example: "-125.0,24.0,-66.0,50.0"
+        - name: tmi_controlled
+          in: query
+          description: Filter to only TMI-controlled flights
+          schema:
+            type: string
+            enum: ['true', 'false', '1', '0']
+        - name: phase
+          in: query
+          description: Filter by flight phase(s)
+          schema:
+            type: string
+        - name: include_route
+          in: query
+          description: Include route string in properties
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'false'
+      responses:
+        '200':
+          description: GeoJSON FeatureCollection of flight positions
+          content:
+            application/geo+json:
+              schema:
+                $ref: '#/components/schemas/PositionsGeoJSON'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /tmi/programs:
+    get:
+      tags:
+        - TMI
+      summary: Get Active TMI Programs
+      description: |
+        Returns active Traffic Management Initiative programs including Ground Stops 
+        and Ground Delay Programs.
+        
+        - Ground Stops are sourced from MySQL (tmi_ground_stops table)
+        - GDP Programs are sourced from Azure SQL (gdp_log table)
+      operationId: getTmiPrograms
+      parameters:
+        - name: type
+          in: query
+          description: Filter by program type
+          schema:
+            type: string
+            enum: [all, gs, gdp]
+            default: all
+        - name: airport
+          in: query
+          description: Filter by affected airport(s)
+          schema:
+            type: string
+          example: KJFK,KEWR
+        - name: artcc
+          in: query
+          description: Filter by ARTCC
+          schema:
+            type: string
+          example: ZNY
+        - name: include_history
+          in: query
+          description: Include recently ended programs (last 2 hours)
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'false'
+      responses:
+        '200':
+          description: TMI programs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmiProgramsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/controlled:
+    get:
+      tags:
+        - TMI
+      summary: Get TMI-Controlled Flights
+      description: |
+        Returns flights currently under Traffic Management Initiative control,
+        including flights held by Ground Stops, assigned GDP slots, AFP delays,
+        or reroutes.
+      operationId: getTmiControlledFlights
+      parameters:
+        - name: type
+          in: query
+          description: Filter by TMI type
+          schema:
+            type: string
+            enum: [all, gs, gdp, afp, reroute]
+            default: all
+        - name: airport
+          in: query
+          description: Filter by destination airport(s)
+          schema:
+            type: string
+        - name: artcc
+          in: query
+          description: Filter by destination ARTCC(s)
+          schema:
+            type: string
+        - name: dept_icao
+          in: query
+          description: Filter by departure airport(s)
+          schema:
+            type: string
+        - name: phase
+          in: query
+          description: Filter by flight phase(s)
+          schema:
+            type: string
+        - name: include_exempt
+          in: query
+          description: Include exempt flights
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'false'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: TMI-controlled flights with statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmiControlledResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ingest/adl:
+    post:
+      tags:
+        - Ingest
+      summary: Ingest ADL Flight Data
+      description: |
+        Receives ADL (Aggregate Demand List) data from authoritative sources.
+        
+        **Requires write access** (system or partner tier API key).
+        
+        Maximum batch size: 500 flights per request.
+      operationId: ingestAdl
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdlIngestRequest'
+            example:
+              flights:
+                - callsign: UAL123
+                  dept_icao: KJFK
+                  dest_icao: KLAX
+                  cid: 1234567
+                  aircraft_type: B738
+                  route: DCT JFK J584 ORD J64 LAX
+                  current_phase: ENROUTE
+                  is_active: true
+                  tmi:
+                    ctl_type: GDP
+                    slot_time_utc: "2026-01-15T18:30:00Z"
+                    delay_minutes: 45
+      responses:
+        '200':
+          description: Ingest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+              example:
+                success: true
+                data:
+                  processed: 1
+                  created: 1
+                  updated: 0
+                  errors: 0
+                  error_details: []
+                timestamp: "2026-01-16T12:00:00Z"
+                meta:
+                  source: vatcscc
+                  batch_size: 1
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: 'Source "developer" is not authorized to write ADL data.'
+                status: 403
+                code: NOT_AUTHORITATIVE
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        API key with tier prefix:
+        - `swim_sys_*` - System tier (10,000 req/min, full write)
+        - `swim_par_*` - Partner tier (1,000 req/min, limited write)
+        - `swim_dev_*` - Developer tier (100 req/min, read-only)
+        - `swim_pub_*` - Public tier (30 req/min, read-only)
+
+  parameters:
+    page:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 1
+    per_page:
+      name: per_page
+      in: query
+      description: Results per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+
+  responses:
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_header:
+              summary: Missing Authorization header
+              value:
+                error: true
+                message: Missing Authorization header
+                status: 401
+                code: UNAUTHORIZED
+            invalid_key:
+              summary: Invalid API key
+              value:
+                error: true
+                message: API key not found or inactive
+                status: 401
+                code: UNAUTHORIZED
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: true
+            message: Rate limit exceeded
+            status: 429
+            code: RATE_LIMIT
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: true
+            message: Database error
+            status: 500
+            code: DB_ERROR
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - status
+      properties:
+        error:
+          type: boolean
+          example: true
+        message:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+
+    ApiInfoResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+            description:
+              type: string
+            documentation:
+              type: string
+            endpoints:
+              type: object
+            authentication:
+              type: object
+            contact:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+        meta:
+          type: object
+
+    FlightIdentity:
+      type: object
+      properties:
+        callsign:
+          type: string
+          example: UAL123
+        cid:
+          type: integer
+          description: VATSIM CID
+          example: 1234567
+        aircraft_type:
+          type: string
+          example: B738
+        aircraft_icao:
+          type: string
+          example: B738
+        aircraft_faa:
+          type: string
+          example: B738/L
+        weight_class:
+          type: string
+          enum: [L, M, H, J]
+          example: L
+        wake_category:
+          type: string
+          enum: [L, M, H, J]
+        airline_icao:
+          type: string
+          example: UAL
+        airline_name:
+          type: string
+          example: United Airlines
+
+    FlightPlan:
+      type: object
+      properties:
+        departure:
+          type: string
+          description: Departure airport ICAO
+          example: KJFK
+        destination:
+          type: string
+          description: Destination airport ICAO
+          example: KLAX
+        alternate:
+          type: string
+          description: Alternate airport ICAO
+          example: KONT
+        cruise_altitude:
+          type: integer
+          description: Filed cruise altitude (feet)
+          example: 35000
+        cruise_speed:
+          type: integer
+          description: Filed TAS (knots)
+          example: 450
+        route:
+          type: string
+          description: Filed route string
+          example: DEEZZ5 DEEZZ J584 ORD J64 RIIVR2
+        remarks:
+          type: string
+        flight_rules:
+          type: string
+          enum: [I, V, Y, Z]
+          example: I
+        departure_artcc:
+          type: string
+          example: ZNY
+        destination_artcc:
+          type: string
+          example: ZLA
+        departure_tracon:
+          type: string
+          example: N90
+        destination_tracon:
+          type: string
+          example: SCT
+        departure_fix:
+          type: string
+          example: DEEZZ
+        departure_procedure:
+          type: string
+          example: DEEZZ5
+        arrival_fix:
+          type: string
+          example: RIIVR
+        arrival_procedure:
+          type: string
+          example: RIIVR2
+        departure_runway:
+          type: string
+          example: 31L
+        arrival_runway:
+          type: string
+          example: 25L
+
+    FlightPosition:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: double
+          example: 40.6413
+        longitude:
+          type: number
+          format: double
+          example: -73.7781
+        altitude_ft:
+          type: integer
+          example: 35000
+        heading:
+          type: integer
+          minimum: 0
+          maximum: 360
+          example: 270
+        ground_speed_kts:
+          type: integer
+          example: 485
+        true_airspeed_kts:
+          type: integer
+          example: 450
+        vertical_rate_fpm:
+          type: integer
+          example: 0
+        current_artcc:
+          type: string
+          example: ZKC
+        current_tracon:
+          type: string
+        current_zone:
+          type: string
+          enum: [RAMP, TAXI, DEPARTURE, TERMINAL, ENROUTE, ARRIVAL, APPROACH, SURFACE]
+
+    FlightProgress:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [PROPOSED, DEPARTING, ENROUTE, DESCENT, ARRIVED, COMPLETED]
+          example: ENROUTE
+        is_active:
+          type: boolean
+          example: true
+        distance_remaining_nm:
+          type: number
+          format: double
+          example: 1234.5
+        distance_flown_nm:
+          type: number
+          format: double
+          example: 567.8
+        gcd_nm:
+          type: number
+          format: double
+          description: Great circle distance
+          example: 2145.3
+        route_total_nm:
+          type: number
+          format: double
+          description: Total route distance
+          example: 2234.7
+        pct_complete:
+          type: number
+          format: double
+          example: 45.2
+        time_to_dest_min:
+          type: number
+          format: double
+          example: 152.3
+
+    FlightTimes:
+      type: object
+      properties:
+        etd:
+          type: string
+          format: date-time
+          description: Estimated time of departure
+        etd_runway:
+          type: string
+          format: date-time
+        eta:
+          type: string
+          format: date-time
+          description: Estimated time of arrival
+        eta_runway:
+          type: string
+          format: date-time
+        eta_source:
+          type: string
+          example: CALCULATED
+        eta_method:
+          type: string
+          example: GROUNDSPEED
+        ete_minutes:
+          type: integer
+          description: Estimated time enroute
+        out:
+          type: string
+          format: date-time
+          description: OOOI - Out (pushback)
+        off:
+          type: string
+          format: date-time
+          description: OOOI - Off (takeoff)
+        "on":
+          type: string
+          format: date-time
+          description: OOOI - On (landing)
+        in:
+          type: string
+          format: date-time
+          description: OOOI - In (gate arrival)
+        ctd:
+          type: string
+          format: date-time
+          description: Controlled time of departure
+        cta:
+          type: string
+          format: date-time
+          description: Controlled time of arrival
+        edct:
+          type: string
+          format: date-time
+          description: Expect Departure Clearance Time
+
+    FlightTmi:
+      type: object
+      description: Traffic Management Initiative data
+      properties:
+        is_controlled:
+          type: boolean
+          description: Flight is under some form of TMI control
+          example: true
+        ground_stop_held:
+          type: boolean
+          description: Flight is held due to Ground Stop
+          example: false
+        gs_release:
+          type: string
+          format: date-time
+          description: Expected Ground Stop release time
+        control_type:
+          type: string
+          enum: [GDP, GS, AFP, REROUTE, MIT, MINIT]
+          example: GDP
+        control_program:
+          type: string
+          description: Name of controlling program
+          example: KJFK/GDP/WX
+        control_element:
+          type: string
+          description: Controlled element (airport, fix, etc.)
+          example: KJFK
+        is_exempt:
+          type: boolean
+          example: false
+        exempt_reason:
+          type: string
+        delay_minutes:
+          type: integer
+          example: 45
+        delay_status:
+          type: string
+        slot_time:
+          type: string
+          format: date-time
+          description: Assigned slot time
+        program_id:
+          type: integer
+        slot_id:
+          type: integer
+
+    Flight:
+      type: object
+      description: Flight record with nested data sections
+      properties:
+        gufi:
+          type: string
+          description: Globally Unique Flight Identifier
+          example: VAT-20260115-UAL123-KJFK-KLAX
+        flight_uid:
+          type: integer
+          format: int64
+        flight_key:
+          type: string
+        identity:
+          $ref: '#/components/schemas/FlightIdentity'
+        flight_plan:
+          $ref: '#/components/schemas/FlightPlan'
+        position:
+          $ref: '#/components/schemas/FlightPosition'
+        progress:
+          $ref: '#/components/schemas/FlightProgress'
+        times:
+          $ref: '#/components/schemas/FlightTimes'
+        tmi:
+          $ref: '#/components/schemas/FlightTmi'
+        _source:
+          type: string
+          example: vatcscc
+        _first_seen:
+          type: string
+          format: date-time
+        _last_seen:
+          type: string
+          format: date-time
+        _logon_time:
+          type: string
+          format: date-time
+        _last_sync:
+          type: string
+          format: date-time
+          description: Last sync from VATSIM_ADL (SWIM_API only)
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 2456
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 100
+        total_pages:
+          type: integer
+          example: 25
+        has_more:
+          type: boolean
+          example: true
+
+    FlightsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Flight'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        timestamp:
+          type: string
+          format: date-time
+
+    FlightDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Flight'
+        timestamp:
+          type: string
+          format: date-time
+        meta:
+          type: object
+          properties:
+            source:
+              type: string
+              example: vatcscc
+            lookup_method:
+              type: string
+              enum: [gufi, flight_uid, flight_key]
+            schema_version:
+              type: string
+              example: normalized_v2
+
+    PositionFeature:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [Feature]
+        id:
+          type: integer
+          format: int64
+          description: flight_uid
+        geometry:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [Point]
+            coordinates:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 3
+              description: "[longitude, latitude, altitude_ft?]"
+              example: [-95.5, 38.9, 35000]
+        properties:
+          type: object
+          properties:
+            flight_uid:
+              type: integer
+            callsign:
+              type: string
+            flight_key:
+              type: string
+            aircraft:
+              type: string
+            weight_class:
+              type: string
+            wake_category:
+              type: string
+            departure:
+              type: string
+            destination:
+              type: string
+            phase:
+              type: string
+            dest_artcc:
+              type: string
+            current_artcc:
+              type: string
+            altitude:
+              type: integer
+            heading:
+              type: integer
+            groundspeed:
+              type: integer
+            vertical_rate:
+              type: integer
+            distance_remaining_nm:
+              type: number
+            gcd_nm:
+              type: number
+            pct_complete:
+              type: number
+            tmi_status:
+              type: string
+              enum: [none, ground_stop, gdp, afp, reroute, mit]
+            eta:
+              type: string
+              format: date-time
+            ete_minutes:
+              type: integer
+            route_string:
+              type: string
+              description: Only included if include_route=true
+
+    PositionsGeoJSON:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionFeature'
+        metadata:
+          type: object
+          properties:
+            count:
+              type: integer
+              example: 2456
+            timestamp:
+              type: string
+              format: date-time
+            source:
+              type: string
+              example: vatcscc
+            database:
+              type: string
+              enum: [SWIM_API, VATSIM_ADL]
+
+    GroundStop:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [ground_stop]
+        airport:
+          type: string
+          example: KJFK
+        airport_name:
+          type: string
+          example: John F Kennedy Intl
+        artcc:
+          type: string
+          example: ZNY
+        name:
+          type: string
+          example: KJFK/WX
+        reason:
+          type: string
+          example: Thunderstorms
+        probability_of_extension:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 40
+        times:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        advisory:
+          type: object
+          properties:
+            number:
+              type: string
+            text:
+              type: string
+        is_active:
+          type: boolean
+
+    GdpProgram:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [gdp]
+        program_id:
+          type: string
+        airport:
+          type: string
+          example: KSFO
+        airport_name:
+          type: string
+          example: San Francisco Intl
+        artcc:
+          type: string
+          example: ZOA
+        reason:
+          type: string
+          example: Low Ceilings
+        probability_of_extension:
+          type: integer
+        rates:
+          type: object
+          properties:
+            program_rate:
+              type: integer
+              example: 40
+        delays:
+          type: object
+          properties:
+            limit_minutes:
+              type: integer
+              example: 90
+            average_minutes:
+              type: integer
+              example: 45
+            maximum_minutes:
+              type: integer
+              example: 75
+        times:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        flights:
+          type: object
+          properties:
+            total:
+              type: integer
+            affected:
+              type: integer
+        status:
+          type: string
+          enum: [ACTIVE, CANCELLED, EXPIRED]
+        is_active:
+          type: boolean
+
+    TmiProgramsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            ground_stops:
+              type: array
+              items:
+                $ref: '#/components/schemas/GroundStop'
+            gdp_programs:
+              type: array
+              items:
+                $ref: '#/components/schemas/GdpProgram'
+            summary:
+              type: object
+              properties:
+                active_ground_stops:
+                  type: integer
+                active_gdp_programs:
+                  type: integer
+                total_controlled_airports:
+                  type: integer
+        timestamp:
+          type: string
+          format: date-time
+        meta:
+          type: object
+          properties:
+            source:
+              type: string
+            type_filter:
+              type: string
+
+    TmiControlledFlight:
+      type: object
+      properties:
+        gufi:
+          type: string
+        flight_uid:
+          type: integer
+        flight_key:
+          type: string
+        callsign:
+          type: string
+        cid:
+          type: integer
+        aircraft:
+          type: object
+          properties:
+            type:
+              type: string
+            icao:
+              type: string
+            weight_class:
+              type: string
+            wake_category:
+              type: string
+            airline_icao:
+              type: string
+            airline_name:
+              type: string
+        route:
+          type: object
+          properties:
+            departure:
+              type: string
+            destination:
+              type: string
+            alternate:
+              type: string
+            departure_artcc:
+              type: string
+            destination_artcc:
+              type: string
+            departure_fix:
+              type: string
+            arrival_fix:
+              type: string
+        position:
+          type: object
+          properties:
+            latitude:
+              type: number
+            longitude:
+              type: number
+            altitude_ft:
+              type: integer
+            ground_speed_kts:
+              type: integer
+            heading:
+              type: integer
+            phase:
+              type: string
+            current_artcc:
+              type: string
+        progress:
+          type: object
+          properties:
+            distance_remaining_nm:
+              type: number
+            gcd_nm:
+              type: number
+            pct_complete:
+              type: number
+            time_to_dest_min:
+              type: number
+        times:
+          type: object
+          properties:
+            etd:
+              type: string
+              format: date-time
+            eta:
+              type: string
+              format: date-time
+            off:
+              type: string
+              format: date-time
+            ctd:
+              type: string
+              format: date-time
+            cta:
+              type: string
+              format: date-time
+            edct:
+              type: string
+              format: date-time
+        tmi:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [GROUND_STOP, GDP, AFP, REROUTE, UNKNOWN]
+            program:
+              type: string
+            element:
+              type: string
+            is_exempt:
+              type: boolean
+            exempt_reason:
+              type: string
+            ground_stop:
+              type: object
+              properties:
+                held:
+                  type: boolean
+                release_time:
+                  type: string
+                  format: date-time
+            slot:
+              type: object
+              properties:
+                time:
+                  type: string
+                  format: date-time
+                status:
+                  type: string
+                aslot:
+                  type: string
+                program_id:
+                  type: integer
+                slot_id:
+                  type: integer
+            delay:
+              type: object
+              properties:
+                minutes:
+                  type: integer
+                status:
+                  type: string
+                source:
+                  type: string
+                absolute_min:
+                  type: integer
+                schedule_variation_min:
+                  type: integer
+            reroute:
+              type: object
+              properties:
+                status:
+                  type: string
+                id:
+                  type: string
+            flags:
+              type: object
+              properties:
+                is_popup:
+                  type: boolean
+                ecr_pending:
+                  type: boolean
+        _last_seen:
+          type: string
+          format: date-time
+
+    TmiControlledResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TmiControlledFlight'
+        statistics:
+          type: object
+          properties:
+            ground_stop:
+              type: integer
+            gdp:
+              type: integer
+            afp:
+              type: integer
+            reroute:
+              type: integer
+            other:
+              type: integer
+            by_airport:
+              type: object
+              additionalProperties:
+                type: integer
+            by_artcc:
+              type: object
+              additionalProperties:
+                type: integer
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        filters:
+          type: object
+          properties:
+            type:
+              type: string
+            airport:
+              type: string
+            artcc:
+              type: string
+            include_exempt:
+              type: boolean
+        timestamp:
+          type: string
+          format: date-time
+        schema:
+          type: string
+
+    AdlIngestRequest:
+      type: object
+      required:
+        - flights
+      properties:
+        flights:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required:
+              - callsign
+              - dept_icao
+              - dest_icao
+            properties:
+              callsign:
+                type: string
+                example: UAL123
+              dept_icao:
+                type: string
+                example: KJFK
+              dest_icao:
+                type: string
+                example: KLAX
+              cid:
+                type: integer
+              flight_key:
+                type: string
+              aircraft_type:
+                type: string
+              route:
+                type: string
+              current_phase:
+                type: string
+              is_active:
+                type: boolean
+              status:
+                type: string
+              tmi:
+                type: object
+                properties:
+                  ctl_type:
+                    type: string
+                  ctl_prgm:
+                    type: string
+                  slot_time_utc:
+                    type: string
+                    format: date-time
+                  delay_minutes:
+                    type: integer
+                  gs_held:
+                    type: boolean
+              adl:
+                type: object
+                description: Additional ADL fields
+
+    IngestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            processed:
+              type: integer
+            created:
+              type: integer
+            updated:
+              type: integer
+            errors:
+              type: integer
+            error_details:
+              type: array
+              maxItems: 10
+              items:
+                type: object
+                properties:
+                  index:
+                    type: integer
+                  callsign:
+                    type: string
+                  error:
+                    type: string
+        timestamp:
+          type: string
+          format: date-time
+        meta:
+          type: object
+          properties:
+            source:
+              type: string
+            batch_size:
+              type: integer
