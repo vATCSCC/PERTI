@@ -14,62 +14,20 @@ echo "========================================"
 # Configure nginx URL rewriting (Azure PHP 8 uses nginx, not Apache)
 # Per Azure docs: https://azureossd.github.io/2021/09/02/php-8-rewrite-rule/
 echo "Configuring nginx for extensionless URLs..."
-cat > /home/default << 'NGINXCONF'
-server {
-    listen 8080;
-    listen [::]:8080;
-    root /home/site/wwwroot;
-    index index.php index.html;
-    server_name _;
-    port_in_redirect off;
 
-    # Handle /login directory
-    location = /login {
-        rewrite ^/login/?$ /login/index.php last;
-    }
+# Copy nginx config from deployed wwwroot to nginx config directory
+if [ -f "${WWWROOT}/default" ]; then
+    cp "${WWWROOT}/default" /etc/nginx/sites-enabled/default
+    echo "Copied nginx config from wwwroot"
+else
+    echo "WARNING: ${WWWROOT}/default not found, using container default"
+fi
 
-    # Main location block - try file, then .php, then 404
-    location / {
-        try_files $uri $uri/ $uri.php?$query_string @php;
-    }
+# Reload nginx to apply config
+service nginx reload 2>/dev/null && echo "nginx reloaded via service" || \
+nginx -s reload 2>/dev/null && echo "nginx reloaded via signal" || \
+echo "nginx reload failed - container may handle this"
 
-    # Fallback to PHP handler
-    location @php {
-        rewrite ^(.*)$ $1.php last;
-    }
-
-    # PHP-FPM handler
-    location ~ \.php$ {
-        fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass 127.0.0.1:9000;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        fastcgi_param PATH_INFO $fastcgi_path_info;
-        fastcgi_param HTTPS on;
-        fastcgi_read_timeout 300;
-    }
-
-    # WebSocket proxy for SWIM API
-    location /api/swim/v1/ws {
-        proxy_pass http://127.0.0.1:8090;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_read_timeout 3600s;
-    }
-
-    # Deny access to hidden files
-    location ~ /\. {
-        deny all;
-    }
-}
-NGINXCONF
-
-# Copy to nginx sites-enabled and reload
-cp /home/default /etc/nginx/sites-enabled/default
-service nginx reload 2>/dev/null || nginx -s reload 2>/dev/null || true
 echo "nginx configured"
 
 # Start the combined VATSIM ADL daemon (ingestion + ATIS processing every 15s)
