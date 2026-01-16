@@ -3070,7 +3070,27 @@ input[type="datetime-local"] {
                                 <div class="area-groups" id="preset-area-groups-container">
                                     <label class="d-block mb-1 text-light" style="font-size: 10px;">Quick Select Area:</label>
                                 </div>
-                                
+
+                                <!-- Strata Filter -->
+                                <div class="strata-filter-controls mb-2 d-flex align-items-center">
+                                    <span class="text-muted small mr-2">Show:</span>
+                                    <label class="strata-filter-label mr-2 mb-0">
+                                        <input type="checkbox" id="preset-strata-low" checked>
+                                        <span class="strata-dot" style="background:#228B22; width:10px; height:10px; border-radius:50%; display:inline-block; margin:0 3px;"></span>
+                                        <span class="small">Low</span>
+                                    </label>
+                                    <label class="strata-filter-label mr-2 mb-0">
+                                        <input type="checkbox" id="preset-strata-high" checked>
+                                        <span class="strata-dot" style="background:#FF6347; width:10px; height:10px; border-radius:50%; display:inline-block; margin:0 3px;"></span>
+                                        <span class="small">High</span>
+                                    </label>
+                                    <label class="strata-filter-label mb-0">
+                                        <input type="checkbox" id="preset-strata-superhigh" checked>
+                                        <span class="strata-dot" style="background:#9932CC; width:10px; height:10px; border-radius:50%; display:inline-block; margin:0 3px;"></span>
+                                        <span class="small">Super</span>
+                                    </label>
+                                </div>
+
                                 <!-- Sector Grid -->
                                 <div class="sector-grid" id="preset-sector-grid" style="max-height: 250px;"></div>
                                 
