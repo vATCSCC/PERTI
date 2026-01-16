@@ -3608,6 +3608,7 @@ const SplitsController = {
                 color: pos.color || '#4dabf7',
                 frequency: pos.frequency || null,
                 filters: pos.filters || null,
+                strataFilter: pos.strata_filter || null,
                 startTime: null,
                 endTime: null
             }));
@@ -3648,7 +3649,8 @@ const SplitsController = {
                     sectors: pos.sectors || [],
                     color: pos.color || '#4dabf7',
                     frequency: pos.frequency || null,
-                    filters: pos.filters || null
+                    filters: pos.filters || null,
+                    strataFilter: pos.strata_filter || null
                 }))
             });
             
@@ -5505,7 +5507,8 @@ const SplitsController = {
                 sort_order: i,
                 frequency: split.frequency || null,
                 controller_oi: split.controllerOI || null,
-                filters: split.filters || null
+                filters: split.filters || null,
+                strata_filter: split.strataFilter || null
             }))
         };
         

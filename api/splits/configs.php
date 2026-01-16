@@ -51,10 +51,10 @@ if ($method === 'GET') {
         }
         
         // Get positions - try with new columns first, fallback if they don't exist
-        $sql = "SELECT position_name, color, sectors, sort_order, start_time_utc, end_time_utc, frequency, controller_oi, filters
+        $sql = "SELECT position_name, color, sectors, sort_order, start_time_utc, end_time_utc, frequency, controller_oi, filters, strata_filter
                 FROM splits_positions WHERE config_id = ? ORDER BY sort_order";
         $stmt = sqlsrv_query($conn_adl, $sql, [$id]);
-        
+
         // Fallback if new columns don't exist
         if ($stmt === false) {
             $sql = "SELECT position_name, color, sectors, sort_order, start_time_utc, end_time_utc
@@ -71,6 +71,10 @@ if ($method === 'GET') {
                 // Parse filters JSON if present
                 if (isset($row['filters']) && is_string($row['filters'])) {
                     $row['filters'] = json_decode($row['filters'], true);
+                }
+                // Parse strata_filter JSON if present
+                if (isset($row['strata_filter']) && is_string($row['strata_filter'])) {
+                    $row['strata_filter'] = json_decode($row['strata_filter'], true);
                 }
                 foreach (['start_time_utc', 'end_time_utc'] as $field) {
                     if (isset($row[$field]) && $row[$field] instanceof DateTime) {
@@ -213,11 +217,12 @@ if ($method === 'POST') {
         $pos_frequency = isset($pos['frequency']) ? trim($pos['frequency']) : null;
         $pos_oi = isset($pos['controller_oi']) ? strtoupper(trim($pos['controller_oi'])) : null;
         $pos_filters = isset($pos['filters']) ? (is_array($pos['filters']) ? json_encode($pos['filters']) : $pos['filters']) : null;
-        
-        $sql = "INSERT INTO splits_positions (config_id, position_name, color, sectors, sort_order, frequency, controller_oi, filters, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETUTCDATE())";
-        
-        $pos_stmt = sqlsrv_query($conn_adl, $sql, [$config_id, $pos_name, $pos_color, $pos_sectors, $pos_order, $pos_frequency, $pos_oi, $pos_filters]);
+        $pos_strata = isset($pos['strata_filter']) ? (is_array($pos['strata_filter']) ? json_encode($pos['strata_filter']) : $pos['strata_filter']) : null;
+
+        $sql = "INSERT INTO splits_positions (config_id, position_name, color, sectors, sort_order, frequency, controller_oi, filters, strata_filter, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETUTCDATE())";
+
+        $pos_stmt = sqlsrv_query($conn_adl, $sql, [$config_id, $pos_name, $pos_color, $pos_sectors, $pos_order, $pos_frequency, $pos_oi, $pos_filters, $pos_strata]);
         if ($pos_stmt !== false) {
             $positions_inserted++;
             sqlsrv_free_stmt($pos_stmt);
@@ -333,11 +338,12 @@ if ($method === 'PUT') {
             $pos_frequency = isset($pos['frequency']) ? trim($pos['frequency']) : null;
             $pos_oi = isset($pos['controller_oi']) ? strtoupper(trim($pos['controller_oi'])) : null;
             $pos_filters = isset($pos['filters']) ? (is_array($pos['filters']) ? json_encode($pos['filters']) : $pos['filters']) : null;
-            
-            $sql = "INSERT INTO splits_positions (config_id, position_name, color, sectors, sort_order, frequency, controller_oi, filters, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETUTCDATE())";
-            
-            $pos_stmt = sqlsrv_query($conn_adl, $sql, [$id, $pos_name, $pos_color, $pos_sectors, $pos_order, $pos_frequency, $pos_oi, $pos_filters]);
+            $pos_strata = isset($pos['strata_filter']) ? (is_array($pos['strata_filter']) ? json_encode($pos['strata_filter']) : $pos['strata_filter']) : null;
+
+            $sql = "INSERT INTO splits_positions (config_id, position_name, color, sectors, sort_order, frequency, controller_oi, filters, strata_filter, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETUTCDATE())";
+
+            $pos_stmt = sqlsrv_query($conn_adl, $sql, [$id, $pos_name, $pos_color, $pos_sectors, $pos_order, $pos_frequency, $pos_oi, $pos_filters, $pos_strata]);
             if ($pos_stmt !== false) {
                 $positions_inserted++;
                 sqlsrv_free_stmt($pos_stmt);
