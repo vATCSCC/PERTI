@@ -88,7 +88,7 @@ ntml_debug_log('Checking permissions', ['DEV_defined' => defined('DEV'), 'sessio
 $perm = false;
 if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
-        $cid = strip_tags($_SESSION['VATSIM_CID']);
+        $cid = session_get('VATSIM_CID', '');
         $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
         if ($p_check) {
             $perm = true;

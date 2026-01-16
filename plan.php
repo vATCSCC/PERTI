@@ -20,7 +20,7 @@ include("sessions/handler.php");
         if (isset($_SESSION['VATSIM_CID'])) {
 
             // Getting CID Value
-            $cid = strip_tags($_SESSION['VATSIM_CID']);
+            $cid = session_get('VATSIM_CID', '');
     
             $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
     
@@ -662,7 +662,7 @@ include('load/nav.php');
 <?php include('load/footer.php'); ?>
 
 
-<?php if (perm == true) { ?>
+<?php if ($perm == true) { ?>
 <!-- Add Goal Modal -->
 <div class="modal fade" id="addgoalModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">

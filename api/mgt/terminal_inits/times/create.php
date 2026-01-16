@@ -16,7 +16,7 @@ $domain = strip_tags(SITE_DOMAIN);
 $perm = false;
 if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
-        $vt = strip_tags($_SESSION['VATSIM_CID']);
+        $vt = session_get('VATSIM_CID', '');
 
         $u_e = $conn_sqli->query("SELECT COUNT(*) AS total, role FROM p_users WHERE cid='$vt'")->fetch_assoc();
         if ($u_e['total'] > 0) {

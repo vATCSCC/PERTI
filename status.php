@@ -26,7 +26,7 @@ include("load/connect.php");
 $perm = false;
 if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
-        $cid = strip_tags($_SESSION['VATSIM_CID']);
+        $cid = session_get('VATSIM_CID', '');
         $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
         if ($p_check) {
             $perm = true;
@@ -812,7 +812,7 @@ if (isset($conn_adl) && $conn_adl !== null && $conn_adl !== false) {
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $dt = $row['completed_utc'];
-            $timeStr = ($dt instanceof DateTimeInterface) ? $dt->format('H:i:s') : substr($dt, 11, 8);
+            $timeStr = ($dt instanceof DateTimeInterface) ? $dt->format('H:i:s') : ($dt ? substr($dt, 11, 8) : '');
             $liveData['recent_errors'][] = [
                 'callsign' => $row['callsign'] ?? 'Unknown',
                 'error' => substr($row['error_message'] ?? 'No message', 0, 50),
