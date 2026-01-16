@@ -77,6 +77,9 @@ use React\Socket\SocketServer;
 // CONFIGURATION
 // ============================================================================
 
+// Load config for database credentials
+require_once $wwwroot . '/load/config.php';
+
 $config = [
     // Server
     'host' => '0.0.0.0',
@@ -84,6 +87,12 @@ $config = [
     
     // Authentication
     'auth_enabled' => true,
+    
+    // Database (for API key validation)
+    'db_host' => ADL_SQL_HOST,
+    'db_name' => ADL_SQL_DATABASE,
+    'db_user' => ADL_SQL_USERNAME,
+    'db_pass' => ADL_SQL_PASSWORD,
     
     // Rate limiting
     'rate_limit_msg_per_sec' => 10,

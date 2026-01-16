@@ -34,6 +34,15 @@ class WebSocketServer implements MessageComponentInterface
     
     /** @var array Statistics */
     protected $stats;
+    
+    /** @var resource|null Database connection for auth */
+    protected $dbConn;
+    
+    /** @var array Cached API keys (key => ['tier' => string, 'expires' => int]) */
+    protected $keyCache = [];
+    
+    /** @var int Key cache TTL in seconds */
+    protected $keyCacheTtl = 300;
 
     /**
      * Close codes
@@ -64,6 +73,10 @@ class WebSocketServer implements MessageComponentInterface
             'max_message_size' => 65536,
             'allowed_origins' => ['*'],
             'debug' => false,
+            'db_host' => null,
+            'db_name' => null,
+            'db_user' => null,
+            'db_pass' => null,
         ], $config);
         
         $this->stats = [
@@ -74,7 +87,41 @@ class WebSocketServer implements MessageComponentInterface
             'auth_failures' => 0,
         ];
         
+        // Initialize database connection for API key validation
+        $this->initDatabase();
+        
         $this->log('INFO', 'WebSocket server initialized');
+    }
+    
+    /**
+     * Initialize database connection
+     */
+    protected function initDatabase(): void
+    {
+        if (empty($this->config['db_host'])) {
+            $this->log('WARN', 'No database config - using debug mode auth');
+            return;
+        }
+        
+        $connInfo = [
+            'Database' => $this->config['db_name'],
+            'Uid' => $this->config['db_user'],
+            'PWD' => $this->config['db_pass'],
+            'Encrypt' => true,
+            'TrustServerCertificate' => false,
+            'LoginTimeout' => 10,
+            'ConnectionPooling' => true,
+        ];
+        
+        $this->dbConn = @sqlsrv_connect($this->config['db_host'], $connInfo);
+        
+        if ($this->dbConn === false) {
+            $errors = sqlsrv_errors();
+            $this->log('ERROR', 'Database connection failed', ['errors' => $errors]);
+            $this->dbConn = null;
+        } else {
+            $this->log('INFO', 'Database connected for auth');
+        }
     }
 
     /**
@@ -229,6 +276,7 @@ class WebSocketServer implements MessageComponentInterface
             'flight.created', 'flight.updated', 'flight.deleted',
             'tmi.issued', 'tmi.modified', 'tmi.released',
             'tmi.*', 'flight.*', 'system.*',
+            'system.heartbeat',
         ];
         
         foreach ($channels as $channel) {
@@ -400,18 +448,94 @@ class WebSocketServer implements MessageComponentInterface
      */
     protected function authenticate(string $apiKey, ClientConnection $client): bool
     {
-        // TODO: Implement database lookup against swim_api_keys table
-        // For now, accept any non-empty key in dev mode
-        if ($this->config['debug'] && !empty($apiKey)) {
-            $client->setApiKey($apiKey);
-            $client->setTier('basic');
-            return true;
+        // Check cache first
+        if (isset($this->keyCache[$apiKey])) {
+            $cached = $this->keyCache[$apiKey];
+            if ($cached['expires'] > time()) {
+                $client->setApiKey($apiKey);
+                $client->setTier($cached['tier']);
+                $this->log('DEBUG', 'Auth from cache', ['tier' => $cached['tier']]);
+                return true;
+            }
+            // Cache expired
+            unset($this->keyCache[$apiKey]);
         }
         
-        // In production, validate against database
-        // This would check swim_api_keys table and set appropriate tier
+        // If no database connection, fall back to debug mode
+        if ($this->dbConn === null) {
+            if ($this->config['debug'] && !empty($apiKey)) {
+                $client->setApiKey($apiKey);
+                $client->setTier('developer');
+                $this->log('DEBUG', 'Auth via debug mode (no DB)');
+                return true;
+            }
+            return false;
+        }
         
-        return false;
+        // Query database for API key
+        $sql = "
+            SELECT tier, is_active, expires_at
+            FROM dbo.swim_api_keys
+            WHERE api_key = ?
+        ";
+        
+        $stmt = @sqlsrv_query($this->dbConn, $sql, [$apiKey]);
+        if ($stmt === false) {
+            $this->log('ERROR', 'Auth query failed', ['errors' => sqlsrv_errors()]);
+            // Fall back to debug mode on DB error
+            if ($this->config['debug'] && !empty($apiKey)) {
+                $client->setApiKey($apiKey);
+                $client->setTier('developer');
+                return true;
+            }
+            return false;
+        }
+        
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        
+        if (!$row) {
+            $this->log('DEBUG', 'API key not found', ['key' => substr($apiKey, 0, 20) . '...']);
+            return false;
+        }
+        
+        // Check if active
+        if (!$row['is_active']) {
+            $this->log('DEBUG', 'API key inactive');
+            return false;
+        }
+        
+        // Check expiration
+        if ($row['expires_at'] !== null) {
+            $expiresAt = $row['expires_at'];
+            if ($expiresAt instanceof \DateTime) {
+                $expiresAt = $expiresAt->getTimestamp();
+            } else {
+                $expiresAt = strtotime($expiresAt);
+            }
+            if ($expiresAt < time()) {
+                $this->log('DEBUG', 'API key expired');
+                return false;
+            }
+        }
+        
+        $tier = $row['tier'] ?? 'public';
+        
+        // Cache the result
+        $this->keyCache[$apiKey] = [
+            'tier' => $tier,
+            'expires' => time() + $this->keyCacheTtl,
+        ];
+        
+        // Update last_used_at (non-blocking, fire-and-forget)
+        $updateSql = "UPDATE dbo.swim_api_keys SET last_used_at = GETUTCDATE() WHERE api_key = ?";
+        @sqlsrv_query($this->dbConn, $updateSql, [$apiKey]);
+        
+        $client->setApiKey($apiKey);
+        $client->setTier($tier);
+        
+        $this->log('INFO', 'Auth successful', ['tier' => $tier]);
+        return true;
     }
 
     /**
