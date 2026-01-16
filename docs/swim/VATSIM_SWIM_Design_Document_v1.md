@@ -1,8 +1,8 @@
 # VATSIM SWIM (System Wide Information Management)
-# Design Document v1.2
+# Design Document v1.3
 
-**Document Status:** IN DEVELOPMENT  
-**Version:** 1.2  
+**Document Status:** PHASE 0 COMPLETE  
+**Version:** 1.3  
 **Date:** 2026-01-16  
 **Author:** vATCSCC Development Team  
 **Classification:** Public  
@@ -229,39 +229,45 @@ CREATE TABLE swim_api_keys (...);
 CREATE TABLE swim_audit_log (...);
 ```
 
-### 4.3 Sync Procedure
+### 4.3 Sync Implementation
 
+**Note:** Azure SQL Basic tier doesn't support cross-database queries, so sync is implemented via PHP rather than a cross-database stored procedure.
+
+**Sync Flow:**
+```
+1. ADL daemon refreshes VATSIM_ADL (every 15 seconds)
+2. Every 8th cycle (2 minutes), daemon triggers SWIM sync
+3. PHP reads from VATSIM_ADL normalized tables
+4. PHP encodes ~2,000 flights as JSON (~3MB)
+5. PHP calls sp_Swim_BulkUpsert on SWIM_API
+6. SP parses JSON, performs MERGE, returns stats
+```
+
+**Files:**
+- `scripts/swim_sync.php` - PHP sync logic (V2 with batch SP)
+- `scripts/vatsim_adl_daemon.php` - Integration point
+- `database/migrations/swim/004_swim_bulk_upsert_sp.sql` - Batch upsert SP
+
+**sp_Swim_BulkUpsert (SWIM_API):**
 ```sql
--- Runs every 15 seconds after ADL refresh
-CREATE PROCEDURE sp_Swim_SyncFromAdl
+CREATE PROCEDURE dbo.sp_Swim_BulkUpsert @Json NVARCHAR(MAX)
 AS
 BEGIN
-    -- Merge active flights from normalized ADL tables
-    MERGE swim_flights AS target
-    USING (
-        SELECT 
-            c.flight_uid, c.flight_key, c.callsign, c.cid,
-            pos.lat, pos.lon, pos.altitude_ft, pos.heading_deg, pos.groundspeed_kts,
-            fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_altitude_ft, fp.fp_route,
-            fp.fp_dept_artcc, fp.fp_dest_artcc,
-            c.phase, c.is_active, pos.dist_to_dest_nm, pos.pct_complete,
-            t.eta_utc, t.out_utc, t.off_utc, t.on_utc, t.in_utc,
-            tmi.gs_held, tmi.ctl_type, tmi.ctl_prgm, tmi.slot_time_utc, tmi.delay_minutes,
-            fp.aircraft_type, ac.weight_class, ac.airline_icao
-        FROM VATSIM_ADL.dbo.adl_flight_core c
-        LEFT JOIN VATSIM_ADL.dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
-        LEFT JOIN VATSIM_ADL.dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-        LEFT JOIN VATSIM_ADL.dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-        LEFT JOIN VATSIM_ADL.dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
-        LEFT JOIN VATSIM_ADL.dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
-        WHERE c.is_active = 1 OR c.last_seen_utc > DATEADD(HOUR, -2, GETUTCDATE())
-    ) AS source ON target.flight_uid = source.flight_uid
+    -- Parse JSON into temp table
+    SELECT ... INTO #flights FROM OPENJSON(@Json);
+    
+    -- MERGE: Insert new, update existing
+    MERGE dbo.swim_flights AS target
+    USING #flights AS source ON target.flight_uid = source.flight_uid
     WHEN MATCHED THEN UPDATE SET ...
     WHEN NOT MATCHED THEN INSERT ...;
     
-    -- Remove stale flights
-    DELETE FROM swim_flights 
-    WHERE is_active = 0 AND last_sync_utc < DATEADD(HOUR, -2, GETUTCDATE());
+    -- Delete stale flights (inactive >2 hours)
+    DELETE FROM dbo.swim_flights 
+    WHERE is_active = 0 AND last_sync_utc < DATEADD(HOUR, -2, SYSUTCDATETIME());
+    
+    -- Return stats
+    SELECT @inserted AS inserted, @updated AS updated, @deleted AS deleted;
 END;
 ```
 
@@ -359,64 +365,70 @@ Allowed origins:
 
 ## 8. Implementation Status
 
-### 8.1 Current State (v1 - Temporary)
+### 8.1 Current State (v1.3 - Infrastructure Complete)
 
-⚠️ **Current implementation queries VATSIM_ADL directly** - this is temporary and must be migrated to the dedicated SWIM_API database before heavy public use.
+✅ **Infrastructure migration complete.** SWIM_API database deployed with dedicated sync from ADL daemon.
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| API Endpoints | ✅ Functional | Querying VATSIM_ADL (temporary) |
+| SWIM_API Database | ✅ Deployed | Azure SQL Basic $5/mo |
+| swim_flights Table | ✅ Deployed | 75-column full schema |
+| sp_Swim_BulkUpsert | ✅ Deployed | MERGE-based batch sync |
+| ADL Daemon Sync | ✅ Integrated | 2-minute interval via PHP |
+| API Endpoints | ✅ Functional | SWIM_API with ADL fallback |
 | Authentication | ✅ Complete | Working |
 | Rate Limiting | ✅ Complete | APCu-based |
-| SWIM_API Database | ❌ Not Created | **BLOCKING** |
-| Sync Procedure | ❌ Not Created | **BLOCKING** |
+| VATSIM_ADL Isolation | ✅ Complete | No SWIM objects remain |
 
-### 8.2 Migration Tasks (REQUIRED)
+### 8.2 Sync Performance
 
-| Task | Priority | Effort | Status |
-|------|----------|--------|--------|
-| Create SWIM_API database (Azure SQL Basic) | **CRITICAL** | 1h | ❌ |
-| Create swim_flights table | **CRITICAL** | 1h | ❌ |
-| Create sp_Swim_SyncFromAdl | **CRITICAL** | 2h | ❌ |
-| Update API endpoints to query SWIM_API | **CRITICAL** | 2h | ❌ |
-| Schedule sync job (every 15 sec) | **CRITICAL** | 1h | ❌ |
-| Test API against SWIM_API | High | 2h | ❌ |
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Sync Method | PHP batch via sp_Swim_BulkUpsert | Not cross-DB (Basic tier limitation) |
+| Sync Interval | 2 minutes | Every 8th daemon cycle |
+| Sync Duration | ~30 seconds | 2,000 flights × 75 columns |
+| Data Staleness | 30s - 2.5 min | Acceptable for current usage |
+| DTU Utilization | ~25% | Comfortable headroom |
 
 ### 8.3 Completed Components
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| Configuration | `load/swim_config.php` | ✅ Complete |
+| Configuration | `load/config.php`, `load/connect.php` | ✅ Complete |
 | Auth Middleware | `api/swim/v1/auth.php` | ✅ Complete |
 | API Router | `api/swim/v1/index.php` | ✅ Complete |
-| Flights Endpoint | `api/swim/v1/flights.php` | ⚠️ Needs DB switch |
-| Flight Endpoint | `api/swim/v1/flight.php` | ⚠️ Needs DB switch |
-| Positions Endpoint | `api/swim/v1/positions.php` | ⚠️ Needs DB switch |
-| TMI Programs | `api/swim/v1/tmi/programs.php` | ⚠️ Has error |
-| TMI Controlled | `api/swim/v1/tmi/controlled.php` | ⚠️ Needs DB switch |
+| Flights Endpoint | `api/swim/v1/flights.php` | ✅ Complete (SWIM_API) |
+| Flight Endpoint | `api/swim/v1/flight.php` | ✅ Complete (ADL for detail) |
+| Positions Endpoint | `api/swim/v1/positions.php` | ✅ Complete (SWIM_API) |
+| TMI Programs | `api/swim/v1/tmi/programs.php` | ✅ Fixed |
+| TMI Controlled | `api/swim/v1/tmi/controlled.php` | ✅ Complete (SWIM_API) |
+| Sync Script | `scripts/swim_sync.php` | ✅ V2 with batch SP |
+| Daemon Integration | `scripts/vatsim_adl_daemon.php` | ✅ 2-min interval |
 
 ---
 
 ## 9. Implementation Roadmap
 
-### Phase 0: Infrastructure (IMMEDIATE - REQUIRED)
+### Phase 0: Infrastructure ✅ COMPLETE
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Create Azure SQL Basic database "SWIM_API" | DevOps | ❌ |
-| Create swim_flights table | Dev | ❌ |
-| Create sp_Swim_SyncFromAdl procedure | Dev | ❌ |
-| Update connection strings in swim_config.php | Dev | ❌ |
-| Update API endpoints to use SWIM_API | Dev | ❌ |
-| Test all endpoints | QA | ❌ |
+| Create Azure SQL Basic database "SWIM_API" | DevOps | ✅ |
+| Create swim_flights table (75 columns) | Dev | ✅ |
+| Create sp_Swim_BulkUpsert procedure | Dev | ✅ |
+| Integrate sync into ADL daemon | Dev | ✅ |
+| Update connection strings in config.php | Dev | ✅ |
+| Update API endpoints with SWIM_API fallback | Dev | ✅ |
+| Clean SWIM objects from VATSIM_ADL | Dev | ✅ |
+| Test sync performance | QA | ✅ |
 
-### Phase 1: Foundation (Weeks 1-4) - IN PROGRESS
+### Phase 1: Foundation ✅ COMPLETE
 
 | Week | Focus | Status |
 |------|-------|--------|
 | 1-2 | Design & Architecture | ✅ Complete |
 | 2-3 | Core API Implementation | ✅ Complete |
-| 3-4 | **Infrastructure Migration** | 🔄 In Progress |
+| 3-4 | Infrastructure Migration | ✅ Complete |
 
 ### Phase 2: Real-Time Distribution (Weeks 5-8)
 

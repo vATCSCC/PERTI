@@ -1913,7 +1913,15 @@
                 
             case 'reroute_match':
                 return getRerouteMatchColor(flight);
-                
+
+            case 'fea_match':
+                // FEA (demand monitor) matching
+                if (typeof NODDemandLayer !== 'undefined' && NODDemandLayer.getFlightFEAMatch) {
+                    const feaMatch = NODDemandLayer.getFlightFEAMatch(flight);
+                    return feaMatch ? feaMatch.color : '#6c757d';
+                }
+                return '#6c757d';
+
             default:
                 return '#ffffff';
         }
@@ -4472,7 +4480,8 @@
             'arr_tracon': 'Arr TRACON',
             'dep_airport': 'Dep Airport',
             'arr_airport': 'Arr Airport',
-            'reroute_match': 'Reroute Match'
+            'reroute_match': 'Reroute Match',
+            'fea_match': 'FEA Match'
         };
         $modeLabel.text(modeLabels[mode] || mode);
         
@@ -4712,6 +4721,18 @@
                 // Add "No Match" at the end
                 items.push({ color: '#666666', label: 'No Match' });
                 break;
+            case 'fea_match':
+                // Show active FEA monitors with their colors
+                if (typeof NODDemandLayer !== 'undefined' && NODDemandLayer.getActiveMonitors) {
+                    const activeMonitors = NODDemandLayer.getActiveMonitors();
+                    items = activeMonitors.map(m => ({
+                        color: m.color,
+                        label: m.label
+                    }));
+                }
+                // Add "No Match" at the end
+                items.push({ color: '#6c757d', label: 'No Match' });
+                break;
             default:
                 items = [{ color: '#6c757d', label: mode }];
         }
@@ -4919,10 +4940,21 @@
                 }));
                 items.push({ color: '#666666', label: 'No Match' });
                 break;
+            case 'fea_match':
+                // Show active FEA monitors with their colors
+                if (typeof NODDemandLayer !== 'undefined' && NODDemandLayer.getActiveMonitors) {
+                    const activeMonitorsLegend = NODDemandLayer.getActiveMonitors();
+                    items = activeMonitorsLegend.map(m => ({
+                        color: m.color,
+                        label: m.label
+                    }));
+                }
+                items.push({ color: '#6c757d', label: 'No Match' });
+                break;
             default:
                 items = [{ color: '#6c757d', label: 'Default' }];
         }
-        
+
         $legend.html(items.map(item =>
             `<span style="display: inline-flex; align-items: center; margin-right: 6px;">
                 <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${item.color}; margin-right: 3px; border: 1px solid #333;"></span>
