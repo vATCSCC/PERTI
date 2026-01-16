@@ -305,9 +305,9 @@ if ($method === 'PUT') {
     // Update config
     $sql = "UPDATE splits_configs SET " . implode(', ', $updates) . " WHERE id = ?";
     $params[] = $id;
-    
+
     $stmt = sqlsrv_query($conn_adl, $sql, $params);
-    
+
     if ($stmt === false) {
         http_response_code(500);
         echo json_encode(['error' => 'Update failed', 'details' => adl_sql_error_message()]);
