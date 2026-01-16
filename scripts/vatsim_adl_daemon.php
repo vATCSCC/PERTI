@@ -537,19 +537,18 @@ function insertPilotsToStaging($conn, array $pilots, string $batchId, int $batch
     foreach ($batches as $batch) {
         $values = [];
         $params = [];
-        $paramIndex = 0;
 
         foreach ($batch as $p) {
             $placeholders = [];
 
-            // Each field becomes a parameter
+            // Regular fields
             $fields = [
                 'cid', 'callsign', 'lat', 'lon', 'altitude_ft', 'groundspeed_kts',
                 'heading_deg', 'qnh_in_hg', 'qnh_mb', 'flight_server', 'logon_time',
                 'fp_rule', 'dept_icao', 'dest_icao', 'alt_icao', 'route', 'remarks',
                 'altitude_filed_raw', 'tas_filed_raw', 'dep_time_z', 'enroute_time_raw',
                 'fuel_time_raw', 'aircraft_faa_raw', 'aircraft_short', 'fp_dof_raw',
-                'flight_key', 'route_hash', 'airline_icao'
+                'flight_key'
             ];
 
             foreach ($fields as $field) {
@@ -557,7 +556,15 @@ function insertPilotsToStaging($conn, array $pilots, string $batchId, int $batch
                 $params[] = $p[$field];
             }
 
-            // Add batch_id
+            // route_hash is binary - convert to hex for SQL CONVERT
+            $placeholders[] = 'CONVERT(VARBINARY(32), ?, 2)';
+            $params[] = $p['route_hash'] !== null ? bin2hex($p['route_hash']) : null;
+
+            // airline_icao
+            $placeholders[] = '?';
+            $params[] = $p['airline_icao'];
+
+            // batch_id
             $placeholders[] = '?';
             $params[] = $batchId;
 
@@ -603,11 +610,12 @@ function insertPrefilesToStaging($conn, array $prefiles, string $batchId, int $b
         foreach ($batch as $pf) {
             $placeholders = [];
 
+            // Regular fields (excluding route_hash)
             $fields = [
                 'cid', 'callsign', 'fp_rule', 'dept_icao', 'dest_icao', 'alt_icao',
                 'route', 'remarks', 'altitude_filed_raw', 'tas_filed_raw',
                 'dep_time_z', 'enroute_time_raw', 'aircraft_faa_raw', 'aircraft_short',
-                'flight_key', 'route_hash'
+                'flight_key'
             ];
 
             foreach ($fields as $field) {
@@ -615,7 +623,11 @@ function insertPrefilesToStaging($conn, array $prefiles, string $batchId, int $b
                 $params[] = $pf[$field];
             }
 
-            // Add batch_id
+            // route_hash is binary (MD5 = 16 bytes) - convert to hex for SQL CONVERT
+            $placeholders[] = 'CONVERT(VARBINARY(32), ?, 2)';
+            $params[] = $pf['route_hash'] !== null ? bin2hex($pf['route_hash']) : null;
+
+            // batch_id
             $placeholders[] = '?';
             $params[] = $batchId;
 

@@ -2737,7 +2737,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <div class="status-section">
                     <div class="status-section-header">
                         <span><i class="fas fa-sync-alt mr-2"></i>ADL Refresh Procedure</span>
-                        <span class="cycle-badge">V8.9 &bull; 15s Cycle + 60s Background</span>
+                        <span class="cycle-badge">V8.9.12 &bull; 15s Cycle + Daemon Background</span>
                     </div>
                     <!-- Live Stats Header -->
                     <div class="procedure-header-stats">
@@ -2786,6 +2786,14 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['new_flights_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['new_flights_15m'] ?? 0) ?></span>
                                 <span class="step-metric-label">new/15m</span>
+                            </div>
+                        </div>
+                        <!-- Step 2a -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">2a</span>
+                            <div class="step-content">
+                                <div class="step-name">Process VATSIM Prefiles</div>
+                                <div class="step-desc">Handle prefiled flight plans (phase='prefile')</div>
                             </div>
                         </div>
                         <!-- Step 2b -->
@@ -2856,6 +2864,14 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <span class="step-metric-label">pending</span>
                             </div>
                         </div>
+                        <!-- Step 5b -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">5b</span>
+                            <div class="step-content">
+                                <div class="step-name">Route Distance Calculation</div>
+                                <div class="step-desc">Calculate route_distance_nm using sp_RouteDistanceBatch</div>
+                            </div>
+                        </div>
                         <!-- Step 6 -->
                         <div class="procedure-step">
                             <span class="step-number">6</span>
@@ -2896,16 +2912,24 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="step-desc">Calculate 15-minute arrival time buckets</div>
                             </div>
                         </div>
-                        <!-- Step 8c -->
-                        <div class="procedure-step sub-step">
-                            <span class="step-number">8c</span>
+                        <!-- Step 8c (DISABLED - moved to waypoint_eta_daemon.php) -->
+                        <div class="procedure-step sub-step disabled" style="opacity: 0.6; border-left: 3px solid #6c757d;">
+                            <span class="step-number" style="background: #6c757d;">8c</span>
                             <div class="step-content">
-                                <div class="step-name">Waypoint ETA Calculation</div>
-                                <div class="step-desc">Calculate ETA at each route waypoint</div>
+                                <div class="step-name">Waypoint ETA Calculation <span class="step-category" style="background: #6c757d;">DAEMON</span></div>
+                                <div class="step-desc">Moved to waypoint_eta_daemon.php (15s tiered)</div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['waypoint_etas_total'] ?? 0) > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['waypoint_etas_total'] ?? 0) ?></span>
                                 <span class="step-metric-label">w/eta</span>
+                            </div>
+                        </div>
+                        <!-- Step 8d -->
+                        <div class="procedure-step sub-step">
+                            <span class="step-number">8d</span>
+                            <div class="step-content">
+                                <div class="step-name">Batch ETA Calculation</div>
+                                <div class="step-desc">Calculate arrival ETAs via sp_CalculateETABatch</div>
                             </div>
                         </div>
                         <!-- Step 9 -->
@@ -2920,12 +2944,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <span class="step-metric-label">trans/1h</span>
                             </div>
                         </div>
-                        <!-- Step 10 (Background) -->
-                        <div class="procedure-step" style="border-left: 3px solid #6366f1;">
-                            <span class="step-number" style="background: #6366f1;">10</span>
+                        <!-- Step 10 (DISABLED - moved to boundary_daemon.php) -->
+                        <div class="procedure-step disabled" style="opacity: 0.6; border-left: 3px solid #6c757d;">
+                            <span class="step-number" style="background: #6c757d;">10</span>
                             <div class="step-content">
-                                <div class="step-name">Boundary Detection <span class="step-category detect">Background 60s</span></div>
+                                <div class="step-name">Boundary Detection <span class="step-category" style="background: #6c757d;">DAEMON</span></div>
                                 <div class="step-desc">
+                                    Moved to boundary_daemon.php (15s adaptive) &bull;
                                     A:<?= number_format($liveData['boundary_artcc_1h']) ?> T:<?= number_format($liveData['boundary_tracon_1h']) ?>/hr &bull;
                                     <?= number_format($liveData['flights_with_artcc']) ?> tracked
                                     <?php if ($liveData['boundary_pending'] > 0): ?><span style="color:#f59e0b;">&bull; <?= $liveData['boundary_pending'] ?> pending</span><?php endif; ?>
@@ -2936,12 +2961,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <span class="step-metric-label">cross/1h</span>
                             </div>
                         </div>
-                        <!-- Step 11 (Background) -->
-                        <div class="procedure-step" style="border-left: 3px solid #6366f1;">
-                            <span class="step-number" style="background: #6366f1;">11</span>
+                        <!-- Step 11 (DISABLED - moved to boundary_daemon.php) -->
+                        <div class="procedure-step disabled" style="opacity: 0.6; border-left: 3px solid #6c757d;">
+                            <span class="step-number" style="background: #6c757d;">11</span>
                             <div class="step-content">
-                                <div class="step-name">Planned Crossings <span class="step-category detect">Background Tiered</span></div>
+                                <div class="step-name">Planned Crossings <span class="step-category" style="background: #6c757d;">DAEMON</span></div>
                                 <div class="step-desc">
+                                    Moved to boundary_daemon.php (tiered) &bull;
                                     <?= number_format($liveData['flights_with_crossings']) ?> flights &bull;
                                     Tiers: <?php
                                         $tierParts = [];
