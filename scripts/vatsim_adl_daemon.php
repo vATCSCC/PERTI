@@ -158,10 +158,10 @@ $config = [
     'staged_refresh_enabled' => true,  // Enable PHP-side JSON parsing
     'staged_batch_size'      => 70,    // Rows per INSERT batch (max ~72 due to 2100 param limit)
 
-    // V9.1 TVP Mode - use Table-Valued Parameters instead of batched INSERTs
-    // Reduces ~43 round trips to 1 round trip for ~3000 pilots
-    // Requires: dbo.PilotStagingType and dbo.PrefileStagingType created in DB
-    'use_tvp'                => true,  // Use TVP for staging inserts (faster)
+    // V9.2 Bulk Literal Mode - use single INSERT statements with literal values
+    // Reduces ~43 round trips to ~3 round trips for ~3000 pilots (1000 rows per INSERT)
+    // No parameters = no 2100 limit, faster than parameterized batches
+    'use_tvp'                => true,  // Use bulk literal for staging inserts (faster)
 ];
 
 // ============================================================================
@@ -666,127 +666,184 @@ function clearStagingTables($conn): void {
 }
 
 // ============================================================================
-// V9.1 TVP INSERT FUNCTIONS
-// Uses Table-Valued Parameters for O(1) insert time regardless of row count
-// Requires SQLSRV_PHPTYPE_TABLE constant (sqlsrv 5.3+)
+// V9.2 BULK LITERAL INSERT FUNCTIONS
+// Uses single INSERT statements with literal values (no parameters)
+// O(1) round trips per batch - much faster than parameterized batches
+// Safe: uses proper SQL escaping to prevent injection
 // ============================================================================
 
 /**
- * Insert pilots to staging using TVP (single round-trip).
+ * Escape a string value for SQL Server literal insertion.
+ * Returns N'escaped_value' or NULL.
  */
-function insertPilotsViaTVP($conn, array $pilots, string $batchId, int $batchSize = 70): array {
-    if (empty($pilots)) return ['inserted' => 0, 'method' => 'tvp'];
-
-    clearStagingTables($conn);
-
-    // Build TVP rows - each row is an array of column values in type order
-    $tvpRows = [];
-    foreach ($pilots as $p) {
-        $tvpRows[] = [
-            $p['cid'],
-            $p['callsign'],
-            $p['lat'],
-            $p['lon'],
-            $p['altitude_ft'],
-            $p['groundspeed_kts'],
-            $p['heading_deg'],
-            $p['qnh_in_hg'],
-            $p['qnh_mb'],
-            $p['flight_server'],
-            $p['logon_time'],
-            $p['fp_rule'],
-            $p['dept_icao'],
-            $p['dest_icao'],
-            $p['alt_icao'],
-            $p['route'],
-            $p['remarks'],
-            $p['altitude_filed_raw'],
-            $p['tas_filed_raw'],
-            $p['dep_time_z'],
-            $p['enroute_time_raw'],
-            $p['fuel_time_raw'],
-            $p['aircraft_faa_raw'],
-            $p['aircraft_short'],
-            $p['fp_dof_raw'],
-            $p['flight_key'],
-            $p['route_hash'],  // Binary - driver handles conversion
-            $p['airline_icao'],
-        ];
+function sqlEscapeString(?string $value): string {
+    if ($value === null) {
+        return 'NULL';
     }
-
-    // TVP parameter: [data, direction, phpType, sqlTypeName]
-    $sql = "EXEC dbo.sp_InsertPilotsFromTVP @pilots = ?, @batch_id = ?";
-    $params = [
-        [$tvpRows, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_TABLE, 'dbo.PilotStagingType'],
-        $batchId
-    ];
-
-    $stmt = sqlsrv_query($conn, $sql, $params);
-
-    if ($stmt === false) {
-        $errors = sqlsrv_errors();
-        logWarn("TVP pilot insert failed: " . json_encode($errors));
-        // Fall back to batched
-        $inserted = insertPilotsToStaging($conn, $pilots, $batchId, $batchSize);
-        return ['inserted' => $inserted, 'method' => 'batched'];
-    }
-
-    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    $inserted = $row['rows_inserted'] ?? count($pilots);
-    sqlsrv_free_stmt($stmt);
-
-    return ['inserted' => $inserted, 'method' => 'tvp'];
+    // Escape single quotes by doubling them
+    $escaped = str_replace("'", "''", $value);
+    return "N'" . $escaped . "'";
 }
 
 /**
- * Insert prefiles to staging using TVP (single round-trip).
+ * Format a numeric value for SQL literal insertion.
  */
-function insertPrefilesViaTVP($conn, array $prefiles, string $batchId, int $batchSize = 70): array {
-    if (empty($prefiles)) return ['inserted' => 0, 'method' => 'tvp'];
+function sqlEscapeNumber($value, bool $isInt = false): string {
+    if ($value === null) {
+        return 'NULL';
+    }
+    if ($isInt) {
+        return (string)(int)$value;
+    }
+    return (string)(float)$value;
+}
 
-    // Build TVP rows
-    $tvpRows = [];
-    foreach ($prefiles as $pf) {
-        $tvpRows[] = [
-            $pf['cid'],
-            $pf['callsign'],
-            $pf['fp_rule'],
-            $pf['dept_icao'],
-            $pf['dest_icao'],
-            $pf['alt_icao'],
-            $pf['route'],
-            $pf['remarks'],
-            $pf['altitude_filed_raw'],
-            $pf['tas_filed_raw'],
-            $pf['dep_time_z'],
-            $pf['enroute_time_raw'],
-            $pf['aircraft_faa_raw'],
-            $pf['aircraft_short'],
-            $pf['flight_key'],
-            $pf['route_hash'],  // Binary - driver handles conversion
-        ];
+/**
+ * Format a binary value (route_hash) for SQL insertion.
+ * Uses CONVERT(VARBINARY(32), '...', 2) with hex string.
+ */
+function sqlEscapeBinary(?string $binaryData): string {
+    if ($binaryData === null) {
+        return 'NULL';
+    }
+    $hex = bin2hex($binaryData);
+    return "CONVERT(VARBINARY(32), '{$hex}', 2)";
+}
+
+/**
+ * Insert pilots to staging using bulk literal INSERT (O(1) per batch).
+ * No parameters = no 2100 limit, much faster than parameterized batches.
+ * @param resource $conn SQL Server connection
+ * @param array $pilots Parsed pilot records
+ * @param string $batchId UUID for this batch
+ * @param int $batchSize Rows per INSERT statement (default 1000)
+ * @return array ['inserted' => count, 'method' => 'bulk']
+ */
+function insertPilotsBulkLiteral($conn, array $pilots, string $batchId, int $batchSize = 1000): array {
+    if (empty($pilots)) return ['inserted' => 0, 'method' => 'bulk'];
+
+    clearStagingTables($conn);
+
+    $inserted = 0;
+    $batches = array_chunk($pilots, $batchSize);
+    $escapedBatchId = sqlEscapeString($batchId);
+
+    foreach ($batches as $batch) {
+        $valuesClauses = [];
+
+        foreach ($batch as $p) {
+            $values = [
+                sqlEscapeNumber($p['cid'], true),
+                sqlEscapeString($p['callsign']),
+                sqlEscapeNumber($p['lat'], false),
+                sqlEscapeNumber($p['lon'], false),
+                sqlEscapeNumber($p['altitude_ft'], true),
+                sqlEscapeNumber($p['groundspeed_kts'], true),
+                sqlEscapeNumber($p['heading_deg'], true),
+                sqlEscapeNumber($p['qnh_in_hg'], false),
+                sqlEscapeNumber($p['qnh_mb'], true),
+                sqlEscapeString($p['flight_server']),
+                sqlEscapeString($p['logon_time']),
+                sqlEscapeString($p['fp_rule']),
+                sqlEscapeString($p['dept_icao']),
+                sqlEscapeString($p['dest_icao']),
+                sqlEscapeString($p['alt_icao']),
+                sqlEscapeString($p['route']),
+                sqlEscapeString($p['remarks']),
+                sqlEscapeString($p['altitude_filed_raw']),
+                sqlEscapeString($p['tas_filed_raw']),
+                sqlEscapeString($p['dep_time_z']),
+                sqlEscapeString($p['enroute_time_raw']),
+                sqlEscapeString($p['fuel_time_raw']),
+                sqlEscapeString($p['aircraft_faa_raw']),
+                sqlEscapeString($p['aircraft_short']),
+                sqlEscapeString($p['fp_dof_raw']),
+                sqlEscapeString($p['flight_key']),
+                sqlEscapeBinary($p['route_hash']),
+                sqlEscapeString($p['airline_icao']),
+                $escapedBatchId,
+            ];
+
+            $valuesClauses[] = '(' . implode(',', $values) . ')';
+        }
+
+        $sql = "INSERT INTO dbo.adl_staging_pilots (
+            cid, callsign, lat, lon, altitude_ft, groundspeed_kts,
+            heading_deg, qnh_in_hg, qnh_mb, flight_server, logon_time,
+            fp_rule, dept_icao, dest_icao, alt_icao, route, remarks,
+            altitude_filed_raw, tas_filed_raw, dep_time_z, enroute_time_raw,
+            fuel_time_raw, aircraft_faa_raw, aircraft_short, fp_dof_raw,
+            flight_key, route_hash, airline_icao, batch_id
+        ) VALUES " . implode(',', $valuesClauses);
+
+        $stmt = sqlsrv_query($conn, $sql);
+
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            throw new Exception("Bulk pilot insert failed: " . json_encode($errors));
+        }
+
+        $inserted += sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
     }
 
-    // TVP parameter
-    $sql = "EXEC dbo.sp_InsertPrefilesFromTVP @prefiles = ?, @batch_id = ?";
-    $params = [
-        [$tvpRows, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_TABLE, 'dbo.PrefileStagingType'],
-        $batchId
-    ];
+    return ['inserted' => $inserted, 'method' => 'bulk'];
+}
 
-    $stmt = sqlsrv_query($conn, $sql, $params);
+/**
+ * Insert prefiles to staging using bulk literal INSERT (O(1) per batch).
+ */
+function insertPrefilesBulkLiteral($conn, array $prefiles, string $batchId, int $batchSize = 1000): array {
+    if (empty($prefiles)) return ['inserted' => 0, 'method' => 'bulk'];
 
-    if ($stmt === false) {
-        $errors = sqlsrv_errors();
-        logWarn("TVP prefile insert failed: " . json_encode($errors));
-        // Fall back to batched
-        $inserted = insertPrefilesToStaging($conn, $prefiles, $batchId, $batchSize);
-        return ['inserted' => $inserted, 'method' => 'batched'];
+    $inserted = 0;
+    $batches = array_chunk($prefiles, $batchSize);
+    $escapedBatchId = sqlEscapeString($batchId);
+
+    foreach ($batches as $batch) {
+        $valuesClauses = [];
+
+        foreach ($batch as $pf) {
+            $values = [
+                sqlEscapeNumber($pf['cid'], true),
+                sqlEscapeString($pf['callsign']),
+                sqlEscapeString($pf['fp_rule']),
+                sqlEscapeString($pf['dept_icao']),
+                sqlEscapeString($pf['dest_icao']),
+                sqlEscapeString($pf['alt_icao']),
+                sqlEscapeString($pf['route']),
+                sqlEscapeString($pf['remarks']),
+                sqlEscapeString($pf['altitude_filed_raw']),
+                sqlEscapeString($pf['tas_filed_raw']),
+                sqlEscapeString($pf['dep_time_z']),
+                sqlEscapeString($pf['enroute_time_raw']),
+                sqlEscapeString($pf['aircraft_faa_raw']),
+                sqlEscapeString($pf['aircraft_short']),
+                sqlEscapeString($pf['flight_key']),
+                sqlEscapeBinary($pf['route_hash']),
+                $escapedBatchId,
+            ];
+
+            $valuesClauses[] = '(' . implode(',', $values) . ')';
+        }
+
+        $sql = "INSERT INTO dbo.adl_staging_prefiles (
+            cid, callsign, fp_rule, dept_icao, dest_icao, alt_icao,
+            route, remarks, altitude_filed_raw, tas_filed_raw,
+            dep_time_z, enroute_time_raw, aircraft_faa_raw, aircraft_short,
+            flight_key, route_hash, batch_id
+        ) VALUES " . implode(',', $valuesClauses);
+
+        $stmt = sqlsrv_query($conn, $sql);
+
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            throw new Exception("Bulk prefile insert failed: " . json_encode($errors));
+        }
+
+        $inserted += sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
     }
-
-    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    $inserted = $row['rows_inserted'] ?? count($prefiles);
-    sqlsrv_free_stmt($stmt);
 
     return ['inserted' => $inserted, 'method' => 'bulk'];
 }
@@ -1388,7 +1445,7 @@ function runDaemon(array $config): void {
         'crit_ms'   => $config['critical_sp_ms'],
         'websocket' => $config['websocket_enabled'] ? 'enabled' : 'disabled',
         'mode'      => $config['staged_refresh_enabled']
-                        ? ($config['use_tvp'] ? 'staged+tvp (V9.1)' : 'staged (V9.0)')
+                        ? ($config['use_tvp'] ? 'staged+bulk (V9.2)' : 'staged (V9.0)')
                         : 'legacy',
     ]);
     
@@ -1533,14 +1590,16 @@ function runDaemon(array $config): void {
 
                 $insertMode = 'batched';
                 if ($config['use_tvp']) {
-                    // V9.1: TVP mode with automatic fallback to batched
-                    $pilotResult = insertPilotsViaTVP($conn, $parsedPilots, $batchId, $config['staged_batch_size']);
-                    $prefileResult = insertPrefilesViaTVP($conn, $parsedPrefiles, $batchId, $config['staged_batch_size']);
+                    // V9.2: Bulk literal INSERT mode (O(1) per 1000-row batch)
+                    // Single INSERT with literal values - no parameters, no 2100 limit
+                    // 3000 pilots = 3 round trips vs 43 with parameterized batches
+                    $pilotResult = insertPilotsBulkLiteral($conn, $parsedPilots, $batchId, 1000);
+                    $prefileResult = insertPrefilesBulkLiteral($conn, $parsedPrefiles, $batchId, 1000);
                     $insertedPilots = $pilotResult['inserted'];
                     $insertedPrefiles = $prefileResult['inserted'];
-                    $insertMode = $pilotResult['method'];  // Track actual method used
+                    $insertMode = $pilotResult['method'];  // Should be 'bulk'
                 } else {
-                    // V9.0: Batched INSERTs (~43 round trips for 3K pilots)
+                    // V9.0: Batched INSERTs with parameters (~43 round trips for 3K pilots)
                     clearStagingTables($conn);
                     $insertedPilots = insertPilotsToStaging($conn, $parsedPilots, $batchId, $config['staged_batch_size']);
                     $insertedPrefiles = insertPrefilesToStaging($conn, $parsedPrefiles, $batchId, $config['staged_batch_size']);
@@ -1812,9 +1871,9 @@ function runDaemon(array $config): void {
                 'ws_events'     => $stats['ws_events'],
             ];
 
-            // Add V9.0/V9.1 staging stats if enabled
+            // Add V9.0/V9.2 staging stats if enabled
             if ($config['staged_refresh_enabled']) {
-                $statsContext['mode'] = $config['use_tvp'] ? 'tvp' : 'batched';
+                $statsContext['mode'] = $config['use_tvp'] ? 'bulk' : 'batched';
                 $statsContext['avg_stg_ms'] = $avgStagingMs;
                 $statsContext['avg_ins_ms'] = $avgInsertMs;
             }
