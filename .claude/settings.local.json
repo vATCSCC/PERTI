@@ -208,7 +208,16 @@
       "Bash(git -C \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\" status default)",
       "Bash(git -C \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\" mv default nginx-site.conf)",
       "Bash(git -C \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\" add -A)",
-      "Bash(git -C \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\" commit -m \"$\\(cat <<''EOF''\nRename nginx config to nginx-site.conf\n\nRenamed from ''default'' to ''nginx-site.conf'' to avoid potential\nissues with the generic filename during deployment. Updated Azure\nstartup command to use the new filename.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git -C \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\" commit -m \"$\\(cat <<''EOF''\nRename nginx config to nginx-site.conf\n\nRenamed from ''default'' to ''nginx-site.conf'' to avoid potential\nissues with the generic filename during deployment. Updated Azure\nstartup command to use the new filename.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\" push origin main)",
+      "Bash(more:*)",
+      "Bash(git check-attr:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(while read f)",
+      "Bash(do if grep -q \"require.*load/config\\\\|include.*load/config\" \"$f\")",
+      "Bash(then if ! grep -q \"require.*load/input\\\\|include.*load/input\\\\|require.*load/connect\\\\|include.*load/connect\" \"$f\")",
+      "Bash(then if grep -q \"get_input\\\\|get_upper\\\\|get_lower\\\\|get_int\\\\|get_float\\\\|post_input\\\\|post_int\\\\|has_get\\\\|has_post\\\\|server_get\\\\|session_get\\\\|cookie_get\" \"$f\")",
+      "Bash(then echo \"$f\" fi fi fi done)"
     ]
   }
 }

@@ -18,6 +18,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
 require_once("../../load/config.php");
+require_once("../../load/input.php");
 require_once(__DIR__ . '/StatsHelper.php');
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||

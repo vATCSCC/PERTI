@@ -16,6 +16,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 include("../../../load/config.php");
+include("../../../load/input.php");
 
 // Use ADL database connection
 try {

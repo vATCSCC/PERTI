@@ -12,6 +12,7 @@ if (session_status() == PHP_SESSION_NONE) {
 header('Content-Type: application/json; charset=utf-8');
 
 require_once("../../load/config.php");
+require_once("../../load/input.php");
 
 // Check ADL database configuration
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||

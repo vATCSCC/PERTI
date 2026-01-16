@@ -34,6 +34,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
 require_once(__DIR__ . '/../../../load/config.php');
+require_once(__DIR__ . '/../../../load/input.php');
 
 // Validate config
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
