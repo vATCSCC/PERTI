@@ -50,6 +50,44 @@ info:
     2. Virtual Airlines - better detection than raw sim
     3. Simulator - raw telemetry
     4. VATCSCC - ADL parsing fallback
+
+    ## Consumer Use Cases
+
+    This API supports various consumer types with specific patterns:
+
+    ### Virtual Airlines
+    - **Fleet Tracking**: `GET /flights?callsign=DAL*` - Monitor all flights for airline prefix
+    - **OOOI Logging**: `POST /ingest/adl` with out/off/on/in times from ACARS
+    - **Telemetry Push**: `POST /ingest/track` for high-frequency position updates
+    - **OTP Reports**: `GET /flights?status=completed` for on-time performance analysis
+
+    ### Facility / vNAS
+    - **Sector Traffic**: `GET /flights?artcc=ZNY` - Traffic counts per ARTCC
+    - **Demand Monitoring**: `GET /flights?dest_icao=KJFK` - Arrival demand by airport
+    - **Route Compliance**: `GET /positions?include_route=true` - Verify route adherence
+    - **CRC Track Feed**: `POST /ingest/track` - Batch position updates from radar sim
+
+    ### TMI Coordination
+    - **Active Programs**: `GET /tmi/programs` - Ground Stops and GDPs
+    - **Controlled Flights**: `GET /tmi/controlled?airport=KJFK` - Flights with EDCT/slots
+    - **Slot Assignment**: `POST /ingest/adl` with tmi.slot_time_utc
+
+    ### Data Integration
+    - **Webhook Events**: Subscribe to real-time events (WebSocket coming in Phase 2)
+    - **Batch Export**: Paginate through all flights for external analysis
+    - **GeoJSON Mapping**: `GET /positions` for map visualization
+
+    ## Python SDK Examples
+
+    See `sdk/python/examples/` for complete working examples:
+    - `airline_fleet_tracker.py` - Virtual airline fleet monitoring
+    - `sector_traffic_monitor.py` - ARTCC traffic counts and alerts
+    - `airport_demand_dashboard.py` - 15-minute demand buckets
+    - `data_export_pipeline.py` - JSON/CSV/GeoJSON export
+    - `webhook_receiver.py` - FastAPI webhook server
+    - `discord_bot.py` - Discord integration
+    - `data_provider_example.py` - CRC/provider data ingest
+    - `route_compliance_monitor.py` - Reroute compliance tracking
     
   version: 1.0.0
   contact:
@@ -68,13 +106,41 @@ tags:
   - name: Info
     description: API information and status
   - name: Flights
-    description: Flight data retrieval
+    description: |
+      Flight data retrieval.
+      
+      **Use Cases:**
+      - Virtual Airlines: `?callsign=DAL*` for fleet tracking
+      - Facility/vNAS: `?artcc=ZNY` for sector traffic monitoring
+      - TMI: `?tmi_controlled=true` for controlled flights
+      - Demand: `?dest_icao=KJFK` for arrival demand analysis
   - name: Positions
-    description: Flight position data (GeoJSON)
+    description: |
+      Flight positions in GeoJSON FeatureCollection format.
+      
+      **Use Cases:**
+      - Map visualization for traffic displays
+      - Route compliance: `?include_route=true`
+      - Sector monitoring: `?artcc=ZNY`
+      - Geographic filtering: `?bounds=minLon,minLat,maxLon,maxLat`
   - name: TMI
-    description: Traffic Management Initiative data
+    description: |
+      Traffic Management Initiative data.
+      
+      **Use Cases:**
+      - TMI Monitor: Track active Ground Stops and GDPs
+      - Slot Lists: Get flights with EDCT assignments
+      - Controlled Flight Counts: Statistics by airport/ARTCC
   - name: Ingest
-    description: Data ingestion endpoints (write access required)
+    description: |
+      Data ingestion endpoints (write access required).
+      
+      **Use Cases:**
+      - Virtual Airlines: Push OOOI times and telemetry
+      - CRC/vNAS: Batch track position updates
+      - TMI Systems: Slot assignments and control status
+      
+      **Note:** Requires partner or system tier API key
 
 security:
   - bearerAuth: []
