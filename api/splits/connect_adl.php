@@ -41,7 +41,9 @@ if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
         $connectionInfo = [
             "Database" => ADL_SQL_DATABASE,
             "UID"      => ADL_SQL_USERNAME,
-            "PWD"      => ADL_SQL_PASSWORD
+            "PWD"      => ADL_SQL_PASSWORD,
+            "LoginTimeout" => 30,
+            "ConnectionPooling" => 1
         ];
 
         $conn_adl = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
