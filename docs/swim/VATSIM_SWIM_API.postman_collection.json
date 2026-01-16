@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "swim-api-v1-collection",
 		"name": "VATSIM SWIM API v1",
-		"description": "System Wide Information Management (SWIM) API for VATSIM.\n\nSWIM provides a centralized data exchange hub enabling real-time flight information sharing across the VATSIM ecosystem.\n\n## Authentication\n\nAll endpoints require Bearer token authentication. Set your API key in the collection variables or environment.\n\n## API Key Tiers\n\n| Tier | Prefix | Rate Limit | Write Access |\n|------|--------|------------|-------------|\n| System | `swim_sys_` | 10,000/min | Full |\n| Partner | `swim_par_` | 1,000/min | Limited |\n| Developer | `swim_dev_` | 100/min | Read-only |\n| Public | `swim_pub_` | 30/min | Read-only |\n\n## Documentation\n\nhttps://perti.vatcscc.org/docs/swim/",
+		"description": "System Wide Information Management (SWIM) API for VATSIM.\n\nSWIM provides a centralized data exchange hub enabling real-time flight information sharing across the VATSIM ecosystem.\n\n## Authentication\n\nAll endpoints require Bearer token authentication. Set your API key in the collection variables or environment.\n\n## API Key Tiers\n\n| Tier | Prefix | Rate Limit | Write Access |\n|------|--------|------------|-------------|\n| System | `swim_sys_` | 10,000/min | Full |\n| Partner | `swim_par_` | 1,000/min | Limited |\n| Developer | `swim_dev_` | 100/min | Read-only |\n| Public | `swim_pub_` | 30/min | Read-only |\n\n## Base URL\n\n`https://perti.vatcscc.org/api/swim/v1`\n\n## Documentation\n\nhttps://perti.vatcscc.org/docs/swim/",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"auth": {
@@ -52,7 +52,7 @@
 			"name": "Flights",
 			"item": [
 				{
-					"name": "List Flights",
+					"name": "List All Active Flights",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -67,42 +67,6 @@
 									"description": "Filter by status: active, completed, all"
 								},
 								{
-									"key": "dept_icao",
-									"value": "KJFK,KEWR",
-									"description": "Filter by departure airport(s)",
-									"disabled": true
-								},
-								{
-									"key": "dest_icao",
-									"value": "KLAX,KSFO",
-									"description": "Filter by destination airport(s)",
-									"disabled": true
-								},
-								{
-									"key": "artcc",
-									"value": "ZNY,ZLA",
-									"description": "Filter by destination ARTCC(s)",
-									"disabled": true
-								},
-								{
-									"key": "callsign",
-									"value": "UAL*",
-									"description": "Filter by callsign pattern (* wildcard)",
-									"disabled": true
-								},
-								{
-									"key": "tmi_controlled",
-									"value": "true",
-									"description": "Filter to TMI-controlled flights only",
-									"disabled": true
-								},
-								{
-									"key": "phase",
-									"value": "ENROUTE,DESCENT",
-									"description": "Filter by flight phase(s)",
-									"disabled": true
-								},
-								{
 									"key": "per_page",
 									"value": "100",
 									"description": "Results per page (1-1000)"
@@ -114,12 +78,37 @@
 								}
 							]
 						},
-						"description": "Returns a paginated list of flights with optional filters.\n\nData is sourced from the SWIM_API database which syncs from VATSIM_ADL every 2 minutes."
+						"description": "Returns a paginated list of all active flights.\n\nData is sourced from the SWIM_API database which syncs from VATSIM every 15 seconds."
 					},
 					"response": []
 				},
 				{
-					"name": "List Flights - By Departure",
+					"name": "List Flights - By Callsign Wildcard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flights?callsign=UAL*&status=active",
+							"host": ["{{base_url}}"],
+							"path": ["flights"],
+							"query": [
+								{
+									"key": "callsign",
+									"value": "UAL*",
+									"description": "Callsign pattern with * wildcard (e.g., UAL*, DLH*, AAL12*)"
+								},
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "Filter flights by callsign pattern using wildcard.\n\nExamples:\n- `UAL*` - All United flights\n- `DLH*` - All Lufthansa flights\n- `N*` - All N-registered aircraft\n- `AAL12*` - American flights starting with AAL12"
+					},
+					"response": []
+				},
+				{
+					"name": "List Flights - By Departure Airport",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -130,7 +119,8 @@
 							"query": [
 								{
 									"key": "dept_icao",
-									"value": "KJFK,KEWR,KLGA"
+									"value": "KJFK,KEWR,KLGA",
+									"description": "Comma-separated ICAO codes"
 								},
 								{
 									"key": "status",
@@ -138,7 +128,32 @@
 								}
 							]
 						},
-						"description": "Example: Get all active flights departing from New York area airports."
+						"description": "Get all active flights departing from specified airports."
+					},
+					"response": []
+				},
+				{
+					"name": "List Flights - By Destination Airport",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flights?dest_icao=KLAX,KSFO&status=active",
+							"host": ["{{base_url}}"],
+							"path": ["flights"],
+							"query": [
+								{
+									"key": "dest_icao",
+									"value": "KLAX,KSFO",
+									"description": "Comma-separated ICAO codes"
+								},
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "Get all active flights destined for specified airports."
 					},
 					"response": []
 				},
@@ -154,7 +169,8 @@
 							"query": [
 								{
 									"key": "artcc",
-									"value": "ZLA"
+									"value": "ZLA",
+									"description": "ARTCC identifier (e.g., ZNY, ZLA, ZDC)"
 								},
 								{
 									"key": "status",
@@ -162,7 +178,32 @@
 								}
 							]
 						},
-						"description": "Example: Get all active flights destined for Los Angeles Center airspace."
+						"description": "Get all active flights destined for airports in specified ARTCC."
+					},
+					"response": []
+				},
+				{
+					"name": "List Flights - By Phase",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flights?phase=enroute&status=active",
+							"host": ["{{base_url}}"],
+							"path": ["flights"],
+							"query": [
+								{
+									"key": "phase",
+									"value": "enroute",
+									"description": "Flight phase: prefile, taxiing, departing, climbing, enroute, descending, arrived"
+								},
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "Filter flights by phase.\n\nValid phases:\n- `prefile` - Filed but not connected\n- `taxiing` - On ground, moving\n- `departing` - Taking off\n- `climbing` - Climbing to cruise\n- `enroute` - At cruise altitude\n- `descending` - Descending to destination\n- `arrived` - On ground at destination"
 					},
 					"response": []
 				},
@@ -178,7 +219,8 @@
 							"query": [
 								{
 									"key": "tmi_controlled",
-									"value": "true"
+									"value": "true",
+									"description": "Only flights under TMI control"
 								},
 								{
 									"key": "status",
@@ -186,7 +228,40 @@
 								}
 							]
 						},
-						"description": "Example: Get all flights currently under TMI control (Ground Stop, GDP, etc.)."
+						"description": "Get only flights currently under Traffic Management Initiative control (Ground Stop, GDP, etc.)."
+					},
+					"response": []
+				},
+				{
+					"name": "List Flights - Combined Filters",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flights?callsign=DLH*&phase=enroute,climbing&status=active&per_page=50",
+							"host": ["{{base_url}}"],
+							"path": ["flights"],
+							"query": [
+								{
+									"key": "callsign",
+									"value": "DLH*"
+								},
+								{
+									"key": "phase",
+									"value": "enroute,climbing",
+									"description": "Multiple phases comma-separated"
+								},
+								{
+									"key": "status",
+									"value": "active"
+								},
+								{
+									"key": "per_page",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Example combining multiple filters: Lufthansa flights that are enroute or climbing."
 					},
 					"response": []
 				},
@@ -204,12 +279,6 @@
 									"key": "gufi",
 									"value": "VAT-20260115-UAL123-KJFK-KLAX",
 									"description": "GUFI format: VAT-YYYYMMDD-CALLSIGN-DEPT-DEST"
-								},
-								{
-									"key": "include_history",
-									"value": "false",
-									"description": "Include inactive flights in search",
-									"disabled": true
 								}
 							]
 						},
@@ -237,27 +306,6 @@
 						"description": "Returns detailed information for a single flight by internal flight_uid."
 					},
 					"response": []
-				},
-				{
-					"name": "Get Single Flight - By flight_key",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/flight?flight_key=UAL123_KJFK_KLAX_20260115",
-							"host": ["{{base_url}}"],
-							"path": ["flight"],
-							"query": [
-								{
-									"key": "flight_key",
-									"value": "UAL123_KJFK_KLAX_20260115",
-									"description": "Flight key string"
-								}
-							]
-						},
-						"description": "Returns detailed information for a single flight by flight_key."
-					},
-					"response": []
 				}
 			],
 			"description": "Flight data retrieval endpoints"
@@ -273,53 +321,9 @@
 						"url": {
 							"raw": "{{base_url}}/positions",
 							"host": ["{{base_url}}"],
-							"path": ["positions"],
-							"query": [
-								{
-									"key": "dept_icao",
-									"value": "KJFK",
-									"description": "Filter by departure airport(s)",
-									"disabled": true
-								},
-								{
-									"key": "dest_icao",
-									"value": "KLAX",
-									"description": "Filter by destination airport(s)",
-									"disabled": true
-								},
-								{
-									"key": "artcc",
-									"value": "ZNY",
-									"description": "Filter by destination ARTCC(s)",
-									"disabled": true
-								},
-								{
-									"key": "bounds",
-									"value": "-125.0,24.0,-66.0,50.0",
-									"description": "Bounding box: minLon,minLat,maxLon,maxLat",
-									"disabled": true
-								},
-								{
-									"key": "tmi_controlled",
-									"value": "true",
-									"description": "TMI-controlled flights only",
-									"disabled": true
-								},
-								{
-									"key": "phase",
-									"value": "ENROUTE",
-									"description": "Filter by flight phase(s)",
-									"disabled": true
-								},
-								{
-									"key": "include_route",
-									"value": "true",
-									"description": "Include route string in properties",
-									"disabled": true
-								}
-							]
+							"path": ["positions"]
 						},
-						"description": "Returns current positions of all active flights in GeoJSON FeatureCollection format.\n\nIdeal for map visualization."
+						"description": "Returns current positions of all active flights in GeoJSON FeatureCollection format.\n\nIdeal for map visualization with MapLibre, Leaflet, or similar libraries."
 					},
 					"response": []
 				},
@@ -336,11 +340,11 @@
 								{
 									"key": "bounds",
 									"value": "-125.0,24.0,-66.0,50.0",
-									"description": "Continental US bounding box"
+									"description": "Bounding box: minLon,minLat,maxLon,maxLat"
 								}
 							]
 						},
-						"description": "Example: Get positions within Continental US bounds."
+						"description": "Get positions within Continental US bounds."
 					},
 					"response": []
 				},
@@ -360,11 +364,32 @@
 								},
 								{
 									"key": "include_route",
+									"value": "true",
+									"description": "Include route string in properties"
+								}
+							]
+						},
+						"description": "Get positions of all flights inbound to JFK with route strings."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Positions - TMI Controlled",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/positions?tmi_controlled=true",
+							"host": ["{{base_url}}"],
+							"path": ["positions"],
+							"query": [
+								{
+									"key": "tmi_controlled",
 									"value": "true"
 								}
 							]
 						},
-						"description": "Example: Get positions of all flights inbound to JFK with route strings."
+						"description": "Get positions of flights under TMI control for highlighting on map."
 					},
 					"response": []
 				}
@@ -388,24 +413,6 @@
 									"key": "type",
 									"value": "all",
 									"description": "Filter by type: all, gs, gdp"
-								},
-								{
-									"key": "airport",
-									"value": "KJFK,KEWR",
-									"description": "Filter by affected airport(s)",
-									"disabled": true
-								},
-								{
-									"key": "artcc",
-									"value": "ZNY",
-									"description": "Filter by ARTCC",
-									"disabled": true
-								},
-								{
-									"key": "include_history",
-									"value": "true",
-									"description": "Include recently ended programs (last 2 hours)",
-									"disabled": true
 								}
 							]
 						},
@@ -429,7 +436,7 @@
 								}
 							]
 						},
-						"description": "Example: Get only active Ground Stops."
+						"description": "Get only active Ground Stops."
 					},
 					"response": []
 				},
@@ -449,7 +456,7 @@
 								}
 							]
 						},
-						"description": "Example: Get only active Ground Delay Programs."
+						"description": "Get only active Ground Delay Programs."
 					},
 					"response": []
 				},
@@ -469,11 +476,12 @@
 								},
 								{
 									"key": "include_history",
-									"value": "true"
+									"value": "true",
+									"description": "Include recently ended programs"
 								}
 							]
 						},
-						"description": "Example: Get TMI programs affecting JFK, including recently ended."
+						"description": "Get TMI programs affecting JFK, including recently ended."
 					},
 					"response": []
 				},
@@ -483,56 +491,11 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/tmi/controlled?type=all&per_page=100&page=1",
+							"raw": "{{base_url}}/tmi/controlled",
 							"host": ["{{base_url}}"],
-							"path": ["tmi", "controlled"],
-							"query": [
-								{
-									"key": "type",
-									"value": "all",
-									"description": "Filter by TMI type: all, gs, gdp, afp, reroute"
-								},
-								{
-									"key": "airport",
-									"value": "KJFK",
-									"description": "Filter by destination airport(s)",
-									"disabled": true
-								},
-								{
-									"key": "artcc",
-									"value": "ZNY",
-									"description": "Filter by destination ARTCC(s)",
-									"disabled": true
-								},
-								{
-									"key": "dept_icao",
-									"value": "KORD",
-									"description": "Filter by departure airport(s)",
-									"disabled": true
-								},
-								{
-									"key": "phase",
-									"value": "ENROUTE",
-									"description": "Filter by flight phase(s)",
-									"disabled": true
-								},
-								{
-									"key": "include_exempt",
-									"value": "true",
-									"description": "Include exempt flights",
-									"disabled": true
-								},
-								{
-									"key": "per_page",
-									"value": "100"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								}
-							]
+							"path": ["tmi", "controlled"]
 						},
-						"description": "Returns flights currently under TMI control with statistics."
+						"description": "Returns all flights currently under TMI control with statistics."
 					},
 					"response": []
 				},
@@ -552,7 +515,7 @@
 								}
 							]
 						},
-						"description": "Example: Get only flights held by Ground Stops."
+						"description": "Get only flights held by Ground Stops."
 					},
 					"response": []
 				},
@@ -572,27 +535,7 @@
 								}
 							]
 						},
-						"description": "Example: Get only flights with GDP slot assignments."
-					},
-					"response": []
-				},
-				{
-					"name": "Get TMI Flights - By Destination",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/tmi/controlled?airport=KJFK,KEWR,KLGA",
-							"host": ["{{base_url}}"],
-							"path": ["tmi", "controlled"],
-							"query": [
-								{
-									"key": "airport",
-									"value": "KJFK,KEWR,KLGA"
-								}
-							]
-						},
-						"description": "Example: Get TMI-controlled flights destined for New York area airports."
+						"description": "Get only flights with GDP slot assignments."
 					},
 					"response": []
 				}
@@ -603,7 +546,7 @@
 			"name": "Ingest",
 			"item": [
 				{
-					"name": "Ingest ADL Data",
+					"name": "Create Flight (Pre-file)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -614,7 +557,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"cid\": 1234567,\n            \"aircraft_type\": \"B738\",\n            \"route\": \"DEEZZ5 DEEZZ J584 ORD J64 RIIVR2\",\n            \"current_phase\": \"ENROUTE\",\n            \"is_active\": true,\n            \"tmi\": {\n                \"ctl_type\": \"GDP\",\n                \"slot_time_utc\": \"2026-01-15T18:30:00Z\",\n                \"delay_minutes\": 45\n            }\n        }\n    ]\n}",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"cid\": 1234567,\n            \"aircraft_type\": \"B738\",\n            \"route\": \"DEEZZ5 DEEZZ J584 ORD J64 RIIVR2\",\n            \"cruise_altitude\": 35000,\n            \"cruise_speed\": 450,\n            \"phase\": \"prefile\"\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -626,12 +569,12 @@
 							"host": ["{{base_url}}"],
 							"path": ["ingest", "adl"]
 						},
-						"description": "Receives ADL (Aggregate Demand List) data from authoritative sources.\n\n**Requires write access** (system or partner tier API key).\n\nMaximum batch size: 500 flights per request."
+						"description": "Create a new pre-filed flight.\n\n**Requires write access** (system or partner tier API key with source_id).\n\nRequired fields: `callsign`, `dept_icao`, `dest_icao`"
 					},
 					"response": []
 				},
 				{
-					"name": "Ingest ADL Data - Minimal",
+					"name": "Update Position (ACARS-style)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -642,7 +585,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"DAL456\",\n            \"dept_icao\": \"KATL\",\n            \"dest_icao\": \"KMIA\"\n        }\n    ]\n}",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"phase\": \"enroute\",\n            \"latitude\": 41.5234,\n            \"longitude\": -87.6521,\n            \"altitude\": 35000,\n            \"heading\": 270,\n            \"ground_speed\": 475\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -654,12 +597,12 @@
 							"host": ["{{base_url}}"],
 							"path": ["ingest", "adl"]
 						},
-						"description": "Example: Minimal required fields for ADL ingest (callsign, dept_icao, dest_icao)."
+						"description": "Push position update for an existing flight (ACARS-style).\n\nThe flight is matched by GUFI generated from callsign + dept + dest."
 					},
 					"response": []
 				},
 				{
-					"name": "Ingest ADL Data - Batch",
+					"name": "Update Phase (OOOI: OUT)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -670,7 +613,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"aircraft_type\": \"B738\"\n        },\n        {\n            \"callsign\": \"DAL456\",\n            \"dept_icao\": \"KATL\",\n            \"dest_icao\": \"KMIA\",\n            \"aircraft_type\": \"A320\"\n        },\n        {\n            \"callsign\": \"AAL789\",\n            \"dept_icao\": \"KDFW\",\n            \"dest_icao\": \"KORD\",\n            \"aircraft_type\": \"B738\"\n        }\n    ]\n}",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"phase\": \"taxiing\",\n            \"latitude\": 40.6413,\n            \"longitude\": -73.7781,\n            \"altitude\": 13,\n            \"heading\": 250,\n            \"ground_speed\": 15\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -682,12 +625,325 @@
 							"host": ["{{base_url}}"],
 							"path": ["ingest", "adl"]
 						},
-						"description": "Example: Batch ingest of multiple flights (max 500 per request)."
+						"description": "OOOI: OUT - Flight pushed back from gate, now taxiing."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Phase (OOOI: OFF)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"phase\": \"departing\",\n            \"latitude\": 40.6520,\n            \"longitude\": -73.7650,\n            \"altitude\": 1500,\n            \"heading\": 280,\n            \"ground_speed\": 180\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "OOOI: OFF - Flight airborne (wheels up)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Phase (OOOI: ON)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"phase\": \"arrived\",\n            \"latitude\": 33.9425,\n            \"longitude\": -118.4081,\n            \"altitude\": 125,\n            \"heading\": 240,\n            \"ground_speed\": 45\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "OOOI: ON - Flight landed (wheels down)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Phase (OOOI: IN)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"phase\": \"arrived\",\n            \"latitude\": 33.9460,\n            \"longitude\": -118.3920,\n            \"altitude\": 125,\n            \"heading\": 180,\n            \"ground_speed\": 0\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "OOOI: IN - Flight at gate (blocks in)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update TMI Status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"tmi\": {\n                \"ctl_type\": \"GDP\",\n                \"gs_held\": false,\n                \"slot_time_utc\": \"2026-01-15T18:30:00Z\",\n                \"delay_minutes\": 45,\n                \"program_id\": \"KLAX-GDP-001\"\n            }\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "Update TMI control status for a flight (GDP slot assignment, Ground Stop hold, etc.)."
+					},
+					"response": []
+				},
+				{
+					"name": "Batch Ingest (Multiple Flights)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"aircraft_type\": \"B738\",\n            \"phase\": \"enroute\",\n            \"latitude\": 41.5234,\n            \"longitude\": -87.6521,\n            \"altitude\": 35000\n        },\n        {\n            \"callsign\": \"DAL456\",\n            \"dept_icao\": \"KATL\",\n            \"dest_icao\": \"KMIA\",\n            \"aircraft_type\": \"A320\",\n            \"phase\": \"taxiing\",\n            \"latitude\": 33.6407,\n            \"longitude\": -84.4277,\n            \"altitude\": 1026\n        },\n        {\n            \"callsign\": \"AAL789\",\n            \"dept_icao\": \"KDFW\",\n            \"dest_icao\": \"KORD\",\n            \"aircraft_type\": \"B738\",\n            \"phase\": \"prefile\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "Batch ingest of multiple flights (max 500 per request).\n\nMix of creates and updates - flights are matched by GUFI."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Flight",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"UAL123\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"KLAX\",\n            \"is_active\": false\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "Mark a flight as inactive (completed/cancelled)."
 					},
 					"response": []
 				}
 			],
-			"description": "Data ingestion endpoints (write access required)"
+			"description": "Data ingestion endpoints (write access required).\n\n**Requires:** Partner or System tier API key with `source_id` and `can_write=1`"
+		},
+		{
+			"name": "Virtual Airline (AOC)",
+			"item": [
+				{
+					"name": "Get All Airline Flights",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flights?callsign=DLH*&status=active",
+							"host": ["{{base_url}}"],
+							"path": ["flights"],
+							"query": [
+								{
+									"key": "callsign",
+									"value": "DLH*",
+									"description": "Replace DLH with your airline ICAO code"
+								},
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "**Virtual Airline AOC Use Case**\n\nGet all active flights for your airline using callsign prefix wildcard.\n\nExamples:\n- `DLH*` - Lufthansa\n- `UAL*` - United\n- `BAW*` - British Airways\n- `AFR*` - Air France"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Fleet by Phase",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flights?callsign=DLH*&phase=enroute,climbing,descending&status=active",
+							"host": ["{{base_url}}"],
+							"path": ["flights"],
+							"query": [
+								{
+									"key": "callsign",
+									"value": "DLH*"
+								},
+								{
+									"key": "phase",
+									"value": "enroute,climbing,descending",
+									"description": "Airborne flights only"
+								},
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "Get only airborne flights for your airline (excluding ground operations)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Flights to Specific Hub",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/flights?callsign=DLH*&dest_icao=EDDF&status=active",
+							"host": ["{{base_url}}"],
+							"path": ["flights"],
+							"query": [
+								{
+									"key": "callsign",
+									"value": "DLH*"
+								},
+								{
+									"key": "dest_icao",
+									"value": "EDDF",
+									"description": "Your hub airport"
+								},
+								{
+									"key": "status",
+									"value": "active"
+								}
+							]
+						},
+						"description": "Get all flights inbound to your hub airport."
+					},
+					"response": []
+				},
+				{
+					"name": "Push Pre-Departure Flight",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"DLH401\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"EDDF\",\n            \"cid\": 1234567,\n            \"aircraft_type\": \"A359\",\n            \"route\": \"HAPIE4 HAPIE DCT WHALE N57A ALLRY NATY NATY RATSU DCT KONAN UL607 SPI T180 UNOKO\",\n            \"cruise_altitude\": 39000,\n            \"cruise_speed\": 470,\n            \"phase\": \"prefile\",\n            \"latitude\": 40.6413,\n            \"longitude\": -73.7781,\n            \"altitude\": 13\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "**AOC Pre-Departure Filing**\n\nPush flight data before pilot connects to VATSIM.\n\nThis allows the flight to appear in SWIM before VATSIM sees it."
+					},
+					"response": []
+				},
+				{
+					"name": "Push ACARS Position Update",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flights\": [\n        {\n            \"callsign\": \"DLH401\",\n            \"dept_icao\": \"KJFK\",\n            \"dest_icao\": \"EDDF\",\n            \"phase\": \"enroute\",\n            \"latitude\": 52.1234,\n            \"longitude\": -30.5678,\n            \"altitude\": 39000,\n            \"heading\": 75,\n            \"ground_speed\": 485\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/ingest/adl",
+							"host": ["{{base_url}}"],
+							"path": ["ingest", "adl"]
+						},
+						"description": "**AOC ACARS-style Position Report**\n\nPush position updates for fleet tracking.\n\nNote: VATSIM data is authoritative and will override these during normal sync."
+					},
+					"response": []
+				}
+			],
+			"description": "Examples for Virtual Airline AOC (Airline Operations Center) integration.\n\n**Typical Use Cases:**\n- Fleet monitoring dashboard\n- Pre-departure flight filing\n- ACARS-style position tracking\n- OOOI time recording\n\n**Requirements for Write Access:**\n- Partner tier API key (`swim_par_*`)\n- `source_id` set in api_keys table\n- `can_write = 1`"
 		}
 	]
 }

@@ -3,10 +3,13 @@
     "id": "b4aa3b03-b45b-4346-bb64-82438d216c33"
   },
   "entities": {
-    "collections": [],
+    "collections": [
+      "..\\docs\\swim\\VATSIM_SWIM_API.postman_collection.json"
+    ],
     "environments": [],
     "specs": [
-      "..\\api-docs\\openapi.yaml"
+      "..\\api-docs\\openapi.yaml",
+      "..\\docs\\swim\\openapi.yaml"
     ],
     "flows": [],
     "globals": [],
