@@ -3,9 +3,21 @@
  * PERTI Unified Scheduler (Event-Driven with Tiers)
  *
  * Handles automatic status transitions for multiple resource types:
- * - Splits: Activate scheduled configs, deactivate expired ones
- * - Public Routes: Activate when valid_start_utc arrives, expire when valid_end_utc passes
- * - Initiatives (FEAs, etc.): Transition levels based on start/end times
+ *
+ * SPLITS (splits_configs table):
+ *   - Columns: status, start_time_utc, end_time_utc, updated_at, artcc, config_name
+ *   - Status values: 'draft', 'scheduled', 'active', 'inactive'
+ *   - Activates: 'scheduled' -> 'active' when start_time_utc <= NOW
+ *   - Deactivates: 'active' -> 'inactive' when end_time_utc <= NOW
+ *
+ * PUBLIC ROUTES (public_routes table):
+ *   - Columns: status, valid_start_utc, valid_end_utc, updated_utc, name
+ *   - Status values: 0 (inactive), 1 (active), 2 (expired)
+ *   - Activates: 0 -> 1 when valid_start_utc <= NOW and valid_end_utc > NOW
+ *   - Expires: 1 -> 2 when valid_end_utc <= NOW
+ *
+ * FUTURE: Initiatives/FEAs (p_terminal_init_timeline, p_enroute_init_timeline)
+ *   - Would transition 'level' field based on start_datetime/end_datetime
  *
  * Event-Driven Design:
  * - Only runs when next_run_at time has arrived OR triggered by ?force=1
