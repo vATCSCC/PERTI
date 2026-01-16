@@ -1127,6 +1127,9 @@ const SplitsController = {
         document.getElementById('config-next-btn')?.addEventListener('click', () => this.nextStep());
         document.getElementById('config-prev-btn')?.addEventListener('click', () => this.prevStep());
         document.getElementById('config-save-btn')?.addEventListener('click', () => this.saveConfig());
+
+        // Update save button text when publish checkbox changes
+        document.getElementById('publish-immediately')?.addEventListener('change', () => this.updateSaveButtonText());
         
         // Config wizard - ARTCC change
         document.getElementById('config-artcc')?.addEventListener('change', (e) => {
@@ -5415,7 +5418,7 @@ const SplitsController = {
         document.getElementById('review-artcc').textContent = this.currentConfig.artcc;
         document.getElementById('review-start').textContent = this.formatDisplayTime(this.currentConfig.startTime);
         document.getElementById('review-end').textContent = this.formatDisplayTime(this.currentConfig.endTime);
-        
+
         const container = document.getElementById('review-splits-list');
         container.innerHTML = this.currentConfig.splits.map(split => `
             <div class="review-split-item">
@@ -5424,6 +5427,35 @@ const SplitsController = {
                 <span class="text-muted ml-2">${split.sectors.length} sectors: ${split.sectors.slice(0, 5).join(', ')}${split.sectors.length > 5 ? '...' : ''}</span>
             </div>
         `).join('');
+
+        // Update save button text based on timing
+        this.updateSaveButtonText();
+    },
+
+    /**
+     * Update the save button text based on start time and publish checkbox
+     */
+    updateSaveButtonText() {
+        const btn = document.getElementById('config-save-btn');
+        if (!btn) return;
+
+        const publishImmediately = document.getElementById('publish-immediately')?.checked;
+        const startTime = this.currentConfig.startTime;
+        const hasFutureStartTime = startTime && new Date(startTime) > new Date();
+
+        if (hasFutureStartTime) {
+            // Future start time = Schedule (regardless of checkbox)
+            btn.innerHTML = '<i class="fas fa-clock mr-1"></i> Schedule';
+            btn.className = 'btn btn-info';
+        } else if (publishImmediately) {
+            // Present/past time + publish = Activate
+            btn.innerHTML = '<i class="fas fa-play mr-1"></i> Activate';
+            btn.className = 'btn btn-success';
+        } else {
+            // No publish = Save as Draft
+            btn.innerHTML = '<i class="fas fa-save mr-1"></i> Save as Draft';
+            btn.className = 'btn btn-secondary';
+        }
     },
     
     formatDisplayTime(isoString) {
@@ -5438,19 +5470,23 @@ const SplitsController = {
     
     async saveConfig() {
         const publishImmediately = document.getElementById('publish-immediately')?.checked;
-        
-        // Determine status based on publish checkbox and start time
+
+        // Determine status based on start time and publish checkbox
         let status;
-        const hasFutureStartTime = this.currentConfig.startTime && 
+        const hasFutureStartTime = this.currentConfig.startTime &&
             new Date(this.currentConfig.startTime) > new Date();
-        
-        if (publishImmediately) {
-            status = 'active';
-        } else if (hasFutureStartTime) {
+
+        if (hasFutureStartTime) {
+            // Future start time = scheduled (will become active when time arrives)
             status = 'scheduled';
+        } else if (publishImmediately) {
+            // Present/past time + publish = activate immediately
+            status = 'active';
         } else if (this.currentConfig.id) {
+            // Editing existing config - keep current status or draft
             status = this.currentConfig.status || 'draft';
         } else {
+            // New config without publish = draft
             status = 'draft';
         }
         
