@@ -29,8 +29,8 @@ if ($method === 'GET') {
     // Get scheduled configs (status = 'scheduled' OR start_time_utc > now with status = 'draft')
     // Ordered by start_time ascending (soonest first)
     $sql = "SELECT id, artcc, config_name, status, start_time_utc, end_time_utc, created_at, updated_at
-            FROM splits_configs 
-            WHERE status = 'scheduled' 
+            FROM splits_configs
+            WHERE status = 'scheduled'
                OR (start_time_utc > GETUTCDATE() AND status IN ('draft', 'scheduled'))
             ORDER BY start_time_utc ASC, artcc ASC";
     
@@ -158,16 +158,10 @@ if ($method === 'PUT') {
         }
         $params[] = $end;
     }
-    
+
     // Always update updated_at
     $updates[] = 'updated_at = GETUTCDATE()';
-    
-    if (count($updates) <= 1) { // Only has updated_at
-        http_response_code(400);
-        echo json_encode(['error' => 'No fields to update']);
-        exit;
-    }
-    
+
     $sql = "UPDATE splits_configs SET " . implode(', ', $updates) . " WHERE id = ?";
     $params[] = $id;
     

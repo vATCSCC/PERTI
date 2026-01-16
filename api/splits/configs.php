@@ -298,16 +298,10 @@ if ($method === 'PUT') {
         }
         $params[] = $end;
     }
-    
+
     // Always update updated_at
     $updates[] = 'updated_at = GETUTCDATE()';
-    
-    if (empty($updates)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'No fields to update']);
-        exit;
-    }
-    
+
     // Update config
     $sql = "UPDATE splits_configs SET " . implode(', ', $updates) . " WHERE id = ?";
     $params[] = $id;
