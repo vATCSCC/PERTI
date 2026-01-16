@@ -372,6 +372,12 @@ if ($format === 'legacy') {
         ORDER BY facility_code
     ";
     $stmt = sqlsrv_query($conn, $sql);
+    if ($stmt === false) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "error" => "Failed to query facilities", "sql_error" => adl_sql_error_message()]);
+        sqlsrv_close($conn);
+        exit;
+    }
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $result['facilityList'][] = $row['facility_code'];
     }
@@ -380,6 +386,12 @@ if ($format === 'legacy') {
     // Get tier types
     $sql = "SELECT tier_type_code, tier_type_label FROM dbo.artcc_tier_types WHERE is_active = 1 ORDER BY display_order";
     $stmt = sqlsrv_query($conn, $sql);
+    if ($stmt === false) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "error" => "Failed to query tier types", "sql_error" => adl_sql_error_message()]);
+        sqlsrv_close($conn);
+        exit;
+    }
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $result['tierTypes'][$row['tier_type_code']] = $row['tier_type_label'];
     }
@@ -398,10 +410,12 @@ if ($format === 'legacy') {
         ";
         $stmt = sqlsrv_query($conn, $sql, [$groupCode]);
         $artccs = [];
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $artccs[] = $row['facility_code'];
+        if ($stmt !== false) {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $artccs[] = $row['facility_code'];
+            }
+            sqlsrv_free_stmt($stmt);
         }
-        sqlsrv_free_stmt($stmt);
 
         $labelKey = str_replace('+', '+', $groupCode);  // ALL+CANADA -> ALL+Canada display
         $result['global'][$groupCode] = [
@@ -433,6 +447,12 @@ if ($format === 'legacy') {
     ";
 
     $stmt = sqlsrv_query($conn, $sql);
+    if ($stmt === false) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "error" => "Failed to query facility configs", "sql_error" => adl_sql_error_message()]);
+        sqlsrv_close($conn);
+        exit;
+    }
     $facilityConfigs = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $facilityConfigs[] = $row;
@@ -514,6 +534,12 @@ $sql = "
         facility_code
 ";
 $stmt = sqlsrv_query($conn, $sql);
+if ($stmt === false) {
+    http_response_code(500);
+    echo json_encode(["success" => false, "error" => "Failed to query facilities", "sql_error" => adl_sql_error_message()]);
+    sqlsrv_close($conn);
+    exit;
+}
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $result['facilities'][] = [
         "code" => $row['facility_code'],
@@ -527,14 +553,16 @@ sqlsrv_free_stmt($stmt);
 // Get tier types
 $sql = "SELECT tier_type_code, tier_type_label, description FROM dbo.artcc_tier_types WHERE is_active = 1 ORDER BY display_order";
 $stmt = sqlsrv_query($conn, $sql);
-while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    $result['tier_types'][] = [
-        "code" => $row['tier_type_code'],
-        "label" => $row['tier_type_label'],
-        "description" => $row['description']
-    ];
+if ($stmt !== false) {
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $result['tier_types'][] = [
+            "code" => $row['tier_type_code'],
+            "label" => $row['tier_type_label'],
+            "description" => $row['description']
+        ];
+    }
+    sqlsrv_free_stmt($stmt);
 }
-sqlsrv_free_stmt($stmt);
 
 // Get named tier groups with member counts
 $sql = "
@@ -550,15 +578,17 @@ $sql = "
     ORDER BY tg.display_order
 ";
 $stmt = sqlsrv_query($conn, $sql);
-while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    $result['tier_groups'][] = [
-        "code" => $row['tier_group_code'],
-        "name" => $row['tier_group_name'],
-        "description" => $row['description'],
-        "member_count" => $row['member_count']
-    ];
+if ($stmt !== false) {
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $result['tier_groups'][] = [
+            "code" => $row['tier_group_code'],
+            "name" => $row['tier_group_name'],
+            "description" => $row['description'],
+            "member_count" => $row['member_count']
+        ];
+    }
+    sqlsrv_free_stmt($stmt);
 }
-sqlsrv_free_stmt($stmt);
 
 sqlsrv_close($conn);
 
