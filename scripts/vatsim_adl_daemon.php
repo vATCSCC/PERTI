@@ -136,7 +136,7 @@ $config = [
     // Uses tiered intervals internally: Tier 0 (30s) to Tier 4 (10min) based on flight relevance
     'wind_enabled'        => true,
     'wind_interval'       => 2,      // Run every N cycles (2 = every 30 seconds)
-    'wind_timeout'        => 30,     // SP timeout in seconds
+    'wind_timeout'        => 90,     // SP timeout in seconds (increased from 30 to handle large flight counts)
 
     // SWIM API sync (syncs flight data to SWIM_API database for public API)
     // SWIM_API is Azure SQL Basic ($5/mo) - dedicated for API queries to avoid
@@ -668,22 +668,18 @@ function clearStagingTables($conn): void {
 // ============================================================================
 // V9.1 TVP INSERT FUNCTIONS
 // Uses Table-Valued Parameters for O(1) insert time regardless of row count
+// Requires SQLSRV_PHPTYPE_TABLE constant (sqlsrv 5.3+)
 // ============================================================================
 
 /**
  * Insert pilots to staging using TVP (single round-trip).
- * Falls back to batched insert if TVP fails.
- *
- * @param resource $conn SQL Server connection
- * @param array $pilots Parsed pilot records
- * @param string $batchId UUID for this batch
- * @param int $batchSize Fallback batch size for batched mode
- * @return array ['inserted' => count, 'method' => 'tvp'|'batched']
  */
 function insertPilotsViaTVP($conn, array $pilots, string $batchId, int $batchSize = 70): array {
     if (empty($pilots)) return ['inserted' => 0, 'method' => 'tvp'];
 
-    // Build TVP rows matching dbo.PilotStagingType column order (28 columns)
+    clearStagingTables($conn);
+
+    // Build TVP rows - each row is an array of column values in type order
     $tvpRows = [];
     foreach ($pilots as $p) {
         $tvpRows[] = [
@@ -713,26 +709,24 @@ function insertPilotsViaTVP($conn, array $pilots, string $batchId, int $batchSiz
             $p['aircraft_short'],
             $p['fp_dof_raw'],
             $p['flight_key'],
-            $p['route_hash'],  // Binary SHA256 (32 bytes)
+            $p['route_hash'],  // Binary - driver handles conversion
             $p['airline_icao'],
         ];
     }
 
-    // TVP insert via SP - format: [$data, null, null, 'TypeName']
+    // TVP parameter: [data, direction, phpType, sqlTypeName]
     $sql = "EXEC dbo.sp_InsertPilotsFromTVP @pilots = ?, @batch_id = ?";
     $params = [
-        [$tvpRows, null, null, 'PilotStagingType'],
+        [$tvpRows, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_TABLE, 'dbo.PilotStagingType'],
         $batchId
     ];
 
     $stmt = sqlsrv_query($conn, $sql, $params);
 
     if ($stmt === false) {
-        // TVP failed - fall back to batched mode
         $errors = sqlsrv_errors();
-        logWarn("TVP insert failed, using batched: " . json_encode($errors));
-
-        clearStagingTables($conn);
+        logWarn("TVP pilot insert failed: " . json_encode($errors));
+        // Fall back to batched
         $inserted = insertPilotsToStaging($conn, $pilots, $batchId, $batchSize);
         return ['inserted' => $inserted, 'method' => 'batched'];
     }
@@ -745,13 +739,12 @@ function insertPilotsViaTVP($conn, array $pilots, string $batchId, int $batchSiz
 }
 
 /**
- * Insert prefiles to staging using TVP.
- * Falls back to batched insert if TVP fails.
+ * Insert prefiles to staging using TVP (single round-trip).
  */
 function insertPrefilesViaTVP($conn, array $prefiles, string $batchId, int $batchSize = 70): array {
     if (empty($prefiles)) return ['inserted' => 0, 'method' => 'tvp'];
 
-    // Build TVP rows matching dbo.PrefileStagingType column order (16 columns)
+    // Build TVP rows
     $tvpRows = [];
     foreach ($prefiles as $pf) {
         $tvpRows[] = [
@@ -770,25 +763,23 @@ function insertPrefilesViaTVP($conn, array $prefiles, string $batchId, int $batc
             $pf['aircraft_faa_raw'],
             $pf['aircraft_short'],
             $pf['flight_key'],
-            $pf['route_hash'],  // Binary MD5 (16 bytes)
+            $pf['route_hash'],  // Binary - driver handles conversion
         ];
     }
 
-    // TVP insert via SP - format: [$data, null, null, 'TypeName']
+    // TVP parameter
     $sql = "EXEC dbo.sp_InsertPrefilesFromTVP @prefiles = ?, @batch_id = ?";
     $params = [
-        [$tvpRows, null, null, 'PrefileStagingType'],
+        [$tvpRows, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_TABLE, 'dbo.PrefileStagingType'],
         $batchId
     ];
 
     $stmt = sqlsrv_query($conn, $sql, $params);
 
     if ($stmt === false) {
-        // TVP failed - fall back to batched mode
         $errors = sqlsrv_errors();
-        logWarn("TVP prefile insert failed, falling back to batched: " . json_encode($errors));
-
-        // Note: staging already cleared by pilots insert, just insert
+        logWarn("TVP prefile insert failed: " . json_encode($errors));
+        // Fall back to batched
         $inserted = insertPrefilesToStaging($conn, $prefiles, $batchId, $batchSize);
         return ['inserted' => $inserted, 'method' => 'batched'];
     }
@@ -797,7 +788,7 @@ function insertPrefilesViaTVP($conn, array $prefiles, string $batchId, int $batc
     $inserted = $row['rows_inserted'] ?? count($prefiles);
     sqlsrv_free_stmt($stmt);
 
-    return ['inserted' => $inserted, 'method' => 'tvp'];
+    return ['inserted' => $inserted, 'method' => 'bulk'];
 }
 
 /**
