@@ -34,6 +34,19 @@
  * Filter Types: airport, tracon, artcc
  * Direction: arr (arrivals), dep (departures), both
  *
+ * Flight Filters (optional, can be added to any monitor type):
+ *   "flight_filter": {
+ *     "airline": "UAL",           // Callsign prefix
+ *     "aircraft_type": "B738",    // Specific aircraft type
+ *     "aircraft_category": "HEAVY", // HEAVY, LARGE, or SMALL
+ *     "origin": "KJFK",           // Origin airport
+ *     "destination": "KLAX"       // Destination airport
+ *   }
+ *
+ * Examples with flight filters:
+ *   { "type": "fix", "fix": "MERIT", "flight_filter": { "airline": "UAL" } }
+ *   { "type": "fix", "fix": "MERIT", "flight_filter": { "aircraft_category": "HEAVY" } }
+ *
  * Example:
  *   GET /api/adl/demand/batch?monitors=[{"type":"fix","fix":"MERIT"}]&bucket_minutes=15&horizon_hours=4
  *
@@ -98,6 +111,85 @@ function adl_sql_error_message() {
         $msgs[] = ($e['SQLSTATE'] ?? '') . " " . ($e['code'] ?? '') . " " . trim($e['message'] ?? '');
     }
     return implode(" | ", $msgs);
+}
+
+/**
+ * Build SQL WHERE clause for flight filters
+ *
+ * Supported filters:
+ *   airline         - Callsign prefix (e.g., "UAL", "AAL", "SWA")
+ *   aircraft_type   - Aircraft type code (e.g., "B738", "A320")
+ *   aircraft_category - Wake category: HEAVY, LARGE, SMALL
+ *
+ * @param array $filter Flight filter definition
+ * @param string $coreAlias Alias for adl_flight_core table (default 'c')
+ * @param string $planAlias Alias for adl_flight_plan table (default 'fp')
+ * @return array ['clause' => SQL string, 'params' => array of values]
+ */
+function buildFlightFilterClause($filter, $coreAlias = 'c', $planAlias = 'fp') {
+    if (empty($filter) || !is_array($filter)) {
+        return ['clause' => '', 'params' => []];
+    }
+
+    $clauses = [];
+    $params = [];
+
+    // Airline filter (callsign prefix)
+    if (!empty($filter['airline'])) {
+        $airline = strtoupper(trim($filter['airline']));
+        // Match callsign starting with the airline code
+        $clauses[] = "$coreAlias.callsign LIKE ?";
+        $params[] = $airline . '%';
+    }
+
+    // Aircraft type filter
+    if (!empty($filter['aircraft_type'])) {
+        $type = strtoupper(trim($filter['aircraft_type']));
+        $clauses[] = "$planAlias.aircraft_type = ?";
+        $params[] = $type;
+    }
+
+    // Aircraft category filter (HEAVY, LARGE, SMALL)
+    if (!empty($filter['aircraft_category'])) {
+        $category = strtoupper(trim($filter['aircraft_category']));
+        // Map to SQL Server aircraft category logic
+        // Heavy = B747, B777, B787, A330, A340, A350, A380, B767, DC10, MD11, C5, C17, etc.
+        // This uses a simplified approach - match common prefixes
+        switch ($category) {
+            case 'HEAVY':
+                $clauses[] = "($planAlias.aircraft_type LIKE 'B74%' OR $planAlias.aircraft_type LIKE 'B77%' OR $planAlias.aircraft_type LIKE 'B78%' OR $planAlias.aircraft_type LIKE 'A33%' OR $planAlias.aircraft_type LIKE 'A34%' OR $planAlias.aircraft_type LIKE 'A35%' OR $planAlias.aircraft_type LIKE 'A38%' OR $planAlias.aircraft_type LIKE 'B76%' OR $planAlias.aircraft_type IN ('DC10', 'MD11', 'C5', 'C17', 'A310', 'A306', 'B752', 'B753'))";
+                break;
+            case 'LARGE':
+                $clauses[] = "($planAlias.aircraft_type LIKE 'B73%' OR $planAlias.aircraft_type LIKE 'A32%' OR $planAlias.aircraft_type LIKE 'A31%' OR $planAlias.aircraft_type LIKE 'A22%' OR $planAlias.aircraft_type LIKE 'E1%' OR $planAlias.aircraft_type LIKE 'E2%' OR $planAlias.aircraft_type LIKE 'CRJ%' OR $planAlias.aircraft_type IN ('MD80', 'MD81', 'MD82', 'MD83', 'MD87', 'MD88', 'B712', 'B721', 'B722', 'DC9', 'DC8'))";
+                break;
+            case 'SMALL':
+                $clauses[] = "($planAlias.aircraft_type NOT LIKE 'B74%' AND $planAlias.aircraft_type NOT LIKE 'B77%' AND $planAlias.aircraft_type NOT LIKE 'B78%' AND $planAlias.aircraft_type NOT LIKE 'A33%' AND $planAlias.aircraft_type NOT LIKE 'A34%' AND $planAlias.aircraft_type NOT LIKE 'A35%' AND $planAlias.aircraft_type NOT LIKE 'A38%' AND $planAlias.aircraft_type NOT LIKE 'B76%' AND $planAlias.aircraft_type NOT LIKE 'B73%' AND $planAlias.aircraft_type NOT LIKE 'A32%' AND $planAlias.aircraft_type NOT LIKE 'A31%')";
+                break;
+        }
+    }
+
+    // Origin airport filter
+    if (!empty($filter['origin'])) {
+        $origin = strtoupper(trim($filter['origin']));
+        $clauses[] = "$planAlias.fp_dept_icao = ?";
+        $params[] = $origin;
+    }
+
+    // Destination airport filter
+    if (!empty($filter['destination'])) {
+        $dest = strtoupper(trim($filter['destination']));
+        $clauses[] = "$planAlias.fp_dest_icao = ?";
+        $params[] = $dest;
+    }
+
+    if (empty($clauses)) {
+        return ['clause' => '', 'params' => []];
+    }
+
+    return [
+        'clause' => ' AND ' . implode(' AND ', $clauses),
+        'params' => $params
+    ];
 }
 
 // Parse parameters
@@ -364,18 +456,33 @@ foreach ($airwayMonitors as $idx => $m) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Look up airway midpoint coordinates from airway_segments
-    $airwaySql = "SELECT TOP 1 from_lat, from_lon, to_lat, to_lon
+    // Look up full airway geometry (all segments along the airway)
+    $airwayName = strtoupper($m['airway']);
+    $airwaySql = "SELECT from_fix, to_fix, sequence_num, from_lat, from_lon, to_lat, to_lon
                   FROM dbo.airway_segments
                   WHERE airway_name = ?
                   ORDER BY sequence_num";
-    $airwayStmt = sqlsrv_query($conn, $airwaySql, [strtoupper($m['airway'])]);
-    if ($airwayStmt && $row = sqlsrv_fetch_array($airwayStmt, SQLSRV_FETCH_ASSOC)) {
-        // Use the first segment's from fix as the display point
-        $monitorData[$monitorIdx]['lat'] = (float)$row['from_lat'];
-        $monitorData[$monitorIdx]['lon'] = (float)$row['from_lon'];
+    $airwayStmt = sqlsrv_query($conn, $airwaySql, [$airwayName]);
+
+    $geometry = [];
+    if ($airwayStmt) {
+        while ($row = sqlsrv_fetch_array($airwayStmt, SQLSRV_FETCH_ASSOC)) {
+            if (empty($geometry)) {
+                // Add first point
+                $geometry[] = [(float)$row['from_lon'], (float)$row['from_lat']];
+            }
+            // Add end point of each segment
+            $geometry[] = [(float)$row['to_lon'], (float)$row['to_lat']];
+        }
+        sqlsrv_free_stmt($airwayStmt);
     }
-    if ($airwayStmt) sqlsrv_free_stmt($airwayStmt);
+
+    if (!empty($geometry)) {
+        $monitorData[$monitorIdx]['geometry'] = $geometry;
+        // Use first point for label position
+        $monitorData[$monitorIdx]['lat'] = $geometry[0][1];
+        $monitorData[$monitorIdx]['lon'] = $geometry[0][0];
+    }
 }
 
 // Process airway segment monitors using fn_AirwaySegmentDemandBucketed
@@ -400,20 +507,96 @@ foreach ($airwaySegmentMonitors as $idx => $m) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Look up segment coordinates
-    $fixSql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN (?, ?)";
-    $fixStmt = sqlsrv_query($conn, $fixSql, [strtoupper($m['from']), strtoupper($m['to'])]);
-    if ($fixStmt) {
-        while ($row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
-            if (strtoupper($row['fix_name']) === $monitorData[$monitorIdx]['from_fix']) {
-                $monitorData[$monitorIdx]['from_lat'] = (float)$row['lat'];
-                $monitorData[$monitorIdx]['from_lon'] = (float)$row['lon'];
-            } else if (strtoupper($row['fix_name']) === $monitorData[$monitorIdx]['to_fix']) {
-                $monitorData[$monitorIdx]['to_lat'] = (float)$row['lat'];
-                $monitorData[$monitorIdx]['to_lon'] = (float)$row['lon'];
+    // Look up full airway segment geometry (all fixes along the airway between from and to)
+    $airwayName = strtoupper($m['airway']);
+    $fromFix = strtoupper($m['from']);
+    $toFix = strtoupper($m['to']);
+
+    // First, get sequence numbers for from and to fixes on this airway
+    $seqSql = "SELECT from_fix, to_fix, sequence_num, from_lat, from_lon, to_lat, to_lon
+               FROM dbo.airway_segments
+               WHERE airway_name = ?
+               ORDER BY sequence_num";
+    $seqStmt = sqlsrv_query($conn, $seqSql, [$airwayName]);
+
+    $geometry = [];
+    $fromSeq = null;
+    $toSeq = null;
+    $segments = [];
+
+    if ($seqStmt) {
+        while ($row = sqlsrv_fetch_array($seqStmt, SQLSRV_FETCH_ASSOC)) {
+            $segments[] = [
+                'from_fix' => $row['from_fix'],
+                'to_fix' => $row['to_fix'],
+                'seq' => (int)$row['sequence_num'],
+                'from_lat' => (float)$row['from_lat'],
+                'from_lon' => (float)$row['from_lon'],
+                'to_lat' => (float)$row['to_lat'],
+                'to_lon' => (float)$row['to_lon']
+            ];
+            // Find sequence of from/to fixes
+            if ($row['from_fix'] === $fromFix && $fromSeq === null) {
+                $fromSeq = (int)$row['sequence_num'];
+            }
+            if ($row['to_fix'] === $fromFix && $fromSeq === null) {
+                $fromSeq = (int)$row['sequence_num'] + 1;
+            }
+            if ($row['from_fix'] === $toFix && $toSeq === null) {
+                $toSeq = (int)$row['sequence_num'];
+            }
+            if ($row['to_fix'] === $toFix && $toSeq === null) {
+                $toSeq = (int)$row['sequence_num'] + 1;
             }
         }
-        sqlsrv_free_stmt($fixStmt);
+        sqlsrv_free_stmt($seqStmt);
+
+        // Build geometry array from segments between fromSeq and toSeq
+        if ($fromSeq !== null && $toSeq !== null) {
+            $startSeq = min($fromSeq, $toSeq);
+            $endSeq = max($fromSeq, $toSeq);
+
+            foreach ($segments as $seg) {
+                if ($seg['seq'] >= $startSeq && $seg['seq'] < $endSeq) {
+                    if (empty($geometry)) {
+                        // Add first point
+                        $geometry[] = [$seg['from_lon'], $seg['from_lat']];
+                    }
+                    // Add end point of each segment
+                    $geometry[] = [$seg['to_lon'], $seg['to_lat']];
+                }
+            }
+
+            // Reverse if we're going opposite direction on the airway
+            if ($fromSeq > $toSeq && count($geometry) > 0) {
+                $geometry = array_reverse($geometry);
+            }
+        }
+    }
+
+    // If geometry was found, use it; otherwise fall back to just from/to
+    if (!empty($geometry)) {
+        $monitorData[$monitorIdx]['geometry'] = $geometry;
+        $monitorData[$monitorIdx]['from_lat'] = $geometry[0][1];
+        $monitorData[$monitorIdx]['from_lon'] = $geometry[0][0];
+        $monitorData[$monitorIdx]['to_lat'] = $geometry[count($geometry)-1][1];
+        $monitorData[$monitorIdx]['to_lon'] = $geometry[count($geometry)-1][0];
+    } else {
+        // Fallback: just look up from/to fix coordinates
+        $fixSql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN (?, ?)";
+        $fixStmt = sqlsrv_query($conn, $fixSql, [$fromFix, $toFix]);
+        if ($fixStmt) {
+            while ($row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
+                if (strtoupper($row['fix_name']) === $monitorData[$monitorIdx]['from_fix']) {
+                    $monitorData[$monitorIdx]['from_lat'] = (float)$row['lat'];
+                    $monitorData[$monitorIdx]['from_lon'] = (float)$row['lon'];
+                } else if (strtoupper($row['fix_name']) === $monitorData[$monitorIdx]['to_fix']) {
+                    $monitorData[$monitorIdx]['to_lat'] = (float)$row['lat'];
+                    $monitorData[$monitorIdx]['to_lon'] = (float)$row['lon'];
+                }
+            }
+            sqlsrv_free_stmt($fixStmt);
+        }
     }
 }
 

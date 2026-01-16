@@ -19,6 +19,10 @@
  *   filter_code    - Required for type=via_fix: Filter code (KBOS, N90, ZDC)
  *   direction      - Required for type=via_fix: arr/dep/both
  *   minutes_ahead  - Optional: Time window (default 60, max 720)
+ *   flight         - Optional: Filter to specific callsign or flight_uid
+ *   airline        - Optional: Filter by airline prefix (e.g., UAL, AAL)
+ *   aircraft_type  - Optional: Filter by aircraft type (e.g., B738, A320)
+ *   aircraft_category - Optional: Filter by category (HEAVY, LARGE, SMALL)
  *
  * Response:
  *   {
@@ -74,6 +78,83 @@ function sql_error_msg() {
     return implode(" | ", $msgs);
 }
 
+/**
+ * Build SQL WHERE clause for flight filters
+ *
+ * Supported filters:
+ *   airline         - Callsign prefix (e.g., "UAL", "AAL", "SWA")
+ *   aircraft_type   - Aircraft type code (e.g., "B738", "A320")
+ *   aircraft_category - Wake category: HEAVY, LARGE, SMALL
+ *   origin          - Departure airport (e.g., "KJFK")
+ *   destination     - Arrival airport (e.g., "KLAX")
+ *
+ * @param array $filter Flight filter definition
+ * @param string $coreAlias Alias for adl_flight_core table (default 'c')
+ * @param string $planAlias Alias for adl_flight_plan table (default 'fp')
+ * @return array ['clause' => SQL string, 'params' => array of values]
+ */
+function buildFlightFilterClause($filter, $coreAlias = 'c', $planAlias = 'fp') {
+    if (empty($filter) || !is_array($filter)) {
+        return ['clause' => '', 'params' => []];
+    }
+
+    $clauses = [];
+    $params = [];
+
+    // Airline filter (callsign prefix)
+    if (!empty($filter['airline'])) {
+        $airline = strtoupper(trim($filter['airline']));
+        $clauses[] = "$coreAlias.callsign LIKE ?";
+        $params[] = $airline . '%';
+    }
+
+    // Aircraft type filter
+    if (!empty($filter['aircraft_type'])) {
+        $type = strtoupper(trim($filter['aircraft_type']));
+        $clauses[] = "$planAlias.aircraft_type = ?";
+        $params[] = $type;
+    }
+
+    // Aircraft category filter (HEAVY, LARGE, SMALL)
+    if (!empty($filter['aircraft_category'])) {
+        $category = strtoupper(trim($filter['aircraft_category']));
+        switch ($category) {
+            case 'HEAVY':
+                $clauses[] = "($planAlias.aircraft_type LIKE 'B74%' OR $planAlias.aircraft_type LIKE 'B77%' OR $planAlias.aircraft_type LIKE 'B78%' OR $planAlias.aircraft_type LIKE 'A33%' OR $planAlias.aircraft_type LIKE 'A34%' OR $planAlias.aircraft_type LIKE 'A35%' OR $planAlias.aircraft_type LIKE 'A38%' OR $planAlias.aircraft_type LIKE 'B76%' OR $planAlias.aircraft_type IN ('DC10', 'MD11', 'C5', 'C17', 'A310', 'A306', 'B752', 'B753'))";
+                break;
+            case 'LARGE':
+                $clauses[] = "($planAlias.aircraft_type LIKE 'B73%' OR $planAlias.aircraft_type LIKE 'A32%' OR $planAlias.aircraft_type LIKE 'A31%' OR $planAlias.aircraft_type LIKE 'A22%' OR $planAlias.aircraft_type LIKE 'E1%' OR $planAlias.aircraft_type LIKE 'E2%' OR $planAlias.aircraft_type LIKE 'CRJ%' OR $planAlias.aircraft_type IN ('MD80', 'MD81', 'MD82', 'MD83', 'MD87', 'MD88', 'B712', 'B721', 'B722', 'DC9', 'DC8'))";
+                break;
+            case 'SMALL':
+                $clauses[] = "($planAlias.aircraft_type NOT LIKE 'B74%' AND $planAlias.aircraft_type NOT LIKE 'B77%' AND $planAlias.aircraft_type NOT LIKE 'B78%' AND $planAlias.aircraft_type NOT LIKE 'A33%' AND $planAlias.aircraft_type NOT LIKE 'A34%' AND $planAlias.aircraft_type NOT LIKE 'A35%' AND $planAlias.aircraft_type NOT LIKE 'A38%' AND $planAlias.aircraft_type NOT LIKE 'B76%' AND $planAlias.aircraft_type NOT LIKE 'B73%' AND $planAlias.aircraft_type NOT LIKE 'A32%' AND $planAlias.aircraft_type NOT LIKE 'A31%')";
+                break;
+        }
+    }
+
+    // Origin airport filter
+    if (!empty($filter['origin'])) {
+        $origin = strtoupper(trim($filter['origin']));
+        $clauses[] = "$planAlias.fp_dept_icao = ?";
+        $params[] = $origin;
+    }
+
+    // Destination airport filter
+    if (!empty($filter['destination'])) {
+        $dest = strtoupper(trim($filter['destination']));
+        $clauses[] = "$planAlias.fp_dest_icao = ?";
+        $params[] = $dest;
+    }
+
+    if (empty($clauses)) {
+        return ['clause' => '', 'params' => []];
+    }
+
+    return [
+        'clause' => ' AND ' . implode(' AND ', $clauses),
+        'params' => $params
+    ];
+}
+
 // Parse parameters
 $type = isset($_GET['type']) ? strtolower(trim($_GET['type'])) : '';
 $minutesAhead = isset($_GET['minutes_ahead']) ? (int)$_GET['minutes_ahead'] : 60;
@@ -83,6 +164,29 @@ $minutesAhead = max(15, min(720, $minutesAhead)); // 15 min to 12 hours
 $flightFilter = isset($_GET['flight']) ? trim($_GET['flight']) : '';
 $flightFilterClause = '';
 $flightFilterParams = [];
+
+// Build flight filter from optional parameters
+$flightFilterDef = [];
+if (isset($_GET['airline']) && !empty($_GET['airline'])) {
+    $flightFilterDef['airline'] = $_GET['airline'];
+}
+if (isset($_GET['aircraft_type']) && !empty($_GET['aircraft_type'])) {
+    $flightFilterDef['aircraft_type'] = $_GET['aircraft_type'];
+}
+if (isset($_GET['aircraft_category']) && !empty($_GET['aircraft_category'])) {
+    $flightFilterDef['aircraft_category'] = $_GET['aircraft_category'];
+}
+if (isset($_GET['origin']) && !empty($_GET['origin'])) {
+    $flightFilterDef['origin'] = $_GET['origin'];
+}
+if (isset($_GET['destination']) && !empty($_GET['destination'])) {
+    $flightFilterDef['destination'] = $_GET['destination'];
+}
+
+// Build the SQL clause for flight filters
+$flightFilterResult = buildFlightFilterClause($flightFilterDef);
+$extraFilterClause = $flightFilterResult['clause'];
+$extraFilterParams = $flightFilterResult['params'];
 
 if (empty($type)) {
     http_response_code(400);
@@ -206,8 +310,9 @@ switch ($type) {
                   AND c.is_active = 1
                   AND c.phase NOT IN ('arrived', 'disconnected')
                   $flightFilterClause
+                  $extraFilterClause
                 ORDER BY position_status DESC, eta_utc";
-        $params = array_merge([$fix, $minutesAhead], $flightFilterParams);
+        $params = array_merge([$fix, $minutesAhead], $flightFilterParams, $extraFilterParams);
         $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
@@ -224,6 +329,7 @@ switch ($type) {
         $sql = "WITH FlightsWithBothFixes AS (
                     SELECT c.flight_uid
                     FROM dbo.adl_flight_core c
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     WHERE c.is_active = 1
                       AND c.phase NOT IN ('arrived', 'disconnected')
                       AND EXISTS (
@@ -234,6 +340,7 @@ switch ($type) {
                           SELECT 1 FROM dbo.adl_flight_waypoints w2
                           WHERE w2.flight_uid = c.flight_uid AND w2.fix_name = ?
                       )
+                      $extraFilterClause
                 ),
                 FlightETAs AS (
                     SELECT
@@ -266,7 +373,7 @@ switch ($type) {
                 ORDER BY
                     CASE position_status WHEN 'in' THEN 1 WHEN 'before' THEN 2 ELSE 3 END,
                     fe.entry_eta";
-        $params = array_merge([$from, $to, $from, $to, $minutesAhead], $flightFilterParams);
+        $params = array_merge([$from, $to], $extraFilterParams, [$from, $to, $minutesAhead], $flightFilterParams);
         $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
@@ -294,6 +401,7 @@ switch ($type) {
                       AND c.is_active = 1
                       AND c.phase NOT IN ('arrived', 'disconnected')
                       $flightFilterClause
+                      $extraFilterClause
                     GROUP BY c.flight_uid, c.callsign, c.phase,
                              fp.fp_dept_icao, fp.fp_dest_icao, fp.aircraft_type
                 )
@@ -314,7 +422,7 @@ switch ($type) {
                          WHEN last_eta > GETUTCDATE() THEN 'in'
                          ELSE 'after' END,
                     first_eta";
-        $params = array_merge([$airway], $flightFilterParams, [$minutesAhead]);
+        $params = array_merge([$airway], $flightFilterParams, $extraFilterParams, [$minutesAhead]);
         $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
@@ -331,6 +439,7 @@ switch ($type) {
         $sql = "WITH FlightsWithBothFixes AS (
                     SELECT c.flight_uid
                     FROM dbo.adl_flight_core c
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     WHERE c.is_active = 1
                       AND c.phase NOT IN ('arrived', 'disconnected')
                       AND EXISTS (
@@ -341,6 +450,7 @@ switch ($type) {
                           SELECT 1 FROM dbo.adl_flight_waypoints w2
                           WHERE w2.flight_uid = c.flight_uid AND w2.fix_name = ?
                       )
+                      $extraFilterClause
                 ),
                 FlightETAs AS (
                     SELECT
@@ -377,7 +487,7 @@ switch ($type) {
                         ELSE 3
                     END,
                     fe.entry_eta";
-        $params = array_merge([$from, $to, $from, $to, $minutesAhead], $flightFilterParams);
+        $params = array_merge([$from, $to], $extraFilterParams, [$from, $to, $minutesAhead], $flightFilterParams);
         $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
@@ -447,6 +557,7 @@ switch ($type) {
                           AND c.phase NOT IN ('arrived', 'disconnected')
                           AND $filterClause
                           $flightFilterClause
+                          $extraFilterClause
                         GROUP BY c.flight_uid, c.callsign, c.phase,
                                  fp.fp_dept_icao, fp.fp_dest_icao, fp.aircraft_type
                     )
@@ -463,7 +574,7 @@ switch ($type) {
                     WHERE first_eta >= DATEADD(MINUTE, -30, GETUTCDATE())
                       AND first_eta < DATEADD(MINUTE, ?, GETUTCDATE())
                     ORDER BY position_status DESC, first_eta";
-            $params = array_merge([$via], $filterParams, $flightFilterParams, [$minutesAhead]);
+            $params = array_merge([$via], $filterParams, $flightFilterParams, $extraFilterParams, [$minutesAhead]);
         } else {
             // Via fix with position_status
             $sql = "SELECT DISTINCT
@@ -486,8 +597,9 @@ switch ($type) {
                       AND c.phase NOT IN ('arrived', 'disconnected')
                       AND $filterClause
                       $flightFilterClause
+                      $extraFilterClause
                     ORDER BY position_status DESC, eta_utc";
-            $params = array_merge([$via, $minutesAhead], $filterParams, $flightFilterParams);
+            $params = array_merge([$via, $minutesAhead], $filterParams, $flightFilterParams, $extraFilterParams);
         }
 
         $stmt = sqlsrv_query($conn, $sql, $params);

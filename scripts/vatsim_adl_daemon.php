@@ -901,7 +901,7 @@ function executeWindCalculation($conn, array $config): ?array {
  * Get SWIM_API database connection.
  * Uses separate connection from VATSIM_ADL.
  */
-function getSwimConnection(): ?object {
+function getSwimConnection() {
     if (!defined('SWIM_SQL_HOST') || !defined('SWIM_SQL_DATABASE') ||
         !defined('SWIM_SQL_USERNAME') || !defined('SWIM_SQL_PASSWORD')) {
         return null;
