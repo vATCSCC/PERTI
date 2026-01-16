@@ -49,6 +49,13 @@ nohup php "${WWWROOT}/adl/php/boundary_daemon.php" --loop --interval=30 >> /home
 BOUNDARY_PID=$!
 echo "  boundary_daemon.php started (PID: $BOUNDARY_PID)"
 
+# Start the waypoint ETA daemon (tiered waypoint ETA calculation)
+# Tier 0 every 15s, Tier 1 every 30s, Tier 2 every 60s, etc.
+echo "Starting waypoint_eta_daemon.php..."
+nohup php "${WWWROOT}/adl/php/waypoint_eta_daemon.php" --loop >> /home/LogFiles/waypoint_eta.log 2>&1 &
+WAYPOINT_PID=$!
+echo "  waypoint_eta_daemon.php started (PID: $WAYPOINT_PID)"
+
 # Start the SWIM WebSocket server (real-time flight events on port 8090)
 echo "Starting swim_ws_server.php (WebSocket on port 8090)..."
 nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim_ws.log 2>&1 &
@@ -69,7 +76,7 @@ ARCH_PID=$!
 echo "  archival_daemon.php started (PID: $ARCH_PID)"
 
 echo "========================================"
-echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, ws=$WS_PID, sched=$SCHED_PID, arch=$ARCH_PID"
+echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, waypoint=$WAYPOINT_PID, ws=$WS_PID, sched=$SCHED_PID, arch=$ARCH_PID"
 echo "========================================"
 
 # Start PHP-FPM in foreground (nginx handles HTTP, PHP-FPM handles PHP)

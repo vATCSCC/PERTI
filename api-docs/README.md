@@ -9,21 +9,18 @@ OpenAPI specification for the internal PERTI platform API.
 | `openapi.yaml` | OpenAPI 3.0 specification |
 | `index.php` | Swagger UI viewer |
 
-## Postman Collection
+## Import into Postman
 
-The Postman collection for this API is located at:
-```
-postman/collections/PERTI API.postman_collection.json
-```
+Import `openapi.yaml` directly into Postman to generate a collection:
+1. Open Postman → **Import**
+2. Select `api-docs/openapi.yaml`
+3. Postman generates the collection automatically
 
 ## SWIM API
 
 For the external SWIM API (used by third-party integrations), see:
 ```
-docs/swim/
-├── openapi.yaml                           # OpenAPI spec
-├── VATSIM_SWIM_API.postman_collection.json # Postman collection
-└── README.md                              # Documentation
+docs/swim/openapi.yaml
 ```
 
 ## API Overview
