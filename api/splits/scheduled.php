@@ -46,10 +46,10 @@ if ($method === 'GET') {
     $config_ids = [];
     
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        // Convert DateTime objects to strings
+        // Convert DateTime objects to ISO strings with Z suffix for UTC
         foreach (['start_time_utc', 'end_time_utc', 'created_at', 'updated_at'] as $field) {
             if (isset($row[$field]) && $row[$field] instanceof DateTime) {
-                $row[$field] = $row[$field]->format('Y-m-d H:i:s');
+                $row[$field] = $row[$field]->format('Y-m-d\TH:i:s\Z');
             }
         }
         $row['positions'] = [];
@@ -89,10 +89,10 @@ if ($method === 'GET') {
                 if (isset($row['filters']) && is_string($row['filters'])) {
                     $row['filters'] = json_decode($row['filters'], true);
                 }
-                // Convert DateTime objects to strings
+                // Convert DateTime objects to ISO strings with Z suffix for UTC
                 foreach (['start_time_utc', 'end_time_utc'] as $field) {
                     if (isset($row[$field]) && $row[$field] instanceof DateTime) {
-                        $row[$field] = $row[$field]->format('Y-m-d H:i:s');
+                        $row[$field] = $row[$field]->format('Y-m-d\TH:i:s\Z');
                     }
                 }
                 if (isset($configs[$cid])) {

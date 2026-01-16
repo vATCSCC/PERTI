@@ -109,12 +109,12 @@ function listPresets($conn, $artccFilter = null) {
     
     $presets = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        // Convert DateTime objects to strings
+        // Convert DateTime objects to ISO strings with Z suffix for UTC
         if ($row['created_at'] instanceof DateTime) {
-            $row['created_at'] = $row['created_at']->format('Y-m-d H:i:s');
+            $row['created_at'] = $row['created_at']->format('Y-m-d\TH:i:s\Z');
         }
         if ($row['updated_at'] instanceof DateTime) {
-            $row['updated_at'] = $row['updated_at']->format('Y-m-d H:i:s');
+            $row['updated_at'] = $row['updated_at']->format('Y-m-d\TH:i:s\Z');
         }
         $presets[] = $row;
     }
@@ -142,12 +142,12 @@ function getPreset($conn, $id) {
         return;
     }
     
-    // Convert DateTime objects
+    // Convert DateTime objects to ISO strings with Z suffix for UTC
     if ($preset['created_at'] instanceof DateTime) {
-        $preset['created_at'] = $preset['created_at']->format('Y-m-d H:i:s');
+        $preset['created_at'] = $preset['created_at']->format('Y-m-d\TH:i:s\Z');
     }
     if ($preset['updated_at'] instanceof DateTime) {
-        $preset['updated_at'] = $preset['updated_at']->format('Y-m-d H:i:s');
+        $preset['updated_at'] = $preset['updated_at']->format('Y-m-d\TH:i:s\Z');
     }
     
     // Get positions
