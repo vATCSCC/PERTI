@@ -5878,14 +5878,18 @@ const SplitsController = {
         if (!confirm('Activate this configuration now? It will become immediately active.')) {
             return;
         }
-        
+
         try {
+            // Set start time to now (UTC) for immediate activation
+            const now = new Date();
+            const startTimeUtc = now.toISOString().slice(0, 19).replace('T', ' ');
+
             const response = await fetch(`api/splits/configs.php?id=${configId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     status: 'active',
-                    start_time_utc: null  // Clear scheduled time
+                    start_time_utc: startTimeUtc  // Set to current time for immediate activation
                 })
             });
             
