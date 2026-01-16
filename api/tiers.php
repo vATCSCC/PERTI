@@ -289,8 +289,11 @@ if (!empty($group)) {
     // Get group info
     $sql = "SELECT tier_group_name, description FROM dbo.artcc_tier_groups WHERE tier_group_code = ?";
     $stmt = sqlsrv_query($conn, $sql, [$group]);
-    $groupInfo = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    sqlsrv_free_stmt($stmt);
+    $groupInfo = null;
+    if ($stmt !== false) {
+        $groupInfo = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+    }
 
     echo json_encode([
         "success" => true,
