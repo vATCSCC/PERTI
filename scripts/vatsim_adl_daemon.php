@@ -64,7 +64,7 @@ $config = [
     // Locally, logs go to scripts/ directory
     'log_file'     => file_exists('/home/LogFiles') ? '/home/LogFiles/vatsim_adl.log' : $scriptDir . '/vatsim_adl.log',
     'log_to_file'  => true,
-    'log_to_stdout'=> true,
+    'log_to_stdout'=> false,  // Disabled on Azure - stdout goes to same log file
     
     // Performance thresholds (for warnings)
     'warn_sp_ms'      => 5000,   // Warn if SP takes >5s
