@@ -60,7 +60,9 @@ $config = [
     'sp_timeout'       => 120,  // SP timeout in seconds
     
     // Logging
-    'log_file'     => $scriptDir . '/vatsim_adl.log',
+    // On Azure App Service, logs go to /home/LogFiles/ (startup.sh also redirects stdout there)
+    // Locally, logs go to scripts/ directory
+    'log_file'     => file_exists('/home/LogFiles') ? '/home/LogFiles/vatsim_adl.log' : $scriptDir . '/vatsim_adl.log',
     'log_to_file'  => true,
     'log_to_stdout'=> true,
     
@@ -134,6 +136,12 @@ $config = [
     'wind_enabled'        => true,
     'wind_interval'       => 2,      // Run every N cycles (2 = every 30 seconds)
     'wind_timeout'        => 30,     // SP timeout in seconds
+
+    // SWIM API sync (syncs flight data to SWIM_API database for public API)
+    // SWIM_API is Azure SQL Basic ($5/mo) - dedicated for API queries to avoid
+    // Serverless costs on VATSIM_ADL. Runs after each ADL refresh cycle.
+    'swim_enabled'        => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
+    'swim_interval'       => 1,      // Run every N cycles (1 = every 15 seconds)
 ];
 
 // ============================================================================
@@ -886,6 +894,80 @@ function executeWindCalculation($conn, array $config): ?array {
 }
 
 // ============================================================================
+// SWIM API SYNC
+// ============================================================================
+
+/**
+ * Get SWIM_API database connection.
+ * Uses separate connection from VATSIM_ADL.
+ */
+function getSwimConnection(): ?object {
+    if (!defined('SWIM_SQL_HOST') || !defined('SWIM_SQL_DATABASE') ||
+        !defined('SWIM_SQL_USERNAME') || !defined('SWIM_SQL_PASSWORD')) {
+        return null;
+    }
+
+    $connectionOptions = [
+        "Database"               => SWIM_SQL_DATABASE,
+        "Uid"                    => SWIM_SQL_USERNAME,
+        "PWD"                    => SWIM_SQL_PASSWORD,
+        "Encrypt"                => true,
+        "TrustServerCertificate" => false,
+        "LoginTimeout"           => 30,
+        "ConnectionPooling"      => true,
+        "MultipleActiveResultSets" => false,
+        "ApplicationIntent"      => "ReadWrite",
+    ];
+
+    $conn = @sqlsrv_connect(SWIM_SQL_HOST, $connectionOptions);
+    return $conn !== false ? $conn : null;
+}
+
+/**
+ * Execute SWIM sync from VATSIM_ADL to SWIM_API.
+ * Uses the swim_sync.php script which handles the data transfer.
+ */
+function executeSwimSync($conn_adl, $conn_swim): ?array {
+    static $syncScriptLoaded = false;
+
+    // Load sync script if not already loaded
+    if (!$syncScriptLoaded) {
+        $syncScript = __DIR__ . '/swim_sync.php';
+        if (file_exists($syncScript)) {
+            require_once $syncScript;
+            $syncScriptLoaded = true;
+        } else {
+            logWarn("SWIM sync script not found: {$syncScript}");
+            return null;
+        }
+    }
+
+    if (!function_exists('swim_sync_from_adl')) {
+        return null;
+    }
+
+    // The sync function uses global $conn_adl and $conn_swim
+    // Set them temporarily for the sync
+    $GLOBALS['conn_adl'] = $conn_adl;
+    $GLOBALS['conn_swim'] = $conn_swim;
+
+    $result = swim_sync_from_adl();
+
+    if ($result['success']) {
+        return [
+            'flights_synced' => $result['stats']['flights_fetched'] ?? 0,
+            'inserted'       => $result['stats']['inserted'] ?? 0,
+            'updated'        => $result['stats']['updated'] ?? 0,
+            'deleted'        => $result['stats']['deleted'] ?? 0,
+            'elapsed_ms'     => $result['stats']['duration_ms'] ?? 0,
+        ];
+    } else {
+        logWarn("SWIM sync failed", ['error' => $result['message']]);
+        return null;
+    }
+}
+
+// ============================================================================
 // CONNECTION HEALTH CHECK (Fast)
 // ============================================================================
 
@@ -938,6 +1020,17 @@ function runDaemon(array $config): void {
         exit(1);
     }
     
+    // Establish SWIM_API connection (if configured)
+    $conn_swim = null;
+    if ($config['swim_enabled']) {
+        $conn_swim = getSwimConnection();
+        if ($conn_swim) {
+            logInfo("SWIM_API database connected", ['database' => SWIM_SQL_DATABASE]);
+        } else {
+            logWarn("SWIM_API connection failed - sync disabled");
+        }
+    }
+
     // Stats
     $stats = [
         'runs'          => 0,
@@ -962,6 +1055,10 @@ function runDaemon(array $config): void {
         // Wind calculation stats
         'wind_runs'            => 0,
         'wind_total_ms'        => 0,
+        // SWIM API sync stats
+        'swim_runs'            => 0,
+        'swim_synced'          => 0,
+        'swim_total_ms'        => 0,
     ];
     
     // Signal handling
@@ -1097,6 +1194,18 @@ function runDaemon(array $config): void {
                 }
             }
 
+            // 5e. SWIM API sync (sync flight data to SWIM_API for public API)
+            // Runs after ADL refresh to keep API data fresh (~15 second latency)
+            $swimResult = null;
+            if ($config['swim_enabled'] && $conn_swim !== null && $stats['runs'] % $config['swim_interval'] === 0) {
+                $swimResult = executeSwimSync($conn, $conn_swim);
+                if ($swimResult !== null) {
+                    $stats['swim_runs']++;
+                    $stats['swim_synced'] += $swimResult['flights_synced'];
+                    $stats['swim_total_ms'] += $swimResult['elapsed_ms'];
+                }
+            }
+
             // 6. Update stats
             $stats['successes']++;
             $stats['total_sp_ms'] += $spMs;
@@ -1145,6 +1254,15 @@ function runDaemon(array $config): void {
                 }
                 if ($boundaryResult['crossings_calculated'] > 0) {
                     $logContext['crossings'] = $boundaryResult['crossings_calculated'];
+                }
+            }
+
+            // Add SWIM sync stats when processed this cycle
+            if ($swimResult !== null) {
+                $logContext['swim_ms'] = $swimResult['elapsed_ms'];
+                $logContext['swim_sync'] = $swimResult['flights_synced'];
+                if ($swimResult['inserted'] > 0) {
+                    $logContext['swim_ins'] = $swimResult['inserted'];
                 }
             }
 

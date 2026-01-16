@@ -79,6 +79,11 @@ $type = isset($_GET['type']) ? strtolower(trim($_GET['type'])) : '';
 $minutesAhead = isset($_GET['minutes_ahead']) ? (int)$_GET['minutes_ahead'] : 60;
 $minutesAhead = max(15, min(720, $minutesAhead)); // 15 min to 12 hours
 
+// Optional flight filter - filter to specific callsign or flight_uid
+$flightFilter = isset($_GET['flight']) ? trim($_GET['flight']) : '';
+$flightFilterClause = '';
+$flightFilterParams = [];
+
 if (empty($type)) {
     http_response_code(400);
     echo json_encode(["error" => "Missing required parameter: type"]);
@@ -168,11 +173,42 @@ if ($conn === false) {
 $flights = [];
 $sqlError = null;
 
+// Build flight filter if specified
+if (!empty($flightFilter)) {
+    if (is_numeric($flightFilter)) {
+        $flightFilterClause = " AND c.flight_uid = ?";
+        $flightFilterParams = [(int)$flightFilter];
+    } else {
+        $flightFilterClause = " AND c.callsign = ?";
+        $flightFilterParams = [strtoupper($flightFilter)];
+    }
+}
+
 switch ($type) {
     case 'fix':
-        // Use fn_FixDemand
-        $sql = "SELECT * FROM dbo.fn_FixDemand(?, ?, NULL) ORDER BY eta_utc";
-        $stmt = sqlsrv_query($conn, $sql, [$fix, $minutesAhead]);
+        // Query with position_status: before = hasn't reached fix, after = past fix
+        $sql = "SELECT DISTINCT
+                    c.flight_uid, c.callsign, c.phase,
+                    fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
+                    fp.aircraft_type,
+                    w.eta_utc,
+                    DATEDIFF(MINUTE, GETUTCDATE(), w.eta_utc) AS minutes_until,
+                    CASE
+                        WHEN w.eta_utc > GETUTCDATE() THEN 'before'
+                        ELSE 'after'
+                    END AS position_status
+                FROM dbo.adl_flight_waypoints w
+                INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                WHERE w.fix_name = ?
+                  AND w.eta_utc >= DATEADD(MINUTE, -30, GETUTCDATE())
+                  AND w.eta_utc < DATEADD(MINUTE, ?, GETUTCDATE())
+                  AND c.is_active = 1
+                  AND c.phase NOT IN ('arrived', 'disconnected')
+                  $flightFilterClause
+                ORDER BY position_status DESC, eta_utc";
+        $params = array_merge([$fix, $minutesAhead], $flightFilterParams);
+        $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
         } else {
@@ -184,9 +220,54 @@ switch ($type) {
         break;
 
     case 'segment':
-        // Use fn_RouteSegmentDemand
-        $sql = "SELECT * FROM dbo.fn_RouteSegmentDemand(?, ?, ?, NULL) ORDER BY eta_utc";
-        $stmt = sqlsrv_query($conn, $sql, [$from, $to, $minutesAhead]);
+        // Query with position_status: before/in/after based on from/to fix ETAs
+        $sql = "WITH FlightsWithBothFixes AS (
+                    SELECT c.flight_uid
+                    FROM dbo.adl_flight_core c
+                    WHERE c.is_active = 1
+                      AND c.phase NOT IN ('arrived', 'disconnected')
+                      AND EXISTS (
+                          SELECT 1 FROM dbo.adl_flight_waypoints w1
+                          WHERE w1.flight_uid = c.flight_uid AND w1.fix_name = ?
+                      )
+                      AND EXISTS (
+                          SELECT 1 FROM dbo.adl_flight_waypoints w2
+                          WHERE w2.flight_uid = c.flight_uid AND w2.fix_name = ?
+                      )
+                ),
+                FlightETAs AS (
+                    SELECT
+                        f.flight_uid,
+                        (SELECT TOP 1 w1.eta_utc FROM dbo.adl_flight_waypoints w1
+                         WHERE w1.flight_uid = f.flight_uid AND w1.fix_name = ?
+                         ORDER BY w1.sequence_num) AS entry_eta,
+                        (SELECT TOP 1 w2.eta_utc FROM dbo.adl_flight_waypoints w2
+                         WHERE w2.flight_uid = f.flight_uid AND w2.fix_name = ?
+                         ORDER BY w2.sequence_num) AS exit_eta
+                    FROM FlightsWithBothFixes f
+                )
+                SELECT DISTINCT
+                    c.flight_uid, c.callsign, c.phase,
+                    fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
+                    fp.aircraft_type,
+                    fe.entry_eta AS eta_utc,
+                    DATEDIFF(MINUTE, GETUTCDATE(), fe.entry_eta) AS minutes_until,
+                    CASE
+                        WHEN fe.entry_eta > GETUTCDATE() THEN 'before'
+                        WHEN fe.exit_eta > GETUTCDATE() THEN 'in'
+                        ELSE 'after'
+                    END AS position_status
+                FROM FlightETAs fe
+                INNER JOIN dbo.adl_flight_core c ON c.flight_uid = fe.flight_uid
+                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = fe.flight_uid
+                WHERE fe.entry_eta >= DATEADD(MINUTE, -30, GETUTCDATE())
+                  AND fe.entry_eta < DATEADD(MINUTE, ?, GETUTCDATE())
+                  $flightFilterClause
+                ORDER BY
+                    CASE position_status WHEN 'in' THEN 1 WHEN 'before' THEN 2 ELSE 3 END,
+                    fe.entry_eta";
+        $params = array_merge([$from, $to, $from, $to, $minutesAhead], $flightFilterParams);
+        $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
         } else {
@@ -198,25 +279,43 @@ switch ($type) {
         break;
 
     case 'airway':
-        // Use fn_AirwayDemand (list version)
-        $sql = "SELECT DISTINCT
-                    c.flight_uid, c.callsign, c.phase,
-                    fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
-                    fp.aircraft_type,
-                    MIN(w.eta_utc) AS eta_utc,
-                    DATEDIFF(MINUTE, GETUTCDATE(), MIN(w.eta_utc)) AS minutes_until
-                FROM dbo.adl_flight_waypoints w
-                INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
-                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
-                WHERE w.on_airway = ?
-                  AND w.eta_utc >= GETUTCDATE()
-                  AND w.eta_utc < DATEADD(MINUTE, ?, GETUTCDATE())
-                  AND c.is_active = 1
-                  AND c.phase NOT IN ('arrived', 'disconnected')
-                GROUP BY c.flight_uid, c.callsign, c.phase,
-                         fp.fp_dept_icao, fp.fp_dest_icao, fp.aircraft_type
-                ORDER BY eta_utc";
-        $stmt = sqlsrv_query($conn, $sql, [$airway, $minutesAhead]);
+        // Query with position_status for entire airway
+        $sql = "WITH AirwayFlights AS (
+                    SELECT
+                        c.flight_uid, c.callsign, c.phase,
+                        fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
+                        fp.aircraft_type,
+                        MIN(w.eta_utc) AS first_eta,
+                        MAX(w.eta_utc) AS last_eta
+                    FROM dbo.adl_flight_waypoints w
+                    INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                    WHERE w.on_airway = ?
+                      AND c.is_active = 1
+                      AND c.phase NOT IN ('arrived', 'disconnected')
+                      $flightFilterClause
+                    GROUP BY c.flight_uid, c.callsign, c.phase,
+                             fp.fp_dept_icao, fp.fp_dest_icao, fp.aircraft_type
+                )
+                SELECT
+                    flight_uid, callsign, phase, departure, destination, aircraft_type,
+                    first_eta AS eta_utc,
+                    DATEDIFF(MINUTE, GETUTCDATE(), first_eta) AS minutes_until,
+                    CASE
+                        WHEN first_eta > GETUTCDATE() THEN 'before'
+                        WHEN last_eta > GETUTCDATE() THEN 'in'
+                        ELSE 'after'
+                    END AS position_status
+                FROM AirwayFlights
+                WHERE first_eta >= DATEADD(MINUTE, -30, GETUTCDATE())
+                  AND first_eta < DATEADD(MINUTE, ?, GETUTCDATE())
+                ORDER BY
+                    CASE WHEN first_eta > GETUTCDATE() THEN 'before'
+                         WHEN last_eta > GETUTCDATE() THEN 'in'
+                         ELSE 'after' END,
+                    first_eta";
+        $params = array_merge([$airway], $flightFilterParams, [$minutesAhead]);
+        $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
         } else {
@@ -228,28 +327,70 @@ switch ($type) {
         break;
 
     case 'airway_segment':
-        // Use fn_AirwaySegmentDemand
-        $sql = "SELECT * FROM dbo.fn_AirwaySegmentDemand(?, ?, ?, ?, NULL) ORDER BY entry_eta";
-        $stmt = sqlsrv_query($conn, $sql, [$airway, $from, $to, $minutesAhead]);
+        // Query with position_status: before/in/after based on entry and exit ETAs
+        $sql = "WITH FlightsWithBothFixes AS (
+                    SELECT c.flight_uid
+                    FROM dbo.adl_flight_core c
+                    WHERE c.is_active = 1
+                      AND c.phase NOT IN ('arrived', 'disconnected')
+                      AND EXISTS (
+                          SELECT 1 FROM dbo.adl_flight_waypoints w1
+                          WHERE w1.flight_uid = c.flight_uid AND w1.fix_name = ?
+                      )
+                      AND EXISTS (
+                          SELECT 1 FROM dbo.adl_flight_waypoints w2
+                          WHERE w2.flight_uid = c.flight_uid AND w2.fix_name = ?
+                      )
+                ),
+                FlightETAs AS (
+                    SELECT
+                        f.flight_uid,
+                        (SELECT TOP 1 w1.eta_utc FROM dbo.adl_flight_waypoints w1
+                         WHERE w1.flight_uid = f.flight_uid AND w1.fix_name = ?
+                         ORDER BY w1.sequence_num) AS entry_eta,
+                        (SELECT TOP 1 w2.eta_utc FROM dbo.adl_flight_waypoints w2
+                         WHERE w2.flight_uid = f.flight_uid AND w2.fix_name = ?
+                         ORDER BY w2.sequence_num) AS exit_eta
+                    FROM FlightsWithBothFixes f
+                )
+                SELECT DISTINCT
+                    c.flight_uid, c.callsign, c.phase,
+                    fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
+                    fp.aircraft_type,
+                    fe.entry_eta AS eta_utc,
+                    DATEDIFF(MINUTE, GETUTCDATE(), fe.entry_eta) AS minutes_until,
+                    CASE
+                        WHEN fe.entry_eta > GETUTCDATE() THEN 'before'
+                        WHEN fe.exit_eta > GETUTCDATE() THEN 'in'
+                        ELSE 'after'
+                    END AS position_status
+                FROM FlightETAs fe
+                INNER JOIN dbo.adl_flight_core c ON c.flight_uid = fe.flight_uid
+                INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = fe.flight_uid
+                WHERE fe.entry_eta >= DATEADD(MINUTE, -30, GETUTCDATE())
+                  AND fe.entry_eta < DATEADD(MINUTE, ?, GETUTCDATE())
+                  $flightFilterClause
+                ORDER BY
+                    CASE
+                        WHEN fe.entry_eta > GETUTCDATE() THEN 2
+                        WHEN fe.exit_eta > GETUTCDATE() THEN 1
+                        ELSE 3
+                    END,
+                    fe.entry_eta";
+        $params = array_merge([$from, $to, $from, $to, $minutesAhead], $flightFilterParams);
+        $stmt = sqlsrv_query($conn, $sql, $params);
         if ($stmt === false) {
             $sqlError = sql_error_msg();
         } else {
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-                $flight = formatFlightRow($row);
-                if (isset($row['entry_eta'])) {
-                    $flight['eta_utc'] = formatDateTime($row['entry_eta']);
-                }
-                $flights[] = $flight;
+                $flights[] = formatFlightRow($row);
             }
             sqlsrv_free_stmt($stmt);
         }
         break;
 
     case 'via_fix':
-        // Build query based on via_type and filter
-        $filterColumn = $direction === 'arr' ? 'fp_dest' : ($direction === 'dep' ? 'fp_dept' : 'fp_dest');
-        $filterColumnAlt = $direction === 'arr' ? 'fp_dest' : ($direction === 'dep' ? 'fp_dept' : 'fp_dept');
-
+        // Build filter clause based on filter_type and direction
         switch ($filterType) {
             case 'airport':
                 $filterClause = "(fp.fp_dest_icao = ? OR fp.fp_dept_icao = ?)";
@@ -290,45 +431,63 @@ switch ($type) {
         }
 
         if ($viaType === 'airway') {
-            // Via airway
-            $sql = "SELECT DISTINCT
-                        c.flight_uid, c.callsign, c.phase,
-                        fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
-                        fp.aircraft_type,
-                        MIN(w.eta_utc) AS eta_utc,
-                        DATEDIFF(MINUTE, GETUTCDATE(), MIN(w.eta_utc)) AS minutes_until
-                    FROM dbo.adl_flight_waypoints w
-                    INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
-                    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
-                    WHERE w.on_airway = ?
-                      AND w.eta_utc >= GETUTCDATE()
-                      AND w.eta_utc < DATEADD(MINUTE, ?, GETUTCDATE())
-                      AND c.is_active = 1
-                      AND c.phase NOT IN ('arrived', 'disconnected')
-                      AND $filterClause
-                    GROUP BY c.flight_uid, c.callsign, c.phase,
-                             fp.fp_dept_icao, fp.fp_dest_icao, fp.aircraft_type
-                    ORDER BY eta_utc";
-            $params = array_merge([$via, $minutesAhead], $filterParams);
+            // Via airway with position_status
+            $sql = "WITH AirwayFlights AS (
+                        SELECT
+                            c.flight_uid, c.callsign, c.phase,
+                            fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
+                            fp.aircraft_type,
+                            MIN(w.eta_utc) AS first_eta,
+                            MAX(w.eta_utc) AS last_eta
+                        FROM dbo.adl_flight_waypoints w
+                        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                        WHERE w.on_airway = ?
+                          AND c.is_active = 1
+                          AND c.phase NOT IN ('arrived', 'disconnected')
+                          AND $filterClause
+                          $flightFilterClause
+                        GROUP BY c.flight_uid, c.callsign, c.phase,
+                                 fp.fp_dept_icao, fp.fp_dest_icao, fp.aircraft_type
+                    )
+                    SELECT
+                        flight_uid, callsign, phase, departure, destination, aircraft_type,
+                        first_eta AS eta_utc,
+                        DATEDIFF(MINUTE, GETUTCDATE(), first_eta) AS minutes_until,
+                        CASE
+                            WHEN first_eta > GETUTCDATE() THEN 'before'
+                            WHEN last_eta > GETUTCDATE() THEN 'in'
+                            ELSE 'after'
+                        END AS position_status
+                    FROM AirwayFlights
+                    WHERE first_eta >= DATEADD(MINUTE, -30, GETUTCDATE())
+                      AND first_eta < DATEADD(MINUTE, ?, GETUTCDATE())
+                    ORDER BY position_status DESC, first_eta";
+            $params = array_merge([$via], $filterParams, $flightFilterParams, [$minutesAhead]);
         } else {
-            // Via fix
+            // Via fix with position_status
             $sql = "SELECT DISTINCT
                         c.flight_uid, c.callsign, c.phase,
                         fp.fp_dept_icao AS departure, fp.fp_dest_icao AS destination,
                         fp.aircraft_type,
                         w.eta_utc,
-                        DATEDIFF(MINUTE, GETUTCDATE(), w.eta_utc) AS minutes_until
+                        DATEDIFF(MINUTE, GETUTCDATE(), w.eta_utc) AS minutes_until,
+                        CASE
+                            WHEN w.eta_utc > GETUTCDATE() THEN 'before'
+                            ELSE 'after'
+                        END AS position_status
                     FROM dbo.adl_flight_waypoints w
                     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
                     WHERE w.fix_name = ?
-                      AND w.eta_utc >= GETUTCDATE()
+                      AND w.eta_utc >= DATEADD(MINUTE, -30, GETUTCDATE())
                       AND w.eta_utc < DATEADD(MINUTE, ?, GETUTCDATE())
                       AND c.is_active = 1
                       AND c.phase NOT IN ('arrived', 'disconnected')
                       AND $filterClause
-                    ORDER BY eta_utc";
-            $params = array_merge([$via, $minutesAhead], $filterParams);
+                      $flightFilterClause
+                    ORDER BY position_status DESC, eta_utc";
+            $params = array_merge([$via, $minutesAhead], $filterParams, $flightFilterParams);
         }
 
         $stmt = sqlsrv_query($conn, $sql, $params);
@@ -364,7 +523,7 @@ echo json_encode($response, JSON_PRETTY_PRINT);
  * Format a flight row from SQL result
  */
 function formatFlightRow($row) {
-    return [
+    $flight = [
         "flight_uid" => (int)($row['flight_uid'] ?? 0),
         "callsign" => $row['callsign'] ?? '',
         "departure" => $row['departure'] ?? ($row['fp_dept_icao'] ?? ''),
@@ -374,6 +533,13 @@ function formatFlightRow($row) {
         "minutes_until" => (int)($row['minutes_until'] ?? ($row['minutes_until_over'] ?? 0)),
         "phase" => $row['phase'] ?? ''
     ];
+
+    // Add position status if available
+    if (isset($row['position_status'])) {
+        $flight['status'] = $row['position_status'];
+    }
+
+    return $flight;
 }
 
 /**

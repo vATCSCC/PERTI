@@ -131,27 +131,26 @@ if (!function_exists('swim_trigger_sync')) {
      * Trigger SWIM API data sync from VATSIM_ADL
      * Call this after ADL daemon refresh completes
      * 
-     * @return array ['success' => bool, 'message' => string, 'duration_ms' => int]
+     * @return array ['success' => bool, 'message' => string, 'stats' => array]
      */
     function swim_trigger_sync() {
         global $conn_swim;
         
         if (!$conn_swim) {
-            return ['success' => false, 'message' => 'SWIM connection not available', 'duration_ms' => 0];
+            return ['success' => false, 'message' => 'SWIM connection not available', 'stats' => []];
         }
         
-        $start = microtime(true);
-        $result = sqlsrv_query($conn_swim, "EXEC dbo.sp_Swim_SyncFromAdl");
-        $duration = round((microtime(true) - $start) * 1000);
-        
-        if ($result === false) {
-            $error = adl_sql_error_message();
-            error_log("SWIM sync failed: " . $error);
-            return ['success' => false, 'message' => $error, 'duration_ms' => $duration];
+        // Load the sync script if not already loaded
+        $sync_script = __DIR__ . '/../scripts/swim_sync.php';
+        if (file_exists($sync_script) && !function_exists('swim_sync_from_adl')) {
+            require_once $sync_script;
         }
         
-        sqlsrv_free_stmt($result);
-        return ['success' => true, 'message' => 'Sync completed', 'duration_ms' => $duration];
+        if (function_exists('swim_sync_from_adl')) {
+            return swim_sync_from_adl();
+        }
+        
+        return ['success' => false, 'message' => 'SWIM sync script not found', 'stats' => []];
     }
 }
 
