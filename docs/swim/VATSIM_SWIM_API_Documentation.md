@@ -525,6 +525,233 @@ Receives real-time track/position updates from authoritative sources (vNAS, CRC,
 - Flights not found are skipped (not_found count) but not considered errors
 - Use this endpoint for high-frequency position updates from radar/ADS-B systems
 
+### 3.9 Metering Data
+
+**Endpoint:** `GET /api/swim/v1/metering/{airport}`
+
+Returns TBFM-style metering data for arrivals to an airport.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `airport` | string | Destination airport ICAO code (e.g., `KJFK`) |
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | string | Filter by metering status: `UNMETERED`, `METERED`, `FROZEN`, `SUSPENDED`, `EXEMPT` |
+| `runway` | string | Filter by arrival runway (e.g., `31L`) |
+| `stream` | string | Filter by arrival stream/corner post |
+| `metered_only` | boolean | Only return flights with metering data (default: `true`) |
+| `format` | string | Response format: `json`, `fixm`, `xml`, `csv`, `ndjson` |
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "airport": "KJFK",
+    "type": "metering_data",
+    "flights": [
+      {
+        "gufi": "VAT-20260116-UAL123-KORD-KJFK",
+        "callsign": "UAL123",
+        "sequence_number": 5,
+        "scheduled_time_of_arrival": "2026-01-16T18:30:00Z",
+        "metering_time": "2026-01-16T18:15:00Z",
+        "metering_delay": 5,
+        "metering_frozen": true,
+        "metering_status": "METERED",
+        "arrival_stream": "NORTH",
+        "arr_runway": "31L"
+      }
+    ],
+    "count": 15,
+    "summary": {
+      "total": 15,
+      "metered": 12,
+      "frozen": 3,
+      "avg_delay_minutes": 4.2
+    }
+  }
+}
+```
+
+**Sequence Endpoint:** `GET /api/swim/v1/metering/{airport}/sequence`
+
+Returns a compact arrival sequence list sorted by sequence number, optimized for datablock display.
+
+### 3.10 Metering Ingest
+
+**Endpoint:** `POST /api/swim/v1/ingest/metering`
+
+Receives TBFM-style metering data from authoritative sources (SimTraffic, vATCSCC).
+
+**Maximum batch size:** 500 metering records per request
+
+**Request Body:**
+```json
+{
+  "airport": "KJFK",
+  "metering_point": "CAMRN",
+  "metering": [
+    {
+      "callsign": "UAL123",
+      "sequence_number": 5,
+      "scheduled_time_of_arrival": "2026-01-16T18:30:00Z",
+      "metering_time": "2026-01-16T18:15:00Z",
+      "metering_delay": 5,
+      "metering_frozen": true,
+      "arrival_stream": "NORTH",
+      "arrival_runway": "31L",
+      "metering_status": "METERED"
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "processed": 10,
+    "updated": 8,
+    "not_found": 2,
+    "errors": 0
+  },
+  "meta": {
+    "source": "simtraffic",
+    "airport": "KJFK",
+    "metering_point": "CAMRN"
+  }
+}
+```
+
+### 3.11 TMI Reroutes
+
+**Endpoint:** `GET /api/swim/v1/tmi/reroutes`
+
+Returns reroute definitions for Traffic Management Initiatives.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | string | Filter by status (comma-separated): `0`=Draft, `1`=Proposed, `2`=Active, `3`=Monitoring, `4`=Expired, `5`=Cancelled |
+| `active` | string | If `1`, returns only active reroutes (status 1,2,3) |
+| `limit` | int | Maximum results (default: 100) |
+| `offset` | int | Pagination offset |
+
+**Example Response:**
+```json
+{
+  "status": "ok",
+  "total": 5,
+  "counts": {
+    "Active": 2,
+    "Proposed": 1,
+    "Monitoring": 2
+  },
+  "reroutes": [
+    {
+      "id": 1,
+      "status": 2,
+      "status_label": "Active",
+      "name": "KJFK_WX_REROUTE",
+      "adv_number": "ADV-2026-001",
+      "start_utc": "2026-01-16T14:00:00",
+      "end_utc": "2026-01-16T20:00:00",
+      "protected_fixes": "CAMRN,PARCH",
+      "avoid_fixes": "LENDY",
+      "dest_airports": "KJFK",
+      "dest_centers": "ZNY"
+    }
+  ]
+}
+```
+
+### 3.12 JATOC Incidents
+
+**Endpoint:** `GET /api/swim/v1/jatoc/incidents`
+
+Returns JATOC (Joint Air Traffic Operations Center) incident records.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `lifecycle_status` | string | Filter: `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED` |
+| `facility` | string | Filter by facility (partial match) |
+| `facilities` | string | Filter by multiple facilities (comma-separated, exact match) |
+| `facility_type` | string | Filter: `ARTCC`, `TRACON`, `ATCT`, `FSS` |
+| `limit` | int | Results per page (default: 50, max: 100) |
+| `offset` | int | Pagination offset |
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "incident_number": "2026-001",
+      "facility": "KJFK",
+      "facility_type": "ATCT",
+      "incident_type": "EQUIPMENT",
+      "lifecycle_status": "RESOLVED",
+      "severity": "MEDIUM",
+      "summary": "Primary radar outage",
+      "start_utc": "2026-01-16T14:00:00",
+      "end_utc": "2026-01-16T15:30:00"
+    }
+  ],
+  "pagination": {
+    "total": 45,
+    "limit": 50,
+    "offset": 0,
+    "page": 1
+  }
+}
+```
+
+### 3.13 Runway Configuration Presets
+
+**Endpoint:** `GET /api/swim/v1/splits/presets`
+
+Returns saved runway configuration presets.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `artcc` | string | Filter by ARTCC |
+| `airport` | string | Filter by airport |
+| `id` | int | Get single preset by ID |
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "presets": [
+    {
+      "id": 1,
+      "name": "KJFK_ILS31L_VIS31R",
+      "artcc": "ZNY",
+      "airport": "KJFK",
+      "description": "ILS 31L arrivals, Visual 31R departures",
+      "is_default": false,
+      "positions": [
+        {"runway": "31L", "operation": "ARR", "is_primary": true, "rate": 40},
+        {"runway": "31R", "operation": "DEP", "is_primary": true, "rate": 45}
+      ]
+    }
+  ]
+}
+```
+
 ---
 
 ## 4. WebSocket Real-Time API

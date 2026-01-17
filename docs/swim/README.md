@@ -136,8 +136,14 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 | `/positions` | GET | Bulk positions (GeoJSON) |
 | `/tmi/programs` | GET | Active TMI programs |
 | `/tmi/controlled` | GET | TMI-controlled flights |
+| `/tmi/reroutes` | GET | TMI reroute definitions |
+| `/metering/{airport}` | GET | TBFM metering data for airport |
+| `/metering/{airport}/sequence` | GET | Arrival sequence list |
+| `/jatoc/incidents` | GET | JATOC incident records |
+| `/splits/presets` | GET | Runway configuration presets |
 | `/ingest/adl` | POST | Ingest flight data (write access) |
 | `/ingest/track` | POST | High-freq position updates (write access) |
+| `/ingest/metering` | POST | TBFM metering data (write access) |
 | `/ws` | WS | Real-time WebSocket |
 
 ---

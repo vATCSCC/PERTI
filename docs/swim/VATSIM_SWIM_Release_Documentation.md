@@ -107,10 +107,15 @@ SWIM data is refreshed every **15 seconds** from the VATSIM network. The system 
 │  │   • flights             │    • flight.departed                      │   │
 │  │   • flight              │    • flight.arrived                       │   │
 │  │   • positions           │    • flight.created                       │   │
-│  │   • tmi/programs        │    • flight.positions                     │   │
-│  │   • tmi/controlled      │    • tmi.issued                           │   │
-│  │   • ingest/adl          │    • tmi.released                         │   │
-│  │   • ingest/track        │    • system.heartbeat                     │   │
+│  │   • metering/{airport}  │    • flight.positions                     │   │
+│  │   • tmi/programs        │    • tmi.issued                           │   │
+│  │   • tmi/controlled      │    • tmi.released                         │   │
+│  │   • tmi/reroutes        │    • system.heartbeat                     │   │
+│  │   • jatoc/incidents     │                                           │   │
+│  │   • splits/presets      │                                           │   │
+│  │   • ingest/adl          │                                           │   │
+│  │   • ingest/track        │                                           │   │
+│  │   • ingest/metering     │                                           │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                  │                                          │
 └──────────────────────────────────┼──────────────────────────────────────────┘

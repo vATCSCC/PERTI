@@ -13,6 +13,23 @@
     RewriteCond %{REQUEST_METHOD} OPTIONS
     RewriteRule ^(.*)$ - [R=204,L]
 
+    # Metering endpoint: /metering/{airport} and /metering/{airport}/sequence
+    RewriteRule ^metering/([A-Za-z0-9]+)/?$ metering.php [L,QSA]
+    RewriteRule ^metering/([A-Za-z0-9]+)/([a-z]+)/?$ metering.php [L,QSA]
+
+    # Flight endpoint: /flight/{gufi} for single flight lookup
+    RewriteRule ^flight/([A-Za-z0-9_-]+)/?$ flight.php [L,QSA]
+
+    # Ingest endpoints: /ingest/{endpoint} -> /ingest/{endpoint}.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/api/swim/v1/ingest/$1.php -f
+    RewriteRule ^ingest/([a-zA-Z0-9_-]+)/?$ ingest/$1.php [L,QSA]
+
+    # TMI endpoints: /tmi/{endpoint} -> /tmi/{endpoint}.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/api/swim/v1/tmi/$1.php -f
+    RewriteRule ^tmi/([a-zA-Z0-9_-]+)/?$ tmi/$1.php [L,QSA]
+
     # Clean URLs: Rewrite /endpoint to /endpoint.php
     # Only if the request is not a file and .php version exists
     RewriteCond %{REQUEST_FILENAME} !-f
