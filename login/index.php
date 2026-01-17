@@ -23,7 +23,7 @@ function randString($total) {
         $int++;
     }
 
-    return $stringArray;
+    return implode('', $stringArray);
 }
 
 // Setting Values from Config:
