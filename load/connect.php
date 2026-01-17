@@ -4,6 +4,12 @@
 // Establishes connections to the primary MySQL database
 // and (optionally) the ADL Azure SQL database.
 
+// Prevent multiple inclusions
+if (defined('CONNECT_PHP_LOADED')) {
+    return;
+}
+define('CONNECT_PHP_LOADED', true);
+
 include_once("config.php");
 
 // Include safe input handling functions for PHP 8.2+
@@ -97,162 +103,170 @@ $_conn_cache = [
     'ref' => null
 ];
 
-/**
- * Get ADL database connection (lazy loaded)
- * @return resource|false|null Connection resource, false on failure, null if not configured
- */
-function get_conn_adl() {
-    global $_conn_cache;
+if (!function_exists('get_conn_adl')) {
+    /**
+     * Get ADL database connection (lazy loaded)
+     * @return resource|false|null Connection resource, false on failure, null if not configured
+     */
+    function get_conn_adl() {
+        global $_conn_cache;
 
-    // Return cached connection if already attempted
-    if ($_conn_cache['adl'] !== null) {
-        return $_conn_cache['adl'] ?: null;
+        // Return cached connection if already attempted
+        if ($_conn_cache['adl'] !== null) {
+            return $_conn_cache['adl'] ?: null;
+        }
+
+        if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') ||
+            !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
+            $_conn_cache['adl'] = false;
+            return null;
+        }
+
+        if (!function_exists('sqlsrv_connect')) {
+            error_log("ADL SQL connection skipped: sqlsrv extension is not loaded.");
+            $_conn_cache['adl'] = false;
+            return null;
+        }
+
+        $connectionInfo = [
+            "Database" => ADL_SQL_DATABASE,
+            "UID"      => ADL_SQL_USERNAME,
+            "PWD"      => ADL_SQL_PASSWORD,
+            "ConnectionPooling" => 1
+        ];
+
+        $_conn_cache['adl'] = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
+
+        if ($_conn_cache['adl'] === false) {
+            error_log("ADL SQL connection failed: " . adl_sql_error_message());
+            return null;
+        }
+
+        return $_conn_cache['adl'];
     }
-
-    if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') ||
-        !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
-        $_conn_cache['adl'] = false;
-        return null;
-    }
-
-    if (!function_exists('sqlsrv_connect')) {
-        error_log("ADL SQL connection skipped: sqlsrv extension is not loaded.");
-        $_conn_cache['adl'] = false;
-        return null;
-    }
-
-    $connectionInfo = [
-        "Database" => ADL_SQL_DATABASE,
-        "UID"      => ADL_SQL_USERNAME,
-        "PWD"      => ADL_SQL_PASSWORD,
-        "ConnectionPooling" => 1
-    ];
-
-    $_conn_cache['adl'] = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
-
-    if ($_conn_cache['adl'] === false) {
-        error_log("ADL SQL connection failed: " . adl_sql_error_message());
-        return null;
-    }
-
-    return $_conn_cache['adl'];
 }
 
-/**
- * Get SWIM API database connection (lazy loaded)
- * @return resource|false|null Connection resource, false on failure, null if not configured
- */
-function get_conn_swim() {
-    global $_conn_cache;
+if (!function_exists('get_conn_swim')) {
+    /**
+     * Get SWIM API database connection (lazy loaded)
+     * @return resource|false|null Connection resource, false on failure, null if not configured
+     */
+    function get_conn_swim() {
+        global $_conn_cache;
 
-    if ($_conn_cache['swim'] !== null) {
-        return $_conn_cache['swim'] ?: null;
+        if ($_conn_cache['swim'] !== null) {
+            return $_conn_cache['swim'] ?: null;
+        }
+
+        if (!defined('SWIM_SQL_HOST') || !defined('SWIM_SQL_DATABASE') ||
+            !defined('SWIM_SQL_USERNAME') || !defined('SWIM_SQL_PASSWORD')) {
+            $_conn_cache['swim'] = false;
+            return null;
+        }
+
+        if (!function_exists('sqlsrv_connect')) {
+            $_conn_cache['swim'] = false;
+            return null;
+        }
+
+        $connectionInfo = [
+            "Database" => SWIM_SQL_DATABASE,
+            "UID"      => SWIM_SQL_USERNAME,
+            "PWD"      => SWIM_SQL_PASSWORD,
+            "ConnectionPooling" => 1
+        ];
+
+        $_conn_cache['swim'] = sqlsrv_connect(SWIM_SQL_HOST, $connectionInfo);
+
+        if ($_conn_cache['swim'] === false) {
+            error_log("SWIM API SQL connection failed: " . adl_sql_error_message());
+            return null;
+        }
+
+        return $_conn_cache['swim'];
     }
-
-    if (!defined('SWIM_SQL_HOST') || !defined('SWIM_SQL_DATABASE') ||
-        !defined('SWIM_SQL_USERNAME') || !defined('SWIM_SQL_PASSWORD')) {
-        $_conn_cache['swim'] = false;
-        return null;
-    }
-
-    if (!function_exists('sqlsrv_connect')) {
-        $_conn_cache['swim'] = false;
-        return null;
-    }
-
-    $connectionInfo = [
-        "Database" => SWIM_SQL_DATABASE,
-        "UID"      => SWIM_SQL_USERNAME,
-        "PWD"      => SWIM_SQL_PASSWORD,
-        "ConnectionPooling" => 1
-    ];
-
-    $_conn_cache['swim'] = sqlsrv_connect(SWIM_SQL_HOST, $connectionInfo);
-
-    if ($_conn_cache['swim'] === false) {
-        error_log("SWIM API SQL connection failed: " . adl_sql_error_message());
-        return null;
-    }
-
-    return $_conn_cache['swim'];
 }
 
-/**
- * Get TMI database connection (lazy loaded)
- * @return resource|false|null Connection resource, false on failure, null if not configured
- */
-function get_conn_tmi() {
-    global $_conn_cache;
+if (!function_exists('get_conn_tmi')) {
+    /**
+     * Get TMI database connection (lazy loaded)
+     * @return resource|false|null Connection resource, false on failure, null if not configured
+     */
+    function get_conn_tmi() {
+        global $_conn_cache;
 
-    if ($_conn_cache['tmi'] !== null) {
-        return $_conn_cache['tmi'] ?: null;
+        if ($_conn_cache['tmi'] !== null) {
+            return $_conn_cache['tmi'] ?: null;
+        }
+
+        if (!defined('TMI_SQL_HOST') || !defined('TMI_SQL_DATABASE') ||
+            !defined('TMI_SQL_USERNAME') || !defined('TMI_SQL_PASSWORD')) {
+            $_conn_cache['tmi'] = false;
+            return null;
+        }
+
+        if (!function_exists('sqlsrv_connect')) {
+            $_conn_cache['tmi'] = false;
+            return null;
+        }
+
+        $connectionInfo = [
+            "Database" => TMI_SQL_DATABASE,
+            "UID"      => TMI_SQL_USERNAME,
+            "PWD"      => TMI_SQL_PASSWORD,
+            "ConnectionPooling" => 1
+        ];
+
+        $_conn_cache['tmi'] = sqlsrv_connect(TMI_SQL_HOST, $connectionInfo);
+
+        if ($_conn_cache['tmi'] === false) {
+            error_log("TMI SQL connection failed: " . adl_sql_error_message());
+            return null;
+        }
+
+        return $_conn_cache['tmi'];
     }
-
-    if (!defined('TMI_SQL_HOST') || !defined('TMI_SQL_DATABASE') ||
-        !defined('TMI_SQL_USERNAME') || !defined('TMI_SQL_PASSWORD')) {
-        $_conn_cache['tmi'] = false;
-        return null;
-    }
-
-    if (!function_exists('sqlsrv_connect')) {
-        $_conn_cache['tmi'] = false;
-        return null;
-    }
-
-    $connectionInfo = [
-        "Database" => TMI_SQL_DATABASE,
-        "UID"      => TMI_SQL_USERNAME,
-        "PWD"      => TMI_SQL_PASSWORD,
-        "ConnectionPooling" => 1
-    ];
-
-    $_conn_cache['tmi'] = sqlsrv_connect(TMI_SQL_HOST, $connectionInfo);
-
-    if ($_conn_cache['tmi'] === false) {
-        error_log("TMI SQL connection failed: " . adl_sql_error_message());
-        return null;
-    }
-
-    return $_conn_cache['tmi'];
 }
 
-/**
- * Get REF database connection (lazy loaded)
- * @return resource|false|null Connection resource, false on failure, null if not configured
- */
-function get_conn_ref() {
-    global $_conn_cache;
+if (!function_exists('get_conn_ref')) {
+    /**
+     * Get REF database connection (lazy loaded)
+     * @return resource|false|null Connection resource, false on failure, null if not configured
+     */
+    function get_conn_ref() {
+        global $_conn_cache;
 
-    if ($_conn_cache['ref'] !== null) {
-        return $_conn_cache['ref'] ?: null;
+        if ($_conn_cache['ref'] !== null) {
+            return $_conn_cache['ref'] ?: null;
+        }
+
+        if (!defined('REF_SQL_HOST') || !defined('REF_SQL_DATABASE') ||
+            !defined('REF_SQL_USERNAME') || !defined('REF_SQL_PASSWORD')) {
+            $_conn_cache['ref'] = false;
+            return null;
+        }
+
+        if (!function_exists('sqlsrv_connect')) {
+            $_conn_cache['ref'] = false;
+            return null;
+        }
+
+        $connectionInfo = [
+            "Database" => REF_SQL_DATABASE,
+            "UID"      => REF_SQL_USERNAME,
+            "PWD"      => REF_SQL_PASSWORD,
+            "ConnectionPooling" => 1
+        ];
+
+        $_conn_cache['ref'] = sqlsrv_connect(REF_SQL_HOST, $connectionInfo);
+
+        if ($_conn_cache['ref'] === false) {
+            error_log("REF SQL connection failed: " . adl_sql_error_message());
+            return null;
+        }
+
+        return $_conn_cache['ref'];
     }
-
-    if (!defined('REF_SQL_HOST') || !defined('REF_SQL_DATABASE') ||
-        !defined('REF_SQL_USERNAME') || !defined('REF_SQL_PASSWORD')) {
-        $_conn_cache['ref'] = false;
-        return null;
-    }
-
-    if (!function_exists('sqlsrv_connect')) {
-        $_conn_cache['ref'] = false;
-        return null;
-    }
-
-    $connectionInfo = [
-        "Database" => REF_SQL_DATABASE,
-        "UID"      => REF_SQL_USERNAME,
-        "PWD"      => REF_SQL_PASSWORD,
-        "ConnectionPooling" => 1
-    ];
-
-    $_conn_cache['ref'] = sqlsrv_connect(REF_SQL_HOST, $connectionInfo);
-
-    if ($_conn_cache['ref'] === false) {
-        error_log("REF SQL connection failed: " . adl_sql_error_message());
-        return null;
-    }
-
-    return $_conn_cache['ref'];
 }
 
 // -------------------------------------------------------------------------
