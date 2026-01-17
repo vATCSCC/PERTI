@@ -25,8 +25,14 @@ SwimResponse::success([
             'GET /api/swim/v1/tmi/programs' => 'Active TMI programs (GS/GDP)',
             'GET /api/swim/v1/tmi/controlled' => 'Flights under TMI control'
         ],
+        'metering' => [
+            'GET /api/swim/v1/metering/{airport}' => 'Metering data for airport arrivals (FIXM/TBFM)',
+            'GET /api/swim/v1/metering/{airport}/sequence' => 'Arrival sequence list for datablocks'
+        ],
         'ingest' => [
-            'POST /api/swim/v1/ingest/adl' => 'Ingest ADL flight data'
+            'POST /api/swim/v1/ingest/adl' => 'Ingest ADL flight data',
+            'POST /api/swim/v1/ingest/track' => 'Ingest position data (batch)',
+            'POST /api/swim/v1/ingest/metering' => 'Ingest TBFM metering data (SimTraffic)'
         ]
     ],
     'authentication' => [

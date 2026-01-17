@@ -185,8 +185,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         include("load/header.php");
     ?>
     <style>
+        /* SWIM Keys Page - TBFM/FSM Consistent Styling */
         .api-key-display {
-            font-family: 'Courier New', monospace;
+            font-family: 'Inconsolata', 'Courier New', monospace;
             background: #1a1a2e;
             border: 1px solid #4a4a6a;
             padding: 15px;
@@ -196,11 +197,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             font-size: 14px;
         }
         .tier-badge {
-            font-size: 0.75rem;
-            padding: 4px 8px;
+            font-size: 0.7rem;
+            padding: 4px 10px;
             border-radius: 4px;
             text-transform: uppercase;
             font-weight: 600;
+            letter-spacing: 0.03em;
         }
         .tier-public { background: #28a745; color: white; }
         .tier-developer { background: #007bff; color: white; }
@@ -208,21 +210,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         .tier-system { background: #dc3545; color: white; }
         .status-active { color: #28a745; }
         .status-revoked { color: #dc3545; text-decoration: line-through; }
+
+        /* Dark themed key cards */
         .key-card {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
+            background: #252540;
+            border: 1px solid #333;
+            border-left: 3px solid #4a9eff;
+            border-radius: 6px;
             padding: 15px;
             margin-bottom: 10px;
+            color: #e0e0e0;
         }
         .key-card.revoked {
-            opacity: 0.6;
-            background: #f5f5f5;
+            opacity: 0.5;
+            background: #1a1a2e;
+            border-left-color: #6c757d;
+        }
+        .key-card code {
+            color: #4a9eff;
+            background: transparent;
+        }
+        .key-card .text-muted {
+            color: #888 !important;
         }
         .rate-limit-info {
-            font-size: 0.85rem;
-            color: #6c757d;
+            font-size: 0.8rem;
+            color: #888;
         }
+
+        /* Info card - gradient sidebar */
         .info-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -231,13 +247,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             margin-bottom: 20px;
         }
         .info-card h5 { color: white; }
+
+        /* TBFM-style card headers */
+        .tbfm-card-header {
+            background: linear-gradient(180deg, #3a4a5c 0%, #2c3e50 100%);
+            border-bottom: 2px solid #1a252f;
+            padding: 12px 15px;
+        }
+        .tbfm-card-header .card-title {
+            color: #ffffff;
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .tbfm-card-header .card-title i {
+            color: #5dade2;
+        }
+
+        /* Tier info table styling */
+        .tier-info-table {
+            margin-bottom: 0;
+        }
         .tier-info-table td, .tier-info-table th {
-            padding: 8px 12px;
-            border: 1px solid #dee2e6;
+            padding: 10px 12px;
+            border-color: #dee2e6;
+            vertical-align: middle;
         }
         .tier-info-table th {
-            background: #343a40;
+            background: linear-gradient(180deg, #3a4a5c 0%, #2c3e50 100%);
             color: white;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-weight: 600;
+        }
+
+        /* Dark card body for keys list */
+        .keys-container {
+            background: #1a1a2e;
+            border-radius: 0 0 6px 6px;
+            padding: 15px;
+            min-height: 150px;
+        }
+
+        /* Form styling */
+        .swim-form .form-control {
+            background: #fff;
+            border: 1px solid #ced4da;
+        }
+        .swim-form .form-control:focus {
+            border-color: #5dade2;
+            box-shadow: 0 0 0 0.15rem rgba(93, 173, 226, 0.25);
+        }
+        .swim-form label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #333;
+        }
+        .swim-form .form-text {
+            font-size: 0.75rem;
+        }
+
+        /* Quick start code blocks */
+        .quick-start-code {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 10px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: 'Inconsolata', 'Courier New', monospace;
+        }
+        .quick-start-code code {
+            color: #4a9eff;
         }
     </style>
 </head>
@@ -246,12 +329,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 <?php include('load/nav.php'); ?>
 
-<div class="container-fluid mt-4 mb-5">
-    <div class="row">
+<!-- Hero Section -->
+<section class="d-flex align-items-center position-relative min-vh-25 py-4" data-jarallax data-speed="0.3" style="pointer-events: all;">
+    <div class="container-fluid pt-2 pb-4 py-lg-5">
+        <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
+        <center>
+            <h1><i class="fas fa-key mr-2"></i>SWIM API Keys</h1>
+            <h4 class="text-white hvr-bob pl-1">
+                <a href="#keys_section" style="text-decoration: none; color: #fff;">
+                    <i class="fas fa-chevron-down text-danger"></i>
+                    Manage Your API Credentials
+                </a>
+            </h4>
+        </center>
+    </div>
+</section>
+
+<div class="container-fluid mt-3 mb-5" id="keys_section">
+    <div class="row mb-3">
         <div class="col-12">
-            <h2><i class="fas fa-key text-danger"></i> VATSIM SWIM API Keys</h2>
-            <p class="text-muted">Manage your API credentials for accessing the VATSIM System Wide Information Management (SWIM) data feed.</p>
-            <hr>
+            <p class="text-muted mb-0">Manage your API credentials for accessing the VATSIM System Wide Information Management (SWIM) data feed.</p>
         </div>
     </div>
 
@@ -259,10 +356,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     <!-- Not logged in -->
     <div class="row">
         <div class="col-12 col-lg-8 offset-lg-2">
-            <div class="alert alert-warning text-center">
-                <h4><i class="fas fa-sign-in-alt"></i> Login Required</h4>
-                <p>You must be logged in with your VATSIM account to create and manage SWIM API keys.</p>
-                <a href="login" class="btn btn-primary"><i class="fas fa-user"></i> Login with VATSIM</a>
+            <div class="card shadow-sm">
+                <div class="card-header tbfm-card-header">
+                    <span class="card-title"><i class="fas fa-sign-in-alt mr-2"></i>Login Required</span>
+                </div>
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-user-lock fa-4x mb-4" style="color: #5dade2;"></i>
+                    <p class="lead mb-4">You must be logged in with your VATSIM account to create and manage SWIM API keys.</p>
+                    <a href="login" class="btn btn-primary btn-lg"><i class="fas fa-user mr-2"></i>Login with VATSIM</a>
+                </div>
             </div>
         </div>
     </div>
@@ -273,14 +375,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <!-- Left column: Key management -->
         <div class="col-12 col-lg-8">
             <!-- Create new key -->
-            <div class="card mb-4">
-                <div class="card-header bg-dark text-white">
-                    <i class="fas fa-plus-circle"></i> Create New API Key
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header tbfm-card-header">
+                    <span class="card-title"><i class="fas fa-plus-circle mr-2"></i>Create New API Key</span>
                 </div>
-                <div class="card-body">
+                <div class="card-body swim-form">
                     <form id="createKeyForm">
-                        <div class="form-row">
-                            <div class="col-md-4">
+                        <div class="row align-items-end">
+                            <div class="col-md-4 mb-3 mb-md-0">
                                 <label for="keyTier">Access Tier</label>
                                 <select class="form-control" id="keyTier" name="tier">
                                     <option value="public">Public (30 req/min)</option>
@@ -288,14 +390,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 </select>
                                 <small class="form-text text-muted">Partner/System tiers require approval.</small>
                             </div>
-                            <div class="col-md-6">
-                                <label for="keyDescription">Description (optional)</label>
+                            <div class="col-md-5 mb-3 mb-md-0">
+                                <label for="keyDescription">Description <span class="text-muted">(optional)</span></label>
                                 <input type="text" class="form-control" id="keyDescription" name="description"
                                        placeholder="e.g., My flight tracker app" maxlength="128">
                             </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button type="submit" class="btn btn-success w-100">
-                                    <i class="fas fa-key"></i> Create
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-success btn-block">
+                                    <i class="fas fa-key mr-1"></i> Create
                                 </button>
                             </div>
                         </div>
@@ -304,37 +406,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             </div>
 
             <!-- New key display (hidden by default) -->
-            <div class="card mb-4 d-none" id="newKeyCard">
+            <div class="card mb-4 d-none shadow-sm" id="newKeyCard">
                 <div class="card-header bg-success text-white">
-                    <i class="fas fa-check-circle"></i> API Key Created Successfully
+                    <i class="fas fa-check-circle mr-2"></i> API Key Created Successfully
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> <strong>Important:</strong> Copy this key now. For security reasons, it will not be displayed again.
+                    <div class="alert alert-warning mb-3">
+                        <i class="fas fa-exclamation-triangle mr-1"></i> <strong>Important:</strong> Copy this key now. For security reasons, it will not be displayed again.
                     </div>
                     <div class="api-key-display" id="newKeyDisplay"></div>
-                    <button class="btn btn-outline-primary btn-sm mt-3" onclick="copyToClipboard()">
-                        <i class="fas fa-copy"></i> Copy to Clipboard
+                    <button class="btn btn-outline-light btn-sm mt-3" onclick="copyToClipboard()">
+                        <i class="fas fa-copy mr-1"></i> Copy to Clipboard
                     </button>
                 </div>
             </div>
 
             <!-- Existing keys -->
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <i class="fas fa-list"></i> Your API Keys
+            <div class="card shadow-sm">
+                <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
+                    <span class="card-title"><i class="fas fa-list mr-2"></i>Your API Keys</span>
                     <?php if ($perm): ?>
-                        <span class="badge badge-warning ml-2">Admin View - All Keys</span>
+                        <span class="badge badge-warning">Admin View - All Keys</span>
                     <?php endif; ?>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0 keys-container">
                     <div id="keysLoading" class="text-center py-4">
-                        <i class="fas fa-spinner fa-spin fa-2x"></i>
-                        <p class="mt-2">Loading your keys...</p>
+                        <i class="fas fa-spinner fa-spin fa-2x text-info"></i>
+                        <p class="mt-2 text-muted">Loading your keys...</p>
                     </div>
                     <div id="keysContainer" class="d-none"></div>
                     <div id="noKeysMessage" class="text-center py-4 d-none">
-                        <i class="fas fa-key fa-3x text-muted mb-3"></i>
+                        <i class="fas fa-key fa-3x mb-3" style="color: #444;"></i>
                         <p class="text-muted">You don't have any API keys yet. Create one above to get started.</p>
                     </div>
                 </div>
@@ -344,19 +446,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <!-- Right column: Information -->
         <div class="col-12 col-lg-4">
             <div class="info-card">
-                <h5><i class="fas fa-info-circle"></i> About SWIM API</h5>
-                <p>VATSIM SWIM provides real-time flight data, positions, and traffic management information across the VATSIM network.</p>
-                <a href="api-docs/" target="_blank" class="btn btn-light btn-sm">
-                    <i class="fas fa-book"></i> View API Documentation
+                <h5><i class="fas fa-info-circle mr-2"></i>About SWIM API</h5>
+                <p class="mb-3">VATSIM SWIM provides real-time flight data, positions, and traffic management information across the VATSIM network.</p>
+                <a href="api-docs/" target="_blank" class="btn btn-light">
+                    <i class="fas fa-book mr-1"></i> View API Documentation
                 </a>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-dark text-white">
-                    <i class="fas fa-layer-group"></i> Access Tiers
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header tbfm-card-header">
+                    <span class="card-title"><i class="fas fa-layer-group mr-2"></i>Access Tiers</span>
                 </div>
                 <div class="card-body p-0">
-                    <table class="table table-sm tier-info-table mb-0">
+                    <table class="table table-sm tier-info-table">
                         <thead>
                             <tr>
                                 <th>Tier</th>
@@ -393,16 +495,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <i class="fas fa-code"></i> Quick Start
+            <div class="card shadow-sm">
+                <div class="card-header tbfm-card-header">
+                    <span class="card-title"><i class="fas fa-code mr-2"></i>Quick Start</span>
                 </div>
                 <div class="card-body">
-                    <p class="small">Include your API key in the Authorization header:</p>
-                    <pre class="bg-dark text-light p-2 small rounded"><code>Authorization: Bearer YOUR_API_KEY</code></pre>
-                    <p class="small mt-3">Example request:</p>
-                    <pre class="bg-dark text-light p-2 small rounded" style="font-size: 11px;"><code>curl -H "Authorization: Bearer swim_pub_xxx" \
-  https://perti.vatcscc.org/api/swim/v1/flights</code></pre>
+                    <p class="small mb-2">Include your API key in the Authorization header:</p>
+                    <div class="quick-start-code mb-3">
+                        <code>Authorization: Bearer YOUR_API_KEY</code>
+                    </div>
+                    <p class="small mb-2">Example request:</p>
+                    <div class="quick-start-code" style="font-size: 11px;">
+                        <code>curl -H "Authorization: Bearer swim_pub_xxx" \<br>
+  https://perti.vatcscc.org/api/swim/v1/flights</code>
+                    </div>
                 </div>
             </div>
         </div>
@@ -438,7 +544,6 @@ function loadKeys() {
 function renderKeys(keys) {
     var html = '';
     keys.forEach(function(key) {
-        var statusClass = key.is_active ? 'status-active' : 'status-revoked';
         var cardClass = key.is_active ? '' : 'revoked';
         var tierClass = 'tier-' + key.tier;
 
@@ -446,27 +551,27 @@ function renderKeys(keys) {
         html += '<div class="d-flex justify-content-between align-items-start">';
         html += '<div>';
         html += '<span class="tier-badge ' + tierClass + '">' + key.tier + '</span> ';
-        html += '<code class="ml-2">' + key.api_key_masked + '</code>';
+        html += '<code class="ml-2" style="font-size: 0.9rem;">' + key.api_key_masked + '</code>';
         if (key.description) {
-            html += '<br><small class="text-muted">' + escapeHtml(key.description) + '</small>';
+            html += '<br><small class="text-muted mt-1 d-block">' + escapeHtml(key.description) + '</small>';
         }
         html += '</div>';
         html += '<div class="text-right">';
         if (key.is_active) {
             html += '<button class="btn btn-outline-danger btn-sm" onclick="revokeKey(' + key.id + ')">';
-            html += '<i class="fas fa-trash"></i> Revoke</button>';
+            html += '<i class="fas fa-trash mr-1"></i>Revoke</button>';
         } else {
             html += '<span class="badge badge-secondary">Revoked</span>';
         }
         html += '</div>';
         html += '</div>';
-        html += '<div class="rate-limit-info mt-2">';
-        html += '<i class="fas fa-clock"></i> Created: ' + (key.created_at || 'Unknown');
+        html += '<div class="rate-limit-info mt-2 pt-2" style="border-top: 1px solid #333;">';
+        html += '<i class="fas fa-clock mr-1"></i>Created: ' + (key.created_at || 'Unknown');
         if (key.last_used_at) {
-            html += ' | Last used: ' + key.last_used_at;
+            html += ' <span class="mx-2">|</span> Last used: ' + key.last_used_at;
         }
         if (key.owner_name) {
-            html += ' | Owner: ' + escapeHtml(key.owner_name);
+            html += ' <span class="mx-2">|</span> Owner: ' + escapeHtml(key.owner_name);
         }
         html += '</div>';
         html += '</div>';

@@ -121,7 +121,13 @@ if ($use_swim_db) {
             f.program_id, f.slot_id, f.delay_minutes, f.delay_status,
             f.aircraft_type, f.aircraft_icao, f.aircraft_faa, f.weight_class,
             f.wake_category, f.engine_type, f.airline_icao, f.airline_name,
-            f.last_sync_utc
+            f.last_sync_utc,
+            -- TBFM Metering fields (FIXM-aligned)
+            f.sequence_number, f.scheduled_time_of_arrival, f.scheduled_time_of_departure,
+            f.metering_point, f.metering_time, f.metering_delay, f.metering_frozen,
+            f.metering_status, f.arrival_stream, f.undelayed_eta,
+            f.eta_vertex, f.sta_vertex, f.vertex_point,
+            f.metering_source, f.metering_updated_at
         FROM $table_name f
         $where_sql
         ORDER BY f.callsign
@@ -356,6 +362,23 @@ function formatFlightRecord($row, $use_swim_db = false) {
             'program_id' => $row['program_id'],
             'slot_id' => $row['slot_id']
         ],
+        'metering' => [
+            'sequence_number' => $row['sequence_number'] ?? null,
+            'scheduled_time_of_arrival' => formatDT($row['scheduled_time_of_arrival'] ?? null),
+            'scheduled_time_of_departure' => formatDT($row['scheduled_time_of_departure'] ?? null),
+            'metering_point' => $row['metering_point'] ?? null,
+            'metering_time' => formatDT($row['metering_time'] ?? null),
+            'metering_delay' => $row['metering_delay'] ?? null,
+            'metering_frozen' => isset($row['metering_frozen']) ? (bool)$row['metering_frozen'] : null,
+            'metering_status' => $row['metering_status'] ?? null,
+            'arrival_stream' => $row['arrival_stream'] ?? null,
+            'undelayed_eta' => formatDT($row['undelayed_eta'] ?? null),
+            'eta_vertex' => formatDT($row['eta_vertex'] ?? null),
+            'sta_vertex' => formatDT($row['sta_vertex'] ?? null),
+            'vertex_point' => $row['vertex_point'] ?? null,
+            'metering_source' => $row['metering_source'] ?? null,
+            'metering_updated_at' => formatDT($row['metering_updated_at'] ?? null)
+        ],
         '_source' => 'vatcscc',
         '_first_seen' => formatDT($row['first_seen_utc']),
         '_last_seen' => formatDT($row['last_seen_utc']),
@@ -494,7 +517,26 @@ function formatFlightRecordFIXM($row, $use_swim_db = false) {
             'program_id' => $row['program_id'],
             'slot_id' => $row['slot_id']
         ],
-        
+
+        // Metering - FIXM/TBFM aligned
+        'metering' => [
+            'sequence_number' => $row['sequence_number'] ?? null,                           // TFMS: SEQ
+            'scheduled_time_of_arrival' => formatDT($row['scheduled_time_of_arrival'] ?? null),  // TFMS: STA
+            'scheduled_time_of_departure' => formatDT($row['scheduled_time_of_departure'] ?? null),  // TFMS: STD
+            'metering_point' => $row['metering_point'] ?? null,                             // TFMS: MF
+            'metering_time' => formatDT($row['metering_time'] ?? null),                     // TFMS: MF_TIME
+            'delay_value' => $row['metering_delay'] ?? null,                                // TFMS: DLA_ASGN
+            'frozen_indicator' => isset($row['metering_frozen']) ? (bool)$row['metering_frozen'] : null,  // TFMS: FROZEN
+            'metering_status' => $row['metering_status'] ?? null,                           // vATCSCC extension
+            'arrival_stream' => $row['arrival_stream'] ?? null,                             // TFMS: GATE
+            'undelayed_eta' => formatDT($row['undelayed_eta'] ?? null),                     // TFMS: UETA
+            'eta_vertex' => formatDT($row['eta_vertex'] ?? null),                           // TFMS: ETA_VT
+            'sta_vertex' => formatDT($row['sta_vertex'] ?? null),                           // TFMS: STA_VT
+            'vertex_point' => $row['vertex_point'] ?? null,                                 // TFMS: VT_FIX
+            'metering_source' => $row['metering_source'] ?? null,
+            'metering_updated_time' => formatDT($row['metering_updated_at'] ?? null)
+        ],
+
         // Metadata - FIXM aligned
         'data_source' => 'vatcscc',                                      // was: _source
         'first_tracked_time' => formatDT($row['first_seen_utc']),        // was: _first_seen
