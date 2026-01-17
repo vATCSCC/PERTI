@@ -140,21 +140,51 @@ tags:
   - name: TMI
     description: |
       Traffic Management Initiative data.
-      
+
       **Use Cases:**
       - TMI Monitor: Track active Ground Stops and GDPs
       - Slot Lists: Get flights with EDCT assignments
       - Controlled Flight Counts: Statistics by airport/ARTCC
+  - name: Metering
+    description: |
+      TBFM-style metering data for arrival sequence management.
+
+      **Use Cases:**
+      - vNAS/CRC: Arrival sequence display in datablocks (SEQ, STA, DLA_ASGN)
+      - SimTraffic: TBFM metering time and delay data
+      - STARS/ERAM: Metering status and frozen indicators
+
+      **FIXM Alignment:**
+      - sequence_number → sequenceNumber (SEQ)
+      - scheduled_time_of_arrival → scheduledTimeOfArrival (STA)
+      - metering_time → meteringTime (MF_TIME)
+      - metering_delay → delayValue (DLA_ASGN)
   - name: Ingest
     description: |
       Data ingestion endpoints (write access required).
-      
+
       **Use Cases:**
       - Virtual Airlines: Push OOOI times and telemetry
       - CRC/vNAS: Batch track position updates
       - TMI Systems: Slot assignments and control status
-      
+
       **Note:** Requires partner or system tier API key
+  - name: JATOC
+    description: |
+      Joint Air Traffic Operations Center data.
+
+      **Use Cases:**
+      - Incident tracking and reporting
+      - Facility status monitoring
+      - Operational coordination
+  - name: Configuration
+    description: |
+      Airport and facility configuration data.
+
+      **Use Cases:**
+      - Runway configuration presets
+      - Airport operating conditions
+      - FEA (Flow Evaluation Area) parameters
 
 security:
   - bearerAuth: []
@@ -191,17 +221,21 @@ paths:
                     tmi:
                       GET /api/swim/v1/tmi/programs: Active TMI programs (GS/GDP)
                       GET /api/swim/v1/tmi/controlled: Flights under TMI control
+                    metering:
+                      GET /api/swim/v1/metering/{airport}: Metering data for airport arrivals (FIXM/TBFM)
+                      GET /api/swim/v1/metering/{airport}/sequence: Arrival sequence list for datablocks
                     ingest:
                       POST /api/swim/v1/ingest/adl: Ingest ADL flight data
                       POST /api/swim/v1/ingest/track: Ingest track position data
+                      POST /api/swim/v1/ingest/metering: Ingest TBFM metering data (SimTraffic)
                   authentication:
                     type: Bearer token
                     header: "Authorization: Bearer {api_key}"
                     tiers:
-                      system: "10,000 req/min, full write"
-                      partner: "1,000 req/min, limited write"
-                      developer: "100 req/min, read-only"
-                      public: "30 req/min, read-only"
+                      system: "30,000 req/min, full write"
+                      partner: "3,000 req/min, limited write"
+                      developer: "300 req/min, read-only"
+                      public: "100 req/min, read-only"
                   contact:
                     email: dev@vatcscc.org
                     discord: vATCSCC Server
@@ -479,13 +513,33 @@ paths:
             type: string
             enum: ['true', 'false']
             default: 'false'
+        - $ref: '#/components/parameters/format'
       responses:
         '200':
-          description: GeoJSON FeatureCollection of flight positions
+          description: Flight positions in requested format
           content:
             application/geo+json:
               schema:
                 $ref: '#/components/schemas/PositionsGeoJSON'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionsGeoJSON'
+            application/xml:
+              schema:
+                type: string
+                description: XML formatted position data
+            text/csv:
+              schema:
+                type: string
+                description: CSV formatted position data
+            application/vnd.google-earth.kml+xml:
+              schema:
+                type: string
+                description: KML formatted position data for Google Earth
+            application/x-ndjson:
+              schema:
+                type: string
+                description: Newline-delimited JSON (one position per line)
         '401':
           $ref: '#/components/responses/Unauthorized'
         '429':
@@ -594,6 +648,147 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TmiControlledResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /metering/{airport}:
+    get:
+      tags:
+        - Metering
+      summary: Get Metering Data for Airport
+      description: |
+        Returns TBFM-style metering data for all arrivals to an airport.
+        Includes sequence numbers, scheduled times, delays, and metering status.
+
+        **Use Cases:**
+        - vNAS/CRC: Display metering data in arrival datablocks
+        - TMI Coordination: Monitor arrival sequence and delays
+        - SimTraffic: Retrieve current metering state
+
+        **FIXM Field Mapping:**
+        - sequence_number → SEQ (arrival sequence position)
+        - scheduled_time_of_arrival → STA (scheduled runway time)
+        - metering_time → MF_TIME (meter fix crossing time)
+        - metering_delay → DLA_ASGN (assigned delay in minutes)
+        - metering_status → UNMETERED|METERED|FROZEN|SUSPENDED|EXEMPT
+      operationId: getMeteringData
+      parameters:
+        - name: airport
+          in: path
+          required: true
+          description: Destination airport ICAO code (e.g., KJFK)
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 4
+          example: KJFK
+        - name: status
+          in: query
+          description: Filter by metering status
+          schema:
+            type: string
+            enum: [UNMETERED, METERED, FROZEN, SUSPENDED, EXEMPT]
+        - name: runway
+          in: query
+          description: Filter by arrival runway
+          schema:
+            type: string
+          example: 31L
+        - name: stream
+          in: query
+          description: Filter by arrival stream (corner post)
+          schema:
+            type: string
+          example: NORTH
+        - name: metered_only
+          in: query
+          description: Only return flights with metering data (default true)
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'true'
+        - $ref: '#/components/parameters/format'
+      responses:
+        '200':
+          description: Metering data for airport arrivals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeteringDataResponse'
+            application/xml:
+              schema:
+                type: string
+            text/csv:
+              schema:
+                type: string
+            application/x-ndjson:
+              schema:
+                type: string
+        '400':
+          description: Invalid airport code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /metering/{airport}/sequence:
+    get:
+      tags:
+        - Metering
+      summary: Get Arrival Sequence List
+      description: |
+        Returns a compact arrival sequence list sorted by sequence number.
+        Optimized for datablock display with minimal fields.
+
+        **Response includes:**
+        - callsign, gufi, sequence_number
+        - scheduled_time_of_arrival (STA)
+        - metering_delay, metering_frozen, metering_status
+        - arrival_runway, arrival_stream
+        - aircraft_type, weight_class, departure airport
+      operationId: getArrivalSequence
+      parameters:
+        - name: airport
+          in: path
+          required: true
+          description: Destination airport ICAO code
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 4
+          example: KJFK
+        - name: status
+          in: query
+          description: Filter by metering status
+          schema:
+            type: string
+            enum: [UNMETERED, METERED, FROZEN, SUSPENDED, EXEMPT]
+        - name: runway
+          in: query
+          description: Filter by arrival runway
+          schema:
+            type: string
+        - name: stream
+          in: query
+          description: Filter by arrival stream
+          schema:
+            type: string
+        - $ref: '#/components/parameters/format'
+      responses:
+        '200':
+          description: Arrival sequence list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeteringSequenceResponse'
+        '400':
+          description: Invalid airport code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -743,6 +938,242 @@ paths:
                 message: 'Source "developer" is not authorized to write track data.'
                 status: 403
                 code: NOT_AUTHORITATIVE
+
+  /ingest/metering:
+    post:
+      tags:
+        - Ingest
+      summary: Ingest TBFM Metering Data
+      description: |
+        Receives TBFM-style metering data from authoritative sources (SimTraffic, vATCSCC).
+        Updates FIXM-aligned metering fields in swim_flights table.
+
+        **Requires write access** (system or partner tier API key with metering authority).
+
+        Maximum batch size: 500 metering records per request.
+
+        **FIXM Field Mapping:**
+        - sequence_number → sequenceNumber (SEQ)
+        - scheduled_time_of_arrival → scheduledTimeOfArrival (STA)
+        - metering_point → meteringPoint (MF)
+        - metering_time → meteringTime (MF_TIME)
+        - metering_delay → delayValue (DLA_ASGN)
+        - metering_frozen → frozenIndicator (FROZEN)
+        - arrival_stream → arrivalStream (GATE)
+        - metering_status → UNMETERED|METERED|FROZEN|SUSPENDED|EXEMPT
+      operationId: ingestMetering
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeteringIngestRequest'
+            example:
+              airport: KJFK
+              metering_point: CAMRN
+              metering:
+                - callsign: UAL123
+                  sequence_number: 5
+                  scheduled_time_of_arrival: "2026-01-16T18:30:00Z"
+                  metering_time: "2026-01-16T18:15:00Z"
+                  metering_delay: 5
+                  metering_frozen: true
+                  arrival_stream: NORTH
+                  arrival_runway: 31L
+                  metering_status: METERED
+      responses:
+        '200':
+          description: Metering ingest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeteringIngestResponse'
+              example:
+                success: true
+                data:
+                  processed: 10
+                  updated: 8
+                  not_found: 2
+                  errors: 0
+                  error_details: []
+                timestamp: "2026-01-16T12:00:00Z"
+                meta:
+                  source: simtraffic
+                  airport: KJFK
+                  metering_point: CAMRN
+                  batch_size: 10
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: 'Source "developer" is not authorized to write metering data.'
+                status: 403
+                code: NOT_AUTHORITATIVE
+
+  /tmi/reroutes:
+    get:
+      tags:
+        - TMI
+      summary: Get TMI Reroute Definitions
+      description: |
+        Returns reroute definitions for Traffic Management Initiatives.
+        Reroutes direct traffic around affected areas (weather, congestion, etc.).
+
+        **Status Values:**
+        - 0 = Draft
+        - 1 = Proposed
+        - 2 = Active
+        - 3 = Monitoring
+        - 4 = Expired
+        - 5 = Cancelled
+      operationId: getReroutes
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status (comma-separated for multiple)
+          schema:
+            type: string
+          example: "1,2,3"
+        - name: active
+          in: query
+          description: If "1", returns only active reroutes (status 1,2,3)
+          schema:
+            type: string
+            enum: ['0', '1']
+        - name: limit
+          in: query
+          description: Maximum results to return
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Reroute definitions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReroutesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /jatoc/incidents:
+    get:
+      tags:
+        - JATOC
+      summary: Get JATOC Incidents
+      description: |
+        Returns JATOC (Joint Air Traffic Operations Center) incident records.
+        Incidents track operational issues affecting ATC facilities.
+      operationId: getJatocIncidents
+      parameters:
+        - name: lifecycle_status
+          in: query
+          description: Filter by lifecycle status
+          schema:
+            type: string
+            enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED]
+        - name: facility
+          in: query
+          description: Filter by facility (partial match)
+          schema:
+            type: string
+          example: KJFK
+        - name: facilities
+          in: query
+          description: Filter by multiple facilities (comma-separated, exact match)
+          schema:
+            type: string
+          example: "KJFK,KEWR,KLGA"
+        - name: facility_type
+          in: query
+          description: Filter by facility type
+          schema:
+            type: string
+            enum: [ARTCC, TRACON, ATCT, FSS]
+        - name: incident_type
+          in: query
+          description: Filter by incident type
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Results per page
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: JATOC incidents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JatocIncidentsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /splits/presets:
+    get:
+      tags:
+        - Configuration
+      summary: Get Runway Split Presets
+      description: |
+        Returns saved runway configuration presets.
+        Presets define runway configurations for airports (arrivals, departures, rates).
+      operationId: getSplitPresets
+      parameters:
+        - name: artcc
+          in: query
+          description: Filter by ARTCC
+          schema:
+            type: string
+          example: ZNY
+        - name: airport
+          in: query
+          description: Filter by airport
+          schema:
+            type: string
+          example: KJFK
+        - name: id
+          in: query
+          description: Get single preset by ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Split presets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitPresetsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 components:
   securitySchemes:
@@ -2033,3 +2464,444 @@ components:
               type: string
             batch_size:
               type: integer
+
+    MeteringDataResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            airport:
+              type: string
+              example: KJFK
+            type:
+              type: string
+              enum: [metering_data, sequence_list]
+            flights:
+              type: array
+              items:
+                $ref: '#/components/schemas/MeteringFlight'
+            count:
+              type: integer
+            summary:
+              type: object
+              properties:
+                total:
+                  type: integer
+                metered:
+                  type: integer
+                frozen:
+                  type: integer
+                avg_delay_minutes:
+                  type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    MeteringSequenceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            airport:
+              type: string
+            type:
+              type: string
+              enum: [sequence_list]
+            flights:
+              type: array
+              items:
+                type: object
+                properties:
+                  callsign:
+                    type: string
+                  gufi:
+                    type: string
+                  sequence_number:
+                    type: integer
+                  scheduled_time_of_arrival:
+                    type: string
+                    format: date-time
+                  eta_runway_utc:
+                    type: string
+                    format: date-time
+                  metering_delay:
+                    type: integer
+                  metering_frozen:
+                    type: boolean
+                  metering_status:
+                    type: string
+                    enum: [UNMETERED, METERED, FROZEN, SUSPENDED, EXEMPT]
+                  arr_runway:
+                    type: string
+                  arrival_stream:
+                    type: string
+                  aircraft_type:
+                    type: string
+                  weight_class:
+                    type: string
+                  fp_dept_icao:
+                    type: string
+            count:
+              type: integer
+            summary:
+              type: object
+
+    MeteringFlight:
+      type: object
+      description: Flight with TBFM-style metering data
+      properties:
+        flight_uid:
+          type: integer
+        gufi:
+          type: string
+        callsign:
+          type: string
+        fp_dept_icao:
+          type: string
+        fp_dest_icao:
+          type: string
+        aircraft_type:
+          type: string
+        weight_class:
+          type: string
+        phase:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+        altitude_ft:
+          type: integer
+        groundspeed_kts:
+          type: integer
+        eta_utc:
+          type: string
+          format: date-time
+        eta_runway_utc:
+          type: string
+          format: date-time
+        sequence_number:
+          type: integer
+          description: Arrival sequence position (1 = next to land)
+        scheduled_time_of_arrival:
+          type: string
+          format: date-time
+          description: STA at runway threshold
+        metering_point:
+          type: string
+          description: Meter fix name
+        metering_time:
+          type: string
+          format: date-time
+          description: STA at meter fix
+        metering_delay:
+          type: integer
+          description: Minutes of delay from unimpeded
+        metering_frozen:
+          type: boolean
+          description: Sequence is frozen
+        metering_status:
+          type: string
+          enum: [UNMETERED, METERED, FROZEN, SUSPENDED, EXEMPT]
+        arrival_stream:
+          type: string
+          description: Corner post assignment
+        arr_runway:
+          type: string
+        metering_source:
+          type: string
+        metering_updated_at:
+          type: string
+          format: date-time
+
+    MeteringIngestRequest:
+      type: object
+      required:
+        - airport
+        - metering
+      properties:
+        airport:
+          type: string
+          description: Destination airport ICAO
+          example: KJFK
+        metering_point:
+          type: string
+          description: Default meter fix for this batch
+          example: CAMRN
+        metering:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required:
+              - callsign
+            properties:
+              callsign:
+                type: string
+                example: UAL123
+              gufi:
+                type: string
+                description: Direct GUFI lookup (optional)
+              sequence_number:
+                type: integer
+              scheduled_time_of_arrival:
+                type: string
+                format: date-time
+              metering_time:
+                type: string
+                format: date-time
+              metering_point:
+                type: string
+              metering_delay:
+                type: integer
+              metering_frozen:
+                type: boolean
+              arrival_stream:
+                type: string
+              arrival_runway:
+                type: string
+              metering_status:
+                type: string
+                enum: [UNMETERED, METERED, FROZEN, SUSPENDED, EXEMPT]
+
+    MeteringIngestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            processed:
+              type: integer
+            updated:
+              type: integer
+            not_found:
+              type: integer
+            errors:
+              type: integer
+            error_details:
+              type: array
+              maxItems: 10
+              items:
+                type: object
+        timestamp:
+          type: string
+          format: date-time
+        meta:
+          type: object
+          properties:
+            source:
+              type: string
+            airport:
+              type: string
+            metering_point:
+              type: string
+            batch_size:
+              type: integer
+
+    RerouteDefinition:
+      type: object
+      description: TMI reroute definition
+      properties:
+        id:
+          type: integer
+        status:
+          type: integer
+          description: "0=Draft, 1=Proposed, 2=Active, 3=Monitoring, 4=Expired, 5=Cancelled"
+        status_label:
+          type: string
+          enum: [Draft, Proposed, Active, Monitoring, Expired, Cancelled]
+        name:
+          type: string
+          example: KJFK_WX_REROUTE
+        adv_number:
+          type: string
+          description: Advisory number
+        start_utc:
+          type: string
+          format: date-time
+        end_utc:
+          type: string
+          format: date-time
+        protected_fixes:
+          type: string
+          description: Comma-separated list of protected fixes
+        avoid_fixes:
+          type: string
+          description: Comma-separated list of fixes to avoid
+        origin_airports:
+          type: string
+        origin_centers:
+          type: string
+        dest_airports:
+          type: string
+        dest_centers:
+          type: string
+        created_by:
+          type: string
+        created_utc:
+          type: string
+          format: date-time
+        updated_utc:
+          type: string
+          format: date-time
+        activated_utc:
+          type: string
+          format: date-time
+
+    ReroutesResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+        total:
+          type: integer
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        reroutes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RerouteDefinition'
+
+    JatocIncident:
+      type: object
+      description: JATOC incident record
+      properties:
+        id:
+          type: integer
+        incident_number:
+          type: string
+          example: "2026-001"
+        facility:
+          type: string
+          example: KJFK
+        facility_type:
+          type: string
+          enum: [ARTCC, TRACON, ATCT, FSS]
+        incident_type:
+          type: string
+        lifecycle_status:
+          type: string
+          enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED]
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        summary:
+          type: string
+        description:
+          type: string
+        start_utc:
+          type: string
+          format: date-time
+        end_utc:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        created_utc:
+          type: string
+          format: date-time
+        update_utc:
+          type: string
+          format: date-time
+
+    JatocIncidentsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/JatocIncident'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    SplitPreset:
+      type: object
+      description: Runway configuration preset
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: "KJFK_ILS31L_VIS31R"
+        artcc:
+          type: string
+          example: ZNY
+        airport:
+          type: string
+          example: KJFK
+        description:
+          type: string
+        is_default:
+          type: boolean
+        positions:
+          type: array
+          items:
+            type: object
+            properties:
+              runway:
+                type: string
+              operation:
+                type: string
+                enum: [ARR, DEP, BOTH]
+              is_primary:
+                type: boolean
+              rate:
+                type: integer
+        created_utc:
+          type: string
+          format: date-time
+        updated_utc:
+          type: string
+          format: date-time
+
+    SplitPresetsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        presets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SplitPreset'
+
+    GeoJsonFeatureCollection:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [Feature]
+              geometry:
+                type: object
+              properties:
+                type: object
+        metadata:
+          type: object
+          properties:
+            generated:
+              type: string
+              format: date-time
+            count:
+              type: integer
+            source:
+              type: string

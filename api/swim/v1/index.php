@@ -33,16 +33,23 @@ SwimResponse::success([
             'POST /api/swim/v1/ingest/adl' => 'Ingest ADL flight data',
             'POST /api/swim/v1/ingest/track' => 'Ingest position data (batch)',
             'POST /api/swim/v1/ingest/metering' => 'Ingest TBFM metering data (SimTraffic)'
+        ],
+        'jatoc' => [
+            'GET /api/swim/v1/jatoc/incidents' => 'JATOC incident records'
+        ],
+        'configuration' => [
+            'GET /api/swim/v1/tmi/reroutes' => 'TMI reroute definitions',
+            'GET /api/swim/v1/splits/presets' => 'Runway configuration presets'
         ]
     ],
     'authentication' => [
         'type' => 'Bearer token',
         'header' => 'Authorization: Bearer {api_key}',
         'tiers' => [
-            'system' => '10,000 req/min, full write',
-            'partner' => '1,000 req/min, limited write',
-            'developer' => '100 req/min, read-only',
-            'public' => '30 req/min, read-only'
+            'system' => '30,000 req/min, full write',
+            'partner' => '3,000 req/min, limited write',
+            'developer' => '300 req/min, read-only',
+            'public' => '100 req/min, read-only'
         ]
     ],
     'contact' => ['email' => 'dev@vatcscc.org', 'discord' => 'vATCSCC Server']
