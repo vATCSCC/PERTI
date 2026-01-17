@@ -52,8 +52,8 @@ try {
     $conn_pdo->beginTransaction();
 
     // SQL Query
-    $sql = "INSERT INTO users (cid, first_name, last_name, last_session_ip, last_selfcookie)
-    VALUES ($n_cid, '$first_name', '$last_name', '', '')";
+    $sql = "INSERT INTO users (cid, first_name, last_name)
+    VALUES ($n_cid, '$first_name', '$last_name')";
 
     $conn_pdo->exec($sql);
 
