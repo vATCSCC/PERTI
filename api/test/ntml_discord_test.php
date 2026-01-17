@@ -1,20 +1,28 @@
 <?php
 /**
  * NTML Discord Test Endpoint
- * 
- * Simple endpoint for testing NTML Discord posting without session auth.
- * Uses API key authentication for security.
- * 
- * Usage: GET/POST https://perti.vatcscc.org/api/test/ntml_discord_test.php?key=perti-ntml-test-2026
- * 
- * @version 1.0.0
+ *
+ * Simple endpoint for testing NTML Discord posting.
+ *
+ * Usage: GET https://perti.vatcscc.org/api/test/ntml_discord_test.php?key=perti-ntml-test-2026
+ *
+ * @version 1.2.0
  */
 
 header('Content-Type: application/json');
 header('Cache-Control: no-cache');
 
-// Test API key - simple key for testing only
+// Version for deployment check
+define('TEST_VERSION', '1.2.0');
+
+// Test API key
 define('TEST_API_KEY', 'perti-ntml-test-2026');
+
+// If just checking version
+if (isset($_GET['version'])) {
+    echo json_encode(['version' => TEST_VERSION, 'time' => gmdate('Y-m-d H:i:s')]);
+    exit;
+}
 
 // Validate API key
 $providedKey = $_SERVER['HTTP_X_TEST_KEY'] ?? $_GET['key'] ?? '';
@@ -24,8 +32,10 @@ if ($providedKey !== TEST_API_KEY) {
     exit;
 }
 
-// Load dependencies
+// Load main config (contains Discord credentials)
 require_once __DIR__ . '/../../load/config.php';
+
+// Load Discord classes
 require_once __DIR__ . '/../../load/discord/DiscordAPI.php';
 require_once __DIR__ . '/../../load/discord/TMIDiscord.php';
 
@@ -35,7 +45,7 @@ $tmi = new TMIDiscord($discord);
 
 if (!$discord->isConfigured()) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Discord not configured on server']);
+    echo json_encode(['success' => false, 'error' => 'Discord still not configured']);
     exit;
 }
 
@@ -58,11 +68,13 @@ if (!$headerResult) {
     http_response_code(500);
     echo json_encode([
         'success' => false, 
-        'error' => 'Failed to post to Discord: ' . $discord->getLastError()
+        'error' => 'Failed to post to Discord: ' . $discord->getLastError(),
+        'http_code' => $discord->getLastHttpCode()
     ]);
     exit;
 }
 
+$results['header'] = ['success' => true, 'message_id' => $headerResult['id'] ?? null];
 sleep($pause);
 
 // Define test cases
@@ -84,7 +96,7 @@ $ntmlTests = [
         ]
     ],
     [
-        'name' => 'MIT departures NO STACKS',
+        'name' => 'MIT with NO STACKS',
         'data' => [
             'entry_type' => 'MIT',
             'airport' => 'LGA',
@@ -303,5 +315,9 @@ echo json_encode([
         'total' => $passed + $failed
     ],
     'results' => $results,
-    'timestamp' => gmdate('Y-m-d H:i:s') . ' UTC'
+    'timestamp' => gmdate('Y-m-d H:i:s') . ' UTC',
+    'channels' => [
+        'ntml' => '#ntml-staging (1039586515115839621)',
+        'advisory' => '#advzy-staging (1039586515115839622)'
+    ]
 ], JSON_PRETTY_PRINT);
