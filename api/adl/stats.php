@@ -10,8 +10,10 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: public, max-age=30');
 
 require_once("../../load/config.php");
+require_once("../../load/swim_config.php");
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
     !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {
@@ -53,6 +55,17 @@ if ($conn === false) {
     ]);
     exit;
 }
+
+// APCu cache check - stats are expensive aggregate queries
+$cache_key = swim_cache_key('adl_stats', []);
+$cached = swim_cache_get($cache_key);
+if ($cached !== null) {
+    header('X-Cache: HIT');
+    sqlsrv_close($conn);
+    echo json_encode($cached);
+    exit;
+}
+header('X-Cache: MISS');
 
 // Use ADL Query Helper for normalized table support
 require_once(__DIR__ . '/AdlQueryHelper.php');
@@ -141,5 +154,8 @@ $response = [
         "arr_core30" => ["yes" => (int)$row['arr_core30'], "no" => (int)$row['arr_non_core30']]
     ]
 ];
+
+// Cache for 30 seconds
+swim_cache_set($cache_key, $response, 30);
 
 echo json_encode($response);

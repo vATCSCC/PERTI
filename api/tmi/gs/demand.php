@@ -29,6 +29,7 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: public, max-age=60');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);

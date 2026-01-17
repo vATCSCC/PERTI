@@ -81,8 +81,10 @@ if (session_status() == PHP_SESSION_NONE) {
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
+header('Cache-Control: public, max-age=60');
 
 require_once(__DIR__ . '/../../../load/config.php');
+require_once(__DIR__ . '/../../../load/swim_config.php');
 
 // Validate config
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
@@ -274,6 +276,20 @@ if (count($monitors) > 50) {
     ]);
     exit;
 }
+
+// APCu cache check - batch queries are expensive
+$cache_key = swim_cache_key('demand_batch', [
+    'hash' => md5($monitorsJson),
+    'bucket' => $bucketMinutes,
+    'horizon' => $horizonHours
+]);
+$cached = swim_cache_get($cache_key);
+if ($cached !== null) {
+    header('X-Cache: HIT');
+    echo json_encode($cached, JSON_PRETTY_PRINT);
+    exit;
+}
+header('X-Cache: MISS');
 
 // Connect to database
 $connectionInfo = [
@@ -1107,64 +1123,91 @@ foreach ($viaMonitors as $idx => $m) {
     }
 }
 
-// Look up missing coordinates for fix/segment monitors
-foreach ($monitorData as $monitorIdx => &$monitor) {
+// =========================================================================
+// BATCH COORDINATE LOOKUP - Replace N+1 queries with 2 queries max
+// =========================================================================
+
+// Step 1: Collect all unique fix names needing coordinates
+$fixesNeedingCoords = [];
+foreach ($monitorData as $monitor) {
     if ($monitor['type'] === 'fix' && $monitor['lat'] === null) {
-        $fixSql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) = ?";
-        $fixStmt = sqlsrv_query($conn, $fixSql, [$monitor['fix']]);
-        if ($fixStmt && $row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
-            $monitor['lat'] = (float)$row['lat'];
-            $monitor['lon'] = (float)$row['lon'];
+        $fixesNeedingCoords[strtoupper($monitor['fix'])] = true;
+    } else if ($monitor['type'] === 'segment') {
+        if ($monitor['from_lat'] === null) {
+            $fixesNeedingCoords[strtoupper($monitor['from_fix'])] = true;
         }
-        if ($fixStmt) sqlsrv_free_stmt($fixStmt);
-
-        // Fallback: try adl_flight_waypoints
-        if ($monitor['lat'] === null) {
-            $wpSql = "SELECT TOP 1 lat, lon FROM dbo.adl_flight_waypoints WHERE RTRIM(fix_name) = ? AND lat IS NOT NULL ORDER BY waypoint_id DESC";
-            $wpStmt = sqlsrv_query($conn, $wpSql, [$monitor['fix']]);
-            if ($wpStmt && $row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
-                $monitor['lat'] = (float)$row['lat'];
-                $monitor['lon'] = (float)$row['lon'];
-            }
-            if ($wpStmt) sqlsrv_free_stmt($wpStmt);
-        }
-    } else if ($monitor['type'] === 'segment' && $monitor['from_lat'] === null) {
-        $fixSql = "SELECT RTRIM(fix_name) AS fix_name, lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) IN (?, ?)";
-        $fixStmt = sqlsrv_query($conn, $fixSql, [$monitor['from_fix'], $monitor['to_fix']]);
-        if ($fixStmt) {
-            while ($row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
-                $fixName = strtoupper(trim($row['fix_name'] ?? ''));
-                if ($fixName === $monitor['from_fix']) {
-                    $monitor['from_lat'] = (float)$row['lat'];
-                    $monitor['from_lon'] = (float)$row['lon'];
-                } else if ($fixName === $monitor['to_fix']) {
-                    $monitor['to_lat'] = (float)$row['lat'];
-                    $monitor['to_lon'] = (float)$row['lon'];
-                }
-            }
-            sqlsrv_free_stmt($fixStmt);
-        }
-
-        // Fallback: try adl_flight_waypoints for any still-missing coordinates
-        if ($monitor['from_lat'] === null || $monitor['to_lat'] === null) {
-            $wpSql = "SELECT TOP 2 RTRIM(fix_name) AS fix_name, lat, lon FROM dbo.adl_flight_waypoints WHERE RTRIM(fix_name) IN (?, ?) AND lat IS NOT NULL ORDER BY waypoint_id DESC";
-            $wpStmt = sqlsrv_query($conn, $wpSql, [$monitor['from_fix'], $monitor['to_fix']]);
-            if ($wpStmt) {
-                while ($row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
-                    $fixName = strtoupper(trim($row['fix_name'] ?? ''));
-                    if ($fixName === $monitor['from_fix'] && $monitor['from_lat'] === null) {
-                        $monitor['from_lat'] = (float)$row['lat'];
-                        $monitor['from_lon'] = (float)$row['lon'];
-                    } else if ($fixName === $monitor['to_fix'] && $monitor['to_lat'] === null) {
-                        $monitor['to_lat'] = (float)$row['lat'];
-                        $monitor['to_lon'] = (float)$row['lon'];
-                    }
-                }
-                sqlsrv_free_stmt($wpStmt);
-            }
+        if ($monitor['to_lat'] === null) {
+            $fixesNeedingCoords[strtoupper($monitor['to_fix'])] = true;
         }
     }
 }
+
+// Step 2: Batch query nav_fixes (1 query for all fixes)
+$fixCoords = [];
+if (!empty($fixesNeedingCoords)) {
+    $fixNames = array_keys($fixesNeedingCoords);
+    $placeholders = implode(',', array_fill(0, count($fixNames), '?'));
+
+    $sql = "SELECT RTRIM(fix_name) AS fix_name, lat, lon
+            FROM dbo.nav_fixes
+            WHERE RTRIM(fix_name) IN ($placeholders)";
+    $stmt = sqlsrv_query($conn, $sql, $fixNames);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $fixCoords[strtoupper(trim($row['fix_name']))] = [
+                'lat' => (float)$row['lat'],
+                'lon' => (float)$row['lon']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 3: Fallback query for missing fixes (1 query)
+    $missingFixes = array_diff($fixNames, array_keys($fixCoords));
+    if (!empty($missingFixes)) {
+        $placeholders = implode(',', array_fill(0, count($missingFixes), '?'));
+        $sql = "SELECT RTRIM(fix_name) AS fix_name, lat, lon
+                FROM (
+                    SELECT fix_name, lat, lon,
+                           ROW_NUMBER() OVER (PARTITION BY RTRIM(fix_name) ORDER BY waypoint_id DESC) AS rn
+                    FROM dbo.adl_flight_waypoints
+                    WHERE RTRIM(fix_name) IN ($placeholders) AND lat IS NOT NULL
+                ) sub WHERE rn = 1";
+        $stmt = sqlsrv_query($conn, $sql, array_values($missingFixes));
+        if ($stmt) {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $fixCoords[strtoupper(trim($row['fix_name']))] = [
+                    'lat' => (float)$row['lat'],
+                    'lon' => (float)$row['lon']
+                ];
+            }
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+}
+
+// Step 4: Apply coordinates to monitors
+foreach ($monitorData as $monitorIdx => &$monitor) {
+    if ($monitor['type'] === 'fix' && $monitor['lat'] === null) {
+        $key = strtoupper($monitor['fix']);
+        if (isset($fixCoords[$key])) {
+            $monitor['lat'] = $fixCoords[$key]['lat'];
+            $monitor['lon'] = $fixCoords[$key]['lon'];
+        }
+    } else if ($monitor['type'] === 'segment') {
+        $fromKey = strtoupper($monitor['from_fix']);
+        $toKey = strtoupper($monitor['to_fix']);
+        if ($monitor['from_lat'] === null && isset($fixCoords[$fromKey])) {
+            $monitor['from_lat'] = $fixCoords[$fromKey]['lat'];
+            $monitor['from_lon'] = $fixCoords[$fromKey]['lon'];
+        }
+        if ($monitor['to_lat'] === null && isset($fixCoords[$toKey])) {
+            $monitor['to_lat'] = $fixCoords[$toKey]['lat'];
+            $monitor['to_lon'] = $fixCoords[$toKey]['lon'];
+        }
+    }
+}
+unset($monitor);
 
 sqlsrv_close($conn);
 
@@ -1195,5 +1238,8 @@ $response = [
 if (!empty($sqlErrors)) {
     $response['sql_errors'] = $sqlErrors;
 }
+
+// Cache for 60 seconds
+swim_cache_set($cache_key, $response, 60);
 
 echo json_encode($response, JSON_PRETTY_PRINT);

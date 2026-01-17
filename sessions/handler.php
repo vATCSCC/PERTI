@@ -1,220 +1,46 @@
 <?php
+/**
+ * Session Handler - Lightweight Version
+ *
+ * Starts PHP session and makes session variables available.
+ * Authentication is handled by login/callback.php via VATSIM OAuth.
+ * Authorization is checked by nav.php (users table query).
+ *
+ * Previous version used cURL to validate sessions against DB on every
+ * page load. This was removed because:
+ * - Single-instance deployment doesn't need centralized session store
+ * - PHP native sessions are secure (cryptographic IDs, httponly cookies)
+ * - Eliminated 1-2 HTTP requests + 2 DB queries per page load
+ *
+ * @package PERTI
+ * @subpackage Sessions
+ */
 
-// Session Start (S)
-if (session_status() == PHP_SESSION_NONE) {
+// Prevent multiple inclusions
+if (defined('SESSION_HANDLER_LOADED')) {
+    return;
+}
+define('SESSION_HANDLER_LOADED', true);
+
+// Start session if not already started
+if (session_status() == PHP_SESSION_NONE && !headers_sent()) {
     session_start();
     ob_start();
 }
-// Session Start (E)
 
+// Include dependencies
 include_once(dirname(__DIR__, 1) . '/load/config.php');
 require_once(dirname(__DIR__, 1) . '/load/input.php');
 
-// Generate Current IP Address (use server_get for safe access)
-if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-    $rawip = server_get('HTTP_CLIENT_IP');
-} elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-    $rawip = server_get('HTTP_X_FORWARDED_FOR');
-} else {
-    $rawip = server_get('REMOTE_ADDR', '127.0.0.1');
-}
-
-if (strpos($rawip, ':') !== false) {
-    $ip = explode(':', $rawip)[0];
-} else {
-    $ip = $rawip;
-}
-
-if (!defined('DEV')) {
-    if (isset($_COOKIE["SELF"])) {
-        $selfcookie = cookie_get('SELF');        
-    
-        // START: cUrl to Session Check Script
-        $url = "https://" . SITE_DOMAIN . "/sessions/query.php";
-    
-    
-        $fields = [
-            'ip' => $ip,
-            'selfcookie' => $selfcookie
-        ];
-    
-        $fields_string = http_build_query($fields);
-    
-        $ch = curl_init();
-    
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-
-        $json = curl_exec($ch);
-        $obj = json_decode($json, true);
-
-        // Log curl errors silently instead of echoing (which breaks HTTP response)
-        if (curl_errno($ch)) {
-            error_log("Session handler curl error: " . curl_error($ch));
-        }
-
-        curl_close($ch);
-        // END: cUrl to Session Check Script
-
-        if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
-
-            $_SESSION['VATSIM_CID'] = $obj['cid'];
-            $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
-            $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];
-            setCookie("SELF", $selfcookie, time() + (10 * 365 * 24 * 60 * 60), "/");
-    
-        } else {
-    
-            if (isset($_SESSION['VATSIM_CID'])) {
-                // START: cUrl to Session Check Script
-                $url = "https://" . SITE_DOMAIN . "/sessions/cid.php";
-
-
-                $fields = [
-                    'ip' => $ip,
-                    'cid' => session_get('VATSIM_CID', '')
-                ];
-            
-                $fields_string = http_build_query($fields);
-            
-                $ch = curl_init();
-            
-                curl_setopt($ch, CURLOPT_URL, $url);
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            
-                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-
-                $json = curl_exec($ch);
-                $obj = json_decode($json, true);
-
-                // Log curl errors silently instead of echoing (which breaks HTTP response)
-                if (curl_errno($ch)) {
-                    error_log("Session handler curl error: " . curl_error($ch));
-                }
-
-                curl_close($ch);
-                // END: cUrl to Session Check Script
-
-                if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
-
-                    $_SESSION['VATSIM_CID'] = $obj['cid'];
-                    $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
-                    $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];
-                    setCookie("SELF", $selfcookie, time() + (10 * 365 * 24 * 60 * 60), "/");
-
-                } else {
-
-                    unset($_SESSION['VATSIM_CID']);
-                    unset($_SESSION['VATSIM_FIRST_NAME']);
-                    unset($_SESSION['VATSIM_LAST_NAME']);
-
-                    session_destroy();
-            
-                    setCookie("PHPSESSID", "", time() - 3600, "/");
-                    setCookie("SELF", "", time() - 3600, "/");
-            
-                }
-            } else {
-    
-                unset($_SESSION['VATSIM_CID']);
-                unset($_SESSION['VATSIM_FIRST_NAME']);
-                unset($_SESSION['VATSIM_LAST_NAME']);
-                
-                session_destroy();
-        
-                setCookie("PHPSESSID", "", time() - 3600, "/");
-                setCookie("SELF", "", time() - 3600, "/");
-    
-            }
-    
-        }
-    
-    } else {
-    
-        if (isset($_SESSION['VATSIM_CID'])) {
-            // START: cUrl to Session Check Script
-            $url = "https://" . SITE_DOMAIN . "/sessions/cid.php";
-
-
-            $fields = [
-                'ip' => $ip,
-                'cid' => session_get('VATSIM_CID', '')
-            ];
-        
-            $fields_string = http_build_query($fields);
-        
-            $ch = curl_init();
-        
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-
-            $json = curl_exec($ch);
-            $obj = json_decode($json, true);
-
-            // Log curl errors silently instead of echoing (which breaks HTTP response)
-            if (curl_errno($ch)) {
-                error_log("Session handler curl error: " . curl_error($ch));
-            }
-
-            curl_close($ch);
-            // END: cUrl to Session Check Script
-
-            if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
-
-                $_SESSION['VATSIM_CID'] = $obj['cid'];
-                $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
-                $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];
-                setCookie("SELF", $obj['selfcookie'], time() + (10 * 365 * 24 * 60 * 60), "/");
-
-            } else {
-
-                unset($_SESSION['VATSIM_CID']);
-                unset($_SESSION['VATSIM_FIRST_NAME']);
-                unset($_SESSION['VATSIM_LAST_NAME']);
-
-                session_destroy();
-
-                setCookie("PHPSESSID", "", time() - 3600, "/");
-                setCookie("SELF", "", time() - 3600, "/");
-
-            }
-        } else {
-
-            unset($_SESSION['VATSIM_CID']);
-            unset($_SESSION['VATSIM_FIRST_NAME']);
-            unset($_SESSION['VATSIM_LAST_NAME']);
-
-            session_destroy();
-
-            setCookie("PHPSESSID", "", time() - 3600, "/");
-            setCookie("SELF", "", time() - 3600, "/");
-
-        }
-
-    }
-} else {
+// DEV mode: Set dummy session values for local development
+if (defined('DEV') && DEV === true) {
     $_SESSION['VATSIM_CID'] = 0;
-    $_SESSION['VATSIM_FIRST_NAME'] = '0';
-    $_SESSION['VATSIM_LAST_NAME'] = '0';
+    $_SESSION['VATSIM_FIRST_NAME'] = 'Dev';
+    $_SESSION['VATSIM_LAST_NAME'] = 'User';
 }
+
+// Session data is now simply read from PHP's native session storage.
+// No cURL validation needed - the session was established securely
+// via VATSIM OAuth in login/callback.php
 
 ?>
