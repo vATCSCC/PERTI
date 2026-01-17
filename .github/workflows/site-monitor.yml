@@ -1,14 +1,9 @@
 name: PERTI Site Monitor
 
-# External monitoring that runs on GitHub's infrastructure
-# Completely independent of Azure - will alert even if Azure is down
-
 on:
-  # Run every 5 minutes
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '* * * * *'  # Every minute (closest to 90s GitHub supports)
 
-  # Allow manual trigger for testing
   workflow_dispatch:
     inputs:
       force_alert:
@@ -19,7 +14,6 @@ on:
 
 env:
   SITE_URL: 'https://perti.vatcscc.org'
-  # Timeout for each request in seconds
   REQUEST_TIMEOUT: 30
 
 jobs:
@@ -31,328 +25,309 @@ jobs:
       id: time
       run: echo "timestamp=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
 
-    # Test 1: Homepage loads
     - name: Check Homepage
       id: homepage
       continue-on-error: true
       run: |
-        echo "=== Testing Homepage ==="
-        START=$(date +%s%N)
-
-        RESPONSE=$(curl -sS -w "\n%{http_code}\n%{time_total}" \
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_namelookup}|%{time_connect}|%{time_starttransfer}|%{time_total}|%{size_download}" \
           --max-time ${{ env.REQUEST_TIMEOUT }} \
           -o /tmp/homepage.html \
           "${{ env.SITE_URL }}/" 2>&1) || true
-
-        END=$(date +%s%N)
-
-        # Parse response
-        HTTP_CODE=$(echo "$RESPONSE" | tail -2 | head -1)
-        TIME_TOTAL=$(echo "$RESPONSE" | tail -1)
-
+        IFS='|' read -r HTTP_CODE DNS CONNECT TTFB TOTAL SIZE <<< "$(echo "$RESPONSE" | tail -1)"
         echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "response_time=$TIME_TOTAL" >> $GITHUB_OUTPUT
-
-        # Check for success
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        echo "total=${TOTAL}s" >> $GITHUB_OUTPUT
         if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
           echo "status=ok" >> $GITHUB_OUTPUT
-          echo "Homepage OK (HTTP $HTTP_CODE, ${TIME_TOTAL}s)"
         else
           echo "status=fail" >> $GITHUB_OUTPUT
-          echo "Homepage FAILED (HTTP $HTTP_CODE)"
-          # Capture first 500 chars of response for diagnostics
-          echo "Response preview:"
-          head -c 500 /tmp/homepage.html || echo "(empty response)"
+          echo "error=$(head -c 200 /tmp/homepage.html 2>/dev/null | tr '\n' ' ')" >> $GITHUB_OUTPUT
         fi
 
-    # Test 2: Public API - Flight Stats (tests database connectivity)
-    - name: Check Flight Stats API
-      id: stats_api
-      continue-on-error: true
-      run: |
-        echo "=== Testing Flight Stats API ==="
-        START=$(date +%s%N)
-
-        RESPONSE=$(curl -sS -w "\n%{http_code}\n%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} \
-          -H "Accept: application/json" \
-          -o /tmp/stats.json \
-          "${{ env.SITE_URL }}/api/adl/stats.php" 2>&1) || true
-
-        HTTP_CODE=$(echo "$RESPONSE" | tail -2 | head -1)
-        TIME_TOTAL=$(echo "$RESPONSE" | tail -1)
-
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "response_time=$TIME_TOTAL" >> $GITHUB_OUTPUT
-
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
-          # Validate JSON response
-          if jq -e . /tmp/stats.json > /dev/null 2>&1; then
-            FLIGHT_COUNT=$(jq -r '.total // .count // "unknown"' /tmp/stats.json 2>/dev/null || echo "unknown")
-            echo "status=ok" >> $GITHUB_OUTPUT
-            echo "flight_count=$FLIGHT_COUNT" >> $GITHUB_OUTPUT
-            echo "Stats API OK (HTTP $HTTP_CODE, ${TIME_TOTAL}s, flights: $FLIGHT_COUNT)"
-          else
-            echo "status=fail" >> $GITHUB_OUTPUT
-            echo "Stats API returned invalid JSON (HTTP $HTTP_CODE)"
-            echo "Response:"
-            cat /tmp/stats.json | head -c 500
-          fi
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-          echo "Stats API FAILED (HTTP $HTTP_CODE)"
-          cat /tmp/stats.json | head -c 500 || echo "(empty response)"
-        fi
-
-    # Test 3: JATOC Public Page (no auth required)
-    - name: Check JATOC Page
+    - name: Check JATOC
       id: jatoc
       continue-on-error: true
       run: |
-        echo "=== Testing JATOC Page ==="
-
-        RESPONSE=$(curl -sS -w "\n%{http_code}\n%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} \
-          -o /tmp/jatoc.html \
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/jatoc.html \
           "${{ env.SITE_URL }}/jatoc.php" 2>&1) || true
-
-        HTTP_CODE=$(echo "$RESPONSE" | tail -2 | head -1)
-        TIME_TOTAL=$(echo "$RESPONSE" | tail -1)
-
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
         echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "response_time=$TIME_TOTAL" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
 
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
-          echo "status=ok" >> $GITHUB_OUTPUT
-          echo "JATOC OK (HTTP $HTTP_CODE, ${TIME_TOTAL}s)"
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-          echo "JATOC FAILED (HTTP $HTTP_CODE)"
-        fi
-
-    # Test 4: NOD Public Page
-    - name: Check NOD Page
+    - name: Check NOD
       id: nod
       continue-on-error: true
       run: |
-        echo "=== Testing NOD Page ==="
-
-        RESPONSE=$(curl -sS -w "\n%{http_code}\n%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} \
-          -o /tmp/nod.html \
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/nod.html \
           "${{ env.SITE_URL }}/nod.php" 2>&1) || true
-
-        HTTP_CODE=$(echo "$RESPONSE" | tail -2 | head -1)
-        TIME_TOTAL=$(echo "$RESPONSE" | tail -1)
-
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
         echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "response_time=$TIME_TOTAL" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
 
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
+    - name: Check GDT
+      id: gdt
+      continue-on-error: true
+      run: |
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/gdt.html \
+          "${{ env.SITE_URL }}/gdt.php" 2>&1) || true
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
+        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^(2[0-9][0-9]|302|401|403)$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
+
+    - name: Check Route
+      id: route
+      continue-on-error: true
+      run: |
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/route.html \
+          "${{ env.SITE_URL }}/route.php" 2>&1) || true
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
+        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^(2[0-9][0-9]|302|401|403)$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
+
+    - name: Check Stats API
+      id: stats_api
+      continue-on-error: true
+      run: |
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
+          -o /tmp/stats.json "${{ env.SITE_URL }}/api/adl/stats.php" 2>&1) || true
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
+        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/stats.json > /dev/null 2>&1; then
+          FLIGHTS=$(jq -r '.total // .count // .active // "?"' /tmp/stats.json 2>/dev/null)
           echo "status=ok" >> $GITHUB_OUTPUT
-          echo "NOD OK (HTTP $HTTP_CODE, ${TIME_TOTAL}s)"
+          echo "flights=$FLIGHTS" >> $GITHUB_OUTPUT
         else
           echo "status=fail" >> $GITHUB_OUTPUT
-          echo "NOD FAILED (HTTP $HTTP_CODE)"
+          echo "error=$(head -c 200 /tmp/stats.json 2>/dev/null | tr '\n' ' ')" >> $GITHUB_OUTPUT
         fi
 
-    # Test 5: Active Flights API (tests real-time data pipeline)
-    - name: Check Active Flights API
+    - name: Check Flights API
       id: flights_api
       continue-on-error: true
       run: |
-        echo "=== Testing Active Flights API ==="
-
-        RESPONSE=$(curl -sS -w "\n%{http_code}\n%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} \
-          -H "Accept: application/json" \
-          -o /tmp/flights.json \
-          "${{ env.SITE_URL }}/api/adl/current.php?limit=1" 2>&1) || true
-
-        HTTP_CODE=$(echo "$RESPONSE" | tail -2 | head -1)
-        TIME_TOTAL=$(echo "$RESPONSE" | tail -1)
-
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
+          -o /tmp/flights.json "${{ env.SITE_URL }}/api/adl/current.php?limit=5" 2>&1) || true
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
         echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "response_time=$TIME_TOTAL" >> $GITHUB_OUTPUT
-
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
-          if jq -e . /tmp/flights.json > /dev/null 2>&1; then
-            echo "status=ok" >> $GITHUB_OUTPUT
-            echo "Active Flights API OK (HTTP $HTTP_CODE, ${TIME_TOTAL}s)"
-          else
-            echo "status=fail" >> $GITHUB_OUTPUT
-            echo "Active Flights API returned invalid JSON"
-          fi
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/flights.json > /dev/null 2>&1; then
+          echo "status=ok" >> $GITHUB_OUTPUT
         else
           echo "status=fail" >> $GITHUB_OUTPUT
-          echo "Active Flights API FAILED (HTTP $HTTP_CODE)"
+          echo "error=$(head -c 200 /tmp/flights.json 2>/dev/null | tr '\n' ' ')" >> $GITHUB_OUTPUT
         fi
 
-    # Analyze results and determine overall status
+    - name: Check Health API
+      id: health_api
+      continue-on-error: true
+      env:
+        HEALTH_API_KEY: ${{ secrets.MONITORING_API_KEY }}
+      run: |
+        if [[ -n "$HEALTH_API_KEY" ]]; then
+          RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+            --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
+            -H "X-API-Key: $HEALTH_API_KEY" \
+            -o /tmp/health.json "${{ env.SITE_URL }}/api/system/health.php" 2>&1) || true
+        else
+          RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+            --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
+            -o /tmp/health.json "${{ env.SITE_URL }}/api/system/health.php" 2>&1) || true
+        fi
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
+        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/health.json > /dev/null 2>&1; then
+          echo "status=ok" >> $GITHUB_OUTPUT
+          DB=$(jq -r '.database.status // .db_status // "?"' /tmp/health.json 2>/dev/null)
+          MEM=$(jq -r '.memory.usage_mb // .memory_mb // "?"' /tmp/health.json 2>/dev/null)
+          echo "db_status=$DB" >> $GITHUB_OUTPUT
+          echo "memory=${MEM}MB" >> $GITHUB_OUTPUT
+        else
+          echo "status=fail" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check TMI API
+      id: tmi_api
+      continue-on-error: true
+      run: |
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
+          -o /tmp/tmi.json "${{ env.SITE_URL }}/api/nod/tmi_active.php" 2>&1) || true
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
+        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/tmi.json > /dev/null 2>&1; then
+          echo "status=ok" >> $GITHUB_OUTPUT
+        else
+          echo "status=fail" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check Stats Status API
+      id: stats_status
+      continue-on-error: true
+      run: |
+        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
+          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
+          -o /tmp/ss.json "${{ env.SITE_URL }}/api/stats/status.php" 2>&1) || true
+        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
+        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/ss.json > /dev/null 2>&1; then
+          echo "status=ok" >> $GITHUB_OUTPUT
+        else
+          echo "status=fail" >> $GITHUB_OUTPUT
+        fi
+
     - name: Analyze Results
       id: analyze
       run: |
-        echo "=== MONITORING SUMMARY ==="
-        echo "Timestamp: ${{ steps.time.outputs.timestamp }}"
-        echo ""
-
         FAILURES=0
-        DETAILS=""
+        SLOW=0
 
-        # Check each endpoint
-        if [[ "${{ steps.homepage.outputs.status }}" != "ok" ]]; then
-          FAILURES=$((FAILURES + 1))
-          DETAILS="${DETAILS}Homepage: FAIL (HTTP ${{ steps.homepage.outputs.http_code }})\n"
-        else
-          DETAILS="${DETAILS}Homepage: OK (${{ steps.homepage.outputs.response_time }}s)\n"
-        fi
+        # Count failures
+        [[ "${{ steps.homepage.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.jatoc.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.nod.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.gdt.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.route.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.stats_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.flights_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.health_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.tmi_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.stats_status.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
 
-        if [[ "${{ steps.stats_api.outputs.status }}" != "ok" ]]; then
-          FAILURES=$((FAILURES + 1))
-          DETAILS="${DETAILS}Stats API: FAIL (HTTP ${{ steps.stats_api.outputs.http_code }})\n"
-        else
-          DETAILS="${DETAILS}Stats API: OK (${{ steps.stats_api.outputs.response_time }}s)\n"
-        fi
+        # Check for slow responses (>5s)
+        check_slow() {
+          local t="${1%s}"
+          [[ -n "$t" ]] && (( $(echo "$t > 5" | bc -l 2>/dev/null || echo 0) )) && SLOW=$((SLOW + 1))
+        }
+        check_slow "${{ steps.stats_api.outputs.ttfb }}"
+        check_slow "${{ steps.flights_api.outputs.ttfb }}"
+        check_slow "${{ steps.health_api.outputs.ttfb }}"
 
-        if [[ "${{ steps.jatoc.outputs.status }}" != "ok" ]]; then
-          FAILURES=$((FAILURES + 1))
-          DETAILS="${DETAILS}JATOC: FAIL (HTTP ${{ steps.jatoc.outputs.http_code }})\n"
-        else
-          DETAILS="${DETAILS}JATOC: OK (${{ steps.jatoc.outputs.response_time }}s)\n"
-        fi
-
-        if [[ "${{ steps.nod.outputs.status }}" != "ok" ]]; then
-          FAILURES=$((FAILURES + 1))
-          DETAILS="${DETAILS}NOD: FAIL (HTTP ${{ steps.nod.outputs.http_code }})\n"
-        else
-          DETAILS="${DETAILS}NOD: OK (${{ steps.nod.outputs.response_time }}s)\n"
-        fi
-
-        if [[ "${{ steps.flights_api.outputs.status }}" != "ok" ]]; then
-          FAILURES=$((FAILURES + 1))
-          DETAILS="${DETAILS}Flights API: FAIL (HTTP ${{ steps.flights_api.outputs.http_code }})\n"
-        else
-          DETAILS="${DETAILS}Flights API: OK (${{ steps.flights_api.outputs.response_time }}s)\n"
-        fi
-
-        echo -e "$DETAILS"
-        echo ""
-        echo "Total failures: $FAILURES"
-
-        # Set outputs
         echo "failures=$FAILURES" >> $GITHUB_OUTPUT
-        echo "details<<EOF" >> $GITHUB_OUTPUT
-        echo -e "$DETAILS" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        echo "slow=$SLOW" >> $GITHUB_OUTPUT
 
-        if [[ $FAILURES -gt 0 ]]; then
-          echo "overall_status=DEGRADED" >> $GITHUB_OUTPUT
+        if [[ $FAILURES -ge 5 ]]; then
+          echo "severity=CRITICAL" >> $GITHUB_OUTPUT
+        elif [[ $FAILURES -ge 2 ]]; then
+          echo "severity=MAJOR" >> $GITHUB_OUTPUT
+        elif [[ $FAILURES -ge 1 ]]; then
+          echo "severity=WARNING" >> $GITHUB_OUTPUT
+        elif [[ $SLOW -ge 1 ]]; then
+          echo "severity=SLOW" >> $GITHUB_OUTPUT
         else
-          echo "overall_status=HEALTHY" >> $GITHUB_OUTPUT
+          echo "severity=HEALTHY" >> $GITHUB_OUTPUT
         fi
 
-    # Send Discord alert if there are failures
+        echo "=== Summary ==="
+        echo "Failures: $FAILURES, Slow: $SLOW"
+
     - name: Send Discord Alert
-      if: steps.analyze.outputs.failures != '0' || github.event.inputs.force_alert == 'true'
+      if: steps.analyze.outputs.failures != '0' || steps.analyze.outputs.slow != '0' || github.event.inputs.force_alert == 'true'
       env:
         DISCORD_WEBHOOK: ${{ secrets.MONITORING_DISCORD_WEBHOOK }}
       run: |
-        if [[ -z "$DISCORD_WEBHOOK" ]]; then
-          echo "Warning: MONITORING_DISCORD_WEBHOOK secret not set - skipping Discord alert"
-          exit 0
-        fi
+        [[ -z "$DISCORD_WEBHOOK" ]] && echo "No webhook configured" && exit 0
 
         FAILURES="${{ steps.analyze.outputs.failures }}"
-        TIMESTAMP="${{ steps.time.outputs.timestamp }}"
+        SLOW="${{ steps.analyze.outputs.slow }}"
+        SEV="${{ steps.analyze.outputs.severity }}"
 
-        # Determine severity color
-        if [[ "$FAILURES" -ge 3 ]]; then
-          COLOR=15158332  # Red - critical
-          SEVERITY="CRITICAL"
-        elif [[ "$FAILURES" -ge 1 ]]; then
-          COLOR=15105570  # Orange - warning
-          SEVERITY="WARNING"
-        else
-          COLOR=3066993   # Green - test alert
-          SEVERITY="TEST"
-        fi
+        case "$SEV" in
+          CRITICAL) COLOR=15158332 ;;
+          MAJOR)    COLOR=15105570 ;;
+          WARNING)  COLOR=16776960 ;;
+          SLOW)     COLOR=16744192 ;;
+          *)        COLOR=3066993 ;;
+        esac
 
-        # Build embed fields
-        FIELDS='['
+        icon() { [[ "$1" == "ok" ]] && echo "✅" || echo "❌"; }
 
-        # Homepage
-        if [[ "${{ steps.homepage.outputs.status }}" == "ok" ]]; then
-          FIELDS="${FIELDS}{\"name\":\"Homepage\",\"value\":\"OK (${{ steps.homepage.outputs.response_time }}s)\",\"inline\":true},"
-        else
-          FIELDS="${FIELDS}{\"name\":\"Homepage\",\"value\":\"FAIL (HTTP ${{ steps.homepage.outputs.http_code }})\",\"inline\":true},"
-        fi
-
-        # Stats API
-        if [[ "${{ steps.stats_api.outputs.status }}" == "ok" ]]; then
-          FIELDS="${FIELDS}{\"name\":\"Stats API\",\"value\":\"OK (${{ steps.stats_api.outputs.response_time }}s)\",\"inline\":true},"
-        else
-          FIELDS="${FIELDS}{\"name\":\"Stats API\",\"value\":\"FAIL (HTTP ${{ steps.stats_api.outputs.http_code }})\",\"inline\":true},"
-        fi
-
-        # JATOC
-        if [[ "${{ steps.jatoc.outputs.status }}" == "ok" ]]; then
-          FIELDS="${FIELDS}{\"name\":\"JATOC\",\"value\":\"OK (${{ steps.jatoc.outputs.response_time }}s)\",\"inline\":true},"
-        else
-          FIELDS="${FIELDS}{\"name\":\"JATOC\",\"value\":\"FAIL (HTTP ${{ steps.jatoc.outputs.http_code }})\",\"inline\":true},"
-        fi
-
-        # NOD
-        if [[ "${{ steps.nod.outputs.status }}" == "ok" ]]; then
-          FIELDS="${FIELDS}{\"name\":\"NOD\",\"value\":\"OK (${{ steps.nod.outputs.response_time }}s)\",\"inline\":true},"
-        else
-          FIELDS="${FIELDS}{\"name\":\"NOD\",\"value\":\"FAIL (HTTP ${{ steps.nod.outputs.http_code }})\",\"inline\":true},"
-        fi
-
-        # Flights API
-        if [[ "${{ steps.flights_api.outputs.status }}" == "ok" ]]; then
-          FIELDS="${FIELDS}{\"name\":\"Flights API\",\"value\":\"OK (${{ steps.flights_api.outputs.response_time }}s)\",\"inline\":true},"
-        else
-          FIELDS="${FIELDS}{\"name\":\"Flights API\",\"value\":\"FAIL (HTTP ${{ steps.flights_api.outputs.http_code }})\",\"inline\":true},"
-        fi
-
-        # Add workflow link field
-        FIELDS="${FIELDS}{\"name\":\"Details\",\"value\":\"[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\",\"inline\":false}"
-
-        FIELDS="${FIELDS}]"
-
-        # Build the payload
-        PAYLOAD=$(cat <<EOF
+        # Build JSON payload with proper escaping
+        cat > /tmp/payload.json << 'ENDJSON'
         {
-          "content": null,
           "embeds": [{
-            "title": "PERTI Site Monitor - ${SEVERITY}",
-            "description": "**${FAILURES} endpoint(s) failing**\nSite: ${{ env.SITE_URL }}",
-            "color": ${COLOR},
-            "fields": ${FIELDS},
-            "footer": {
-              "text": "PERTI External Monitor"
-            },
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            "title": "PERTI Monitor - SEVERITY_PLACEHOLDER",
+            "description": "**FAILURES_PLACEHOLDER failures, SLOW_PLACEHOLDER slow**\n[perti.vatcscc.org](https://perti.vatcscc.org)",
+            "color": COLOR_PLACEHOLDER,
+            "fields": [
+              {
+                "name": "📄 Pages",
+                "value": "PAGES_PLACEHOLDER",
+                "inline": true
+              },
+              {
+                "name": "🔌 APIs",
+                "value": "APIS_PLACEHOLDER",
+                "inline": true
+              },
+              {
+                "name": "🗄️ Database",
+                "value": "DB_PLACEHOLDER",
+                "inline": true
+              },
+              {
+                "name": "🔗 Details",
+                "value": "[View Logs](LOGS_URL_PLACEHOLDER)",
+                "inline": false
+              }
+            ],
+            "footer": {"text": "External Monitor"},
+            "timestamp": "TIMESTAMP_PLACEHOLDER"
           }]
         }
-        EOF
-        )
+        ENDJSON
 
-        # Send to Discord
-        curl -sS -X POST \
-          -H "Content-Type: application/json" \
-          -d "$PAYLOAD" \
-          "$DISCORD_WEBHOOK"
+        # Build page status
+        PAGES="$(icon ${{ steps.homepage.outputs.status }}) Home (${{ steps.homepage.outputs.ttfb }})\n"
+        PAGES+="$(icon ${{ steps.jatoc.outputs.status }}) JATOC (${{ steps.jatoc.outputs.ttfb }})\n"
+        PAGES+="$(icon ${{ steps.nod.outputs.status }}) NOD (${{ steps.nod.outputs.ttfb }})\n"
+        PAGES+="$(icon ${{ steps.gdt.outputs.status }}) GDT (${{ steps.gdt.outputs.ttfb }})\n"
+        PAGES+="$(icon ${{ steps.route.outputs.status }}) Route (${{ steps.route.outputs.ttfb }})"
 
-        echo "Discord alert sent"
+        # Build API status
+        APIS="$(icon ${{ steps.stats_api.outputs.status }}) Stats (${{ steps.stats_api.outputs.ttfb }})\n"
+        APIS+="$(icon ${{ steps.flights_api.outputs.status }}) Flights (${{ steps.flights_api.outputs.ttfb }})\n"
+        APIS+="$(icon ${{ steps.health_api.outputs.status }}) Health (${{ steps.health_api.outputs.ttfb }})\n"
+        APIS+="$(icon ${{ steps.tmi_api.outputs.status }}) TMI (${{ steps.tmi_api.outputs.ttfb }})\n"
+        APIS+="$(icon ${{ steps.stats_status.outputs.status }}) Status (${{ steps.stats_status.outputs.ttfb }})"
 
-    # Optional: Send recovery notification when site comes back up
-    # This requires caching the previous state
+        # Database info
+        DB_INFO="DB: ${{ steps.health_api.outputs.db_status }}\n"
+        DB_INFO+="Memory: ${{ steps.health_api.outputs.memory }}\n"
+        DB_INFO+="Flights: ${{ steps.stats_api.outputs.flights }}"
 
-    # Fail the workflow if there are critical failures (all endpoints down)
-    - name: Check for Critical Failure
-      if: steps.analyze.outputs.failures >= 4
-      run: |
-        echo "CRITICAL: Multiple endpoints are down!"
-        echo "This will show as a failed workflow in GitHub Actions"
-        exit 1
+        LOGS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+        # Replace placeholders
+        sed -i "s/SEVERITY_PLACEHOLDER/$SEV/g" /tmp/payload.json
+        sed -i "s/FAILURES_PLACEHOLDER/$FAILURES/g" /tmp/payload.json
+        sed -i "s/SLOW_PLACEHOLDER/$SLOW/g" /tmp/payload.json
+        sed -i "s/COLOR_PLACEHOLDER/$COLOR/g" /tmp/payload.json
+        sed -i "s|LOGS_URL_PLACEHOLDER|$LOGS_URL|g" /tmp/payload.json
+        sed -i "s/TIMESTAMP_PLACEHOLDER/$TIMESTAMP/g" /tmp/payload.json
+
+        # Use jq to properly set the field values with newlines
+        jq --arg pages "$PAGES" --arg apis "$APIS" --arg db "$DB_INFO" \
+          '.embeds[0].fields[0].value = $pages | .embeds[0].fields[1].value = $apis | .embeds[0].fields[2].value = $db' \
+          /tmp/payload.json > /tmp/final.json
+
+        curl -sS -X POST -H "Content-Type: application/json" -d @/tmp/final.json "$DISCORD_WEBHOOK"
+        echo "Alert sent"
+
+    - name: Fail on Critical
+      if: steps.analyze.outputs.failures >= 5
+      run: exit 1
