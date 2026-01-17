@@ -14,11 +14,11 @@ on:
       force_alert:
         description: 'Send test alert to Discord'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 env:
-  SITE_URL: 'https://vatcscc.azurewebsites.net'
+  SITE_URL: 'https://perti.vatcscc.org'
   # Timeout for each request in seconds
   REQUEST_TIMEOUT: 30
 
