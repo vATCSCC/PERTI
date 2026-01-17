@@ -312,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         /* Quick start code blocks */
         .quick-start-code {
-            background: #1a1a2e;
+            background: #1a1a2e !important;
             color: #e0e0e0;
             padding: 10px 12px;
             border-radius: 4px;
@@ -321,6 +321,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         .quick-start-code code {
             color: #4a9eff;
+            background: transparent !important;
+        }
+
+        /* Override Bootstrap pre/code defaults for SWIM page */
+        .card pre,
+        .card-body pre {
+            background: #1a1a2e !important;
+            color: #e0e0e0;
+            padding: 10px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: 'Inconsolata', 'Courier New', monospace;
+            margin: 0;
+            border: none;
+        }
+        .card pre code,
+        .card-body pre code {
+            color: #4a9eff;
+            background: transparent !important;
         }
     </style>
 </head>

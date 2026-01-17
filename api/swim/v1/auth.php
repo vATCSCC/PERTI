@@ -35,6 +35,11 @@ class SwimAuth {
         // Fallback: X-API-Key header (IIS doesn't block custom headers)
         $api_key_header = $_SERVER['HTTP_X_API_KEY'] ?? null;
 
+        // DEBUG: Add response headers showing what server received
+        header('X-SWIM-Debug-AuthHeader: ' . ($auth_header ? 'present' : 'missing'));
+        header('X-SWIM-Debug-XApiKey: ' . ($api_key_header ? 'present' : 'missing'));
+        header('X-SWIM-Debug-Method: ' . ($_SERVER['REQUEST_METHOD'] ?? 'unknown'));
+
         if (!$auth_header && !$api_key_header) {
             $this->error = 'Missing Authorization header. Use "Authorization: Bearer {api_key}" or "X-API-Key: {api_key}"';
             return false;
