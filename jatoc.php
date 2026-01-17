@@ -3,14 +3,14 @@
  * JATOC - Joint Air Traffic Operations Command
  * AWO Incident Monitor - No Auth Required
  */
-include("sessions/handler.php");
-if (session_status() == PHP_SESSION_NONE) { session_start(); ob_start(); }
+/**
+ * OPTIMIZED: Public page - no session handler or DB needed
+ */
 include("load/config.php");
-include("load/connect.php");
 
-// No auth check - JATOC is publicly accessible
-$user_name = trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($_SESSION['VATSIM_LAST_NAME'] ?? '')) ?: '';
-$user_cid = $_SESSION['VATSIM_CID'] ?? '';
+// Public page - show as guest
+$user_name = 'Guest';
+$user_cid = '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -204,7 +204,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
     </style>
 </head>
 <body>
-<?php include("load/nav.php"); ?>
+<?php include("load/nav_public.php"); ?>
 
 <section class="d-flex align-items-center position-relative" style="background: #0f172a; min-height: 80px; margin-top: 60px;" data-jarallax data-speed="0.3">
     <div class="container-fluid pt-2 pb-2">

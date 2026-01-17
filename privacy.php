@@ -13,7 +13,7 @@
     <body>
 
     <?php
-    include('load/nav.php');
+    include('load/nav_public.php');
     ?>
 
     <section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-6 jarallax bg-dark text-light" data-jarallax data-speed="0.3" style="pointer-events: all;">

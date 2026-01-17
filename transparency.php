@@ -2,17 +2,12 @@
 /**
  * Infrastructure Transparency Page
  * Public disclosure of PERTI infrastructure costs and scaling plans
+ *
+ * OPTIMIZED: This is a public static page - no session handler or DB needed
  */
 
-include("sessions/handler.php");
-
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-    ob_start();
-}
-
 include("load/config.php");
-include("load/connect.php");
+// No session handler or database connections needed - public static content
 ?>
 
 <!DOCTYPE html>
@@ -150,7 +145,7 @@ include("load/connect.php");
 
 <body>
 
-<?php include('load/nav.php'); ?>
+<?php include('load/nav_public.php'); ?>
 
 <!-- Hero Section -->
 <section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-6 jarallax bg-dark text-light" data-jarallax data-speed="0.3">

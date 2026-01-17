@@ -10,15 +10,10 @@
  * @version 1.0.0
  */
 
-include("sessions/handler.php");
-
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-    ob_start();
-}
-
+/**
+ * OPTIMIZED: Public page - no session handler or DB needed
+ */
 include("load/config.php");
-include("load/connect.php");
 
 // Allowed documentation files (whitelist for security)
 $allowed_files = [
@@ -428,7 +423,7 @@ $rendered_html = $error_message ? '' : render_markdown($markdown_content);
 
 <body>
 
-<?php include('load/nav.php'); ?>
+<?php include('load/nav_public.php'); ?>
 
 <div class="container py-4">
 
