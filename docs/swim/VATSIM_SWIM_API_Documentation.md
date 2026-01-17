@@ -673,7 +673,270 @@ Returns reroute definitions for Traffic Management Initiatives.
 }
 ```
 
-### 3.12 JATOC Incidents
+### 3.12 Unified TMI Measures
+
+**Endpoint:** `GET /api/swim/v1/tmi/measures`
+
+Returns ALL traffic management measures from both USA (VATCSCC) and external providers (ECFMP, NavCanada, VATPAC) in a unified TFMS/FIXM-aligned format.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | string | Filter by provider: `VATCSCC`, `ECFMP`, etc. (comma-separated) |
+| `type` | string | Measure type: `GS`, `GDP`, `AFP`, `MIT`, `MINIT`, `MDI`, `RATE`, `REROUTE` |
+| `airport` | string | Control element filter (comma-separated ICAO codes) |
+| `source` | string | `usa` (VATCSCC only), `external` (non-USA), or `all` (default) |
+| `active_only` | boolean | Filter to active measures only (default: `true`) |
+| `page` | int | Page number (default: 1) |
+| `per_page` | int | Results per page (default: 100, max: 1000) |
+
+**Example Request:**
+```bash
+curl -H "Authorization: Bearer swim_dev_test" \
+  "https://perti.vatcscc.org/api/swim/v1/tmi/measures?type=MIT,GS&active_only=true"
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "measures": [
+      {
+        "id": "USA-45",
+        "guid": "a1b2c3d4-...",
+        "provider": {
+          "code": "VATCSCC",
+          "name": "VATSIM Command Center (USA)"
+        },
+        "ident": "GS_KJFK_45",
+        "type": "GS",
+        "value": null,
+        "unit": null,
+        "controlElement": "KJFK",
+        "elementType": "APT",
+        "reason": "Thunderstorms",
+        "filters": {
+          "arrivalAerodrome": ["KJFK"]
+        },
+        "timeRange": {
+          "start": "2026-01-17T18:00:00Z",
+          "end": "2026-01-17T20:00:00Z"
+        },
+        "status": "ACTIVE",
+        "_source": "usa"
+      },
+      {
+        "id": "ECFMP-456",
+        "guid": "e5f6g7h8-...",
+        "provider": {
+          "code": "ECFMP",
+          "name": "EUROCONTROL Flow Management"
+        },
+        "ident": "EGTT22A",
+        "type": "MDI",
+        "value": 120,
+        "unit": "SEC",
+        "reason": "CTP Event Traffic",
+        "event": {
+          "id": 123,
+          "code": "CTP2026",
+          "name": "Cross the Pond 2026"
+        },
+        "filters": {
+          "departureAerodrome": ["KJFK", "KEWR"],
+          "arrivalAerodrome": ["EGLL", "EGKK"]
+        },
+        "exemptions": {
+          "eventFlights": true
+        },
+        "timeRange": {
+          "start": "2026-03-15T12:00:00Z",
+          "end": "2026-03-15T20:00:00Z"
+        },
+        "status": "ACTIVE",
+        "_source": "external"
+      }
+    ],
+    "statistics": {
+      "by_provider": { "VATCSCC": 5, "ECFMP": 3 },
+      "by_type": { "GS": 2, "MIT": 3, "MDI": 2, "GDP": 1 },
+      "by_source": { "usa": 5, "external": 3 }
+    },
+    "pagination": {
+      "total": 8,
+      "page": 1,
+      "per_page": 100
+    }
+  }
+}
+```
+
+### 3.13 External Flow Management
+
+Provider-agnostic integration for external flow management systems. Supports ECFMP (Europe/NAT), NavCanada, VATPAC, and future regional providers.
+
+#### 3.13.1 Flow Index
+
+**Endpoint:** `GET /api/swim/v1/tmi/flow/`
+
+Returns overview of external flow management endpoints and active counts.
+
+#### 3.13.2 Flow Providers
+
+**Endpoint:** `GET /api/swim/v1/tmi/flow/providers`
+
+Returns registered external flow management providers.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | string | Filter by provider code |
+| `region` | string | Filter by region: `EUR`, `NAM`, `NAT`, `PAC` |
+| `active_only` | boolean | Filter to active providers only (default: `true`) |
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "providers": [
+      {
+        "id": 1,
+        "code": "ECFMP",
+        "name": "EUROCONTROL Flow Management",
+        "api": {
+          "base_url": "https://ecfmp.vatsim.net/api/v1",
+          "version": "v1"
+        },
+        "coverage": {
+          "regions": ["EUR", "NAT"],
+          "firs": ["EGTT", "EGPX", "CZQX"]
+        },
+        "sync": {
+          "enabled": true,
+          "interval_sec": 300,
+          "last_sync_utc": "2026-01-17T15:30:00Z",
+          "last_status": "SUCCESS"
+        },
+        "is_active": true
+      }
+    ]
+  }
+}
+```
+
+#### 3.13.3 Flow Events
+
+**Endpoint:** `GET /api/swim/v1/tmi/flow/events`
+
+Returns special events (CTP, FNO, etc.) from external providers.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | string | Filter by provider: `ECFMP`, `NAVCAN`, etc. |
+| `code` | string | Event code filter: `CTP2026`, `FNO2026` |
+| `status` | string | Status filter: `SCHEDULED`, `ACTIVE`, `COMPLETED` |
+| `include_participants` | boolean | Include participant list (default: `false`) |
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "events": [
+      {
+        "id": 123,
+        "guid": "abc123...",
+        "provider": { "code": "ECFMP", "name": "EUROCONTROL Flow Management" },
+        "code": "CTP2026",
+        "name": "Cross the Pond 2026",
+        "type": "SPECIAL",
+        "firs": ["EGTT", "EGPX", "CZQX", "KZNY"],
+        "timeRange": {
+          "start": "2026-03-15T12:00:00Z",
+          "end": "2026-03-15T20:00:00Z"
+        },
+        "exemptions": {
+          "groundStop": true,
+          "gdpPriority": true
+        },
+        "status": "SCHEDULED",
+        "participantCount": 1247
+      }
+    ]
+  }
+}
+```
+
+#### 3.13.4 Flow Measures
+
+**Endpoint:** `GET /api/swim/v1/tmi/flow/measures`
+
+Returns flow measures (MIT, MINIT, MDI, etc.) from external providers only.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | string | Filter by provider |
+| `type` | string | Measure type: `MIT`, `MINIT`, `MDI`, `RATE`, `GS`, `REROUTE` |
+| `event_id` | int | Filter by associated event |
+| `airport` | string | Filter by control element |
+| `active_only` | boolean | Filter to active measures (default: `true`) |
+
+**Measure Types (TFMS-aligned):**
+
+| Type | Description | Unit |
+|------|-------------|------|
+| `MIT` | Miles-In-Trail | NM |
+| `MINIT` | Minutes-In-Trail | MIN |
+| `MDI` | Minimum Departure Interval | SEC |
+| `RATE` | Departure Rate Cap | PER_HOUR |
+| `GS` | Ground Stop | - |
+| `GDP` | Ground Delay Program | MIN |
+| `AFP` | Airspace Flow Program | MIN |
+| `REROUTE` | Mandatory Reroute | - |
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "measures": [
+      {
+        "id": 456,
+        "ident": "EGTT22A",
+        "provider": { "code": "ECFMP" },
+        "type": "MDI",
+        "value": 120,
+        "unit": "SEC",
+        "event": { "id": 123, "code": "CTP2026" },
+        "reason": "CTP Event Traffic",
+        "filters": {
+          "departureAerodrome": ["KJFK", "KEWR", "KLGA"],
+          "arrivalAerodrome": ["EGLL", "EGKK"]
+        },
+        "exemptions": {
+          "eventFlights": true
+        },
+        "mandatoryRoute": ["KJFK", "MERIT", "NAT-A", "EGLL"],
+        "timeRange": {
+          "start": "2026-03-15T12:00:00Z",
+          "end": "2026-03-15T20:00:00Z"
+        },
+        "status": "ACTIVE"
+      }
+    ]
+  }
+}
+```
+
+### 3.14 JATOC Incidents
 
 **Endpoint:** `GET /api/swim/v1/jatoc/incidents`
 
