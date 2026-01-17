@@ -1,48 +1,75 @@
 # TMI Unified System Documentation
 
+**Status:** ✅ **DEPLOYED & LIVE**  
+**Date:** January 17, 2026
+
 This directory contains documentation for the unified Traffic Management Initiative (TMI) system, which consolidates NTML entries, Advisories, GDT Programs (GS/GDP), Reroutes, and Public Routes across multiple input sources into a single authoritative database.
+
+---
 
 ## Quick Start
 
-**Database:** `VATSIM_TMI` on `vatsim.database.windows.net` ✅ DEPLOYED
+### API Base URL
+```
+https://perti.vatcscc.org/api/tmi/
+```
 
-**API Base URL:** `https://perti.vatcscc.org/api/tmi/`
+### Test the API
+```bash
+# API info
+curl https://perti.vatcscc.org/api/tmi/
 
-## API Endpoints
+# All active TMI data
+curl https://perti.vatcscc.org/api/tmi/active.php
+```
 
-| Endpoint | Methods | Description |
-|----------|---------|-------------|
-| `/api/tmi/` | GET | API info and endpoint list |
-| `/api/tmi/active` | GET | All currently active TMI data |
-| `/api/tmi/entries` | GET, POST, PUT, DELETE | NTML log entries |
-| `/api/tmi/programs` | GET, POST, PUT, DELETE | GDT programs (GS/GDP) |
-| `/api/tmi/advisories` | GET, POST, PUT, DELETE | Formal advisories |
-| `/api/tmi/public-routes` | GET, POST, PUT, DELETE | Public route display |
-| `/api/tmi/reroutes` | GET, POST, PUT, DELETE | Reroute definitions |
+### Database Connection
+```
+Server:   vatsim.database.windows.net
+Database: VATSIM_TMI
+Username: TMI_admin
+Password: (see config.php)
+```
+
+---
+
+## API Endpoints (Live ✅)
+
+| Endpoint | Methods | Description | Status |
+|----------|---------|-------------|--------|
+| `/api/tmi/` | GET | API info and endpoint list | ✅ Live |
+| `/api/tmi/active` | GET | All currently active TMI data | ✅ Live |
+| `/api/tmi/entries` | GET, POST, PUT, DELETE | NTML log entries | ✅ Live |
+| `/api/tmi/programs` | GET, POST, PUT, DELETE | GDT programs (GS/GDP) | ✅ Live |
+| `/api/tmi/advisories` | GET, POST, PUT, DELETE | Formal advisories | ✅ Live |
+| `/api/tmi/public-routes` | GET, POST, PUT, DELETE | Public route display | ✅ Live |
+| `/api/tmi/reroutes` | GET, POST, PUT, DELETE | Reroute definitions | ⏳ Pending |
 
 ### Example API Calls
 
 ```bash
 # Get all active TMI data
-curl https://perti.vatcscc.org/api/tmi/active
+curl https://perti.vatcscc.org/api/tmi/active.php
 
 # Get active entries only
-curl "https://perti.vatcscc.org/api/tmi/entries?active_only=1"
+curl "https://perti.vatcscc.org/api/tmi/entries.php?active_only=1"
 
 # Get active programs (GS/GDP)
-curl "https://perti.vatcscc.org/api/tmi/programs?active_only=1"
+curl "https://perti.vatcscc.org/api/tmi/programs.php?active_only=1"
 
 # Get public routes as GeoJSON
-curl "https://perti.vatcscc.org/api/tmi/public-routes?geojson=1"
+curl "https://perti.vatcscc.org/api/tmi/public-routes.php?geojson=1"
 
 # Create new entry (requires auth)
-curl -X POST https://perti.vatcscc.org/api/tmi/entries \
+curl -X POST https://perti.vatcscc.org/api/tmi/entries.php \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer tmi_bot_xxxxx" \
   -d '{"determinant_code":"05B01","protocol_type":5,"entry_type":"MIT",...}'
 ```
 
-## Documents
+---
+
+## Documentation Index
 
 | Document | Description |
 |----------|-------------|
@@ -50,18 +77,21 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries \
 | [DATABASE.md](DATABASE.md) | Complete database schema (10 tables, 269 fields) |
 | [STATUS_WORKFLOW.md](STATUS_WORKFLOW.md) | Entry/Advisory/Program lifecycle states |
 | [COST_ANALYSIS.md](COST_ANALYSIS.md) | Azure SQL pricing and usage projections |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Step-by-step deployment guide |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Deployment guide (✅ completed) |
+
+---
 
 ## Database Status ✅
 
-**Deployment Date:** January 17, 2026
+**Deployment Date:** January 17, 2026  
+**Verified:** All objects created and tested
 
 | Object Type | Count | Status |
 |-------------|-------|--------|
-| Tables | 10 | ✅ Created |
-| Views | 6 | ✅ Created |
-| Stored Procedures | 4 | ✅ Created |
-| Indexes | 30+ | ✅ Created |
+| Tables | 10 | ✅ Verified |
+| Views | 6 | ✅ Verified |
+| Stored Procedures | 4 | ✅ Verified |
+| Indexes | 30+ | ✅ Verified |
 
 ### Tables
 
@@ -98,6 +128,8 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries \
 | `sp_ExpireOldEntries` | Auto-expires/activates based on time |
 | `sp_GetActivePublicRoutes` | Returns active routes (auto-expires first) |
 
+---
+
 ## Architecture
 
 ```
@@ -111,12 +143,12 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries \
 │                             ▼                                          │
 │                    ┌─────────────────┐                                 │
 │                    │  PERTI PHP API  │  ◄── Single source of truth    │
-│                    │  /api/tmi/*     │                                 │
+│                    │  /api/tmi/*     │      ✅ DEPLOYED                │
 │                    └────────┬────────┘                                 │
 │                             │                                          │
 │                             ▼                                          │
 │        ┌─────────────────────────────────────────┐                     │
-│        │           VATSIM_TMI Database           │                     │
+│        │           VATSIM_TMI Database           │  ✅ DEPLOYED        │
 │        │        (Azure SQL on vatsim.db)         │                     │
 │        ├─────────────────────────────────────────┤                     │
 │        │  tmi_entries      tmi_programs          │                     │
@@ -132,7 +164,7 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries \
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Database Architecture (Complete System)
+## Database Architecture
 
 ```
 Azure SQL Server: vatsim.database.windows.net
@@ -143,13 +175,15 @@ Azure SQL Server: vatsim.database.windows.net
                  Total: ~$25/mo
 ```
 
-## API Files
+---
+
+## API File Structure
 
 ```
 api/tmi/
 ├── .htaccess           # Apache URL rewriting
 ├── web.config          # IIS URL rewriting
-├── helpers.php         # Common functions and classes
+├── helpers.php         # Common functions, auth, response handling
 ├── index.php           # API info endpoint
 ├── active.php          # Get all active TMI data
 ├── entries.php         # NTML entries CRUD
@@ -159,37 +193,54 @@ api/tmi/
 └── reroutes.php        # Reroutes CRUD (TODO)
 ```
 
-## Cost Summary
-
-| Component | Monthly Cost | Annual Cost |
-|-----------|--------------|-------------|
-| VATSIM_TMI (Basic tier) | $4.99 | $59.88 |
-| Event scale-ups (~6/year) | ~$2 | ~$12 |
-| **Total** | **~$7** | **~$72** |
+---
 
 ## Configuration
 
-Add to your `load/config.php`:
+Add to `load/config.php`:
 
 ```php
 // TMI Database (Azure SQL - Traffic Management)
 define("TMI_SQL_HOST", "vatsim.database.windows.net");
 define("TMI_SQL_DATABASE", "VATSIM_TMI");
-define("TMI_SQL_USERNAME", "your_adl_user");
-define("TMI_SQL_PASSWORD", "your_adl_pass");
+define("TMI_SQL_USERNAME", "TMI_admin");
+define("TMI_SQL_PASSWORD", "your_password_here");
 ```
+
+---
+
+## Cost Summary
+
+| Component | Monthly | Annual |
+|-----------|---------|--------|
+| VATSIM_TMI (Basic tier) | $4.99 | $59.88 |
+| Event scale-ups (~6/year) | ~$2 | ~$12 |
+| **Total** | **~$7** | **~$72** |
+
+---
+
+## Remaining Work
+
+### High Priority
+1. **Create `reroutes.php` endpoint** - Complete the API
+2. **Update existing GDT files** - Migrate `gs/*.php` and `gdp_*.php` to use new `tmi_programs` table
+
+### Medium Priority  
+3. **Discord bot integration** - Update bot to call PHP API
+4. **GDT stored procedures** - `sp_TMI_GenerateSlots`, `sp_TMI_AssignFlight`, etc.
+5. **Data migration** - Move existing public routes from MySQL if any
+
+### Lower Priority
+6. **SWIM TMI endpoints** - `/api/swim/v1/tmi/` integration
+7. **UI updates** - Update `gdt.js` for new API structure
+
+---
 
 ## Verification
 
-Run the verification script to check deployment:
-
+Test the deployment:
 ```bash
-php scripts/tmi/verify_deployment.php
-```
-
-Or via browser:
-```
-https://perti.vatcscc.org/scripts/tmi/verify_deployment.php?allow=1
+curl "https://perti.vatcscc.org/scripts/tmi/verify_deployment.php?allow=1"
 ```
 
 ---
