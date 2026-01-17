@@ -74,14 +74,11 @@ window.PublicRoutes = (function() {
         }).done(function(data) {
             if (data.success) {
                 var newRoutes = data.routes || [];
-                
-                // BUFFERED: Only update if we got data, or had no prior data
-                if (newRoutes.length > 0 || previousRoutes.length === 0) {
-                    state.routes = newRoutes;
-                } else {
-                    console.log('[PublicRoutes] Empty response, keeping previous data (' + previousRoutes.length + ' routes)');
-                }
-                
+
+                // Always update from API response - empty is valid (all routes deleted/expired)
+                // Client-side filtering handles visibility by time status
+                state.routes = newRoutes;
+
                 state.lastRefresh = new Date();
                 console.log('[PublicRoutes] Loaded', state.routes.length, 'routes');
                 
@@ -118,13 +115,15 @@ window.PublicRoutes = (function() {
     
     /**
      * Get routes filtered by current visibility settings
+     * Note: Time status is computed in real-time via getTimeStatus(), so expired routes
+     * automatically get status='past' and are filtered out when showPast=false (default)
      */
     function getVisibleRoutes() {
         return state.routes.filter(function(route) {
             // Check if individually hidden
             if (state.hiddenRouteIds.has(route.id)) return false;
-            
-            // Check category visibility
+
+            // Real-time time status check - getTimeStatus compares valid_end_utc against now
             const status = route.computed_status || getTimeStatus(route);
             if (status === 'active' && state.showActive) return true;
             if (status === 'future' && state.showFuture) return true;

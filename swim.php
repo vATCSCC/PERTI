@@ -461,10 +461,10 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
             <tbody>
                 <tr>
                     <td><strong>Rate Limit</strong></td>
-                    <td>30 req/min</td>
                     <td>100 req/min</td>
-                    <td>1,000 req/min</td>
-                    <td>10,000 req/min</td>
+                    <td>300 req/min</td>
+                    <td>3,000 req/min</td>
+                    <td>30,000 req/min</td>
                 </tr>
                 <tr>
                     <td><strong>WebSocket Connections</strong></td>
