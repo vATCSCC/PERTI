@@ -292,24 +292,26 @@ jobs:
         }
         ENDJSON
 
-        # Build page status
-        PAGES="$(icon ${{ steps.homepage.outputs.status }}) Home (${{ steps.homepage.outputs.ttfb }})\n"
-        PAGES+="$(icon ${{ steps.jatoc.outputs.status }}) JATOC (${{ steps.jatoc.outputs.ttfb }})\n"
-        PAGES+="$(icon ${{ steps.nod.outputs.status }}) NOD (${{ steps.nod.outputs.ttfb }})\n"
-        PAGES+="$(icon ${{ steps.gdt.outputs.status }}) GDT (${{ steps.gdt.outputs.ttfb }})\n"
+        # Build page status using printf for newlines
+        NL=$'\n'
+        PAGES="$(icon ${{ steps.homepage.outputs.status }}) Home (${{ steps.homepage.outputs.ttfb }})${NL}"
+        PAGES+="$(icon ${{ steps.jatoc.outputs.status }}) JATOC (${{ steps.jatoc.outputs.ttfb }})${NL}"
+        PAGES+="$(icon ${{ steps.nod.outputs.status }}) NOD (${{ steps.nod.outputs.ttfb }})${NL}"
+        PAGES+="$(icon ${{ steps.gdt.outputs.status }}) GDT (${{ steps.gdt.outputs.ttfb }})${NL}"
         PAGES+="$(icon ${{ steps.route.outputs.status }}) Route (${{ steps.route.outputs.ttfb }})"
 
         # Build API status
-        APIS="$(icon ${{ steps.stats_api.outputs.status }}) Stats (${{ steps.stats_api.outputs.ttfb }})\n"
-        APIS+="$(icon ${{ steps.flights_api.outputs.status }}) Flights (${{ steps.flights_api.outputs.ttfb }})\n"
-        APIS+="$(icon ${{ steps.health_api.outputs.status }}) Health (${{ steps.health_api.outputs.ttfb }})\n"
-        APIS+="$(icon ${{ steps.tmi_api.outputs.status }}) TMI (${{ steps.tmi_api.outputs.ttfb }})\n"
+        APIS="$(icon ${{ steps.stats_api.outputs.status }}) Stats (${{ steps.stats_api.outputs.ttfb }})${NL}"
+        APIS+="$(icon ${{ steps.flights_api.outputs.status }}) Flights (${{ steps.flights_api.outputs.ttfb }})${NL}"
+        APIS+="$(icon ${{ steps.health_api.outputs.status }}) Health (${{ steps.health_api.outputs.ttfb }})${NL}"
+        APIS+="$(icon ${{ steps.tmi_api.outputs.status }}) TMI (${{ steps.tmi_api.outputs.ttfb }})${NL}"
         APIS+="$(icon ${{ steps.stats_status.outputs.status }}) Status (${{ steps.stats_status.outputs.ttfb }})"
 
         # Database info
-        DB_INFO="DB: ${{ steps.health_api.outputs.db_status }}\n"
-        DB_INFO+="Memory: ${{ steps.health_api.outputs.memory }}\n"
-        DB_INFO+="Flights: ${{ steps.stats_api.outputs.flights }}"
+        DB_STATUS="${{ steps.health_api.outputs.db_status }}"
+        DB_MEM="${{ steps.health_api.outputs.memory }}"
+        DB_FLIGHTS="${{ steps.stats_api.outputs.flights }}"
+        DB_INFO="DB: ${DB_STATUS:-N/A}${NL}Mem: ${DB_MEM:-N/A}${NL}Flights: ${DB_FLIGHTS:-N/A}"
 
         LOGS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
