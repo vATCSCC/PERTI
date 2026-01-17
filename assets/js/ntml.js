@@ -830,6 +830,7 @@ function parseReroute_NLP(input) {
 
 /**
  * Enhanced MIT Parser
+ * Format: APT [arrivals/departures] via FIX ##MIT [QUALIFIERS] REASON EXCL:xxx HHMM-HHMM REQ:PROV
  */
 function parseMIT_NLP(input) {
     const mitMatch = input.match(/(\d+)\s*MIT/i);
@@ -853,10 +854,11 @@ function parseMIT_NLP(input) {
     const { qualifiers, remaining: r5 } = extractQualifiers(remaining);
     remaining = r5;
     
-    let condition = '';
+    // Extract via route (fix) - this is separate from the airport condition
+    let viaRoute = null;
     const viaPattern = remaining.match(/VIA\s+([A-Z0-9,\/]+)/i);
     if (viaPattern) {
-        condition = viaPattern[1];
+        viaRoute = viaPattern[1];
         remaining = remaining.replace(viaPattern[0], ' ');
     }
     
@@ -864,29 +866,42 @@ function parseMIT_NLP(input) {
     const isArrivals = remaining.includes('ARRIVALS') || remaining.includes('ARR');
     remaining = remaining.replace(/\b(DEPARTURES?|ARRIVALS?|DEP|ARR)\b/gi, ' ');
     
+    // Find airports - these go in condition
+    let condition = '';
     const airports = findAirports(remaining);
-    if (airports.length > 0 && !condition) {
-        condition = airports[0];
-        remaining = remaining.replace(new RegExp('\\b' + airports[0] + '\\b'), ' ');
-    }
-    
-    if (!condition) {
-        const fixes = findFixes(remaining);
-        if (fixes.length > 0) {
-            condition = fixes.join(',');
+    if (airports.length > 0) {
+        condition = airports.join(',');
+        for (const apt of airports) {
+            remaining = remaining.replace(new RegExp('\\b' + apt + '\\b'), ' ');
         }
     }
     
+    // Look for 5-letter fixes (even if we have an airport)
+    // This handles "JFK LENDY 20MIT" where LENDY is the fix without "via" keyword
+    if (!viaRoute) {
+        const fixes = findFixes(remaining);
+        if (fixes.length > 0) {
+            viaRoute = fixes.join(',');
+            for (const fix of fixes) {
+                remaining = remaining.replace(new RegExp('\\b' + fix + '\\b'), ' ');
+            }
+        }
+    }
+    
+    // Try to find airport from remaining 3-letter codes that aren't facilities
     if (!condition) {
-        const fiveLetterMatch = remaining.match(/\b([A-Z]{5})\b/);
-        if (fiveLetterMatch) {
-            condition = fiveLetterMatch[1];
+        const threeLetterMatch = remaining.match(/\b([A-Z]{3})\b/g) || [];
+        for (const code of threeLetterMatch) {
+            if (!ARTCCS[code] && !TRACONS[code] && MAJOR_AIRPORTS.includes(code)) {
+                condition = code;
+                break;
+            }
         }
     }
     
     let parsedFrom = fromFacility, parsedTo = toFacility;
     if (!parsedFrom || !parsedTo) {
-        const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2})\b/g) || [];
+        const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2,3})\b/g) || [];
         for (const fac of facilityMatches) {
             if (ARTCCS[fac] || TRACONS[fac]) {
                 if (!parsedFrom) parsedFrom = fac;
@@ -902,6 +917,7 @@ function parseMIT_NLP(input) {
         fromFacility: parsedFrom,
         toFacility: parsedTo,
         condition: condition,
+        viaRoute: viaRoute,
         isDepartures: isDepartures,
         isArrivals: isArrivals,
         qualifiers: qualifiers,
@@ -916,6 +932,7 @@ function parseMIT_NLP(input) {
 
 /**
  * Enhanced MINIT Parser
+ * Format: APT #MINIT [QUALIFIERS] REASON EXCL:xxx HHMM-HHMM REQ:PROV
  */
 function parseMINIT_NLP(input) {
     const minitMatch = input.match(/(\d+)\s*MINIT/i);
@@ -939,26 +956,32 @@ function parseMINIT_NLP(input) {
     const { qualifiers, remaining: r5 } = extractQualifiers(remaining);
     remaining = r5;
     
-    let condition = '';
+    // Extract via route (fix) - this is separate from the airport condition
+    let viaRoute = null;
     const viaPattern = remaining.match(/VIA\s+([A-Z0-9,\/]+)/i);
     if (viaPattern) {
-        condition = viaPattern[1];
+        viaRoute = viaPattern[1];
         remaining = remaining.replace(viaPattern[0], ' ');
     }
     
+    // Find airports - these go in condition
+    let condition = '';
     const airports = findAirports(remaining);
-    if (airports.length > 0 && !condition) {
-        condition = airports[0];
+    if (airports.length > 0) {
+        condition = airports.join(',');
     }
     
-    const fixes = findFixes(remaining);
-    if (fixes.length > 0 && !condition) {
-        condition = fixes[0];
+    // If no airport found, check for 5-letter fixes
+    if (!condition && !viaRoute) {
+        const fixes = findFixes(remaining);
+        if (fixes.length > 0) {
+            viaRoute = fixes[0];
+        }
     }
     
     let parsedFrom = fromFacility, parsedTo = toFacility;
     if (!parsedFrom || !parsedTo) {
-        const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2})\b/g) || [];
+        const facilityMatches = remaining.match(/\b([A-Z][A-Z0-9]{2,3})\b/g) || [];
         for (const fac of facilityMatches) {
             if (ARTCCS[fac] || TRACONS[fac]) {
                 if (!parsedFrom) parsedFrom = fac;
@@ -974,6 +997,7 @@ function parseMINIT_NLP(input) {
         fromFacility: parsedFrom,
         toFacility: parsedTo,
         condition: condition,
+        viaRoute: viaRoute,
         qualifiers: qualifiers,
         exclusions: exclusions,
         reason: reason,
@@ -1824,7 +1848,20 @@ function hideAutocomplete() {
 
 // ============================================
 // MESSAGE BUILDING
+// Formats match historical NTML_2020.txt format:
+// DD/HHMM APT [direction] via FIX ##MIT [QUALIFIERS] REASON EXCL:xxx HHMM-HHMM REQ:PROV
 // ============================================
+
+/**
+ * Get current log time in DD/HHMM format
+ */
+function getLogTime() {
+    const now = new Date();
+    const dd = String(now.getUTCDate()).padStart(2, '0');
+    const hh = String(now.getUTCHours()).padStart(2, '0');
+    const mm = String(now.getUTCMinutes()).padStart(2, '0');
+    return `${dd}/${hh}${mm}`;
+}
 
 function buildDiscordMessage(entry) {
     switch (entry.type) {
@@ -1844,113 +1881,230 @@ function buildDiscordMessage(entry) {
     }
 }
 
+/**
+ * Build MIT NTML entry
+ * Format: DD/HHMM APT [arrivals] via FIX ##MIT [QUALIFIERS] REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ */
 function buildMITMessage(e) {
-    let msg = `**[${e.determinant}] ${e.distance}MIT** ${e.fromFacility || '???'}→${e.toFacility || '???'} ${e.condition || ''}`;
-    if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
-    if (e.isDepartures) msg += ' DEPARTURES';
-    if (e.isArrivals) msg += ' ARRIVALS';
-    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const logTime = getLogTime();
+    const apt = e.condition || '???';
+    const fix = e.viaRoute || '';
+    const dist = e.distance || '??';
+    const quals = (e.qualifiers && e.qualifiers.length) ? ' ' + e.qualifiers.join(' ').replace(/_/g, ' ') : '';
+    const reason = e.rawReason || 'VOLUME:VOLUME';
+    const excl = e.exclusions || 'NONE';
+    const validTime = `${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const facPair = `${e.toFacility || '???'}:${e.fromFacility || '???'}`;
+    
+    let msg = `${logTime}    ${apt}`;
+    if (e.isDepartures) {
+        msg += ' departures';
+    }
+    if (fix) {
+        msg += ` via ${fix}`;
+    }
+    msg += ` ${dist}MIT${quals} ${reason} EXCL:${excl} ${validTime} ${facPair}`;
     return msg;
 }
 
+/**
+ * Build MINIT NTML entry
+ * Format: DD/HHMM APT #MINIT REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ */
 function buildMINITMessage(e) {
-    let msg = `**[${e.determinant}] ${e.minutes}MINIT** ${e.fromFacility || '???'}→${e.toFacility || '???'} ${e.condition || ''}`;
-    if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
-    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const logTime = getLogTime();
+    const apt = e.condition || '???';
+    const mins = e.minutes || '??';
+    const quals = (e.qualifiers && e.qualifiers.length) ? ' ' + e.qualifiers.join(' ').replace(/_/g, ' ') : '';
+    const reason = e.rawReason || 'VOLUME:VOLUME';
+    const excl = e.exclusions || 'NONE';
+    const validTime = `${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const facPair = `${e.toFacility || '???'}:${e.fromFacility || '???'}`;
+    
+    let msg = `${logTime}    ${apt} ${mins}MINIT${quals} ${reason} EXCL:${excl} ${validTime} ${facPair}`;
     return msg;
 }
 
+/**
+ * Build STOP NTML entry
+ * Format: DD/HHMM APT[,APT] [direction] STOP REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ */
 function buildStopMessage(e) {
-    let msg = `**[${e.determinant}] STOP** ${e.condition || ''}`;
-    if (e.viaRoute) msg += ` via ${e.viaRoute}`;
+    const logTime = getLogTime();
+    const apt = e.condition || '???';
+    const reason = e.rawReason || 'VOLUME:VOLUME';
+    const excl = e.exclusions || 'NONE';
+    const validTime = `${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const facPair = `${e.toFacility || '???'}:${e.fromFacility || '???'}`;
+    
+    let msg = `${logTime}    ${apt}`;
     if (e.isDepartures) msg += ' departures';
     if (e.isArrivals) msg += ' arrivals';
-    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
-    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
-    return msg;
-}
-
-function buildAPREQMessage(e) {
-    let msg = `**[${e.determinant}] ${e.type}** ${e.condition || ''}`;
     if (e.viaRoute) msg += ` via ${e.viaRoute}`;
+    msg += ` STOP ${reason} EXCL:${excl} ${validTime} ${facPair}`;
+    return msg;
+}
+
+/**
+ * Build APREQ/CFR NTML entry
+ * Format: DD/HHMM TYPE APT departures [via FIX] [TYPE:xx] REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ */
+function buildAPREQMessage(e) {
+    const logTime = getLogTime();
+    const type = e.type;
+    const apt = e.condition || '???';
+    const reason = e.rawReason || 'VOLUME:VOLUME';
+    const excl = e.exclusions || 'NONE';
+    const validTime = `${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const facPair = `${e.toFacility || '???'}:${e.fromFacility || '???'}`;
+    const quals = (e.qualifiers && e.qualifiers.length) ? ' ' + e.qualifiers.join(' ').replace(/_/g, ' ') : '';
+    
+    let msg = `${logTime}    ${type} ${apt}`;
     if (e.isDepartures) msg += ' departures';
-    if (e.qualifiers && e.qualifiers.length) msg += ' ' + e.qualifiers.join(' ');
-    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
-    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    if (e.viaRoute) msg += ` via ${e.viaRoute}`;
+    msg += `${quals} ${reason} EXCL:${excl} ${validTime} ${facPair}`;
     return msg;
 }
 
+/**
+ * Build TBM NTML entry
+ * Format: DD/HHMM APT TBM SECTOR REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ */
 function buildTBMMessage(e) {
-    let msg = `**[${e.determinant}] TBM** ${e.condition || ''}`;
-    if (e.sector) msg += ` ${e.sector}`;
-    if (e.isBegin) msg += ' BEGIN';
-    if (e.isEnd) msg += ' END';
-    if (e.viaSimtraffic) msg += ' (via SIMTRAFFIC)';
-    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
-    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const logTime = getLogTime();
+    const apt = e.condition || '???';
+    const sector = e.sector || '';
+    const reason = e.rawReason || 'VOLUME:VOLUME';
+    const excl = e.exclusions || 'NONE';
+    const validTime = `${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const facPair = `${e.toFacility || '???'}:${e.fromFacility || '???'}`;
+    
+    let msg = `${logTime}    ${apt} TBM`;
+    if (sector) msg += ` ${sector}`;
+    msg += ` ${reason} EXCL:${excl} ${validTime} ${facPair}`;
     return msg;
 }
 
+/**
+ * Build Holding/Delay NTML entry (E/D, A/D, D/D)
+ * Format: DD/HHMM [FAC] TYPE prep APT, +/-value/HHMM[/# ACFT] [NAVAID:xx] REASON
+ */
 function buildHoldingMessage(e) {
+    const logTime = getLogTime();
     const typeMap = { 'ED': 'E/D', 'AD': 'A/D', 'DD': 'D/D' };
     const typeDisplay = typeMap[e.delayType] || e.delayType;
-    let msg = `**[${e.determinant}]** ${e.reportingFacility || ''} ${typeDisplay} for ${e.airport}`;
     
+    // Preposition based on type
+    let prep = 'from'; // D/D = from [departure airport]
+    if (typeDisplay === 'E/D') prep = 'for';  // E/D = for [destination]
+    if (typeDisplay === 'A/D') prep = 'to';   // A/D = to [arrival airport]
+    
+    const apt = e.airport || '???';
+    const reason = e.rawReason || 'VOLUME:VOLUME';
+    
+    // Build delay value
+    let delayValue = '';
     if (e.isHolding) {
-        msg += `, ${e.delayChange === 'initiating' ? '+' : '-'}Holding/${e.delayTime || '????'}`;
+        const sign = (e.delayChange === 'initiating' || e.delayChange === 'increasing') ? '+' : '-';
+        delayValue = `${sign}Holding`;
     } else if (e.delayMinutes) {
-        msg += `, ${e.delayChange === 'increasing' ? '+' : '-'}${e.delayMinutes}/${e.delayTime || '????'}`;
+        const sign = (e.delayChange === 'increasing') ? '+' : '-';
+        delayValue = `${sign}${e.delayMinutes}`;
     }
     
+    const reportTime = e.delayTime || '????';
+    
+    let msg = `${logTime}`;
+    if (e.reportingFacility) msg += `    ${e.reportingFacility}`;
+    msg += ` ${typeDisplay} ${prep} ${apt}, ${delayValue}/${reportTime}`;
     if (e.acftCount) msg += `/${e.acftCount} ACFT`;
     if (e.navaid) msg += ` NAVAID:${e.navaid}`;
     if (e.isStream) msg += ' STREAM';
-    msg += ` ${e.rawReason || 'VOLUME:VOLUME'}`;
+    if (e.isLateNote) msg += ' LATE NOTE';
+    msg += ` ${reason}`;
     return msg;
 }
 
+/**
+ * Build simple Delay NTML entry (D/D style)
+ * Format: DD/HHMM D/D from APT, +/-##/HHMM REASON
+ */
 function buildDelayMessage(e) {
-    const trendDisplay = e.trend ? e.trend.charAt(0).toUpperCase() + e.trend.slice(1) : 'Steady';
-    let msg = `**[${e.determinant}] DELAY** ${e.facility || '???'}`;
-    msg += `\nLongest: ${e.minutes || '?'}min | Trend: ${trendDisplay} | Flights: ${e.flightsDelayed || 1}`;
-    msg += `\nReason: ${e.reason}`;
+    const logTime = getLogTime();
+    const apt = e.facility || e.chargeFacility || '???';
+    const mins = e.minutes || '??';
+    const trend = e.trend || 'steady';
+    const sign = (trend === 'increasing') ? '+' : (trend === 'decreasing') ? '-' : '';
+    const reason = e.reason || 'VOLUME';
+    const reportTime = logTime.split('/')[1]; // Use current time as report time
+    
+    let msg = `${logTime}     D/D from ${apt}, ${sign}${mins}/${reportTime} ${reason}:${reason}`;
     return msg;
 }
 
+/**
+ * Build Config NTML entry
+ * Format: DD/HHMM APT    WX    ARR:rwys DEP:rwys    AAR(type):##    [AAR Adjustment:xx]    ADR:##
+ */
 function buildConfigMessage(e) {
-    let msg = `**[${e.determinant}]** ${e.airport || '???'}    ${e.weather}`;
-    msg += `    ARR:${e.arrRunways || '-'} DEP:${e.depRunways || '-'}`;
-    msg += `    AAR(${e.aarType || 'Strat'}):${e.aar}`;
+    const logTime = getLogTime();
+    const apt = e.airport || '???';
+    const wx = e.weather || 'VMC';
+    const arrRwys = e.arrRunways || '-';
+    const depRwys = e.depRunways || '-';
+    const aar = e.aar || '60';
+    const aarType = e.aarType || 'Strat';
+    const adr = e.adr || '60';
+    
+    let msg = `${logTime}    ${apt}    ${wx}    ARR:${arrRwys} DEP:${depRwys}    AAR(${aarType}):${aar}`;
     if (e.aarAdjustment) msg += ` AAR Adjustment:${e.aarAdjustment}`;
-    msg += `    ADR:${e.adr}`;
+    msg += `    ADR:${adr}`;
     return msg;
 }
 
+/**
+ * Build Cancel NTML entry
+ */
 function buildCancelMessage(e) {
-    let msg = `**CANCEL**`;
+    const logTime = getLogTime();
+    
     if (e.cancelType === 'ALL') {
-        msg += ' ALL TMI';
-    } else {
-        if (e.condition) msg += ` ${e.condition}`;
-        if (e.viaRoute) msg += ` via ${e.viaRoute}`;
-        if (e.mitValue) msg += ` ${e.mitValue}MIT`;
+        return `${logTime}    ALL TMI CANCELLED`;
     }
-    if (e.fromFacility || e.toFacility) msg += ` ${e.fromFacility || ''}:${e.toFacility || ''}`;
-    return msg;
-}
-
-function buildRerouteMessage(e) {
-    let msg = `**[${e.determinant}] REROUTE** ${e.condition || ''}`;
-    if (e.route) msg += ` via ${e.route}`;
-    msg += ` ${e.fromFacility || '???'}:${e.toFacility || '???'}`;
-    msg += `\n${e.rawReason || 'VOLUME:VOLUME'} EXCL:${e.exclusions || 'NONE'} ${e.validFrom || '????'}-${e.validUntil || '????'}`;
-    return msg;
-}
-
-function buildOtherMessage(e) {
-    let msg = `**[${e.determinant}] ${e.subType || 'OTHER'}**`;
+    
+    let msg = `${logTime}    CANCEL`;
     if (e.condition) msg += ` ${e.condition}`;
-    if (e.fromFacility || e.toFacility) msg += ` ${e.fromFacility || ''}:${e.toFacility || ''}`;
+    if (e.viaRoute) msg += ` via ${e.viaRoute}`;
+    if (e.mitValue) msg += ` ${e.mitValue}MIT`;
+    if (e.fromFacility || e.toFacility) msg += ` ${e.toFacility || ''}:${e.fromFacility || ''}`;
+    return msg;
+}
+
+/**
+ * Build Reroute NTML entry
+ */
+function buildRerouteMessage(e) {
+    const logTime = getLogTime();
+    const apt = e.condition || '???';
+    const reason = e.rawReason || 'VOLUME:VOLUME';
+    const excl = e.exclusions || 'NONE';
+    const validTime = `${e.validFrom || '????'}-${e.validUntil || '????'}`;
+    const facPair = `${e.toFacility || '???'}:${e.fromFacility || '???'}`;
+    
+    let msg = `${logTime}    REROUTE ${apt}`;
+    if (e.route) msg += ` via ${e.route}`;
+    msg += ` ${reason} EXCL:${excl} ${validTime} ${facPair}`;
+    return msg;
+}
+
+/**
+ * Build Other/Generic NTML entry
+ */
+function buildOtherMessage(e) {
+    const logTime = getLogTime();
+    let msg = `${logTime}    ${e.subType || 'OTHER'}`;
+    if (e.condition) msg += ` ${e.condition}`;
+    if (e.fromFacility || e.toFacility) msg += ` ${e.toFacility || ''}:${e.fromFacility || ''}`;
     if (e.validFrom) msg += ` ${e.validFrom}-${e.validUntil || '????'}`;
     return msg;
 }
@@ -2099,10 +2253,12 @@ function buildPostData(entry) {
     switch (entry.type) {
         case 'MIT':
             return { ...base, distance: entry.distance, condition: entry.condition, 
+                     via_route: entry.viaRoute,
                      is_departures: entry.isDepartures, is_arrivals: entry.isArrivals,
                      is_internal: entry.isInternal };
         case 'MINIT':
             return { ...base, minutes: entry.minutes, condition: entry.condition,
+                     via_route: entry.viaRoute,
                      is_internal: entry.isInternal };
         case 'STOP':
             return { ...base, condition: entry.condition, via_route: entry.viaRoute,

@@ -215,7 +215,7 @@ include("load/connect.php");
                 <tbody>
                     <tr>
                         <td><strong>VATSIM_ADL</strong></td>
-                        <td><span class="tier-badge" style="background:#9b59b6;color:#fff;">Hyperscale</span><br><small>Gen5, 8 vCores max, ~73 GB</small></td>
+                        <td><span class="tier-badge" style="background:#9b59b6;color:#fff;">Hyperscale</span><br><small>Gen5, 4-24 vCores, ~73 GB</small></td>
                         <td>Active flight data, real-time positions, parsed routes, ETAs</td>
                         <td>~$7 storage + compute*</td>
                     </tr>
@@ -265,8 +265,8 @@ include("load/connect.php");
                         <td class="text-right">~$7</td>
                     </tr>
                     <tr>
-                        <td>Hyperscale Compute (usage-based)</td>
-                        <td class="text-right">Variable*</td>
+                        <td>Hyperscale Compute (4 vCore min)</td>
+                        <td class="text-right">~$1,470+ base</td>
                     </tr>
                     <tr>
                         <td>Storage Accounts (4x)</td>
@@ -278,13 +278,13 @@ include("load/connect.php");
                     </tr>
                     <tr class="cost-total">
                         <td><strong>Estimated Base Total</strong></td>
-                        <td class="text-right"><strong>~$106-120+ /month</strong></td>
+                        <td class="text-right"><strong>~$1,580-1,600+ /month</strong></td>
                     </tr>
                 </tbody>
             </table>
             <div class="note-box mt-3">
                 <i class="fas fa-info-circle mr-2"></i>
-                <strong>Hyperscale Compute:</strong> Costs vary with VATSIM network activity. During peak events (CTP, FNO), compute usage increases. During quiet periods, databases auto-pause to minimize costs.
+                <strong>Hyperscale Compute:</strong> VATSIM_ADL runs with a 4 vCore minimum to ensure consistent performance. Scales up to 24 vCores during peak events (CTP, FNO). Additional compute above 4 vCores billed at ~$0.51/vCore-hour.
             </div>
         </div>
 
@@ -402,9 +402,9 @@ include("load/connect.php");
             <h4><i class="fas fa-database mr-2"></i>Database Auto-Scaling (Already Active)</h4>
             <p>VATSIM_ADL and VATSIM_Data use Hyperscale Serverless with automatic scaling:</p>
             <ul>
-                <li><strong>VATSIM_ADL:</strong> 0.5 - 8 vCores (auto-scales based on query load)</li>
+                <li><strong>VATSIM_ADL:</strong> 4 - 24 vCores (auto-scales based on query load)</li>
                 <li><strong>VATSIM_Data:</strong> 0.5 - 4 vCores (auto-scales based on query load)</li>
-                <li><strong>Auto-pause:</strong> Databases pause after idle period, resume in seconds when queried</li>
+                <li><strong>Auto-pause:</strong> VATSIM_Data pauses after idle period; VATSIM_ADL maintains 4 vCore minimum for consistent performance</li>
             </ul>
             <p class="mb-0 text-muted">No action needed - databases automatically handle traffic spikes during CTP, FNO, and other events.</p>
         </div>

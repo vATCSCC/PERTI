@@ -43,7 +43,7 @@ Password: (see config.php)
 | `/api/tmi/programs` | GET, POST, PUT, DELETE | GDT programs (GS/GDP) | ✅ Live |
 | `/api/tmi/advisories` | GET, POST, PUT, DELETE | Formal advisories | ✅ Live |
 | `/api/tmi/public-routes` | GET, POST, PUT, DELETE | Public route display | ✅ Live |
-| `/api/tmi/reroutes` | GET, POST, PUT, DELETE | Reroute definitions | ⏳ Pending |
+| `/api/tmi/reroutes` | GET, POST, PUT, DELETE | Reroute definitions | ✅ Live |
 
 ### Example API Calls
 
@@ -190,7 +190,7 @@ api/tmi/
 ├── programs.php        # GDT programs CRUD
 ├── advisories.php      # Advisories CRUD
 ├── public-routes.php   # Public routes CRUD
-└── reroutes.php        # Reroutes CRUD (TODO)
+└── reroutes.php        # Reroutes CRUD ✅
 ```
 
 ---
@@ -222,8 +222,8 @@ define("TMI_SQL_PASSWORD", "your_password_here");
 ## Remaining Work
 
 ### High Priority
-1. **Create `reroutes.php` endpoint** - Complete the API
-2. **Update existing GDT files** - Migrate `gs/*.php` and `gdp_*.php` to use new `tmi_programs` table
+1. **Update existing GDT files** - Migrate `gs/*.php` and `gdp_*.php` to use new `tmi_programs` table
+2. **Test Discord posting** - Verify NTML format output matches NTML_2020.txt
 
 ### Medium Priority  
 3. **Discord bot integration** - Update bot to call PHP API
@@ -231,8 +231,12 @@ define("TMI_SQL_PASSWORD", "your_password_here");
 5. **Data migration** - Move existing public routes from MySQL if any
 
 ### Lower Priority
-6. **SWIM TMI endpoints** - `/api/swim/v1/tmi/` integration
-7. **UI updates** - Update `gdt.js` for new API structure
+6. **UI updates** - Update `gdt.js` for new API structure
+
+### Completed ✅
+- `reroutes.php` endpoint (Jan 17, 2026)
+- NTML parser & Discord format alignment (Jan 17, 2026)
+- SWIM TMI endpoints (Jan 17, 2026): index, entries, advisories, reroutes, routes
 
 ---
 
