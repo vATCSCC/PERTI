@@ -1,15 +1,15 @@
 <?php
 /**
  * TMI Discord Integration Test Script
- * 
- * Tests posting TMI notifications to the backup Discord server
+ *
+ * Tests posting TMI notifications to Discord
  * using proper NTML and Advisory formatting.
- * 
+ *
  * Run from command line: php scripts/discord/test_tmi_discord.php
  */
 
-// Load backup Discord configuration
-require_once __DIR__ . '/config_backup.php';
+// Load main config (contains Discord credentials)
+require_once __DIR__ . '/../../load/config.php';
 
 // Load TMI Discord module
 require_once __DIR__ . '/../../load/discord/TMIDiscord.php';

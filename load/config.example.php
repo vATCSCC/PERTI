@@ -88,11 +88,13 @@ if (!defined("SQL_USERNAME")) {
     // Channel IDs (map of purpose => channel_id)
     // Right-click channels in Discord (with Developer Mode enabled) to copy IDs
     define('DISCORD_CHANNELS', json_encode([
-        'tmi' => '',           // TMI announcements channel
-        'advisories' => '',    // Advisory postings
-        'operations' => '',    // Operations log
-        'alerts' => '',        // High-priority alerts
-        'general' => ''        // General communications
+        'tmi' => '',              // TMI announcements channel
+        'advisories' => '',       // Advisory postings
+        'operations' => '',       // Operations log
+        'alerts' => '',           // High-priority alerts
+        'general' => '',          // General communications
+        'ntml_staging' => '',     // NTML staging/test channel
+        'advzy_staging' => ''     // Advisory staging/test channel
     ]));
 
     // API Configuration (generally no need to change)

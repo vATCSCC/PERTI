@@ -1,18 +1,18 @@
 <?php
 /**
  * NTML Live Discord Test Script
- * 
- * Tests NTML formatting by posting to the backup Discord server staging channels.
+ *
+ * Tests NTML formatting by posting to Discord staging channels.
  * Validates format compliance from test_ntml_format.php in a live environment.
- * 
+ *
  * Run from command line: php scripts/discord/test_ntml_live.php
- * 
- * @version 1.0.0
+ *
+ * @version 1.1.0
  * @date 2026-01-17
  */
 
-// Load backup Discord configuration
-require_once __DIR__ . '/config_backup.php';
+// Load main config (contains Discord credentials)
+require_once __DIR__ . '/../../load/config.php';
 
 // Load TMI Discord module
 require_once __DIR__ . '/../../load/discord/TMIDiscord.php';
@@ -26,12 +26,12 @@ $tmi = new TMIDiscord();
 
 if (!$tmi->isAvailable()) {
     echo "ERROR: Discord integration not available\n";
-    echo "Check that DISCORD_BOT_TOKEN is configured in config_backup.php\n";
+    echo "Check that DISCORD_BOT_TOKEN is configured in load/config.php\n";
     exit(1);
 }
 
 echo "✓ Discord integration available\n";
-echo "  Target: Backup Discord Server (Staging Channels)\n\n";
+echo "  Target: Discord Staging Channels\n\n";
 
 // Pause between messages to avoid rate limiting
 $pause = 2;
