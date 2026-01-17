@@ -196,25 +196,27 @@ jobs:
         SLOW=0
 
         # Count failures
-        [[ "${{ steps.homepage.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.jatoc.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.nod.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.gdt.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.route.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.stats_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.flights_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.health_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.tmi_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
-        [[ "${{ steps.stats_status.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1))
+        [[ "${{ steps.homepage.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.jatoc.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.nod.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.gdt.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.route.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.stats_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.flights_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.health_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.tmi_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+        [[ "${{ steps.stats_status.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
 
         # Check for slow responses (>5s)
         check_slow() {
           local t="${1%s}"
-          [[ -n "$t" ]] && (( $(echo "$t > 5" | bc -l 2>/dev/null || echo 0) )) && SLOW=$((SLOW + 1))
+          if [[ -n "$t" ]] && (( $(echo "$t > 5" | bc -l 2>/dev/null || echo 0) )); then
+            SLOW=$((SLOW + 1))
+          fi
         }
-        check_slow "${{ steps.stats_api.outputs.ttfb }}"
-        check_slow "${{ steps.flights_api.outputs.ttfb }}"
-        check_slow "${{ steps.health_api.outputs.ttfb }}"
+        check_slow "${{ steps.stats_api.outputs.ttfb }}" || true
+        check_slow "${{ steps.flights_api.outputs.ttfb }}" || true
+        check_slow "${{ steps.health_api.outputs.ttfb }}" || true
 
         echo "failures=$FAILURES" >> $GITHUB_OUTPUT
         echo "slow=$SLOW" >> $GITHUB_OUTPUT
