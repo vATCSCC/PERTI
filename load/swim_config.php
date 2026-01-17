@@ -23,12 +23,22 @@ define('SWIM_API_PREFIX', '/api/swim/v1');
 
 /**
  * Rate Limiting Configuration (requests per minute)
+ *
+ * With response caching (APCu), ETags, and gzip compression enabled,
+ * ~80-90% of requests hit cache with zero DB load. These limits reflect
+ * the reduced infrastructure cost per request.
+ *
+ * Effective DB queries/min (assuming 85% cache hit rate):
+ *   - system:    4,500 queries/min (30,000 * 0.15)
+ *   - partner:     450 queries/min (3,000 * 0.15)
+ *   - developer:    45 queries/min (300 * 0.15)
+ *   - public:       15 queries/min (100 * 0.15)
  */
 $SWIM_RATE_LIMITS = [
-    'system'    => 10000,  // Trusted systems (vNAS, CRC, SimTraffic)
-    'partner'   => 1000,   // Integration partners (VAs, etc.)
-    'developer' => 100,    // Developer testing
-    'public'    => 30      // Public consumers
+    'system'    => 30000,  // Trusted systems (vNAS, CRC, SimTraffic) - burst capacity for bulk sync
+    'partner'   => 3000,   // Integration partners (VAs, etc.) - real-time operational needs
+    'developer' => 300,    // Developer testing - rapid iteration
+    'public'    => 100     // Public consumers - dashboard/widget use cases
 ];
 
 /**
@@ -371,14 +381,43 @@ define('SWIM_GUFI_SEPARATOR', '-');
 
 /**
  * Cache TTL Settings (seconds)
+ * Base TTLs per endpoint - actual TTL is tier-adjusted
  */
 $SWIM_CACHE_TTL = [
     'flights_list'   => 5,
     'flight_single'  => 3,
     'positions'      => 2,
     'tmi_programs'   => 10,
+    'metering'       => 5,
     'stats'          => 60
 ];
+
+/**
+ * Tier-Based Cache TTL Multipliers
+ *
+ * Data syncs from VATSIM_ADL every 15 seconds, so even PUBLIC tier
+ * polling every 30 seconds gets fresh-enough data. Higher tiers get
+ * lower TTLs for more real-time access.
+ *
+ * Effective TTL = base_ttl * multiplier
+ */
+$SWIM_TIER_CACHE_MULTIPLIERS = [
+    'system'    => 1,    // Real-time (5s base = 5s cache)
+    'partner'   => 2,    // Near real-time (5s base = 10s cache)
+    'developer' => 3,    // Development (5s base = 15s cache)
+    'public'    => 6     // General access (5s base = 30s cache)
+];
+
+/**
+ * Response Compression Settings
+ */
+define('SWIM_ENABLE_GZIP', true);
+define('SWIM_GZIP_MIN_SIZE', 1024);  // Only compress responses > 1KB
+
+/**
+ * ETag Settings
+ */
+define('SWIM_ENABLE_ETAG', true);
 
 /**
  * Response Pagination Defaults
@@ -781,4 +820,70 @@ function swim_evaluate_field_updates($fields, $source, $current_data = []) {
     }
 
     return ['accepted' => $accepted, 'rejected' => $rejected];
+}
+
+/**
+ * Helper: Get effective cache TTL for endpoint and tier
+ *
+ * @param string $endpoint Endpoint key (flights_list, flight_single, etc.)
+ * @param string $tier API tier (system, partner, developer, public)
+ * @return int TTL in seconds
+ */
+function swim_get_cache_ttl($endpoint, $tier = 'public') {
+    global $SWIM_CACHE_TTL, $SWIM_TIER_CACHE_MULTIPLIERS;
+
+    $base_ttl = $SWIM_CACHE_TTL[$endpoint] ?? 5;
+    $multiplier = $SWIM_TIER_CACHE_MULTIPLIERS[$tier] ?? 6;
+
+    return $base_ttl * $multiplier;
+}
+
+/**
+ * Helper: Generate cache key from request parameters
+ *
+ * @param string $endpoint Endpoint identifier
+ * @param array $params Request parameters to include in key
+ * @return string Cache key
+ */
+function swim_cache_key($endpoint, $params = []) {
+    ksort($params);  // Ensure consistent ordering
+    return 'swim_' . $endpoint . '_' . md5(json_encode($params));
+}
+
+/**
+ * Helper: Check if APCu caching is available
+ *
+ * @return bool
+ */
+function swim_cache_available() {
+    return function_exists('apcu_fetch') && apcu_enabled();
+}
+
+/**
+ * Helper: Get cached response
+ *
+ * @param string $cache_key
+ * @return array|null Cached data or null if not found
+ */
+function swim_cache_get($cache_key) {
+    if (!swim_cache_available()) {
+        return null;
+    }
+    $data = apcu_fetch($cache_key, $success);
+    return $success ? $data : null;
+}
+
+/**
+ * Helper: Store response in cache
+ *
+ * @param string $cache_key
+ * @param mixed $data Data to cache
+ * @param int $ttl TTL in seconds
+ * @return bool Success
+ */
+function swim_cache_set($cache_key, $data, $ttl) {
+    if (!swim_cache_available()) {
+        return false;
+    }
+    return apcu_store($cache_key, $data, $ttl);
 }

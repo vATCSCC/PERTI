@@ -59,6 +59,22 @@ $metered_only = swim_get_param('metered_only', 'true') !== 'false';
 $format = swim_get_param('format', 'json');
 $use_fixm = ($format === 'fixm');
 
+// Build cache key parameters
+$cache_params = array_filter([
+    'airport' => $airport,
+    'sub_resource' => $sub_resource,
+    'status' => $status_filter,
+    'runway' => $runway_filter,
+    'stream' => $stream_filter,
+    'metered_only' => $metered_only ? 'true' : 'false',
+    'format' => $format
+], fn($v) => $v !== null && $v !== '');
+
+// Check cache first - returns early if hit
+if (SwimResponse::tryCached('metering', $cache_params)) {
+    exit;
+}
+
 // Get SWIM database connection
 global $conn_swim;
 if (!$conn_swim) {
@@ -223,7 +239,8 @@ $response_data['summary'] = [
     'avg_delay_minutes' => $metered_count > 0 ? round($total_delay / $metered_count, 1) : 0
 ];
 
-SwimResponse::success($response_data, [
+// Send response and cache it (tier-aware TTL)
+SwimResponse::successCached($response_data, 'metering', $cache_params, [
     'format' => $format,
     'metered_only' => $metered_only
 ]);

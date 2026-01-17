@@ -167,10 +167,10 @@ For questions or to request elevated access tiers (partner/system), contact:
 
 | Tier | Prefix | Rate Limit | WebSocket Connections | Write Access | Use Case |
 |------|--------|------------|----------------------|--------------|----------|
-| **system** | `swim_sys_` | 10,000/min | 10,000 | Yes | Trusted systems (vNAS, CRC, SimTraffic) |
-| **partner** | `swim_par_` | 1,000/min | 500 | Limited | Integration partners (Virtual Airlines) |
-| **developer** | `swim_dev_` | 100/min | 50 | No | Development and testing |
-| **public** | `swim_pub_` | 30/min | 5 | No | Public consumers |
+| **system** | `swim_sys_` | 30,000/min | 10,000 | Yes | Trusted systems (vNAS, CRC, SimTraffic) |
+| **partner** | `swim_par_` | 3,000/min | 500 | Limited | Integration partners (Virtual Airlines) |
+| **developer** | `swim_dev_` | 300/min | 50 | No | Development and testing |
+| **public** | `swim_pub_` | 100/min | 5 | No | Public consumers |
 
 ### 3.3 Authentication
 
@@ -1573,10 +1573,10 @@ define('SWIM_API_PREFIX', '/api/swim/v1');
 
 // Rate Limits (requests per minute)
 $SWIM_RATE_LIMITS = [
-    'system'    => 10000,
-    'partner'   => 1000,
-    'developer' => 100,
-    'public'    => 30
+    'system'    => 30000,
+    'partner'   => 3000,
+    'developer' => 300,
+    'public'    => 100
 ];
 
 // API Key Prefixes
@@ -1656,7 +1656,7 @@ $tierLimits = [
     'public'    => 5,
     'developer' => 50,
     'partner'   => 500,
-    'system'    => 10000
+    'system'    => 10000  // WebSocket connection limits (unchanged)
 ];
 ```
 

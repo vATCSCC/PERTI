@@ -248,10 +248,10 @@ PERTI/sdk/
 ### API Key Tiers
 | Tier | Rate Limit | WS Connections | Write Access |
 |------|------------|----------------|--------------|
-| system | 10,000/min | 10,000 | Yes |
-| partner | 1,000/min | 500 | Limited |
-| developer | 100/min | 50 | No |
-| public | 30/min | 5 | No |
+| system | 30,000/min | 10,000 | Yes |
+| partner | 3,000/min | 500 | Limited |
+| developer | 300/min | 50 | No |
+| public | 100/min | 5 | No |
 
 ---
 

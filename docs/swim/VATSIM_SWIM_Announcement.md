@@ -35,10 +35,10 @@ Visit **https://perti.vatcscc.org/swim-keys** and log in with your VATSIM accoun
 
 | Tier | Rate Limit | WebSocket Connections | Best For |
 |------|------------|----------------------|----------|
-| **Public** | 30 req/min | 5 | Personal projects, web apps |
-| **Developer** | 100 req/min | 50 | Development, testing, prototypes |
+| **Public** | 100 req/min | 5 | Personal projects, web apps |
+| **Developer** | 300 req/min | 50 | Development, testing, prototypes |
 
-*Partner (1,000/min) and System (10,000/min) tiers available upon request for virtual airlines and integration partners.*
+*Partner (3,000/min) and System (30,000/min) tiers available upon request for virtual airlines and integration partners.*
 
 ### Step 2: Make Your First Request
 

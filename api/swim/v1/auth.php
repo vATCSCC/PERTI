@@ -148,13 +148,63 @@ class SwimAuth {
  * SWIM Response Helper
  */
 class SwimResponse {
-    
+
+    /** @var string|null Current tier for cache TTL calculation */
+    private static $currentTier = 'public';
+
+    /**
+     * Set the current API tier (called after auth)
+     */
+    public static function setTier($tier) {
+        self::$currentTier = $tier ?: 'public';
+    }
+
+    /**
+     * Get the current API tier
+     */
+    public static function getTier() {
+        return self::$currentTier;
+    }
+
     public static function json($data, $status = 200) {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         header('X-SWIM-Version: ' . SWIM_API_VERSION);
         self::setCorsHeaders();
-        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        // ETag support - check if client has current version
+        if (defined('SWIM_ENABLE_ETAG') && SWIM_ENABLE_ETAG && $status === 200) {
+            $etag = '"' . md5($json) . '"';
+            header("ETag: $etag");
+            header('Cache-Control: private, must-revalidate');
+
+            $clientEtag = $_SERVER['HTTP_IF_NONE_MATCH'] ?? '';
+            if ($clientEtag === $etag) {
+                http_response_code(304);
+                exit;
+            }
+        }
+
+        // Gzip compression for responses > threshold
+        if (defined('SWIM_ENABLE_GZIP') && SWIM_ENABLE_GZIP) {
+            $minSize = defined('SWIM_GZIP_MIN_SIZE') ? SWIM_GZIP_MIN_SIZE : 1024;
+            $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+
+            if (strlen($json) > $minSize && strpos($acceptEncoding, 'gzip') !== false) {
+                $compressed = gzencode($json, 6);
+                if ($compressed !== false) {
+                    header('Content-Encoding: gzip');
+                    header('Content-Length: ' . strlen($compressed));
+                    header('Vary: Accept-Encoding');
+                    echo $compressed;
+                    exit;
+                }
+            }
+        }
+
+        echo $json;
         exit;
     }
     
@@ -181,6 +231,77 @@ class SwimResponse {
             ],
             'timestamp' => gmdate('c')
         ], 200);
+    }
+
+    /**
+     * Send cached response if available, otherwise return false
+     *
+     * @param string $endpoint Endpoint key for TTL lookup
+     * @param array $params Request parameters for cache key
+     * @return bool True if cache hit (response sent), false if cache miss
+     */
+    public static function tryCached($endpoint, $params = []) {
+        $cache_key = swim_cache_key($endpoint, $params);
+        $cached = swim_cache_get($cache_key);
+
+        if ($cached !== null) {
+            header('X-SWIM-Cache: HIT');
+            self::json($cached, 200);
+            return true;
+        }
+
+        header('X-SWIM-Cache: MISS');
+        return false;
+    }
+
+    /**
+     * Send success response and cache it
+     *
+     * @param mixed $data Response data
+     * @param string $endpoint Endpoint key for TTL lookup
+     * @param array $params Request parameters for cache key
+     * @param array $meta Optional metadata
+     */
+    public static function successCached($data, $endpoint, $params = [], $meta = []) {
+        $response = ['success' => true, 'data' => $data, 'timestamp' => gmdate('c')];
+        if (!empty($meta)) $response['meta'] = $meta;
+
+        // Cache the response
+        $cache_key = swim_cache_key($endpoint, $params);
+        $ttl = swim_get_cache_ttl($endpoint, self::$currentTier);
+        swim_cache_set($cache_key, $response, $ttl);
+
+        self::json($response, 200);
+    }
+
+    /**
+     * Send paginated response and cache it
+     *
+     * @param array $data Response data array
+     * @param int $total Total count
+     * @param int $page Current page
+     * @param int $per_page Items per page
+     * @param string $endpoint Endpoint key for TTL lookup
+     * @param array $params Request parameters for cache key
+     */
+    public static function paginatedCached($data, $total, $page, $per_page, $endpoint, $params = []) {
+        $total_pages = ceil($total / $per_page);
+        $response = [
+            'success' => true,
+            'data' => $data,
+            'pagination' => [
+                'total' => $total, 'page' => $page, 'per_page' => $per_page,
+                'total_pages' => $total_pages, 'has_more' => $page < $total_pages
+            ],
+            'timestamp' => gmdate('c')
+        ];
+
+        // Cache the response
+        $cache_key = swim_cache_key($endpoint, $params);
+        $ttl = swim_get_cache_ttl($endpoint, self::$currentTier);
+        swim_cache_set($cache_key, $response, $ttl);
+
+        self::json($response, 200);
     }
     
     private static function setCorsHeaders() {
@@ -209,14 +330,14 @@ function swim_init_auth($require_auth = true, $require_write = false) {
     global $conn_swim, $conn_adl;
     SwimResponse::handlePreflight();
     if (!$require_auth) return null;
-    
+
     // Use SWIM_API database if available, fall back to VATSIM_ADL during migration
     $conn = $conn_swim ?: $conn_adl;
-    
+
     if (!$conn) {
         SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
     }
-    
+
     $auth = new SwimAuth($conn);
     if (!$auth->authenticate()) {
         SwimResponse::error($auth->getError(), 401, 'UNAUTHORIZED');
@@ -224,6 +345,11 @@ function swim_init_auth($require_auth = true, $require_write = false) {
     if ($require_write && !$auth->canWrite()) {
         SwimResponse::error('Write access not permitted for this API key', 403, 'FORBIDDEN');
     }
+
+    // Set tier for cache TTL calculation
+    $key_info = $auth->getKeyInfo();
+    SwimResponse::setTier($key_info['tier'] ?? 'public');
+
     return $auth;
 }
 
