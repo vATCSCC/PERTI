@@ -1,5 +1,11 @@
 <?php
 
+// Prevent multiple inclusions
+if (defined('NAV_PHP_LOADED')) {
+    return;
+}
+define('NAV_PHP_LOADED', true);
+
 // Session Start (S)
 // Check headers_sent() to avoid warning when included after HTML output
 if (session_status() == PHP_SESSION_NONE && !headers_sent()) {
@@ -8,8 +14,8 @@ if (session_status() == PHP_SESSION_NONE && !headers_sent()) {
 }
 // Session Start (E)
 
-include("config.php");
-include("connect.php");
+include_once("config.php");
+include_once("connect.php");
 
 //  Check Perms
 $perm = false;
@@ -105,30 +111,36 @@ $nav_config = [
 // NAVIGATION RENDERING FUNCTIONS
 // ============================================================================
 
-function render_nav_item($item, $filepath) {
-    $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
-    $path = $filepath . $item['path'];
-    return '<a class="dropdown-item" href="' . $path . '"' . $target . '>' . $item['label'] . '</a>';
-}
-
-function render_standalone_link($item, $filepath) {
-    $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
-    $path = $filepath . $item['path'];
-    return '<li class="nav-item"><a class="nav-link" href="' . $path . '"' . $target . '>' . $item['label'] . '</a></li>';
-}
-
-function render_dropdown($key, $group, $filepath) {
-    $html = '<li class="nav-item dropdown">';
-    $html .= '<a class="nav-link dropdown-toggle" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-    $html .= $group['label'];
-    $html .= '</a>';
-    $html .= '<div class="dropdown-menu" aria-labelledby="nav-' . $key . '">';
-    foreach ($group['items'] as $item) {
-        $html .= render_nav_item($item, $filepath);
+if (!function_exists('render_nav_item')) {
+    function render_nav_item($item, $filepath) {
+        $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
+        $path = $filepath . $item['path'];
+        return '<a class="dropdown-item" href="' . $path . '"' . $target . '>' . $item['label'] . '</a>';
     }
-    $html .= '</div>';
-    $html .= '</li>';
-    return $html;
+}
+
+if (!function_exists('render_standalone_link')) {
+    function render_standalone_link($item, $filepath) {
+        $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
+        $path = $filepath . $item['path'];
+        return '<li class="nav-item"><a class="nav-link" href="' . $path . '"' . $target . '>' . $item['label'] . '</a></li>';
+    }
+}
+
+if (!function_exists('render_dropdown')) {
+    function render_dropdown($key, $group, $filepath) {
+        $html = '<li class="nav-item dropdown">';
+        $html .= '<a class="nav-link dropdown-toggle" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= $group['label'];
+        $html .= '</a>';
+        $html .= '<div class="dropdown-menu" aria-labelledby="nav-' . $key . '">';
+        foreach ($group['items'] as $item) {
+            $html .= render_nav_item($item, $filepath);
+        }
+        $html .= '</div>';
+        $html .= '</li>';
+        return $html;
+    }
 }
 
 ?>
