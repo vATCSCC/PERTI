@@ -81,11 +81,13 @@ $nav_config = [
             ['label' => 'Crossings', 'path' => './airspace-elements'],
         ]
     ],
-    // Standalone link (no dropdown)
-    'api' => [
-        'label' => 'API Docs',
-        'path' => './api-docs/',
-        'external' => true,
+    // Dropdown: SWIM API
+    'swim' => [
+        'label' => 'SWIM',
+        'items' => [
+            ['label' => 'API Keys', 'path' => './swim-keys'],
+            ['label' => 'API Docs', 'path' => './api-docs/', 'external' => true],
+        ]
     ],
 ];
 
