@@ -1,0 +1,49 @@
+server {
+    listen 8080;
+    listen [::]:8080;
+    root /home/site/wwwroot;
+    index index.php index.html index.htm;
+    server_name _;
+    port_in_redirect off;
+
+    # Disable directory slash redirect
+    try_files $uri $uri/ @extensionless;
+
+    # Handle login specifically
+    location = /login {
+        rewrite ^ /login/index.php last;
+    }
+    location = /login/ {
+        rewrite ^ /login/index.php last;
+    }
+
+    # Handle extensionless PHP URLs
+    location @extensionless {
+        # Remove trailing slash and try .php
+        rewrite ^(.+)/$ $1 permanent;
+
+        # Try adding .php extension
+        if (-f $document_root$uri.php) {
+            rewrite ^(.*)$ $1.php last;
+        }
+    }
+
+    # PHP processing
+    location ~ \.php$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    # Deny access to .htaccess files
+    location ~ /\.ht {
+        deny all;
+    }
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+}

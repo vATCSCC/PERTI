@@ -47,12 +47,15 @@ if (!defined("SQL_USERNAME")) {
     define("SWIM_SQL_PASSWORD", env('SWIM_SQL_PASSWORD', 'CAMRN@11000'));
 
     define("ADL_QUERY_SOURCE", "normalized");
-    define("SITE_DOMAIN", "perti.vatcscc.org");
+
+    // Dynamic domain detection for multi-site support
+    $currentHost = $_SERVER['HTTP_HOST'] ?? 'perti.vatcscc.org';
+    define("SITE_DOMAIN", $currentHost);
 
     define("CONNECT_CLIENT_ID", 975);
     define("CONNECT_SECRET", env('CONNECT_SECRET', 'uL1c3v2rAIn7G9bTKW79KPHmQoXQdAax5V1LDqNL'));
     define("CONNECT_SCOPES", 'full_name vatsim_details');
-    define("CONNECT_REDIRECT_URI", 'https://perti.vatcscc.org/login/callback');
+    define("CONNECT_REDIRECT_URI", 'https://' . $currentHost . '/login/callback');
     define("CONNECT_URL_BASE", 'https://auth.vatsim.net');
 
     define("ENV", 'prod');
