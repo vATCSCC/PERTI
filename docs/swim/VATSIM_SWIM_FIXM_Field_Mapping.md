@@ -210,6 +210,96 @@
 
 ---
 
+## 12.1 External Flow Management (ECFMP, NavCanada, VATPAC)
+
+Provider-agnostic integration for external flow management systems. FIXM-aligned field mapping for global interoperability.
+
+### Flow Providers
+
+| Concept | FIXM Field | JSON API | DB Column | Description |
+|---------|------------|----------|-----------|-------------|
+| **Provider Code** | `providerCode` | `provider.code` | `provider_code` | ECFMP, NAVCAN, VATPAC |
+| **Provider Name** | `providerName` | `provider.name` | `provider_name` | Display name |
+| **API Base URL** | — | `api.base_url` | `api_base_url` | Provider API endpoint |
+| **Region Codes** | `flightInformationRegion` | `coverage.regions` | `region_codes_json` | EUR, NAM, NAT, PAC |
+| **FIR Codes** | `flightInformationRegion` | `coverage.firs` | `fir_codes_json` | EGTT, CZQX, etc. |
+
+### Flow Events (FIXM: `/flight/specialHandling`)
+
+| Concept | FIXM Field | JSON API | DB Column | Description |
+|---------|------------|----------|-----------|-------------|
+| **Event Code** | `specialHandlingCode` | `code` | `event_code` | CTP2026, FNO2026 |
+| **Event Name** | `specialHandlingDescription` | `name` | `event_name` | Cross the Pond 2026 |
+| **Event Type** | `specialHandlingType` | `type` | `event_type` | SPECIAL, EXERCISE, VIP |
+| **Start Time** | `timeRange/start` | `timeRange.start` | `start_utc` | Event start |
+| **End Time** | `timeRange/end` | `timeRange.end` | `end_utc` | Event end |
+| **GS Exempt** | `exemptIndicator` | `exemptions.groundStop` | `gs_exempt` | Event flights exempt from GS |
+| **GDP Priority** | `priorityIndicator` | `exemptions.gdpPriority` | `gdp_priority` | Event flights get priority |
+| **Participant Count** | — | `participantCount` | `participant_count` | Number of registered pilots |
+
+### Flow Event Participants (FIXM: `/flight/flightIdentification`)
+
+| Concept | FIXM Field | JSON API | DB Column | Description |
+|---------|------------|----------|-----------|-------------|
+| **Pilot CID** | `vATCSCC:pilotCid` | `cid` | `pilot_cid` | VATSIM CID |
+| **Callsign** | `aircraftIdentification` | `callsign` | `callsign` | Pre-registered callsign |
+| **Departure** | `departureAerodrome` | `departure` | `dep_aerodrome` | Origin ICAO |
+| **Arrival** | `arrivalAerodrome` | `arrival` | `arr_aerodrome` | Destination ICAO |
+| **Flight Matched** | — | `flightMatched` | `flight_uid` | Matched to active flight |
+
+### Flow Measures (FIXM: `/atfm/flowElement`)
+
+| Concept | FIXM Field | TFMS | JSON API | DB Column | Description |
+|---------|------------|------|----------|-----------|-------------|
+| **Measure Ident** | `flowMeasureIdentifier` | `FM_ID` | `ident` | `ident` | EGTT22A |
+| **Measure Type** | `flowMeasureType` | `FM_TYPE` | `type` | `measure_type` | See table below |
+| **Measure Value** | `flowMeasureValue` | `FM_VAL` | `value` | `measure_value` | Numeric value |
+| **Measure Unit** | `flowMeasureUnit` | — | `unit` | `measure_unit` | NM, MIN, SEC, PER_HOUR |
+| **Reason** | `atfmReason` | `FM_RSN` | `reason` | `reason` | CTP Event Traffic |
+| **Control Element** | `controlElement` | `CTL_ELEM` | `controlElement` | `ctl_element` | Airport/FIR/Fix |
+| **Element Type** | `elementType` | `ELM_TYPE` | `elementType` | `element_type` | APT, FIR, FCA, FIX |
+| **Mandatory Route** | `routeConstraint` | `MAND_RTE` | `mandatoryRoute` | `mandatory_route_json` | Required route fixes |
+
+### Measure Types (TFMS-aligned)
+
+| Type | FIXM Equivalent | Description | Unit |
+|------|-----------------|-------------|------|
+| `MIT` | `milesInTrail` | Miles-In-Trail | NM |
+| `MINIT` | `minutesInTrail` | Minutes-In-Trail | MIN |
+| `MDI` | `minimumDepartureInterval` | Minimum Departure Interval | SEC |
+| `RATE` | `departureRate` | Departure Rate Cap | PER_HOUR |
+| `GS` | `groundStop` | Ground Stop | — |
+| `GDP` | `groundDelayProgram` | Ground Delay Program | MIN |
+| `AFP` | `airspaceFlowProgram` | Airspace Flow Program | MIN |
+| `REROUTE` | `routeConstraint` | Mandatory Reroute | — |
+
+### Flow Measure Filters (FIXM: `/atfm/flowElement/filter`)
+
+| Concept | FIXM Field | JSON API | DB (filters_json) | Description |
+|---------|------------|----------|-------------------|-------------|
+| **Departure Airports** | `departureAerodrome` | `filters.departureAerodrome` | `adep` | Origin filter |
+| **Arrival Airports** | `arrivalAerodrome` | `filters.arrivalAerodrome` | `ades` | Destination filter |
+| **Departure FIRs** | `departureFir` | `filters.departureFir` | `adep_fir` | Origin FIR filter |
+| **Arrival FIRs** | `arrivalFir` | `filters.arrivalFir` | `ades_fir` | Destination FIR filter |
+| **Waypoints** | `routePoint` | `filters.waypoints` | `waypoints` | Route point filter |
+| **Airways** | `airway` | `filters.airways` | `airways` | Airway filter |
+| **Flight Level** | `flightLevel` | `filters.flightLevel` | `levels` | Min/max altitude |
+| **Aircraft Type** | `aircraftType` | `filters.aircraftType` | `aircraft_type` | Type filter |
+| **Event Membership** | — | `filters.memberEvent` | `member_event` | Event ID filter |
+
+### Flight-Level Flow Data (adl_flight_tmi extension)
+
+| Concept | FIXM Field | JSON API | DB Column | Description |
+|---------|------------|----------|-----------|-------------|
+| **Flow Event ID** | — | `ecfmp.event.id` | `flow_event_id` | FK to tmi_flow_events |
+| **Flow Event Code** | `specialHandlingCode` | `ecfmp.event.code` | `flow_event_code` | CTP2026 |
+| **Flow Priority** | `priorityIndicator` | `ecfmp.priority` | `flow_priority` | EVENT, STANDARD |
+| **GS Exempt Flag** | `exemptIndicator` | `ecfmp.gsExempt` | `flow_gs_exempt` | Event flight exempt |
+| **Flow Measure ID** | — | `ecfmp.activeMeasure.id` | `flow_measure_id` | FK to tmi_flow_measures |
+| **Flow Measure Ident** | `flowMeasureIdentifier` | `ecfmp.activeMeasure.ident` | `flow_measure_ident` | EGTT22A |
+
+---
+
 ## 13. Metering & Sequencing (TBFM)
 
 ### Core TBFM Fields (FIXM 4.3)

@@ -22,7 +22,9 @@ $counts = [
     'active_programs' => 0,
     'active_advisories' => 0,
     'active_reroutes' => 0,
-    'active_public_routes' => 0
+    'active_public_routes' => 0,
+    'active_flow_events' => 0,
+    'active_flow_measures' => 0
 ];
 
 if ($conn_tmi) {
@@ -63,6 +65,22 @@ if ($conn_tmi) {
     $stmt = sqlsrv_query($conn_tmi, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_public_routes'] = $row['cnt'];
+    }
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Count active flow events (external providers)
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_flow_events";
+    $stmt = sqlsrv_query($conn_tmi, $sql);
+    if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $counts['active_flow_events'] = $row['cnt'];
+    }
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Count active flow measures (external providers)
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_flow_measures";
+    $stmt = sqlsrv_query($conn_tmi, $sql);
+    if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $counts['active_flow_measures'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
 }
@@ -109,6 +127,36 @@ $response = [
             'path' => '/api/swim/v1/tmi/routes',
             'methods' => ['GET'],
             'description' => 'Public route display (GeoJSON)',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/measures',
+            'methods' => ['GET'],
+            'description' => 'Unified TMI measures (USA + external providers)',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/flow/',
+            'methods' => ['GET'],
+            'description' => 'External flow management index',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/flow/providers',
+            'methods' => ['GET'],
+            'description' => 'Registered flow management providers',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/flow/events',
+            'methods' => ['GET'],
+            'description' => 'External events (CTP, FNO, etc.)',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/flow/measures',
+            'methods' => ['GET'],
+            'description' => 'External flow measures (MIT, MDI, etc.)',
             'auth' => 'optional'
         ]
     ],
