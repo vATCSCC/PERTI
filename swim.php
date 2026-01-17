@@ -33,293 +33,203 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
         include("load/header.php");
     ?>
     <style>
-        /* SWIM Reference Page Styling */
+        /* SWIM Reference Page - Technical/Functional Styling */
 
-        /* Hero section enhancement */
-        .swim-hero {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            position: relative;
-            overflow: hidden;
-        }
-        .swim-hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="%234a9eff" opacity="0.3"/></svg>') repeat;
-            background-size: 50px 50px;
-            animation: moveBackground 20s linear infinite;
-            opacity: 0.5;
-        }
-        @keyframes moveBackground {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(50px, 50px); }
-        }
-        .swim-hero-content {
-            position: relative;
-            z-index: 1;
-        }
-        .swim-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, #00ff88, #00cc6a);
-            color: #1a1a2e;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 15px;
-        }
-        .swim-title {
-            font-size: 3rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 10px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        .swim-title span {
-            color: #4a9eff;
-        }
-        .swim-subtitle {
-            font-size: 1.3rem;
-            color: #b0bec5;
-            margin-bottom: 25px;
-        }
-        .swim-version {
-            color: #78909c;
-            font-size: 0.9rem;
-        }
-        .swim-version strong {
-            color: #4a9eff;
-        }
-
-        /* Announcement banner */
-        .announcement-banner {
-            background: linear-gradient(90deg, #00c853, #00e676);
-            color: #1a1a2e;
-            padding: 12px 20px;
-            border-radius: 8px;
+        /* Section styling */
+        .section-header {
             margin-bottom: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            box-shadow: 0 4px 15px rgba(0,200,83,0.3);
         }
-        .announcement-banner i {
-            font-size: 1.4rem;
+        .section-header h2 {
+            color: #1a1a2e;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 1.5rem;
         }
-        .announcement-banner strong {
-            font-size: 1.05rem;
+        .section-header p {
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+        .section-divider {
+            border-top: 1px solid #dee2e6;
+            margin: 40px 0;
         }
 
-        /* Feature cards */
+        /* Feature cards - simpler */
         .feature-card {
             background: #fff;
-            border-radius: 12px;
-            padding: 25px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
             height: 100%;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            border: 1px solid #e9ecef;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-        }
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #4a9eff 0%, #667eea 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 18px;
-        }
-        .feature-icon i {
-            font-size: 1.6rem;
-            color: #fff;
         }
         .feature-card h5 {
             color: #1a1a2e;
             font-weight: 600;
-            margin-bottom: 10px;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+        .feature-card h5 i {
+            color: #5dade2;
+            margin-right: 8px;
         }
         .feature-card p {
             color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             margin-bottom: 0;
-        }
-
-        /* Section styling */
-        .section-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        .section-header h2 {
-            color: #1a1a2e;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        .section-header p {
-            color: #6c757d;
-            font-size: 1.1rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .section-divider {
-            border-top: 2px solid #e9ecef;
-            margin: 50px 0;
         }
 
         /* Getting started cards */
         .getting-started-step {
             background: #f8f9fa;
-            border-radius: 12px;
-            padding: 25px;
-            position: relative;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
             height: 100%;
         }
         .step-number {
-            position: absolute;
-            top: -15px;
-            left: 20px;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #4a9eff 0%, #667eea 100%);
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            background: #5dade2;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
+            text-align: center;
+            line-height: 28px;
+            font-weight: 600;
             color: #fff;
-            font-size: 1.1rem;
-            box-shadow: 0 4px 10px rgba(74,158,255,0.3);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
         }
         .getting-started-step h5 {
-            margin-top: 15px;
             color: #1a1a2e;
             font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 10px;
         }
         .getting-started-step p {
             color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
-        /* Code blocks */
+        /* Code blocks - dark terminal style */
         .code-block {
             background: #1a1a2e;
-            border-radius: 8px;
-            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
             overflow-x: auto;
-            margin: 15px 0;
+            margin: 12px 0;
         }
         .code-block pre {
             margin: 0;
             color: #e0e0e0;
             font-family: 'Inconsolata', 'Courier New', monospace;
-            font-size: 0.85rem;
-            line-height: 1.5;
+            font-size: 0.8rem;
+            line-height: 1.4;
         }
         .code-block .keyword { color: #c792ea; }
         .code-block .string { color: #c3e88d; }
-        .code-block .comment { color: #546e7a; }
+        .code-block .comment { color: #6a9955; }
         .code-block .variable { color: #f07178; }
         .code-block .function { color: #82aaff; }
 
-        /* Use case tabs */
+        /* Use case tabs - simpler */
         .use-case-tabs .nav-link {
-            color: #6c757d;
-            border: none;
-            padding: 12px 20px;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+            padding: 10px 18px;
             font-weight: 500;
-            border-radius: 8px 8px 0 0;
+            font-size: 0.9rem;
+            border-radius: 4px 4px 0 0;
             background: #f8f9fa;
-            margin-right: 4px;
+            margin-right: 2px;
         }
         .use-case-tabs .nav-link:hover {
-            color: #4a9eff;
+            color: #5dade2;
             background: #e9ecef;
         }
         .use-case-tabs .nav-link.active {
             color: #fff;
-            background: linear-gradient(135deg, #4a9eff 0%, #667eea 100%);
+            background: #5dade2;
+            border-color: #5dade2;
         }
         .use-case-content {
             background: #fff;
-            border: 1px solid #e9ecef;
-            border-radius: 0 12px 12px 12px;
-            padding: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid #dee2e6;
+            border-radius: 0 4px 4px 4px;
+            padding: 25px;
         }
         .use-case-content h5 {
             color: #1a1a2e;
             font-weight: 600;
-            margin-bottom: 15px;
+            font-size: 0.95rem;
+            margin-bottom: 12px;
         }
         .use-case-content ul {
             padding-left: 20px;
+            margin-bottom: 0;
         }
         .use-case-content li {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             color: #495057;
+            font-size: 0.9rem;
         }
 
-        /* Endpoint table */
+        /* Endpoint table - TBFM style */
         .endpoint-table {
             background: #fff;
-            border-radius: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
         .endpoint-table th {
             background: linear-gradient(180deg, #3a4a5c 0%, #2c3e50 100%);
             color: #fff;
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.03em;
-            padding: 12px 15px;
+            padding: 10px 12px;
         }
         .endpoint-table td {
-            padding: 12px 15px;
+            padding: 10px 12px;
             border-bottom: 1px solid #e9ecef;
             vertical-align: middle;
+            font-size: 0.9rem;
         }
         .endpoint-table code {
             background: #e9ecef;
             color: #1a1a2e;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.85rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8rem;
         }
         .method-badge {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
         }
-        .method-get { background: #4a9eff; color: #fff; }
-        .method-post { background: #00c853; color: #fff; }
+        .method-get { background: #5dade2; color: #fff; }
+        .method-post { background: #28a745; color: #fff; }
 
         /* Tier comparison table */
         .tier-table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            overflow: hidden;
         }
         .tier-table th, .tier-table td {
-            padding: 12px 15px;
+            padding: 10px 12px;
             text-align: center;
             border-bottom: 1px solid #e9ecef;
+            font-size: 0.85rem;
         }
-        .tier-table th {
+        .tier-table thead th {
             background: #f8f9fa;
             font-weight: 600;
             color: #1a1a2e;
@@ -328,68 +238,64 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
             text-align: left;
         }
         .tier-header {
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 4px 10px;
+            border-radius: 3px;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
         }
-        .tier-public { background: #e8f5e9; color: #2e7d32; }
-        .tier-developer { background: #e3f2fd; color: #1565c0; }
-        .tier-partner { background: #fff3e0; color: #ef6c00; }
-        .tier-system { background: #ffebee; color: #c62828; }
+        .tier-public { background: #d4edda; color: #155724; }
+        .tier-developer { background: #cce5ff; color: #004085; }
+        .tier-partner { background: #fff3cd; color: #856404; }
+        .tier-system { background: #f8d7da; color: #721c24; }
 
-        /* SDK cards */
+        /* SDK cards - mark as coming soon */
         .sdk-card {
-            background: #fff;
-            border: 1px solid #e9ecef;
-            border-radius: 10px;
-            padding: 20px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
             text-align: center;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .sdk-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            opacity: 0.6;
         }
         .sdk-card i {
-            font-size: 2.5rem;
-            margin-bottom: 12px;
+            font-size: 2rem;
+            margin-bottom: 8px;
+            color: #6c757d;
         }
         .sdk-card h6 {
-            color: #1a1a2e;
+            color: #495057;
             font-weight: 600;
-            margin-bottom: 5px;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
         }
         .sdk-card small {
             color: #6c757d;
+            font-size: 0.75rem;
         }
-        .sdk-python i { color: #3776ab; }
-        .sdk-javascript i { color: #f7df1e; }
-        .sdk-csharp i { color: #68217a; }
-        .sdk-java i { color: #ed8b00; }
 
         /* CTA section */
         .cta-section {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-radius: 16px;
-            padding: 50px 40px;
+            background: #252540;
+            border-radius: 6px;
+            padding: 35px 30px;
             text-align: center;
             color: #fff;
         }
         .cta-section h3 {
-            font-weight: 700;
-            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
         }
         .cta-section p {
             color: #b0bec5;
-            font-size: 1.1rem;
-            margin-bottom: 25px;
+            font-size: 0.95rem;
+            margin-bottom: 20px;
         }
         .cta-section .btn {
-            padding: 12px 30px;
-            font-weight: 600;
-            border-radius: 8px;
-            margin: 5px;
+            padding: 10px 25px;
+            font-weight: 500;
+            border-radius: 4px;
+            margin: 4px;
         }
 
         /* Resources grid */
@@ -397,45 +303,40 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
             display: flex;
             align-items: center;
             background: #f8f9fa;
-            border-radius: 10px;
-            padding: 18px 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
             text-decoration: none;
             color: #1a1a2e;
-            transition: background 0.2s, transform 0.2s;
             height: 100%;
         }
         .resource-link:hover {
             background: #e9ecef;
-            transform: translateX(5px);
             text-decoration: none;
             color: #1a1a2e;
+            border-color: #5dade2;
         }
         .resource-link i {
-            font-size: 1.5rem;
-            color: #4a9eff;
-            margin-right: 15px;
-            width: 40px;
+            font-size: 1.3rem;
+            color: #5dade2;
+            margin-right: 12px;
+            width: 30px;
             text-align: center;
         }
         .resource-link span {
             font-weight: 500;
+            font-size: 0.9rem;
         }
         .resource-link small {
             display: block;
             color: #6c757d;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
-            .swim-title {
-                font-size: 2rem;
-            }
-            .swim-subtitle {
-                font-size: 1rem;
-            }
-            .feature-card {
-                margin-bottom: 20px;
+            .feature-card, .getting-started-step {
+                margin-bottom: 15px;
             }
         }
     </style>
@@ -446,82 +347,57 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
 <?php include('load/nav.php'); ?>
 
 <!-- Hero Section -->
-<section class="swim-hero py-5">
-    <div class="container swim-hero-content">
-        <div class="row align-items-center">
-            <div class="col-lg-8 offset-lg-2 text-center py-5">
-                <div class="swim-badge">
-                    <i class="fas fa-rocket mr-1"></i> Now Available
-                </div>
-                <h1 class="swim-title">VATSIM <span>SWIM</span> API</h1>
-                <p class="swim-subtitle">System Wide Information Management for the VATSIM Network</p>
-                <p class="swim-version">
-                    <strong>Version 1.0.0</strong> &bull; Released January 2026 &bull; Production Ready
-                </p>
-                <div class="mt-4">
-                    <a href="swim-keys" class="btn btn-success btn-lg mr-2">
-                        <i class="fas fa-key mr-2"></i>Get API Key
-                    </a>
-                    <a href="docs/swim/" class="btn btn-outline-light btn-lg" target="_blank">
-                        <i class="fas fa-book mr-2"></i>View Documentation
-                    </a>
-                </div>
+<section class="d-flex align-items-center position-relative min-vh-25 py-4" data-jarallax data-speed="0.3" style="pointer-events: all;">
+    <div class="container-fluid pt-2 pb-4 py-lg-5">
+        <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
+        <center>
+            <h1><i class="fas fa-database mr-2"></i>VATSIM SWIM API</h1>
+            <h4 class="text-white pl-1">System Wide Information Management</h4>
+            <p class="text-muted mb-3">Version 1.0.0 &bull; Production Ready</p>
+            <div>
+                <a href="swim-keys" class="btn btn-success mr-2">
+                    <i class="fas fa-key mr-1"></i>Get API Key
+                </a>
+                <a href="docs/swim/" class="btn btn-outline-light" target="_blank">
+                    <i class="fas fa-book mr-1"></i>Documentation
+                </a>
             </div>
-        </div>
+        </center>
     </div>
 </section>
 
 <!-- Main Content -->
-<div class="container py-5">
-
-    <!-- Announcement Banner -->
-    <div class="announcement-banner">
-        <i class="fas fa-bullhorn"></i>
-        <strong>VATSIM SWIM API v1.0.0 is now publicly available!</strong>
-        <span>Real-time flight data, positions, and TMI information for the entire VATSIM network.</span>
-    </div>
+<div class="container py-4">
 
     <!-- What is SWIM Section -->
     <div class="section-header">
         <h2>What is VATSIM SWIM?</h2>
-        <p>A centralized real-time data exchange hub providing unified access to flight information across the entire VATSIM network.</p>
+        <p>A centralized real-time data exchange hub for flight information across the VATSIM network.</p>
     </div>
 
-    <div class="row mb-5">
-        <div class="col-md-6 col-lg-3 mb-4">
+    <div class="row mb-4">
+        <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-bolt"></i>
-                </div>
-                <h5>REST API</h5>
-                <p>Query flights, positions, and TMI data with powerful filtering and pagination support.</p>
+                <h5><i class="fas fa-bolt"></i>REST API</h5>
+                <p>Query flights, positions, and TMI data with filtering and pagination.</p>
             </div>
         </div>
-        <div class="col-md-6 col-lg-3 mb-4">
+        <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-broadcast-tower"></i>
-                </div>
-                <h5>WebSocket</h5>
-                <p>Real-time event streaming for departures, arrivals, and position updates with sub-second latency.</p>
+                <h5><i class="fas fa-broadcast-tower"></i>WebSocket</h5>
+                <p>Real-time event streaming for departures, arrivals, and position updates.</p>
             </div>
         </div>
-        <div class="col-md-6 col-lg-3 mb-4">
+        <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-map-marked-alt"></i>
-                </div>
-                <h5>GeoJSON Output</h5>
-                <p>Position data ready for direct rendering on MapLibre, Leaflet, or Mapbox maps.</p>
+                <h5><i class="fas fa-map-marked-alt"></i>GeoJSON</h5>
+                <p>Position data ready for MapLibre, Leaflet, or Mapbox rendering.</p>
             </div>
         </div>
-        <div class="col-md-6 col-lg-3 mb-4">
+        <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-traffic-light"></i>
-                </div>
-                <h5>TMI Data</h5>
-                <p>Access Ground Stops, GDPs, EDCT assignments, and controlled flight information.</p>
+                <h5><i class="fas fa-traffic-light"></i>TMI Data</h5>
+                <p>Ground Stops, GDPs, EDCTs, and controlled flight information.</p>
             </div>
         </div>
     </div>
@@ -531,39 +407,33 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
     <!-- Getting Started Section -->
     <div class="section-header">
         <h2>Getting Started</h2>
-        <p>Start integrating with SWIM in three simple steps.</p>
+        <p>Start integrating with SWIM in three steps.</p>
     </div>
 
-    <div class="row mb-5">
-        <div class="col-md-4 mb-4">
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
             <div class="getting-started-step">
                 <div class="step-number">1</div>
                 <h5>Create Your API Key</h5>
-                <p>Visit the <a href="swim-keys">API Key Management Portal</a> and log in with your VATSIM account to create a key instantly.</p>
-                <a href="swim-keys" class="btn btn-primary btn-sm mt-2">
-                    <i class="fas fa-key mr-1"></i> Get API Key
-                </a>
+                <p>Log in with your VATSIM account at the <a href="swim-keys">API Key Portal</a> to create a key instantly.</p>
             </div>
         </div>
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-3">
             <div class="getting-started-step">
                 <div class="step-number">2</div>
-                <h5>Make Your First Request</h5>
-                <p>Include your API key in the Authorization header and query the flights endpoint.</p>
-                <div class="code-block mt-3" style="font-size: 11px;">
+                <h5>Make a Request</h5>
+                <p>Include your API key in the Authorization header:</p>
+                <div class="code-block">
                     <pre><span class="keyword">curl</span> -H <span class="string">"Authorization: Bearer YOUR_KEY"</span> \
   https://perti.vatcscc.org/api/swim/v1/flights</pre>
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-3">
             <div class="getting-started-step">
                 <div class="step-number">3</div>
-                <h5>Explore the Docs</h5>
-                <p>Read the full API documentation to discover all available endpoints, filters, and WebSocket events.</p>
-                <a href="docs/swim/" class="btn btn-outline-primary btn-sm mt-2" target="_blank">
-                    <i class="fas fa-book mr-1"></i> View Documentation
-                </a>
+                <h5>Explore the API</h5>
+                <p>Read the <a href="docs/swim/" target="_blank">full documentation</a> to discover all endpoints, filters, and WebSocket events.</p>
             </div>
         </div>
     </div>
@@ -843,36 +713,36 @@ GET /positions?bounds=-76,39,-72,42</pre>
     <!-- Client SDKs -->
     <div class="section-header">
         <h2>Client SDKs</h2>
-        <p>Official client libraries for popular programming languages.</p>
+        <p>Official client libraries (coming soon).</p>
     </div>
 
-    <div class="row mb-5">
+    <div class="row mb-4">
         <div class="col-6 col-md-3 mb-3">
-            <div class="sdk-card sdk-python">
+            <div class="sdk-card">
                 <i class="fab fa-python"></i>
                 <h6>Python</h6>
-                <small>Async WebSocket support</small>
+                <small>Coming Soon</small>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-3">
-            <div class="sdk-card sdk-javascript">
+            <div class="sdk-card">
                 <i class="fab fa-js-square"></i>
                 <h6>JavaScript</h6>
-                <small>TypeScript included</small>
+                <small>Coming Soon</small>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-3">
-            <div class="sdk-card sdk-csharp">
+            <div class="sdk-card">
                 <i class="fab fa-microsoft"></i>
                 <h6>C# / .NET</h6>
-                <small>NuGet package</small>
+                <small>Coming Soon</small>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-3">
-            <div class="sdk-card sdk-java">
+            <div class="sdk-card">
                 <i class="fab fa-java"></i>
                 <h6>Java</h6>
-                <small>Maven artifact</small>
+                <small>Coming Soon</small>
             </div>
         </div>
     </div>
@@ -905,15 +775,6 @@ GET /positions?bounds=-76,39,-72,42</pre>
             </a>
         </div>
         <div class="col-md-6 col-lg-4 mb-3">
-            <a href="docs/swim/VATSIM_SWIM_Release_Documentation.md" class="resource-link" target="_blank">
-                <i class="fas fa-file-alt"></i>
-                <div>
-                    <span>Full Documentation</span>
-                    <small>Comprehensive reference guide</small>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-6 col-lg-4 mb-3">
             <a href="docs/swim/openapi.yaml" class="resource-link" target="_blank">
                 <i class="fas fa-code"></i>
                 <div>
@@ -923,11 +784,11 @@ GET /positions?bounds=-76,39,-72,42</pre>
             </a>
         </div>
         <div class="col-md-6 col-lg-4 mb-3">
-            <a href="https://github.com/vatcscc/swim-sdk" class="resource-link" target="_blank">
-                <i class="fab fa-github"></i>
+            <a href="https://vats.im/CommandCenter" class="resource-link" target="_blank">
+                <i class="fab fa-discord"></i>
                 <div>
-                    <span>SDK Repository</span>
-                    <small>Client libraries and examples</small>
+                    <span>Discord Community</span>
+                    <small>Get help and share projects</small>
                 </div>
             </a>
         </div>
@@ -960,8 +821,8 @@ GET /positions?bounds=-76,39,-72,42</pre>
 
 <script>
 $(document).ready(function() {
-    // Smooth scroll for anchor links
-    $('a[href^="#"]').on('click', function(e) {
+    // Smooth scroll for anchor links (exclude tabs which use data-toggle)
+    $('a[href^="#"]:not([data-toggle])').on('click', function(e) {
         e.preventDefault();
         var target = $(this.hash);
         if (target.length) {
