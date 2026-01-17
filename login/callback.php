@@ -98,38 +98,14 @@ if (isset($_GET['code'])) {
             $check_array = mysqli_fetch_array($check_run);
 
             if ($check_array['total'] > 0) {
-                // Setting Values
+                // User is authorized - create session
                 $first_name = $check_array['first_name'];
                 $last_name = $check_array['last_name'];
 
-                    // Generate Current IP Address (use server_get for safe access)
-                    if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-                        $rawip = server_get('HTTP_CLIENT_IP');
-                    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                        $rawip = server_get('HTTP_X_FORWARDED_FOR');
-                    } else {
-                        $rawip = server_get('REMOTE_ADDR', '127.0.0.1');
-                    }
-
-                    if (strpos($rawip, ':') !== false) {
-                        $ip = explode(':', $rawip)[0];
-                    } else {
-                        $ip = $rawip;
-                    }
-
-                    // Create Self-Identifying Cookie
-                    $selfcookie = uniqid() . $cid . random_int(1000, 5000);
-
-                    setcookie("SELF", $selfcookie, time() + (86400 * 30), "/");
-
-                // Use prepared statement to prevent SQL injection
-                $update_stmt = mysqli_prepare($conn_sqli, "UPDATE users SET last_session_ip=?, last_selfcookie=? WHERE cid=?");
-                mysqli_stmt_bind_param($update_stmt, "ssi", $ip, $selfcookie, $cid);
-
-                if (mysqli_stmt_execute($update_stmt)) {
-                    sessionstart($cid, $first_name, $last_name);
-                    header('Location: ../index');
-                }
+                // Start the session and redirect
+                sessionstart($cid, $first_name, $last_name);
+                header('Location: ../index');
+                exit;
 
             } else {
                 // Error: Not on Rosters

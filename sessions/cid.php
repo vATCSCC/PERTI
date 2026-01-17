@@ -1,4 +1,11 @@
 <?php
+/**
+ * @deprecated This file is no longer used as of the session handler simplification.
+ * The cURL-based session validation has been removed in favor of native PHP sessions.
+ * This file can be safely deleted after confirming no external systems depend on it.
+ *
+ * Previously: Called by sessions/handler.php to validate sessions via CID + IP
+ */
 
 include_once('../load/config.php');
 include_once('../load/connect.php');

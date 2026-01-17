@@ -1,39 +1,32 @@
 <?php
+/**
+ * Logout Handler
+ *
+ * Destroys the user's session and clears cookies.
+ *
+ * @package PERTI
+ * @subpackage Sessions
+ */
 
-// Session Start (S)
+// Start session if not already started
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
-    ob_start();
-}
-// Session Start (E)
-
-include('load/config.php');
-include('load/connect.php');
-
-// Generate Current IP Address
-if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-    $ip = $_SERVER['HTTP_CLIENT_IP'];
-} elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-} else {
-    $ip = $_SERVER['REMOTE_ADDR'];
 }
 
-$selfcookie = cookie_get('SELF'); 
+// Clear session variables
+unset($_SESSION['VATSIM_CID']);
+unset($_SESSION['VATSIM_FIRST_NAME']);
+unset($_SESSION['VATSIM_LAST_NAME']);
 
-$query = "UPDATE users SET last_session_ip='', last_selfcookie='' WHERE last_session_ip='$ip' AND last_selfcookie='$selfcookie'";
+// Destroy the session
+session_destroy();
 
-if (mysqli_query($conn_sqli, $query)) {
-    unset($_SESSION['VATSIM_CID']);
-    unset($_SESSION['VATSIM_FIRST_NAME']);
-    unset($_SESSION['VATSIM_LAST_NAME']);
-    
-    session_destroy();
-    
-    setCookie("PHPSESSID", "", time() - 3600, "/");
-    setCookie("SELF", "", time() - 3600, "/");
-    
-    header("Location: index.php");
-}
+// Clear cookies
+setcookie("PHPSESSID", "", time() - 3600, "/");
+setcookie("SELF", "", time() - 3600, "/");
+
+// Redirect to home
+header("Location: index.php");
+exit;
 
 ?>
