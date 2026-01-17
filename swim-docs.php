@@ -248,10 +248,10 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/README.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=README" class="doc-card">
                     <h5><i class="fas fa-list-alt"></i>Quick Reference</h5>
                     <p>Condensed endpoint table, rate limits, and SDK links. Good for quick lookups.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
         </div>
@@ -265,24 +265,24 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/VATSIM_SWIM_Design_Document_v1.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=VATSIM_SWIM_Design_Document_v1" class="doc-card">
                     <h5><i class="fas fa-drafting-compass"></i>Design Document <span class="doc-badge badge-primary">v1.3</span></h5>
                     <p>Complete architecture overview including data flow, infrastructure, and unified flight record design.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/VATSIM_SWIM_API_Documentation.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=VATSIM_SWIM_API_Documentation" class="doc-card">
                     <h5><i class="fas fa-book"></i>Full API Documentation</h5>
                     <p>Comprehensive API guide with examples, WebSocket events, and integration patterns.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/VATSIM_SWIM_Release_Documentation.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=VATSIM_SWIM_Release_Documentation" class="doc-card">
                     <h5><i class="fas fa-rocket"></i>Release Documentation</h5>
                     <p>Release notes, deployment guide, and configuration reference.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
         </div>
@@ -296,38 +296,38 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/VATSIM_SWIM_FIXM_Field_Mapping.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=VATSIM_SWIM_FIXM_Field_Mapping" class="doc-card">
                     <h5><i class="fas fa-exchange-alt"></i>FIXM Field Mapping <span class="doc-badge badge-spec">FIXM 4.3</span></h5>
                     <p>Complete field mapping between VATSIM SWIM, FIXM 4.3, and TFMS standards.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/Aviation_Standards_Cross_Reference.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=Aviation_Standards_Cross_Reference" class="doc-card">
                     <h5><i class="fas fa-globe"></i>Aviation Standards Cross-Reference</h5>
                     <p>Comparison of aviation data standards (FIXM, AIXM, IWXXM, etc.) and their applicability.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/VATSIM_SWIM_API_Field_Migration.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=VATSIM_SWIM_API_Field_Migration" class="doc-card">
                     <h5><i class="fas fa-code-branch"></i>Field Migration Guide</h5>
                     <p>Migration guide for transitioning from legacy field names to FIXM-aligned naming.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/ADL_FLIGHTS_SCHEMA_REFERENCE.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=ADL_FLIGHTS_SCHEMA_REFERENCE" class="doc-card">
                     <h5><i class="fas fa-database"></i>ADL Flights Schema</h5>
                     <p>Database schema reference for the adl_flights table structure.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/ADL_NORMALIZED_SCHEMA_REFERENCE.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=ADL_NORMALIZED_SCHEMA_REFERENCE" class="doc-card">
                     <h5><i class="fas fa-layer-group"></i>Normalized Schema Reference</h5>
                     <p>Documentation for normalized/lookup tables (airports, aircraft, airlines).</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
         </div>
@@ -397,10 +397,10 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="docs/swim/VATSIM_SWIM_Announcement.md" class="doc-card" target="_blank">
+                <a href="swim-doc?file=VATSIM_SWIM_Announcement" class="doc-card">
                     <h5><i class="fas fa-newspaper"></i>Launch Announcement</h5>
                     <p>Official SWIM API launch announcement with feature overview and getting started guide.</p>
-                    <div class="doc-meta"><i class="fas fa-file-alt"></i> Markdown</div>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
         </div>
@@ -420,19 +420,19 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
         <div class="collapse" id="devDocs">
             <div class="row">
                 <div class="col-md-6 col-lg-4 mb-3">
-                    <a href="docs/swim/SWIM_TODO.md" class="doc-card" target="_blank">
+                    <a href="swim-doc?file=SWIM_TODO" class="doc-card">
                         <h5><i class="fas fa-tasks"></i>TODO List <span class="doc-badge badge-internal">Internal</span></h5>
                         <p>Outstanding work items and planned features.</p>
                     </a>
                 </div>
                 <div class="col-md-6 col-lg-4 mb-3">
-                    <a href="docs/swim/SWIM_Phase2_RealTime_Design.md" class="doc-card" target="_blank">
+                    <a href="swim-doc?file=SWIM_Phase2_RealTime_Design" class="doc-card">
                         <h5><i class="fas fa-broadcast-tower"></i>Phase 2: Real-Time Design <span class="doc-badge badge-internal">Internal</span></h5>
                         <p>WebSocket and real-time streaming architecture design.</p>
                     </a>
                 </div>
                 <div class="col-md-6 col-lg-4 mb-3">
-                    <a href="docs/swim/SWIM_Phase2_Phase3_Transition.md" class="doc-card" target="_blank">
+                    <a href="swim-doc?file=SWIM_Phase2_Phase3_Transition" class="doc-card">
                         <h5><i class="fas fa-exchange-alt"></i>Phase 2/3 Transition <span class="doc-badge badge-internal">Internal</span></h5>
                         <p>Phase transition planning and implementation notes.</p>
                     </a>
