@@ -737,6 +737,12 @@
     <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js"></script>
     <script>
         window.onload = function() {
+            console.log('[SWIM] Initializing Swagger UI...');
+
+            // Check for persisted auth
+            const stored = localStorage.getItem('authorized');
+            console.log('[SWIM] Persisted authorization:', stored ? 'Found' : 'None');
+
             window.ui = SwaggerUIBundle({
                 url: "./openapi.yaml",
                 dom_id: '#swagger-ui',
@@ -756,8 +762,36 @@
                 showExtensions: true,
                 showCommonExtensions: true,
                 tryItOutEnabled: true,
-                persistAuthorization: true
+                persistAuthorization: true,
+
+                // Debug: Log all outgoing requests
+                requestInterceptor: function(request) {
+                    console.log('[SWIM] Request URL:', request.url);
+                    console.log('[SWIM] Request Headers:', JSON.stringify(request.headers, null, 2));
+
+                    // Check if Authorization header is present
+                    if (request.headers.Authorization) {
+                        console.log('[SWIM] ✓ Authorization header present');
+                    } else if (request.headers['X-API-Key']) {
+                        console.log('[SWIM] ✓ X-API-Key header present');
+                    } else {
+                        console.warn('[SWIM] ✗ No auth header! Click Authorize button first.');
+                    }
+
+                    return request;
+                },
+
+                // Debug: Log all responses
+                responseInterceptor: function(response) {
+                    console.log('[SWIM] Response:', response.status, response.url);
+                    if (response.status === 401) {
+                        console.error('[SWIM] 401 Unauthorized - Check API key');
+                    }
+                    return response;
+                }
             });
+
+            console.log('[SWIM] Swagger UI initialized');
         };
     </script>
 </body>
