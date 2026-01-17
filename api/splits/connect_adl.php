@@ -42,7 +42,6 @@ if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
             "Database" => ADL_SQL_DATABASE,
             "UID"      => ADL_SQL_USERNAME,
             "PWD"      => ADL_SQL_PASSWORD,
-            "LoginTimeout" => 30,
             "ConnectionPooling" => 1
         ];
 
