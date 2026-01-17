@@ -88,6 +88,7 @@ if ($conn_pdo === null && $conn_sqli === null) {
 $conn_adl = null;
 $conn_swim = null;
 $conn_tmi = null;
+$conn_ref = null;
 
 if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
     defined('ADL_SQL_USERNAME') && defined('ADL_SQL_PASSWORD')) {
@@ -166,6 +167,34 @@ if (defined('TMI_SQL_HOST') && defined('TMI_SQL_DATABASE') &&
         if ($conn_tmi === false) {
             // Log, but do not kill the request - TMI features will be unavailable
             error_log("TMI SQL connection failed: " . adl_sql_error_message());
+        }
+    }
+}
+
+// -------------------------------------------------------------------------
+// REF Database (Azure SQL Basic - Reference Data)
+// -------------------------------------------------------------------------
+// Contains authoritative navigation reference data (nav_fixes, airways, etc.)
+// Data is synced TO VATSIM_ADL nightly or on AIRAC cycle updates.
+// This is a $5/mo Basic tier database for cost-efficient reference storage.
+// -------------------------------------------------------------------------
+
+if (defined('REF_SQL_HOST') && defined('REF_SQL_DATABASE') &&
+    defined('REF_SQL_USERNAME') && defined('REF_SQL_PASSWORD')) {
+
+    if (function_exists('sqlsrv_connect')) {
+        $refConnectionInfo = [
+            "Database" => REF_SQL_DATABASE,
+            "UID"      => REF_SQL_USERNAME,
+            "PWD"      => REF_SQL_PASSWORD,
+            "ConnectionPooling" => 1
+        ];
+
+        $conn_ref = sqlsrv_connect(REF_SQL_HOST, $refConnectionInfo);
+
+        if ($conn_ref === false) {
+            // Log, but do not kill the request - REF features will be unavailable
+            error_log("REF SQL connection failed: " . adl_sql_error_message());
         }
     }
 }

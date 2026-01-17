@@ -38,6 +38,17 @@ if (!defined("SQL_USERNAME")) {
     define("TMI_SQL_USERNAME", "TMI_admin");
     define("TMI_SQL_PASSWORD", "");  // Contact admin for password
 
+    // =============================================
+    // REF Database (Azure SQL Basic - Reference Data)
+    // Server: vatsim.database.windows.net
+    // Contains: nav_fixes, airways, nav_procedures, etc.
+    // Authoritative source synced TO VATSIM_ADL cache
+    // =============================================
+    define("REF_SQL_HOST", "vatsim.database.windows.net");
+    define("REF_SQL_DATABASE", "VATSIM_REF");
+    define("REF_SQL_USERNAME", "");  // Same as ADL
+    define("REF_SQL_PASSWORD", "");  // Same as ADL
+
     // Site Information
     define("SITE_DOMAIN", "localhost");
 
