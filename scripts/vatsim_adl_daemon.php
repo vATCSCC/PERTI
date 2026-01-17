@@ -144,6 +144,11 @@ $config = [
     'swim_enabled'        => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
     'swim_interval'       => 8,      // Run every N cycles (8 = every 2 minutes)
 
+    // Zone Detection (OOOI detection at airports)
+    // Set to true when zone_daemon.php is running separately
+    // This skips zone detection in the main refresh SP to avoid duplicate processing
+    'zone_daemon_enabled' => false,  // Set to true when zone_daemon.php is running
+
     // WebSocket real-time events
     // Publishes flight events to connected WebSocket clients after each refresh
     'websocket_enabled'   => true,
@@ -358,6 +363,8 @@ function executeRefreshSP($conn, string $jsonData, int $timeout): array {
                 'pilots'      => $row['pilots_received'] ?? 0,
                 'new'         => $row['new_flights'] ?? 0,
                 'updated'     => $row['updated_flights'] ?? 0,
+                'pos_ins'     => $row['positions_inserted'] ?? 0,
+                'pos_upd'     => $row['positions_updated'] ?? 0,
                 'routes'      => $row['routes_queued'] ?? 0,
                 'etds'        => $row['etds_calculated'] ?? 0,
                 'etas'        => $row['etas_calculated'] ?? 0,
@@ -860,15 +867,17 @@ function insertPrefilesBulkLiteral($conn, array $prefiles, string $batchId, int 
  * @param resource $conn SQL Server connection
  * @param string $batchId UUID for this batch
  * @param int $timeout Query timeout in seconds
+ * @param bool $skipZoneDetection Set to true when zone_daemon.php is running
  * @return array Result with stats and timings
  */
-function executeStagedRefreshSP($conn, string $batchId, int $timeout): array {
+function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skipZoneDetection = false): array {
     $startTime = microtime(true);
 
-    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?";
+    $skipZone = $skipZoneDetection ? 1 : 0;
+    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?, @skip_zone_detection = ?";
     $options = ['QueryTimeout' => $timeout];
 
-    $stmt = sqlsrv_query($conn, $sql, [$batchId], $options);
+    $stmt = sqlsrv_query($conn, $sql, [$batchId, $skipZone], $options);
 
     if ($stmt === false) {
         $errors = sqlsrv_errors();
@@ -890,6 +899,8 @@ function executeStagedRefreshSP($conn, string $batchId, int $timeout): array {
                 'pilots'      => $row['pilots_received'] ?? 0,
                 'new'         => $row['new_flights'] ?? 0,
                 'updated'     => $row['updated_flights'] ?? 0,
+                'pos_ins'     => $row['positions_inserted'] ?? 0,
+                'pos_upd'     => $row['positions_updated'] ?? 0,
                 'routes'      => $row['routes_queued'] ?? 0,
                 'etds'        => $row['etds_calculated'] ?? 0,
                 'etas'        => $row['etas_calculated'] ?? 0,
@@ -1657,7 +1668,7 @@ function runDaemon(array $config): void {
                 $insertMs = round((microtime(true) - $insertStart) * 1000);
 
                 // 4c. Execute staged refresh SP
-                $spResult = executeStagedRefreshSP($conn, $batchId, $config['sp_timeout']);
+                $spResult = executeStagedRefreshSP($conn, $batchId, $config['sp_timeout'], $config['zone_daemon_enabled']);
                 $spMs = $spResult['elapsed_ms'];
 
                 // Log staging performance on first run or every 100 runs

@@ -9,7 +9,7 @@
  * 
  * @package PERTI
  * @subpackage TMI/Discord
- * @version 3.0.0
+ * @version 3.1.0
  */
 
 require_once __DIR__ . '/DiscordAPI.php';
@@ -169,9 +169,9 @@ class TMIDiscord {
         $optionalStr = implode(' ', $parts);
         
         if ($fix) {
-            $line = "{$logTime} {$airport} {$flowType} via {$fix} {$restriction}{$qualifiers} {$optionalStr}";
+            $line = "{$logTime}    {$airport} {$flowType} via {$fix} {$restriction}{$qualifiers} {$optionalStr}";
         } else {
-            $line = "{$logTime} {$airport} {$flowType} {$restriction}{$qualifiers} {$optionalStr}";
+            $line = "{$logTime}    {$airport} {$flowType} {$restriction}{$qualifiers} {$optionalStr}";
         }
         
         return trim($line);
@@ -235,7 +235,7 @@ class TMIDiscord {
         
         $optStr = !empty($optParts) ? ' ' . implode(' ', $optParts) : '';
         
-        $line = "{$logTime} {$delayType} {$prep} {$location}, {$delayValue}/{$time}/{$acftCount} ACFT{$optStr}";
+        $line = "{$logTime}    {$delayType} {$prep} {$location}, {$delayValue}/{$time}/{$acftCount} ACFT{$optStr}";
         
         return trim($line);
     }
@@ -264,7 +264,7 @@ class TMIDiscord {
             $aarAdjust = " AAR Adjustment:" . strtoupper($data['aar_adjustment']);
         }
         
-        $line = "{$logTime} {$airport} {$weather} ARR:{$arrRwys} DEP:{$depRwys} AAR({$aarType}):{$aar}{$aarAdjust} ADR:{$adr}";
+        $line = "{$logTime}    {$airport} {$weather} ARR:{$arrRwys} DEP:{$depRwys} AAR({$aarType}):{$aar}{$aarAdjust} ADR:{$adr}";
         
         return trim($line);
     }
@@ -277,7 +277,7 @@ class TMIDiscord {
         $type = strtoupper($data['entry_type'] ?? 'TXT');
         $text = $data['text'] ?? $data['condition_text'] ?? '';
         
-        return "{$logTime} {$type} {$text}";
+        return "{$logTime}    {$type} {$text}";
     }
     
     /**
@@ -312,7 +312,7 @@ class TMIDiscord {
         $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
         $cancelReason = $entry['cancel_reason'] ?? '';
         
-        $message = "{$logTime} {$airport} {$type} CANCELLED";
+        $message = "{$logTime}    {$airport} {$type} CANCELLED";
         if ($cancelReason) {
             $message .= " - {$cancelReason}";
         }
@@ -403,10 +403,18 @@ class TMIDiscord {
         $lines[] = "PREVIOUS TOTAL, MAXIMUM, AVERAGE DELAYS: {$prevDelays}";
         $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$newDelays}";
         $lines[] = "PROBABILITY OF EXTENSION: {$probExt}";
-        $lines[] = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " {$conditionText}" : '');
-        if ($comments) {
-            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+        // Impacting condition with optional text - use hanging indent if long
+        $conditionLine = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " {$conditionText}" : '');
+        if (strlen($conditionLine) > self::MAX_LINE_LENGTH) {
+            $lines[] = $this->wrapFieldWithHangingIndent('IMPACTING CONDITION:', "{$condition}" . ($conditionText ? " {$conditionText}" : ''));
+        } else {
+            $lines[] = $conditionLine;
         }
+        
+        if ($comments) {
+            $lines[] = $this->wrapFieldWithHangingIndent('COMMENTS:', $comments);
+        }
+        $lines[] = '';
         $lines[] = $validRange;
         $lines[] = $signature;
         
@@ -450,8 +458,9 @@ class TMIDiscord {
         ];
         
         if ($comments) {
-            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+            $lines[] = $this->wrapFieldWithHangingIndent('COMMENTS:', $comments);
         }
+        $lines[] = '';
         $lines[] = $validRange;
         $lines[] = $signature;
         
@@ -547,7 +556,7 @@ class TMIDiscord {
         $lines = array_merge($lines, $fltIncl);
         
         if ($depScope) {
-            $lines[] = "DEPARTURE SCOPE: {$depScope}";
+            $lines[] = "DEP SCOPE: {$depScope}";
         }
         
         if ($addlDep) {
@@ -567,10 +576,18 @@ class TMIDiscord {
             $lines[] = "AVERAGE DELAY: {$avgDelay}";
         }
         
-        $lines[] = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " / {$conditionText}" : '');
-        if ($comments) {
-            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+        // Impacting condition with optional text - use hanging indent if long
+        $conditionLine = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " / {$conditionText}" : '');
+        if (strlen($conditionLine) > self::MAX_LINE_LENGTH) {
+            $lines[] = $this->wrapFieldWithHangingIndent('IMPACTING CONDITION:', "{$condition}" . ($conditionText ? " / {$conditionText}" : ''));
+        } else {
+            $lines[] = $conditionLine;
         }
+        
+        if ($comments) {
+            $lines[] = $this->wrapFieldWithHangingIndent('COMMENTS:', $comments);
+        }
+        $lines[] = '';
         $lines[] = $validRange;
         $lines[] = $signature;
         
@@ -615,8 +632,9 @@ class TMIDiscord {
         ];
         
         if ($comments) {
-            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+            $lines[] = $this->wrapFieldWithHangingIndent('COMMENTS:', $comments);
         }
+        $lines[] = '';
         $lines[] = $validRange;
         $lines[] = $signature;
         
@@ -659,15 +677,21 @@ class TMIDiscord {
         $endTime = $this->formatTimeDDHHMM($data['end_utc'] ?? $data['valid_until'] ?? null);
         
         if ($validType === 'FCA') {
-            $validLine = "VALID: FCA ENTRY TIME FROM {$startTime} TO {$endTime}";
+            $validLine = "VALID TIMES: FCA ENTRY START: {$startTime} END: {$endTime}";
         } else {
-            $validLine = "VALID: ETD {$startTime} TO {$endTime}";
+            $validLine = "VALID TIMES: ETD START: {$startTime} END: {$endTime}";
         }
         
-        // Facilities
-        $facilities = $data['facilities'] ?? 'ALL_FLIGHTS';
-        if (is_array($facilities)) {
-            $facilities = implode(' ', $facilities);
+        // Facilities - format with slashes per spec
+        $facilities = $data['facilities'] ?? [];
+        if (is_array($facilities) && !empty($facilities)) {
+            $facilities = '/' . implode('/', array_map('strtoupper', $facilities));
+        } elseif (is_string($facilities) && !empty($facilities)) {
+            // Convert space-separated to slash-separated if needed
+            $facArr = preg_split('/[\s,]+/', $facilities);
+            $facilities = '/' . implode('/', array_map('strtoupper', $facArr));
+        } else {
+            $facilities = '/ALL_FLIGHTS';
         }
         
         $probExt = strtoupper($data['prob_extension'] ?? 'NONE');
@@ -682,32 +706,48 @@ class TMIDiscord {
         $validRange = "{$startTime}-{$endTime}";
         $signature = $this->formatSignature();
         
+        // Header format per spec: ATCSCC ADVZY ### DCC mm/dd/yyyy PLAYBOOK - RQD/FL
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} {$routeType} {$action}{$flIndicator}",
-            "NAME: {$routeName}",
-            "IMPACTED AREA: {$impactedArea}",
-            "REASON: {$reason}" . ($reasonDetail ? " / {$reasonDetail}" : ''),
-            "INCLUDE TRAFFIC: {$includeTraffic}",
-            $validLine,
-            "FACILITIES INCLUDED: {$facilities}",
-            "PROBABILITY OF EXTENSION: {$probExt}",
+            "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} {$routeType} - {$action}{$flIndicator}",
         ];
         
-        // Optional fields - only include if populated
+        // Impacted area - use hanging indent if long
+        $impactedAreaLine = "IMPACTED AREA: {$impactedArea}";
+        if (strlen($impactedAreaLine) > self::MAX_LINE_LENGTH) {
+            $lines[] = $this->wrapFieldWithHangingIndent('IMPACTED AREA:', $impactedArea);
+        } else {
+            $lines[] = $impactedAreaLine;
+        }
+        
+        $lines[] = "REASON: {$reason}";
+        
+        // Include traffic - use hanging indent if long
+        $includeTrafficLine = "INCLUDE TRAFFIC: {$includeTraffic}";
+        if (strlen($includeTrafficLine) > self::MAX_LINE_LENGTH) {
+            $lines[] = $this->wrapFieldWithHangingIndent('INCLUDE TRAFFIC:', $includeTraffic);
+        } else {
+            $lines[] = $includeTrafficLine;
+        }
+        
+        $lines[] = $validLine;
+        $lines[] = "FACILITIES INCLUDED:{$facilities}";
+        $lines[] = "PROBABILITY OF EXTENSION: {$probExt}";
+        
+        // Optional fields - use hanging indent for long text
         if ($remarks) {
-            $lines[] = "REMARKS: " . $this->wrapText($remarks);
+            $lines[] = $this->wrapFieldWithHangingIndent('REMARKS:', $remarks);
         } else {
             $lines[] = "REMARKS:";
         }
         
         if ($restrictions) {
-            $lines[] = "ASSOCIATED RESTRICTIONS: " . $this->wrapText($restrictions);
+            $lines[] = $this->wrapFieldWithHangingIndent('ASSOCIATED RESTRICTIONS:', $restrictions);
         } else {
             $lines[] = "ASSOCIATED RESTRICTIONS:";
         }
         
         if ($modifications) {
-            $lines[] = "MODIFICATIONS: " . $this->wrapText($modifications);
+            $lines[] = $this->wrapFieldWithHangingIndent('MODIFICATIONS:', $modifications);
         } else {
             $lines[] = "MODIFICATIONS:";
         }
@@ -834,6 +874,57 @@ class TMIDiscord {
                 }
                 if ($currentLine) $lines[] = $currentLine;
             }
+        }
+        
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Wrap a labeled field value with hanging indent per GDT.js pattern
+     * Format per FSM advisory spec: label on first line, subsequent lines indented
+     * 
+     * @param string $label Field label including colon (e.g., "COMMENTS:")
+     * @param string $value Field value to wrap
+     * @param int $maxLen Maximum line length (default 68)
+     * @return string Formatted multi-line string with hanging indent
+     */
+    private function wrapFieldWithHangingIndent(string $label, string $value, int $maxLen = self::MAX_LINE_LENGTH): string {
+        if (empty($value)) {
+            return $label;
+        }
+        
+        $indent = strlen($label) + 1; // +1 for space after label
+        $firstLineMax = $maxLen - strlen($label) - 1; // Space for label + space
+        $subsequentLineMax = $maxLen - $indent;
+        
+        $words = preg_split('/\s+/', $value);
+        $lines = [];
+        $currentLine = '';
+        $isFirstLine = true;
+        
+        foreach ($words as $word) {
+            $lineMax = $isFirstLine ? $firstLineMax : $subsequentLineMax;
+            $tentative = $currentLine . ($currentLine ? ' ' : '') . $word;
+            
+            if (strlen($tentative) <= $lineMax) {
+                $currentLine = $tentative;
+            } else {
+                // Start new line
+                if ($isFirstLine) {
+                    $lines[] = $label . ' ' . $currentLine;
+                    $isFirstLine = false;
+                } else {
+                    $lines[] = str_repeat(' ', $indent) . $currentLine;
+                }
+                $currentLine = $word;
+            }
+        }
+        
+        // Add final line
+        if ($isFirstLine) {
+            $lines[] = $label . ' ' . $currentLine;
+        } else {
+            $lines[] = str_repeat(' ', $indent) . $currentLine;
         }
         
         return implode("\n", $lines);
