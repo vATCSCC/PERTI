@@ -1,6 +1,6 @@
 <?php
 
-// Include session handler (validates SELF cookie and populates session)
+// Include session handler (starts PHP session)
 include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 
 include("../../../load/config.php");

@@ -2,9 +2,9 @@
 /**
  * Lightweight Public Navigation
  *
- * For pages that don't require database queries or session validation.
- * Reads session data (cheap) but skips the cURL validation (expensive).
- * No database connections needed.
+ * For pages that don't require database queries or permission checks.
+ * Reads session data to show login/logout state, but doesn't query the
+ * users table for permissions. No database connections needed.
  */
 
 // Prevent multiple inclusions
@@ -13,7 +13,7 @@ if (defined('NAV_PUBLIC_PHP_LOADED')) {
 }
 define('NAV_PUBLIC_PHP_LOADED', true);
 
-// Start session to read login state (cheap - no cURL validation)
+// Start session to read login state (no DB query needed)
 if (session_status() == PHP_SESSION_NONE && !headers_sent()) {
     session_start();
 }
