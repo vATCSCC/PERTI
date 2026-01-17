@@ -1045,12 +1045,14 @@
                 console.log('[NOD] TMI debug info:', data.debug);
             }
             
-            // Only update if we got data (buffered pattern - preserve on empty)
+            // Update state from API response
+            // Note: Public routes use direct assignment (not buffered) because empty = legitimately expired
+            // Other TMI types use buffered pattern since they're less time-sensitive
             const newGS = data.ground_stops || [];
             const newGDPs = data.gdps || [];
             const newReroutes = data.reroutes || [];
             const newPublicRoutes = data.public_routes || [];
-            
+
             if (newGS.length > 0 || state.tmi.groundStops.length === 0) {
                 state.tmi.groundStops = newGS;
             }
@@ -1060,9 +1062,8 @@
             if (newReroutes.length > 0 || state.tmi.reroutes.length === 0) {
                 state.tmi.reroutes = newReroutes;
             }
-            if (newPublicRoutes.length > 0 || state.tmi.publicRoutes.length === 0) {
-                state.tmi.publicRoutes = newPublicRoutes;
-            }
+            // Public routes: always update (no buffering) - empty means all expired
+            state.tmi.publicRoutes = newPublicRoutes;
             
             // If no public routes from TMI API, try the dedicated public routes API
             if (state.tmi.publicRoutes.length === 0) {
@@ -1098,11 +1099,10 @@
             console.log('[NOD] Public routes API response:', data);
             
             // api/routes/public.php returns { routes: [...] }
+            // Always update (no buffering) - empty means all routes have expired
             const routes = data.routes || [];
-            if (routes.length > 0) {
-                state.tmi.publicRoutes = routes;
-                console.log('[NOD] Loaded', routes.length, 'public routes from dedicated API');
-            }
+            state.tmi.publicRoutes = routes;
+            console.log('[NOD] Loaded', routes.length, 'public routes from dedicated API');
         } catch (error) {
             console.log('[NOD] Error loading public routes:', error.message);
         }
@@ -2345,16 +2345,31 @@
     
     function updatePublicRoutesLayer() {
         if (!state.map || !state.map.getSource('public-routes-source')) return;
-        
+
         console.log('[NOD] Updating public routes layer');
-        console.log('[NOD] Public routes:', state.tmi.publicRoutes.length);
+        console.log('[NOD] Public routes in state:', state.tmi.publicRoutes.length);
         console.log('[NOD] Reroutes:', state.tmi.reroutes.length);
-        
+
+        // Client-side expiration filter - belt-and-suspenders approach
+        // Even if API returns stale data, filter out expired routes before drawing
+        const now = new Date();
+        const activePublicRoutes = state.tmi.publicRoutes.filter(route => {
+            if (route.valid_end_utc) {
+                const endTime = new Date(route.valid_end_utc);
+                if (endTime < now) {
+                    console.log('[NOD] Filtering out expired route:', route.name, 'ended:', route.valid_end_utc);
+                    return false;
+                }
+            }
+            return true;
+        });
+        console.log('[NOD] Active public routes after filtering:', activePublicRoutes.length);
+
         const features = [];
         const labelFeatures = [];
-        
+
         // Add public routes with their stored GeoJSON
-        state.tmi.publicRoutes.forEach(route => {
+        activePublicRoutes.forEach(route => {
             console.log('[NOD] Route:', route.name, 'has route_geojson:', !!route.route_geojson, 
                         typeof route.route_geojson);
             
