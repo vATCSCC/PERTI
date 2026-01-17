@@ -66,6 +66,10 @@ try {
     ntml_debug_log('Loading DiscordAPI.php');
     include("../../../load/discord/DiscordAPI.php");
     ntml_debug_log('DiscordAPI.php loaded successfully');
+    
+    ntml_debug_log('Loading TMIDiscord.php');
+    include("../../../load/discord/TMIDiscord.php");
+    ntml_debug_log('TMIDiscord.php loaded successfully');
 } catch (Exception $e) {
     ntml_debug_log('ERROR loading dependencies', ['error' => $e->getMessage()]);
     http_response_code(500);
@@ -140,9 +144,11 @@ if (!$discord->isConfigured()) {
     sendResponse(false, [], 'Discord integration not configured');
 }
 
-// Build message based on protocol type
+// Build message using TMIDiscord formatter
 ntml_debug_log('Building message for protocol: ' . $protocol);
-$message = buildNTMLMessage($protocol, $_POST);
+$tmiDiscord = new TMIDiscord($discord);
+$entryData = mapPostToEntryData($_POST);
+$message = buildNTMLMessageFromEntry($entryData, $protocol);
 ntml_debug_log('Message built', ['message_length' => strlen($message), 'message_preview' => substr($message, 0, 100)]);
 
 // Add test prefix for non-production
@@ -180,189 +186,377 @@ if ($result !== null && isset($result['id'])) {
 
 // ============================================
 // MESSAGE BUILDING FUNCTIONS
+// Uses TMIDiscord for consistent formatting
 // ============================================
 
-function buildNTMLMessage($protocol, $data) {
-    $determinant = strip_tags($data['determinant'] ?? '');
-    $timestamp = gmdate('Hi') . 'Z';
+/**
+ * Map POST data to entry data structure expected by TMIDiscord
+ */
+function mapPostToEntryData($data) {
+    return [
+        // Common fields
+        'entry_type' => strtoupper($data['type'] ?? 'MIT'),
+        'determinant' => strip_tags($data['determinant'] ?? ''),
+        'raw' => strip_tags($data['raw'] ?? ''),
+        
+        // Facility coordination
+        'requesting_facility' => strtoupper(strip_tags($data['to_facility'] ?? $data['req_facility_id'] ?? '')),
+        'providing_facility' => strtoupper(strip_tags($data['from_facility'] ?? $data['prov_facility_id'] ?? '')),
+        
+        // Location/condition
+        'airport' => strtoupper(strip_tags($data['condition'] ?? $data['airport'] ?? '')),
+        'ctl_element' => strtoupper(strip_tags($data['condition'] ?? $data['airport'] ?? '')),
+        'condition_text' => strip_tags($data['via_route'] ?? ''),
+        'fix' => strip_tags($data['via_route'] ?? ''),
+        
+        // MIT/MINIT specific
+        'restriction_value' => strip_tags($data['distance'] ?? $data['minutes'] ?? ''),
+        'distance' => strip_tags($data['distance'] ?? ''),
+        'minutes' => strip_tags($data['minutes'] ?? ''),
+        
+        // Flow direction
+        'flow_type' => ($data['is_departures'] ?? false) ? 'departures' : 'arrivals',
+        
+        // Qualifiers
+        'qualifiers' => strip_tags($data['qualifiers'] ?? ''),
+        
+        // Restrictions
+        'aircraft_type' => strip_tags($data['aircraft_type'] ?? ''),
+        'speed' => strip_tags($data['speed'] ?? ''),
+        'speed_operator' => strip_tags($data['speed_operator'] ?? ''),
+        'altitude' => strip_tags($data['altitude'] ?? ''),
+        'alt_type' => strtoupper(strip_tags($data['alt_type'] ?? '')),
+        
+        // Reason
+        'reason_code' => strtoupper(strip_tags($data['reason'] ?? 'VOLUME')),
+        'reason_detail' => strip_tags($data['weather'] ?? $data['reason_detail'] ?? ''),
+        'volume' => strip_tags($data['volume'] ?? ''),
+        'weather' => strip_tags($data['weather'] ?? ''),
+        
+        // Exclusions
+        'exclusions' => strtoupper(strip_tags($data['exclusions'] ?? 'NONE')),
+        
+        // Valid time
+        'valid_from' => strip_tags($data['valid_from'] ?? ''),
+        'valid_until' => strip_tags($data['valid_until'] ?? ''),
+        
+        // Delay specific
+        'delay_type' => strtoupper(strip_tags($data['delay_type'] ?? 'D/D')),
+        'delay_facility' => strtoupper(strip_tags($data['facility'] ?? $data['airport'] ?? '')),
+        'longest_delay' => strip_tags($data['minutes'] ?? $data['delay_minutes'] ?? ''),
+        'delay_trend' => strip_tags($data['trend'] ?? $data['delay_change'] ?? 'steady'),
+        'flights_delayed' => strip_tags($data['flights_delayed'] ?? '1'),
+        'holding' => strip_tags($data['holding'] ?? $data['is_holding'] ?? 'no'),
+        'report_time' => strip_tags($data['delay_time'] ?? ''),
+        
+        // Config specific
+        'weather' => strtoupper(strip_tags($data['weather'] ?? 'VMC')),
+        'arr_runways' => strtoupper(strip_tags($data['arr_runways'] ?? '')),
+        'dep_runways' => strtoupper(strip_tags($data['dep_runways'] ?? '')),
+        'aar' => strip_tags($data['aar'] ?? '60'),
+        'aar_type' => strip_tags($data['aar_type'] ?? 'Strat'),
+        'aar_adjustment' => strip_tags($data['aar_adjustment'] ?? ''),
+        'adr' => strip_tags($data['adr'] ?? '60'),
+        
+        // Cancel specific
+        'cancel_type' => strip_tags($data['cancel_type'] ?? ''),
+        'cancel_reason' => strip_tags($data['cancel_reason'] ?? ''),
+        
+        // TBM specific
+        'sector' => strip_tags($data['sector'] ?? ''),
+    ];
+}
+
+/**
+ * Build NTML message in proper format
+ * Format: DD/HHMM APT [direction] via FIX ##TYPE [QUALIFIERS] REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ */
+function buildNTMLMessageFromEntry($entry, $protocol) {
+    $logTime = gmdate('d/Hi');
+    $type = strtoupper($entry['entry_type'] ?? 'MIT');
     
-    switch ($protocol) {
-        case '05':
-            return buildMITMessage($determinant, $data, $timestamp);
-        case '06':
-            return buildMINITMessage($determinant, $data, $timestamp);
-        case '04':
-            return buildDelayMessage($determinant, $data, $timestamp);
-        case '01':
-            return buildConfigMessage($determinant, $data, $timestamp);
+    switch ($type) {
+        case 'MIT':
+        case 'MINIT':
+        case 'STOP':
+        case 'APREQ':
+        case 'CFR':
+            return buildRestrictionNTML($entry, $logTime);
+        case 'HOLDING':
+        case 'DELAY':
+            return buildDelayNTML($entry, $logTime);
+        case 'CONFIG':
+            return buildConfigNTML($entry, $logTime);
+        case 'CANCEL':
+            return buildCancelNTML($entry, $logTime);
+        case 'TBM':
+            return buildTBMNTML($entry, $logTime);
         default:
-            return "[$determinant] NTML Entry - $timestamp";
+            return "$logTime {$entry['raw']}";
     }
 }
 
-function buildMITMessage($determinant, $data, $timestamp) {
-    $condition = strip_tags($data['condition'] ?? '');
-    $distance = strip_tags($data['distance'] ?? '');
-    $reqFac = strtoupper(strip_tags($data['req_facility_id'] ?? ''));
-    $provFac = strtoupper(strip_tags($data['prov_facility_id'] ?? ''));
-    $reason = strip_tags($data['reason'] ?? 'VOLUME');
-    $validFrom = strip_tags($data['valid_from'] ?? '');
-    $validUntil = strip_tags($data['valid_until'] ?? '');
+/**
+ * Build MIT/MINIT/STOP/APREQ/CFR NTML entry
+ */
+function buildRestrictionNTML($entry, $logTime) {
+    $type = strtoupper($entry['entry_type'] ?? 'MIT');
+    $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+    $fix = strtoupper($entry['fix'] ?? $entry['condition_text'] ?? '');
+    $flowType = strtolower($entry['flow_type'] ?? 'arrivals');
     
-    // Build qualifiers string
+    // Build restriction value
+    $restriction = '';
+    if ($type === 'STOP') {
+        $restriction = 'STOP';
+    } elseif ($type === 'APREQ' || $type === 'CFR') {
+        $restriction = $type;
+    } else {
+        $value = $entry['restriction_value'] ?? $entry['distance'] ?? $entry['minutes'] ?? '';
+        $restriction = "{$value}{$type}";
+    }
+    
+    // Build qualifiers
     $qualifiers = '';
-    if (!empty($data['qualifiers'])) {
-        $quals = explode(',', $data['qualifiers']);
+    if (!empty($entry['qualifiers'])) {
+        $quals = is_string($entry['qualifiers']) ? explode(',', $entry['qualifiers']) : $entry['qualifiers'];
         $qualifiers = ' ' . implode(' ', array_map(function($q) {
-            return str_replace('_', ' ', $q);
+            return strtoupper(str_replace('_', ' ', trim($q)));
         }, $quals));
     }
     
-    // Build restrictions
-    $restrictions = '';
-    if (!empty($data['speed'])) {
-        $restrictions .= ' SPD ' . strip_tags($data['speed']);
+    // Build optional fields
+    $opts = [];
+    if (!empty($entry['aircraft_type'])) {
+        $opts[] = 'TYPE:' . strtoupper($entry['aircraft_type']);
     }
-    if (!empty($data['altitude']) && !empty($data['alt_type'])) {
-        $altType = strtoupper(strip_tags($data['alt_type']));
-        $altitude = strtoupper(strip_tags($data['altitude']));
-        $restrictions .= " ALT $altType $altitude";
-    }
-    
-    // Build exclusions
-    $exclusions = '';
-    if (!empty($data['exclusions'])) {
-        $exclusions = "\nExcluded: " . strip_tags($data['exclusions']);
+    if (!empty($entry['altitude'])) {
+        $altType = strtoupper($entry['alt_type'] ?? 'AT');
+        $opts[] = "ALT:{$altType}" . strtoupper($entry['altitude']);
     }
     
-    $message = "**[$determinant] {$distance}MIT** $provFac→$reqFac $condition$qualifiers\n";
-    $message .= "Valid: {$validFrom}Z-{$validUntil}Z\n";
-    $message .= "Reason: $reason";
-    
-    if ($restrictions) {
-        $message .= "\nRestrictions:$restrictions";
-    }
-    $message .= $exclusions;
-    
-    return $message;
-}
-
-function buildMINITMessage($determinant, $data, $timestamp) {
-    $condition = strip_tags($data['condition'] ?? '');
-    $minutes = strip_tags($data['minutes'] ?? '');
-    $reqFac = strtoupper(strip_tags($data['req_facility_id'] ?? ''));
-    $provFac = strtoupper(strip_tags($data['prov_facility_id'] ?? ''));
-    $reason = strip_tags($data['reason'] ?? 'VOLUME');
-    $validFrom = strip_tags($data['valid_from'] ?? '');
-    $validUntil = strip_tags($data['valid_until'] ?? '');
-    
-    // Build qualifiers string
-    $qualifiers = '';
-    if (!empty($data['qualifiers'])) {
-        $quals = explode(',', $data['qualifiers']);
-        $qualifiers = ' ' . implode(' ', array_map(function($q) {
-            return str_replace('_', ' ', $q);
-        }, $quals));
+    // Reason
+    $reason = strtoupper($entry['reason_code'] ?? 'VOLUME');
+    if ($reason === 'VOLUME') {
+        $opts[] = 'VOLUME:VOLUME';
+    } elseif ($reason === 'WEATHER') {
+        $detail = strtoupper($entry['reason_detail'] ?? $entry['weather'] ?? 'WEATHER');
+        $opts[] = "WEATHER:{$detail}";
+    } elseif ($reason === 'RUNWAY') {
+        $detail = strtoupper($entry['reason_detail'] ?? 'CONFIG');
+        $opts[] = "RUNWAY:{$detail}";
+    } else {
+        $opts[] = "{$reason}:{$reason}";
     }
     
-    // Build restrictions
-    $restrictions = '';
-    if (!empty($data['speed'])) {
-        $restrictions .= ' SPD ' . strip_tags($data['speed']);
+    // Exclusions
+    $excl = strtoupper($entry['exclusions'] ?? 'NONE');
+    $opts[] = "EXCL:{$excl}";
+    
+    // Valid time
+    $validFrom = $entry['valid_from'] ?? gmdate('Hi');
+    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+2 hours'));
+    $opts[] = "{$validFrom}-{$validUntil}";
+    
+    // Facility coordination
+    $reqFac = strtoupper($entry['requesting_facility'] ?? '');
+    $provFac = strtoupper($entry['providing_facility'] ?? '');
+    if ($reqFac || $provFac) {
+        $opts[] = "{$reqFac}:{$provFac}";
     }
-    if (!empty($data['altitude']) && !empty($data['alt_type'])) {
-        $altType = strtoupper(strip_tags($data['alt_type']));
-        $altitude = strtoupper(strip_tags($data['altitude']));
-        $restrictions .= " ALT $altType $altitude";
-    }
     
-    // Build exclusions
-    $exclusions = '';
-    if (!empty($data['exclusions'])) {
-        $exclusions = "\nExcluded: " . strip_tags($data['exclusions']);
-    }
+    $optStr = implode(' ', $opts);
     
-    $message = "**[$determinant] {$minutes}MINIT** $provFac→$reqFac $condition$qualifiers\n";
-    $message .= "Valid: {$validFrom}Z-{$validUntil}Z\n";
-    $message .= "Reason: $reason";
-    
-    if ($restrictions) {
-        $message .= "\nRestrictions:$restrictions";
-    }
-    $message .= $exclusions;
-    
-    return $message;
-}
-
-function buildDelayMessage($determinant, $data, $timestamp) {
-    $delayFac = strtoupper(strip_tags($data['delay_facility'] ?? ''));
-    $chargeFac = strtoupper(strip_tags($data['charge_facility'] ?? $delayFac));
-    $longestDelay = strip_tags($data['longest_delay'] ?? '');
-    $trend = ucfirst(strip_tags($data['delay_trend'] ?? 'steady'));
-    $flightsDelayed = strip_tags($data['flights_delayed'] ?? '1');
-    $reason = strip_tags($data['reason'] ?? 'VOLUME');
-    $holding = strip_tags($data['holding'] ?? 'no');
-    
-    $holdingText = '';
-    if ($holding === 'yes_initiating') {
-        $holdingText = 'Holding initiated';
-        if (!empty($data['holding_location'])) {
-            $holdingText .= ' at ' . strtoupper(strip_tags($data['holding_location']));
+    // Build the line per format spec
+    if ($type === 'APREQ' || $type === 'CFR') {
+        // APREQ/CFR: DD/HHMM TYPE APT departures [via FIX] [TYPE:xx] REASON...
+        $line = "{$logTime}    {$restriction} {$airport}";
+        if ($flowType === 'departures') {
+            $line .= ' departures';
         }
-    } else if ($holding === 'yes_15plus') {
-        $holdingText = 'Holding ≥15min';
-        if (!empty($data['holding_location'])) {
-            $holdingText .= ' at ' . strtoupper(strip_tags($data['holding_location']));
+        if ($fix) {
+            $line .= " via {$fix}";
+        }
+    } elseif ($fix) {
+        // With via: DD/HHMM APT [direction] via FIX ##MIT...
+        $line = "{$logTime}    {$airport}";
+        if ($flowType === 'departures') {
+            $line .= ' departures';
+        } else if ($flowType === 'arrivals' && $type !== 'STOP') {
+            // arrivals is implicit via fix pattern, but add if explicit
+            $line .= ' arrivals';
+        }
+        $line .= " via {$fix} {$restriction}";
+    } else {
+        // Without via: DD/HHMM APT [direction] ##MIT...
+        $line = "{$logTime}    {$airport}";
+        if ($flowType === 'departures') {
+            $line .= ' departures';
+        }
+        $line .= " {$restriction}";
+    }
+    
+    $line .= "{$qualifiers} {$optStr}";
+    
+    return trim($line);
+}
+
+/**
+ * Build Delay/Holding NTML entry
+ * Format: DD/HHMM [FAC] D/D from APT, +/-##/HHMM[/# ACFT] [NAVAID:xx] REASON
+ */
+function buildDelayNTML($entry, $logTime) {
+    $delayType = strtoupper($entry['delay_type'] ?? 'D/D');
+    // Normalize E/D, A/D, D/D
+    if ($delayType === 'ED') $delayType = 'E/D';
+    if ($delayType === 'AD') $delayType = 'A/D';
+    if ($delayType === 'DD') $delayType = 'D/D';
+    
+    // Preposition based on type
+    $prep = 'from';
+    if ($delayType === 'E/D') $prep = 'for';
+    if ($delayType === 'A/D') $prep = 'to';
+    
+    $facility = strtoupper($entry['delay_facility'] ?? $entry['airport'] ?? '');
+    $reportingFac = $entry['reporting_facility'] ?? '';
+    
+    // Delay value
+    $delayMin = $entry['longest_delay'] ?? $entry['delay_minutes'] ?? $entry['minutes'] ?? '';
+    $trend = strtolower($entry['delay_trend'] ?? 'steady');
+    $holding = $entry['holding'] ?? $entry['is_holding'] ?? 'no';
+    
+    $sign = '';
+    if ($trend === 'increasing' || $trend === 'inc' || $trend === 'initiating') {
+        $sign = '+';
+    } elseif ($trend === 'decreasing' || $trend === 'dec' || $trend === 'terminating') {
+        $sign = '-';
+    }
+    
+    // Holding or minutes
+    $delayValue = '';
+    if ($holding === 'yes' || $holding === 'yes_initiating' || strpos(strtolower($holding), 'holding') !== false) {
+        $delayValue = ($sign ?: '+') . 'Holding';
+    } else {
+        $delayValue = "{$sign}{$delayMin}";
+    }
+    
+    $reportTime = $entry['report_time'] ?? $entry['delay_time'] ?? gmdate('Hi');
+    $acftCount = $entry['flights_delayed'] ?? $entry['acft_count'] ?? '';
+    
+    // Build line
+    $line = "{$logTime}";
+    if ($reportingFac) {
+        $line .= "    {$reportingFac}";
+    }
+    $line .= " {$delayType} {$prep} {$facility}, {$delayValue}/{$reportTime}";
+    if ($acftCount) {
+        $line .= "/{$acftCount} ACFT";
+    }
+    
+    // Optional navaid
+    if (!empty($entry['fix'])) {
+        $line .= ' NAVAID:' . strtoupper($entry['fix']);
+    }
+    
+    // Reason
+    $reason = strtoupper($entry['reason_code'] ?? 'VOLUME');
+    if ($reason === 'VOLUME') {
+        $line .= ' VOLUME:VOLUME';
+    } else {
+        $line .= " {$reason}:{$reason}";
+    }
+    
+    return trim($line);
+}
+
+/**
+ * Build Config NTML entry
+ * Format: DD/HHMM APT    WX    ARR:rwys DEP:rwys    AAR(type):##    [AAR Adjustment:xx]    ADR:##
+ */
+function buildConfigNTML($entry, $logTime) {
+    $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+    $weather = strtoupper($entry['weather'] ?? 'VMC');
+    $arrRwys = strtoupper($entry['arr_runways'] ?? '');
+    $depRwys = strtoupper($entry['dep_runways'] ?? '');
+    $aar = $entry['aar'] ?? '60';
+    $aarType = $entry['aar_type'] ?? 'Strat';
+    $aarAdj = $entry['aar_adjustment'] ?? '';
+    $adr = $entry['adr'] ?? '60';
+    
+    // Use tab alignment like historical data
+    $line = "{$logTime}    {$airport}    {$weather}    ARR:{$arrRwys} DEP:{$depRwys}    AAR({$aarType}):{$aar}";
+    if ($aarAdj) {
+        $line .= " AAR Adjustment:{$aarAdj}";
+    }
+    $line .= "    ADR:{$adr}";
+    
+    return $line;
+}
+
+/**
+ * Build Cancel NTML entry
+ */
+function buildCancelNTML($entry, $logTime) {
+    $cancelType = strtoupper($entry['cancel_type'] ?? '');
+    $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+    $fix = strtoupper($entry['fix'] ?? '');
+    
+    $line = "{$logTime}    ";
+    
+    if ($cancelType === 'ALL') {
+        $line .= 'ALL TMI CANCELLED';
+    } else {
+        $line .= "CANCEL {$airport}";
+        if ($fix) {
+            $line .= " via {$fix}";
+        }
+        if (!empty($entry['restriction_value'])) {
+            $line .= ' ' . $entry['restriction_value'] . 'MIT';
         }
     }
     
-    $message = "**[$determinant] DELAY** $delayFac";
-    if ($chargeFac && $chargeFac !== $delayFac) {
-        $message .= " (charged to $chargeFac)";
-    }
-    $message .= "\n";
-    $message .= "Longest: {$longestDelay}min | Trend: $trend | Flights: $flightsDelayed\n";
-    $message .= "Reason: $reason";
-    
-    if ($holdingText) {
-        $message .= "\n$holdingText";
+    $reqFac = strtoupper($entry['requesting_facility'] ?? '');
+    $provFac = strtoupper($entry['providing_facility'] ?? '');
+    if ($reqFac || $provFac) {
+        $line .= " {$reqFac}:{$provFac}";
     }
     
-    if (!empty($data['notes'])) {
-        $message .= "\nNotes: " . strip_tags($data['notes']);
-    }
-    
-    return $message;
+    return trim($line);
 }
 
-function buildConfigMessage($determinant, $data, $timestamp) {
-    $airport = strtoupper(strip_tags($data['airport'] ?? ''));
-    $weather = strip_tags($data['weather'] ?? 'VMC');
-    $arrRwys = strtoupper(strip_tags($data['arr_runways'] ?? ''));
-    $depRwys = strtoupper(strip_tags($data['dep_runways'] ?? ''));
-    $aar = strip_tags($data['aar'] ?? '60');
-    $adr = strip_tags($data['adr'] ?? '60');
-    $singleRwy = (isset($data['single_runway']) && $data['single_runway'] === 'yes') ? 'Yes' : 'No';
+/**
+ * Build TBM NTML entry
+ * Format: DD/HHMM APT TBM SECTOR REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ */
+function buildTBMNTML($entry, $logTime) {
+    $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+    $sector = strtoupper($entry['sector'] ?? '');
     
-    // Weather conditions
-    $wxConditions = [];
-    if (!empty($data['wx_wind'])) $wxConditions[] = 'High Winds';
-    if (!empty($data['wx_ice'])) $wxConditions[] = 'Ice/Snow';
-    if (!empty($data['wx_fog'])) $wxConditions[] = 'Fog';
-    if (!empty($data['wx_tstorm'])) $wxConditions[] = 'Thunderstorms';
-    $wxText = count($wxConditions) > 0 ? implode(', ', $wxConditions) : 'None';
+    // Reason
+    $reason = strtoupper($entry['reason_code'] ?? 'VOLUME');
+    $reasonStr = ($reason === 'VOLUME') ? 'VOLUME:VOLUME' : "{$reason}:{$reason}";
     
-    $message = "**[$determinant] AIRPORT CONFIG** $airport\n";
-    $message .= "Weather: $weather | Single RWY: $singleRwy\n";
-    $message .= "ARR: $arrRwys | DEP: $depRwys\n";
-    $message .= "AAR: $aar | ADR: $adr\n";
-    $message .= "Conditions: $wxText";
+    // Exclusions
+    $excl = strtoupper($entry['exclusions'] ?? 'NONE');
     
-    if (!empty($data['scenery_issue']) && $data['scenery_issue'] === 'yes' && !empty($data['scenery_description'])) {
-        $message .= "\nScenery Issue: " . strip_tags($data['scenery_description']);
+    // Valid time
+    $validFrom = $entry['valid_from'] ?? gmdate('Hi');
+    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+2 hours'));
+    
+    // Facilities
+    $reqFac = strtoupper($entry['requesting_facility'] ?? '');
+    $provFac = strtoupper($entry['providing_facility'] ?? '');
+    
+    $line = "{$logTime}    {$airport} TBM";
+    if ($sector) {
+        $line .= " {$sector}";
+    }
+    $line .= " {$reasonStr} EXCL:{$excl} {$validFrom}-{$validUntil}";
+    if ($reqFac || $provFac) {
+        $line .= " {$reqFac}:{$provFac}";
     }
     
-    return $message;
+    return trim($line);
 }
 
 // ============================================

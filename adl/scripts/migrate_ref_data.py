@@ -95,7 +95,7 @@ def get_connection(server, database, username, password):
     )
     return pyodbc.connect(conn_str)
 
-def migrate_table(adl_conn, ref_conn, table_info):
+def migrate_table(adl_conn, ref_conn, table_info, skip_if_exists=True):
     """Migrate a single table from ADL to REF."""
     table_name = table_info["name"]
     select_columns = table_info.get("select_columns", table_info.get("columns"))
@@ -103,8 +103,17 @@ def migrate_table(adl_conn, ref_conn, table_info):
     has_identity = table_info.get("identity", False)
     geo_index = table_info.get("geo_index")  # Index of geography column (if any)
 
-    print(f"  Migrating {table_name}...", end=" ", flush=True)
+    print(f"  {table_name}:", flush=True)
     start_time = datetime.now()
+
+    # Check if target already has data
+    ref_cursor = ref_conn.cursor()
+    ref_cursor.execute(f"SELECT COUNT(*) FROM dbo.{table_name}")
+    existing_count = ref_cursor.fetchone()[0]
+
+    if existing_count > 0 and skip_if_exists:
+        print(f"    SKIP: Already has {existing_count:,} rows")
+        return existing_count
 
     # Count source rows
     adl_cursor = adl_conn.cursor()
@@ -112,19 +121,16 @@ def migrate_table(adl_conn, ref_conn, table_info):
     source_count = adl_cursor.fetchone()[0]
 
     if source_count == 0:
-        print(f"0 rows (source empty)")
+        print(f"    SKIP: Source empty")
         return 0
+
+    print(f"    Source: {source_count:,} rows", flush=True)
+    print(f"    Fetching from ADL...", end=" ", flush=True)
 
     # Fetch all data from ADL
     adl_cursor.execute(f"SELECT {select_columns} FROM dbo.{table_name}")
     rows = adl_cursor.fetchall()
-
-    # Prepare REF cursor
-    ref_cursor = ref_conn.cursor()
-
-    # Enable identity insert if needed
-    if has_identity:
-        ref_cursor.execute(f"SET IDENTITY_INSERT dbo.{table_name} ON")
+    print(f"done", flush=True)
 
     # Build parameterized insert
     col_list = insert_columns.split(", ")
@@ -143,23 +149,44 @@ def migrate_table(adl_conn, ref_conn, table_info):
 
     insert_sql = f"INSERT INTO dbo.{table_name} ({insert_columns}) VALUES ({placeholders})"
 
-    # Insert in batches
-    batch_size = 1000
+    # Use smaller batches for Azure SQL Basic tier
+    # Commit after each batch to avoid transaction log issues
+    batch_size = 100  # Small batches for Basic tier
     total_inserted = 0
 
     try:
+        # Enable identity insert if needed (once at start)
+        if has_identity:
+            ref_cursor.execute(f"SET IDENTITY_INSERT dbo.{table_name} ON")
+            ref_conn.commit()
+
         for i in range(0, len(rows), batch_size):
             batch = rows[i:i+batch_size]
             # Convert rows to lists for modification
             batch_data = [list(row) for row in batch]
-            ref_cursor.executemany(insert_sql, batch_data)
+
+            # Insert each row individually to avoid executemany issues
+            for row_data in batch_data:
+                try:
+                    ref_cursor.execute(insert_sql, row_data)
+                except Exception as row_err:
+                    print(f"\n    WARNING: Row insert failed: {row_err}")
+                    continue
+
+            ref_conn.commit()  # Commit after each batch
             total_inserted += len(batch)
+
+            # Progress report
+            pct = (total_inserted / source_count) * 100
+            print(f"\r    Inserting: {total_inserted:,}/{source_count:,} ({pct:.1f}%)", end="", flush=True)
 
         # Disable identity insert
         if has_identity:
             ref_cursor.execute(f"SET IDENTITY_INSERT dbo.{table_name} OFF")
+            ref_conn.commit()
 
-        ref_conn.commit()
+        print()  # Newline after progress
+
     except Exception as e:
         # Make sure to turn off identity insert on error
         try:
@@ -171,7 +198,7 @@ def migrate_table(adl_conn, ref_conn, table_info):
         raise e
 
     duration = (datetime.now() - start_time).total_seconds()
-    print(f"{total_inserted:,} rows ({duration:.1f}s)")
+    print(f"    Done: {total_inserted:,} rows in {duration:.1f}s")
 
     return total_inserted
 

@@ -8,9 +8,10 @@
 | Document | Purpose | Location |
 |----------|---------|----------|
 | **NTML_Advisory_Formatting_Spec.md** | Official NTML & Advisory formats | `PERTI/` |
-| **GDT_Unified_Design_Document_v1.md** | GS/GDP/AFP system design | `PERTI/` (project knowledge) |
-| **advisory_formatting_spec_for_claude_code.md** | Advisory builder reference | `PERTI/` |
-| **NTML_Advisory_Formatting_Transition.md** | Jan 17 session summary | `PERTI/` |
+| **GDT_Unified_Design_Document_v1.md** | GS/GDP/AFP system design | `PERTI/docs/` |
+| **NTML_Discord_Parser_Alignment_20260117.md** | Parser & message format alignment | `PERTI/docs/tmi/` |
+| **NTML_Advisory_Formatting_Transition.md** | Jan 17 format compliance session | `PERTI/` |
+| **assistant_codebase_index_v18.md** | Full codebase reference | `PERTI/` |
 
 ---
 
@@ -36,7 +37,8 @@
 | Batch Entry Mode | ✅ Complete | Multi-line processing |
 | Autocomplete | ✅ Complete | Facilities, fixes |
 | Validation | ✅ Complete | Required field checks |
-| Discord Posting | ⚠️ Needs Testing | API endpoint ready |
+| Discord Posting | ✅ Complete | Format aligned with spec |
+| Parser/Message Alignment | ✅ Complete | Matches NTML_2020.txt format |
 
 ### GDT System (gdt.php)
 
@@ -104,25 +106,47 @@ YY/MM/DD HH:MM
 - `api/mgt/gdt/*.php` - GDT API endpoints
 - `database/migrations/tmi_*.sql` - Schema migrations
 
+### SWIM TMI API
+- `api/swim/v1/tmi/index.php` - TMI API overview
+- `api/swim/v1/tmi/entries.php` - NTML log entries
+- `api/swim/v1/tmi/advisories.php` - Formal advisories
+- `api/swim/v1/tmi/reroutes.php` - Reroute definitions
+- `api/swim/v1/tmi/routes.php` - Public route display (GeoJSON)
+- `api/swim/v1/tmi/programs.php` - GS/GDP programs
+- `api/swim/v1/tmi/controlled.php` - Controlled flights
+
 ---
 
 ## Session History
 
 | Date | Summary | Transition Doc |
 |------|---------|----------------|
-| Jan 22, 2025 | NTML Quick Entry redesign | NTML_Quick_Entry_Transition.md |
-| Jan 9, 2026 | GDT system design | GDT_Unified_Design_Document_v1.md |
-| Jan 17, 2026 | Discord integration | (transcript) |
+| Jan 22, 2025 | NTML Quick Entry redesign | (legacy, no doc) |
+| Jan 9, 2026 | GDT system design | docs/GDT_Unified_Design_Document_v1.md |
+| Jan 17, 2026 | TMI API infrastructure | docs/tmi/SESSION_TRANSITION_20260117.md |
 | Jan 17, 2026 | Format compliance | NTML_Advisory_Formatting_Transition.md |
+| Jan 17, 2026 | Parser & Discord alignment | docs/tmi/NTML_Discord_Parser_Alignment_20260117.md |
 
 ---
 
 ## Next Steps
 
-1. **Test Discord posting** - Verify all format functions produce correct output
-2. **Align ntml.js parser** - Update to match new format spec
+1. **Test NTML Discord posting** - Deploy and verify output matches NTML_2020.txt examples (test script: `scripts/tmi/test_ntml_format.php`)
+2. **Test Advisory format** - Validate against ADVZY_2020.txt (test script: `scripts/tmi/test_advisory_format.php`)
 3. **Complete GDT UI** - Ground Stop implementation
-4. **Historical validation** - Test against NTML_2020.txt / ADVZY_2020.txt
+4. **Edge case testing** - Multiple airports, complex qualifiers, holding patterns
+5. **Discord bot integration** - Update bot to call PHP API directly
+
+---
+
+## Test Scripts
+
+| Script | Purpose | Location |
+|--------|---------|----------|
+| `test_ntml_format.php` | NTML message format validation | `scripts/tmi/` |
+| `test_advisory_format.php` | Advisory TFMS format validation | `scripts/tmi/` |
+| `test_ntml_edge_cases.php` | Complex parsing scenarios | `scripts/tmi/` |
+| `test_crud.php` | TMI API CRUD operations | `scripts/tmi/` |
 
 ---
 
