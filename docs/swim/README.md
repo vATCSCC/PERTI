@@ -17,9 +17,11 @@
 
 **Live Features:**
 - REST API with FIXM field naming
+- **Multiple output formats:** JSON, FIXM, XML, GeoJSON, CSV, KML, NDJSON
 - Real-time WebSocket events
 - Database-backed authentication
-- Tier-based rate limits
+- Tier-based rate limits (100-30,000 req/min)
+- Response caching, ETags, gzip compression
 - Python SDK
 - **NEW:** AOC Telemetry Ingest (vertical rate, OOOI times)
 
