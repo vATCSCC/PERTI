@@ -42,7 +42,7 @@ SWIM serves as the authoritative data hub for the VATSIM ecosystem, enabling con
 | **REST API** | Query flight data, positions, TMI programs, and controlled flights |
 | **WebSocket API** | Real-time event streaming for departures, arrivals, position updates, and TMI changes |
 | **Data Ingestion** | Push flight data, track positions, and telemetry from authorized sources |
-| **GeoJSON Output** | Position data formatted for direct map rendering |
+| **Multiple Output Formats** | JSON, FIXM, XML, GeoJSON, CSV, KML, NDJSON |
 | **FIXM Compliance** | Optional FIXM 4.3.0 field naming via `?format=fixm` parameter |
 | **Tiered Access** | Four access tiers with appropriate rate limits and permissions |
 | **Client SDKs** | Official SDKs for Python, JavaScript/TypeScript, Java, and C# |
@@ -315,7 +315,19 @@ Returns paginated list of flights with optional filtering.
 | `callsign` | string | Callsign pattern with `*` wildcards (e.g., `UAL*`) |
 | `tmi_controlled` | boolean | `true` to filter TMI-controlled flights |
 | `phase` | string | Comma-separated flight phases (e.g., `ENROUTE,DESCENDING`) |
-| `format` | string | `legacy` or `fixm` |
+| `format` | string | Response format: `json` (default), `fixm`, `xml`, `geojson`, `csv`, `kml`, `ndjson` |
+
+**Supported Formats:**
+
+| Format | Content-Type | Description |
+|--------|--------------|-------------|
+| `json` | `application/json` | Standard JSON with snake_case fields (default) |
+| `fixm` | `application/json` | JSON with FIXM 4.3.0 camelCase field names |
+| `xml` | `application/xml` | XML format for enterprise/SOAP integrations |
+| `geojson` | `application/geo+json` | GeoJSON FeatureCollection for mapping |
+| `csv` | `text/csv` | CSV for spreadsheet/analytics export |
+| `kml` | `application/vnd.google-earth.kml+xml` | KML for Google Earth visualization |
+| `ndjson` | `application/x-ndjson` | Newline-delimited JSON for streaming |
 
 **Example Request:**
 

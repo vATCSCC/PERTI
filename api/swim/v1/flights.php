@@ -1,14 +1,22 @@
 <?php
 /**
  * VATSIM SWIM API v1 - Flights Endpoint
- * 
+ *
  * Returns flight data from the denormalized swim_flights table in SWIM_API database.
  * Data is synced from VATSIM_ADL normalized tables every 15 seconds.
- * 
- * Supports `?format=fixm` parameter for FIXM 4.3.0 aligned field names.
+ *
+ * Supported formats:
+ *   - json (default): Standard JSON with snake_case field names
+ *   - fixm: JSON with FIXM 4.3.0 camelCase field names
+ *   - xml: XML format
+ *   - geojson: GeoJSON FeatureCollection for mapping
+ *   - csv: CSV for spreadsheet/analytics export
+ *   - kml: KML for Google Earth visualization
+ *   - ndjson: Newline-delimited JSON for streaming
+ *
  * See docs/swim/VATSIM_SWIM_API_Field_Migration.md for complete mapping.
- * 
- * @version 3.1.0 - Added FIXM format support
+ *
+ * @version 3.2.0 - Added multi-format support (XML, GeoJSON, CSV, KML, NDJSON)
  */
 
 require_once __DIR__ . '/auth.php';
@@ -24,10 +32,12 @@ if (!$conn) {
 
 $auth = swim_init_auth(true, false);
 
-// Get format parameter (legacy or fixm)
-$format = swim_get_param('format', 'legacy');  // legacy | fixm
-if (!in_array($format, ['legacy', 'fixm'])) {
-    $format = 'legacy';
+// Get format parameter - supports json, fixm, xml, geojson, csv, kml, ndjson
+$format = swim_validate_format(swim_get_param('format', 'json'), 'flights');
+
+// Handle legacy 'legacy' format alias
+if ($format === 'legacy') {
+    $format = 'json';
 }
 
 // Get filter parameters
@@ -57,8 +67,16 @@ $cache_params = array_filter([
     'per_page' => $per_page
 ], fn($v) => $v !== null && $v !== '');
 
-// Check cache first - returns early if hit
-if (SwimResponse::tryCached('flights_list', $cache_params)) {
+// Format-specific options for output
+$format_options = [
+    'root' => 'swim_flights',
+    'item' => 'flight',
+    'name' => 'VATSIM SWIM Flights',
+    'filename' => 'swim_flights_' . date('Ymd_His')
+];
+
+// Check cache first - returns early if hit (format-aware)
+if (SwimResponse::tryCachedFormatted('flights_list', $cache_params, $format, $format_options)) {
     exit; // Cache hit, response already sent
 }
 
@@ -271,6 +289,7 @@ if ($stmt === false) {
 
 $flights = [];
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+    // Use FIXM field names for fixm format
     if ($format === 'fixm') {
         $flights[] = formatFlightRecordFIXM($row, $use_swim_db);
     } else {
@@ -279,8 +298,8 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 sqlsrv_free_stmt($stmt);
 
-// Send response and cache it (tier-aware TTL)
-SwimResponse::paginatedCached($flights, $total, $page, $per_page, 'flights_list', $cache_params);
+// Send response in requested format with caching (tier-aware TTL)
+SwimResponse::paginatedFormatted($flights, $total, $page, $per_page, $format, 'flights_list', $cache_params, $format_options);
 
 function formatFlightRecord($row, $use_swim_db = false) {
     // Use pre-computed GUFI from swim_flights if available

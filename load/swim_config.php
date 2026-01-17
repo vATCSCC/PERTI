@@ -420,6 +420,43 @@ define('SWIM_GZIP_MIN_SIZE', 1024);  // Only compress responses > 1KB
 define('SWIM_ENABLE_ETAG', true);
 
 /**
+ * Response Format Configuration
+ *
+ * Supported formats by endpoint type:
+ *   - flights:  json, fixm, xml, geojson, csv, kml, ndjson
+ *   - metering: json, fixm, xml, csv, ndjson (no spatial data)
+ *   - positions: json, fixm, xml, geojson, csv, kml, ndjson
+ *
+ * Format descriptions:
+ *   - json:    Standard JSON with snake_case field names (default)
+ *   - fixm:    JSON with FIXM 4.3.0 camelCase field names
+ *   - xml:     XML format for enterprise/SOAP integrations
+ *   - geojson: GeoJSON FeatureCollection for mapping (Leaflet, Mapbox)
+ *   - csv:     CSV for spreadsheet/analytics export (Excel, pandas)
+ *   - kml:     KML for Google Earth visualization
+ *   - ndjson:  Newline-delimited JSON for streaming/bulk processing
+ */
+$SWIM_SUPPORTED_FORMATS = [
+    'flights'   => ['json', 'fixm', 'xml', 'geojson', 'csv', 'kml', 'ndjson'],
+    'metering'  => ['json', 'fixm', 'xml', 'csv', 'ndjson'],
+    'positions' => ['json', 'fixm', 'xml', 'geojson', 'csv', 'kml', 'ndjson'],
+    'default'   => ['json', 'fixm', 'xml', 'ndjson']
+];
+
+/**
+ * Format Content-Type headers
+ */
+$SWIM_FORMAT_CONTENT_TYPES = [
+    'json'    => 'application/json; charset=utf-8',
+    'fixm'    => 'application/json; charset=utf-8',
+    'xml'     => 'application/xml; charset=utf-8',
+    'geojson' => 'application/geo+json; charset=utf-8',
+    'csv'     => 'text/csv; charset=utf-8',
+    'kml'     => 'application/vnd.google-earth.kml+xml; charset=utf-8',
+    'ndjson'  => 'application/x-ndjson; charset=utf-8'
+];
+
+/**
  * Response Pagination Defaults
  */
 define('SWIM_DEFAULT_PAGE_SIZE', 100);
