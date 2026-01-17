@@ -5,6 +5,7 @@ if (file_exists(__DIR__ . '/input.php')) {
 }
 
 // Helper function to get environment variable from multiple sources
+if (!function_exists('env')) {
 function env($key, $default = '') {
     // Try getenv first
     $value = getenv($key);
@@ -22,6 +23,7 @@ function env($key, $default = '') {
     
     return $default;
 }
+} // end function_exists('env')
 
 if (!defined("SQL_USERNAME")) {
 
