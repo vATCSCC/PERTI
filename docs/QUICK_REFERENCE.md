@@ -1,6 +1,6 @@
 # PERTI Quick Reference Index
 
-Quick lookup for common codebase elements. Last updated: 2026-01-16
+Quick lookup for common codebase elements. Last updated: 2026-01-17
 
 ---
 
@@ -28,7 +28,7 @@ Quick lookup for common codebase elements. Last updated: 2026-01-16
 | `/api/adl/demand/monitors.php` | GET/POST/DELETE | Demand monitor CRUD |
 | `/api/adl/demand/details.php` | GET | Individual flights for a monitor |
 
-### TMI Operations
+### TMI Operations (Legacy GS API)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -40,6 +40,18 @@ Quick lookup for common codebase elements. Last updated: 2026-01-16
 | `/api/tmi/gs/list.php` | GET | List GS programs |
 | `/api/tmi/gs/flights.php` | GET | Get affected flights |
 | `/api/tmi/gdp/create.php` | POST | Create GDP |
+
+### TMI Database API (v17 - VATSIM_TMI)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/tmi/` | GET | API info and endpoints |
+| `/api/tmi/active.php` | GET | All active TMI data |
+| `/api/tmi/entries.php` | GET/POST/PUT/DELETE | NTML entries CRUD |
+| `/api/tmi/programs.php` | GET/POST/PUT/DELETE | GDT programs CRUD |
+| `/api/tmi/advisories.php` | GET/POST/PUT/DELETE | Advisories CRUD |
+| `/api/tmi/public-routes.php` | GET/POST/PUT/DELETE | Public routes CRUD |
+| `/api/tmi/reroutes.php` | GET/POST/PUT/DELETE | Reroutes CRUD (pending) |
 
 ### Airport Configuration
 
@@ -155,7 +167,7 @@ Quick lookup for common codebase elements. Last updated: 2026-01-16
 | `adl_flight_waypoints` | Parsed route waypoints with ETAs |
 | `adl_flight_history` | Historical flight snapshots |
 
-### TMI Tables
+### TMI Tables (VATSIM_ADL - Legacy)
 
 | Table | Purpose |
 |-------|---------|
@@ -163,6 +175,21 @@ Quick lookup for common codebase elements. Last updated: 2026-01-16
 | `ground_stop_flights` | Flights affected by GS with EDCTs |
 | `gdp_programs` | GDP definitions |
 | `gdp_slots` | GDP slot allocations |
+
+### TMI Tables (VATSIM_TMI - New v17)
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_entries` | NTML log (MIT, MINIT, DELAY, etc.) |
+| `tmi_programs` | GS/GDP/AFP programs |
+| `tmi_slots` | GDP slot allocation |
+| `tmi_advisories` | Formal advisories |
+| `tmi_reroutes` | Reroute definitions |
+| `tmi_reroute_flights` | Flight assignments to reroutes |
+| `tmi_reroute_compliance_log` | Compliance history |
+| `tmi_public_routes` | Public route display |
+| `tmi_events` | Unified audit log |
+| `tmi_advisory_sequences` | Advisory numbering |
 
 ### Airport Configuration (v16)
 
@@ -251,7 +278,19 @@ Quick lookup for common codebase elements. Last updated: 2026-01-16
 | File | Purpose |
 |------|---------|
 | `load/config.php` | Database and API config |
-| `load/connect.php` | Database connections |
+| `load/connect.php` | Database connections ($conn_adl, $conn_swim, $conn_tmi) |
+
+### TMI API Files (v17)
+
+| File | Purpose |
+|------|---------|
+| `api/tmi/helpers.php` | Common functions, auth, response handling |
+| `api/tmi/index.php` | API info endpoint |
+| `api/tmi/active.php` | All active TMI data |
+| `api/tmi/entries.php` | NTML entries CRUD |
+| `api/tmi/programs.php` | GDT programs CRUD |
+| `api/tmi/advisories.php` | Advisories CRUD |
+| `api/tmi/public-routes.php` | Public routes CRUD |
 
 ---
 
@@ -279,13 +318,20 @@ Quick lookup for common codebase elements. Last updated: 2026-01-16
 | `085-090` | Rate suggestion/override |
 | `091` | Weather radar integration |
 
-### v15 Migrations (TMI)
+### v15 Migrations (TMI - VATSIM_ADL)
 
 | Range | Purpose |
 |-------|---------|
 | `tmi/001` | NTML schema |
 | `tmi/002` | GS procedures |
 | `tmi/003` | GS indexes |
+
+### v17 Migrations (TMI - VATSIM_TMI)
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/tmi/001_tmi_core_schema_azure_sql.sql` | Full TMI schema (10 tables, 6 views, 4 procedures) |
+| `database/migrations/tmi/002_create_tmi_user.sql` | TMI_admin user creation |
 
 ---
 

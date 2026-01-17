@@ -75,20 +75,48 @@ nohup php "${WWWROOT}/scripts/archival_daemon.php" >> /home/LogFiles/archival.lo
 ARCH_PID=$!
 echo "  archival_daemon.php started (PID: $ARCH_PID)"
 
+# Start the monitoring daemon (system metrics collection every 60s)
+# FREE: logs to /home/LogFiles/monitoring.log for trend analysis
+echo "Starting monitoring_daemon.php (system metrics)..."
+nohup php "${WWWROOT}/scripts/monitoring_daemon.php" --loop >> /home/LogFiles/monitoring_daemon.log 2>&1 &
+MON_PID=$!
+echo "  monitoring_daemon.php started (PID: $MON_PID)"
+
 echo "========================================"
-echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, waypoint=$WAYPOINT_PID, ws=$WS_PID, sched=$SCHED_PID, arch=$ARCH_PID"
+echo "All daemons started:"
+echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
+echo "  waypoint=$WAYPOINT_PID, ws=$WS_PID, sched=$SCHED_PID"
+echo "  arch=$ARCH_PID, mon=$MON_PID"
 echo "========================================"
 
 # Configure PHP-FPM for higher concurrency
 # Default is only 5 workers which causes request queueing under load
+#
+# Memory calculation (for choosing max_children):
+#   - 8 background daemons: ~200MB
+#   - nginx + OS overhead: ~250MB
+#   - PHP-FPM workers: ~50MB each
+#   - Safe formula: (TOTAL_RAM - 500MB) / 50MB = max_children
+#
+# Tier recommendations:
+#   B1/S1 (1.75GB): 25 workers  → (1750-500)/50 = 25
+#   B2/S2/P1v2 (3.5GB): 60 workers → (3500-500)/50 = 60 (use 50 for safety)
+#   B3/S3/P2v2+ (7GB+): 100+ workers
+#
+# Current: 40 workers (optimal for PremiumV2 P1v2 tier with 3.5GB RAM)
+# If on P2v2 (7GB) or P3v2 (14GB), can increase to 80-150
 echo "Configuring PHP-FPM workers..."
 FPM_CONF="/usr/local/etc/php-fpm.d/www.conf"
 if [ -f "$FPM_CONF" ]; then
-    sed -i 's/^pm.max_children = .*/pm.max_children = 20/' "$FPM_CONF"
-    sed -i 's/^pm.start_servers = .*/pm.start_servers = 5/' "$FPM_CONF"
-    sed -i 's/^pm.min_spare_servers = .*/pm.min_spare_servers = 3/' "$FPM_CONF"
-    sed -i 's/^pm.max_spare_servers = .*/pm.max_spare_servers = 10/' "$FPM_CONF"
-    echo "  PHP-FPM configured: max_children=20, start=5, min_spare=3, max_spare=10"
+    sed -i 's/^pm.max_children = .*/pm.max_children = 40/' "$FPM_CONF"
+    sed -i 's/^pm.start_servers = .*/pm.start_servers = 10/' "$FPM_CONF"
+    sed -i 's/^pm.min_spare_servers = .*/pm.min_spare_servers = 5/' "$FPM_CONF"
+    sed -i 's/^pm.max_spare_servers = .*/pm.max_spare_servers = 20/' "$FPM_CONF"
+    # Enable status page for monitoring (access via /fpm-status)
+    sed -i 's/^;pm.status_path = .*/pm.status_path = \/fpm-status/' "$FPM_CONF"
+    grep -q '^pm.status_path' "$FPM_CONF" || echo 'pm.status_path = /fpm-status' >> "$FPM_CONF"
+    echo "  PHP-FPM configured: max_children=40, start=10, min_spare=5, max_spare=20"
+    echo "  Status page enabled at /fpm-status"
 else
     echo "  WARNING: FPM config not found at $FPM_CONF"
 fi

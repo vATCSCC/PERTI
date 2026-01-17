@@ -210,17 +210,28 @@ class SwimResponse {
 
         $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        // ETag support - check if client has current version
-        if (defined('SWIM_ENABLE_ETAG') && SWIM_ENABLE_ETAG && $status === 200) {
-            $etag = '"' . md5($json) . '"';
-            header("ETag: $etag");
-            header('Cache-Control: private, must-revalidate');
+        // CDN-friendly caching + ETag support
+        if ($status === 200) {
+            // Default 15s cache for SWIM responses (matches data refresh rate)
+            $cache_ttl = swim_get_cache_ttl('flights_list', self::$currentTier);
+            header("Cache-Control: public, max-age={$cache_ttl}, s-maxage={$cache_ttl}");
+            header("CDN-Cache-Control: public, max-age={$cache_ttl}");
+            header("Vary: Accept-Encoding, Authorization, X-API-Key");
 
-            $clientEtag = $_SERVER['HTTP_IF_NONE_MATCH'] ?? '';
-            if ($clientEtag === $etag) {
-                http_response_code(304);
-                exit;
+            // ETag support - check if client has current version
+            if (defined('SWIM_ENABLE_ETAG') && SWIM_ENABLE_ETAG) {
+                $etag = '"' . md5($json) . '"';
+                header("ETag: $etag");
+
+                $clientEtag = $_SERVER['HTTP_IF_NONE_MATCH'] ?? '';
+                if ($clientEtag === $etag) {
+                    http_response_code(304);
+                    exit;
+                }
             }
+        } else {
+            // Don't cache errors
+            header("Cache-Control: no-cache, no-store, must-revalidate");
         }
 
         // Gzip compression for responses > threshold

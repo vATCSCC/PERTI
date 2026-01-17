@@ -50,7 +50,14 @@ if (!defined("SQL_USERNAME")) {
     define("REF_SQL_PASSWORD", "");  // Same as ADL
 
     // Site Information
-    define("SITE_DOMAIN", "localhost");
+    define("SITE_DOMAIN", "perti.vatcscc.org");
+
+    // =============================================
+    // System Monitoring
+    // =============================================
+    // API key for /api/system/health endpoint
+    // Change this to a secure random string in production
+    define("MONITORING_API_KEY", "");  // Generate with: openssl rand -hex 16
 
     // Tech Configuration
     define("CONNECT_CLIENT_ID", 0);

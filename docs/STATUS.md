@@ -1,6 +1,6 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-01-16
+> **Last Updated:** 2026-01-17
 > **System Version:** v17 - Main Branch
 
 ---
@@ -22,6 +22,7 @@
 | **Rate Suggestions (NEW v16)** | [OK] Active | Weather-aware AAR/ADR recommendations |
 | **ATFM Simulator (NEW v17)** | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
 | **SWIM API (NEW v17)** | [DEV] Phase 1 | System Wide Information Management API |
+| **TMI Database (NEW v17)** | [OK] Deployed | Unified TMI database (VATSIM_TMI) |
 
 ---
 
@@ -98,6 +99,98 @@ SWIM (System Wide Information Management) provides centralized flight data excha
 | 10K req/day | ~$15-45/mo | **$5/mo** |
 | 100K req/day | ~$150-450/mo | **$5/mo** |
 | 1M req/day | ~$1,500-4,500/mo | **$5/mo** |
+
+---
+
+## TMI Database Subsystem (NEW v17)
+
+> **Documentation:** [docs/tmi/](./tmi/)  
+> **Status:** ✅ Deployed & Live (January 17, 2026)
+
+Unified Traffic Management Initiative database consolidating NTML entries, Advisories, GDT Programs, Reroutes, and Public Routes.
+
+### Database Info
+
+| Setting | Value |
+|---------|-------|
+| **Server** | `vatsim.database.windows.net` |
+| **Database** | `VATSIM_TMI` |
+| **Username** | `TMI_admin` |
+| **Tier** | Basic (5 DTU, 2 GB) |
+| **Cost** | ~$5/month |
+
+### Database Architecture
+
+```
+Azure SQL Server: vatsim.database.windows.net
+├── VATSIM_ADL    ($15/mo)  - Flight data
+├── SWIM_API     ($5/mo)   - Public API  
+└── VATSIM_TMI   ($5/mo)   - TMI data ✅ NEW
+                 ─────────
+                 Total: ~$25/mo
+```
+
+### Database Objects
+
+| Object Type | Count | Status |
+|-------------|-------|--------|
+| Tables | 10 | ✅ Verified |
+| Views | 6 | ✅ Verified |
+| Stored Procedures | 4 | ✅ Verified |
+| Indexes | 30+ | ✅ Verified |
+
+### TMI API Endpoints (Live ✅)
+
+| Endpoint | Status | Description |
+|----------|--------|-------------|
+| `GET /api/tmi/` | [OK] Live | API info and endpoints |
+| `GET /api/tmi/active.php` | [OK] Live | All active TMI data |
+| `GET/POST/PUT/DELETE /api/tmi/entries.php` | [OK] Live | NTML entries CRUD |
+| `GET/POST/PUT/DELETE /api/tmi/programs.php` | [OK] Live | GDT programs CRUD |
+| `GET/POST/PUT/DELETE /api/tmi/advisories.php` | [OK] Live | Advisories CRUD |
+| `GET/POST/PUT/DELETE /api/tmi/public-routes.php` | [OK] Live | Public routes CRUD |
+| `GET/POST/PUT/DELETE /api/tmi/reroutes.php` | [ERR] Not created | Reroutes CRUD |
+
+### TMI Files
+
+| File | Location | Status |
+|------|----------|--------|
+| API Helpers | `api/tmi/helpers.php` | [OK] Deployed |
+| Index Endpoint | `api/tmi/index.php` | [OK] Deployed |
+| Active Endpoint | `api/tmi/active.php` | [OK] Deployed |
+| Entries Endpoint | `api/tmi/entries.php` | [OK] Deployed |
+| Programs Endpoint | `api/tmi/programs.php` | [OK] Deployed |
+| Advisories Endpoint | `api/tmi/advisories.php` | [OK] Deployed |
+| Public Routes Endpoint | `api/tmi/public-routes.php` | [OK] Deployed |
+| URL Rewriting | `api/tmi/.htaccess`, `web.config` | [OK] Deployed |
+| Verification Script | `scripts/tmi/verify_deployment.php` | [OK] Deployed |
+| Migration Script | `database/migrations/tmi/001_tmi_core_schema_azure_sql.sql` | [OK] Deployed |
+| User Script | `database/migrations/tmi/002_create_tmi_user.sql` | [OK] Deployed |
+
+### TMI Tables
+
+| Table | Fields | Purpose |
+|-------|--------|--------|
+| `tmi_entries` | 35 | NTML log (MIT, MINIT, DELAY, CONFIG, APREQ, etc.) |
+| `tmi_programs` | 47 | GS/GDP/AFP programs with rates, scope, exemptions |
+| `tmi_slots` | 22 | GDP slot allocation (RBS algorithm) |
+| `tmi_advisories` | 40 | Formal advisories (GS, GDP, AFP, Reroute, etc.) |
+| `tmi_reroutes` | 45 | Reroute definitions with filtering |
+| `tmi_reroute_flights` | 30 | Flight assignments to reroutes |
+| `tmi_reroute_compliance_log` | 9 | Compliance history snapshots |
+| `tmi_public_routes` | 21 | Public route display on map |
+| `tmi_events` | 18 | Unified audit log |
+| `tmi_advisory_sequences` | 2 | Advisory numbering by date |
+
+### Remaining TMI Work
+
+| Task | Status | Priority |
+|------|--------|----------|
+| Create `reroutes.php` API endpoint | [ERR] Pending | High |
+| Test CRUD operations | [WARN] Pending | High |
+| Update existing `gs/*.php` to use `tmi_programs` | [WARN] Pending | High |
+| Discord bot integration | [WARN] Pending | Medium |
+| SWIM TMI endpoints (`/api/swim/v1/tmi/`) | [WARN] Pending | Medium |
 
 ---
 

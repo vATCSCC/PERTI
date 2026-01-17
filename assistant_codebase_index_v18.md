@@ -1,6 +1,6 @@
-# vATCSCC PERTI — Codebase Index (v17)
+# vATCSCC PERTI — Codebase Index (v18)
 
-Generated: 2026-01-15 UTC
+Generated: 2026-01-17 UTC
 
 This index is a comprehensive reference for navigation, call graphs, and high-signal files.
 
@@ -1579,3 +1579,64 @@ grep -r "api_response" api/
 | TSD | Traffic Situation Display |
 | VLIMC | Very Low IMC |
 | VMC | Visual Meteorological Conditions |
+
+---
+
+## 35) TMI Discord Integration & Formatting (NEW v18)
+
+### 35.1 Discord Module Files
+
+| File | Purpose |
+|------|--------|
+| `load/discord/DiscordAPI.php` | Base Discord API wrapper (webhook + bot methods) |
+| `load/discord/TMIDiscord.php` | TMI-specific formatting per FAA TFMS specs |
+
+### 35.2 Formatting Documentation
+
+| Document | Description |
+|----------|-------------|
+| `NTML_Advisory_Formatting_Spec.md` | Official NTML & Advisory format reference |
+| `NTML_Advisory_Formatting_Transition.md` | Jan 17 implementation session summary |
+| `advisory_formatting_spec_for_claude_code.md` | Claude Code advisory builder reference |
+| `TMI_Documentation_Index.md` | Master TMI documentation index |
+
+### 35.3 NTML Format Summary
+
+```
+DD/HHMM [APT] [direction] via [FIX] ##MIT [QUALIFIERS] TYPE:x SPD:x ALT:x VOLUME:x WEATHER:x EXCL:x HHMM-HHMM REQ:PROV
+```
+
+Entry types: MIT, MINIT, STOP, DSP, APREQ, TBM, CFR
+Delay types: D/D (departure), E/D (enroute), A/D (arrival)
+
+### 35.4 Advisory Format Summary
+
+```
+vATCSCC ADVZY ### APT/CTR MM/DD/YYYY [TYPE]
+[body - 68 char max per line]
+ddhhmm-ddhhmm
+YY/MM/DD HH:MM
+```
+
+Types: CDM GROUND STOP, CDM GROUND DELAY PROGRAM, ROUTE/FCA RQD/FL, etc.
+
+### 35.5 Key Constraints
+
+- 68-character line limit (IATA Type B format)
+- All times UTC (Zulu)
+- Route protected segments marked with >< brackets
+- Field labels use colon termination
+
+---
+
+## 31) Changelog
+
+| Version | Date | Changes |
+|---------|------|--------|
+| v18 | 2026-01-17 | Added TMI Discord integration section, formatting documentation references |
+| v17 | 2026-01-15 | Added ATFM Training Simulator section |
+| v16 | 2026-01-09 | Added Demand and Airport Configuration sections |
+| v15 | 2025-12-20 | Added NOD and Initiative Timeline sections |
+| v14 | 2025-12-01 | Added SUA/TFR and Weather Radar sections |
+| v13 | 2025-11-15 | Added JATOC section |
+| v12 | 2025-11-01 | Added Splits subsystem |
