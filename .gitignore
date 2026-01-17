@@ -44,4 +44,6 @@ docs/*.pdf
 __pycache__/
 *.egg-info/
 *.pyc
-*.pyo
+*.pyo# C# build artifacts
+obj/
+bin/
