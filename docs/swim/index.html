@@ -413,18 +413,50 @@
             color: #5dade2;
         }
 
-        /* Code/JSON highlighting */
-        .swagger-ui .highlight-code {
-            background: #252540;
-        }
-
-        .swagger-ui .highlight-code .microlight {
-            background: #252540;
-            color: #e0e0e0;
+        /* Code/JSON highlighting - response body */
+        .swagger-ui .highlight-code,
+        .swagger-ui .highlight-code > .microlight,
+        .swagger-ui pre,
+        .swagger-ui pre.microlight,
+        .swagger-ui .response-col_description pre,
+        .swagger-ui .responses-inner pre,
+        .swagger-ui .live-responses-table pre,
+        .swagger-ui .curl-command pre,
+        .swagger-ui .request-url pre {
+            background: #252540 !important;
+            color: #e0e0e0 !important;
         }
 
         .swagger-ui .microlight .headerline {
             color: #5dade2;
+        }
+
+        /* Response body wrapper */
+        .swagger-ui .response-col_description__inner,
+        .swagger-ui .model-example,
+        .swagger-ui .example {
+            background: #1e1e35;
+        }
+
+        /* Live response section */
+        .swagger-ui .live-responses-table {
+            background: #1e1e35;
+        }
+
+        .swagger-ui .live-responses-table td {
+            color: #e0e0e0;
+        }
+
+        /* Request URL display */
+        .swagger-ui .request-url {
+            background: #252540;
+            color: #e0e0e0;
+        }
+
+        /* Curl command display */
+        .swagger-ui .curl-command {
+            background: #1e1e35;
+            border-color: #3a4a5c;
         }
 
         /* Execute button */
