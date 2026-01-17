@@ -244,64 +244,6 @@ paths:
                   server_time: "2026-01-16T12:00:00Z"
                   api_prefix: /api/swim/v1
 
-  /debug-headers:
-    get:
-      tags:
-        - Info
-      summary: Debug Authentication Headers
-      description: |
-        Diagnostic endpoint to verify which authentication headers the server receives.
-
-        **Use this to troubleshoot authentication issues:**
-        1. Click the "Authorize" button in Swagger UI
-        2. Enter your API key (e.g., `swim_sys_vatcscc_internal_001`)
-        3. Click "Authorize"
-        4. Try this endpoint - it will show which headers the server received
-
-        If `status` is `AUTH_HEADERS_PRESENT`, authentication should work.
-        If `status` is `NO_AUTH_HEADERS`, the server isn't receiving your authorization header.
-      operationId: debugHeaders
-      responses:
-        '200':
-          description: Header debug information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  timestamp:
-                    type: string
-                    format: date-time
-                  request_method:
-                    type: string
-                  status:
-                    type: string
-                    enum: [AUTH_HEADERS_PRESENT, NO_AUTH_HEADERS]
-                  found_auth_headers:
-                    type: object
-                    description: Authorization headers found in the request
-                  getallheaders_result:
-                    oneOf:
-                      - type: object
-                      - type: string
-                    description: Auth-related headers from getallheaders()
-                  all_server_vars_with_auth:
-                    type: object
-                    description: All $_SERVER vars containing AUTH or API
-                  recommendation:
-                    type: string
-              example:
-                timestamp: "2026-01-17T12:00:00Z"
-                request_method: GET
-                status: AUTH_HEADERS_PRESENT
-                found_auth_headers:
-                  HTTP_AUTHORIZATION: "Bearer swim_sys_vatcscc_internal_001"
-                getallheaders_result:
-                  Authorization: "Bearer swim_sys_vatcscc_internal_001"
-                all_server_vars_with_auth:
-                  HTTP_AUTHORIZATION: "Bearer swim_sys_vatcscc_internal_001"
-                recommendation: "Auth headers found! Authentication should work."
-
   /flights:
     get:
       tags:
