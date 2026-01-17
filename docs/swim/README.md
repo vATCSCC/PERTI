@@ -169,10 +169,10 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 
 | Tier | Connections | Rate Limit | Write Access |
 |------|-------------|------------|--------------|
-| public | 5 | 30/min | No |
-| developer | 50 | 100/min | No |
-| partner | 500 | 1000/min | Yes |
-| system | 10,000 | 10000/min | Yes |
+| public | 5 | 100/min | No |
+| developer | 50 | 300/min | No |
+| partner | 500 | 3,000/min | Yes |
+| system | 10,000 | 30,000/min | Yes |
 
 **Request a key:** Contact dev@vatcscc.org
 

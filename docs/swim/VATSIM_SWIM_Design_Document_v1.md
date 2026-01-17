@@ -321,10 +321,10 @@ Authorization: Bearer {api_key}
 
 | Tier | Prefix | Rate Limit | Write Access |
 |------|--------|-----------|--------------|
-| System | `swim_sys_` | 10,000/min | Yes |
-| Partner | `swim_par_` | 1,000/min | Limited |
-| Developer | `swim_dev_` | 100/min | No |
-| Public | `swim_pub_` | 30/min | No |
+| System | `swim_sys_` | 30,000/min | Yes |
+| Partner | `swim_par_` | 3,000/min | Limited |
+| Developer | `swim_dev_` | 300/min | No |
+| Public | `swim_pub_` | 100/min | No |
 
 ### 6.4 Endpoints
 

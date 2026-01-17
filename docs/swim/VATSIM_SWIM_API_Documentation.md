@@ -89,10 +89,10 @@ wss://perti.vatcscc.org/api/swim/v1/ws?api_key=swim_dev_your_key_here
 
 | Tier | Prefix | Rate Limit | Max WS Connections | Write Access |
 |------|--------|------------|-------------------|--------------|
-| **system** | `swim_sys_` | 10,000/min | 10,000 | Yes |
-| **partner** | `swim_par_` | 1,000/min | 500 | Limited |
-| **developer** | `swim_dev_` | 100/min | 50 | No |
-| **public** | `swim_pub_` | 30/min | 5 | No |
+| **system** | `swim_sys_` | 30,000/min | 10,000 | Yes |
+| **partner** | `swim_par_` | 3,000/min | 500 | Limited |
+| **developer** | `swim_dev_` | 300/min | 50 | No |
+| **public** | `swim_pub_` | 100/min | 5 | No |
 
 ### 2.3 Creating API Keys
 
@@ -948,10 +948,10 @@ define('SWIM_API_PREFIX', '/api/swim/v1');
 **Rate Limits:**
 ```php
 $SWIM_RATE_LIMITS = [
-    'system'    => 10000,
-    'partner'   => 1000,
-    'developer' => 100,
-    'public'    => 30
+    'system'    => 30000,
+    'partner'   => 3000,
+    'developer' => 300,
+    'public'    => 100
 ];
 ```
 
@@ -1068,6 +1068,7 @@ $config = [
 
 **Tier Connection Limits:**
 ```php
+// WebSocket connection limits (unchanged)
 $tierLimits = [
     'public' => 5,
     'developer' => 50,

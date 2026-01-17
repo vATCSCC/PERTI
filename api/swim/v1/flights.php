@@ -43,6 +43,25 @@ $page = swim_get_int_param('page', 1, 1, 1000);
 $per_page = swim_get_int_param('per_page', SWIM_DEFAULT_PAGE_SIZE, 1, SWIM_MAX_PAGE_SIZE);
 $offset = ($page - 1) * $per_page;
 
+// Build cache key parameters
+$cache_params = array_filter([
+    'format' => $format,
+    'status' => $status,
+    'dept_icao' => $dept_icao,
+    'dest_icao' => $dest_icao,
+    'artcc' => $artcc,
+    'callsign' => $callsign,
+    'tmi_controlled' => $tmi_controlled,
+    'phase' => $phase,
+    'page' => $page,
+    'per_page' => $per_page
+], fn($v) => $v !== null && $v !== '');
+
+// Check cache first - returns early if hit
+if (SwimResponse::tryCached('flights_list', $cache_params)) {
+    exit; // Cache hit, response already sent
+}
+
 // Build query - different table aliases based on database
 $where_clauses = [];
 $params = [];
@@ -260,7 +279,8 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 sqlsrv_free_stmt($stmt);
 
-SwimResponse::paginated($flights, $total, $page, $per_page);
+// Send response and cache it (tier-aware TTL)
+SwimResponse::paginatedCached($flights, $total, $page, $per_page, 'flights_list', $cache_params);
 
 function formatFlightRecord($row, $use_swim_db = false) {
     // Use pre-computed GUFI from swim_flights if available
