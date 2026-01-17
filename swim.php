@@ -13,11 +13,9 @@
 
 /**
  * OPTIMIZED: Public page - no session handler or DB needed
+ * Login state is handled by nav_public.php (cheap session read)
  */
 include("load/config.php");
-
-// Public page - always show as not logged in
-$logged_in = false;
 ?>
 
 <!DOCTYPE html>
