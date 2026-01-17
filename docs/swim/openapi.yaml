@@ -265,6 +265,7 @@ paths:
           schema:
             type: string
           example: ENROUTE,DESCENT
+        - $ref: '#/components/parameters/format'
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
       responses:
@@ -274,6 +275,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FlightsListResponse'
+            application/xml:
+              schema:
+                type: string
+                description: XML formatted flight data
+            application/geo+json:
+              schema:
+                $ref: '#/components/schemas/GeoJsonFeatureCollection'
+            text/csv:
+              schema:
+                type: string
+                description: CSV formatted flight data with header row
+            application/vnd.google-earth.kml+xml:
+              schema:
+                type: string
+                description: KML formatted flight data for Google Earth
+            application/x-ndjson:
+              schema:
+                type: string
+                description: Newline-delimited JSON (one flight per line)
         '401':
           $ref: '#/components/responses/Unauthorized'
         '429':
@@ -705,6 +725,31 @@ components:
         minimum: 1
         maximum: 1000
         default: 100
+    format:
+      name: format
+      in: query
+      description: |
+        Response format. Available formats vary by endpoint:
+
+        **Flights endpoint** (`/flights`):
+        - `json` (default): Standard JSON with snake_case field names
+        - `fixm`: JSON with FIXM 4.3.0 camelCase field names
+        - `xml`: XML format for enterprise/SOAP integrations
+        - `geojson`: GeoJSON FeatureCollection for mapping (Leaflet, Mapbox)
+        - `csv`: CSV for spreadsheet/analytics export
+        - `kml`: KML for Google Earth visualization
+        - `ndjson`: Newline-delimited JSON for streaming/bulk processing
+
+        **Metering endpoint** (`/metering`):
+        - `json`, `fixm`, `xml`, `csv`, `ndjson` (no geojson/kml - data isn't spatial)
+
+        **Positions endpoint** (`/positions`):
+        - All formats supported
+      schema:
+        type: string
+        enum: [json, fixm, xml, geojson, csv, kml, ndjson]
+        default: json
+      example: json
 
   responses:
     Unauthorized:

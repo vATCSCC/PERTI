@@ -5,7 +5,7 @@
  * Returns TBFM-style metering data for an airport, optimized for vNAS/CRC datablock display.
  * Field naming follows FIXM 4.3 specification.
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @since 2026-01-16
  *
  * Endpoints:
@@ -17,7 +17,14 @@
  *   runway      - Filter by arrival runway
  *   stream      - Filter by arrival_stream (corner post)
  *   metered_only - If true, only return flights with metering data (default: true)
- *   format      - Response format: json (default) or fixm
+ *   format      - Response format: json (default), fixm, xml, csv, ndjson
+ *
+ * Supported formats:
+ *   - json (default): Standard JSON with snake_case field names
+ *   - fixm: JSON with FIXM 4.3.0 camelCase field names
+ *   - xml: XML format
+ *   - csv: CSV for spreadsheet/analytics export
+ *   - ndjson: Newline-delimited JSON for streaming
  *
  * Response includes FIXM-aligned fields for datablock display:
  *   - sequence_number (SEQ)
@@ -56,8 +63,18 @@ $status_filter = swim_get_param('status');
 $runway_filter = swim_get_param('runway');
 $stream_filter = swim_get_param('stream');
 $metered_only = swim_get_param('metered_only', 'true') !== 'false';
-$format = swim_get_param('format', 'json');
+
+// Get format parameter - supports json, fixm, xml, csv, ndjson (not geojson/kml - metering data isn't spatial)
+$format = swim_validate_format(swim_get_param('format', 'json'), 'metering');
 $use_fixm = ($format === 'fixm');
+
+// Format-specific options for output
+$format_options = [
+    'root' => 'swim_metering',
+    'item' => 'flight',
+    'name' => 'VATSIM SWIM Metering - ' . $airport,
+    'filename' => 'swim_metering_' . $airport . '_' . date('Ymd_His')
+];
 
 // Build cache key parameters
 $cache_params = array_filter([
@@ -70,8 +87,8 @@ $cache_params = array_filter([
     'format' => $format
 ], fn($v) => $v !== null && $v !== '');
 
-// Check cache first - returns early if hit
-if (SwimResponse::tryCached('metering', $cache_params)) {
+// Check cache first - returns early if hit (format-aware)
+if (SwimResponse::tryCachedFormatted('metering', $cache_params, $format, $format_options)) {
     exit;
 }
 
@@ -239,11 +256,8 @@ $response_data['summary'] = [
     'avg_delay_minutes' => $metered_count > 0 ? round($total_delay / $metered_count, 1) : 0
 ];
 
-// Send response and cache it (tier-aware TTL)
-SwimResponse::successCached($response_data, 'metering', $cache_params, [
-    'format' => $format,
-    'metered_only' => $metered_only
-]);
+// Send response in requested format with caching (tier-aware TTL)
+SwimResponse::formatted($response_data, $format, 'metering', $cache_params, $format_options);
 
 /**
  * Convert snake_case field names to FIXM camelCase

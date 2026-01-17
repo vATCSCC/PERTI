@@ -169,9 +169,21 @@ Returns paginated list of flights with optional filtering.
 | `callsign` | string | Callsign pattern with `*` wildcards (e.g., `UAL*`) |
 | `tmi_controlled` | boolean | `true` to filter TMI-controlled flights |
 | `phase` | string | Flight phase filter (e.g., `ENROUTE,DESCENDING`) |
-| `format` | string | `legacy` (default) or `fixm` for FIXM field names |
+| `format` | string | Response format (see below) |
 | `page` | int | Page number (default: 1) |
 | `per_page` | int | Results per page (default: 100, max: 1000) |
+
+**Supported Formats:**
+
+| Format | Content-Type | Description |
+|--------|--------------|-------------|
+| `json` | `application/json` | Standard JSON with snake_case fields (default) |
+| `fixm` | `application/json` | JSON with FIXM 4.3.0 camelCase field names |
+| `xml` | `application/xml` | XML format for enterprise/SOAP integrations |
+| `geojson` | `application/geo+json` | GeoJSON FeatureCollection for mapping (Leaflet, Mapbox) |
+| `csv` | `text/csv` | CSV for spreadsheet/analytics export |
+| `kml` | `application/vnd.google-earth.kml+xml` | KML for Google Earth visualization |
+| `ndjson` | `application/x-ndjson` | Newline-delimited JSON for streaming/bulk processing |
 
 **Example Request:**
 ```bash
