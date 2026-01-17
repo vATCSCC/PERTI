@@ -1,0 +1,15 @@
+RewriteEngine On
+DirectorySlash Off
+
+RewriteRule ^login/?$ /login/index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.*?)/?$ $1.php [L]
+
+<Files .htaccess>
+Order allow,deny
+Deny from all
+</Files>
+
+IndexIgnore *
