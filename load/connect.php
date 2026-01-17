@@ -111,8 +111,13 @@ if (!function_exists('get_conn_adl')) {
     function get_conn_adl() {
         global $_conn_cache;
 
+        // Initialize cache if not set (CLI/daemon context)
+        if (!is_array($_conn_cache)) {
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+        }
+
         // Return cached connection if already attempted
-        if ($_conn_cache['adl'] !== null) {
+        if (isset($_conn_cache['adl']) && $_conn_cache['adl'] !== null) {
             return $_conn_cache['adl'] ?: null;
         }
 
@@ -154,7 +159,12 @@ if (!function_exists('get_conn_swim')) {
     function get_conn_swim() {
         global $_conn_cache;
 
-        if ($_conn_cache['swim'] !== null) {
+        // Initialize cache if not set (CLI/daemon context)
+        if (!is_array($_conn_cache)) {
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+        }
+
+        if (isset($_conn_cache['swim']) && $_conn_cache['swim'] !== null) {
             return $_conn_cache['swim'] ?: null;
         }
 
@@ -195,7 +205,12 @@ if (!function_exists('get_conn_tmi')) {
     function get_conn_tmi() {
         global $_conn_cache;
 
-        if ($_conn_cache['tmi'] !== null) {
+        // Initialize cache if not set (CLI/daemon context)
+        if (!is_array($_conn_cache)) {
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+        }
+
+        if (isset($_conn_cache['tmi']) && $_conn_cache['tmi'] !== null) {
             return $_conn_cache['tmi'] ?: null;
         }
 
@@ -236,7 +251,12 @@ if (!function_exists('get_conn_ref')) {
     function get_conn_ref() {
         global $_conn_cache;
 
-        if ($_conn_cache['ref'] !== null) {
+        // Initialize cache if not set (CLI/daemon context)
+        if (!is_array($_conn_cache)) {
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+        }
+
+        if (isset($_conn_cache['ref']) && $_conn_cache['ref'] !== null) {
             return $_conn_cache['ref'] ?: null;
         }
 

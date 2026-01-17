@@ -6,14 +6,14 @@
  *
  * Usage: GET https://perti.vatcscc.org/api/test/ntml_discord_test.php?key=perti-ntml-test-2026
  *
- * @version 1.2.0
+ * @version 1.4.0
  */
 
 header('Content-Type: application/json');
 header('Cache-Control: no-cache');
 
 // Version for deployment check
-define('TEST_VERSION', '1.2.0');
+define('TEST_VERSION', '1.4.0');
 
 // Test API key
 define('TEST_API_KEY', 'perti-ntml-test-2026');
@@ -224,19 +224,26 @@ if ($testType === 'all' || $testType === 'ntml') {
 
 // Run Advisory tests
 if ($testType === 'all' || $testType === 'advisory') {
-    // Ground Stop
+    // Ground Stop - per Advisories_and_General_Messages_v1_3.pdf spec
     $gsResult = $tmi->postGroundStopAdvisory([
         'advisory_number' => 'T01',
         'ctl_element' => 'JFK',
         'artcc' => 'ZNY',
+        'adl_time' => gmdate('Hi'),
         'start_utc' => gmdate('Y-m-d H:i:s'),
         'end_utc' => gmdate('Y-m-d H:i:s', strtotime('+2 hours')),
-        'scope_tier' => 'TIER 1',
+        'flt_incl' => 'ALL',
         'dep_facilities' => 'ZBW ZDC ZOB',
+        'prev_total_delay' => '0',
+        'prev_max_delay' => '0',
+        'prev_avg_delay' => '0',
+        'new_total_delay' => '2523',
+        'new_max_delay' => '64',
+        'new_avg_delay' => '32',
         'prob_extension' => 'HIGH',
         'impacting_condition' => 'WEATHER',
         'condition_text' => 'THUNDERSTORMS',
-        'comments' => 'TEST - Expected to improve by ' . gmdate('Hi', strtotime('+2 hours')) . 'Z'
+        'comments' => 'TEST - Weather expected to improve by ' . gmdate('Hi', strtotime('+2 hours')) . 'Z. Monitor for extension or early termination. Coordinate with ZNY TMU for traffic updates and reroute options.'
     ], 'advzy_staging');
     
     $results['advisory'][] = [
@@ -249,19 +256,23 @@ if ($testType === 'all' || $testType === 'advisory') {
     
     sleep($pause);
     
-    // GDP
+    // GDP - per Advisories_and_General_Messages_v1_3.pdf spec
     $gdpResult = $tmi->postGDPAdvisory([
         'advisory_number' => 'T02',
         'ctl_element' => 'EWR',
         'artcc' => 'ZNY',
+        'adl_time' => gmdate('Hi'),
         'delay_mode' => 'DAS',
         'start_utc' => gmdate('Y-m-d H:i:s'),
         'end_utc' => gmdate('Y-m-d H:i:s', strtotime('+5 hours')),
-        'program_rate' => '30',
-        'scope_tier' => 'TIER 2',
-        'departure_scope' => 'ZBW ZDC ZOB',
+        'program_rate' => '30/28/26/24/22/20',
+        'flt_incl' => 'ALL CONTIGUOUS US DEP',
+        'dep_scope' => '300NM',
         'delay_limit' => '180',
+        'max_delay' => '65',
+        'avg_delay' => '32',
         'impacting_condition' => 'VOLUME',
+        'condition_text' => 'DEMAND/CAPACITY IMBALANCE',
         'comments' => 'TEST - Monitor for extension'
     ], 'advzy_staging');
     
@@ -275,25 +286,26 @@ if ($testType === 'all' || $testType === 'advisory') {
     
     sleep($pause);
     
-    // Reroute
+    // Reroute - per Advisories_and_General_Messages_v1_3.pdf spec
     $rrResult = $tmi->postRerouteAdvisory([
         'advisory_number' => 'T03',
         'facility' => 'DCC',
         'action' => 'RQD',
-        'route_type' => 'ROUTE',
-        'route_name' => 'TEST_ZBW_A2_JFK',
-        'impacted_area' => 'NY METRO',
-        'reason' => 'WEATHER',
-        'reason_detail' => 'CONVECTIVE',
-        'include_traffic' => 'ZBW DEPS TO JFK',
+        'route_type' => 'PLAYBOOK',
+        'route_name' => 'IAH_DAS_STROS',
+        'impacted_area' => 'IAH DAS/STROS STAR',
+        'reason' => 'TABLETOP',
+        'include_traffic' => 'REROUTE ZTL ZDC ZJX ZMA ZME ZID ZOB ZBW ZNY DEPARTURES TO IAH HOU',
         'start_utc' => gmdate('Y-m-d H:i:s'),
         'end_utc' => gmdate('Y-m-d H:i:s', strtotime('+4 hours')),
         'valid_type' => 'ETD',
-        'facilities' => 'ZBW ZOB ZDC',
-        'prob_extension' => 'MEDIUM',
+        'facilities' => ['ZJX', 'ZMA', 'ZTL', 'ZDC', 'ZME', 'ZID', 'ZOB', 'ZNY', 'ZBW', 'ZFW', 'ZKC', 'ZAU', 'ZMP', 'ZAB', 'ZDV'],
+        'prob_extension' => 'LOW',
+        'remarks' => 'THIS IS THE IAH DAS PLAYBOOK ROUTE. USE THIS ROUTE FOR ALL DEPARTURES TO IAH/HOU FROM THE EASTERN FACILITIES. MONITOR NOTAMS FOR ROUTE AMENDMENTS.',
         'routes' => [
-            ['origin' => 'BOS', 'dest' => 'JFK', 'route' => 'BOS PATSS >J48 JFK< JFK'],
-            ['origin' => 'PVD', 'dest' => 'JFK', 'route' => 'PVD >J48 JFK< JFK']
+            ['origin' => 'ZTL', 'dest' => 'IAH', 'route' => 'MGM J37 >HRV LLA VUH PSX< GLAND2 IAH'],
+            ['origin' => 'ZTL', 'dest' => 'HOU', 'route' => 'MGM J37 >HRV LLA VUH PSX< LISSE5 HOU'],
+            ['origin' => 'ZDC', 'dest' => 'IAH', 'route' => 'GVE J37 >HRV LLA VUH PSX< GLAND2 IAH']
         ]
     ], 'advzy_staging');
     

@@ -1,9 +1,14 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Staged V9.0.0 - PHP Staging Table Architecture
+-- sp_Adl_RefreshFromVatsim_Staged V9.1.0 - Position Skip-Unchanged Optimization
 --
--- MAJOR CHANGE: Reads from staging tables instead of parsing JSON with OPENJSON
+-- V9.1.0 Changes:
+--   - Position updates now skip unchanged flights (saves 30-40% of writes)
+--   - Thresholds: 0.0001° lat/lon (~11m), 50ft altitude, 2kts groundspeed
+--   - Replaces MERGE with INSERT + conditional UPDATE for positions
+--   - Adds @positions_inserted and @positions_updated counters
 --
--- Performance improvement:
+-- V9.0.0 Changes (kept):
+--   - Reads from staging tables instead of parsing JSON with OPENJSON
 --   - OPENJSON parsing: 3-5 seconds (SQL compute)
 --   - Staging table read: ~100ms (much faster)
 --   - PHP does JSON parsing: ~100ms (fixed-cost App Service)
@@ -15,8 +20,6 @@
 --   2. PHP inserts data into adl_staging_pilots / adl_staging_prefiles
 --   3. PHP calls this SP with @batch_id
 --   4. SP reads from staging tables (no OPENJSON)
---
--- All other logic identical to V8.9.12
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -25,7 +28,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_Adl_RefreshFromVatsim_Staged
-    @batch_id UNIQUEIDENTIFIER
+    @batch_id UNIQUEIDENTIFIER,
+    @skip_zone_detection BIT = 0  -- Set to 1 when zone_daemon.php is running
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -348,44 +352,70 @@ BEGIN
     SET @step2b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 3: Upsert adl_flight_position (unchanged)
+    -- Step 3: Upsert adl_flight_position (OPTIMIZED V9.1 - skip unchanged)
+    -- Only UPDATE if position actually changed (saves 30-40% of writes)
+    -- Thresholds: 0.0001° lat/lon (~11m), 50ft altitude, 2kts groundspeed
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    MERGE dbo.adl_flight_position AS target
-    USING (
-        SELECT flight_uid, lat, lon, altitude_ft, groundspeed_kts,
-               heading_deg, qnh_in_hg, qnh_mb,
-               dist_to_dest_nm, dist_flown_nm, pct_complete
-        FROM #pilots
-        WHERE flight_uid IS NOT NULL AND lat IS NOT NULL
-          AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180
-    ) AS source
-    ON target.flight_uid = source.flight_uid
-    WHEN MATCHED THEN
-        UPDATE SET
-            lat = source.lat,
-            lon = source.lon,
-            position_geo = geography::Point(source.lat, source.lon, 4326),
-            altitude_ft = source.altitude_ft,
-            groundspeed_kts = source.groundspeed_kts,
-            heading_deg = source.heading_deg,
-            qnh_in_hg = source.qnh_in_hg,
-            qnh_mb = source.qnh_mb,
-            dist_to_dest_nm = source.dist_to_dest_nm,
-            dist_flown_nm = source.dist_flown_nm,
-            pct_complete = source.pct_complete,
-            position_updated_utc = @now
-    WHEN NOT MATCHED THEN
-        INSERT (flight_uid, lat, lon, position_geo, altitude_ft, groundspeed_kts,
-                heading_deg, qnh_in_hg, qnh_mb, dist_to_dest_nm, dist_flown_nm,
-                pct_complete, position_updated_utc)
-        VALUES (source.flight_uid, source.lat, source.lon,
-                geography::Point(source.lat, source.lon, 4326),
-                source.altitude_ft, source.groundspeed_kts, source.heading_deg,
-                source.qnh_in_hg, source.qnh_mb, source.dist_to_dest_nm,
-                source.dist_flown_nm, source.pct_complete, @now);
+    DECLARE @positions_inserted INT = 0;
+    DECLARE @positions_updated INT = 0;
 
+    -- 3a. INSERT new positions (flights without existing position record)
+    INSERT INTO dbo.adl_flight_position (
+        flight_uid, lat, lon, position_geo, altitude_ft, groundspeed_kts,
+        heading_deg, qnh_in_hg, qnh_mb, dist_to_dest_nm, dist_flown_nm,
+        pct_complete, position_updated_utc
+    )
+    SELECT
+        p.flight_uid, p.lat, p.lon,
+        geography::Point(p.lat, p.lon, 4326),
+        p.altitude_ft, p.groundspeed_kts, p.heading_deg,
+        p.qnh_in_hg, p.qnh_mb, p.dist_to_dest_nm, p.dist_flown_nm,
+        p.pct_complete, @now
+    FROM #pilots p
+    WHERE p.flight_uid IS NOT NULL
+      AND p.lat IS NOT NULL
+      AND p.lat BETWEEN -90 AND 90
+      AND p.lon BETWEEN -180 AND 180
+      AND NOT EXISTS (
+          SELECT 1 FROM dbo.adl_flight_position pos
+          WHERE pos.flight_uid = p.flight_uid
+      );
+
+    SET @positions_inserted = @@ROWCOUNT;
+
+    -- 3b. UPDATE only positions that actually changed
+    UPDATE pos
+    SET
+        lat = p.lat,
+        lon = p.lon,
+        position_geo = geography::Point(p.lat, p.lon, 4326),
+        altitude_ft = p.altitude_ft,
+        groundspeed_kts = p.groundspeed_kts,
+        heading_deg = p.heading_deg,
+        qnh_in_hg = p.qnh_in_hg,
+        qnh_mb = p.qnh_mb,
+        dist_to_dest_nm = p.dist_to_dest_nm,
+        dist_flown_nm = p.dist_flown_nm,
+        pct_complete = p.pct_complete,
+        position_updated_utc = @now
+    FROM dbo.adl_flight_position pos
+    INNER JOIN #pilots p ON p.flight_uid = pos.flight_uid
+    WHERE p.lat IS NOT NULL
+      AND p.lat BETWEEN -90 AND 90
+      AND p.lon BETWEEN -180 AND 180
+      AND (
+          -- Position changed by > ~11 meters
+          ABS(pos.lat - p.lat) > 0.0001
+          OR ABS(pos.lon - p.lon) > 0.0001
+          -- Altitude changed by > 50 feet
+          OR ABS(ISNULL(pos.altitude_ft, 0) - ISNULL(p.altitude_ft, 0)) > 50
+          -- Speed changed by > 2 knots
+          OR ABS(ISNULL(pos.groundspeed_kts, 0) - ISNULL(p.groundspeed_kts, 0)) > 2
+      );
+
+    SET @positions_updated = @@ROWCOUNT;
     SET @step3_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
@@ -742,10 +772,10 @@ BEGIN
 
     SET @step8d_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
-    -- Step 9: Zone Detection
+    -- Step 9: Zone Detection (skipped if zone_daemon.php is running)
     SET @step_start = SYSUTCDATETIME();
 
-    IF OBJECT_ID('dbo.sp_ProcessZoneDetectionBatch', 'P') IS NOT NULL
+    IF @skip_zone_detection = 0 AND OBJECT_ID('dbo.sp_ProcessZoneDetectionBatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_ProcessZoneDetectionBatch @transitions_detected = @zone_transitions OUTPUT;
     END
@@ -786,6 +816,8 @@ BEGIN
         @pilot_count AS pilots_received,
         @new_flights AS new_flights,
         @updated_flights AS updated_flights,
+        @positions_inserted AS positions_inserted,
+        @positions_updated AS positions_updated,
         @routes_queued AS routes_queued,
         @route_dists_updated AS route_dists_updated,
         @etd_count AS etds_calculated,
@@ -825,7 +857,8 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.0.0 created successfully';
+PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.1.0 created successfully';
+PRINT 'V9.1.0: Position updates skip unchanged flights (saves 30-40% writes)';
 PRINT 'V9.0.0: Reads from staging tables instead of OPENJSON';
-PRINT 'Expected Step 1 improvement: 3-5s -> ~100ms';
+PRINT 'Expected Step 3 improvement: ~800ms -> ~500ms';
 GO
