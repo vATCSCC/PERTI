@@ -15,6 +15,9 @@
  *   3. sp_Downsample_Trajectory_ToCold - Compress >7d warm to cold tier
  *   4. sp_Purge_OldData - Delete data past retention periods
  *
+ * Concurrency Protection:
+ *   - PHP-level: PID file prevents multiple daemon instances
+ *
  * Usage:
  *   php scripts/archival_daemon.php                    # Run in foreground
  *   php scripts/archival_daemon.php --once             # Run once and exit
@@ -275,12 +278,56 @@ function getInterval(array $config, ?int $customInterval): int {
 }
 
 // ============================================================================
+// PID FILE LOCK (for continuous mode only)
+// ============================================================================
+
+define('PID_FILE', sys_get_temp_dir() . '/perti_archival_daemon.pid');
+
+function acquirePidLock(): bool {
+    if (file_exists(PID_FILE)) {
+        $existingPid = (int) file_get_contents(PID_FILE);
+        if (PHP_OS_FAMILY === 'Windows') {
+            exec("tasklist /FI \"PID eq {$existingPid}\" 2>NUL", $output, $exitCode);
+            $processExists = count($output) > 1;
+        } else {
+            $processExists = posix_kill($existingPid, 0);
+        }
+        if ($processExists) {
+            echo "ERROR: Another instance is already running (PID: {$existingPid})\n";
+            echo "If this is incorrect, delete: " . PID_FILE . "\n";
+            return false;
+        }
+        unlink(PID_FILE);
+    }
+    file_put_contents(PID_FILE, (string)getmypid());
+    return true;
+}
+
+function releasePidLock(): void {
+    if (file_exists(PID_FILE)) {
+        unlink(PID_FILE);
+    }
+}
+
+register_shutdown_function('releasePidLock');
+
+// Acquire PID lock for continuous mode
+if (!$runOnce) {
+    if (!acquirePidLock()) {
+        exit(1);
+    }
+}
+
+// ============================================================================
 // MAIN
 // ============================================================================
 
 logMsg("========================================");
 logMsg("PERTI Archival Daemon Starting");
 logMsg("PID: " . getmypid());
+if (!$runOnce) {
+    logMsg("PID lock acquired");
+}
 logMsg("Batch size: {$batchSize}");
 logMsg("Run mode: " . ($runOnce ? 'once' : 'continuous'));
 logMsg("========================================");
