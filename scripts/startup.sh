@@ -79,6 +79,20 @@ echo "========================================"
 echo "All daemons started. PIDs: adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID, waypoint=$WAYPOINT_PID, ws=$WS_PID, sched=$SCHED_PID, arch=$ARCH_PID"
 echo "========================================"
 
+# Configure PHP-FPM for higher concurrency
+# Default is only 5 workers which causes request queueing under load
+echo "Configuring PHP-FPM workers..."
+FPM_CONF="/usr/local/etc/php-fpm.d/www.conf"
+if [ -f "$FPM_CONF" ]; then
+    sed -i 's/^pm.max_children = .*/pm.max_children = 20/' "$FPM_CONF"
+    sed -i 's/^pm.start_servers = .*/pm.start_servers = 5/' "$FPM_CONF"
+    sed -i 's/^pm.min_spare_servers = .*/pm.min_spare_servers = 3/' "$FPM_CONF"
+    sed -i 's/^pm.max_spare_servers = .*/pm.max_spare_servers = 10/' "$FPM_CONF"
+    echo "  PHP-FPM configured: max_children=20, start=5, min_spare=3, max_spare=10"
+else
+    echo "  WARNING: FPM config not found at $FPM_CONF"
+fi
+
 # Start PHP-FPM in foreground (nginx handles HTTP, PHP-FPM handles PHP)
 # Azure PHP container already has nginx running, we just need PHP-FPM
 echo "Starting PHP-FPM..."
