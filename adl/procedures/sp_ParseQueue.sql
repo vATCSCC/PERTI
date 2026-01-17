@@ -344,12 +344,13 @@ BEGIN
     DEALLOCATE flight_cursor;
     
     -- ═══════════════════════════════════════════════════════════════════════
-    -- 3. Cleanup old completed entries (older than 1 hour)
+    -- 3. Cleanup old completed entries (older than 24 hours)
+    -- Retain for full day to support daily tier breakdown stats on status page
     -- ═══════════════════════════════════════════════════════════════════════
-    
+
     DELETE FROM dbo.adl_parse_queue
-    WHERE status = 'COMPLETE' 
-      AND completed_utc < DATEADD(HOUR, -1, SYSUTCDATETIME());
+    WHERE status = 'COMPLETE'
+      AND completed_utc < DATEADD(HOUR, -24, SYSUTCDATETIME());
     
     -- Return stats
     SELECT @processed AS processed, @failed AS failed,

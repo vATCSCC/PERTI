@@ -2,11 +2,41 @@
 
 if (!defined("SQL_USERNAME")) {
 
-    // Database Information
+    // =============================================
+    // Primary Website Database (MySQL)
+    // =============================================
     define("SQL_USERNAME", "");
     define("SQL_PASSWORD", "");
     define("SQL_HOST", "");
     define("SQL_DATABASE", "");
+
+    // =============================================
+    // ADL Database (Azure SQL - Flight Data)
+    // Server: vatsim.database.windows.net
+    // =============================================
+    define("ADL_SQL_HOST", "vatsim.database.windows.net");
+    define("ADL_SQL_DATABASE", "VATSIM_ADL");
+    define("ADL_SQL_USERNAME", "");
+    define("ADL_SQL_PASSWORD", "");
+
+    // =============================================
+    // SWIM API Database (Azure SQL - Public API)
+    // Server: vatsim.database.windows.net
+    // =============================================
+    define("SWIM_SQL_HOST", "vatsim.database.windows.net");
+    define("SWIM_SQL_DATABASE", "SWIM_API");
+    define("SWIM_SQL_USERNAME", "");  // Same as ADL
+    define("SWIM_SQL_PASSWORD", "");  // Same as ADL
+
+    // =============================================
+    // TMI Database (Azure SQL - Traffic Management)
+    // Server: vatsim.database.windows.net
+    // Contains: NTML, Advisories, GDT, Reroutes, Public Routes
+    // =============================================
+    define("TMI_SQL_HOST", "vatsim.database.windows.net");
+    define("TMI_SQL_DATABASE", "VATSIM_TMI");
+    define("TMI_SQL_USERNAME", "TMI_admin");
+    define("TMI_SQL_PASSWORD", "");  // Contact admin for password
 
     // Site Information
     define("SITE_DOMAIN", "localhost");

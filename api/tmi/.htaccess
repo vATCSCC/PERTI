@@ -1,0 +1,47 @@
+# TMI API .htaccess
+# Handles URL rewriting for clean API routes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /api/tmi/
+    
+    # Pass through if file exists
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+    
+    # Route /api/tmi/ to index.php
+    RewriteRule ^$ index.php [L]
+    
+    # Route /api/tmi/entries to entries.php
+    RewriteRule ^entries/?$ entries.php [L,QSA]
+    RewriteRule ^entries/(\d+)/?$ entries.php?id=$1 [L,QSA]
+    
+    # Route /api/tmi/programs to programs.php
+    RewriteRule ^programs/?$ programs.php [L,QSA]
+    RewriteRule ^programs/(\d+)/?$ programs.php?id=$1 [L,QSA]
+    
+    # Route /api/tmi/advisories to advisories.php
+    RewriteRule ^advisories/?$ advisories.php [L,QSA]
+    RewriteRule ^advisories/(\d+)/?$ advisories.php?id=$1 [L,QSA]
+    
+    # Route /api/tmi/public-routes to public-routes.php
+    RewriteRule ^public-routes/?$ public-routes.php [L,QSA]
+    RewriteRule ^public-routes/(\d+)/?$ public-routes.php?id=$1 [L,QSA]
+    
+    # Route /api/tmi/reroutes to reroutes.php
+    RewriteRule ^reroutes/?$ reroutes.php [L,QSA]
+    RewriteRule ^reroutes/(\d+)/?$ reroutes.php?id=$1 [L,QSA]
+    
+    # Route /api/tmi/active to active.php
+    RewriteRule ^active/?$ active.php [L,QSA]
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
