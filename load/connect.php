@@ -78,7 +78,6 @@ if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
             "Database" => ADL_SQL_DATABASE,
             "UID"      => ADL_SQL_USERNAME,
             "PWD"      => ADL_SQL_PASSWORD,
-            "LoginTimeout" => 30,
             "ConnectionPooling" => 1
         ];
 
@@ -113,7 +112,6 @@ if (defined('SWIM_SQL_HOST') && defined('SWIM_SQL_DATABASE') &&
             "Database" => SWIM_SQL_DATABASE,
             "UID"      => SWIM_SQL_USERNAME,
             "PWD"      => SWIM_SQL_PASSWORD,
-            "LoginTimeout" => 30,
             "ConnectionPooling" => 1
         ];
 
