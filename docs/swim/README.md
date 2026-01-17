@@ -134,13 +134,25 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 | `/flights` | GET | List flights |
 | `/flight` | GET | Single flight by GUFI |
 | `/positions` | GET | Bulk positions (GeoJSON) |
-| `/tmi/programs` | GET | Active TMI programs |
+| `/tmi/programs` | GET | Active TMI programs (GS/GDP) |
 | `/tmi/controlled` | GET | TMI-controlled flights |
 | `/tmi/reroutes` | GET | TMI reroute definitions |
+| `/tmi/gs` | GET/POST | Ground Stop programs |
+| `/tmi/gs/{id}` | GET | Ground Stop details |
+| `/tmi/gs/{id}/flights` | GET | Flights affected by GS |
+| `/tmi/gs/{id}/model` | POST | Model GS impact |
+| `/tmi/gs/{id}/activate` | POST | Activate GS program |
+| `/tmi/gdp` | GET/POST | Ground Delay Programs |
+| `/tmi/gdp/{id}/flights` | GET | Flights in GDP |
+| `/tmi/gdp/{id}/slots` | GET | GDP slot allocation |
+| `/tmi/mit` | GET | Miles-In-Trail restrictions |
+| `/tmi/minit` | GET | Minutes-In-Trail restrictions |
+| `/tmi/afp` | GET | Airspace Flow Programs |
 | `/metering/{airport}` | GET | TBFM metering data for airport |
 | `/metering/{airport}/sequence` | GET | Arrival sequence list |
 | `/jatoc/incidents` | GET | JATOC incident records |
 | `/splits/presets` | GET | Runway configuration presets |
+| `/fea` | GET | Flow Evaluation Areas |
 | `/ingest/adl` | POST | Ingest flight data (write access) |
 | `/ingest/track` | POST | High-freq position updates (write access) |
 | `/ingest/metering` | POST | TBFM metering data (write access) |

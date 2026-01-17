@@ -1018,6 +1018,693 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /tmi/gs:
+    get:
+      tags:
+        - TMI
+      summary: List Ground Stop Programs
+      description: |
+        Returns Ground Stop programs with optional filters.
+        Ground Stops halt all departures to an affected airport.
+
+        **FIXM/TFMS Alignment:**
+        - program_type = GS (Ground Stop)
+        - ctl_element = controlElement (affected airport)
+        - status follows NTML lifecycle: PROPOSED → ACTIVE → COMPLETED/PURGED
+
+        **Status Values:**
+        - PROPOSED: Created but not yet active
+        - ACTIVE: Currently in effect
+        - COMPLETED: Ended normally
+        - PURGED: Cancelled before end time
+      operationId: listGroundStops
+      parameters:
+        - name: airport
+          in: query
+          description: Filter by affected airport (ctl_element)
+          schema:
+            type: string
+          example: KJFK
+        - name: status
+          in: query
+          description: Filter by program status
+          schema:
+            type: string
+            enum: [PROPOSED, ACTIVE, COMPLETED, PURGED]
+        - name: active_only
+          in: query
+          description: Only return currently active GS programs
+          schema:
+            type: boolean
+            default: false
+        - name: include_history
+          in: query
+          description: Include recently completed/purged programs (last 2 hours)
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          description: Maximum results
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Ground Stop programs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroundStopListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - TMI
+      summary: Create Ground Stop Program
+      description: |
+        Creates a new Ground Stop program in PROPOSED state.
+        Requires system or partner tier API key with TMI authority.
+
+        **Scope Types:**
+        - TIER: Tier-based scope (1=local, 2=regional, 3=national)
+        - DISTANCE: Distance-based in nautical miles
+        - MANUAL: Custom airport/center list
+
+        **FIXM Field Mapping:**
+        - ctl_element → controlElement
+        - start_utc/end_utc → validTimeBegin/validTimeEnd
+        - impacting_condition → reason
+        - scope_type → scopeType
+      operationId: createGroundStop
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroundStopCreateRequest'
+            example:
+              ctl_element: KJFK
+              start_utc: "2026-01-16T15:00:00Z"
+              end_utc: "2026-01-16T17:00:00Z"
+              scope_type: TIER
+              scope_tier: 1
+              exempt_airborne: true
+              exempt_within_min: 45
+              impacting_condition: WEATHER
+              cause_text: "Low visibility - IFR conditions"
+              prob_extension: MEDIUM
+      responses:
+        '200':
+          description: Ground Stop created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroundStopCreateResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tmi/gs/{program_id}:
+    get:
+      tags:
+        - TMI
+      summary: Get Ground Stop Program Details
+      description: Returns detailed information for a specific Ground Stop program.
+      operationId: getGroundStop
+      parameters:
+        - name: program_id
+          in: path
+          required: true
+          description: Program ID
+          schema:
+            type: integer
+          example: 123
+      responses:
+        '200':
+          description: Ground Stop program details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroundStopDetailResponse'
+        '404':
+          description: Program not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/gs/{program_id}/flights:
+    get:
+      tags:
+        - TMI
+      summary: Get Flights Affected by Ground Stop
+      description: |
+        Returns flights affected by a Ground Stop program.
+        Includes controlled flights (held) and exempt flights.
+
+        **FIXM Field Mapping:**
+        - gs_held → groundStopHeld
+        - ctl_exempt → exemptIndicator
+        - ctl_exempt_reason → exemptReason
+      operationId: getGroundStopFlights
+      parameters:
+        - name: program_id
+          in: path
+          required: true
+          description: Program ID
+          schema:
+            type: integer
+        - name: include_exempt
+          in: query
+          description: Include exempt flights in response
+          schema:
+            type: boolean
+            default: true
+        - name: include_airborne
+          in: query
+          description: Include airborne flights in response
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Flights affected by Ground Stop
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmiFlightsResponse'
+        '404':
+          description: Program not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/gs/{program_id}/model:
+    post:
+      tags:
+        - TMI
+      summary: Model Ground Stop Impact
+      description: |
+        Models the impact of a Ground Stop on traffic.
+        Returns affected flights and metrics without activating the program.
+        Use this before activation to preview impact.
+      operationId: modelGroundStop
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: program_id
+          in: path
+          required: true
+          description: Program ID to model
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ground Stop model results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmiModelResponse'
+        '404':
+          description: Program not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/gs/{program_id}/activate:
+    post:
+      tags:
+        - TMI
+      summary: Activate Ground Stop Program
+      description: |
+        Activates a PROPOSED Ground Stop program.
+        Changes status from PROPOSED to ACTIVE and begins controlling flights.
+      operationId: activateGroundStop
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: program_id
+          in: path
+          required: true
+          description: Program ID to activate
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ground Stop activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmiActivateResponse'
+        '400':
+          description: Program cannot be activated (wrong status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tmi/gdp:
+    get:
+      tags:
+        - TMI
+      summary: List Ground Delay Programs
+      description: |
+        Returns Ground Delay Program (GDP) programs with optional filters.
+        GDPs assign arrival slots to flights to manage demand at capacity-constrained airports.
+
+        **FIXM/TFMS Alignment:**
+        - program_type = GDP (Ground Delay Program)
+        - program_rate → programRate (arrivals per hour)
+        - delay_limit → delayLimit (maximum assignable delay)
+        - Slot assignment follows EBSA (ETA-Based Slot Allocation)
+
+        **GDP Variants:**
+        - GDP-DAS: Delay Assignment
+        - GDP-GAAP: Ground Delay Program at Alternate Airports
+        - GDP-UDP: Unified Delay Program
+      operationId: listGroundDelayPrograms
+      parameters:
+        - name: airport
+          in: query
+          description: Filter by affected airport (ctl_element)
+          schema:
+            type: string
+          example: KATL
+        - name: status
+          in: query
+          description: Filter by program status
+          schema:
+            type: string
+            enum: [DRAFT, SIMULATED, ACTIVE, EXPIRED, PURGED]
+        - name: active_only
+          in: query
+          description: Only return currently active GDP programs
+          schema:
+            type: boolean
+            default: false
+        - name: include_history
+          in: query
+          description: Include recently completed programs (last 2 hours)
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          description: Maximum results
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: GDP programs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GdpListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - TMI
+      summary: Create/Simulate Ground Delay Program
+      description: |
+        Creates and simulates a Ground Delay Program.
+        Runs EBSA (ETA-Based Slot Allocation) algorithm to assign arrival slots.
+
+        **Rate Configuration:**
+        - program_rate: Default arrivals/hour (simple mode)
+        - program_rates_hourly: JSON object with hourly rates (detailed mode)
+        - reserve_rate: Reserved slots/hour for pop-up flights
+
+        **Scope Configuration:**
+        - origin_airports: Specific departure airports
+        - origin_centers: Departure ARTCCs (e.g., ZNY, ZBW)
+        - distance_nm: Distance-based scope from destination
+
+        **FIXM Field Mapping:**
+        - program_rate → programRate
+        - delay_limit → delayLimit
+        - reserve_rate → reserveRate
+        - slot_time_utc → slotTime (CTA)
+        - program_delay_min → delayValue
+      operationId: createGroundDelayProgram
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GdpCreateRequest'
+            example:
+              gdp_airport: KATL
+              gdp_start: "2026-01-16T14:00:00Z"
+              gdp_end: "2026-01-16T20:00:00Z"
+              program_rate: 60
+              reserve_rate: 5
+              delay_limit: 180
+              gdp_origin_centers: "ZTL ZJX ZDC"
+              impacting_condition: WEATHER
+              adv_number: "ADVZY 001"
+      responses:
+        '200':
+          description: GDP simulation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GdpSimulateResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tmi/gdp/{program_id}/flights:
+    get:
+      tags:
+        - TMI
+      summary: Get Flights in GDP
+      description: |
+        Returns flights controlled by a Ground Delay Program.
+        Includes slot assignments, delays, and exemption status.
+
+        **FIXM Field Mapping:**
+        - gdp_slot_time_utc → slotTime (CTA)
+        - program_delay_min → delayValue
+        - ctl_type → controlType (GDP, GDP-CAP, GDP-STK)
+      operationId: getGdpFlights
+      parameters:
+        - name: program_id
+          in: path
+          required: true
+          description: GDP program ID
+          schema:
+            type: string
+          example: GDP-KATL-202601161400
+      responses:
+        '200':
+          description: GDP flight list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GdpFlightsResponse'
+        '404':
+          description: Program not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/gdp/{program_id}/slots:
+    get:
+      tags:
+        - TMI
+      summary: Get GDP Arrival Slots
+      description: |
+        Returns arrival slot allocation for a Ground Delay Program.
+        Slots are allocated in 15-minute bins based on program rate.
+
+        **Slot Types:**
+        - REGULAR: Standard arrival slots
+        - RESERVED: Reserved for pop-up flights
+
+        **Slot Status:**
+        - OPEN: Available for assignment
+        - ASSIGNED: Flight assigned to slot
+        - BRIDGED: Slot bridged via SCS/ECR
+        - CANCELLED: Slot cancelled
+      operationId: getGdpSlots
+      parameters:
+        - name: program_id
+          in: path
+          required: true
+          description: GDP program ID
+          schema:
+            type: string
+          example: GDP-KATL-202601161400
+        - name: status
+          in: query
+          description: Filter by slot status
+          schema:
+            type: string
+            enum: [OPEN, ASSIGNED, BRIDGED, CANCELLED]
+        - name: hour
+          in: query
+          description: Filter by hour (0-23)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 23
+      responses:
+        '200':
+          description: GDP slot allocation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GdpSlotsResponse'
+        '404':
+          description: Program not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/mit:
+    get:
+      tags:
+        - TMI
+      summary: List Miles-In-Trail Restrictions
+      description: |
+        Returns active Miles-In-Trail (MIT) restrictions.
+        MIT requires specified spacing (in nautical miles) between aircraft.
+
+        **FIXM/TFMS Alignment:**
+        - restriction_type = MIT
+        - value_nm → spacingValue (spacing in NM)
+        - fix → constraintFix
+        - direction → flowDirection (EAST, WEST, ALL)
+
+        **Common MIT Values:**
+        - 10 MIT: Light traffic management
+        - 15 MIT: Moderate spacing
+        - 20+ MIT: Significant restrictions
+      operationId: listMilesInTrail
+      parameters:
+        - name: facility
+          in: query
+          description: Filter by issuing facility
+          schema:
+            type: string
+          example: ZNY
+        - name: fix
+          in: query
+          description: Filter by affected fix/waypoint
+          schema:
+            type: string
+          example: CAMRN
+        - name: active_only
+          in: query
+          description: Only return active restrictions
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: MIT restrictions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MitListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/minit:
+    get:
+      tags:
+        - TMI
+      summary: List Minutes-In-Trail Restrictions
+      description: |
+        Returns active Minutes-In-Trail (MINIT) restrictions.
+        MINIT requires specified time spacing (in minutes) between aircraft.
+
+        **FIXM/TFMS Alignment:**
+        - restriction_type = MINIT
+        - value_min → spacingValue (spacing in minutes)
+        - fix → constraintFix
+
+        **Use Cases:**
+        - Departure spacing from airports
+        - Arrival metering at fixes
+        - Sector capacity management
+      operationId: listMinutesInTrail
+      parameters:
+        - name: facility
+          in: query
+          description: Filter by issuing facility
+          schema:
+            type: string
+          example: ZBW
+        - name: fix
+          in: query
+          description: Filter by affected fix/waypoint
+          schema:
+            type: string
+        - name: active_only
+          in: query
+          description: Only return active restrictions
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: MINIT restrictions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MinitListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/afp:
+    get:
+      tags:
+        - TMI
+      summary: List Airspace Flow Programs
+      description: |
+        Returns Airspace Flow Program (AFP) data.
+        AFPs manage traffic through constrained airspace using time-based slots.
+
+        **FIXM/TFMS Alignment:**
+        - program_type = AFP
+        - fca → flowConstraintArea
+        - rate → programRate
+
+        **AFP vs GDP:**
+        - GDP: Manages arrivals to a single airport
+        - AFP: Manages traffic through airspace (FCA - Flow Constraint Area)
+      operationId: listAirspaceFlowPrograms
+      parameters:
+        - name: fca
+          in: query
+          description: Filter by Flow Constraint Area
+          schema:
+            type: string
+          example: FCA_EAST
+        - name: status
+          in: query
+          description: Filter by program status
+          schema:
+            type: string
+            enum: [PROPOSED, ACTIVE, COMPLETED, PURGED]
+        - name: active_only
+          in: query
+          description: Only return active programs
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: AFP programs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfpListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /fea:
+    get:
+      tags:
+        - Configuration
+      summary: List Flow Evaluation Areas
+      description: |
+        Returns Flow Evaluation Area (FEA) definitions.
+        FEAs are geographic areas used for traffic flow analysis and TMI planning.
+
+        **FIXM/TFMS Alignment:**
+        - fea_id → flowEvaluationAreaId
+        - boundary → boundaryGeometry (GeoJSON)
+        - airports → affectedAerodromes
+
+        **Use Cases:**
+        - Weather impact analysis
+        - Demand/capacity modeling
+        - Reroute definition
+      operationId: listFlowEvaluationAreas
+      parameters:
+        - name: artcc
+          in: query
+          description: Filter by ARTCC
+          schema:
+            type: string
+          example: ZNY
+        - name: active_only
+          in: query
+          description: Only return active FEAs
+          schema:
+            type: boolean
+            default: true
+        - name: include_geometry
+          in: query
+          description: Include boundary GeoJSON
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: FEA definitions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeaListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /jatoc/incidents:
     get:
       tags:
@@ -2847,3 +3534,866 @@ components:
               type: integer
             source:
               type: string
+
+    # ============================================
+    # TMI (Traffic Management Initiative) Schemas
+    # ============================================
+
+    GroundStopProgram:
+      type: object
+      description: FIXM-aligned Ground Stop program (NTML)
+      properties:
+        program_id:
+          type: integer
+          description: Unique program identifier
+        program_guid:
+          type: string
+          format: uuid
+          description: GUFI-style unique identifier
+        program_name:
+          type: string
+          description: "Format: {airport}-GS-{MMddHHmm}"
+          example: KJFK-GS-01161500
+        program_type:
+          type: string
+          enum: [GS]
+        ctl_element:
+          type: string
+          description: Affected airport (controlElement)
+          example: KJFK
+        element_type:
+          type: string
+          enum: [APT, FCA]
+        status:
+          type: string
+          enum: [PROPOSED, ACTIVE, COMPLETED, PURGED, SUPERSEDED]
+        is_proposed:
+          type: boolean
+        is_active:
+          type: boolean
+        start_utc:
+          type: string
+          format: date-time
+          description: Program start time (validTimeBegin)
+        end_utc:
+          type: string
+          format: date-time
+          description: Program end time (validTimeEnd)
+        cumulative_start:
+          type: string
+          format: date-time
+          description: Original start time (for extensions)
+        cumulative_end:
+          type: string
+          format: date-time
+          description: Latest end time (for extensions)
+        adv_number:
+          type: string
+          description: Advisory number
+          example: ADVZY 001
+        scope_type:
+          type: string
+          enum: [TIER, DISTANCE, MANUAL]
+        scope_tier:
+          type: integer
+          enum: [1, 2, 3]
+          description: "1=local, 2=regional, 3=national"
+        scope_distance_nm:
+          type: integer
+          description: Distance-based scope in NM
+        exempt_airborne:
+          type: boolean
+          description: Exempt all airborne flights
+        exempt_within_min:
+          type: integer
+          description: Exempt flights departing within X minutes
+        impacting_condition:
+          type: string
+          enum: [WEATHER, VOLUME, RUNWAY, EQUIPMENT, OTHER]
+        cause_text:
+          type: string
+          description: Reason description
+        prob_extension:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        total_flights:
+          type: integer
+          description: Computed metric - total affected flights
+        controlled_flights:
+          type: integer
+          description: Computed metric - flights held
+        exempt_flights:
+          type: integer
+          description: Computed metric - flights exempted
+        created_by:
+          type: string
+        created_utc:
+          type: string
+          format: date-time
+        activated_by:
+          type: string
+        activated_utc:
+          type: string
+          format: date-time
+
+    GroundStopListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            programs:
+              type: array
+              items:
+                $ref: '#/components/schemas/GroundStopProgram'
+            total:
+              type: integer
+            filters:
+              type: object
+            server_utc:
+              type: string
+              format: date-time
+
+    GroundStopCreateRequest:
+      type: object
+      required:
+        - ctl_element
+        - start_utc
+        - end_utc
+      properties:
+        ctl_element:
+          type: string
+          description: Destination airport (ICAO)
+          example: KJFK
+        start_utc:
+          type: string
+          format: date-time
+          description: GS start time
+        end_utc:
+          type: string
+          format: date-time
+          description: GS end time
+        scope_type:
+          type: string
+          enum: [TIER, DISTANCE, MANUAL]
+          default: TIER
+        scope_tier:
+          type: integer
+          enum: [1, 2, 3]
+          default: 1
+        scope_distance_nm:
+          type: integer
+          description: For DISTANCE scope
+        exempt_airborne:
+          type: boolean
+          default: true
+        exempt_within_min:
+          type: integer
+          default: 45
+        flt_incl_carrier:
+          type: string
+          description: Carrier filter (space-delimited)
+        flt_incl_type:
+          type: string
+          enum: [ALL, JET, PROP]
+          default: ALL
+        impacting_condition:
+          type: string
+          enum: [WEATHER, VOLUME, RUNWAY, EQUIPMENT, OTHER]
+        cause_text:
+          type: string
+        comments:
+          type: string
+        prob_extension:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          default: MEDIUM
+
+    GroundStopCreateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            program_id:
+              type: integer
+            program:
+              $ref: '#/components/schemas/GroundStopProgram'
+
+    GroundStopDetailResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/GroundStopProgram'
+
+    TmiFlightsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            program:
+              $ref: '#/components/schemas/GroundStopProgram'
+            flights:
+              type: array
+              items:
+                $ref: '#/components/schemas/TmiControlledFlight'
+            summary:
+              type: object
+              properties:
+                total:
+                  type: integer
+                controlled:
+                  type: integer
+                exempt:
+                  type: integer
+            server_utc:
+              type: string
+              format: date-time
+
+    TmiModelResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            program:
+              $ref: '#/components/schemas/GroundStopProgram'
+            flights:
+              type: array
+              items:
+                $ref: '#/components/schemas/TmiControlledFlight'
+            metrics:
+              type: object
+              properties:
+                total_flights:
+                  type: integer
+                controlled_flights:
+                  type: integer
+                exempt_flights:
+                  type: integer
+                airborne_flights:
+                  type: integer
+            server_utc:
+              type: string
+              format: date-time
+
+    TmiActivateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            program_id:
+              type: integer
+            status:
+              type: string
+              enum: [ACTIVE]
+            activated_utc:
+              type: string
+              format: date-time
+
+    GdpProgram:
+      type: object
+      description: FIXM-aligned Ground Delay Program
+      properties:
+        id:
+          type: integer
+        program_id:
+          type: string
+          description: "Format: GDP-{airport}-{YYYYMMddHHmm}"
+          example: GDP-KATL-202601161400
+        ctl_element:
+          type: string
+          description: Destination airport
+          example: KATL
+        status:
+          type: string
+          enum: [DRAFT, SIMULATED, ACTIVE, EXPIRED, PURGED]
+        program_start_utc:
+          type: string
+          format: date-time
+        program_end_utc:
+          type: string
+          format: date-time
+        program_rate:
+          type: integer
+          description: Default arrivals per hour
+        program_rates_hourly:
+          type: object
+          description: Hourly rates JSON {"0":30,"1":35,...}
+          additionalProperties:
+            type: integer
+        reserve_rate:
+          type: integer
+          description: Reserved slots per hour for pop-ups
+        delay_limit_minutes:
+          type: integer
+          description: Maximum assignable delay
+          default: 180
+        scope_centers:
+          type: string
+          description: Origin ARTCCs (space-delimited)
+        scope_airports:
+          type: string
+          description: Origin airports (space-delimited)
+        scope_tier:
+          type: integer
+        scope_distance_nm:
+          type: integer
+        impacting_condition:
+          type: string
+          enum: [WEATHER, VOLUME, RUNWAY, EQUIPMENT, OTHER]
+        probability_of_extension:
+          type: integer
+          description: "0-100%"
+        adv_number:
+          type: string
+        total_flights:
+          type: integer
+        affected_flights:
+          type: integer
+        exempt_flights:
+          type: integer
+        avg_delay_min:
+          type: number
+        max_delay_min:
+          type: integer
+        slot_utilization:
+          type: number
+          description: Percentage of slots filled
+        created_utc:
+          type: string
+          format: date-time
+
+    GdpListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+            programs:
+              type: array
+              items:
+                $ref: '#/components/schemas/GdpProgram'
+            total:
+              type: integer
+            server_utc:
+              type: string
+              format: date-time
+
+    GdpCreateRequest:
+      type: object
+      required:
+        - gdp_airport
+        - gdp_start
+        - gdp_end
+        - program_rate
+      properties:
+        gdp_airport:
+          type: string
+          description: Destination airport (ICAO)
+          example: KATL
+        gdp_start:
+          type: string
+          format: date-time
+        gdp_end:
+          type: string
+          format: date-time
+        program_rate:
+          type: integer
+          description: Default arrivals per hour
+          example: 60
+        program_rates_hourly:
+          type: object
+          description: Hourly rates override {"0":30,"1":35,...}
+          additionalProperties:
+            type: integer
+        reserve_rate:
+          type: integer
+          default: 0
+          description: Reserved slots per hour
+        reserve_rates_hourly:
+          type: object
+          additionalProperties:
+            type: integer
+        delay_limit:
+          type: integer
+          default: 180
+          description: Maximum assignable delay in minutes
+        gdp_origin_airports:
+          type: string
+          description: Origin airports (space-delimited)
+        gdp_origin_centers:
+          type: string
+          description: Origin ARTCCs (space-delimited)
+          example: "ZTL ZJX ZDC"
+        distance_nm:
+          type: integer
+          description: Distance-based scope (0 = disabled)
+        gdp_flt_incl_type:
+          type: string
+          enum: [ALL, JET, PROP]
+          default: ALL
+        gdp_flt_incl_carrier:
+          type: string
+          description: Carrier filter (space-delimited)
+        exemptions:
+          type: object
+          properties:
+            airborne:
+              type: boolean
+            orig_airports:
+              type: string
+            orig_artccs:
+              type: string
+            carriers:
+              type: string
+        impacting_condition:
+          type: string
+        adv_number:
+          type: string
+
+    GdpSimulateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        program_id:
+          type: string
+        filters:
+          type: object
+        summary:
+          type: object
+          properties:
+            total_flights:
+              type: integer
+            assigned_flights:
+              type: integer
+            stack_flights:
+              type: integer
+              description: Flights beyond program end
+            total_slots:
+              type: integer
+            open_slots:
+              type: integer
+            slot_utilization:
+              type: number
+            avg_delay_min:
+              type: number
+            max_delay_min:
+              type: integer
+            sum_delay_min:
+              type: integer
+        flights:
+          type: array
+          items:
+            $ref: '#/components/schemas/GdpFlight'
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/GdpSlot'
+
+    GdpFlight:
+      type: object
+      description: Flight with GDP slot assignment
+      properties:
+        id:
+          type: integer
+        flight_key:
+          type: string
+        callsign:
+          type: string
+        fp_dept_icao:
+          type: string
+        fp_dest_icao:
+          type: string
+        major_carrier:
+          type: string
+        gdp_program_id:
+          type: string
+        gdp_slot_index:
+          type: integer
+        gdp_slot_time_utc:
+          type: string
+          format: date-time
+          description: CTA (Controlled Time of Arrival)
+        gdp_original_eta_utc:
+          type: string
+          format: date-time
+        cta_utc:
+          type: string
+          format: date-time
+        ctd_utc:
+          type: string
+          format: date-time
+          description: Controlled Time of Departure
+        program_delay_min:
+          type: integer
+          description: Assigned delay in minutes
+        ctl_type:
+          type: string
+          enum: [GDP, GDP-CAP, GDP-STK]
+          description: "GDP=normal, GDP-CAP=delay capped, GDP-STK=stack (no slot)"
+        delay_status:
+          type: string
+        ctl_exempt:
+          type: boolean
+        ctl_exempt_reason:
+          type: string
+
+    GdpSlot:
+      type: object
+      description: GDP arrival slot
+      properties:
+        id:
+          type: integer
+        program_id:
+          type: string
+        slot_index:
+          type: integer
+        slot_time_utc:
+          type: string
+          format: date-time
+          description: Arrival slot time (CTA)
+        slot_type:
+          type: string
+          enum: [REGULAR, RESERVED]
+        slot_status:
+          type: string
+          enum: [OPEN, ASSIGNED, BRIDGED, HELD, CANCELLED]
+        bin_hour:
+          type: integer
+          description: Hour bucket (0-23)
+        bin_quarter:
+          type: integer
+          enum: [0, 15, 30, 45]
+        assigned_flight_key:
+          type: string
+        assigned_callsign:
+          type: string
+        assigned_carrier:
+          type: string
+        assigned_origin:
+          type: string
+        assigned_utc:
+          type: string
+          format: date-time
+
+    GdpFlightsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        program_id:
+          type: string
+        flights:
+          type: array
+          items:
+            $ref: '#/components/schemas/GdpFlight'
+        summary:
+          type: object
+          properties:
+            total:
+              type: integer
+            assigned:
+              type: integer
+            exempt:
+              type: integer
+            avg_delay_min:
+              type: number
+
+    GdpSlotsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        program_id:
+          type: string
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/GdpSlot'
+        summary:
+          type: object
+          properties:
+            total_slots:
+              type: integer
+            open_slots:
+              type: integer
+            assigned_slots:
+              type: integer
+            utilization:
+              type: number
+
+    MitRestriction:
+      type: object
+      description: Miles-In-Trail restriction (FIXM-aligned)
+      properties:
+        id:
+          type: integer
+        restriction_type:
+          type: string
+          enum: [MIT]
+        facility:
+          type: string
+          description: Issuing facility (ARTCC)
+          example: ZNY
+        fix:
+          type: string
+          description: Affected fix/waypoint (constraintFix)
+          example: CAMRN
+        value_nm:
+          type: integer
+          description: Spacing value in nautical miles (spacingValue)
+          example: 15
+        direction:
+          type: string
+          enum: [EAST, WEST, NORTH, SOUTH, ALL]
+          description: Flow direction
+        altitude_min:
+          type: integer
+          description: Minimum altitude (FL)
+        altitude_max:
+          type: integer
+          description: Maximum altitude (FL)
+        start_utc:
+          type: string
+          format: date-time
+        end_utc:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, CANCELLED]
+        reason:
+          type: string
+        created_by:
+          type: string
+        created_utc:
+          type: string
+          format: date-time
+
+    MitListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+            restrictions:
+              type: array
+              items:
+                $ref: '#/components/schemas/MitRestriction'
+            total:
+              type: integer
+            active_count:
+              type: integer
+
+    MinitRestriction:
+      type: object
+      description: Minutes-In-Trail restriction (FIXM-aligned)
+      properties:
+        id:
+          type: integer
+        restriction_type:
+          type: string
+          enum: [MINIT]
+        facility:
+          type: string
+          description: Issuing facility
+          example: ZBW
+        fix:
+          type: string
+          description: Affected fix/waypoint
+        value_min:
+          type: integer
+          description: Spacing value in minutes (spacingValue)
+          example: 3
+        direction:
+          type: string
+          enum: [EAST, WEST, NORTH, SOUTH, ALL]
+        altitude_min:
+          type: integer
+        altitude_max:
+          type: integer
+        start_utc:
+          type: string
+          format: date-time
+        end_utc:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, CANCELLED]
+        reason:
+          type: string
+        created_by:
+          type: string
+        created_utc:
+          type: string
+          format: date-time
+
+    MinitListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+            restrictions:
+              type: array
+              items:
+                $ref: '#/components/schemas/MinitRestriction'
+            total:
+              type: integer
+            active_count:
+              type: integer
+
+    AfpProgram:
+      type: object
+      description: Airspace Flow Program (FIXM-aligned)
+      properties:
+        program_id:
+          type: integer
+        program_name:
+          type: string
+          example: AFP-FCA_EAST-01161400
+        program_type:
+          type: string
+          enum: [AFP]
+        fca:
+          type: string
+          description: Flow Constraint Area identifier (flowConstraintArea)
+          example: FCA_EAST
+        status:
+          type: string
+          enum: [PROPOSED, ACTIVE, COMPLETED, PURGED]
+        start_utc:
+          type: string
+          format: date-time
+        end_utc:
+          type: string
+          format: date-time
+        program_rate:
+          type: integer
+          description: Traffic rate through FCA
+        impacting_condition:
+          type: string
+        reason:
+          type: string
+        total_flights:
+          type: integer
+        controlled_flights:
+          type: integer
+        avg_delay_min:
+          type: number
+        created_by:
+          type: string
+        created_utc:
+          type: string
+          format: date-time
+
+    AfpListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+            programs:
+              type: array
+              items:
+                $ref: '#/components/schemas/AfpProgram'
+            total:
+              type: integer
+            active_count:
+              type: integer
+
+    FlowEvaluationArea:
+      type: object
+      description: Flow Evaluation Area definition (FIXM-aligned)
+      properties:
+        fea_id:
+          type: string
+          description: FEA identifier (flowEvaluationAreaId)
+          example: ZNY_METRO
+        name:
+          type: string
+          description: Human-readable name
+          example: NY Metro Area
+        artcc:
+          type: string
+          description: Responsible ARTCC
+          example: ZNY
+        airports:
+          type: array
+          description: Affected airports (affectedAerodromes)
+          items:
+            type: string
+          example: [KJFK, KLGA, KEWR, KTEB]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        boundary:
+          type: object
+          description: GeoJSON geometry (boundaryGeometry)
+          properties:
+            type:
+              type: string
+              enum: [Polygon, MultiPolygon]
+            coordinates:
+              type: array
+        created_utc:
+          type: string
+          format: date-time
+        updated_utc:
+          type: string
+          format: date-time
+
+    FeaListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+            feas:
+              type: array
+              items:
+                $ref: '#/components/schemas/FlowEvaluationArea'
+            total:
+              type: integer

@@ -23,7 +23,19 @@ SwimResponse::success([
         ],
         'tmi' => [
             'GET /api/swim/v1/tmi/programs' => 'Active TMI programs (GS/GDP)',
-            'GET /api/swim/v1/tmi/controlled' => 'Flights under TMI control'
+            'GET /api/swim/v1/tmi/controlled' => 'Flights under TMI control',
+            'GET /api/swim/v1/tmi/reroutes' => 'TMI reroute definitions',
+            'GET|POST /api/swim/v1/tmi/gs' => 'Ground Stop programs',
+            'GET /api/swim/v1/tmi/gs/{id}' => 'Ground Stop details',
+            'GET /api/swim/v1/tmi/gs/{id}/flights' => 'Flights affected by GS',
+            'POST /api/swim/v1/tmi/gs/{id}/model' => 'Model GS impact',
+            'POST /api/swim/v1/tmi/gs/{id}/activate' => 'Activate GS program',
+            'GET|POST /api/swim/v1/tmi/gdp' => 'Ground Delay Programs (EBSA slot allocation)',
+            'GET /api/swim/v1/tmi/gdp/{id}/flights' => 'Flights in GDP',
+            'GET /api/swim/v1/tmi/gdp/{id}/slots' => 'GDP slot allocation',
+            'GET /api/swim/v1/tmi/mit' => 'Miles-In-Trail restrictions',
+            'GET /api/swim/v1/tmi/minit' => 'Minutes-In-Trail restrictions',
+            'GET /api/swim/v1/tmi/afp' => 'Airspace Flow Programs'
         ],
         'metering' => [
             'GET /api/swim/v1/metering/{airport}' => 'Metering data for airport arrivals (FIXM/TBFM)',
@@ -38,8 +50,8 @@ SwimResponse::success([
             'GET /api/swim/v1/jatoc/incidents' => 'JATOC incident records'
         ],
         'configuration' => [
-            'GET /api/swim/v1/tmi/reroutes' => 'TMI reroute definitions',
-            'GET /api/swim/v1/splits/presets' => 'Runway configuration presets'
+            'GET /api/swim/v1/splits/presets' => 'Runway configuration presets',
+            'GET /api/swim/v1/fea' => 'Flow Evaluation Areas'
         ]
     ],
     'authentication' => [
