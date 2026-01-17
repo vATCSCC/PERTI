@@ -14,12 +14,9 @@
 
 /**
  * OPTIMIZED: Public page - no session handler or DB needed
+ * Session state is read by nav_public.php for login display
  */
 include("load/config.php");
-
-// Public page - show as guest
-$user_name = 'Guest';
-$user_cid = '';
 ?>
 <!DOCTYPE html>
 <html lang="en">

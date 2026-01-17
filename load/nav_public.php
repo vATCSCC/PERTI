@@ -2,15 +2,28 @@
 /**
  * Lightweight Public Navigation
  *
- * For pages that don't require authentication or database queries.
- * Always shows logged-out state (login button).
- * No database connections, no session handler cURL calls.
+ * For pages that don't require database queries or session validation.
+ * Reads session data (cheap) but skips the cURL validation (expensive).
+ * No database connections needed.
  */
 
-// No database connection needed
-// No session handler cURL needed
+// Prevent multiple inclusions
+if (defined('NAV_PUBLIC_PHP_LOADED')) {
+    return;
+}
+define('NAV_PUBLIC_PHP_LOADED', true);
 
-// Always show as not logged in for public pages
+// Start session to read login state (cheap - no cURL validation)
+if (session_status() == PHP_SESSION_NONE && !headers_sent()) {
+    session_start();
+}
+
+// Check if user is logged in (cheap - just reading session data)
+$logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
+$user_first_name = $logged_in ? ($_SESSION['VATSIM_FIRST_NAME'] ?? '') : '';
+$user_last_name = $logged_in ? ($_SESSION['VATSIM_LAST_NAME'] ?? '') : '';
+
+// Public pages don't show admin menu
 $perm = false;
 $filepath = "";
 
@@ -75,26 +88,30 @@ $nav_config = [
 // NAVIGATION RENDERING FUNCTIONS
 // ============================================================================
 
-function render_nav_item($item, $filepath) {
-    $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
-    $path = $filepath . $item['path'];
-    return '<a class="dropdown-item" href="' . $path . '"' . $target . '>' . $item['label'] . '</a>';
+if (!function_exists('render_nav_item_public')) {
+    function render_nav_item_public($item, $filepath) {
+        $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
+        $path = $filepath . $item['path'];
+        return '<a class="dropdown-item" href="' . $path . '"' . $target . '>' . $item['label'] . '</a>';
+    }
 }
 
-function render_dropdown($key, $group, $filepath) {
-    $html = '<li class="nav-item dropdown">';
-    $html .= '<a class="nav-link dropdown-toggle" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-    $html .= $group['label'];
-    $html .= '</a>';
-    $html .= '<div class="dropdown-menu" aria-labelledby="nav-' . $key . '">';
-    foreach ($group['items'] as $item) {
-        // Skip items that require permission
-        if (isset($item['perm']) && $item['perm']) continue;
-        $html .= render_nav_item($item, $filepath);
+if (!function_exists('render_dropdown_public')) {
+    function render_dropdown_public($key, $group, $filepath) {
+        $html = '<li class="nav-item dropdown">';
+        $html .= '<a class="nav-link dropdown-toggle" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= $group['label'];
+        $html .= '</a>';
+        $html .= '<div class="dropdown-menu" aria-labelledby="nav-' . $key . '">';
+        foreach ($group['items'] as $item) {
+            // Skip items that require permission
+            if (isset($item['perm']) && $item['perm']) continue;
+            $html .= render_nav_item_public($item, $filepath);
+        }
+        $html .= '</div>';
+        $html .= '</li>';
+        return $html;
     }
-    $html .= '</div>';
-    $html .= '</li>';
-    return $html;
 }
 
 ?>
@@ -126,7 +143,7 @@ function render_dropdown($key, $group, $filepath) {
 
                 // Render as dropdown
                 if (isset($group['items'])) {
-                    echo render_dropdown($key, $group, $filepath);
+                    echo render_dropdown_public($key, $group, $filepath);
                 }
                 ?>
             <?php endforeach; ?>
@@ -134,10 +151,19 @@ function render_dropdown($key, $group, $filepath) {
     </div>
 
     <div class="d-flex align-items-center order-lg-3 ml-lg-auto">
-        <!-- Always show login button for public pages -->
-        <a class="btn btn-sm btn-danger" href="<?= $filepath; ?>login" rel="noopener">
-            <i class="fas fa-user font-size-lg mr-2"></i>Login
-        </a>
+        <?php if ($logged_in): ?>
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="<?= $filepath; ?>logout" id="profile">
+                        <i class="fas fa-user-circle"></i> <?= htmlspecialchars($user_first_name . " " . $user_last_name); ?>
+                    </a>
+                </li>
+            </ul>
+        <?php else: ?>
+            <a class="btn btn-sm btn-danger" href="<?= $filepath; ?>login" rel="noopener">
+                <i class="fas fa-user font-size-lg mr-2"></i>Login
+            </a>
+        <?php endif; ?>
     </div>
 
   </div>
@@ -178,11 +204,19 @@ function render_dropdown($key, $group, $filepath) {
                 <?php endif; ?>
             <?php endforeach; ?>
 
-            <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
-                <a class="mobile-nav-link" href="<?= $filepath ?>login">
-                    <i class="fas fa-sign-in-alt mr-2"></i>Login
-                </a>
-            </li>
+            <?php if ($logged_in): ?>
+                <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <a class="mobile-nav-link" href="<?= $filepath ?>logout">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout (<?= htmlspecialchars($user_first_name); ?>)
+                    </a>
+                </li>
+            <?php else: ?>
+                <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <a class="mobile-nav-link" href="<?= $filepath ?>login">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                    </a>
+                </li>
+            <?php endif; ?>
         </ul>
     </div>
 </div>
