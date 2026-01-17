@@ -1778,6 +1778,23 @@ function runDaemon(array $config): void {
                 $lastRefreshTime = $currentTime;
             }
 
+            // 5g. Flight stats scheduled jobs (every 15 minutes)
+            $flightStatsResult = null;
+            if ($config['flight_stats_enabled'] && $stats['runs'] % $config['flight_stats_interval'] === 0) {
+                $flightStatsResult = executeFlightStatsJobs($conn);
+                if ($flightStatsResult !== null) {
+                    $stats['fstats_runs']++;
+                    $stats['fstats_total_ms'] += $flightStatsResult['elapsed_ms'];
+
+                    // Log when jobs run (since they may execute hourly/daily aggregation)
+                    if ($flightStatsResult['elapsed_ms'] > 1000) {
+                        logInfo("Flight stats jobs processed", [
+                            'elapsed_ms' => $flightStatsResult['elapsed_ms'],
+                        ]);
+                    }
+                }
+            }
+
             // 6. Update stats
             $stats['successes']++;
             $stats['total_sp_ms'] += $spMs;
@@ -1919,6 +1936,7 @@ function runDaemon(array $config): void {
                 'avg_wind_ms'   => $avgWindMs,
                 'ws_runs'       => $stats['ws_runs'],
                 'ws_events'     => $stats['ws_events'],
+                'fstats_runs'   => $stats['fstats_runs'],
             ];
 
             // Add V9.0/V9.2 staging stats if enabled
