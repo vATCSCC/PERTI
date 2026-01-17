@@ -51,7 +51,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 ### Step 3: Explore the Documentation
 
-Full API documentation: **https://perti.vatcscc.org/api-docs/**
+Full API documentation: **https://perti.vatcscc.org/docs/swim/**
 
 ---
 
@@ -296,15 +296,15 @@ POST /ingest/metering               # Metering/sequencing data
 
 ## Support & Resources
 
-- **API Documentation:** https://perti.vatcscc.org/api-docs/
+- **API Documentation:** https://perti.vatcscc.org/docs/swim/
+- **Technical Documentation:** https://perti.vatcscc.org/swim-docs
 - **API Key Management:** https://perti.vatcscc.org/swim-keys
-- **OpenAPI Specification:** https://perti.vatcscc.org/api/swim/v1/openapi.yaml
-- **SDK Downloads:** https://github.com/vatcscc/swim-sdk
+- **OpenAPI Specification:** https://perti.vatcscc.org/docs/swim/openapi.yaml
 
 **Contact:**
-- Technical Support: vatcscc@vatusa.net
-- Partner Tier Requests: vatcscc@vatusa.net
-- Bug Reports: https://github.com/vatcscc/perti/issues
+- Technical Support: dev@vatcscc.org
+- Partner Tier Requests: dev@vatcscc.org
+- Discord: vATCSCC Server (https://vats.im/CommandCenter)
 
 ---
 
