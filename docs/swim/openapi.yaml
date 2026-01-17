@@ -16,6 +16,13 @@ info:
     Authorization: Bearer {api_key}
     ```
     
+    ## Obtaining an API Key
+    
+    Request and manage your API keys via the self-service portal:
+    **[https://perti.vatcscc.org/swim-keys.php](https://perti.vatcscc.org/swim-keys.php)**
+    
+    For elevated access tiers (partner/system), contact dev@vatcscc.org.
+    
     ## API Key Tiers
     
     | Tier | Prefix | Rate Limit | Write Access |

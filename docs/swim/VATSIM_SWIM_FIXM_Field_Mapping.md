@@ -212,12 +212,59 @@
 
 ## 13. Metering & Sequencing (TBFM)
 
+### Core TBFM Fields (FIXM 4.3)
+
 | Concept | FIXM Field | TFMS | JSON API | Current DB | New DB | Migration |
 |---------|------------|------|----------|------------|--------|-----------|
 | **Meter Fix** | `meteringPoint` | `MF` | `metering_point` | — | `metering_point` | ➕ Add |
 | **Meter Time** | `meteringTime` | `MF_TIME` | `metering_time` | — | `metering_time` | ➕ Add |
-| **STA** | `scheduledTimeOfArrival` | `STA` | `scheduled_time_of_arrival` | — | `scheduled_time_of_arrival` | ➕ Add |
+| **STA (Runway)** | `scheduledTimeOfArrival` | `STA` | `scheduled_time_of_arrival` | — | `scheduled_time_of_arrival` | ➕ Add |
+| **STD (Runway)** | `scheduledTimeOfDeparture` | `STD` | `scheduled_time_of_departure` | — | `scheduled_time_of_departure` | ➕ Add |
 | **Sequence Number** | `sequenceNumber` | `SEQ` | `sequence_number` | — | `sequence_number` | ➕ Add |
+| **Delay Value** | `delayValue` | `DLA_ASGN` | `metering_delay` | — | `metering_delay` | ➕ Add |
+| **Frozen Indicator** | `frozenIndicator` | `FROZEN` | `metering_frozen` | — | `metering_frozen` | ➕ Add |
+| **Arrival Stream** | `arrivalStream` | `GATE` | `arrival_stream` | — | `arrival_stream` | ➕ Add |
+
+### TBFM Extended Fields (vATCSCC)
+
+| Concept | FIXM-like Field | TFMS | JSON API | New DB | Description |
+|---------|-----------------|------|----------|--------|-------------|
+| **Metering Status** | `vATCSCC:meteringStatus` ⭐ | `MTR_STS` | `metering_status` | `metering_status` | UNMETERED/METERED/FROZEN/SUSPENDED/EXEMPT |
+| **Undelayed ETA** | `vATCSCC:undelayedEta` ⭐ | `UETA` | `undelayed_eta` | `undelayed_eta` | Baseline ETA without TBFM delay |
+| **ETA at Vertex** | `vATCSCC:etaVertex` ⭐ | `ETA_VT` | `eta_vertex` | `eta_vertex` | ETA at corner post/vertex |
+| **STA at Vertex** | `vATCSCC:staVertex` ⭐ | `STA_VT` | `sta_vertex` | `sta_vertex` | Assigned time at vertex |
+| **Vertex Point** | `vATCSCC:vertexPoint` ⭐ | `VT_FIX` | `vertex_point` | `vertex_point` | Vertex fix identifier |
+| **Metering Source** | `vATCSCC:meteringSource` ⭐ | `MTR_SRC` | `metering_source` | `metering_source` | simtraffic/vatcscc/vnas/topsky |
+| **Metering Updated** | `vATCSCC:meteringUpdatedTime` ⭐ | — | `metering_updated_at` | `metering_updated_at` | Last metering update timestamp |
+
+### Metering Status Values
+
+| Status | Description |
+|--------|-------------|
+| `UNMETERED` | Not yet under TBFM control |
+| `METERED` | Active TBFM metering, sequence may change |
+| `FROZEN` | Sequence frozen, no further changes |
+| `SUSPENDED` | TBFM suspended (e.g., weather deviation) |
+| `EXEMPT` | Exempt from metering (priority, emergency) |
+
+### SimTraffic Integration Flow
+
+```
+SimTraffic  ──(POST /ingest/metering)──►  SWIM  ──(GET /metering/{airport})──►  vNAS  ──►  CRC Datablock
+```
+
+**SimTraffic provides:**
+- `sequence_number` - Arrival sequence (1 = next to land)
+- `scheduled_time_of_arrival` - STA at runway threshold
+- `metering_time` - STA at meter fix
+- `metering_delay` - Minutes of assigned delay
+- `metering_frozen` - Frozen flag
+- `arrival_stream` - Corner post assignment
+
+**vNAS/CRC displays:**
+- Sequence number in datablock
+- STA/ETA comparison (delay indicator)
+- Frozen status
 
 ---
 
