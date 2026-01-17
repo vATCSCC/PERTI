@@ -8,11 +8,57 @@
  *
  * IMPORTANT: Uses $conn_adl (Azure SQL VATSIM_ADL database)
  *
+ * Concurrency Protection:
+ *   - PHP-level: PID file prevents multiple daemon instances
+ *   - SQL-level: sp_getapplock in SP prevents concurrent execution
+ *
  * Usage:
  *   php boundary_daemon.php              # Run once
  *   php boundary_daemon.php --loop       # Run continuously
  *   php boundary_daemon.php --loop --interval=30  # Custom interval
  */
+
+// ============================================================================
+// PID file to prevent multiple instances
+// ============================================================================
+define('PID_FILE', sys_get_temp_dir() . '/adl_boundary_daemon.pid');
+
+function acquirePidLock(): bool {
+    // Check if another instance is running
+    if (file_exists(PID_FILE)) {
+        $existingPid = (int) file_get_contents(PID_FILE);
+
+        // On Windows, check if process exists differently
+        if (PHP_OS_FAMILY === 'Windows') {
+            exec("tasklist /FI \"PID eq {$existingPid}\" 2>NUL", $output, $exitCode);
+            $processExists = count($output) > 1; // Header + process line
+        } else {
+            $processExists = posix_kill($existingPid, 0); // Signal 0 = check if alive
+        }
+
+        if ($processExists) {
+            echo "ERROR: Another instance is already running (PID: {$existingPid})\n";
+            echo "If this is incorrect, delete: " . PID_FILE . "\n";
+            return false;
+        }
+
+        // Stale PID file - remove it
+        unlink(PID_FILE);
+    }
+
+    // Write our PID
+    file_put_contents(PID_FILE, getmypid());
+    return true;
+}
+
+function releasePidLock(): void {
+    if (file_exists(PID_FILE)) {
+        unlink(PID_FILE);
+    }
+}
+
+// Register cleanup on shutdown
+register_shutdown_function('releasePidLock');
 
 require_once __DIR__ . '/../../load/connect.php';
 
@@ -243,6 +289,14 @@ echo "Connected to VATSIM_ADL database successfully.\n";
 $maxFlights = isset($options['flights']) ? (int)$options['flights'] : DEFAULT_MAX_FLIGHTS;
 $maxCrossings = isset($options['crossings']) ? (int)$options['crossings'] : DEFAULT_MAX_CROSSINGS;
 $interval = isset($options['interval']) ? (int)$options['interval'] : DEFAULT_INTERVAL;
+
+// Acquire PID lock for loop mode to prevent multiple instances
+if (isset($options['loop'])) {
+    if (!acquirePidLock()) {
+        exit(1);
+    }
+    echo "PID lock acquired (PID: " . getmypid() . ")\n";
+}
 
 $daemon = new BoundaryDaemon($conn_adl, $maxFlights, $maxCrossings, $interval);
 

@@ -1,11 +1,16 @@
 -- ============================================================================
 -- sp_ProcessBoundaryAndCrossings_Background
--- Version: 1.7
--- Date: 2026-01-10
+-- Version: 1.8
+-- Date: 2026-01-17
 --
 -- Description: Background job for boundary detection and planned crossings
 --              Runs separately from main refresh cycle (every 60 seconds)
 --              Uses tiered processing to spread load across time
+--
+-- V1.8 Changes:
+--   - Added sp_getapplock mutex to prevent concurrent execution
+--   - When both vatsim_adl_daemon and boundary_daemon call this SP, only one runs
+--   - Second caller returns immediately with 0 values (no contention)
 --
 -- V1.7 Changes:
 --   - Added SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH detection (was missing!)
@@ -44,6 +49,32 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- ========================================================================
+    -- MUTEX: Prevent concurrent execution (V1.8)
+    -- If another instance is running, return immediately with 0 values.
+    -- This prevents contention when both vatsim_adl_daemon and boundary_daemon
+    -- try to run this SP simultaneously.
+    -- ========================================================================
+    DECLARE @lock_result INT;
+    EXEC @lock_result = sp_getapplock
+        @Resource = 'BoundaryAndCrossings_Processing',
+        @LockMode = 'Exclusive',
+        @LockOwner = 'Session',
+        @LockTimeout = 0;  -- Return immediately if can't acquire
+
+    IF @lock_result < 0
+    BEGIN
+        -- Lock not acquired - another instance is running
+        -- Return immediately with zero values
+        SELECT
+            0 AS boundary_flights,
+            0 AS boundary_transitions,
+            0 AS crossings_calculated,
+            0 AS elapsed_ms;
+        RETURN;
+    END
+
+    -- Lock acquired - proceed with processing
     DECLARE @start_time DATETIME2(3) = SYSUTCDATETIME();
     DECLARE @now DATETIME2(0) = @start_time;
     DECLARE @minute INT = DATEPART(MINUTE, @now);
@@ -632,6 +663,9 @@ BEGIN
     -- ========================================================================
     DECLARE @elapsed_ms INT = DATEDIFF(MILLISECOND, @start_time, SYSUTCDATETIME());
 
+    -- Release the mutex lock
+    EXEC sp_releaseapplock @Resource = 'BoundaryAndCrossings_Processing', @LockOwner = 'Session';
+
     IF @debug = 1
     BEGIN
         SELECT
@@ -661,8 +695,8 @@ BEGIN
 END
 GO
 
-PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.7';
-PRINT 'V1.7: Added SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH detection';
-PRINT 'V1.7: Added ARTCC fallback for grid lookup failures';
+PRINT 'Created sp_ProcessBoundaryAndCrossings_Background V1.8';
+PRINT 'V1.8: Added sp_getapplock mutex to prevent concurrent execution';
+PRINT 'V1.8: When two callers overlap, second returns immediately (0 rows)';
 PRINT 'Tier schedule: 1=1min, 2=2min, 3=5min, 4=10min, 5=15min, 6=30min, 7=60min';
 GO
