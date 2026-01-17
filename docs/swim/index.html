@@ -7,145 +7,673 @@
     <meta name="description" content="System Wide Information Management API for VATSIM - Interactive Documentation">
     <link rel="icon" type="image/png" href="https://perti.vatcscc.org/favicon.png">
     <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@325;400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #fafafa;
+            font-family: 'Jost', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
         }
-        
+
+        /* Header - matches PERTI nav style */
         .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
             color: white;
-            padding: 20px 40px;
+            padding: 15px 40px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border-bottom: 2px solid #4a9eff;
         }
-        
+
         .header-left {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
         }
-        
+
         .header h1 {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: 600;
+            letter-spacing: 0.02em;
         }
-        
+
         .header h1 span {
-            color: #4fc3f7;
+            color: #5dade2;
         }
-        
+
         .header-badge {
-            background: #4fc3f7;
+            background: #5dade2;
             color: #1a1a2e;
             padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
-        
+
         .header-links {
             display: flex;
-            gap: 20px;
+            gap: 25px;
         }
-        
+
         .header-links a {
             color: #b0bec5;
             text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             transition: color 0.2s;
         }
-        
+
         .header-links a:hover {
-            color: #4fc3f7;
+            color: #5dade2;
         }
-        
-        .swagger-ui .topbar {
-            display: none;
-        }
-        
-        .swagger-ui .info {
-            margin: 30px 0;
-        }
-        
-        .swagger-ui .info .title {
-            color: #1a1a2e;
-        }
-        
-        .swagger-ui .info .title small.version-stamp {
-            background: #4fc3f7;
-        }
-        
-        .swagger-ui .opblock.opblock-get .opblock-summary-method {
-            background: #4fc3f7;
-        }
-        
-        .swagger-ui .opblock.opblock-post .opblock-summary-method {
-            background: #66bb6a;
-        }
-        
-        .swagger-ui .btn.authorize {
-            border-color: #4fc3f7;
-            color: #4fc3f7;
-        }
-        
-        .swagger-ui .btn.authorize svg {
-            fill: #4fc3f7;
-        }
-        
-        .swagger-ui .btn.authorize:hover {
-            background: #4fc3f7;
-            color: white;
-        }
-        
-        .swagger-ui .btn.authorize:hover svg {
-            fill: white;
-        }
-        
+
+        /* Swagger UI Container */
         #swagger-ui {
             max-width: 1460px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 20px;
         }
-        
-        .footer {
+
+        /* ==================== DARK THEME OVERRIDES ==================== */
+
+        /* Hide default topbar */
+        .swagger-ui .topbar {
+            display: none;
+        }
+
+        /* Main wrapper background */
+        .swagger-ui .wrapper {
             background: #1a1a2e;
+        }
+
+        /* Info section */
+        .swagger-ui .info {
+            margin: 20px 0 30px 0;
+        }
+
+        .swagger-ui .info .title {
+            color: #ffffff;
+            font-family: 'Jost', sans-serif;
+        }
+
+        .swagger-ui .info .title small.version-stamp {
+            background: #5dade2;
+            color: #1a1a2e;
+        }
+
+        .swagger-ui .info .description,
+        .swagger-ui .info .description p,
+        .swagger-ui .info .description li {
+            color: #c0c0c0;
+            font-family: 'Jost', sans-serif;
+        }
+
+        .swagger-ui .info a {
+            color: #5dade2;
+        }
+
+        .swagger-ui .info .description h2,
+        .swagger-ui .info .description h3,
+        .swagger-ui .info .description h4 {
+            color: #ffffff;
+            border-bottom-color: #3a4a5c;
+        }
+
+        /* Markdown content tables */
+        .swagger-ui .info .description table {
+            background: #252540;
+            border-collapse: collapse;
+        }
+
+        .swagger-ui .info .description table th {
+            background: linear-gradient(180deg, #3a4a5c 0%, #2c3e50 100%);
+            color: #fff;
+            padding: 10px 15px;
+            border: 1px solid #3a4a5c;
+        }
+
+        .swagger-ui .info .description table td {
+            color: #e0e0e0;
+            padding: 8px 15px;
+            border: 1px solid #3a4a5c;
+        }
+
+        .swagger-ui .info .description table tr:nth-child(even) {
+            background: #1e1e35;
+        }
+
+        .swagger-ui .info .description code {
+            background: #252540;
+            color: #4a9eff;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .swagger-ui .info .description pre {
+            background: #252540;
+            border: 1px solid #3a4a5c;
+            border-radius: 4px;
+        }
+
+        .swagger-ui .info .description pre code {
+            color: #00ff88;
+        }
+
+        /* Authorize button */
+        .swagger-ui .btn.authorize {
+            background: transparent;
+            border: 2px solid #5dade2;
+            color: #5dade2;
+            font-weight: 600;
+        }
+
+        .swagger-ui .btn.authorize svg {
+            fill: #5dade2;
+        }
+
+        .swagger-ui .btn.authorize:hover {
+            background: #5dade2;
+            color: #1a1a2e;
+        }
+
+        .swagger-ui .btn.authorize:hover svg {
+            fill: #1a1a2e;
+        }
+
+        .swagger-ui .authorization__btn.unlocked svg,
+        .swagger-ui .authorization__btn.locked svg {
+            fill: #5dade2;
+        }
+
+        /* Tag sections */
+        .swagger-ui .opblock-tag {
+            color: #ffffff;
+            border-bottom-color: #3a4a5c;
+            font-family: 'Jost', sans-serif;
+        }
+
+        .swagger-ui .opblock-tag:hover {
+            background: rgba(93, 173, 226, 0.1);
+        }
+
+        .swagger-ui .opblock-tag small {
+            color: #888;
+        }
+
+        /* Operation blocks */
+        .swagger-ui .opblock {
+            background: #252540;
+            border-color: #3a4a5c;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .swagger-ui .opblock .opblock-summary {
+            border-color: #3a4a5c;
+        }
+
+        .swagger-ui .opblock .opblock-summary-description {
+            color: #c0c0c0;
+            font-family: 'Jost', sans-serif;
+        }
+
+        .swagger-ui .opblock .opblock-summary-path {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .opblock .opblock-summary-path__deprecated {
+            color: #888;
+        }
+
+        /* GET operations - cyan accent */
+        .swagger-ui .opblock.opblock-get {
+            background: rgba(93, 173, 226, 0.1);
+            border-color: #5dade2;
+        }
+
+        .swagger-ui .opblock.opblock-get .opblock-summary-method {
+            background: #5dade2;
+            color: #1a1a2e;
+            font-weight: 600;
+        }
+
+        .swagger-ui .opblock.opblock-get .opblock-summary {
+            border-color: #5dade2;
+        }
+
+        /* POST operations - green accent */
+        .swagger-ui .opblock.opblock-post {
+            background: rgba(102, 187, 106, 0.1);
+            border-color: #66bb6a;
+        }
+
+        .swagger-ui .opblock.opblock-post .opblock-summary-method {
+            background: #66bb6a;
+            color: #1a1a2e;
+            font-weight: 600;
+        }
+
+        .swagger-ui .opblock.opblock-post .opblock-summary {
+            border-color: #66bb6a;
+        }
+
+        /* PUT operations */
+        .swagger-ui .opblock.opblock-put {
+            background: rgba(255, 167, 38, 0.1);
+            border-color: #ffa726;
+        }
+
+        .swagger-ui .opblock.opblock-put .opblock-summary-method {
+            background: #ffa726;
+            color: #1a1a2e;
+            font-weight: 600;
+        }
+
+        /* DELETE operations */
+        .swagger-ui .opblock.opblock-delete {
+            background: rgba(239, 83, 80, 0.1);
+            border-color: #ef5350;
+        }
+
+        .swagger-ui .opblock.opblock-delete .opblock-summary-method {
+            background: #ef5350;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        /* Expanded operation body */
+        .swagger-ui .opblock-body {
+            background: #1e1e35;
+        }
+
+        .swagger-ui .opblock-body pre {
+            background: #252540;
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .opblock-description-wrapper,
+        .swagger-ui .opblock-description-wrapper p {
+            color: #c0c0c0;
+        }
+
+        /* Parameters section */
+        .swagger-ui .opblock-section-header {
+            background: linear-gradient(180deg, #3a4a5c 0%, #2c3e50 100%);
+            box-shadow: none;
+        }
+
+        .swagger-ui .opblock-section-header h4 {
+            color: #ffffff;
+            font-family: 'Jost', sans-serif;
+        }
+
+        .swagger-ui .opblock-section-header label {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui table.parameters {
+            background: #1e1e35;
+        }
+
+        .swagger-ui .parameters-col_name {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .parameters-col_description {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui .parameters-col_description input,
+        .swagger-ui .parameters-col_description select,
+        .swagger-ui .parameters-col_description textarea {
+            background: #252540;
+            border-color: #3a4a5c;
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .parameters-col_description input:focus,
+        .swagger-ui .parameters-col_description select:focus,
+        .swagger-ui .parameters-col_description textarea:focus {
+            border-color: #5dade2;
+            outline: none;
+        }
+
+        .swagger-ui .parameter__name {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .parameter__name.required::after {
+            color: #ef5350;
+        }
+
+        .swagger-ui .parameter__type {
+            color: #5dade2;
+        }
+
+        .swagger-ui .parameter__in {
+            color: #888;
+        }
+
+        /* Response section */
+        .swagger-ui .responses-wrapper {
+            background: #1e1e35;
+        }
+
+        .swagger-ui .responses-inner {
+            background: transparent;
+        }
+
+        .swagger-ui .response-col_status {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .response-col_description {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui table.responses-table {
+            background: transparent;
+        }
+
+        .swagger-ui .responses-table thead td {
+            color: #888;
+            border-color: #3a4a5c;
+        }
+
+        .swagger-ui .responses-table tbody tr td {
+            border-color: #3a4a5c;
+        }
+
+        /* Response codes */
+        .swagger-ui .response-col_status .response-undocumented {
+            color: #888;
+        }
+
+        /* Tab panels */
+        .swagger-ui .tab li {
+            color: #888;
+        }
+
+        .swagger-ui .tab li.active {
+            color: #5dade2;
+        }
+
+        .swagger-ui .tab li button.tablinks {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui .tab li button.tablinks.active {
+            color: #5dade2;
+        }
+
+        /* Code/JSON highlighting */
+        .swagger-ui .highlight-code {
+            background: #252540;
+        }
+
+        .swagger-ui .highlight-code .microlight {
+            background: #252540;
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .microlight .headerline {
+            color: #5dade2;
+        }
+
+        /* Execute button */
+        .swagger-ui .btn.execute {
+            background: #5dade2;
+            border-color: #5dade2;
+            color: #1a1a2e;
+            font-weight: 600;
+        }
+
+        .swagger-ui .btn.execute:hover {
+            background: #4a9eff;
+            border-color: #4a9eff;
+        }
+
+        /* Cancel button */
+        .swagger-ui .btn.cancel {
+            background: transparent;
+            border-color: #888;
+            color: #888;
+        }
+
+        .swagger-ui .btn.cancel:hover {
+            border-color: #ef5350;
+            color: #ef5350;
+        }
+
+        /* Try it out button */
+        .swagger-ui .try-out__btn {
+            border-color: #5dade2;
+            color: #5dade2;
+        }
+
+        .swagger-ui .try-out__btn:hover {
+            background: #5dade2;
+            color: #1a1a2e;
+        }
+
+        .swagger-ui .try-out__btn.cancel {
+            background: transparent;
+            border-color: #888;
+            color: #888;
+        }
+
+        /* Models section */
+        .swagger-ui section.models {
+            border-color: #3a4a5c;
+        }
+
+        .swagger-ui section.models h4 {
+            color: #ffffff;
+            border-color: #3a4a5c;
+        }
+
+        .swagger-ui section.models .model-container {
+            background: #252540;
+            border-color: #3a4a5c;
+        }
+
+        .swagger-ui .model-title {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .model {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui .model-toggle::after {
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235dade2'%3E%3Cpath d='M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z'/%3E%3C/svg%3E") center center no-repeat;
+        }
+
+        .swagger-ui .prop-type {
+            color: #5dade2;
+        }
+
+        .swagger-ui .prop-format {
+            color: #888;
+        }
+
+        /* Server dropdown */
+        .swagger-ui .servers > label {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui .servers > label select {
+            background: #252540;
+            border-color: #3a4a5c;
+            color: #e0e0e0;
+        }
+
+        /* Filter input */
+        .swagger-ui .filter-container .filter input {
+            background: #252540;
+            border-color: #3a4a5c;
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .filter-container .filter input:focus {
+            border-color: #5dade2;
+        }
+
+        /* Loading spinner */
+        .swagger-ui .loading-container .loading::after {
+            border-color: #5dade2 transparent transparent transparent;
+        }
+
+        /* Scrollbar styling */
+        .swagger-ui ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .swagger-ui ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+
+        .swagger-ui ::-webkit-scrollbar-thumb {
+            background: #3a4a5c;
+            border-radius: 4px;
+        }
+
+        .swagger-ui ::-webkit-scrollbar-thumb:hover {
+            background: #5dade2;
+        }
+
+        /* Modal dialogs */
+        .swagger-ui .dialog-ux .modal-ux {
+            background: #252540;
+            border-color: #3a4a5c;
+        }
+
+        .swagger-ui .dialog-ux .modal-ux-header {
+            background: linear-gradient(180deg, #3a4a5c 0%, #2c3e50 100%);
+            border-color: #3a4a5c;
+        }
+
+        .swagger-ui .dialog-ux .modal-ux-header h3 {
+            color: #ffffff;
+        }
+
+        .swagger-ui .dialog-ux .modal-ux-content {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui .dialog-ux .modal-ux-content p {
+            color: #c0c0c0;
+        }
+
+        .swagger-ui .dialog-ux .modal-ux-content h4 {
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .dialog-ux .modal-ux-content code {
+            background: #1a1a2e;
+            color: #5dade2;
+        }
+
+        .swagger-ui .auth-container {
+            background: transparent;
+        }
+
+        .swagger-ui .auth-container input {
+            background: #1a1a2e;
+            border-color: #3a4a5c;
+            color: #e0e0e0;
+        }
+
+        .swagger-ui .auth-container input:focus {
+            border-color: #5dade2;
+        }
+
+        .swagger-ui .auth-btn-wrapper .btn-done {
+            background: #5dade2;
+            border-color: #5dade2;
+            color: #1a1a2e;
+        }
+
+        .swagger-ui .auth-btn-wrapper .btn-done:hover {
+            background: #4a9eff;
+        }
+
+        .swagger-ui .close-modal svg {
+            fill: #888;
+        }
+
+        .swagger-ui .close-modal:hover svg {
+            fill: #5dade2;
+        }
+
+        /* Arrow icons */
+        .swagger-ui .expand-operation svg,
+        .swagger-ui .expand-methods svg {
+            fill: #888;
+        }
+
+        .swagger-ui .expand-operation:hover svg,
+        .swagger-ui .expand-methods:hover svg {
+            fill: #5dade2;
+        }
+
+        /* Copy button */
+        .swagger-ui .copy-to-clipboard {
+            background: #3a4a5c;
+        }
+
+        .swagger-ui .copy-to-clipboard button {
+            background: #3a4a5c;
+        }
+
+        /* Footer */
+        .footer {
+            background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
             color: #78909c;
             text-align: center;
             padding: 20px;
             font-size: 0.85rem;
             margin-top: 40px;
+            border-top: 1px solid #3a4a5c;
         }
-        
+
         .footer a {
-            color: #4fc3f7;
+            color: #5dade2;
             text-decoration: none;
         }
-        
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
                 gap: 15px;
                 padding: 15px 20px;
             }
-            
+
             .header h1 {
                 font-size: 1.2rem;
             }
-            
+
             .header-links {
                 flex-wrap: wrap;
                 justify-content: center;
+                gap: 15px;
+            }
+
+            #swagger-ui {
+                padding: 10px;
             }
         }
     </style>
@@ -158,20 +686,21 @@
         </div>
         <div class="header-links">
             <a href="https://perti.vatcscc.org">PERTI Home</a>
+            <a href="https://perti.vatcscc.org/swim-keys.php">Get API Key</a>
             <a href="https://vatcscc.org">vATCSCC</a>
             <a href="mailto:dev@vatcscc.org">Contact</a>
-            <a href="https://discord.gg/vatcscc" target="_blank">Discord</a>
+            <a href="https://vats.im/CommandCenter" target="_blank">Discord</a>
         </div>
     </div>
-    
+
     <div id="swagger-ui"></div>
-    
+
     <div class="footer">
-        &copy; 2026 Virtual Air Traffic Control System Command Center (vATCSCC) &bull; 
-        <a href="https://vatcscc.org/terms">Terms</a> &bull; 
+        &copy; 2026 Virtual Air Traffic Control System Command Center (vATCSCC) &bull;
+        <a href="https://vatcscc.org/terms">Terms</a> &bull;
         <a href="https://vatcscc.org/privacy">Privacy</a>
     </div>
-    
+
     <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
     <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js"></script>
     <script>

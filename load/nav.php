@@ -85,8 +85,9 @@ $nav_config = [
     'swim' => [
         'label' => 'SWIM',
         'items' => [
+            ['label' => 'Overview', 'path' => './swim'],
             ['label' => 'API Keys', 'path' => './swim-keys'],
-            ['label' => 'API Docs', 'path' => './api-docs/', 'external' => true],
+            ['label' => 'API Docs', 'path' => './docs/swim/', 'external' => true],
         ]
     ],
 ];
