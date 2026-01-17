@@ -1,17 +1,53 @@
 <?php
 /**
  * ADL Route Parse Queue Daemon
- * 
+ *
  * Processes the parse queue to expand routes into waypoints and geometries.
  * Run this as a continuous process alongside the ingestion daemon.
- * 
+ *
  * IMPORTANT: Uses $conn_adl (Azure SQL VATSIM_ADL database), NOT the PERTI MySQL.
- * 
+ *
+ * Concurrency Protection:
+ *   - PHP-level: PID file prevents multiple daemon instances
+ *
  * Usage:
  *   php parse_queue_daemon.php              # Run once
  *   php parse_queue_daemon.php --loop       # Run continuously
  *   php parse_queue_daemon.php --loop --batch=100  # Custom batch size
  */
+
+// ============================================================================
+// PID file to prevent multiple instances
+// ============================================================================
+define('PID_FILE', sys_get_temp_dir() . '/adl_parse_queue_daemon.pid');
+
+function acquirePidLock(): bool {
+    if (file_exists(PID_FILE)) {
+        $existingPid = (int) file_get_contents(PID_FILE);
+        if (PHP_OS_FAMILY === 'Windows') {
+            exec("tasklist /FI \"PID eq {$existingPid}\" 2>NUL", $output, $exitCode);
+            $processExists = count($output) > 1;
+        } else {
+            $processExists = posix_kill($existingPid, 0);
+        }
+        if ($processExists) {
+            echo "ERROR: Another instance is already running (PID: {$existingPid})\n";
+            echo "If this is incorrect, delete: " . PID_FILE . "\n";
+            return false;
+        }
+        unlink(PID_FILE);
+    }
+    file_put_contents(PID_FILE, getmypid());
+    return true;
+}
+
+function releasePidLock(): void {
+    if (file_exists(PID_FILE)) {
+        unlink(PID_FILE);
+    }
+}
+
+register_shutdown_function('releasePidLock');
 
 // Include the PERTI connection setup which provides $conn_adl
 require_once __DIR__ . '/../../load/connect.php';
@@ -264,6 +300,14 @@ echo "Connected to VATSIM_ADL database successfully.\n";
 
 $batchSize = isset($options['batch']) ? (int)$options['batch'] : DEFAULT_BATCH_SIZE;
 $interval = isset($options['interval']) ? (int)$options['interval'] : DEFAULT_INTERVAL;
+
+// Acquire PID lock for loop mode to prevent multiple instances
+if (isset($options['loop'])) {
+    if (!acquirePidLock()) {
+        exit(1);
+    }
+    echo "PID lock acquired (PID: " . getmypid() . ")\n";
+}
 
 $daemon = new ParseQueueDaemon($conn_adl, $batchSize, $interval);
 

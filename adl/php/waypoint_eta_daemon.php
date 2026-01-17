@@ -14,12 +14,48 @@
  *
  * IMPORTANT: Uses $conn_adl (Azure SQL VATSIM_ADL database)
  *
+ * Concurrency Protection:
+ *   - PHP-level: PID file prevents multiple daemon instances
+ *
  * Usage:
  *   php waypoint_eta_daemon.php              # Run once (all tiers)
  *   php waypoint_eta_daemon.php --loop       # Run continuously
  *   php waypoint_eta_daemon.php --loop --interval=15  # Custom interval
  *   php waypoint_eta_daemon.php --tier=0     # Run only tier 0 (imminent)
  */
+
+// ============================================================================
+// PID file to prevent multiple instances
+// ============================================================================
+define('PID_FILE', sys_get_temp_dir() . '/adl_waypoint_eta_daemon.pid');
+
+function acquirePidLock(): bool {
+    if (file_exists(PID_FILE)) {
+        $existingPid = (int) file_get_contents(PID_FILE);
+        if (PHP_OS_FAMILY === 'Windows') {
+            exec("tasklist /FI \"PID eq {$existingPid}\" 2>NUL", $output, $exitCode);
+            $processExists = count($output) > 1;
+        } else {
+            $processExists = posix_kill($existingPid, 0);
+        }
+        if ($processExists) {
+            echo "ERROR: Another instance is already running (PID: {$existingPid})\n";
+            echo "If this is incorrect, delete: " . PID_FILE . "\n";
+            return false;
+        }
+        unlink(PID_FILE);
+    }
+    file_put_contents(PID_FILE, getmypid());
+    return true;
+}
+
+function releasePidLock(): void {
+    if (file_exists(PID_FILE)) {
+        unlink(PID_FILE);
+    }
+}
+
+register_shutdown_function('releasePidLock');
 
 require_once __DIR__ . '/../../load/connect.php';
 
@@ -262,6 +298,14 @@ echo "Connected to VATSIM_ADL database successfully.\n";
 $maxFlights = isset($options['flights']) ? (int)$options['flights'] : DEFAULT_MAX_FLIGHTS;
 $interval = isset($options['interval']) ? (int)$options['interval'] : DEFAULT_INTERVAL;
 $forceTier = isset($options['tier']) ? (int)$options['tier'] : null;
+
+// Acquire PID lock for loop mode to prevent multiple instances
+if (isset($options['loop'])) {
+    if (!acquirePidLock()) {
+        exit(1);
+    }
+    echo "PID lock acquired (PID: " . getmypid() . ")\n";
+}
 
 $daemon = new WaypointEtaDaemon($conn_adl, $maxFlights, $interval);
 

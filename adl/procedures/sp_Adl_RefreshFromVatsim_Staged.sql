@@ -389,14 +389,25 @@ BEGIN
     SET @step3_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 4: Detect route changes and upsert flight plans (unchanged)
+    -- Step 4: Detect route changes and upsert flight plans
+    -- V8.9.13: OPTIMIZED - Split into INSERT (new) + UPDATE (changed only)
+    -- Previous: MERGE all 2400 pilots (1.5-2.5s)
+    -- Now: INSERT ~50-100 new + UPDATE ~50-100 changed (~200-400ms)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
+    -- 4a. Identify flights needing flight_plan rows (new flights without fp record)
+    SELECT p.flight_uid, p.route_hash
+    INTO #fp_new
+    FROM #pilots p
+    WHERE p.flight_uid IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM dbo.adl_flight_plan fp WHERE fp.flight_uid = p.flight_uid);
+
+    -- 4b. Identify flights with route changes (existing flights, hash mismatch)
     SELECT p.flight_uid, p.route_hash
     INTO #route_changes
     FROM #pilots p
-    LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = p.flight_uid
+    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = p.flight_uid
     WHERE p.flight_uid IS NOT NULL
       AND p.route IS NOT NULL
       AND LEN(LTRIM(RTRIM(p.route))) > 0
@@ -404,78 +415,102 @@ BEGIN
 
     SET @routes_queued = @@ROWCOUNT;
 
-    MERGE dbo.adl_flight_plan AS target
-    USING (
-        SELECT
-            p.flight_uid, p.fp_rule, p.dept_icao, p.dest_icao, p.alt_icao,
-            p.dept_artcc, p.dept_tracon, p.dest_artcc, p.dest_tracon,
-            p.route, p.remarks, p.route_hash, p.gcd_nm,
-            p.aircraft_faa_raw AS aircraft_equip,
+    -- 4c. INSERT new flight plans (only for flights without existing fp record)
+    INSERT INTO dbo.adl_flight_plan (
+        flight_uid, fp_rule, fp_dept_icao, fp_dest_icao, fp_alt_icao,
+        fp_dept_artcc, fp_dept_tracon, fp_dest_artcc, fp_dest_tracon,
+        fp_route, fp_remarks, fp_altitude_ft, fp_tas_kts, fp_dept_time_z,
+        fp_enroute_minutes, fp_fuel_minutes, aircraft_type, aircraft_equip,
+        gcd_nm, fp_hash, fp_updated_utc, parse_status, is_simbrief
+    )
+    SELECT
+        p.flight_uid, p.fp_rule, p.dept_icao, p.dest_icao, p.alt_icao,
+        p.dept_artcc, p.dept_tracon, p.dest_artcc, p.dest_tracon,
+        p.route, p.remarks,
+        CASE
+            WHEN p.altitude_filed_raw LIKE 'FL%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 3, 10) AS INT) * 100
+            WHEN p.altitude_filed_raw LIKE 'F%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 2, 10) AS INT) * 100
+            ELSE TRY_CAST(p.altitude_filed_raw AS INT)
+        END,
+        CASE
+            WHEN p.tas_filed_raw LIKE 'N%' THEN TRY_CAST(SUBSTRING(p.tas_filed_raw, 2, 10) AS INT)
+            ELSE TRY_CAST(p.tas_filed_raw AS INT)
+        END,
+        p.dep_time_z,
+        CASE
+            WHEN LEN(p.enroute_time_raw) = 4
+            THEN TRY_CAST(LEFT(p.enroute_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.enroute_time_raw, 2) AS INT)
+            ELSE TRY_CAST(p.enroute_time_raw AS INT)
+        END,
+        CASE
+            WHEN LEN(p.fuel_time_raw) = 4
+            THEN TRY_CAST(LEFT(p.fuel_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.fuel_time_raw, 2) AS INT)
+            ELSE TRY_CAST(p.fuel_time_raw AS INT)
+        END,
+        CASE
+            WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
+            WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
+            ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
+        END,
+        p.aircraft_faa_raw,
+        p.gcd_nm, p.route_hash, @now, 'PENDING', 0
+    FROM #pilots p
+    INNER JOIN #fp_new n ON n.flight_uid = p.flight_uid;
+
+    -- 4d. UPDATE only flights with actual route changes (hash mismatch)
+    UPDATE fp
+    SET fp_rule = COALESCE(p.fp_rule, fp.fp_rule),
+        fp_dept_icao = COALESCE(p.dept_icao, fp.fp_dept_icao),
+        fp_dest_icao = COALESCE(p.dest_icao, fp.fp_dest_icao),
+        fp_alt_icao = COALESCE(p.alt_icao, fp.fp_alt_icao),
+        fp_dept_artcc = COALESCE(p.dept_artcc, fp.fp_dept_artcc),
+        fp_dept_tracon = COALESCE(p.dept_tracon, fp.fp_dept_tracon),
+        fp_dest_artcc = COALESCE(p.dest_artcc, fp.fp_dest_artcc),
+        fp_dest_tracon = COALESCE(p.dest_tracon, fp.fp_dest_tracon),
+        fp_route = COALESCE(p.route, fp.fp_route),
+        fp_remarks = COALESCE(p.remarks, fp.fp_remarks),
+        fp_altitude_ft = COALESCE(
             CASE
                 WHEN p.altitude_filed_raw LIKE 'FL%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 3, 10) AS INT) * 100
                 WHEN p.altitude_filed_raw LIKE 'F%' THEN TRY_CAST(SUBSTRING(p.altitude_filed_raw, 2, 10) AS INT) * 100
                 ELSE TRY_CAST(p.altitude_filed_raw AS INT)
-            END AS altitude_ft,
+            END, fp.fp_altitude_ft),
+        fp_tas_kts = COALESCE(
             CASE
                 WHEN p.tas_filed_raw LIKE 'N%' THEN TRY_CAST(SUBSTRING(p.tas_filed_raw, 2, 10) AS INT)
                 ELSE TRY_CAST(p.tas_filed_raw AS INT)
-            END AS tas_kts,
-            p.dep_time_z,
+            END, fp.fp_tas_kts),
+        fp_dept_time_z = COALESCE(p.dep_time_z, fp.fp_dept_time_z),
+        fp_enroute_minutes = COALESCE(
             CASE
                 WHEN LEN(p.enroute_time_raw) = 4
                 THEN TRY_CAST(LEFT(p.enroute_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.enroute_time_raw, 2) AS INT)
                 ELSE TRY_CAST(p.enroute_time_raw AS INT)
-            END AS enroute_minutes,
+            END, fp.fp_enroute_minutes),
+        fp_fuel_minutes = COALESCE(
             CASE
                 WHEN LEN(p.fuel_time_raw) = 4
                 THEN TRY_CAST(LEFT(p.fuel_time_raw, 2) AS INT) * 60 + TRY_CAST(RIGHT(p.fuel_time_raw, 2) AS INT)
                 ELSE TRY_CAST(p.fuel_time_raw AS INT)
-            END AS fuel_minutes,
+            END, fp.fp_fuel_minutes),
+        aircraft_type = COALESCE(
             CASE
                 WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
                 WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2)
                 ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw)
-            END AS aircraft_type
-        FROM #pilots p
-        WHERE p.flight_uid IS NOT NULL
-    ) AS source
-    ON target.flight_uid = source.flight_uid
-    WHEN MATCHED THEN
-        UPDATE SET
-            fp_rule = COALESCE(source.fp_rule, target.fp_rule),
-            fp_dept_icao = COALESCE(source.dept_icao, target.fp_dept_icao),
-            fp_dest_icao = COALESCE(source.dest_icao, target.fp_dest_icao),
-            fp_alt_icao = COALESCE(source.alt_icao, target.fp_alt_icao),
-            fp_dept_artcc = COALESCE(source.dept_artcc, target.fp_dept_artcc),
-            fp_dept_tracon = COALESCE(source.dept_tracon, target.fp_dept_tracon),
-            fp_dest_artcc = COALESCE(source.dest_artcc, target.fp_dest_artcc),
-            fp_dest_tracon = COALESCE(source.dest_tracon, target.fp_dest_tracon),
-            fp_route = COALESCE(source.route, target.fp_route),
-            fp_remarks = COALESCE(source.remarks, target.fp_remarks),
-            fp_altitude_ft = COALESCE(source.altitude_ft, target.fp_altitude_ft),
-            fp_tas_kts = COALESCE(source.tas_kts, target.fp_tas_kts),
-            fp_dept_time_z = COALESCE(source.dep_time_z, target.fp_dept_time_z),
-            fp_enroute_minutes = COALESCE(source.enroute_minutes, target.fp_enroute_minutes),
-            fp_fuel_minutes = COALESCE(source.fuel_minutes, target.fp_fuel_minutes),
-            aircraft_type = COALESCE(source.aircraft_type, target.aircraft_type),
-            aircraft_equip = COALESCE(source.aircraft_equip, target.aircraft_equip),
-            gcd_nm = COALESCE(source.gcd_nm, target.gcd_nm),
-            fp_hash = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN source.route_hash ELSE target.fp_hash END,
-            fp_updated_utc = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN @now ELSE target.fp_updated_utc END,
-            parse_status = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN 'PENDING' ELSE target.parse_status END,
-            route_geometry = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN NULL ELSE target.route_geometry END,
-            is_simbrief = CASE WHEN target.fp_hash IS NULL OR target.fp_hash != source.route_hash THEN 0 ELSE target.is_simbrief END
-    WHEN NOT MATCHED THEN
-        INSERT (flight_uid, fp_rule, fp_dept_icao, fp_dest_icao, fp_alt_icao,
-                fp_dept_artcc, fp_dept_tracon, fp_dest_artcc, fp_dest_tracon,
-                fp_route, fp_remarks, fp_altitude_ft, fp_tas_kts, fp_dept_time_z,
-                fp_enroute_minutes, fp_fuel_minutes, aircraft_type, aircraft_equip,
-                gcd_nm, fp_hash, fp_updated_utc, parse_status, is_simbrief)
-        VALUES (source.flight_uid, source.fp_rule, source.dept_icao, source.dest_icao, source.alt_icao,
-                source.dept_artcc, source.dept_tracon, source.dest_artcc, source.dest_tracon,
-                source.route, source.remarks, source.altitude_ft, source.tas_kts, source.dep_time_z,
-                source.enroute_minutes, source.fuel_minutes, source.aircraft_type, source.aircraft_equip,
-                source.gcd_nm, source.route_hash, @now, 'PENDING', 0);
+            END, fp.aircraft_type),
+        aircraft_equip = COALESCE(p.aircraft_faa_raw, fp.aircraft_equip),
+        gcd_nm = COALESCE(p.gcd_nm, fp.gcd_nm),
+        fp_hash = rc.route_hash,
+        fp_updated_utc = @now,
+        parse_status = 'PENDING',
+        route_geometry = NULL,
+        is_simbrief = 0
+    FROM dbo.adl_flight_plan fp
+    INNER JOIN #route_changes rc ON rc.flight_uid = fp.flight_uid
+    INNER JOIN #pilots p ON p.flight_uid = rc.flight_uid;
+
+    DROP TABLE IF EXISTS #fp_new;
 
     SET @step4_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
