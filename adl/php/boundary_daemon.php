@@ -21,6 +21,7 @@ define('DEFAULT_MAX_FLIGHTS', 100);      // Flights per boundary run
 define('DEFAULT_MAX_CROSSINGS', 50);     // Crossings per run
 define('DEFAULT_INTERVAL', 15);          // Seconds between runs
 define('SP_TIMEOUT', 300);               // SQL timeout - 5 min for large batches (isolated daemon, no cascade risk)
+define('STAGGER_OFFSET', 5);             // Seconds to offset from ADL daemon cycle to reduce contention
 
 class BoundaryDaemon
 {
@@ -60,9 +61,10 @@ class BoundaryDaemon
      */
     private function getPendingCount(): int
     {
+        // NOLOCK: Safe for monitoring query - we only need approximate count
         $sql = "SELECT COUNT(*) AS cnt
-                FROM dbo.adl_flight_core c
-                JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+                FROM dbo.adl_flight_core c WITH (NOLOCK)
+                JOIN dbo.adl_flight_position p WITH (NOLOCK) ON p.flight_uid = c.flight_uid
                 WHERE c.is_active = 1
                   AND p.lat IS NOT NULL
                   AND (c.current_artcc_id IS NULL
@@ -168,6 +170,12 @@ class BoundaryDaemon
     {
         $this->log("Starting boundary daemon (max_flights: {$this->maxFlights}, interval: {$this->interval}s)");
         $this->log("Connected to VATSIM_ADL Azure SQL database");
+
+        // Stagger start to avoid colliding with ADL daemon's 15-second cycle
+        if (STAGGER_OFFSET > 0) {
+            $this->log("Staggering start by " . STAGGER_OFFSET . "s to reduce ADL contention...");
+            sleep(STAGGER_OFFSET);
+        }
 
         $totalRuns = 0;
         $totalTransitions = 0;

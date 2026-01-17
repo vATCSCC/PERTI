@@ -49,18 +49,20 @@ if (!defined('DEV')) {
     
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-    
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+
         $json = curl_exec($ch);
         $obj = json_decode($json, true);
-    
+
         // Log curl errors silently instead of echoing (which breaks HTTP response)
         if (curl_errno($ch)) {
             error_log("Session handler curl error: " . curl_error($ch));
         }
-    
+
         curl_close($ch);
         // END: cUrl to Session Check Script
-    
+
         if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
 
             $_SESSION['VATSIM_CID'] = $obj['cid'];
@@ -91,10 +93,12 @@ if (!defined('DEV')) {
             
                 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-            
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+
                 $json = curl_exec($ch);
                 $obj = json_decode($json, true);
-            
+
                 // Log curl errors silently instead of echoing (which breaks HTTP response)
                 if (curl_errno($ch)) {
                     error_log("Session handler curl error: " . curl_error($ch));
@@ -160,10 +164,12 @@ if (!defined('DEV')) {
         
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-        
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+
             $json = curl_exec($ch);
             $obj = json_decode($json, true);
-        
+
             // Log curl errors silently instead of echoing (which breaks HTTP response)
             if (curl_errno($ch)) {
                 error_log("Session handler curl error: " . curl_error($ch));
@@ -171,7 +177,7 @@ if (!defined('DEV')) {
 
             curl_close($ch);
             // END: cUrl to Session Check Script
-        
+
             if ($json && is_array($obj) && ($obj['status'] ?? '') === "success") {
 
                 $_SESSION['VATSIM_CID'] = $obj['cid'];

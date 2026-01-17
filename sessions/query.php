@@ -11,8 +11,11 @@ if (!isset($_POST['selfcookie']) || !isset($_POST['ip'])) {
 $selfcookie = post_input('selfcookie');
 $ip = post_input('ip');
 
-$result_check_valid = ("SELECT COUNT(*) as 'total', cid, first_name, last_name FROM users WHERE last_session_ip='$ip' AND last_selfcookie='$selfcookie'");
-$count_check_valid = mysqli_query($conn_sqli, $result_check_valid);
+// Use prepared statement to prevent SQL injection
+$stmt = mysqli_prepare($conn_sqli, "SELECT COUNT(*) as 'total', cid, first_name, last_name FROM users WHERE last_session_ip=? AND last_selfcookie=?");
+mysqli_stmt_bind_param($stmt, "ss", $ip, $selfcookie);
+mysqli_stmt_execute($stmt);
+$count_check_valid = mysqli_stmt_get_result($stmt);
 
 while ($data_check_valid = mysqli_fetch_array($count_check_valid)) {
     if ($data_check_valid['total'] > 0) {

@@ -37,9 +37,20 @@ if (isset($_GET['code'])) {
     curl_setopt($ch, CURLOPT_URL, $url_base . '/oauth/token');
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);  
-    
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
     $json = curl_exec($ch);
+
+    if (curl_errno($ch)) {
+        error_log("VATSIM OAuth token error: " . curl_error($ch));
+        curl_close($ch);
+        echo 'Unable to connect to VATSIM authentication service. Please try again later.';
+        exit;
+    }
+
+    curl_close($ch);
     $obj = json_decode($json, true);
     // END: cUrl to VATSIM Connect
 
@@ -57,21 +68,32 @@ if (isset($_GET['code'])) {
         $ch_at = curl_init();
 
         curl_setopt($ch_at, CURLOPT_URL, $url_base . '/api/user');
-        // curl_setopt($ch_at, CURLOPT_CUSTOMREQUEST, 'GET');
         curl_setopt($ch_at, CURLOPT_HTTPHEADER, $array);
-        curl_setopt($ch_at, CURLOPT_RETURNTRANSFER, true);  
-        
+        curl_setopt($ch_at, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch_at, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch_at, CURLOPT_TIMEOUT, 10);
+
         $json_at = curl_exec($ch_at);
-        $obj_at = json_decode($json_at, true);
+
+        if (curl_errno($ch_at)) {
+            error_log("VATSIM OAuth user fetch error: " . curl_error($ch_at));
+            curl_close($ch_at);
+            echo 'Unable to retrieve user information from VATSIM. Please try again later.';
+            exit;
+        }
 
         curl_close($ch_at);
+        $obj_at = json_decode($json_at, true);
         // END: cUrl to VATSIM Connect 
 
         $cid = $obj_at['data']['cid'] ?? null;
 
         if ($cid) {
-            $check_query = "SELECT COUNT(*) as 'total', first_name, last_name FROM users WHERE cid=$cid";
-            $check_run = mysqli_query($conn_sqli, $check_query);
+            // Use prepared statement to prevent SQL injection
+            $check_stmt = mysqli_prepare($conn_sqli, "SELECT COUNT(*) as 'total', first_name, last_name FROM users WHERE cid=?");
+            mysqli_stmt_bind_param($check_stmt, "i", $cid);
+            mysqli_stmt_execute($check_stmt);
+            $check_run = mysqli_stmt_get_result($check_stmt);
 
             $check_array = mysqli_fetch_array($check_run);
 
@@ -100,9 +122,11 @@ if (isset($_GET['code'])) {
 
                     setcookie("SELF", $selfcookie, time() + (86400 * 30), "/");
 
-                $update_query = "UPDATE users SET last_session_ip='$ip', last_selfcookie='$selfcookie' WHERE cid=$cid";
+                // Use prepared statement to prevent SQL injection
+                $update_stmt = mysqli_prepare($conn_sqli, "UPDATE users SET last_session_ip=?, last_selfcookie=? WHERE cid=?");
+                mysqli_stmt_bind_param($update_stmt, "ssi", $ip, $selfcookie, $cid);
 
-                if (mysqli_query($conn_sqli, $update_query)) {
+                if (mysqli_stmt_execute($update_stmt)) {
                     sessionstart($cid, $first_name, $last_name);
                     header('Location: ../index');
                 }

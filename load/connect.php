@@ -43,18 +43,36 @@ $sql_host   = SQL_HOST;
 $sql_dbname = SQL_DATABASE;
 
 // Establish Connection (PDO)
+$conn_pdo = null;
 try {
     $conn_pdo = new PDO("mysql:host={$sql_host};dbname={$sql_dbname}", $sql_user, $sql_passwd);
     $conn_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $ex) {
-    die('PDO connection failed: ' . $ex->getMessage());
+    error_log('PDO connection failed: ' . $ex->getMessage());
+    $conn_pdo = null;
 }
 
 // Establish Connection (MySQLi)
 $conn_sqli = mysqli_connect($sql_host, $sql_user, $sql_passwd, $sql_dbname);
 
 if (!$conn_sqli) {
-    die('Connection failed: ' . mysqli_connect_error());
+    error_log('MySQLi connection failed: ' . mysqli_connect_error());
+    $conn_sqli = null;
+}
+
+// If both primary database connections failed, return 503 Service Unavailable
+if ($conn_pdo === null && $conn_sqli === null) {
+    http_response_code(503);
+    error_log('CRITICAL: All primary database connections failed');
+    if (php_sapi_name() !== 'cli') {
+        header('Content-Type: text/html; charset=utf-8');
+        header('Retry-After: 30');
+        echo '<!DOCTYPE html><html><head><title>Service Temporarily Unavailable</title></head>';
+        echo '<body><h1>Service Temporarily Unavailable</h1>';
+        echo '<p>We are experiencing technical difficulties. Please try again in a few moments.</p>';
+        echo '</body></html>';
+        exit;
+    }
 }
 
 // -------------------------------------------------------------------------
