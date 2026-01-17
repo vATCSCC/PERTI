@@ -1,7 +1,8 @@
 <?php
 
 // Session Start (S)
-if (session_status() == PHP_SESSION_NONE) {
+// Check headers_sent() to avoid warning when included after HTML output
+if (session_status() == PHP_SESSION_NONE && !headers_sent()) {
   session_start();
   ob_start();
 }
