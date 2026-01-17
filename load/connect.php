@@ -76,128 +76,205 @@ if ($conn_pdo === null && $conn_sqli === null) {
 }
 
 // -------------------------------------------------------------------------
-// ADL Database (Azure SQL / SQL Server)
+// Azure SQL Databases - LAZY LOADING
 // -------------------------------------------------------------------------
-// Optional: only connect if ADL_SQL_* constants are defined and sqlsrv exists.
+// Connections are established ON DEMAND when first accessed via getter functions.
+// This reduces page load time for pages that don't need all databases.
 //
-// Usage elsewhere in the codebase:
-//   - Check if $conn_adl is not null before using it
-//   - Do NOT die() on failure here; the rest of the site should still work
+// Usage:
+//   $conn = get_conn_adl();  // Connects only when called
+//   if ($conn) { ... }
+//
+// For backward compatibility, global $conn_adl etc. still work but connect eagerly
+// on first access. Prefer using getter functions for new code.
 // -------------------------------------------------------------------------
 
+// Connection cache (null = not attempted, false = failed, resource = connected)
+$_conn_cache = [
+    'adl' => null,
+    'swim' => null,
+    'tmi' => null,
+    'ref' => null
+];
+
+/**
+ * Get ADL database connection (lazy loaded)
+ * @return resource|false|null Connection resource, false on failure, null if not configured
+ */
+function get_conn_adl() {
+    global $_conn_cache;
+
+    // Return cached connection if already attempted
+    if ($_conn_cache['adl'] !== null) {
+        return $_conn_cache['adl'] ?: null;
+    }
+
+    if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') ||
+        !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
+        $_conn_cache['adl'] = false;
+        return null;
+    }
+
+    if (!function_exists('sqlsrv_connect')) {
+        error_log("ADL SQL connection skipped: sqlsrv extension is not loaded.");
+        $_conn_cache['adl'] = false;
+        return null;
+    }
+
+    $connectionInfo = [
+        "Database" => ADL_SQL_DATABASE,
+        "UID"      => ADL_SQL_USERNAME,
+        "PWD"      => ADL_SQL_PASSWORD,
+        "ConnectionPooling" => 1
+    ];
+
+    $_conn_cache['adl'] = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
+
+    if ($_conn_cache['adl'] === false) {
+        error_log("ADL SQL connection failed: " . adl_sql_error_message());
+        return null;
+    }
+
+    return $_conn_cache['adl'];
+}
+
+/**
+ * Get SWIM API database connection (lazy loaded)
+ * @return resource|false|null Connection resource, false on failure, null if not configured
+ */
+function get_conn_swim() {
+    global $_conn_cache;
+
+    if ($_conn_cache['swim'] !== null) {
+        return $_conn_cache['swim'] ?: null;
+    }
+
+    if (!defined('SWIM_SQL_HOST') || !defined('SWIM_SQL_DATABASE') ||
+        !defined('SWIM_SQL_USERNAME') || !defined('SWIM_SQL_PASSWORD')) {
+        $_conn_cache['swim'] = false;
+        return null;
+    }
+
+    if (!function_exists('sqlsrv_connect')) {
+        $_conn_cache['swim'] = false;
+        return null;
+    }
+
+    $connectionInfo = [
+        "Database" => SWIM_SQL_DATABASE,
+        "UID"      => SWIM_SQL_USERNAME,
+        "PWD"      => SWIM_SQL_PASSWORD,
+        "ConnectionPooling" => 1
+    ];
+
+    $_conn_cache['swim'] = sqlsrv_connect(SWIM_SQL_HOST, $connectionInfo);
+
+    if ($_conn_cache['swim'] === false) {
+        error_log("SWIM API SQL connection failed: " . adl_sql_error_message());
+        return null;
+    }
+
+    return $_conn_cache['swim'];
+}
+
+/**
+ * Get TMI database connection (lazy loaded)
+ * @return resource|false|null Connection resource, false on failure, null if not configured
+ */
+function get_conn_tmi() {
+    global $_conn_cache;
+
+    if ($_conn_cache['tmi'] !== null) {
+        return $_conn_cache['tmi'] ?: null;
+    }
+
+    if (!defined('TMI_SQL_HOST') || !defined('TMI_SQL_DATABASE') ||
+        !defined('TMI_SQL_USERNAME') || !defined('TMI_SQL_PASSWORD')) {
+        $_conn_cache['tmi'] = false;
+        return null;
+    }
+
+    if (!function_exists('sqlsrv_connect')) {
+        $_conn_cache['tmi'] = false;
+        return null;
+    }
+
+    $connectionInfo = [
+        "Database" => TMI_SQL_DATABASE,
+        "UID"      => TMI_SQL_USERNAME,
+        "PWD"      => TMI_SQL_PASSWORD,
+        "ConnectionPooling" => 1
+    ];
+
+    $_conn_cache['tmi'] = sqlsrv_connect(TMI_SQL_HOST, $connectionInfo);
+
+    if ($_conn_cache['tmi'] === false) {
+        error_log("TMI SQL connection failed: " . adl_sql_error_message());
+        return null;
+    }
+
+    return $_conn_cache['tmi'];
+}
+
+/**
+ * Get REF database connection (lazy loaded)
+ * @return resource|false|null Connection resource, false on failure, null if not configured
+ */
+function get_conn_ref() {
+    global $_conn_cache;
+
+    if ($_conn_cache['ref'] !== null) {
+        return $_conn_cache['ref'] ?: null;
+    }
+
+    if (!defined('REF_SQL_HOST') || !defined('REF_SQL_DATABASE') ||
+        !defined('REF_SQL_USERNAME') || !defined('REF_SQL_PASSWORD')) {
+        $_conn_cache['ref'] = false;
+        return null;
+    }
+
+    if (!function_exists('sqlsrv_connect')) {
+        $_conn_cache['ref'] = false;
+        return null;
+    }
+
+    $connectionInfo = [
+        "Database" => REF_SQL_DATABASE,
+        "UID"      => REF_SQL_USERNAME,
+        "PWD"      => REF_SQL_PASSWORD,
+        "ConnectionPooling" => 1
+    ];
+
+    $_conn_cache['ref'] = sqlsrv_connect(REF_SQL_HOST, $connectionInfo);
+
+    if ($_conn_cache['ref'] === false) {
+        error_log("REF SQL connection failed: " . adl_sql_error_message());
+        return null;
+    }
+
+    return $_conn_cache['ref'];
+}
+
+// -------------------------------------------------------------------------
+// Backward Compatibility: Global connection variables
+// -------------------------------------------------------------------------
+// These are populated lazily when first accessed by code using them directly.
+// New code should prefer the get_conn_*() functions.
+// -------------------------------------------------------------------------
+
+// Initialize to null - actual connection happens on first use via getter
 $conn_adl = null;
 $conn_swim = null;
 $conn_tmi = null;
 $conn_ref = null;
 
-if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
-    defined('ADL_SQL_USERNAME') && defined('ADL_SQL_PASSWORD')) {
-
-    if (function_exists('sqlsrv_connect')) {
-        $connectionInfo = [
-            "Database" => ADL_SQL_DATABASE,
-            "UID"      => ADL_SQL_USERNAME,
-            "PWD"      => ADL_SQL_PASSWORD,
-            "ConnectionPooling" => 1
-        ];
-
-        $conn_adl = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
-
-        if ($conn_adl === false) {
-            // Log, but do not kill the request
-            error_log("ADL SQL connection failed: " . adl_sql_error_message());
-        }
-    } else {
-        // sqlsrv extension not available; log and continue
-        error_log("ADL SQL connection skipped: sqlsrv extension is not loaded.");
-    }
-} else {
-    // ADL constants not defined; this is fine if ADL is optional for this environment
-    // error_log("ADL SQL constants not defined; ADL connection not established.");
-}
-
-// -------------------------------------------------------------------------
-// SWIM API Database (Azure SQL Basic - dedicated for public API)
-// -------------------------------------------------------------------------
-// This is a fixed-cost ($5/mo) database to serve public SWIM API queries
-// without incurring Serverless scaling costs on VATSIM_ADL.
-// Data is synced from VATSIM_ADL every 15 seconds via sp_Swim_SyncFromAdl.
-// -------------------------------------------------------------------------
-
-if (defined('SWIM_SQL_HOST') && defined('SWIM_SQL_DATABASE') &&
-    defined('SWIM_SQL_USERNAME') && defined('SWIM_SQL_PASSWORD')) {
-
-    if (function_exists('sqlsrv_connect')) {
-        $swimConnectionInfo = [
-            "Database" => SWIM_SQL_DATABASE,
-            "UID"      => SWIM_SQL_USERNAME,
-            "PWD"      => SWIM_SQL_PASSWORD,
-            "ConnectionPooling" => 1
-        ];
-
-        $conn_swim = sqlsrv_connect(SWIM_SQL_HOST, $swimConnectionInfo);
-
-        if ($conn_swim === false) {
-            // Log, but do not kill the request - fall back to $conn_adl if needed
-            error_log("SWIM API SQL connection failed: " . adl_sql_error_message());
-        }
-    }
-}
-
-// -------------------------------------------------------------------------
-// TMI Database (Azure SQL - Traffic Management Initiatives)
-// -------------------------------------------------------------------------
-// Contains: NTML entries, Advisories, GDT Programs, Slots, Reroutes, Public Routes
-// Data is managed by PERTI TMI tools and Discord bot integration.
-// -------------------------------------------------------------------------
-
-if (defined('TMI_SQL_HOST') && defined('TMI_SQL_DATABASE') &&
-    defined('TMI_SQL_USERNAME') && defined('TMI_SQL_PASSWORD')) {
-
-    if (function_exists('sqlsrv_connect')) {
-        $tmiConnectionInfo = [
-            "Database" => TMI_SQL_DATABASE,
-            "UID"      => TMI_SQL_USERNAME,
-            "PWD"      => TMI_SQL_PASSWORD,
-            "ConnectionPooling" => 1
-        ];
-
-        $conn_tmi = sqlsrv_connect(TMI_SQL_HOST, $tmiConnectionInfo);
-
-        if ($conn_tmi === false) {
-            // Log, but do not kill the request - TMI features will be unavailable
-            error_log("TMI SQL connection failed: " . adl_sql_error_message());
-        }
-    }
-}
-
-// -------------------------------------------------------------------------
-// REF Database (Azure SQL Basic - Reference Data)
-// -------------------------------------------------------------------------
-// Contains authoritative navigation reference data (nav_fixes, airways, etc.)
-// Data is synced TO VATSIM_ADL nightly or on AIRAC cycle updates.
-// This is a $5/mo Basic tier database for cost-efficient reference storage.
-// -------------------------------------------------------------------------
-
-if (defined('REF_SQL_HOST') && defined('REF_SQL_DATABASE') &&
-    defined('REF_SQL_USERNAME') && defined('REF_SQL_PASSWORD')) {
-
-    if (function_exists('sqlsrv_connect')) {
-        $refConnectionInfo = [
-            "Database" => REF_SQL_DATABASE,
-            "UID"      => REF_SQL_USERNAME,
-            "PWD"      => REF_SQL_PASSWORD,
-            "ConnectionPooling" => 1
-        ];
-
-        $conn_ref = sqlsrv_connect(REF_SQL_HOST, $refConnectionInfo);
-
-        if ($conn_ref === false) {
-            // Log, but do not kill the request - REF features will be unavailable
-            error_log("REF SQL connection failed: " . adl_sql_error_message());
-        }
-    }
-}
+// For backward compatibility with code that checks $conn_adl directly,
+// we connect eagerly here. Remove these lines once all code migrates to getters.
+// TODO: Migrate callers to use get_conn_adl() etc., then remove eager loading
+$conn_adl = get_conn_adl();
+$conn_swim = get_conn_swim();
+$conn_tmi = get_conn_tmi();
+$conn_ref = get_conn_ref();
 
 // -------------------------------------------------------------------------
 // Helper: Trigger SWIM sync after ADL refresh

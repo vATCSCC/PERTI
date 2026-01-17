@@ -1,14 +1,8 @@
 <?php
-
-include("sessions/handler.php");
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-    ob_start();
-}
-
+/**
+ * OPTIMIZED: Public page - no session handler or DB needed
+ */
 include("load/config.php");
-include("load/connect.php");
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -211,7 +205,7 @@ include("load/connect.php");
 
 <body>
 
-<?php include("load/nav.php"); ?>
+<?php include("load/nav_public.php"); ?>
 
 <section class="d-flex align-items-center position-relative min-vh-25 py-4" data-jarallax data-speed="0.3" style="pointer-events: all;">
     <div class="container-fluid pt-2 pb-4 py-lg-5">

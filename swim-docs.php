@@ -10,17 +10,13 @@
  * @version 1.0.0
  */
 
-include("sessions/handler.php");
-
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-    ob_start();
-}
-
+/**
+ * OPTIMIZED: Public page - no session handler or DB needed
+ */
 include("load/config.php");
-include("load/connect.php");
 
-$logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
+// Public page - always show as not logged in
+$logged_in = false;
 ?>
 
 <!DOCTYPE html>
@@ -189,7 +185,7 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
 
 <body>
 
-<?php include('load/nav.php'); ?>
+<?php include('load/nav_public.php'); ?>
 
 <!-- Hero Section -->
 <section class="d-flex align-items-center position-relative min-vh-25 py-4" data-jarallax data-speed="0.3">

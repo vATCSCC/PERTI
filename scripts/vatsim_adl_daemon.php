@@ -149,6 +149,12 @@ $config = [
     'websocket_enabled'   => true,
     'websocket_positions' => false,  // Position updates (high volume - disabled by default)
 
+    // Flight stats scheduled jobs
+    // Calls sp_ProcessFlightStatsJobs to run hourly/daily/monthly aggregation jobs
+    // The SP checks job schedules internally and only runs jobs that are due
+    'flight_stats_enabled'  => true,
+    'flight_stats_interval' => 60,   // Run every N cycles (60 = every 15 minutes)
+
     // =============================================
     // V9.0 Staged Refresh Architecture
     // =============================================
@@ -1419,6 +1425,44 @@ function executeSwimSync($conn_adl, $conn_swim): ?array {
 }
 
 // ============================================================================
+// FLIGHT STATS SCHEDULED JOBS
+// ============================================================================
+
+/**
+ * Execute scheduled flight stats jobs (hourly, daily, monthly aggregation).
+ * Calls sp_ProcessFlightStatsJobs which checks each job's schedule internally.
+ * @param resource $conn SQL Server connection
+ * @return array|null Result with jobs executed, or null on error
+ */
+function executeFlightStatsJobs($conn): ?array {
+    $startTime = microtime(true);
+
+    // sp_ProcessFlightStatsJobs iterates through flight_stats_job_config,
+    // checks if each job should run based on schedule, and executes if due
+    $sql = "EXEC dbo.sp_ProcessFlightStatsJobs";
+    $stmt = @sqlsrv_query($conn, $sql, [], ['QueryTimeout' => 300]);  // 5 min timeout for aggregation
+
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        logWarn("Flight stats job SP failed", ['error' => json_encode($errors)]);
+        return null;
+    }
+
+    // The SP prints messages but doesn't return a result set
+    // Drain any results
+    while (sqlsrv_next_result($stmt)) {
+        // Drain
+    }
+    sqlsrv_free_stmt($stmt);
+
+    $elapsedMs = round((microtime(true) - $startTime) * 1000);
+
+    return [
+        'elapsed_ms' => $elapsedMs,
+    ];
+}
+
+// ============================================================================
 // CONNECTION HEALTH CHECK (Fast)
 // ============================================================================
 
@@ -1517,6 +1561,9 @@ function runDaemon(array $config): void {
         // WebSocket stats
         'ws_events'            => 0,
         'ws_runs'              => 0,
+        // Flight stats job stats
+        'fstats_runs'          => 0,
+        'fstats_total_ms'      => 0,
         // V9.0 Staging stats
         'total_staging_ms'     => 0,
         'total_insert_ms'      => 0,

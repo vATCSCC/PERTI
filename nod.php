@@ -11,18 +11,14 @@
  * - Active TMIs (GS/GDP/Reroutes)
  */
 
-// Session handling
-include("sessions/handler.php");
-if (session_status() == PHP_SESSION_NONE) { 
-    session_start(); 
-    ob_start(); 
-}
+/**
+ * OPTIMIZED: Public page - no session handler or DB needed
+ */
 include("load/config.php");
-include("load/connect.php");
 
-// Public page - no auth required (like jatoc.php)
-$user_name = trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($_SESSION['VATSIM_LAST_NAME'] ?? '')) ?: 'Unknown';
-$user_cid = $_SESSION['VATSIM_CID'] ?? '';
+// Public page - show as guest
+$user_name = 'Guest';
+$user_cid = '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1063,7 +1059,7 @@ $user_cid = $_SESSION['VATSIM_CID'] ?? '';
 </head>
 <body>
 
-<?php include('load/nav.php'); ?>
+<?php include('load/nav_public.php'); ?>
 
 <!-- Main Container -->
 <div class="nod-container">
