@@ -236,12 +236,13 @@ function runStep(mixed $conn, string $sql): array {
 // ============================================================================
 
 function getArchivalStats(mixed $conn): array {
+    // NOLOCK: Safe for stats query - approximate counts are fine for monitoring
     $sql = "
         SELECT
-            (SELECT COUNT(*) FROM dbo.adl_flight_trajectory) AS hot_tier_rows,
-            (SELECT COUNT(*) FROM dbo.adl_trajectory_archive) AS warm_tier_rows,
-            (SELECT COUNT(*) FROM dbo.adl_trajectory_compressed) AS cold_tier_rows,
-            (SELECT COUNT(*) FROM dbo.adl_flight_changelog) AS changelog_rows
+            (SELECT COUNT(*) FROM dbo.adl_flight_trajectory WITH (NOLOCK)) AS hot_tier_rows,
+            (SELECT COUNT(*) FROM dbo.adl_trajectory_archive WITH (NOLOCK)) AS warm_tier_rows,
+            (SELECT COUNT(*) FROM dbo.adl_trajectory_compressed WITH (NOLOCK)) AS cold_tier_rows,
+            (SELECT COUNT(*) FROM dbo.adl_flight_changelog WITH (NOLOCK)) AS changelog_rows
     ";
 
     $stmt = sqlsrv_query($conn, $sql);

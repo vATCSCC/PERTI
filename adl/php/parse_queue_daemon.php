@@ -18,8 +18,9 @@ require_once __DIR__ . '/../../load/connect.php';
 
 // Configuration
 define('DEFAULT_BATCH_SIZE', 50);
-define('DEFAULT_INTERVAL', 5);  // seconds between queue checks
-define('MAX_ITERATIONS', 20);   // max batches per cycle
+define('DEFAULT_INTERVAL', 10);  // seconds between queue checks (increased from 5 to reduce contention)
+define('MAX_ITERATIONS', 20);    // max batches per cycle
+define('STAGGER_OFFSET', 3);     // Seconds to offset from other daemons
 
 class ParseQueueDaemon
 {
@@ -59,6 +60,7 @@ class ParseQueueDaemon
      */
     private function getQueueStats(): array
     {
+        // NOLOCK: Safe for stats query - we only need approximate counts
         $sql = "
             SELECT
                 COUNT(CASE WHEN status = 'PENDING' AND next_eligible_utc <= SYSUTCDATETIME() THEN 1 END) AS pending,
@@ -67,7 +69,7 @@ class ParseQueueDaemon
                 COUNT(CASE WHEN status = 'FAILED' AND completed_utc > DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN 1 END) AS failed,
                 AVG(CASE WHEN status = 'COMPLETE' AND completed_utc > DATEADD(HOUR, -1, SYSUTCDATETIME())
                     THEN DATEDIFF(MILLISECOND, started_utc, completed_utc) END) AS avg_parse_ms
-            FROM dbo.adl_parse_queue
+            FROM dbo.adl_parse_queue WITH (NOLOCK)
         ";
         
         $stmt = sqlsrv_query($this->conn, $sql);
@@ -195,7 +197,13 @@ class ParseQueueDaemon
     {
         $this->log("Starting parse queue daemon (batch: {$this->batchSize}, interval: {$this->interval}s)");
         $this->log("Connected to VATSIM_ADL Azure SQL database");
-        
+
+        // Stagger start to avoid colliding with other daemons
+        if (STAGGER_OFFSET > 0) {
+            $this->log("Staggering start by " . STAGGER_OFFSET . "s to reduce contention...");
+            sleep(STAGGER_OFFSET);
+        }
+
         while ($this->running) {
             $stats = $this->runOnce();
             

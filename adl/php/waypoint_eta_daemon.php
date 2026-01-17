@@ -27,6 +27,7 @@ require_once __DIR__ . '/../../load/connect.php';
 define('DEFAULT_INTERVAL', 15);           // Base interval in seconds
 define('DEFAULT_MAX_FLIGHTS', 500);       // Flights per batch
 define('SP_TIMEOUT', 120);                // SQL timeout in seconds
+define('STAGGER_OFFSET', 10);             // Seconds to offset from ADL daemon cycle to reduce contention
 
 // Tier intervals (in cycles of base interval)
 // With 15s base: Tier 0 = every 15s, Tier 1 = every 30s, etc.
@@ -160,6 +161,12 @@ class WaypointEtaDaemon
         $this->log("Starting waypoint ETA daemon (max_flights: {$this->maxFlights}, interval: {$this->interval}s)");
         $this->log("Tier intervals: " . json_encode(TIER_INTERVALS));
         $this->log("Connected to VATSIM_ADL Azure SQL database");
+
+        // Stagger start to avoid colliding with ADL daemon's 15-second cycle
+        if (STAGGER_OFFSET > 0) {
+            $this->log("Staggering start by " . STAGGER_OFFSET . "s to reduce ADL contention...");
+            sleep(STAGGER_OFFSET);
+        }
 
         $stats = [
             'total_runs' => 0,

@@ -1268,9 +1268,10 @@ function executeBoundaryProcessing($conn, array $config): ?array {
 }
 
 function getBoundaryPendingCount($conn): int {
+    // NOLOCK: Safe for monitoring query - we only need approximate count
     $sql = "SELECT COUNT(*) AS cnt
-            FROM dbo.adl_flight_core c
-            JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+            FROM dbo.adl_flight_core c WITH (NOLOCK)
+            JOIN dbo.adl_flight_position p WITH (NOLOCK) ON p.flight_uid = c.flight_uid
             WHERE c.is_active = 1
               AND p.lat IS NOT NULL
               AND (c.current_artcc_id IS NULL
