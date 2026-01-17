@@ -52,7 +52,10 @@ if (!defined('DEV')) {
         $json = curl_exec($ch);
         $obj = json_decode($json, true);
     
-        echo curl_error($ch);
+        // Log curl errors silently instead of echoing (which breaks HTTP response)
+        if (curl_errno($ch)) {
+            error_log("Session handler curl error: " . curl_error($ch));
+        }
     
         curl_close($ch);
         // END: cUrl to Session Check Script
@@ -91,13 +94,16 @@ if (!defined('DEV')) {
                 $json = curl_exec($ch);
                 $obj = json_decode($json, true);
             
-                echo curl_error($ch);
-            
+                // Log curl errors silently instead of echoing (which breaks HTTP response)
+                if (curl_errno($ch)) {
+                    error_log("Session handler curl error: " . curl_error($ch));
+                }
+
                 curl_close($ch);
                 // END: cUrl to Session Check Script
-            
+
                 if ($json && $obj['status'] == "success") {
-            
+
                     $_SESSION['VATSIM_CID'] = $obj['cid'];
                     $_SESSION['VATSIM_FIRST_NAME'] = $obj['first_name'];
                     $_SESSION['VATSIM_LAST_NAME'] = $obj['last_name'];
@@ -157,8 +163,11 @@ if (!defined('DEV')) {
             $json = curl_exec($ch);
             $obj = json_decode($json, true);
         
-            echo curl_error($ch);
-        
+            // Log curl errors silently instead of echoing (which breaks HTTP response)
+            if (curl_errno($ch)) {
+                error_log("Session handler curl error: " . curl_error($ch));
+            }
+
             curl_close($ch);
             // END: cUrl to Session Check Script
         
