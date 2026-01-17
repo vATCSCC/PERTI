@@ -1,7 +1,9 @@
 # vATCSCC Advisory Formatting Specification
 
 **For Claude Code Implementation**  
-**Version:** 1.0 | **Date:** January 5, 2026
+**Version:** 1.1 | **Date:** January 17, 2026
+
+> **Note:** See also `NTML_Advisory_Formatting_Spec.md` for the unified NTML and Advisory formatting reference based on official FAA documentation (TMIs.pdf and Advisories_and_General_Messages_v1_3.pdf).
 
 ---
 

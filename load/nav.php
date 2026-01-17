@@ -91,6 +91,14 @@ $nav_config = [
             ['label' => 'Technical Docs', 'path' => './swim-docs'],
         ]
     ],
+    // Dropdown: About
+    'about' => [
+        'label' => 'About',
+        'items' => [
+            ['label' => 'Infrastructure', 'path' => './transparency'],
+            ['label' => 'Privacy Policy', 'path' => './privacy'],
+        ]
+    ],
 ];
 
 // ============================================================================

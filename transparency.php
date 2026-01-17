@@ -170,51 +170,168 @@ include("load/connect.php");
     <div class="transparency-section">
         <h3><i class="fas fa-dollar-sign mr-2"></i>Current Monthly Costs</h3>
 
-        <p class="lead">PERTI operates on Microsoft Azure infrastructure. Below is a transparent breakdown of our current operational costs.</p>
+        <p class="lead">PERTI operates on Microsoft Azure infrastructure in the Central US region. Below is a transparent breakdown of our current operational costs.</p>
 
         <div class="info-card">
-            <h4>Infrastructure Components</h4>
+            <h4><i class="fas fa-cloud mr-2"></i>Compute Resources</h4>
             <table class="cost-table">
                 <thead>
                     <tr>
-                        <th>Component</th>
-                        <th>Tier/Size</th>
+                        <th>Resource</th>
+                        <th>Tier/SKU</th>
                         <th>Purpose</th>
                         <th>Est. Cost/Month</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td><strong>Azure App Service</strong></td>
+                        <td><strong>vatcscc</strong><br><small>App Service</small></td>
                         <td><span class="tier-badge tier-current">P1v2</span><br><small>3.5 GB RAM, 1 vCPU</small></td>
-                        <td>Web hosting, PHP-FPM workers, background daemons</td>
+                        <td>Main PERTI website, PHP-FPM workers, background daemons</td>
                         <td>~$81</td>
                     </tr>
                     <tr>
-                        <td><strong>VATSIM_ADL Database</strong></td>
-                        <td>Serverless</td>
-                        <td>Active flight data, real-time positions, parsed routes</td>
-                        <td>~$5-50*</td>
-                    </tr>
-                    <tr>
-                        <td><strong>SWIM_API Database</strong></td>
-                        <td>Basic (2 GB)</td>
-                        <td>SWIM API data, flight events, API key management</td>
-                        <td>~$5</td>
-                    </tr>
-                    <tr>
-                        <td><strong>VATSIM_REF Database</strong></td>
-                        <td>Basic (2 GB)</td>
-                        <td>Reference data (airports, airways, fixes, procedures)</td>
-                        <td>~$5</td>
-                    </tr>
-                    <tr class="cost-total">
-                        <td colspan="3"><strong>Estimated Total</strong></td>
-                        <td><strong>~$96-141/month</strong></td>
+                        <td><strong>vatcscc-atfm-engine</strong><br><small>App Service</small></td>
+                        <td><span class="tier-badge tier-current">P1v2</span><br><small>Shared plan</small></td>
+                        <td>ATFM processing engine</td>
+                        <td>Included</td>
                     </tr>
                 </tbody>
             </table>
-            <small class="text-muted">* Serverless pricing varies based on compute usage. Higher during peak VATSIM hours (1800-0200 UTC).</small>
+        </div>
+
+        <div class="info-card">
+            <h4><i class="fas fa-database mr-2"></i>Azure SQL Databases</h4>
+            <p class="text-muted mb-3">All databases hosted on <code>vatsim.database.windows.net</code></p>
+            <table class="cost-table">
+                <thead>
+                    <tr>
+                        <th>Database</th>
+                        <th>Tier/SKU</th>
+                        <th>Purpose</th>
+                        <th>Est. Cost/Month</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>VATSIM_ADL</strong></td>
+                        <td><span class="tier-badge" style="background:#9b59b6;color:#fff;">Hyperscale</span><br><small>Gen5, 8 vCores max, ~73 GB</small></td>
+                        <td>Active flight data, real-time positions, parsed routes, ETAs</td>
+                        <td>~$7 storage + compute*</td>
+                    </tr>
+                    <tr>
+                        <td><strong>VATSIM_Data</strong></td>
+                        <td><span class="tier-badge" style="background:#9b59b6;color:#fff;">Hyperscale</span><br><small>Gen5, 4 vCores max</small></td>
+                        <td>Historical flight data, analytics</td>
+                        <td>Storage + compute*</td>
+                    </tr>
+                    <tr>
+                        <td><strong>VATSIM_TMI</strong></td>
+                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>2 GB</small></td>
+                        <td>Traffic management initiatives, NTML, advisories, GDT</td>
+                        <td>~$5</td>
+                    </tr>
+                    <tr>
+                        <td><strong>SWIM_API</strong></td>
+                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>2 GB</small></td>
+                        <td>SWIM API keys, rate limiting, flight events</td>
+                        <td>~$5</td>
+                    </tr>
+                    <tr>
+                        <td><strong>VATSIM_REF</strong></td>
+                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>2 GB</small></td>
+                        <td>Reference data (airports, airways, fixes, procedures)</td>
+                        <td>~$5</td>
+                    </tr>
+                </tbody>
+            </table>
+            <small class="text-muted">* Hyperscale Serverless: Compute billed at ~$0.51/vCore-hour only when active. Auto-scales based on VATSIM traffic (peak: 1800-0200 UTC).</small>
+        </div>
+
+        <div class="info-card">
+            <h4><i class="fas fa-calculator mr-2"></i>Cost Summary</h4>
+            <table class="cost-table">
+                <tbody>
+                    <tr>
+                        <td>App Service (P1v2)</td>
+                        <td class="text-right">~$81</td>
+                    </tr>
+                    <tr>
+                        <td>Basic SQL Databases (3x)</td>
+                        <td class="text-right">~$15</td>
+                    </tr>
+                    <tr>
+                        <td>Hyperscale Storage (~73 GB)</td>
+                        <td class="text-right">~$7</td>
+                    </tr>
+                    <tr>
+                        <td>Hyperscale Compute (usage-based)</td>
+                        <td class="text-right">Variable*</td>
+                    </tr>
+                    <tr>
+                        <td>Storage Accounts (4x)</td>
+                        <td class="text-right">~$3-10</td>
+                    </tr>
+                    <tr>
+                        <td>Application Insights</td>
+                        <td class="text-right">~$0-5</td>
+                    </tr>
+                    <tr class="cost-total">
+                        <td><strong>Estimated Base Total</strong></td>
+                        <td class="text-right"><strong>~$106-120+ /month</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note-box mt-3">
+                <i class="fas fa-info-circle mr-2"></i>
+                <strong>Hyperscale Compute:</strong> Costs vary with VATSIM network activity. During peak events (CTP, FNO), compute usage increases. During quiet periods, databases auto-pause to minimize costs.
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h4><i class="fas fa-archive mr-2"></i>Storage &amp; Other Services</h4>
+            <table class="cost-table">
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Type</th>
+                        <th>Purpose</th>
+                        <th>Est. Cost/Month</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>vatsimadlarchive</strong></td>
+                        <td>Storage (Cool, RA-GRS)</td>
+                        <td>Long-term flight data archival with geo-redundancy</td>
+                        <td>~$1-5</td>
+                    </tr>
+                    <tr>
+                        <td><strong>vatsimswimdata</strong></td>
+                        <td>Storage (Hot, ZRS)</td>
+                        <td>SWIM API file storage, zone-redundant</td>
+                        <td>~$1-3</td>
+                    </tr>
+                    <tr>
+                        <td><strong>vatsimdatastorage</strong></td>
+                        <td>Storage (Cool, LRS)</td>
+                        <td>General data storage</td>
+                        <td>~$1</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Deployment Slots</strong></td>
+                        <td>App Service</td>
+                        <td>Staging &amp; backup slots for zero-downtime deploys</td>
+                        <td>Included</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Application Insights</strong></td>
+                        <td>Monitoring</td>
+                        <td>Performance monitoring, error tracking</td>
+                        <td>~$0-5</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -279,29 +396,40 @@ include("load/connect.php");
     <div class="transparency-section">
         <h3><i class="fas fa-chart-line mr-2"></i>Scaling Strategy</h3>
 
-        <p>As SWIM API adoption grows, we have a clear cost-optimized scaling path. Our approach prioritizes efficiency over raw capacity.</p>
+        <p>Our infrastructure uses Azure Hyperscale Serverless databases that automatically scale with demand. The App Service layer can be scaled independently.</p>
+
+        <div class="info-card">
+            <h4><i class="fas fa-database mr-2"></i>Database Auto-Scaling (Already Active)</h4>
+            <p>VATSIM_ADL and VATSIM_Data use Hyperscale Serverless with automatic scaling:</p>
+            <ul>
+                <li><strong>VATSIM_ADL:</strong> 0.5 - 8 vCores (auto-scales based on query load)</li>
+                <li><strong>VATSIM_Data:</strong> 0.5 - 4 vCores (auto-scales based on query load)</li>
+                <li><strong>Auto-pause:</strong> Databases pause after idle period, resume in seconds when queried</li>
+            </ul>
+            <p class="mb-0 text-muted">No action needed - databases automatically handle traffic spikes during CTP, FNO, and other events.</p>
+        </div>
 
         <div class="scaling-scenario">
             <h5><span class="tier-badge tier-current">Current</span> Baseline Traffic</h5>
-            <p class="mb-0">Current P1v2 tier handles normal VATSIM traffic with ~1GB memory headroom. Estimated capacity: 40-80 requests/second at origin.</p>
+            <p class="mb-0">P1v2 App Service with 40 PHP-FPM workers handles normal VATSIM traffic. Estimated capacity: 40-80 requests/second at origin.</p>
         </div>
 
         <div class="scaling-scenario">
             <h5><span class="tier-badge tier-future">10x Traffic</span> Basic SWIM Adoption</h5>
-            <p class="mb-1"><strong>Solution:</strong> Add Azure CDN (~$5-10/month)</p>
-            <p class="mb-0"><strong>Total estimated cost:</strong> ~$105-150/month</p>
+            <p class="mb-1"><strong>Solution:</strong> Add Azure CDN for API caching (~$5-10/month)</p>
+            <p class="mb-0"><strong>Benefit:</strong> 80-90% of requests served from edge, reducing origin load</p>
         </div>
 
         <div class="scaling-scenario">
             <h5><span class="tier-badge tier-future">100x Traffic</span> Full SWIM Adoption</h5>
-            <p class="mb-1"><strong>Solution:</strong> CDN + Autoscaling (1-3 instances) + Reserved Instance discount</p>
-            <p class="mb-0"><strong>Total estimated cost:</strong> ~$80-120/month (with 1-year reservation)</p>
+            <p class="mb-1"><strong>Solution:</strong> CDN + App Service autoscaling (1-3 instances)</p>
+            <p class="mb-0"><strong>Benefit:</strong> Reserved Instance discount (30-50% savings on compute)</p>
         </div>
 
         <div class="scaling-scenario">
             <h5><span class="tier-badge tier-future">1000x Traffic</span> Heavy External Integrations</h5>
-            <p class="mb-1"><strong>Solution:</strong> CDN + Upgrade to P2v2 + Autoscaling (1-5 instances) + Reserved Instance</p>
-            <p class="mb-0"><strong>Total estimated cost:</strong> ~$200-400/month</p>
+            <p class="mb-1"><strong>Solution:</strong> CDN + Upgrade to P2v2 (7GB, 2 vCPU) + Autoscaling (1-5 instances)</p>
+            <p class="mb-0"><strong>Note:</strong> Database layer already handles this scale via Hyperscale auto-scaling</p>
         </div>
     </div>
 
@@ -374,16 +502,6 @@ include("load/connect.php");
                 </tbody>
             </table>
             <small class="text-muted">Estimates based on 40 PHP-FPM workers with 15-second data refresh cycle.</small>
-        </div>
-    </div>
-
-    <!-- Open Source Note -->
-    <div class="transparency-section">
-        <h3><i class="fas fa-code-branch mr-2"></i>Open Development</h3>
-
-        <div class="info-card">
-            <p>PERTI is developed as a community resource for VATSIM. This transparency page reflects our commitment to open operations.</p>
-            <p class="mb-0">Questions about infrastructure or costs? Contact the development team through official VATSIM channels.</p>
         </div>
     </div>
 

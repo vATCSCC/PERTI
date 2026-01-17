@@ -2,49 +2,22 @@
 /**
  * TMI Discord Integration Module
  * 
- * Handles Discord notifications for Traffic Management Initiatives:
- * - NTML entries (MIT, MINIT, DELAY, etc.)
- * - Advisories (GS, GDP, AFP, Reroutes)
- * - GDT Programs (activation, extension, purge)
- * - Reroute announcements
+ * Handles Discord notifications for Traffic Management Initiatives.
+ * 
+ * NTML Format: Based on TMIs.pdf vATCSCC NTML Guide
+ * Advisory Format: Based on Advisories_and_General_Messages_v1_3.pdf
  * 
  * @package PERTI
  * @subpackage TMI/Discord
- * @version 1.0.0
+ * @version 3.0.0
  */
 
-require_once __DIR__ . '/../../load/discord/DiscordAPI.php';
+require_once __DIR__ . '/DiscordAPI.php';
 
 class TMIDiscord {
     
     private $discord;
     private $channels;
-    
-    // Color palette for embeds
-    const COLOR_INFO = 0x3498db;       // Blue - informational
-    const COLOR_WARNING = 0xf39c12;    // Orange - caution
-    const COLOR_DANGER = 0xe74c3c;     // Red - critical/GS
-    const COLOR_SUCCESS = 0x2ecc71;    // Green - completion
-    const COLOR_PURPLE = 0x9b59b6;     // Purple - GDP
-    const COLOR_GRAY = 0x95a5a6;       // Gray - cancelled
-    
-    // TMI Type to emoji mapping
-    const EMOJI_MAP = [
-        'MIT' => '🔴',
-        'MINIT' => '🟠',
-        'DELAY' => '🟡',
-        'APREQ' => '🔵',
-        'CONFIG' => '⚙️',
-        'CONTINGENCY' => '⚠️',
-        'REROUTE' => '↩️',
-        'MISC' => '📋',
-        'GS' => '🛑',
-        'GDP' => '⏱️',
-        'AFP' => '🌐',
-        'CTOP' => '🔷',
-        'OPS_PLAN' => '📝',
-        'GENERAL' => '📢'
-    ];
     
     /**
      * Constructor
@@ -72,672 +45,873 @@ class TMIDiscord {
     
     // =========================================
     // NTML ENTRY NOTIFICATIONS
+    // Format per TMIs.pdf NTML Guide
+    // DD/HHMM APT arrivals/departures via FIX ##MIT QUALIFIERS TYPE:x REASON:x HHMM-HHMM REQ:PROV
     // =========================================
     
     /**
      * Post an NTML entry to Discord
+     * Uses standard NTML text format (not embeds)
      * 
-     * @param array $entry NTML entry data from tmi_entries table
+     * @param array $entry NTML entry data
      * @param string $channel Channel purpose (default: 'ntml_staging')
      * @return array|null Message object or null on error
      */
     public function postNtmlEntry(array $entry, string $channel = 'ntml_staging'): ?array {
-        $type = $entry['entry_type'] ?? 'MISC';
-        $emoji = self::EMOJI_MAP[$type] ?? '📋';
-        $color = $this->getNtmlColor($type, $entry['status'] ?? 'ACTIVE');
-        
-        // Build title
-        $title = "{$emoji} {$type}";
-        if (!empty($entry['ctl_element'])) {
-            $title .= " - {$entry['ctl_element']}";
-        }
-        
-        // Build description
-        $description = $this->buildNtmlDescription($entry);
-        
-        // Build fields
-        $fields = [];
-        
-        // Restriction details
-        if (!empty($entry['restriction_value'])) {
-            $unit = $entry['restriction_unit'] ?? 'MIT';
-            $fields[] = [
-                'name' => 'Restriction',
-                'value' => "{$entry['restriction_value']} {$unit}",
-                'inline' => true
-            ];
-        }
-        
-        // Facilities
-        if (!empty($entry['requesting_facility'])) {
-            $fields[] = [
-                'name' => 'Requesting',
-                'value' => $entry['requesting_facility'],
-                'inline' => true
-            ];
-        }
-        if (!empty($entry['providing_facility'])) {
-            $fields[] = [
-                'name' => 'Providing',
-                'value' => $entry['providing_facility'],
-                'inline' => true
-            ];
-        }
-        
-        // Time
-        if (!empty($entry['valid_from']) || !empty($entry['valid_until'])) {
-            $timeStr = $this->formatTimeRange($entry['valid_from'] ?? null, $entry['valid_until'] ?? null);
-            $fields[] = [
-                'name' => 'Valid',
-                'value' => $timeStr,
-                'inline' => false
-            ];
-        }
-        
-        // Reason
-        if (!empty($entry['reason_code'])) {
-            $reason = $entry['reason_code'];
-            if (!empty($entry['reason_detail'])) {
-                $reason .= ": {$entry['reason_detail']}";
-            }
-            $fields[] = [
-                'name' => 'Reason',
-                'value' => $reason,
-                'inline' => false
-            ];
-        }
-        
-        // Build embed
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => $color,
-            'timestamp' => gmdate('c'),
-            'fields' => $fields,
-            'footer' => [
-                'text' => "NTML Entry #{$entry['entry_id']} • {$entry['status']}"
-            ]
-        ]);
+        $message = $this->formatNtmlMessage($entry);
         
         return $this->discord->createMessage($channel, [
-            'embeds' => [$embed]
+            'content' => "```\n{$message}\n```"
         ]);
+    }
+    
+    /**
+     * Format NTML entry per TMIs.pdf specification
+     */
+    private function formatNtmlMessage(array $entry): string {
+        $type = strtoupper($entry['entry_type'] ?? 'MIT');
+        
+        switch ($type) {
+            case 'MIT':
+            case 'MINIT':
+            case 'STOP':
+            case 'DSP':
+            case 'APREQ':
+            case 'TBM':
+            case 'CFR':
+                return $this->formatRestrictionEntry($entry);
+            case 'DELAY':
+                return $this->formatDelayEntry($entry);
+            case 'CONFIG':
+                return $this->formatConfigEntry($entry);
+            default:
+                return $this->formatGenericEntry($entry);
+        }
+    }
+    
+    /**
+     * Format MIT/MINIT/STOP restriction entry
+     * Format per TMIs.pdf:
+     * DD/HHMM APT arrivals/departures via FIX ##MIT QUALIFIERS TYPE:x SPD:x ALT:x VOLUME:x WEATHER:x EXCL:x HHMM-HHMM REQ:PROV
+     */
+    private function formatRestrictionEntry(array $data): string {
+        $logTime = $this->formatLogTime();
+        
+        // Determine flow type (arrivals/departures/via)
+        $flowType = strtolower($data['flow_type'] ?? 'arrivals');
+        $airport = strtoupper($data['airport'] ?? $data['ctl_element'] ?? '');
+        $fix = strtoupper($data['fix'] ?? $data['condition_text'] ?? '');
+        
+        // Restriction value and type
+        $restrictionType = strtoupper($data['entry_type'] ?? 'MIT');
+        $restrictionValue = $data['restriction_value'] ?? $data['distance'] ?? $data['minutes'] ?? '';
+        
+        // Build restriction string
+        if ($restrictionType === 'STOP') {
+            $restriction = 'STOP';
+        } else {
+            $restriction = "{$restrictionValue}{$restrictionType}";
+        }
+        
+        // Qualifiers (NO STACKS, PER FIX, PER AIRPORT, etc.)
+        $qualifiers = $this->formatNtmlQualifiers($data['qualifiers'] ?? '');
+        
+        // Optional fields - order per spec: TYPE, SPD, ALT, VOLUME, WEATHER, EXCL
+        $parts = [];
+        
+        // Aircraft type (TYPE:ALL/JET/PROP/TURBOPROP)
+        if (!empty($data['aircraft_type'])) {
+            $parts[] = "TYPE:" . strtoupper($data['aircraft_type']);
+        }
+        
+        // Speed restriction (SPD:=/≤/≥###)
+        if (!empty($data['speed'])) {
+            $spdOp = $data['speed_operator'] ?? '';
+            $parts[] = "SPD:{$spdOp}" . $data['speed'];
+        }
+        
+        // Altitude restriction (ALT:AT/AOB/AOA###)
+        if (!empty($data['altitude'])) {
+            $altType = strtoupper($data['alt_type'] ?? 'AT');
+            $parts[] = "ALT:{$altType}" . strtoupper($data['altitude']);
+        }
+        
+        // Volume condition (VOLUME:text)
+        if (!empty($data['volume']) || !empty($data['reason_code']) && strtoupper($data['reason_code']) === 'VOLUME') {
+            $volText = strtoupper($data['volume'] ?? 'VOLUME');
+            $parts[] = "VOLUME:{$volText}";
+        }
+        
+        // Weather condition (WEATHER:reason)
+        if (!empty($data['weather']) || (!empty($data['reason_code']) && strtoupper($data['reason_code']) === 'WEATHER')) {
+            $wxText = strtoupper($data['weather'] ?? $data['reason_detail'] ?? 'WEATHER');
+            $parts[] = "WEATHER:{$wxText}";
+        }
+        
+        // Exclusions (EXCL:facilities)
+        if (!empty($data['exclusions'])) {
+            $parts[] = "EXCL:" . strtoupper($data['exclusions']);
+        }
+        
+        // Valid time range (HHMM-HHMM, no day prefix)
+        $validFrom = $this->formatTimeHHMM($data['valid_from'] ?? null);
+        $validUntil = $this->formatTimeHHMM($data['valid_until'] ?? null);
+        $parts[] = "{$validFrom}-{$validUntil}";
+        
+        // Requesting:Providing facilities
+        $reqFac = strtoupper($data['requesting_facility'] ?? $data['req_facility_id'] ?? '');
+        $provFac = strtoupper($data['providing_facility'] ?? $data['prov_facility_id'] ?? '');
+        if ($reqFac && $provFac) {
+            $parts[] = "{$reqFac}:{$provFac}";
+        }
+        
+        // Build the line
+        $optionalStr = implode(' ', $parts);
+        
+        if ($fix) {
+            $line = "{$logTime} {$airport} {$flowType} via {$fix} {$restriction}{$qualifiers} {$optionalStr}";
+        } else {
+            $line = "{$logTime} {$airport} {$flowType} {$restriction}{$qualifiers} {$optionalStr}";
+        }
+        
+        return trim($line);
+    }
+    
+    /**
+     * Format Delay entry per TMIs.pdf
+     * Format: DD/HHMM TYPE from/for/to LOCATION, +/-##/HHMM/## ACFT [VOLUME:text] [FIX/NAVAID:fix]
+     * Types: D/D (Departure Delay), E/D (Enroute Delay), A/D (Arrival Delay)
+     * Value: +## (increasing), -## (decreasing), +Holding (entering), -Holding (exiting)
+     */
+    private function formatDelayEntry(array $data): string {
+        $logTime = $this->formatLogTime();
+        
+        // Delay type
+        $delayType = strtoupper($data['delay_type'] ?? 'D/D');
+        
+        // Preposition based on type per spec
+        $prep = 'from'; // D/D = from [departure airport]
+        if ($delayType === 'E/D') $prep = 'for';  // E/D = for [destination]
+        if ($delayType === 'A/D') $prep = 'to';   // A/D = to [arrival airport]
+        
+        // Location (facility or airport)
+        $location = strtoupper($data['location'] ?? $data['delay_facility'] ?? $data['ctl_element'] ?? '');
+        
+        // Delay value (+XX increasing, -XX decreasing, +/-Holding)
+        $delayValue = $data['delay_value'] ?? $data['longest_delay'] ?? '';
+        $trend = strtolower($data['delay_trend'] ?? 'steady');
+        if ($trend === 'increasing' || $trend === 'inc') {
+            $delaySign = '+';
+        } elseif ($trend === 'decreasing' || $trend === 'dec') {
+            $delaySign = '-';
+        } else {
+            $delaySign = '';
+        }
+        
+        // Holding indicator per spec: +Holding or -Holding
+        if (!empty($data['holding']) && $data['holding'] !== 'no') {
+            $delayValue = ($delaySign ?: '+') . 'Holding';
+        } else {
+            $delayValue = "{$delaySign}{$delayValue}";
+        }
+        
+        // Time of observation and aircraft count
+        $time = $this->formatTimeHHMM($data['report_time'] ?? null);
+        $acftCount = $data['flights_delayed'] ?? $data['aircraft_count'] ?? '';
+        
+        // Optional fields
+        $optParts = [];
+        
+        // VOLUME condition (optional)
+        if (!empty($data['volume']) || !empty($data['reason_code'])) {
+            $volText = strtoupper($data['volume'] ?? $data['reason_code'] ?? 'VOLUME');
+            $optParts[] = "VOLUME:{$volText}";
+        }
+        
+        // FIX/NAVAID (optional)
+        if (!empty($data['fix'])) {
+            $optParts[] = "FIX/NAVAID:" . strtoupper($data['fix']);
+        }
+        
+        $optStr = !empty($optParts) ? ' ' . implode(' ', $optParts) : '';
+        
+        $line = "{$logTime} {$delayType} {$prep} {$location}, {$delayValue}/{$time}/{$acftCount} ACFT{$optStr}";
+        
+        return trim($line);
+    }
+    
+    /**
+     * Format Airport Config entry per TMIs.pdf
+     * Format: DD/HHMM APT WX ARR:rwys DEP:rwys AAR(type):## [AAR Adjustment:note] ADR:##
+     * Runway format can include approach type: ILS_31R_VAP_31L, LOC_31, RNAV_X_29
+     */
+    private function formatConfigEntry(array $data): string {
+        $logTime = $this->formatLogTime();
+        
+        $airport = strtoupper($data['airport'] ?? $data['ctl_element'] ?? '');
+        $weather = strtoupper($data['weather'] ?? 'VMC'); // VMC or IMC
+        $arrRwys = strtoupper($data['arr_runways'] ?? '');
+        $depRwys = strtoupper($data['dep_runways'] ?? '');
+        $aar = $data['aar'] ?? '';
+        $adr = $data['adr'] ?? '';
+        
+        // AAR type: Strat (strategic) or Dyn (dynamic)
+        $aarType = $data['aar_type'] ?? 'Strat';
+        
+        // AAR Adjustment (optional, e.g., XW-TLWD for crosswind/tailwind)
+        $aarAdjust = '';
+        if (!empty($data['aar_adjustment'])) {
+            $aarAdjust = " AAR Adjustment:" . strtoupper($data['aar_adjustment']);
+        }
+        
+        $line = "{$logTime} {$airport} {$weather} ARR:{$arrRwys} DEP:{$depRwys} AAR({$aarType}):{$aar}{$aarAdjust} ADR:{$adr}";
+        
+        return trim($line);
+    }
+    
+    /**
+     * Format generic NTML entry
+     */
+    private function formatGenericEntry(array $data): string {
+        $logTime = $this->formatLogTime();
+        $type = strtoupper($data['entry_type'] ?? 'TXT');
+        $text = $data['text'] ?? $data['condition_text'] ?? '';
+        
+        return "{$logTime} {$type} {$text}";
+    }
+    
+    /**
+     * Format NTML qualifiers
+     */
+    private function formatNtmlQualifiers($qualifiers): string {
+        if (empty($qualifiers)) {
+            return '';
+        }
+        
+        if (is_string($qualifiers)) {
+            $quals = explode(',', $qualifiers);
+        } else {
+            $quals = (array)$qualifiers;
+        }
+        
+        $formatted = array_map(function($q) {
+            $q = strtoupper(trim($q));
+            // Convert underscore format to space format
+            return str_replace('_', ' ', $q);
+        }, $quals);
+        
+        return ' ' . implode(' ', $formatted);
     }
     
     /**
      * Post NTML cancellation notice
      */
     public function postNtmlCancellation(array $entry, string $channel = 'ntml_staging'): ?array {
-        $type = $entry['entry_type'] ?? 'MISC';
-        $emoji = '❌';
+        $logTime = $this->formatLogTime();
+        $type = strtoupper($entry['entry_type'] ?? 'MIT');
+        $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+        $cancelReason = $entry['cancel_reason'] ?? '';
         
-        $title = "{$emoji} {$type} CANCELLED";
-        if (!empty($entry['ctl_element'])) {
-            $title .= " - {$entry['ctl_element']}";
+        $message = "{$logTime} {$airport} {$type} CANCELLED";
+        if ($cancelReason) {
+            $message .= " - {$cancelReason}";
         }
-        
-        $description = "The {$type} has been cancelled.";
-        if (!empty($entry['cancel_reason'])) {
-            $description .= "\n\n**Reason:** {$entry['cancel_reason']}";
-        }
-        
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => self::COLOR_GRAY,
-            'timestamp' => gmdate('c'),
-            'footer' => [
-                'text' => "NTML Entry #{$entry['entry_id']} • CANCELLED"
-            ]
-        ]);
         
         return $this->discord->createMessage($channel, [
-            'embeds' => [$embed]
+            'content' => "```\n{$message}\n```"
         ]);
     }
     
     // =========================================
     // ADVISORY NOTIFICATIONS
+    // Format per Advisories_and_General_Messages_v1_3.pdf
+    // vATCSCC ADVZY ### APT/CTR mm/dd/yyyy TYPE
     // =========================================
     
     /**
-     * Post an advisory to Discord
-     * 
-     * @param array $advisory Advisory data from tmi_advisories table
-     * @param string $channel Channel purpose (default: 'advzy_staging')
-     * @return array|null Message object or null on error
+     * Post a Ground Stop advisory
      */
-    public function postAdvisory(array $advisory, string $channel = 'advzy_staging'): ?array {
-        $type = $advisory['advisory_type'] ?? 'GENERAL';
-        $emoji = self::EMOJI_MAP[$type] ?? '📢';
-        $color = $this->getAdvisoryColor($type, $advisory['status'] ?? 'ACTIVE');
-        
-        // Build title
-        $advNum = $advisory['advisory_number'] ?? 'ADVZY';
-        $title = "{$emoji} {$advNum}";
-        if (!empty($advisory['ctl_element'])) {
-            $title .= " - {$advisory['ctl_element']} {$type}";
-        } else {
-            $title .= " - {$type}";
-        }
-        
-        // Build description from subject and body
-        $description = '';
-        if (!empty($advisory['subject'])) {
-            $description = "**{$advisory['subject']}**\n\n";
-        }
-        if (!empty($advisory['body_text'])) {
-            $description .= $advisory['body_text'];
-        }
-        
-        // Truncate if too long
-        if (strlen($description) > 4000) {
-            $description = substr($description, 0, 3997) . '...';
-        }
-        
-        // Build fields
-        $fields = [];
-        
-        // Time
-        if (!empty($advisory['effective_from']) || !empty($advisory['effective_until'])) {
-            $timeStr = $this->formatTimeRange(
-                $advisory['effective_from'] ?? null, 
-                $advisory['effective_until'] ?? null
-            );
-            $fields[] = [
-                'name' => 'Effective',
-                'value' => $timeStr,
-                'inline' => false
-            ];
-        }
-        
-        // Program rate (for GDP/AFP)
-        if (!empty($advisory['program_rate'])) {
-            $fields[] = [
-                'name' => 'Program Rate',
-                'value' => "{$advisory['program_rate']}/hr",
-                'inline' => true
-            ];
-        }
-        
-        // Delay cap
-        if (!empty($advisory['delay_cap'])) {
-            $fields[] = [
-                'name' => 'Delay Cap',
-                'value' => "{$advisory['delay_cap']} min",
-                'inline' => true
-            ];
-        }
-        
-        // Reroute info
-        if (!empty($advisory['reroute_string'])) {
-            $routeStr = $advisory['reroute_string'];
-            if (strlen($routeStr) > 1000) {
-                $routeStr = substr($routeStr, 0, 997) . '...';
-            }
-            $fields[] = [
-                'name' => 'Route',
-                'value' => "```{$routeStr}```",
-                'inline' => false
-            ];
-        }
-        
-        // MIT info
-        if (!empty($advisory['mit_miles'])) {
-            $mitType = $advisory['mit_type'] ?? 'MIT';
-            $fix = $advisory['mit_fix'] ?? '';
-            $fields[] = [
-                'name' => $mitType,
-                'value' => "{$advisory['mit_miles']} miles" . ($fix ? " at {$fix}" : ''),
-                'inline' => true
-            ];
-        }
-        
-        // Reason
-        if (!empty($advisory['reason_code'])) {
-            $reason = $advisory['reason_code'];
-            if (!empty($advisory['reason_detail'])) {
-                $reason .= ": {$advisory['reason_detail']}";
-            }
-            $fields[] = [
-                'name' => 'Reason',
-                'value' => $reason,
-                'inline' => false
-            ];
-        }
-        
-        // Build embed
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => $color,
-            'timestamp' => gmdate('c'),
-            'fields' => $fields,
-            'footer' => [
-                'text' => "Advisory #{$advisory['advisory_id']} • Rev {$advisory['revision_number']}"
-            ]
-        ]);
-        
-        // Determine if we should ping anyone
-        $content = '';
-        if (in_array($type, ['GS', 'GDP', 'AFP', 'CTOP']) && ($advisory['status'] ?? '') === 'ACTIVE') {
-            // Could add role mentions here
-            // $content = DiscordAPI::mentionRole('ROLE_ID');
-        }
-        
-        $messageData = ['embeds' => [$embed]];
-        if ($content) {
-            $messageData['content'] = $content;
-        }
-        
-        return $this->discord->createMessage($channel, $messageData);
-    }
-    
-    /**
-     * Post advisory cancellation notice
-     */
-    public function postAdvisoryCancellation(array $advisory, string $channel = 'advzy_staging'): ?array {
-        $type = $advisory['advisory_type'] ?? 'GENERAL';
-        $advNum = $advisory['advisory_number'] ?? 'ADVZY';
-        
-        $title = "❌ {$advNum} CANCELLED";
-        if (!empty($advisory['ctl_element'])) {
-            $title .= " - {$advisory['ctl_element']} {$type}";
-        }
-        
-        $description = "The advisory has been cancelled.";
-        if (!empty($advisory['cancel_reason'])) {
-            $description .= "\n\n**Reason:** {$advisory['cancel_reason']}";
-        }
-        
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => self::COLOR_GRAY,
-            'timestamp' => gmdate('c'),
-            'footer' => [
-                'text' => "Advisory #{$advisory['advisory_id']} • CANCELLED"
-            ]
-        ]);
+    public function postGroundStopAdvisory(array $data, string $channel = 'advzy_staging'): ?array {
+        $message = $this->formatGroundStopAdvisory($data);
         
         return $this->discord->createMessage($channel, [
-            'embeds' => [$embed]
+            'content' => "```\n{$message}\n```"
         ]);
     }
     
-    // =========================================
-    // GDT PROGRAM NOTIFICATIONS
-    // =========================================
-    
     /**
-     * Post GDT program activation
+     * Format Ground Stop advisory per TFMS spec
      */
-    public function postGdtActivation(array $program, string $channel = 'advzy_staging'): ?array {
-        $type = $program['program_type'] ?? 'GS';
-        $baseType = explode('-', $type)[0]; // GS, GDP, or AFP
-        $emoji = self::EMOJI_MAP[$baseType] ?? '⏱️';
+    private function formatGroundStopAdvisory(array $data): string {
+        $advNum = str_pad($data['advisory_number'] ?? '001', 3, '0', STR_PAD_LEFT);
+        $airport = strtoupper($data['ctl_element'] ?? $data['airport'] ?? 'XXX');
+        $artcc = strtoupper($data['artcc'] ?? 'ZXX');
+        $headerDate = $this->formatDateMMDDYYYY($data['issue_date'] ?? null);
+        $adlTime = $this->formatTimeHHMM($data['adl_time'] ?? null) . 'Z';
         
-        // Different colors for different types
-        $color = match($baseType) {
-            'GS' => self::COLOR_DANGER,
-            'GDP' => self::COLOR_PURPLE,
-            'AFP' => self::COLOR_INFO,
-            default => self::COLOR_WARNING
-        };
+        $gsStart = $this->formatProgramTime($data['start_utc'] ?? $data['gs_start'] ?? null);
+        $gsEnd = $this->formatProgramTime($data['end_utc'] ?? $data['gs_end'] ?? null);
         
-        $title = "{$emoji} {$type} ACTIVATED - {$program['ctl_element']}";
-        
-        // Build description
-        $description = match($baseType) {
-            'GS' => "A Ground Stop has been activated for **{$program['ctl_element']}**.",
-            'GDP' => "A Ground Delay Program has been activated for **{$program['ctl_element']}**.",
-            'AFP' => "An Airspace Flow Program has been activated for **{$program['ctl_element']}**.",
-            default => "A program has been activated for **{$program['ctl_element']}**."
-        };
-        
-        if (!empty($program['cause_text'])) {
-            $description .= "\n\n**Cause:** {$program['cause_text']}";
+        // Cumulative period (optional, if GDP underlies)
+        $cumPeriod = '';
+        if (!empty($data['cumulative_start'])) {
+            $cumStart = $this->formatProgramTime($data['cumulative_start']);
+            $cumEnd = $this->formatProgramTime($data['cumulative_end'] ?? $data['end_utc']);
+            $cumPeriod = "CUMULATIVE PROGRAM PERIOD: {$cumStart} - {$cumEnd}\n";
         }
         
-        // Build fields
-        $fields = [];
+        // Flight inclusions
+        $fltIncl = $this->formatFlightInclusions($data);
         
-        // Time range
-        $fields[] = [
-            'name' => 'Program Window',
-            'value' => $this->formatTimeRange($program['start_utc'], $program['end_utc']),
-            'inline' => false
+        // Departure facilities
+        $depFac = $this->formatDepFacilities($data['dep_facilities'] ?? null);
+        
+        // Delays
+        $prevDelays = ($data['prev_total_delay'] ?? '0') . ' / ' . 
+                      ($data['prev_max_delay'] ?? '0') . ' / ' . 
+                      ($data['prev_avg_delay'] ?? '0');
+        $newDelays = ($data['new_total_delay'] ?? '0') . ' / ' . 
+                     ($data['new_max_delay'] ?? '0') . ' / ' . 
+                     ($data['new_avg_delay'] ?? '0');
+        
+        $probExt = strtoupper($data['prob_extension'] ?? 'MEDIUM');
+        $condition = strtoupper($data['impacting_condition'] ?? $data['reason_code'] ?? 'WEATHER');
+        $conditionText = $data['condition_text'] ?? '';
+        $comments = $data['comments'] ?? '';
+        
+        $validRange = $this->formatValidTimeRange($data['start_utc'] ?? null, $data['end_utc'] ?? null);
+        $signature = $this->formatSignature();
+        
+        $lines = [
+            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND STOP",
+            "CTL ELEMENT: {$airport}",
+            "ELEMENT TYPE: APT",
+            "ADL TIME: {$adlTime}",
+            "GROUND STOP PERIOD: {$gsStart} - {$gsEnd}",
         ];
         
-        // Rate (GDP/AFP only)
-        if (!empty($program['program_rate']) && $baseType !== 'GS') {
-            $fields[] = [
-                'name' => 'Arrival Rate',
-                'value' => "{$program['program_rate']}/hr",
-                'inline' => true
-            ];
+        if ($cumPeriod) {
+            $lines[] = trim($cumPeriod);
         }
         
-        // Delay limit
-        if (!empty($program['delay_limit_min']) && $baseType !== 'GS') {
-            $fields[] = [
-                'name' => 'Delay Limit',
-                'value' => "{$program['delay_limit_min']} min",
-                'inline' => true
-            ];
+        $lines = array_merge($lines, $fltIncl);
+        
+        if ($depFac) {
+            $lines[] = "DEP FACILITIES INCLUDED: {$depFac}";
         }
         
-        // Scope
-        if (!empty($program['scope_json'])) {
-            $scope = json_decode($program['scope_json'], true);
-            if ($scope) {
-                $scopeStr = $this->formatScope($scope);
-                $fields[] = [
-                    'name' => 'Scope',
-                    'value' => $scopeStr,
-                    'inline' => false
-                ];
+        $lines[] = "PREVIOUS TOTAL, MAXIMUM, AVERAGE DELAYS: {$prevDelays}";
+        $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$newDelays}";
+        $lines[] = "PROBABILITY OF EXTENSION: {$probExt}";
+        $lines[] = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " {$conditionText}" : '');
+        if ($comments) {
+            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+        }
+        $lines[] = $validRange;
+        $lines[] = $signature;
+        
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Post a Ground Stop cancellation advisory
+     */
+    public function postGroundStopCancellation(array $data, string $channel = 'advzy_staging'): ?array {
+        $message = $this->formatGroundStopCancellation($data);
+        
+        return $this->discord->createMessage($channel, [
+            'content' => "```\n{$message}\n```"
+        ]);
+    }
+    
+    /**
+     * Format Ground Stop cancellation per TFMS spec
+     */
+    private function formatGroundStopCancellation(array $data): string {
+        $advNum = str_pad($data['advisory_number'] ?? '001', 3, '0', STR_PAD_LEFT);
+        $airport = strtoupper($data['ctl_element'] ?? $data['airport'] ?? 'XXX');
+        $artcc = strtoupper($data['artcc'] ?? 'ZXX');
+        $headerDate = $this->formatDateMMDDYYYY($data['issue_date'] ?? null);
+        $adlTime = $this->formatTimeHHMM($data['adl_time'] ?? null) . 'Z';
+        
+        $cnxStart = $this->formatProgramTime($data['start_utc'] ?? null);
+        $cnxEnd = $this->formatProgramTime($data['end_utc'] ?? null);
+        
+        $comments = $data['comments'] ?? $data['cancel_reason'] ?? '';
+        $validRange = $this->formatValidTimeRange($data['start_utc'] ?? null, $data['end_utc'] ?? null);
+        $signature = $this->formatSignature();
+        
+        $lines = [
+            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GS CNX",
+            "CTL ELEMENT: {$airport}",
+            "ELEMENT TYPE: APT",
+            "ADL TIME: {$adlTime}",
+            "GS CNX PERIOD: {$cnxStart} - {$cnxEnd}",
+        ];
+        
+        if ($comments) {
+            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+        }
+        $lines[] = $validRange;
+        $lines[] = $signature;
+        
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Post a Ground Delay Program advisory
+     */
+    public function postGDPAdvisory(array $data, string $channel = 'advzy_staging'): ?array {
+        $message = $this->formatGDPAdvisory($data);
+        
+        return $this->discord->createMessage($channel, [
+            'content' => "```\n{$message}\n```"
+        ]);
+    }
+    
+    /**
+     * Format GDP advisory per TFMS spec
+     */
+    private function formatGDPAdvisory(array $data): string {
+        $advNum = str_pad($data['advisory_number'] ?? '001', 3, '0', STR_PAD_LEFT);
+        $airport = strtoupper($data['ctl_element'] ?? $data['airport'] ?? 'XXX');
+        $artcc = strtoupper($data['artcc'] ?? 'ZXX');
+        $headerDate = $this->formatDateMMDDYYYY($data['issue_date'] ?? null);
+        $adlTime = $this->formatTimeHHMM($data['adl_time'] ?? null) . 'Z';
+        
+        $delayMode = strtoupper($data['delay_mode'] ?? 'DAS');
+        
+        $arrStart = $this->formatProgramTime($data['arr_start_utc'] ?? $data['start_utc'] ?? null);
+        $arrEnd = $this->formatProgramTime($data['arr_end_utc'] ?? $data['end_utc'] ?? null);
+        $cumStart = $this->formatProgramTime($data['cumulative_start'] ?? $data['start_utc'] ?? null);
+        $cumEnd = $this->formatProgramTime($data['cumulative_end'] ?? $data['end_utc'] ?? null);
+        
+        // Program rate - can be hourly rates
+        $rate = $data['program_rate'] ?? '30';
+        if (is_array($rate)) {
+            $rate = implode('/', $rate);
+        }
+        
+        // Pop-up factor (optional, for GAAP)
+        $popupFactor = '';
+        if (!empty($data['popup_factor'])) {
+            $popupFactor = "\nPOP-UP FACTOR: " . strtoupper($data['popup_factor']);
+        }
+        
+        // Flight inclusions
+        $fltIncl = $this->formatFlightInclusions($data);
+        
+        // Departure scope
+        $depScope = $data['dep_scope'] ?? $data['departure_scope'] ?? '';
+        if (is_array($depScope)) {
+            $depScope = implode(' ', $depScope);
+        }
+        
+        // Additional/Exempt facilities
+        $addlDep = '';
+        if (!empty($data['additional_dep_facilities'])) {
+            $addlDep = "\nADDITIONAL DEP FACILITIES INCLUDED: " . strtoupper($data['additional_dep_facilities']);
+        }
+        $exemptDep = '';
+        if (!empty($data['exempt_dep_facilities'])) {
+            $exemptDep = "\nEXEMPT DEP FACILITIES: " . strtoupper($data['exempt_dep_facilities']);
+        }
+        
+        // Delay parameters
+        $delayLimit = $data['delay_limit'] ?? '';
+        $maxDelay = $data['max_delay'] ?? '';
+        $avgDelay = $data['avg_delay'] ?? '';
+        
+        $condition = strtoupper($data['impacting_condition'] ?? $data['reason_code'] ?? 'WEATHER');
+        $conditionText = $data['condition_text'] ?? $data['cause_text'] ?? '';
+        $comments = $data['comments'] ?? '';
+        
+        $validRange = $this->formatValidTimeRange($data['start_utc'] ?? null, $data['end_utc'] ?? null);
+        $signature = $this->formatSignature();
+        
+        $lines = [
+            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND DELAY PROGRAM",
+            "CTL ELEMENT: {$airport}",
+            "ELEMENT TYPE: APT",
+            "ADL TIME: {$adlTime}",
+            "DELAY ASSIGNMENT MODE: {$delayMode}",
+            "ARRIVALS ESTIMATED FOR: {$arrStart} - {$arrEnd}",
+            "CUMULATIVE PROGRAM PERIOD: {$cumStart} - {$cumEnd}",
+            "PROGRAM RATE: {$rate}",
+        ];
+        
+        if ($popupFactor) {
+            $lines[] = trim($popupFactor);
+        }
+        
+        $lines = array_merge($lines, $fltIncl);
+        
+        if ($depScope) {
+            $lines[] = "DEPARTURE SCOPE: {$depScope}";
+        }
+        
+        if ($addlDep) {
+            $lines[] = trim($addlDep);
+        }
+        if ($exemptDep) {
+            $lines[] = trim($exemptDep);
+        }
+        
+        if ($delayLimit) {
+            $lines[] = "DELAY LIMIT: {$delayLimit}";
+        }
+        if ($maxDelay) {
+            $lines[] = "MAXIMUM DELAY: {$maxDelay}";
+        }
+        if ($avgDelay) {
+            $lines[] = "AVERAGE DELAY: {$avgDelay}";
+        }
+        
+        $lines[] = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " / {$conditionText}" : '');
+        if ($comments) {
+            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+        }
+        $lines[] = $validRange;
+        $lines[] = $signature;
+        
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Post a GDP cancellation advisory
+     */
+    public function postGDPCancellation(array $data, string $channel = 'advzy_staging'): ?array {
+        $message = $this->formatGDPCancellation($data);
+        
+        return $this->discord->createMessage($channel, [
+            'content' => "```\n{$message}\n```"
+        ]);
+    }
+    
+    /**
+     * Format GDP cancellation per TFMS spec
+     */
+    private function formatGDPCancellation(array $data): string {
+        $advNum = str_pad($data['advisory_number'] ?? '001', 3, '0', STR_PAD_LEFT);
+        $airport = strtoupper($data['ctl_element'] ?? $data['airport'] ?? 'XXX');
+        $artcc = strtoupper($data['artcc'] ?? 'ZXX');
+        $headerDate = $this->formatDateMMDDYYYY($data['issue_date'] ?? null);
+        $adlTime = $this->formatTimeHHMM($data['adl_time'] ?? null) . 'Z';
+        
+        $cnxStart = $this->formatProgramTime($data['start_utc'] ?? null);
+        $cnxEnd = $this->formatProgramTime($data['end_utc'] ?? null);
+        
+        $comments = $data['comments'] ?? $data['cancel_reason'] ?? '';
+        $validRange = $this->formatValidTimeRange($data['start_utc'] ?? null, $data['end_utc'] ?? null);
+        $signature = $this->formatSignature();
+        
+        $lines = [
+            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND DELAY PROGRAM CNX",
+            "CTL ELEMENT: {$airport}",
+            "ELEMENT TYPE: APT",
+            "ADL TIME: {$adlTime}",
+            "GDP CNX PERIOD: {$cnxStart} - {$cnxEnd}",
+            "DISREGARD EDCTS FOR DEST {$airport}",
+        ];
+        
+        if ($comments) {
+            $lines[] = "COMMENTS: " . $this->wrapText($comments);
+        }
+        $lines[] = $validRange;
+        $lines[] = $signature;
+        
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Post a Reroute advisory
+     */
+    public function postRerouteAdvisory(array $data, string $channel = 'advzy_staging'): ?array {
+        $message = $this->formatRerouteAdvisory($data);
+        
+        return $this->discord->createMessage($channel, [
+            'content' => "```\n{$message}\n```"
+        ]);
+    }
+    
+    /**
+     * Format Reroute advisory per TFMS spec
+     */
+    private function formatRerouteAdvisory(array $data): string {
+        $advNum = str_pad($data['advisory_number'] ?? '001', 3, '0', STR_PAD_LEFT);
+        $facility = strtoupper($data['facility'] ?? 'DCC');
+        $headerDate = $this->formatDateMMDDYYYY($data['issue_date'] ?? null);
+        $action = strtoupper($data['action'] ?? 'RQD');
+        $routeType = strtoupper($data['route_type'] ?? 'ROUTE');
+        
+        // Flight list indicator
+        $flIndicator = !empty($data['has_flight_list']) ? '/FL' : '';
+        
+        $routeName = strtoupper($data['route_name'] ?? $data['name'] ?? '');
+        $impactedArea = strtoupper($data['impacted_area'] ?? '');
+        $reason = strtoupper($data['reason'] ?? 'WEATHER');
+        $reasonDetail = $data['reason_detail'] ?? '';
+        $includeTraffic = strtoupper($data['include_traffic'] ?? '');
+        
+        // Valid time format depends on type
+        $validType = strtoupper($data['valid_type'] ?? 'ETD');
+        $startTime = $this->formatTimeDDHHMM($data['start_utc'] ?? $data['valid_from'] ?? null);
+        $endTime = $this->formatTimeDDHHMM($data['end_utc'] ?? $data['valid_until'] ?? null);
+        
+        if ($validType === 'FCA') {
+            $validLine = "VALID: FCA ENTRY TIME FROM {$startTime} TO {$endTime}";
+        } else {
+            $validLine = "VALID: ETD {$startTime} TO {$endTime}";
+        }
+        
+        // Facilities
+        $facilities = $data['facilities'] ?? 'ALL_FLIGHTS';
+        if (is_array($facilities)) {
+            $facilities = implode(' ', $facilities);
+        }
+        
+        $probExt = strtoupper($data['prob_extension'] ?? 'NONE');
+        $remarks = $data['remarks'] ?? '';
+        $restrictions = $data['associated_restrictions'] ?? '';
+        $modifications = $data['modifications'] ?? '';
+        
+        // Route table
+        $routeTable = $this->formatRouteTable($data['routes'] ?? []);
+        
+        $tmiId = 'RR' . $facility . $advNum;
+        $validRange = "{$startTime}-{$endTime}";
+        $signature = $this->formatSignature();
+        
+        $lines = [
+            "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} {$routeType} {$action}{$flIndicator}",
+            "NAME: {$routeName}",
+            "IMPACTED AREA: {$impactedArea}",
+            "REASON: {$reason}" . ($reasonDetail ? " / {$reasonDetail}" : ''),
+            "INCLUDE TRAFFIC: {$includeTraffic}",
+            $validLine,
+            "FACILITIES INCLUDED: {$facilities}",
+            "PROBABILITY OF EXTENSION: {$probExt}",
+        ];
+        
+        // Optional fields - only include if populated
+        if ($remarks) {
+            $lines[] = "REMARKS: " . $this->wrapText($remarks);
+        } else {
+            $lines[] = "REMARKS:";
+        }
+        
+        if ($restrictions) {
+            $lines[] = "ASSOCIATED RESTRICTIONS: " . $this->wrapText($restrictions);
+        } else {
+            $lines[] = "ASSOCIATED RESTRICTIONS:";
+        }
+        
+        if ($modifications) {
+            $lines[] = "MODIFICATIONS: " . $this->wrapText($modifications);
+        } else {
+            $lines[] = "MODIFICATIONS:";
+        }
+        
+        $lines[] = "ROUTE:";
+        $lines[] = $routeTable;
+        $lines[] = "";
+        $lines[] = "TMI ID: {$tmiId}";
+        $lines[] = $validRange;
+        $lines[] = $signature;
+        
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Format route table for reroute advisory per TFMS spec
+     * Uses >< to bracket mandatory (protected) segments
+     * Column spacing: 5 spaces between ORIG, DEST, and ROUTE per spec
+     */
+    private function formatRouteTable(array $routes): string {
+        if (empty($routes)) {
+            return "ORIG     DEST     ROUTE\n----     ----     -----\n(No routes specified)";
+        }
+        
+        // Header per spec: 5 spaces between columns
+        $output = "ORIG     DEST     ROUTE\n";
+        
+        foreach ($routes as $route) {
+            // Origin format: can be facility prefix like "---ZBW" for "all ZBW departures"
+            $orig = strtoupper($route['origin'] ?? '---');
+            // Pad to 8 chars (3 for ID + 5 spacing)
+            $orig = str_pad($orig, 8);
+            
+            // Destination format: can be facility prefix like "---MCO" for "all MCO arrivals"
+            $dest = strtoupper($route['dest'] ?? $route['destination'] ?? '---');
+            // Pad to 8 chars (3 for ID + 5 spacing)
+            $dest = str_pad($dest, 8);
+            
+            // Route string - may contain >protected segment<
+            $routeStr = strtoupper($route['route'] ?? '');
+            
+            $output .= "{$orig}{$dest}{$routeStr}\n";
+        }
+        
+        return rtrim($output);
+    }
+    
+    /**
+     * Format flight inclusions for GDP/GS advisories
+     */
+    private function formatFlightInclusions(array $data): array {
+        $lines = [];
+        
+        // Main flight inclusion
+        if (!empty($data['flt_incl'])) {
+            $fltIncl = $data['flt_incl'];
+            if (is_array($fltIncl)) {
+                foreach ($fltIncl as $incl) {
+                    $lines[] = "FLT INCL: " . strtoupper($incl);
+                }
+            } else {
+                $lines[] = "FLT INCL: " . strtoupper($fltIncl);
+            }
+        } elseif (!empty($data['scope_tier'])) {
+            $lines[] = "FLT INCL: " . strtoupper($data['scope_tier']);
+        }
+        
+        // Carrier-specific inclusions
+        if (!empty($data['carrier_incl'])) {
+            $lines[] = "FLT INCL: " . strtoupper($data['carrier_incl']);
+        }
+        
+        return $lines;
+    }
+    
+    /**
+     * Format departure facilities
+     */
+    private function formatDepFacilities($facilities): string {
+        if (empty($facilities)) {
+            return '';
+        }
+        
+        if (is_array($facilities)) {
+            return '(Manual) ' . implode(' ', array_map('strtoupper', $facilities));
+        }
+        
+        return strtoupper($facilities);
+    }
+    
+    // =========================================
+    // FORMATTING HELPERS
+    // =========================================
+    
+    /** @var int Maximum line length per IATA Type B message format */
+    private const MAX_LINE_LENGTH = 68;
+    
+    /**
+     * Wrap text to 68 characters per IATA Type B message format
+     * Used for advisory free-form text fields
+     */
+    private function wrapText(string $text, int $maxLen = self::MAX_LINE_LENGTH): string {
+        if (empty($text)) return '';
+        
+        $lines = [];
+        $paragraphs = explode("\n", $text);
+        
+        foreach ($paragraphs as $para) {
+            $para = trim($para);
+            if (strlen($para) <= $maxLen) {
+                $lines[] = $para;
+            } else {
+                // Word wrap
+                $words = explode(' ', $para);
+                $currentLine = '';
+                
+                foreach ($words as $word) {
+                    if (strlen($currentLine) + strlen($word) + 1 <= $maxLen) {
+                        $currentLine .= ($currentLine ? ' ' : '') . $word;
+                    } else {
+                        if ($currentLine) $lines[] = $currentLine;
+                        $currentLine = $word;
+                    }
+                }
+                if ($currentLine) $lines[] = $currentLine;
             }
         }
         
-        // Flight counts (if available)
-        if (!empty($program['total_flights'])) {
-            $controlled = $program['controlled_flights'] ?? 0;
-            $exempt = $program['exempt_flights'] ?? 0;
-            $fields[] = [
-                'name' => 'Affected Flights',
-                'value' => "Total: {$program['total_flights']} | Controlled: {$controlled} | Exempt: {$exempt}",
-                'inline' => false
-            ];
-        }
-        
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => $color,
-            'timestamp' => gmdate('c'),
-            'fields' => $fields,
-            'footer' => [
-                'text' => "Program #{$program['program_id']} • {$program['adv_number']}"
-            ]
-        ]);
-        
-        return $this->discord->createMessage($channel, [
-            'embeds' => [$embed]
-        ]);
+        return implode("\n", $lines);
     }
     
     /**
-     * Post GDT program extension
+     * Format log time as DD/HHMM
      */
-    public function postGdtExtension(array $program, string $oldEndUtc, string $channel = 'advzy_staging'): ?array {
-        $type = $program['program_type'] ?? 'GS';
-        $baseType = explode('-', $type)[0];
-        
-        $title = "⏰ {$type} EXTENDED - {$program['ctl_element']}";
-        
-        $description = "The {$baseType} has been extended.";
-        
-        $fields = [
-            [
-                'name' => 'Previous End',
-                'value' => $this->formatTimestamp($oldEndUtc),
-                'inline' => true
-            ],
-            [
-                'name' => 'New End',
-                'value' => $this->formatTimestamp($program['end_utc']),
-                'inline' => true
-            ]
-        ];
-        
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => self::COLOR_WARNING,
-            'timestamp' => gmdate('c'),
-            'fields' => $fields,
-            'footer' => [
-                'text' => "Program #{$program['program_id']} • {$program['adv_number']}"
-            ]
-        ]);
-        
-        return $this->discord->createMessage($channel, [
-            'embeds' => [$embed]
-        ]);
+    private function formatLogTime(): string {
+        return gmdate('d/Hi');
     }
     
     /**
-     * Post GDT program purge/completion
+     * Format date as mm/dd/yyyy
      */
-    public function postGdtPurge(array $program, string $channel = 'advzy_staging'): ?array {
-        $type = $program['program_type'] ?? 'GS';
-        $baseType = explode('-', $type)[0];
-        
-        $title = "✅ {$type} PURGED - {$program['ctl_element']}";
-        
-        $description = "The {$baseType} has ended and been purged.";
-        
-        $fields = [];
-        
-        // Final stats
-        if (!empty($program['avg_delay_min'])) {
-            $fields[] = [
-                'name' => 'Average Delay',
-                'value' => round($program['avg_delay_min']) . ' min',
-                'inline' => true
-            ];
+    private function formatDateMMDDYYYY(?string $datetime): string {
+        if (!$datetime) {
+            return gmdate('m/d/Y');
         }
-        if (!empty($program['max_delay_min'])) {
-            $fields[] = [
-                'name' => 'Max Delay',
-                'value' => "{$program['max_delay_min']} min",
-                'inline' => true
-            ];
-        }
-        if (!empty($program['total_flights'])) {
-            $fields[] = [
-                'name' => 'Total Flights',
-                'value' => (string)$program['total_flights'],
-                'inline' => true
-            ];
-        }
-        
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => self::COLOR_SUCCESS,
-            'timestamp' => gmdate('c'),
-            'fields' => $fields,
-            'footer' => [
-                'text' => "Program #{$program['program_id']} • COMPLETED"
-            ]
-        ]);
-        
-        return $this->discord->createMessage($channel, [
-            'embeds' => [$embed]
-        ]);
-    }
-    
-    // =========================================
-    // REROUTE NOTIFICATIONS
-    // =========================================
-    
-    /**
-     * Post reroute activation
-     */
-    public function postRerouteActivation(array $reroute, string $channel = 'advzy_staging'): ?array {
-        $title = "↩️ REROUTE ACTIVATED - {$reroute['name']}";
-        
-        $description = '';
-        if (!empty($reroute['adv_number'])) {
-            $description = "**{$reroute['adv_number']}**\n\n";
-        }
-        
-        // Origin/dest criteria
-        $criteria = [];
-        if (!empty($reroute['origin_criteria'])) {
-            $criteria[] = "**From:** {$reroute['origin_criteria']}";
-        }
-        if (!empty($reroute['dest_criteria'])) {
-            $criteria[] = "**To:** {$reroute['dest_criteria']}";
-        }
-        if ($criteria) {
-            $description .= implode("\n", $criteria);
-        }
-        
-        $fields = [];
-        
-        // Time
-        if (!empty($reroute['valid_from']) || !empty($reroute['valid_until'])) {
-            $fields[] = [
-                'name' => 'Valid',
-                'value' => $this->formatTimeRange($reroute['valid_from'], $reroute['valid_until']),
-                'inline' => false
-            ];
-        }
-        
-        // Reason
-        if (!empty($reroute['reason_text'])) {
-            $fields[] = [
-                'name' => 'Reason',
-                'value' => $reroute['reason_text'],
-                'inline' => false
-            ];
-        }
-        
-        $embed = DiscordAPI::buildEmbed([
-            'title' => $title,
-            'description' => $description,
-            'color' => self::COLOR_INFO,
-            'timestamp' => gmdate('c'),
-            'fields' => $fields,
-            'footer' => [
-                'text' => "Reroute #{$reroute['reroute_id']} • ACTIVE"
-            ]
-        ]);
-        
-        return $this->discord->createMessage($channel, [
-            'embeds' => [$embed]
-        ]);
-    }
-    
-    // =========================================
-    // HELPER METHODS
-    // =========================================
-    
-    /**
-     * Get color for NTML entry type
-     */
-    private function getNtmlColor(string $type, string $status): int {
-        if ($status === 'CANCELLED' || $status === 'EXPIRED') {
-            return self::COLOR_GRAY;
-        }
-        
-        return match($type) {
-            'MIT' => self::COLOR_DANGER,
-            'MINIT' => self::COLOR_WARNING,
-            'DELAY' => self::COLOR_WARNING,
-            'APREQ' => self::COLOR_INFO,
-            'CONTINGENCY' => self::COLOR_DANGER,
-            'REROUTE' => self::COLOR_PURPLE,
-            default => self::COLOR_INFO
-        };
-    }
-    
-    /**
-     * Get color for advisory type
-     */
-    private function getAdvisoryColor(string $type, string $status): int {
-        if ($status === 'CANCELLED' || $status === 'EXPIRED') {
-            return self::COLOR_GRAY;
-        }
-        
-        return match($type) {
-            'GS' => self::COLOR_DANGER,
-            'GDP', 'GDP-DAS', 'GDP-GAAP', 'GDP-UDP' => self::COLOR_PURPLE,
-            'AFP', 'AFP-DAS', 'AFP-GAAP', 'AFP-UDP' => self::COLOR_INFO,
-            'CTOP' => self::COLOR_WARNING,
-            'REROUTE' => self::COLOR_INFO,
-            default => self::COLOR_INFO
-        };
-    }
-    
-    /**
-     * Build NTML description from entry data
-     */
-    private function buildNtmlDescription(array $entry): string {
-        $parts = [];
-        
-        if (!empty($entry['condition_text'])) {
-            $parts[] = $entry['condition_text'];
-        }
-        
-        if (!empty($entry['qualifiers'])) {
-            $parts[] = "**Qualifiers:** {$entry['qualifiers']}";
-        }
-        
-        if (!empty($entry['exclusions'])) {
-            $parts[] = "**Exclusions:** {$entry['exclusions']}";
-        }
-        
-        return implode("\n", $parts) ?: 'No additional details.';
-    }
-    
-    /**
-     * Format time range for display
-     */
-    private function formatTimeRange(?string $from, ?string $until): string {
-        $parts = [];
-        
-        if ($from) {
-            $ts = strtotime($from);
-            $parts[] = DiscordAPI::formatTimestamp($ts, 'f');
-        } else {
-            $parts[] = 'Now';
-        }
-        
-        $parts[] = '→';
-        
-        if ($until) {
-            $ts = strtotime($until);
-            $parts[] = DiscordAPI::formatTimestamp($ts, 'f');
-        } else {
-            $parts[] = 'Until further notice';
-        }
-        
-        return implode(' ', $parts);
-    }
-    
-    /**
-     * Format single timestamp
-     */
-    private function formatTimestamp(string $datetime): string {
         $ts = strtotime($datetime);
-        return DiscordAPI::formatTimestamp($ts, 'f');
+        return $ts ? gmdate('m/d/Y', $ts) : gmdate('m/d/Y');
     }
     
     /**
-     * Format scope JSON for display
+     * Format time as HHMM
      */
-    private function formatScope(array $scope): string {
-        $type = $scope['type'] ?? 'UNKNOWN';
-        
-        return match($type) {
-            'TIER' => "Tier {$scope['tier']}",
-            'DISTANCE' => "{$scope['distance_nm']}nm radius",
-            'CENTERS' => implode(', ', $scope['centers'] ?? []),
-            'MANUAL' => implode(', ', $scope['origins'] ?? []),
-            default => $type
-        };
+    private function formatTimeHHMM(?string $datetime): string {
+        if (!$datetime) {
+            return gmdate('Hi');
+        }
+        $ts = strtotime($datetime);
+        return $ts ? gmdate('Hi', $ts) : gmdate('Hi');
     }
     
     /**
-     * Update an existing Discord message (for status changes)
+     * Format time as DDHHMM
      */
-    public function updateMessage(string $channelId, string $messageId, array $embed): ?array {
+    private function formatTimeDDHHMM(?string $datetime): string {
+        if (!$datetime) {
+            return gmdate('dHi');
+        }
+        $ts = strtotime($datetime);
+        return $ts ? gmdate('dHi', $ts) : gmdate('dHi');
+    }
+    
+    /**
+     * Format program time as DD/HHMMZ
+     */
+    private function formatProgramTime(?string $datetime): string {
+        if (!$datetime) {
+            return gmdate('d/Hi') . 'Z';
+        }
+        $ts = strtotime($datetime);
+        return $ts ? gmdate('d/Hi', $ts) . 'Z' : gmdate('d/Hi') . 'Z';
+    }
+    
+    /**
+     * Format valid time range as DDHHMM-DDHHMM
+     */
+    private function formatValidTimeRange(?string $start, ?string $end): string {
+        $startStr = $this->formatTimeDDHHMM($start);
+        $endStr = $this->formatTimeDDHHMM($end);
+        return "{$startStr}-{$endStr}";
+    }
+    
+    /**
+     * Format signature timestamp as yy/mm/dd hh:mm
+     */
+    private function formatSignature(): string {
+        return gmdate('y/m/d H:i');
+    }
+    
+    /**
+     * Update an existing Discord message
+     */
+    public function updateMessage(string $channelId, string $messageId, string $content): ?array {
         return $this->discord->editMessage($channelId, $messageId, [
-            'embeds' => [$embed]
+            'content' => $content
         ]);
     }
     
