@@ -1,6 +1,10 @@
 -- ============================================================================
--- sp_ParseRoute.sql (v4.1 - Departure Fix Population)
+-- sp_ParseRoute.sql (v4.2 - Waypoints JSON Population)
 -- Full GIS Route Parsing for ADL Normalized Schema
+--
+-- v4.2 Changes (2026-01-17):
+--   - FIX: Populate waypoints_json column with on_airway field for FEA filtering
+--   - Enables airway-based monitor matching in NOD demand layer
 --
 -- v4.1 Changes (2026-01-10):
 --   - FIX: Added dfix (departure fix) population - captures first fix after SID
@@ -889,7 +893,15 @@ BEGIN
         star_name = COALESCE(@star_name, star_name),
         afix = COALESCE(@afix, afix),
         strsn = COALESCE(@strsn, strsn),
-        waypoint_count = @point_count
+        waypoint_count = @point_count,
+        -- Populate waypoints_json for FEA filtering (includes on_airway for airway-based monitors)
+        waypoints_json = (
+            SELECT fix_name, lat, lon, fix_type, source, on_airway, on_dp, on_star
+            FROM @waypoints
+            WHERE lat IS NOT NULL AND lon IS NOT NULL
+            ORDER BY seq
+            FOR JSON PATH
+        )
     WHERE flight_uid = @flight_uid;
     
     -- Populate waypoints table (only those with coordinates)
@@ -1031,9 +1043,10 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_ParseRoute v4.5 created - Airway start+end point marking';
+PRINT 'sp_ParseRoute v4.2 created - Waypoints JSON population';
 PRINT '';
 PRINT 'Key improvements:';
+PRINT '  - v4.2: Populate waypoints_json with on_airway for FEA filtering';
 PRINT '  - v4.1: Added dfix (departure fix) population';
 PRINT '  - ONE database query for all candidate fixes';
 PRINT '  - Sequential proximity resolution (each fix uses previous)';

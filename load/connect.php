@@ -87,6 +87,7 @@ if ($conn_pdo === null && $conn_sqli === null) {
 
 $conn_adl = null;
 $conn_swim = null;
+$conn_tmi = null;
 
 if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE') &&
     defined('ADL_SQL_USERNAME') && defined('ADL_SQL_PASSWORD')) {
@@ -138,6 +139,33 @@ if (defined('SWIM_SQL_HOST') && defined('SWIM_SQL_DATABASE') &&
         if ($conn_swim === false) {
             // Log, but do not kill the request - fall back to $conn_adl if needed
             error_log("SWIM API SQL connection failed: " . adl_sql_error_message());
+        }
+    }
+}
+
+// -------------------------------------------------------------------------
+// TMI Database (Azure SQL - Traffic Management Initiatives)
+// -------------------------------------------------------------------------
+// Contains: NTML entries, Advisories, GDT Programs, Slots, Reroutes, Public Routes
+// Data is managed by PERTI TMI tools and Discord bot integration.
+// -------------------------------------------------------------------------
+
+if (defined('TMI_SQL_HOST') && defined('TMI_SQL_DATABASE') &&
+    defined('TMI_SQL_USERNAME') && defined('TMI_SQL_PASSWORD')) {
+
+    if (function_exists('sqlsrv_connect')) {
+        $tmiConnectionInfo = [
+            "Database" => TMI_SQL_DATABASE,
+            "UID"      => TMI_SQL_USERNAME,
+            "PWD"      => TMI_SQL_PASSWORD,
+            "ConnectionPooling" => 1
+        ];
+
+        $conn_tmi = sqlsrv_connect(TMI_SQL_HOST, $tmiConnectionInfo);
+
+        if ($conn_tmi === false) {
+            // Log, but do not kill the request - TMI features will be unavailable
+            error_log("TMI SQL connection failed: " . adl_sql_error_message());
         }
     }
 }
