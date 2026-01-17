@@ -121,7 +121,7 @@ function logMsg(string $msg, string $level = 'INFO'): void {
 // DATABASE CONNECTION
 // ============================================================================
 
-function connectDb(): ?object {
+function connectDb(): mixed {
     global $config;
 
     $serverName = "tcp:{$config['db_server']},1433";
@@ -150,7 +150,7 @@ function connectDb(): ?object {
 // ARCHIVAL EXECUTION
 // ============================================================================
 
-function runArchival(object $conn, int $batchSize): array {
+function runArchival(mixed $conn, int $batchSize): array {
     $results = [
         'started_utc' => gmdate('Y-m-d H:i:s'),
         'steps' => [],
@@ -192,7 +192,7 @@ function runArchival(object $conn, int $batchSize): array {
     return $results;
 }
 
-function runStep(object $conn, string $sql): array {
+function runStep(mixed $conn, string $sql): array {
     $start = microtime(true);
     $result = [
         'success' => false,
@@ -235,7 +235,7 @@ function runStep(object $conn, string $sql): array {
 // GET ARCHIVAL STATS
 // ============================================================================
 
-function getArchivalStats(object $conn): array {
+function getArchivalStats(mixed $conn): array {
     $sql = "
         SELECT
             (SELECT COUNT(*) FROM dbo.adl_flight_trajectory) AS hot_tier_rows,
