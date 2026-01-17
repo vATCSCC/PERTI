@@ -112,8 +112,8 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
 
         /* Code blocks - dark terminal style */
         .code-block {
-            background: #1a1a2e;
-            border: 1px solid #333;
+            background: #1a1a2e !important;
+            border: 1px solid #333 !important;
             border-radius: 4px;
             padding: 15px;
             overflow-x: auto;
@@ -121,7 +121,8 @@ $logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
         }
         .code-block pre {
             margin: 0;
-            color: #e0e0e0;
+            background: transparent !important;
+            color: #e0e0e0 !important;
             font-family: 'Inconsolata', 'Courier New', monospace;
             font-size: 0.8rem;
             line-height: 1.4;
