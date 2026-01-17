@@ -1,4 +1,10 @@
-.htaccess
+# Root .htaccess (may contain server-specific config)
+/.htaccess
+
+# API .htaccess files ARE tracked (needed for Azure Linux deployment)
+!api/.htaccess
+!api/**/.htaccess
+
 load/config.php
 
 # Bundled tools (download fresh instead)
