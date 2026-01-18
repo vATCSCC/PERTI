@@ -780,7 +780,11 @@ let DEMAND_STATE = {
     lastDemandData: null, // Store last demand response for view switching
     rateData: null, // Store rate suggestion data from API
     showRateLines: true, // Toggle for rate line visibility
-    atisData: null // Store ATIS data from API
+    atisData: null, // Store ATIS data from API
+    // Cache management
+    cacheTimestamp: null, // When data was last loaded from API
+    cacheValidityMs: 15000, // Cache is valid for 15 seconds
+    summaryLoaded: false // Whether summary breakdown data has been loaded
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -1008,28 +1012,32 @@ function setupEventHandlers() {
         }
     });
 
-    // Granularity toggle
+    // Granularity toggle - invalidates cache as data structure changes
     $('input[name="demand_granularity"]').on('change', function() {
         DEMAND_STATE.granularity = $(this).val();
+        invalidateCache(); // Granularity changes require fresh data
         if (DEMAND_STATE.selectedAirport) {
             loadDemandData();
         }
     });
 
-    // Time range
+    // Time range - invalidates cache as time window changes
     $('#demand_time_range').on('change', function() {
         const $selected = $(this).find(':selected');
         DEMAND_STATE.timeRangeStart = parseInt($selected.data('start'));
         DEMAND_STATE.timeRangeEnd = parseInt($selected.data('end'));
+        invalidateCache(); // Time range changes require fresh data
         if (DEMAND_STATE.selectedAirport) {
             loadDemandData();
         }
     });
 
-    // Direction toggle
+    // Direction toggle - can use cached data, just re-render
     $('input[name="demand_direction"]').on('change', function() {
         DEMAND_STATE.direction = $(this).val();
         if (DEMAND_STATE.selectedAirport) {
+            // Direction change still requires fresh data from API (data is directional)
+            invalidateCache();
             loadDemandData();
         }
     });
@@ -1071,43 +1079,20 @@ function setupEventHandlers() {
     });
 
     // Chart view toggle (Status, Origin, Dest, Carrier, Weight, Equipment, Rule, etc.)
+    // Uses cached breakdown data to avoid re-querying on view changes
     $('input[name="demand_chart_view"]').on('change', function() {
         DEMAND_STATE.chartView = $(this).val();
         if (DEMAND_STATE.selectedAirport && DEMAND_STATE.lastDemandData) {
-            // Re-render with stored data based on selected view
-            switch (DEMAND_STATE.chartView) {
-                case 'origin':
-                    renderOriginChart();
-                    break;
-                case 'dest':
-                    renderDestChart();
-                    break;
-                case 'carrier':
-                    renderCarrierChart();
-                    break;
-                case 'weight':
-                    renderWeightChart();
-                    break;
-                case 'equipment':
-                    renderEquipmentChart();
-                    break;
-                case 'rule':
-                    renderRuleChart();
-                    break;
-                case 'dep_fix':
-                    renderDepFixChart();
-                    break;
-                case 'arr_fix':
-                    renderArrFixChart();
-                    break;
-                case 'dp':
-                    renderDPChart();
-                    break;
-                case 'star':
-                    renderSTARChart();
-                    break;
-                default:
-                    renderChart(DEMAND_STATE.lastDemandData);
+            // Check if we need to load breakdown data (only if not cached or cache expired)
+            const needsSummaryData = DEMAND_STATE.chartView !== 'status';
+            const hasCachedSummary = DEMAND_STATE.summaryLoaded && isCacheValid();
+
+            if (needsSummaryData && !hasCachedSummary) {
+                // Load summary data and then render
+                loadFlightSummary(true);
+            } else {
+                // Use cached data - render immediately without API call
+                renderCurrentView();
             }
         }
     });
@@ -1243,6 +1228,8 @@ function loadDemandData() {
 
             DEMAND_STATE.lastUpdate = new Date();
             DEMAND_STATE.lastDemandData = demandResponse; // Store for view switching
+            DEMAND_STATE.cacheTimestamp = Date.now(); // Mark cache as fresh
+            DEMAND_STATE.summaryLoaded = false; // Summary needs to be reloaded
 
             // Handle rate data (optional - don't fail if unavailable)
             if (ratesResult.status === 'fulfilled' && ratesResult.value && ratesResult.value.success) {
@@ -1620,20 +1607,71 @@ function renderChart(data) {
     // Build chart title - FSM/TBFM style: Airport (left) | Date (center) | Time (right)
     const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
 
-    // Calculate y-axis max to ensure rate lines are visible
-    // Get the maximum rate value and add padding
-    let yAxisMax = null; // null = auto-scale
+    // Calculate y-axis max to ensure rate lines are visible AND all data is captured
+    // Pro-rate factor for sub-hourly granularity
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
+    const proRateFactor = getGranularityMinutes() / 60;
+
+    // Calculate max demand from data series
+    let maxDemand = 0;
+    const countDemandInBin = (breakdown) => {
+        if (!breakdown) return 0;
+        return Object.values(breakdown).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
+    };
+    arrivals.forEach(d => {
+        const binTotal = countDemandInBin(d.breakdown);
+        if (binTotal > maxDemand) maxDemand = binTotal;
+    });
+    departures.forEach(d => {
+        const binTotal = countDemandInBin(d.breakdown);
+        if (binTotal > maxDemand) maxDemand = binTotal;
+    });
+    // If showing both directions stacked, consider combined total
+    if (direction === 'both') {
+        const combinedMax = Math.max(...timeBins.map(bin => {
+            const normalizedBin = new Date(bin);
+            normalizedBin.setUTCSeconds(0, 0);
+            const binKey = normalizedBin.toISOString().replace('.000Z', 'Z');
+            const arrData = arrivals.find(d => {
+                const dBin = new Date(d.time_bin);
+                dBin.setUTCSeconds(0, 0);
+                return dBin.toISOString().replace('.000Z', 'Z') === binKey;
+            });
+            const depData = departures.find(d => {
+                const dBin = new Date(d.time_bin);
+                dBin.setUTCSeconds(0, 0);
+                return dBin.toISOString().replace('.000Z', 'Z') === binKey;
+            });
+            return countDemandInBin(arrData?.breakdown) + countDemandInBin(depData?.breakdown);
+        }));
+        if (combinedMax > maxDemand) maxDemand = combinedMax;
+    }
+
+    // Calculate max rate (pro-rated for granularity)
+    let maxRate = 0;
     if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
         const rates = DEMAND_STATE.rateData.rates;
-        const maxRate = Math.max(
-            rates.vatsim_aar || 0,
-            rates.vatsim_adr || 0,
-            rates.rw_aar || 0,
-            rates.rw_adr || 0
+        maxRate = Math.max(
+            (rates.vatsim_aar || 0) * proRateFactor,
+            (rates.vatsim_adr || 0) * proRateFactor,
+            (rates.rw_aar || 0) * proRateFactor,
+            (rates.rw_adr || 0) * proRateFactor
         );
-        if (maxRate > 0) {
-            // Set y-axis max to at least the max rate + 10% padding
-            yAxisMax = Math.ceil(maxRate * 1.1);
+    }
+
+    // Use the higher of max demand or max rate, with padding
+    // Round to logical intervals (multiples of 5 for small values, 10 for larger)
+    let yAxisMax = null;
+    const effectiveMax = Math.max(maxDemand, maxRate);
+    if (effectiveMax > 0) {
+        const padded = effectiveMax * 1.15; // 15% padding
+        // Round up to nearest logical interval
+        if (padded <= 10) {
+            yAxisMax = Math.ceil(padded);
+        } else if (padded <= 50) {
+            yAxisMax = Math.ceil(padded / 5) * 5; // Round to nearest 5
+        } else {
+            yAxisMax = Math.ceil(padded / 10) * 10; // Round to nearest 10
         }
     }
 
@@ -1683,7 +1721,7 @@ function renderChart(data) {
             }
         },
         legend: {
-            bottom: 5,
+            bottom: 75,  // Move up to make room for sliders
             left: 'center',
             type: 'scroll',
             itemWidth: 14,
@@ -1693,10 +1731,69 @@ function renderChart(data) {
                 fontFamily: '"Segoe UI", sans-serif'
             }
         },
+        // DataZoom sliders for customizable time/demand ranges
+        dataZoom: [
+            {
+                // Horizontal slider (time axis)
+                type: 'slider',
+                xAxisIndex: 0,
+                bottom: 10,
+                height: 25,
+                start: 0,
+                end: 100,
+                borderColor: '#ddd',
+                backgroundColor: '#f8f9fa',
+                fillerColor: 'rgba(0, 123, 255, 0.15)',
+                handleStyle: {
+                    color: '#007bff',
+                    borderColor: '#0056b3'
+                },
+                textStyle: {
+                    color: '#333',
+                    fontSize: 10,
+                    fontFamily: '"Inconsolata", monospace'
+                },
+                labelFormatter: function(value) {
+                    const d = new Date(value);
+                    return d.getUTCHours().toString().padStart(2, '0') +
+                           d.getUTCMinutes().toString().padStart(2, '0') + 'z';
+                },
+                brushSelect: false
+            },
+            {
+                // Vertical slider (demand axis) - on the right side
+                type: 'slider',
+                yAxisIndex: 0,
+                right: 5,
+                width: 20,
+                start: 0,
+                end: 100,
+                borderColor: '#ddd',
+                backgroundColor: '#f8f9fa',
+                fillerColor: 'rgba(40, 167, 69, 0.15)',
+                handleStyle: {
+                    color: '#28a745',
+                    borderColor: '#1e7e34'
+                },
+                textStyle: {
+                    color: '#333',
+                    fontSize: 10
+                },
+                brushSelect: false
+            },
+            {
+                // Inside zoom for time axis (mouse scroll/drag)
+                type: 'inside',
+                xAxisIndex: 0,
+                zoomOnMouseWheel: 'shift', // Shift+scroll to zoom
+                moveOnMouseMove: false,
+                moveOnMouseWheel: false
+            }
+        ],
         grid: {
             left: 55,
-            right: 25,
-            bottom: 90,
+            right: 45,   // Increased for vertical slider
+            bottom: 115, // Increased for horizontal slider
             top: 55,
             containLabel: false
         },
@@ -1976,7 +2073,7 @@ function renderOriginChart() {
             }
         },
         legend: {
-            bottom: 5,
+            bottom: 75,  // Move up to make room for sliders
             left: 'center',
             type: 'scroll',
             itemWidth: 14,
@@ -1986,10 +2083,12 @@ function renderOriginChart() {
                 fontFamily: '"Segoe UI", sans-serif'
             }
         },
+        // DataZoom sliders for customizable time/demand ranges
+        dataZoom: getDataZoomConfig(),
         grid: {
             left: 55,
-            right: 25,
-            bottom: 90,
+            right: 45,   // Increased for vertical slider
+            bottom: 115, // Increased for horizontal slider
             top: 55,
             containLabel: false
         },
@@ -2285,7 +2384,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             }
         },
         legend: {
-            bottom: 5,
+            bottom: 75,  // Move up to make room for sliders
             left: 'center',
             type: 'scroll',
             itemWidth: 14,
@@ -2295,10 +2394,12 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 fontFamily: '"Segoe UI", sans-serif'
             }
         },
+        // DataZoom sliders for customizable time/demand ranges
+        dataZoom: getDataZoomConfig(),
         grid: {
             left: 55,
-            right: 25,
-            bottom: 90,
+            right: 45,   // Increased for vertical slider
+            bottom: 115, // Increased for horizontal slider
             top: 55,
             containLabel: false
         },
@@ -2882,6 +2983,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
 /**
  * Build rate mark lines for the demand chart
  * Uses RATE_LINE_CONFIG from rate-colors.js for styling
+ * Pro-rates hourly rates for sub-hourly granularities (30-min, 15-min)
  */
 function buildRateMarkLinesForChart() {
     // Check if rate lines are enabled and we have rate data
@@ -2895,6 +2997,11 @@ function buildRateMarkLinesForChart() {
 
     const lines = [];
     const direction = DEMAND_STATE.direction;
+
+    // Pro-rate factor: AAR/ADR are hourly rates, adjust for granularity
+    // Hourly = 1.0, 30-min = 0.5, 15-min = 0.25
+    const granularityMinutes = getGranularityMinutes();
+    const proRateFactor = granularityMinutes / 60;
 
     // Use config if available, otherwise use defaults
     const cfg = (typeof RATE_LINE_CONFIG !== 'undefined') ? RATE_LINE_CONFIG : {
@@ -2931,6 +3038,10 @@ function buildRateMarkLinesForChart() {
     const addLine = (value, source, rateType, label) => {
         if (!value) return;
 
+        // Apply pro-rate factor for sub-hourly granularity
+        const proRatedValue = Math.round(value * proRateFactor * 10) / 10; // Round to 1 decimal
+        const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
+
         const sourceStyle = cfg[styleKey][source];
         // Use dotted line style for custom/dynamic rates
         const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
@@ -2939,8 +3050,13 @@ function buildRateMarkLinesForChart() {
         // Position AAR labels on top, ADR labels on bottom to prevent overlap
         const labelPosition = rateType === 'aar' ? 'insideEndTop' : 'insideEndBottom';
 
+        // Show pro-rated label (e.g., "AAR 15" for 15-min at 60/hr, or "AAR 60/hr" for hourly)
+        const labelText = proRateFactor < 1
+            ? `${label} ${displayValue}`
+            : `${label} ${value}`;
+
         lines.push({
-            yAxis: value,
+            yAxis: proRatedValue,
             lineStyle: {
                 color: sourceStyle.color,
                 width: lineTypeStyle.width,
@@ -2948,7 +3064,7 @@ function buildRateMarkLinesForChart() {
             },
             label: {
                 show: true,
-                formatter: `${label} ${value}`,
+                formatter: labelText,
                 position: labelPosition,
                 color: sourceStyle.color,
                 fontSize: cfg.label.fontSize || 10,
@@ -3125,6 +3241,131 @@ function getGranularityMinutes() {
 }
 
 /**
+ * Check if cached data is still valid (within 15 seconds of last load)
+ */
+function isCacheValid() {
+    if (!DEMAND_STATE.cacheTimestamp) return false;
+    const now = Date.now();
+    return (now - DEMAND_STATE.cacheTimestamp) < DEMAND_STATE.cacheValidityMs;
+}
+
+/**
+ * Invalidate the cache (call when filters change that require fresh data)
+ */
+function invalidateCache() {
+    DEMAND_STATE.cacheTimestamp = null;
+    DEMAND_STATE.summaryLoaded = false;
+}
+
+/**
+ * Render the current chart view using cached data
+ * This avoids API calls when switching between views
+ */
+function renderCurrentView() {
+    if (!DEMAND_STATE.lastDemandData) return;
+
+    switch (DEMAND_STATE.chartView) {
+        case 'origin':
+            renderOriginChart();
+            break;
+        case 'dest':
+            renderDestChart();
+            break;
+        case 'carrier':
+            renderCarrierChart();
+            break;
+        case 'weight':
+            renderWeightChart();
+            break;
+        case 'equipment':
+            renderEquipmentChart();
+            break;
+        case 'rule':
+            renderRuleChart();
+            break;
+        case 'dep_fix':
+            renderDepFixChart();
+            break;
+        case 'arr_fix':
+            renderArrFixChart();
+            break;
+        case 'dp':
+            renderDPChart();
+            break;
+        case 'star':
+            renderSTARChart();
+            break;
+        default:
+            renderChart(DEMAND_STATE.lastDemandData);
+    }
+}
+
+/**
+ * Get standard dataZoom configuration for demand charts
+ * Provides horizontal (time) and vertical (demand) sliders
+ */
+function getDataZoomConfig() {
+    return [
+        {
+            // Horizontal slider (time axis)
+            type: 'slider',
+            xAxisIndex: 0,
+            bottom: 10,
+            height: 25,
+            start: 0,
+            end: 100,
+            borderColor: '#ddd',
+            backgroundColor: '#f8f9fa',
+            fillerColor: 'rgba(0, 123, 255, 0.15)',
+            handleStyle: {
+                color: '#007bff',
+                borderColor: '#0056b3'
+            },
+            textStyle: {
+                color: '#333',
+                fontSize: 10,
+                fontFamily: '"Inconsolata", monospace'
+            },
+            labelFormatter: function(value) {
+                const d = new Date(value);
+                return d.getUTCHours().toString().padStart(2, '0') +
+                       d.getUTCMinutes().toString().padStart(2, '0') + 'z';
+            },
+            brushSelect: false
+        },
+        {
+            // Vertical slider (demand axis) - on the right side
+            type: 'slider',
+            yAxisIndex: 0,
+            right: 5,
+            width: 20,
+            start: 0,
+            end: 100,
+            borderColor: '#ddd',
+            backgroundColor: '#f8f9fa',
+            fillerColor: 'rgba(40, 167, 69, 0.15)',
+            handleStyle: {
+                color: '#28a745',
+                borderColor: '#1e7e34'
+            },
+            textStyle: {
+                color: '#333',
+                fontSize: 10
+            },
+            brushSelect: false
+        },
+        {
+            // Inside zoom for time axis (mouse scroll/drag)
+            type: 'inside',
+            xAxisIndex: 0,
+            zoomOnMouseWheel: 'shift', // Shift+scroll to zoom
+            moveOnMouseMove: false,
+            moveOnMouseWheel: false
+        }
+    ];
+}
+
+/**
  * Build chart title in FSM/TBFM style
  * Format: "KATL          01/10/2026          16:30Z"
  * Airport code (left), ADL date (center), ADL time (right)
@@ -3277,8 +3518,12 @@ function loadFlightSummary(renderOriginChartAfter) {
                 DEMAND_STATE.dpBreakdown = response.dp_breakdown || {};
                 DEMAND_STATE.starBreakdown = response.star_breakdown || {};
 
+                // Mark summary data as loaded (for caching)
+                DEMAND_STATE.summaryLoaded = true;
+                DEMAND_STATE.cacheTimestamp = Date.now(); // Refresh cache timestamp
+
                 // Debug: Log breakdown data sizes
-                console.log('[Demand] Summary API breakdown data:',
+                console.log('[Demand] Summary API breakdown data (cached):',
                     'origin:', Object.keys(DEMAND_STATE.originBreakdown).length,
                     'dest:', Object.keys(DEMAND_STATE.destBreakdown).length,
                     'weight:', Object.keys(DEMAND_STATE.weightBreakdown).length,

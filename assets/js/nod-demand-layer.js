@@ -52,7 +52,9 @@ const NODDemandLayer = (function() {
         segmentFirstClick: null,     // For segment mode: { lat, lon, fix }
         refreshTimer: null,
         sourcesAdded: false,
-        detailsPopup: null           // MapLibre popup for flight details
+        detailsPopup: null,          // MapLibre popup for flight details
+        refreshDebounceTimer: null,  // Debounce timer for rapid monitor changes
+        pendingRefresh: false        // Flag to track if refresh is pending
     };
 
     // =========================================
@@ -466,17 +468,68 @@ const NODDemandLayer = (function() {
             // Optionally update UI after API save
         });
 
-        // Refresh immediately and update UI
-        if (state.enabled) {
-            refresh();
-        }
+        // Immediately update UI (before API refresh completes)
         renderMonitorsList();
-
-        // Update NOD color legend if showing FEA match mode
         updateNODColorLegend();
+
+        // Immediately show placeholder on map if enabled (fast visual feedback)
+        if (state.enabled && state.sourcesAdded) {
+            showMonitorPlaceholder(monitor, id);
+        }
+
+        // Debounced refresh from API (prevents rapid-fire API calls)
+        debouncedRefresh();
 
         console.log('[DemandLayer] Added monitor:', id);
         return true;
+    }
+
+    /**
+     * Show a placeholder for a monitor on the map immediately
+     * This provides instant visual feedback before API data arrives
+     */
+    function showMonitorPlaceholder(monitor, id) {
+        if (!state.map || !state.sourcesAdded) return;
+
+        // Build a temporary feature for immediate display
+        // The actual data will be populated on next refresh
+        const tempMonitor = {
+            id: id,
+            type: monitor.type,
+            total: 0,
+            counts: [],
+            // For fix types, we'll look up coordinates from nav data
+            // For now, show in list but not on map until API returns coords
+        };
+
+        // If we have existing demand data, merge in the new monitor
+        if (state.demandData && state.demandData.monitors) {
+            const existingMonitors = state.demandData.monitors.filter(m => m.id !== id);
+            existingMonitors.push(tempMonitor);
+            updateMapData(existingMonitors);
+        }
+    }
+
+    /**
+     * Debounced refresh - prevents rapid API calls when adding/removing multiple monitors
+     */
+    function debouncedRefresh() {
+        if (state.refreshDebounceTimer) {
+            clearTimeout(state.refreshDebounceTimer);
+        }
+        state.pendingRefresh = true;
+
+        state.refreshDebounceTimer = setTimeout(async () => {
+            state.pendingRefresh = false;
+            state.refreshDebounceTimer = null;
+            if (state.enabled) {
+                await refresh();
+                // After refresh completes, update NOD traffic layer for FEA match coloring
+                if (typeof window.NOD !== 'undefined' && window.NOD.updateTrafficLayer) {
+                    window.NOD.updateTrafficLayer();
+                }
+            }
+        }, 300); // 300ms debounce
     }
 
     /**
@@ -495,14 +548,24 @@ const NODDemandLayer = (function() {
             deleteMonitorFromAPI(id);
         }
 
-        // Refresh immediately and update UI
-        if (state.enabled) {
-            refresh();
-        }
+        // Immediately update UI (before API refresh completes)
         renderMonitorsList();
-
-        // Update NOD color legend if showing FEA match mode
         updateNODColorLegend();
+
+        // Immediately remove from map (fast visual feedback)
+        if (state.enabled && state.sourcesAdded && state.demandData && state.demandData.monitors) {
+            const remainingMonitors = state.demandData.monitors.filter(m => m.id !== id);
+            state.demandData.monitors = remainingMonitors;
+            updateMapData(remainingMonitors);
+        }
+
+        // Trigger NOD traffic layer update if FEA match mode is active
+        if (typeof window.NOD !== 'undefined' && window.NOD.updateTrafficLayer) {
+            window.NOD.updateTrafficLayer();
+        }
+
+        // Debounced refresh from API (in case we need fresh data)
+        debouncedRefresh();
 
         console.log('[DemandLayer] Removed monitor:', id);
         return true;
@@ -513,14 +576,27 @@ const NODDemandLayer = (function() {
      */
     function clearMonitors() {
         state.monitors = [];
+        state.demandData = null;
         saveToLocalStorage();
 
-        // Clear map data and update UI
+        // Cancel any pending refresh
+        if (state.refreshDebounceTimer) {
+            clearTimeout(state.refreshDebounceTimer);
+            state.refreshDebounceTimer = null;
+            state.pendingRefresh = false;
+        }
+
+        // Immediately clear map data and update UI
         updateMapData([]);
         renderMonitorsList();
 
         // Update NOD color legend if showing FEA match mode
         updateNODColorLegend();
+
+        // Trigger NOD traffic layer update if FEA match mode is active
+        if (typeof window.NOD !== 'undefined' && window.NOD.updateTrafficLayer) {
+            window.NOD.updateTrafficLayer();
+        }
 
         console.log('[DemandLayer] Cleared all monitors');
     }
