@@ -62,6 +62,13 @@ nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim
 WS_PID=$!
 echo "  swim_ws_server.php started (PID: $WS_PID)"
 
+# Start the SWIM sync daemon (syncs VATSIM_ADL to SWIM_API every 2 min)
+# Also handles data retention cleanup every 6 hours
+echo "Starting swim_sync_daemon.php (sync every 2min, cleanup every 6h)..."
+nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 --cleanup-interval=21600 >> /home/LogFiles/swim_sync.log 2>&1 &
+SWIM_SYNC_PID=$!
+echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
+
 # Start the unified scheduler daemon (splits, routes auto-activation)
 echo "Starting scheduler_daemon.php (checks every 60s)..."
 nohup php "${WWWROOT}/scripts/scheduler_daemon.php" --interval=60 >> /home/LogFiles/scheduler.log 2>&1 &
@@ -85,15 +92,15 @@ echo "  monitoring_daemon.php started (PID: $MON_PID)"
 echo "========================================"
 echo "All daemons started:"
 echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
-echo "  waypoint=$WAYPOINT_PID, ws=$WS_PID, sched=$SCHED_PID"
-echo "  arch=$ARCH_PID, mon=$MON_PID"
+echo "  waypoint=$WAYPOINT_PID, ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
+echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
 echo "========================================"
 
 # Configure PHP-FPM for higher concurrency
 # Default is only 5 workers which causes request queueing under load
 #
 # Memory calculation (for choosing max_children):
-#   - 8 background daemons: ~200MB
+#   - 9 background daemons: ~225MB
 #   - nginx + OS overhead: ~250MB
 #   - PHP-FPM workers: ~50MB each
 #   - Safe formula: (TOTAL_RAM - 500MB) / 50MB = max_children

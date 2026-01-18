@@ -222,6 +222,7 @@ $pidFiles = [
     'parse_queue_daemon' => sys_get_temp_dir() . '/adl_parse_queue_daemon.pid',
     'waypoint_eta_daemon' => sys_get_temp_dir() . '/adl_waypoint_eta_daemon.pid',
     'archival_daemon' => sys_get_temp_dir() . '/perti_archival_daemon.pid',
+    'swim_sync_daemon' => sys_get_temp_dir() . '/swim_sync_daemon.pid',
 ];
 
 foreach ($pidFiles as $name => $pidFile) {
@@ -256,7 +257,7 @@ $runningCount = 0;
 foreach ($daemonHealth['daemons'] as $d) {
     if ($d['status'] === 'running') $runningCount++;
 }
-$daemonHealth['status'] = $runningCount >= 3 ? 'healthy' : ($runningCount > 0 ? 'degraded' : 'unhealthy');
+$daemonHealth['status'] = $runningCount >= 4 ? 'healthy' : ($runningCount > 0 ? 'degraded' : 'unhealthy');
 $daemonHealth['running_count'] = $runningCount;
 $daemonHealth['total_count'] = count($pidFiles);
 

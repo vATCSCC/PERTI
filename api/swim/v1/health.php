@@ -16,7 +16,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 
-// Load dependencies
+// Load dependencies - config.php defines SWIM_SQL_* constants
 require_once(__DIR__ . '/../../../load/config.php');
 
 // Simple auth check - allow localhost or require any valid SWIM API key
@@ -51,10 +51,12 @@ $health = [
 $dbCheck = ['status' => 'unknown', 'message' => ''];
 
 try {
-    $serverName = getenv('SWIM_DB_SERVER') ?: getenv('DB_SERVER') ?: (defined('SWIM_SQL_HOST') ? SWIM_SQL_HOST : null);
-    $database = getenv('SWIM_DB_NAME') ?: (defined('SWIM_SQL_DATABASE') ? SWIM_SQL_DATABASE : 'SWIM_API');
-    $uid = getenv('DB_USER') ?: (defined('SWIM_SQL_USERNAME') ? SWIM_SQL_USERNAME : null);
-    $pwd = getenv('DB_PASS') ?: (defined('SWIM_SQL_PASSWORD') ? SWIM_SQL_PASSWORD : null);
+    // Use SWIM_SQL_* constants from config.php (canonical source)
+    // Fall back to environment variables for Azure App Service deployment
+    $serverName = defined('SWIM_SQL_HOST') ? SWIM_SQL_HOST : (getenv('SWIM_DB_SERVER') ?: getenv('DB_SERVER'));
+    $database = defined('SWIM_SQL_DATABASE') ? SWIM_SQL_DATABASE : (getenv('SWIM_DB_NAME') ?: 'SWIM_API');
+    $uid = defined('SWIM_SQL_USERNAME') ? SWIM_SQL_USERNAME : (getenv('SWIM_DB_USER') ?: getenv('DB_USER'));
+    $pwd = defined('SWIM_SQL_PASSWORD') ? SWIM_SQL_PASSWORD : (getenv('SWIM_DB_PASS') ?: getenv('DB_PASS'));
 
     if (!$serverName || !$uid) {
         $dbCheck['status'] = 'not_configured';
