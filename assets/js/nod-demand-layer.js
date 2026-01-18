@@ -664,9 +664,18 @@ const NODDemandLayer = (function() {
                 console.error('[DemandLayer] SQL errors:', data.sql_errors);
             }
 
+            // Filter API response to only include monitors that still exist in current state
+            // This prevents race conditions where stale API responses include deleted monitors
+            const currentMonitorIds = new Set(state.monitors.map(m => getMonitorId(m)));
+            const filteredMonitors = (data.monitors || []).filter(m => currentMonitorIds.has(m.id));
+
+            if (filteredMonitors.length !== (data.monitors || []).length) {
+                console.log('[DemandLayer] Filtered out', (data.monitors || []).length - filteredMonitors.length, 'stale monitors from API response');
+            }
+
             // Debug: log monitor data
-            if (data.monitors && data.monitors.length > 0) {
-                data.monitors.forEach((m, i) => {
+            if (filteredMonitors.length > 0) {
+                filteredMonitors.forEach((m, i) => {
                     if (m.type === 'airway_segment' || m.type === 'segment') {
                         console.log(`[DemandLayer] Monitor ${i}: id=${m.id}, type=${m.type}, from_lat=${m.from_lat}, to_lat=${m.to_lat}, geometry=${m.geometry ? m.geometry.length + ' pts' : 'none'}, total=${m.total}`);
                     } else if (m.type === 'airway') {
@@ -675,12 +684,15 @@ const NODDemandLayer = (function() {
                         console.log(`[DemandLayer] Monitor ${i}: id=${m.id}, type=${m.type}, lat=${m.lat}, lon=${m.lon}, total=${m.total}`);
                     }
                 });
-            } else {
-                console.warn('[DemandLayer] API returned 0 monitors despite sending', state.monitors.length);
+            } else if (state.monitors.length > 0) {
+                console.warn('[DemandLayer] API returned 0 matching monitors despite having', state.monitors.length, 'in state');
             }
 
+            // Update demand data with filtered monitors
+            data.monitors = filteredMonitors;
+
             // Update map visualization
-            updateMapData(data.monitors || []);
+            updateMapData(filteredMonitors);
 
             // Update UI
             updateTimeline(data);
