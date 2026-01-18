@@ -1,8 +1,9 @@
 <?php
 /**
- * ADL Reference Data Import: Navigation Fixes
- * 
- * Imports waypoints from points.csv and navaids.csv into nav_fixes table.
+ * REF Reference Data Import: Navigation Fixes
+ *
+ * Imports waypoints from points.csv and navaids.csv into VATSIM_REF.nav_fixes table.
+ * After import, run sync_ref_to_adl.sql to refresh ADL cache.
  * Run from command line: php import_nav_fixes.php
  */
 
@@ -12,28 +13,29 @@ ini_set('display_errors', 1);
 // Load config
 require_once(__DIR__ . '/../../load/config.php');
 
-if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE")) {
-    die("ERROR: ADL_SQL_* constants not defined in config.php\n");
+if (!defined("REF_SQL_HOST") || !defined("REF_SQL_DATABASE")) {
+    die("ERROR: REF_SQL_* constants not defined in config.php\n");
 }
 
-echo "=== ADL Reference Data Import: Navigation Fixes ===\n";
+echo "=== REF Reference Data Import: Navigation Fixes ===\n";
+echo "Target: VATSIM_REF (authoritative source)\n";
 echo "Started at: " . gmdate('Y-m-d H:i:s') . " UTC\n\n";
 
-// Connect to ADL database
+// Connect to REF database (authoritative source)
 $connectionInfo = [
-    "Database" => ADL_SQL_DATABASE,
-    "UID" => ADL_SQL_USERNAME,
-    "PWD" => ADL_SQL_PASSWORD,
+    "Database" => REF_SQL_DATABASE,
+    "UID" => REF_SQL_USERNAME,
+    "PWD" => REF_SQL_PASSWORD,
     "LoginTimeout" => 30,
     "Encrypt" => true,
     "TrustServerCertificate" => false
 ];
 
-$conn = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
+$conn = sqlsrv_connect(REF_SQL_HOST, $connectionInfo);
 if ($conn === false) {
     die("ERROR: Connection failed - " . print_r(sqlsrv_errors(), true) . "\n");
 }
-echo "Connected to ADL database.\n";
+echo "Connected to VATSIM_REF database.\n";
 
 // Paths to data files
 $dataDir = __DIR__ . '/../../assets/data/';
@@ -219,5 +221,6 @@ sqlsrv_free_stmt($countStmt);
 echo "\n=== Import Complete ===\n";
 echo "Total records in nav_fixes: $totalCount\n";
 echo "Finished at: " . gmdate('Y-m-d H:i:s') . " UTC\n";
+echo "\nNOTE: Run sync_ref_to_adl.sql to refresh VATSIM_ADL cache.\n";
 
 sqlsrv_close($conn);
