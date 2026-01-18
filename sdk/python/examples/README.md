@@ -1,6 +1,6 @@
 # SWIM SDK Python Examples
 
-This directory contains example applications demonstrating various use cases for the VATSIM SWIM API Python SDK.
+This directory contains example applications demonstrating various use cases for the VATSWIM API Python SDK.
 
 ## Quick Start
 
