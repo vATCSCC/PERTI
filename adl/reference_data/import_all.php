@@ -1,10 +1,13 @@
 <?php
 /**
- * ADL Reference Data Import: Master Script
- * 
+ * REF Reference Data Import: Master Script
+ *
  * Runs all reference data imports in the correct order.
+ * Imports go to VATSIM_REF (authoritative source).
+ * After import, run sync_ref_to_adl.sql to refresh VATSIM_ADL cache.
+ *
  * Run from command line: php import_all.php
- * 
+ *
  * Import order:
  * 1. Navigation Fixes (points.csv, navaids.csv) - must be first
  * 2. Airways (awys.csv) - depends on nav_fixes for geometry
@@ -20,7 +23,8 @@ set_time_limit(0);  // No timeout for long imports
 $startTime = microtime(true);
 
 echo "════════════════════════════════════════════════════════════════════════════════\n";
-echo "                    ADL REFERENCE DATA IMPORT - MASTER SCRIPT                   \n";
+echo "              REF REFERENCE DATA IMPORT - MASTER SCRIPT                         \n";
+echo "                 Target: VATSIM_REF (authoritative source)                      \n";
 echo "════════════════════════════════════════════════════════════════════════════════\n";
 echo "Started at: " . gmdate('Y-m-d H:i:s') . " UTC\n\n";
 
@@ -70,3 +74,6 @@ echo "Scripts succeeded: $success\n";
 echo "Scripts failed: $failed\n";
 echo "Total time: {$minutes}m " . round($seconds, 1) . "s\n";
 echo "Finished at: " . gmdate('Y-m-d H:i:s') . " UTC\n";
+echo "\n════════════════════════════════════════════════════════════════════════════════\n";
+echo "NEXT STEP: Run sync_ref_to_adl.sql to refresh VATSIM_ADL cache tables.\n";
+echo "════════════════════════════════════════════════════════════════════════════════\n";

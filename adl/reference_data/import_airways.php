@@ -1,8 +1,9 @@
 <?php
 /**
- * ADL Reference Data Import: Airways
- * 
- * Imports airways from awys.csv into airways and airway_segments tables.
+ * REF Reference Data Import: Airways
+ *
+ * Imports airways from awys.csv into VATSIM_REF.airways and airway_segments tables.
+ * After import, run sync_ref_to_adl.sql to refresh ADL cache.
  * Run from command line: php import_airways.php
  */
 
@@ -12,28 +13,29 @@ ini_set('display_errors', 1);
 // Load config
 require_once(__DIR__ . '/../../load/config.php');
 
-if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE")) {
-    die("ERROR: ADL_SQL_* constants not defined in config.php\n");
+if (!defined("REF_SQL_HOST") || !defined("REF_SQL_DATABASE")) {
+    die("ERROR: REF_SQL_* constants not defined in config.php\n");
 }
 
-echo "=== ADL Reference Data Import: Airways ===\n";
+echo "=== REF Reference Data Import: Airways ===\n";
+echo "Target: VATSIM_REF (authoritative source)\n";
 echo "Started at: " . gmdate('Y-m-d H:i:s') . " UTC\n\n";
 
-// Connect to ADL database
+// Connect to REF database (authoritative source)
 $connectionInfo = [
-    "Database" => ADL_SQL_DATABASE,
-    "UID" => ADL_SQL_USERNAME,
-    "PWD" => ADL_SQL_PASSWORD,
+    "Database" => REF_SQL_DATABASE,
+    "UID" => REF_SQL_USERNAME,
+    "PWD" => REF_SQL_PASSWORD,
     "LoginTimeout" => 30,
     "Encrypt" => true,
     "TrustServerCertificate" => false
 ];
 
-$conn = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
+$conn = sqlsrv_connect(REF_SQL_HOST, $connectionInfo);
 if ($conn === false) {
     die("ERROR: Connection failed - " . print_r(sqlsrv_errors(), true) . "\n");
 }
-echo "Connected to ADL database.\n";
+echo "Connected to VATSIM_REF database.\n";
 
 // Path to data file
 $dataDir = __DIR__ . '/../../assets/data/';
@@ -223,5 +225,6 @@ echo "\n=== Import Complete ===\n";
 echo "Airways imported: $totalAirways\n";
 echo "Segments created: $totalSegments\n";
 echo "Finished at: " . gmdate('Y-m-d H:i:s') . " UTC\n";
+echo "\nNOTE: Run sync_ref_to_adl.sql to refresh VATSIM_ADL cache.\n";
 
 sqlsrv_close($conn);
