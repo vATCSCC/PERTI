@@ -10,19 +10,21 @@
  * 
  * @package PERTI
  * @subpackage TMI/Discord
- * @version 3.3.0
+ * @version 3.4.0
+ * 
+ * Changelog v3.4.0 (2026-01-18):
+ * - Fixed delay entry formatting for all three types:
+ *   - D/D (Departure Delay): "D/D from {location}, {delay}/{time}"
+ *   - E/D (En Route Delay): "{ARTCC} E/D for {dest}, {delay}/{time}/{count} ACFT"
+ *   - A/D (Arrival Delay): "{sector} A/D to {dest}, {delay}/{time} NAVAID:{fix}"
+ * - Fixed NTML restriction entry field ordering (EXCL before times)
+ * - Added support for RUNWAY and OTHER reason codes
+ * - Improved reason format handling (REASON:DETAIL pattern)
+ * - Added TBM zone support in restriction entries
  * 
  * Changelog v3.3.0 (2026-01-17):
- * - Updated Route Advisory to 2025 conventions:
- *   - Default to CONSTRAINED AREA (2025) vs IMPACTED AREA (2020)
- *   - Added FLIGHT STATUS field support
- *   - Changed ROUTE: to ROUTES: label (2025 format)
- *   - Footer now uses spaces: "ddhhmm - ddhhmm"
- * - Added FCA (Flow Constrained Area) Advisory formatter
- * - Added Operations Plan formatter
- * - Added Reroute Cancellation formatter
- * - Added Informational/Hotline formatters
- * - Improved VALID time format support (ETD, FCA ENTRY, simple range)
+ * - Updated Route Advisory to 2025 conventions
+ * - Added FCA, Operations Plan, Reroute Cancellation, Informational/Hotline formatters
  */
 
 require_once __DIR__ . '/DiscordAPI.php';
@@ -94,6 +96,15 @@ class TMIDiscord {
         }
     }
     
+    /**
+     * Format NTML restriction entry (MIT, MINIT, STOP, CFR, TBM, APREQ, DSP)
+     * 
+     * Real-world patterns from NTML_2020.txt:
+     * - "17/2344    BOS via MERIT 15MIT VOLUME:VOLUME EXCL:NONE 2345-0000 ZBW:ZNY"
+     * - "21/2325   PHX via SCOLE, HOGGZ 30 MIT PER STREAM EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA"
+     * - "18/2206    ATL TBM 3_WEST VOLUME:VOLUME EXCL:NONE 2230-0400 ZTL:ZJX,ZME,ZID,ZHU"
+     * - "25/0114    MIA STOP RUNWAY:CONFIG CHG EXCL:NONE 0115-0130 ZMA:ZJX"
+     */
     private function formatRestrictionEntry(array $data): string {
         $logTime = $this->formatLogTime();
         $flowType = strtolower($data['flow_type'] ?? 'arrivals');
@@ -101,54 +112,160 @@ class TMIDiscord {
         $fix = strtoupper($data['fix'] ?? $data['condition_text'] ?? '');
         $restrictionType = strtoupper($data['entry_type'] ?? 'MIT');
         $restrictionValue = $data['restriction_value'] ?? $data['distance'] ?? $data['minutes'] ?? '';
-        $restriction = ($restrictionType === 'STOP') ? 'STOP' : "{$restrictionValue}{$restrictionType}";
+        
+        // Build restriction string
+        if ($restrictionType === 'STOP') {
+            $restriction = 'STOP';
+        } elseif ($restrictionType === 'TBM' && !empty($data['tbm_zone'])) {
+            // TBM entries: "ATL TBM 3_WEST"
+            $restriction = "TBM " . strtoupper($data['tbm_zone']);
+        } else {
+            $restriction = "{$restrictionValue}{$restrictionType}";
+        }
+        
         $qualifiers = $this->formatNtmlQualifiers($data['qualifiers'] ?? '');
+        
+        // Build optional parts in correct order
         $parts = [];
-        if (!empty($data['aircraft_type'])) $parts[] = "TYPE:" . strtoupper($data['aircraft_type']);
-        if (!empty($data['speed'])) $parts[] = "SPD:" . ($data['speed_operator'] ?? '') . $data['speed'];
-        if (!empty($data['altitude'])) $parts[] = "ALT:" . strtoupper($data['alt_type'] ?? 'AT') . strtoupper($data['altitude']);
-        if (!empty($data['volume']) || (!empty($data['reason_code']) && strtoupper($data['reason_code']) === 'VOLUME')) {
-            $parts[] = "VOLUME:" . strtoupper($data['volume'] ?? 'VOLUME');
+        
+        // Aircraft type filter
+        if (!empty($data['aircraft_type'])) {
+            $parts[] = "TYPE:" . strtoupper($data['aircraft_type']);
         }
-        if (!empty($data['weather']) || (!empty($data['reason_code']) && strtoupper($data['reason_code']) === 'WEATHER')) {
-            $parts[] = "WEATHER:" . strtoupper($data['weather'] ?? $data['reason_detail'] ?? 'WEATHER');
+        
+        // Speed restriction
+        if (!empty($data['speed'])) {
+            $parts[] = "SPD:" . ($data['speed_operator'] ?? '') . $data['speed'];
         }
-        if (!empty($data['exclusions'])) $parts[] = "EXCL:" . strtoupper($data['exclusions']);
+        
+        // Altitude restriction
+        if (!empty($data['altitude'])) {
+            $parts[] = "ALT:" . strtoupper($data['alt_type'] ?? 'AT') . strtoupper($data['altitude']);
+        }
+        
+        // Exclusions come BEFORE reason (per real-world patterns)
+        if (!empty($data['exclusions'])) {
+            $parts[] = "EXCL:" . strtoupper($data['exclusions']);
+        }
+        
+        // Reason code with optional detail (REASON:DETAIL format)
+        $reasonCode = strtoupper($data['reason_code'] ?? '');
+        $reasonDetail = strtoupper($data['reason_detail'] ?? '');
+        if ($reasonCode) {
+            $reasonStr = $reasonDetail ? "{$reasonCode}:{$reasonDetail}" : "{$reasonCode}:{$reasonCode}";
+            $parts[] = $reasonStr;
+        } elseif (!empty($data['volume'])) {
+            $parts[] = "VOLUME:" . strtoupper($data['volume']);
+        } elseif (!empty($data['weather'])) {
+            $parts[] = "WEATHER:" . strtoupper($data['weather']);
+        }
+        
+        // Valid times
         $validFrom = $this->formatTimeHHMM($data['valid_from'] ?? null);
         $validUntil = $this->formatTimeHHMM($data['valid_until'] ?? null);
         $parts[] = "{$validFrom}-{$validUntil}";
+        
+        // Facility pair
         $reqFac = strtoupper($data['requesting_facility'] ?? $data['req_facility_id'] ?? '');
         $provFac = strtoupper($data['providing_facility'] ?? $data['prov_facility_id'] ?? '');
-        if ($reqFac && $provFac) $parts[] = "{$reqFac}:{$provFac}";
+        if ($reqFac && $provFac) {
+            $parts[] = "{$reqFac}:{$provFac}";
+        }
+        
         $optionalStr = implode(' ', $parts);
-        $line = $fix 
-            ? "{$logTime}    {$airport} {$flowType} via {$fix} {$restriction}{$qualifiers} {$optionalStr}"
-            : "{$logTime}    {$airport} {$flowType} {$restriction}{$qualifiers} {$optionalStr}";
+        
+        // Build final line based on entry type
+        if ($restrictionType === 'TBM') {
+            // TBM format: "ATL TBM 3_WEST VOLUME:VOLUME EXCL:NONE 2230-0400 ZTL:ZJX"
+            $line = "{$logTime}    {$airport} {$restriction} {$optionalStr}";
+        } elseif ($fix) {
+            // Standard with fix: "BOS via MERIT 15MIT..."
+            $line = "{$logTime}    {$airport} {$flowType} via {$fix} {$restriction}{$qualifiers} {$optionalStr}";
+        } else {
+            // Without fix: "BOS arrivals 15MIT..."
+            $line = "{$logTime}    {$airport} {$flowType} {$restriction}{$qualifiers} {$optionalStr}";
+        }
+        
         return trim($line);
     }
     
+    /**
+     * Format NTML delay entry (D/D, E/D, A/D)
+     * 
+     * Real-world patterns from NTML_2020.txt:
+     * - D/D (Departure Delay): "18/0010     D/D from JFK, +45/0010 VOLUME:VOLUME"
+     * - E/D (En Route Delay):  "18/0019    ZDC E/D for BOS, +30/0019/13 ACFT VOLUME:VOLUME"
+     * - A/D (Arrival Delay):   "25/0059    ZJX66 A/D to MIA, +Holding/0058 NAVAID:OMN STREAM VOLUME:VOLUME"
+     */
     private function formatDelayEntry(array $data): string {
         $logTime = $this->formatLogTime();
         $delayType = strtoupper($data['delay_type'] ?? 'D/D');
-        $prep = ($delayType === 'E/D') ? 'for' : (($delayType === 'A/D') ? 'to' : 'from');
         $location = strtoupper($data['location'] ?? $data['delay_facility'] ?? $data['ctl_element'] ?? '');
+        $reportingFacility = strtoupper($data['reporting_facility'] ?? '');
+        
+        // Determine delay value with trend indicator
         $delayValue = $data['delay_value'] ?? $data['longest_delay'] ?? '';
         $trend = strtolower($data['delay_trend'] ?? 'steady');
-        $delaySign = ($trend === 'increasing' || $trend === 'inc') ? '+' : (($trend === 'decreasing' || $trend === 'dec') ? '-' : '');
+        $delaySign = match($trend) {
+            'increasing', 'inc', 'initiating' => '+',
+            'decreasing', 'dec' => '-',
+            default => ''
+        };
+        
+        // Handle holding
         if (!empty($data['holding']) && $data['holding'] !== 'no') {
             $delayValue = ($delaySign ?: '+') . 'Holding';
         } else {
             $delayValue = "{$delaySign}{$delayValue}";
         }
+        
         $time = $this->formatTimeHHMM($data['report_time'] ?? null);
         $acftCount = $data['flights_delayed'] ?? $data['aircraft_count'] ?? '';
-        $optParts = [];
-        if (!empty($data['volume']) || !empty($data['reason_code'])) {
-            $optParts[] = "VOLUME:" . strtoupper($data['volume'] ?? $data['reason_code'] ?? 'VOLUME');
+        
+        // Build reason string
+        $reasonCode = strtoupper($data['reason_code'] ?? 'VOLUME');
+        $reasonDetail = strtoupper($data['reason_detail'] ?? $reasonCode);
+        $reasonStr = "{$reasonCode}:{$reasonDetail}";
+        
+        // Format based on delay type
+        switch ($delayType) {
+            case 'D/D':
+                // Departure Delay: "D/D from JFK, +45/0010 VOLUME:VOLUME"
+                // Note: D/D typically doesn't include aircraft count in real data
+                if ($acftCount) {
+                    return trim("{$logTime}    D/D from {$location}, {$delayValue}/{$time}/{$acftCount} ACFT {$reasonStr}");
+                }
+                return trim("{$logTime}    D/D from {$location}, {$delayValue}/{$time} {$reasonStr}");
+                
+            case 'E/D':
+                // En Route Delay: "ZDC E/D for BOS, +30/0019/13 ACFT VOLUME:VOLUME"
+                $prefix = $reportingFacility ? "{$reportingFacility} " : '';
+                return trim("{$logTime}    {$prefix}E/D for {$location}, {$delayValue}/{$time}/{$acftCount} ACFT {$reasonStr}");
+                
+            case 'A/D':
+                // Arrival Delay: "ZJX66 A/D to MIA, +Holding/0058 NAVAID:OMN STREAM VOLUME:VOLUME"
+                $prefix = $reportingFacility ? "{$reportingFacility} " : '';
+                $optParts = [];
+                
+                // NAVAID/fix for A/D
+                if (!empty($data['fix'])) {
+                    $optParts[] = "NAVAID:" . strtoupper($data['fix']);
+                }
+                
+                // Stream indicator
+                if (!empty($data['stream'])) {
+                    $optParts[] = strtoupper($data['stream']);
+                }
+                
+                $optParts[] = $reasonStr;
+                $optStr = implode(' ', $optParts);
+                
+                return trim("{$logTime}    {$prefix}A/D to {$location}, {$delayValue}/{$time} {$optStr}");
+                
+            default:
+                // Fallback to generic format
+                return trim("{$logTime}    {$delayType} {$location}, {$delayValue}/{$time} {$reasonStr}");
         }
-        if (!empty($data['fix'])) $optParts[] = "FIX/NAVAID:" . strtoupper($data['fix']);
-        $optStr = !empty($optParts) ? ' ' . implode(' ', $optParts) : '';
-        return trim("{$logTime}    {$delayType} {$prep} {$location}, {$delayValue}/{$time}/{$acftCount} ACFT{$optStr}");
     }
     
     private function formatConfigEntry(array $data): string {

@@ -47,29 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     $action = $_POST['action'];
 
-    // Connect to SWIM database
-    $conn_swim_str = "sqlsrv:Server=" . getenv('SWIM_DB_SERVER') . ";Database=" . getenv('SWIM_DB_NAME');
-    try {
-        // Use existing connection if available
-        if (!isset($conn_swim) || !$conn_swim) {
-            $serverName = getenv('SWIM_DB_SERVER') ?: getenv('DB_SERVER');
-            $database = getenv('SWIM_DB_NAME') ?: 'SWIM_API';
-            $uid = getenv('DB_USER');
-            $pwd = getenv('DB_PASS');
+    // Use SWIM database connection from load/connect.php
+    // Connection uses SWIM_SQL_* constants defined in config.php
+    global $conn_swim;
 
-            $connectionInfo = [
-                "Database" => $database,
-                "UID" => $uid,
-                "PWD" => $pwd,
-                "Encrypt" => true,
-                "TrustServerCertificate" => false,
-                "ConnectionPooling" => true
-            ];
-            $conn_swim = sqlsrv_connect($serverName, $connectionInfo);
+    try {
+        // Use lazy-loaded connection if global not available
+        if (!$conn_swim) {
+            $conn_swim = function_exists('get_conn_swim') ? get_conn_swim() : null;
         }
 
         if (!$conn_swim) {
-            throw new Exception('Database connection failed');
+            throw new Exception('SWIM database connection not available. Check SWIM_SQL_* configuration in config.php');
         }
 
         if ($action === 'create_key') {
