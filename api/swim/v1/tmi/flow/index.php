@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - External Flow Management Index
+ * VATSWIM API v1 - External Flow Management Index
  *
  * Overview of external flow management integration endpoints.
  * Supports multiple providers: ECFMP, NavCanada, VATPAC, etc.
@@ -62,7 +62,7 @@ if ($conn_tmi) {
 $response = [
     'success' => true,
     'api' => [
-        'name' => 'VATSIM SWIM External Flow Management API',
+        'name' => 'VATSWIM External Flow Management API',
         'version' => '1.0.0',
         'description' => 'Provider-agnostic integration for external flow management systems (ECFMP, NavCanada, VATPAC, etc.)'
     ],

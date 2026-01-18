@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Metering Data Query Endpoint
+ * VATSWIM API v1 - Metering Data Query Endpoint
  *
  * Returns TBFM-style metering data for an airport, optimized for vNAS/CRC datablock display.
  * Field naming follows FIXM 4.3 specification.
@@ -72,7 +72,7 @@ $use_fixm = ($format === 'fixm');
 $format_options = [
     'root' => 'swim_metering',
     'item' => 'flight',
-    'name' => 'VATSIM SWIM Metering - ' . $airport,
+    'name' => 'VATSWIM Metering - ' . $airport,
     'filename' => 'swim_metering_' . $airport . '_' . date('Ymd_His')
 ];
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - TMI Controlled Flights Endpoint
+ * VATSWIM API v1 - TMI Controlled Flights Endpoint
  * 
  * Returns flights currently under Traffic Management Initiative control.
  * Uses swim_flights table from SWIM_API database (not VATSIM_ADL).

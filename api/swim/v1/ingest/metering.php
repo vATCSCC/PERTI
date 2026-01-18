@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Metering Data Ingest Endpoint
+ * VATSWIM API v1 - Metering Data Ingest Endpoint
  *
  * Receives TBFM-style metering data from authoritative sources (SimTraffic, vATCSCC).
  * Updates FIXM-aligned metering fields in swim_flights table.

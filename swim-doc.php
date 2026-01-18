@@ -1,9 +1,9 @@
 <?php
 /**
- * VATSIM SWIM API - Markdown Documentation Viewer
+ * VATSWIM API - Markdown Documentation Viewer
  *
  * Renders markdown documentation files as HTML pages.
- * Usage: swim-doc.php?file=VATSIM_SWIM_FIXM_Field_Mapping
+ * Usage: swim-doc.php?file=VATSWIM_FIXM_Field_Mapping
  *
  * @package PERTI
  * @subpackage SWIM
@@ -17,27 +17,27 @@ include("load/config.php");
 
 // Allowed documentation files (whitelist for security)
 $allowed_files = [
-    'VATSIM_SWIM_FIXM_Field_Mapping' => [
+    'VATSWIM_FIXM_Field_Mapping' => [
         'title' => 'FIXM Field Mapping',
         'description' => 'FIXM 4.3 + TFMS field alignment with vATCSCC extensions'
     ],
-    'VATSIM_SWIM_Design_Document_v1' => [
+    'VATSWIM_Design_Document_v1' => [
         'title' => 'Design Document',
         'description' => 'System architecture, data flow, and design decisions'
     ],
-    'VATSIM_SWIM_API_Documentation' => [
+    'VATSWIM_API_Documentation' => [
         'title' => 'API Documentation',
         'description' => 'Complete API guide with examples and integration patterns'
     ],
-    'VATSIM_SWIM_Release_Documentation' => [
+    'VATSWIM_Release_Documentation' => [
         'title' => 'Release Documentation',
         'description' => 'Release notes, deployment guide, and configuration reference'
     ],
-    'VATSIM_SWIM_Announcement' => [
+    'VATSWIM_Announcement' => [
         'title' => 'Launch Announcement',
-        'description' => 'Official SWIM API launch announcement'
+        'description' => 'Official VATSWIM API launch announcement'
     ],
-    'VATSIM_SWIM_API_Field_Migration' => [
+    'VATSWIM_API_Field_Migration' => [
         'title' => 'Field Migration Guide',
         'description' => 'Migration guide for transitioning to FIXM-aligned naming'
     ],
@@ -72,6 +72,10 @@ $allowed_files = [
     'SWIM_Phase2_Phase3_Transition' => [
         'title' => 'Phase 2/3 Transition',
         'description' => 'Phase transition planning and implementation notes'
+    ],
+    'VATSWIM_Setup_Checklist' => [
+        'title' => 'Setup Checklist',
+        'description' => 'Production deployment checklist and verification steps'
     ]
 ];
 

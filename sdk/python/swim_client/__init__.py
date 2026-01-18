@@ -1,7 +1,7 @@
 """
-VATSIM SWIM Client SDK
+VATSWIM Client SDK
 
-A Python SDK for the VATSIM SWIM (System Wide Information Management) API.
+A Python SDK for the VATSWIM (System Wide Information Management) API.
 
 Features:
 - REST API client for querying flights, positions, and TMIs

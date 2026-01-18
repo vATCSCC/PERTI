@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API - Technical Documentation Hub
+ * VATSWIM API - Technical Documentation Hub
  *
  * Organized index of all SWIM technical documentation, schema references,
  * and standards alignment documents.
@@ -259,21 +259,21 @@ include("load/config.php");
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="swim-doc?file=VATSIM_SWIM_Design_Document_v1" class="doc-card">
+                <a href="swim-doc?file=VATSWIM_Design_Document_v1" class="doc-card">
                     <h5><i class="fas fa-drafting-compass"></i>Design Document <span class="doc-badge badge-primary">v1.3</span></h5>
                     <p>Complete architecture overview including data flow, infrastructure, and unified flight record design.</p>
                     <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="swim-doc?file=VATSIM_SWIM_API_Documentation" class="doc-card">
+                <a href="swim-doc?file=VATSWIM_API_Documentation" class="doc-card">
                     <h5><i class="fas fa-book"></i>Full API Documentation</h5>
                     <p>Comprehensive API guide with examples, WebSocket events, and integration patterns.</p>
                     <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="swim-doc?file=VATSIM_SWIM_Release_Documentation" class="doc-card">
+                <a href="swim-doc?file=VATSWIM_Release_Documentation" class="doc-card">
                     <h5><i class="fas fa-rocket"></i>Release Documentation</h5>
                     <p>Release notes, deployment guide, and configuration reference.</p>
                     <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
@@ -290,9 +290,9 @@ include("load/config.php");
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="swim-doc?file=VATSIM_SWIM_FIXM_Field_Mapping" class="doc-card">
+                <a href="swim-doc?file=VATSWIM_FIXM_Field_Mapping" class="doc-card">
                     <h5><i class="fas fa-exchange-alt"></i>FIXM Field Mapping <span class="doc-badge badge-spec">FIXM 4.3</span></h5>
-                    <p>Complete field mapping between VATSIM SWIM, FIXM 4.3, and TFMS standards.</p>
+                    <p>Complete field mapping between VATSWIM, FIXM 4.3, and TFMS standards.</p>
                     <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
                 </a>
             </div>
@@ -304,7 +304,7 @@ include("load/config.php");
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="swim-doc?file=VATSIM_SWIM_API_Field_Migration" class="doc-card">
+                <a href="swim-doc?file=VATSWIM_API_Field_Migration" class="doc-card">
                     <h5><i class="fas fa-code-branch"></i>Field Migration Guide</h5>
                     <p>Migration guide for transitioning from legacy field names to FIXM-aligned naming.</p>
                     <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
@@ -391,7 +391,7 @@ include("load/config.php");
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
-                <a href="swim-doc?file=VATSIM_SWIM_Announcement" class="doc-card">
+                <a href="swim-doc?file=VATSWIM_Announcement" class="doc-card">
                     <h5><i class="fas fa-newspaper"></i>Launch Announcement</h5>
                     <p>Official SWIM API launch announcement with feature overview and getting started guide.</p>
                     <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>

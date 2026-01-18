@@ -1,6 +1,6 @@
-# VATSIM SWIM C# SDK
+# VATSWIM C# SDK
 
-Official .NET SDK for the VATSIM SWIM (System Wide Information Management) API.
+Official .NET SDK for the VATSWIM (System Wide Information Management) API.
 
 [![NuGet](https://img.shields.io/nuget/v/VatSim.Swim.Client.svg)](https://www.nuget.org/packages/VatSim.Swim.Client/)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%207.0%20%7C%208.0-blue.svg)](https://dotnet.microsoft.com/)

@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Index/Router
+ * VATSWIM API v1 - Index/Router
  * @version 1.0.0
  */
 
@@ -9,7 +9,7 @@ require_once __DIR__ . '/auth.php';
 SwimResponse::handlePreflight();
 
 SwimResponse::success([
-    'name' => 'VATSIM SWIM API',
+    'name' => 'VATSWIM API',
     'version' => SWIM_API_VERSION,
     'description' => 'System Wide Information Management for VATSIM',
     'documentation' => 'https://perti.vatcscc.org/docs/swim/',

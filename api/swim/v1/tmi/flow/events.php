@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Flow Events Endpoint
+ * VATSWIM API v1 - Flow Events Endpoint
  *
  * Returns special events (CTP, FNO, etc.) from external flow management providers.
  * FIXM-aligned: maps to /flight/specialHandling and /atfm/event

@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - TMI Programs Endpoint
+ * VATSWIM API v1 - TMI Programs Endpoint
  * 
  * Returns active Traffic Management Initiative programs (Ground Stops, GDPs).
  * Ground Stops: MySQL (tmi_ground_stops)

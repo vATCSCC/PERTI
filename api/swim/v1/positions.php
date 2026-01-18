@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Positions Endpoint
+ * VATSWIM API v1 - Positions Endpoint
  * 
  * Returns bulk flight positions in GeoJSON format.
  * Uses denormalized swim_flights table from SWIM_API database.

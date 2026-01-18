@@ -1,4 +1,4 @@
-# VATSIM SWIM API Field Migration
+# VATSWIM API Field Migration
 ## FIXM/TFMS-Compliant Field Names
 
 **Version:** 1.0  

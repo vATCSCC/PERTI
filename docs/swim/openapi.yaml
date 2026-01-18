@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: VATSIM SWIM API
+  title: VATSWIM API
   description: |
-    System Wide Information Management (SWIM) API for VATSIM.
-    
-    SWIM provides a centralized data exchange hub enabling real-time flight information 
+    VATSWIM (System Wide Information Management) API for VATSIM.
+
+    VATSWIM provides a centralized data exchange hub enabling real-time flight information
     sharing across the VATSIM ecosystem. It serves as a single source of truth for flight 
     data, enabling consistent Traffic Management Initiative (TMI) implementation, 
     synchronized arrival/departure times, and seamless data exchange between VATSIM systems.
@@ -208,7 +208,7 @@ paths:
               example:
                 success: true
                 data:
-                  name: VATSIM SWIM API
+                  name: VATSWIM API
                   version: "1.0.0"
                   description: System Wide Information Management for VATSIM
                   documentation: https://perti.vatcscc.org/docs/swim/

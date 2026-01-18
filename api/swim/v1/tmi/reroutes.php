@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - TMI Reroutes Endpoint
+ * VATSWIM API v1 - TMI Reroutes Endpoint
  * 
  * Returns active reroute definitions and their flight assignments.
  * Data from VATSIM_TMI database (tmi_reroutes, tmi_reroute_flights tables).

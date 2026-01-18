@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - TMI Index Endpoint
+ * VATSWIM API v1 - TMI Index Endpoint
  * 
  * Returns overview of TMI (Traffic Management Initiative) data and endpoints.
  * 
@@ -88,7 +88,7 @@ if ($conn_tmi) {
 $response = [
     'success' => true,
     'api' => [
-        'name' => 'VATSIM SWIM TMI API',
+        'name' => 'VATSWIM TMI API',
         'version' => '1.0.0',
         'description' => 'Traffic Management Initiative data for VATSIM network'
     ],

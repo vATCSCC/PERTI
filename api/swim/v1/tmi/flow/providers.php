@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Flow Providers Endpoint
+ * VATSWIM API v1 - Flow Providers Endpoint
  *
  * Returns registered external flow management providers.
  * Provider-agnostic design supports ECFMP, NavCanada, VATPAC, and future integrations.

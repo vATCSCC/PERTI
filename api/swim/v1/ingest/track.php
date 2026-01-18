@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Track Data Ingest Endpoint
+ * VATSWIM API v1 - Track Data Ingest Endpoint
  * 
  * Receives real-time track data from authoritative sources (vNAS, CRC, EuroScope, AOC).
  * Updates position and track information in the swim_flights table.

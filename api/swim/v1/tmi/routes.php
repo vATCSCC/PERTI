@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - TMI Public Routes Endpoint
+ * VATSWIM API v1 - TMI Public Routes Endpoint
  * 
  * Returns public route display data for map visualization.
  * Data from VATSIM_TMI database (tmi_public_routes table).

@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM Configuration
+ * VATSWIM Configuration
  * 
  * Configuration settings for the System Wide Information Management (SWIM) API.
  * 

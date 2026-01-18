@@ -36,8 +36,8 @@ logger = logging.getLogger('swim_client')
 
 class SWIMClient:
     """
-    VATSIM SWIM WebSocket Client
-    
+    VATSWIM WebSocket Client
+
     Connects to the PERTI SWIM API for real-time flight data streaming.
     
     Example:
