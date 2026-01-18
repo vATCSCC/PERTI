@@ -105,8 +105,16 @@ switch ($method) {
         $stmt = sqlsrv_query($conn, $sql);
 
         if ($stmt === false) {
+            // Check if it's a table-not-exists error - return empty list gracefully
+            $errMsg = sql_error_msg();
+            if (strpos($errMsg, 'Invalid object name') !== false ||
+                strpos($errMsg, 'does not exist') !== false) {
+                // Table doesn't exist yet - return empty list
+                echo json_encode(["monitors" => []], JSON_PRETTY_PRINT);
+                exit;
+            }
             http_response_code(500);
-            echo json_encode(["error" => "Query failed", "sql_error" => sql_error_msg()]);
+            echo json_encode(["error" => "Query failed", "sql_error" => $errMsg]);
             exit;
         }
 
