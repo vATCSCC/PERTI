@@ -13,6 +13,11 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: public, max-age=30');
 
 require_once("../../load/config.php");
+
+// Define PERTI_LOADED for swim_config.php access control
+if (!defined('PERTI_LOADED')) {
+    define('PERTI_LOADED', true);
+}
 require_once("../../load/swim_config.php");
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
