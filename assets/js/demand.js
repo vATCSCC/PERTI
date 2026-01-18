@@ -1603,14 +1603,12 @@ function renderChart(data) {
 
     // Calculate interval for x-axis bounds
     const intervalMs = getGranularityMinutes() * 60 * 1000;
+    const proRateFactor = getGranularityMinutes() / 60;
 
     // Build chart title - FSM/TBFM style: Airport (left) | Date (center) | Time (right)
     const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
 
     // Calculate y-axis max to ensure rate lines are visible AND all data is captured
-    // Pro-rate factor for sub-hourly granularity
-    const intervalMs = getGranularityMinutes() * 60 * 1000;
-    const proRateFactor = getGranularityMinutes() / 60;
 
     // Calculate max demand from data series
     let maxDemand = 0;
