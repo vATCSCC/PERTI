@@ -83,6 +83,11 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Cache-Control: public, max-age=60');
 
+// Define PERTI_LOADED for swim_config.php access control
+if (!defined('PERTI_LOADED')) {
+    define('PERTI_LOADED', true);
+}
+
 require_once(__DIR__ . '/../../../load/config.php');
 require_once(__DIR__ . '/../../../load/swim_config.php');
 
