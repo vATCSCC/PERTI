@@ -1,6 +1,6 @@
-# VATSIM SWIM JavaScript/TypeScript SDK
+# VATSWIM JavaScript/TypeScript SDK
 
-Official JavaScript/TypeScript SDK for the VATSIM SWIM (System Wide Information Management) API.
+Official JavaScript/TypeScript SDK for the VATSWIM (System Wide Information Management) API.
 
 [![npm version](https://img.shields.io/npm/v/@vatsim/swim-client.svg)](https://www.npmjs.com/package/@vatsim/swim-client)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)

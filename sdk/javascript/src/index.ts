@@ -1,6 +1,6 @@
 /**
- * VATSIM SWIM Client SDK
- * 
+ * VATSWIM Client SDK
+ *
  * @packageDocumentation
  */
 

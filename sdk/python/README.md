@@ -1,6 +1,6 @@
-# VATSIM SWIM Python SDK
+# VATSWIM Python SDK
 
-Official Python SDK for the VATSIM SWIM (System Wide Information Management) API.
+Official Python SDK for the VATSWIM (System Wide Information Management) API.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
