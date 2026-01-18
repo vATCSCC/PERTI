@@ -2324,16 +2324,47 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     // Build chart title
     const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
 
-    // Calculate y-axis max
-    let yAxisMax = null;
+    // Calculate y-axis max from actual data and rates
+    // Sum stacked values per bin to get total per time bin
+    let maxDemand = 0;
+    if (series.length > 0) {
+        const binCount = timeBins.length;
+        for (let i = 0; i < binCount; i++) {
+            let binTotal = 0;
+            series.forEach(s => {
+                if (s.data && s.data[i]) {
+                    binTotal += s.data[i][1] || 0;
+                }
+            });
+            if (binTotal > maxDemand) maxDemand = binTotal;
+        }
+    }
+
+    // Get max rate (if available) - pro-rate for granularity
+    const proRateFactor = getGranularityMinutes() / 60;
+    let maxRate = 0;
     if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
         const rates = DEMAND_STATE.rateData.rates;
-        const maxRate = Math.max(
-            rates.vatsim_aar || 0,
-            rates.rw_aar || 0
+        maxRate = Math.max(
+            (rates.vatsim_aar || 0) * proRateFactor,
+            (rates.vatsim_adr || 0) * proRateFactor,
+            (rates.rw_aar || 0) * proRateFactor,
+            (rates.rw_adr || 0) * proRateFactor
         );
-        if (maxRate > 0) {
-            yAxisMax = Math.ceil(maxRate * 1.1);
+    }
+
+    // Use the higher of max demand or max rate, with padding
+    let yAxisMax = null;
+    const effectiveMax = Math.max(maxDemand, maxRate);
+    if (effectiveMax > 0) {
+        const padded = effectiveMax * 1.15; // 15% padding
+        // Round up to nearest logical interval
+        if (padded <= 10) {
+            yAxisMax = Math.ceil(padded);
+        } else if (padded <= 50) {
+            yAxisMax = Math.ceil(padded / 5) * 5; // Round to nearest 5
+        } else {
+            yAxisMax = Math.ceil(padded / 10) * 10; // Round to nearest 10
         }
     }
 
