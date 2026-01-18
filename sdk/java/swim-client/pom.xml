@@ -9,8 +9,8 @@
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>VATSIM SWIM Client</name>
-    <description>Java SDK for VATSIM SWIM API - REST and WebSocket client for flight data</description>
+    <name>VATSWIM Client</name>
+    <description>Java SDK for VATSWIM API - REST and WebSocket client for flight data</description>
     <url>https://perti.vatcscc.org</url>
 
     <licenses>

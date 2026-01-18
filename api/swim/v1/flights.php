@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Flights Endpoint
+ * VATSWIM API v1 - Flights Endpoint
  *
  * Returns flight data from the denormalized swim_flights table in SWIM_API database.
  * Data is synced from VATSIM_ADL normalized tables every 15 seconds.
@@ -71,7 +71,7 @@ $cache_params = array_filter([
 $format_options = [
     'root' => 'swim_flights',
     'item' => 'flight',
-    'name' => 'VATSIM SWIM Flights',
+    'name' => 'VATSWIM Flights',
     'filename' => 'swim_flights_' . date('Ymd_His')
 ];
 

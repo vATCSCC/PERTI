@@ -1,4 +1,4 @@
-# VATSIM SWIM API Field Mapping
+# VATSWIM API Field Mapping
 ## FIXM + TFMS Alignment with vATCSCC Extensions
 
 **Version:** 1.1  

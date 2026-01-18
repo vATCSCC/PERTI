@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API - Reference & Announcement Page
+ * VATSWIM API - Reference & Announcement Page
  *
  * Landing page for the SWIM (System Wide Information Management) API.
  * Includes release announcement, capabilities overview, getting started guide,
@@ -345,7 +345,7 @@ include("load/config.php");
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1><i class="fas fa-database mr-2"></i>VATSIM SWIM API</h1>
+            <h1><i class="fas fa-database mr-2"></i>VATSWIM API</h1>
             <h4 class="text-white pl-1">System Wide Information Management</h4>
             <p class="text-muted mb-3">Version 1.0.0 &bull; Production Ready</p>
             <div>
@@ -365,7 +365,7 @@ include("load/config.php");
 
     <!-- What is SWIM Section -->
     <div class="section-header">
-        <h2>What is VATSIM SWIM?</h2>
+        <h2>What is VATSWIM?</h2>
         <p>A centralized real-time data exchange hub for flight information across the VATSIM network.</p>
     </div>
 

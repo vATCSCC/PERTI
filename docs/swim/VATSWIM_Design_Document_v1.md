@@ -1,4 +1,4 @@
-# VATSIM SWIM (System Wide Information Management)
+# VATSWIM (System Wide Information Management)
 # Design Document v1.3
 
 **Document Status:** PHASE 0 COMPLETE  
@@ -28,7 +28,7 @@
 
 ### 1.1 Purpose
 
-VATSIM SWIM (System Wide Information Management) is a centralized data exchange hub enabling real-time flight information sharing across the VATSIM ecosystem. It provides a single source of truth for flight data, enabling consistent Traffic Management Initiative (TMI) implementation, synchronized arrival/departure times, and seamless data exchange between all VATSIM systems.
+VATSWIM (System Wide Information Management) is a centralized data exchange hub enabling real-time flight information sharing across the VATSIM ecosystem. It provides a single source of truth for flight data, enabling consistent Traffic Management Initiative (TMI) implementation, synchronized arrival/departure times, and seamless data exchange between all VATSIM systems.
 
 ### 1.2 Problem Statement
 

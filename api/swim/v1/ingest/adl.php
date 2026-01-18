@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - ADL Ingest Endpoint
+ * VATSWIM API v1 - ADL Ingest Endpoint
  * 
  * Receives flight data from authoritative sources and updates swim_flights in SWIM_API.
  * This endpoint allows external systems to push flight updates.

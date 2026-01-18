@@ -1,4 +1,4 @@
-# VATSIM SWIM API - Official Launch Announcement
+# VATSWIM API - Official Launch Announcement
 
 **System Wide Information Management (SWIM) for VATSIM**
 
@@ -8,9 +8,9 @@
 
 ---
 
-## What is VATSIM SWIM?
+## What is VATSWIM?
 
-VATSIM SWIM (System Wide Information Management) is a centralized real-time data exchange hub that provides unified access to flight information across the entire VATSIM network. SWIM serves as a single source of truth for flight data, enabling consistent information sharing between all VATSIM systems, tools, and services.
+VATSWIM (System Wide Information Management) is a centralized real-time data exchange hub that provides unified access to flight information across the entire VATSIM network. SWIM serves as a single source of truth for flight data, enabling consistent information sharing between all VATSIM systems, tools, and services.
 
 **Base URL:** `https://perti.vatcscc.org/api/swim/v1`
 
@@ -354,4 +354,4 @@ POST /ingest/metering               # Metering/sequencing data
 
 ---
 
-*VATSIM SWIM is provided by vATCSCC for the VATSIM community. For flight simulation use only.*
+*VATSWIM is provided by vATCSCC for the VATSIM community. For flight simulation use only.*

@@ -27,8 +27,8 @@ logger = logging.getLogger('swim_client.rest')
 
 class SWIMRestClient:
     """
-    VATSIM SWIM REST API Client
-    
+    VATSWIM REST API Client
+
     Provides access to SWIM REST endpoints for querying flight data,
     positions, TMI programs, and ingesting data.
     

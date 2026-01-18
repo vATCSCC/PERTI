@@ -9,7 +9,7 @@
 
 ## 1. Flight Identification
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSWIM |
 |---------|----------|-----------|-----------|-------|---------|-----------|-------------|
 | **Unique Flight ID** | `gufi` | `FlightId` | `ACID` + `DEPT` + `DEST` + `ETD` | `FlightId` | I062/390 | — | `gufi` |
 | **Callsign** | `aircraftIdentification` | `AirlineFlightId` | `ACID` | `AircraftId` | I062/060 (Mode 3/A) | `FlightNumber` | `callsign` |
@@ -25,7 +25,7 @@
 
 ## 2. Aircraft Information
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSWIM |
 |---------|----------|-----------|-----------|-------|---------|-----------|-------------|
 | **Aircraft Type (ICAO)** | `aircraftType` | `AircraftType` | `APTS` / `TYPE` | `AircraftType` | I062/390 | `AircraftType` | `aircraft_type` |
 | **Aircraft Type (FAA)** | `otherAircraftType` | — | `APTS` | — | — | — | `aircraft_faa` |
@@ -48,7 +48,7 @@
 
 ## 3. Airports & Locations
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSWIM |
 |---------|----------|-----------|-----------|-------|---------|-----------|-------------|
 | **Departure Airport** | `departureAerodrome` | `DepartureAirport` | `DEPT` | `ADEP` | I062/390 | `DepartureAirport` | `dept_icao` |
 | **Arrival Airport** | `arrivalAerodrome` | `ArrivalAirport` | `DEST` | `ADES` | I062/390 | `ArrivalAirport` | `dest_icao` |
@@ -65,7 +65,7 @@
 
 ## 4. Route & Trajectory
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX | ARINC 633 | VATSWIM |
 |---------|----------|-----------|-----------|-------|---------|-----------|-------------|
 | **Filed Route** | `routeText` | — | `ROUTE` | — | — | `Route` | `route` |
 | **Current Route** | `currentRouteText` | — | `CURR_RTE` | — | — | — | `current_route` |
@@ -83,7 +83,7 @@
 
 ## 5. Position & Track Data
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX CAT062 | GeoJSON | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ASTERIX CAT062 | GeoJSON | VATSWIM |
 |---------|----------|-----------|-----------|-------|----------------|---------|-------------|
 | **Latitude** | `position/latitude` | — | `LAT` | — | I062/105 | `coordinates[1]` | `lat` |
 | **Longitude** | `position/longitude` | — | `LON` | — | I062/105 | `coordinates[0]` | `lon` |
@@ -100,7 +100,7 @@
 
 ## 6. Flight Times - OOOI (Out-Off-On-In)
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ARINC 633 | ACARS | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ARINC 633 | ACARS | VATSWIM |
 |---------|----------|-----------|-----------|-------|-----------|-------|-------------|
 | **OUT (Block Out/Pushback)** | `actualOffBlockTime` | `ActualOffBlockTime` (AOBT) | `OUT` | `AOBT` | `AOBT` | `OUT` | `out_utc` |
 | **OFF (Wheels Up/Takeoff)** | `actualTimeOfDeparture` | `ActualDepartureTime` (ATOT) | `OFF` | `ATOT` | `ATOT` | `OFF` | `off_utc` |
@@ -111,7 +111,7 @@
 
 ## 7. Flight Times - Scheduled/Estimated/Target
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ARINC 633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FADT | A-CDM | ARINC 633 | VATSWIM |
 |---------|----------|-----------|-----------|-------|-----------|-------------|
 | **Scheduled Departure (Block)** | `scheduledOffBlockTime` | `ScheduledOffBlockTime` (SOBT) | `SCHED_DEP` | `SOBT` | `SOBT` | — |
 | **Scheduled Departure (Runway)** | `scheduledTimeOfDeparture` | `ScheduledDepartureTime` (STD) | — | — | `STD` | — |
@@ -128,7 +128,7 @@
 
 ## 8. Flight Times - A-CDM Milestones
 
-| Concept | FIXM 4.3 US Ext | AIDX 22.1 | TFMS | A-CDM | Description | VATSIM SWIM |
+| Concept | FIXM 4.3 US Ext | AIDX 22.1 | TFMS | A-CDM | Description | VATSWIM |
 |---------|-----------------|-----------|------|-------|-------------|-------------|
 | **TOBT** | `targetOffBlockTime` | `TargetOffBlockTime` | — | `TOBT` | Target Off-Block Time (airline's estimate) | — |
 | **TSAT** | `targetStartupApprovalTime` | `TargetStartupApprovalTime` | — | `TSAT` | Target Startup Approval Time | — |
@@ -146,7 +146,7 @@
 
 ## 9. TMI / ATFM Control Data
 
-| Concept | FIXM 4.3 US Ext | AIDX | TFMS/FADT | A-CDM | EUROCONTROL | VATSIM SWIM |
+| Concept | FIXM 4.3 US Ext | AIDX | TFMS/FADT | A-CDM | EUROCONTROL | VATSWIM |
 |---------|-----------------|------|-----------|-------|-------------|-------------|
 | **EDCT** | `expectedDepartureClearanceTime` | — | `EDCT` | `CTOT` | `CTOT` | `edct_utc` |
 | **Controlled Time Departure** | `controlledTimeOfDeparture` | — | `CTD` | `CTOT` | `CTOT` | `ctd_utc` |
@@ -162,7 +162,7 @@
 
 ### TMI Control Types
 
-| Type | FIXM US Ext | TFMS Code | EUROCONTROL | Description | VATSIM SWIM |
+| Type | FIXM US Ext | TFMS Code | EUROCONTROL | Description | VATSWIM |
 |------|-------------|-----------|-------------|-------------|-------------|
 | Ground Stop | `GROUND_STOP` | `GS` | — | Ground Stop | `GS` |
 | Ground Delay Program | `GDP` | `GDP` | `GDP` | Ground Delay Program | `GDP` |
@@ -175,7 +175,7 @@
 
 ### Delay Status Codes (TFMS)
 
-| Code | TFMS | Description | VATSIM SWIM |
+| Code | TFMS | Description | VATSWIM |
 |------|------|-------------|-------------|
 | `ALD` | Airline Delay | Carrier-caused delay | `ALD` |
 | `GDP` | GDP Delay | Ground Delay Program | `GDP` |
@@ -189,7 +189,7 @@
 
 ## 10. Flight Status / Phase
 
-| Concept | FIXM 4.3 (FlightStatusType) | AIDX 22.1 | TFMS Status | A-CDM | ASTERIX | VATSIM SWIM |
+| Concept | FIXM 4.3 (FlightStatusType) | AIDX 22.1 | TFMS Status | A-CDM | ASTERIX | VATSWIM |
 |---------|------------------------------|-----------|-------------|-------|---------|-------------|
 | **Unknown** | `UNKNOWN` | — | — | — | — | `UNKNOWN` |
 | **Scheduled** | `SCHEDULED` | `Scheduled` | `SCHED` | `SCH` | — | `SCHEDULED` |
@@ -215,7 +215,7 @@
 
 ## 11. Cancellation Status (CNX)
 
-| Code | TFMS | FIXM | Description | VATSIM SWIM |
+| Code | TFMS | FIXM | Description | VATSWIM |
 |------|------|------|-------------|-------------|
 | `UX` | Update Cancelled | — | Flight plan update cancelled | — |
 | `FX` | Flight Cancelled | `CANCELLED` | Airline/operator cancelled | `FX` |
@@ -248,7 +248,7 @@
 
 ## 13. Airspace & Boundaries
 
-| Concept | FIXM 4.3 | AIXM 5.1 | TFMS | ASTERIX | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIXM 5.1 | TFMS | ASTERIX | VATSWIM |
 |---------|----------|----------|------|---------|-------------|
 | **ARTCC/FIR** | `airspace` | `Airspace` (type=FIR) | `ARTCC` | I062/270 | `current_artcc` |
 | **Sector** | `sectorId` | `AirspaceVolume` | `SECTOR` | — | `current_sector` |
@@ -264,7 +264,7 @@
 
 ## 14. Metering & Sequencing (TBFM)
 
-| Concept | FIXM 4.3 US Ext | TFMS/TBFM | EUROCONTROL | SimTraffic | VATSIM SWIM |
+| Concept | FIXM 4.3 US Ext | TFMS/TBFM | EUROCONTROL | SimTraffic | VATSWIM |
 |---------|-----------------|-----------|-------------|------------|-------------|
 | **Meter Fix** | `meteringPoint` | `METER_FIX` | — | `meter_fix` | `meter_fix` |
 | **Meter Fix Time** | `meteringTime` | `MF_TIME` | — | `mf_time` | `meter_fix_time` |
@@ -279,7 +279,7 @@
 
 ## 15. Weather Data (IWXXM / WXXM)
 
-| Concept | IWXXM 3.0 | WXXM 2.0 | TFMS | VATSIM SWIM |
+| Concept | IWXXM 3.0 | WXXM 2.0 | TFMS | VATSWIM |
 |---------|-----------|----------|------|-------------|
 | **Wind Direction** | `windDirection` | `WindDirection` | `WIND_DIR` | `wind_dir_deg` |
 | **Wind Speed** | `windSpeed` | `WindSpeed` | `WIND_SPD` | `wind_speed_kts` |
@@ -323,7 +323,7 @@
 | **FIXM/FF-ICE** | UUID v4 | `123e4567-e89b-12d3-a456-426614174000` |
 | **FAA GUFI** | `YYYYMMDD.HHMM.ACID.DEPT.DEST.REG` | `20260116.1430.UAL123.KJFK.KLAX.N12345` |
 | **EUROCONTROL** | IFPLID | `AA12345678` |
-| **VATSIM SWIM** | `VAT-YYYYMMDD-CALLSIGN-DEPT-DEST` | `VAT-20260116-UAL123-KJFK-KLAX` |
+| **VATSWIM** | `VAT-YYYYMMDD-CALLSIGN-DEPT-DEST` | `VAT-20260116-UAL123-KJFK-KLAX` |
 
 ---
 
@@ -343,7 +343,7 @@
 
 ---
 
-## 19. Quick Reference: Common Field Mappings for VATSIM SWIM
+## 19. Quick Reference: Common Field Mappings for VATSWIM
 
 | Your Current Field | FIXM 4.3 | AIDX | TFMS | Recommended Standard Name |
 |--------------------|----------|------|------|---------------------------|

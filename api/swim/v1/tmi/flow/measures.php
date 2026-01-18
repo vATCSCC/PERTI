@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Flow Measures Endpoint
+ * VATSWIM API v1 - Flow Measures Endpoint
  *
  * Returns flow measures (MIT, MINIT, MDI, GS, etc.) from external providers.
  * TFMS/FIXM-aligned structure for global interoperability.

@@ -1,4 +1,4 @@
-# VATSIM SWIM (System Wide Information Management)
+# VATSWIM (System Wide Information Management)
 
 > Centralized data exchange hub for real-time flight information sharing across the VATSIM ecosystem.
 

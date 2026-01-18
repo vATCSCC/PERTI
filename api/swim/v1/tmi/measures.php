@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Unified TMI Measures Endpoint
+ * VATSWIM API v1 - Unified TMI Measures Endpoint
  *
  * Returns ALL traffic management measures from both:
  *   - VATCSCC (USA): tmi_programs (GS/GDP/AFP), tmi_entries (MIT/MINIT)

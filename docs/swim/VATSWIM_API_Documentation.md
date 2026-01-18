@@ -1,4 +1,4 @@
-# VATSIM SWIM API Documentation
+# VATSWIM API Documentation
 
 **Version:** 1.0.0  
 **Last Updated:** January 16, 2026  
@@ -25,9 +25,9 @@
 
 ## 1. Overview
 
-### 1.1 What is VATSIM SWIM?
+### 1.1 What is VATSWIM?
 
-VATSIM SWIM (System Wide Information Management) is a comprehensive API that provides access to real-time and historical flight data from the VATSIM virtual air traffic control network. The API follows FAA SWIM and FIXM (Flight Information Exchange Model) standards to provide standardized flight data to external consumers.
+VATSWIM (System Wide Information Management) is a comprehensive API that provides access to real-time and historical flight data from the VATSIM virtual air traffic control network. The API follows FAA SWIM and FIXM (Flight Information Exchange Model) standards to provide standardized flight data to external consumers.
 
 ### 1.2 Key Features
 
@@ -131,7 +131,7 @@ Returns API information and available endpoints.
 {
   "success": true,
   "data": {
-    "name": "VATSIM SWIM API",
+    "name": "VATSWIM API",
     "version": "1.0.0",
     "description": "System Wide Information Management for VATSIM",
     "documentation": "https://perti.vatcscc.org/docs/swim/",

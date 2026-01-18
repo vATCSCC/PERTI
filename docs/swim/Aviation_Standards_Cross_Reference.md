@@ -8,7 +8,7 @@
 
 ## 1. Flight Identification
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ARINC 633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ARINC 633 | VATSWIM |
 |---------|----------|-----------|----------|-------|-----------|-------------|
 | Unique flight ID | `gufi` | — | `ACID` + `DEP` + `DEST` + `ETD` | — | — | `gufi` |
 | Callsign | `flightIdentification/aircraftIdentification` | `FlightId/FlightNumber` | `ACID` | `arcid` | `FlightNumber` | `callsign` |
@@ -20,7 +20,7 @@
 
 ## 2. Aircraft Information
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ICAO FPL | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ICAO FPL | VATSWIM |
 |---------|----------|-----------|----------|-------|----------|-------------|
 | Aircraft type | `aircraft/aircraftType/icaoAircraftTypeDesignator` | `AircraftType/AircraftIATACode` | `ACFT_TYPE` | `arctyp` | Field 9 | `aircraft_type` |
 | Registration | `aircraft/registration` | `AircraftType/AircraftRegistration` | `REG` | `reg` | Field 7 | `registration` |
@@ -41,7 +41,7 @@
 
 ## 3. Departure Information
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS/633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS/633 | VATSWIM |
 |---------|----------|-----------|----------|-------|-----------|-------------|
 | Departure airport | `departure/aerodrome/locationIndicator` | `DepartureAirport` | `DEP` | `adep` | `DepAirport` | `dept_icao` |
 | Departure gate | `departure/departurePoint/stand` | `DepartureGate` | — | `dgate` | `Gate` | `dept_gate` |
@@ -53,7 +53,7 @@
 
 ## 4. Arrival Information
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS/633 | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS/633 | VATSWIM |
 |---------|----------|-----------|----------|-------|-----------|-------------|
 | Destination airport | `arrival/destinationAerodrome/locationIndicator` | `ArrivalAirport` | `DEST` | `ades` | `ArrAirport` | `dest_icao` |
 | Arrival gate | `arrival/arrivalPoint/stand` | `ArrivalGate` | — | `agate` | `Gate` | `dest_gate` |
@@ -66,7 +66,7 @@
 
 ## 5. Route & Trajectory
 
-| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | ICAO FPL | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | ICAO FPL | VATSWIM |
 |---------|----------|-----------|----------|----------|-------------|
 | Route string | `routeTrajectoryGroup/element/routeDesignator` | — | `ROUTE` | Field 15 | `route` |
 | Filed altitude | `routeTrajectoryGroup/cruisingLevel` | — | `REQ_ALT` | Field 15 | `cruise_altitude` |
@@ -80,7 +80,7 @@
 
 ### 6.1 Departure Times
 
-| Time Type | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS | VATSIM SWIM |
+| Time Type | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS | VATSWIM |
 |-----------|----------|-----------|----------|-------|-------|-------------|
 | **Scheduled departure** | `departure/estimatedTime` (with qualifier) | `ScheduledDepartureDateTime` | `SDTE` | `sibt` | — | `scheduled_dept_utc` |
 | **Estimated off-block** | `departure/estimatedOffBlockTime` | `EstimatedOffBlockDateTime` | `EOBT` | `eobt` | — | `etd_utc` |
@@ -94,7 +94,7 @@
 
 ### 6.2 Arrival Times
 
-| Time Type | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS | VATSIM SWIM |
+| Time Type | FIXM 4.3 | AIDX 22.1 | TFMS/FAA | A-CDM | ACARS | VATSWIM |
 |-----------|----------|-----------|----------|-------|-------|-------------|
 | **Scheduled arrival** | `arrival/estimatedTime` (with qualifier) | `ScheduledArrivalDateTime` | `SATE` | `sibt` | — | `scheduled_arr_utc` |
 | **Estimated landing** | `arrival/estimatedArrivalTime` | `EstimatedArrivalDateTime` | `ETA` | `eldt` | — | `eta_utc` |
@@ -108,7 +108,7 @@
 
 ### 6.3 OOOI Times (Out-Off-On-In)
 
-| Event | FIXM 4.3 | AIDX 22.1 | TFMS | A-CDM | ACARS | VATSIM SWIM |
+| Event | FIXM 4.3 | AIDX 22.1 | TFMS | A-CDM | ACARS | VATSWIM |
 |-------|----------|-----------|------|-------|-------|-------------|
 | **OUT** (pushback) | `departure/actualOffBlockTime` | `ActualOffBlockDateTime` | `AOBT` | `aobt` | `OUT` | `out_utc` |
 | **OFF** (wheels up) | `departure/actualTimeOfDeparture` | `ActualDepartureDateTime` | `ATOT` | `atot` | `OFF` | `off_utc` |
@@ -132,7 +132,7 @@
 
 ### 7.1 Flight Status
 
-| Status | FIXM FlightStatusType | AIDX FlightLegStatus | TFMS | VATSIM SWIM |
+| Status | FIXM FlightStatusType | AIDX FlightLegStatus | TFMS | VATSWIM |
 |--------|----------------------|---------------------|------|-------------|
 | Unknown | `UNKNOWN` | — | — | `UNKNOWN` |
 | Scheduled | `SCHEDULED` | `Scheduled` | `SKED` | `SCHEDULED` |
@@ -151,7 +151,7 @@
 
 ### 7.2 Flight Phase (Detailed)
 
-| Phase | FIXM | TFMS/FSM | EUROCONTROL | VATSIM SWIM |
+| Phase | FIXM | TFMS/FSM | EUROCONTROL | VATSWIM |
 |-------|------|----------|-------------|-------------|
 | Pre-departure | `FILED` | `PROPOSED` | `PLANNED` | `PROPOSED` |
 | At gate (ready) | `ACTIVE` | `ACTIVE` | `TAXI` | `DEPARTING` |
@@ -169,7 +169,7 @@
 
 ## 8. Position & Track Data
 
-| Concept | FIXM 4.3 | ASTERIX CAT062 | ADS-B | GeoJSON | VATSIM SWIM |
+| Concept | FIXM 4.3 | ASTERIX CAT062 | ADS-B | GeoJSON | VATSWIM |
 |---------|----------|----------------|-------|---------|-------------|
 | Latitude | `position/position/latitude` | I062/105 | Lat | `coordinates[1]` | `lat` |
 | Longitude | `position/position/longitude` | I062/105 | Lon | `coordinates[0]` | `lon` |
@@ -186,7 +186,7 @@
 
 ### 9.1 TMI Types
 
-| TMI Type | FIXM US Extension | TFMS | EUROCONTROL | VATSIM SWIM |
+| TMI Type | FIXM US Extension | TFMS | EUROCONTROL | VATSWIM |
 |----------|-------------------|------|-------------|-------------|
 | Ground Stop | `nas:groundStop` | `GS` | `GS` | `GS` |
 | Ground Delay Program | `nas:groundDelayProgram` | `GDP` | `GDP` | `GDP` |
@@ -198,7 +198,7 @@
 
 ### 9.2 TMI Fields
 
-| Concept | FIXM US Extension | TFMS | VATSIM SWIM |
+| Concept | FIXM US Extension | TFMS | VATSWIM |
 |---------|-------------------|------|-------------|
 | Controlled element | `nas:controlElement` | `FCA` / `FEA` | `control_element` |
 | Control program name | `nas:controlProgram` | `PROGRAM_NAME` | `control_program` |
@@ -212,7 +212,7 @@
 
 ### 9.3 Delay Status Codes (TFMS)
 
-| Code | Meaning | VATSIM SWIM |
+| Code | Meaning | VATSWIM |
 |------|---------|-------------|
 | `GDP` | Ground Delay Program delay | `GDP` |
 | `AFP` | Airspace Flow Program delay | `AFP` |
@@ -225,7 +225,7 @@
 
 ### 9.4 Cancellation Status Codes (TFMS CNX)
 
-| Code | Meaning | VATSIM SWIM |
+| Code | Meaning | VATSWIM |
 |------|---------|-------------|
 | `UX` | Update cancelled | `UX` |
 | `FX` | Airline/flight cancelled | `FX` |
@@ -240,7 +240,7 @@
 
 ## 10. A-CDM Milestones (Airport Collaborative Decision Making)
 
-| Milestone | Full Name | A-CDM Code | AIDX | FIXM | VATSIM SWIM |
+| Milestone | Full Name | A-CDM Code | AIDX | FIXM | VATSWIM |
 |-----------|-----------|------------|------|------|-------------|
 | SOBT | Scheduled Off-Block Time | `sobt` | `ScheduledDepartureDateTime` | — | `scheduled_dept_utc` |
 | EOBT | Estimated Off-Block Time | `eobt` | `EstimatedOffBlockDateTime` | `estimatedOffBlockTime` | `etd_utc` |
@@ -265,7 +265,7 @@
 
 ## 11. Airspace & Facility References
 
-| Concept | FIXM 4.3 | AIXM 5.1 | TFMS | VATSIM SWIM |
+| Concept | FIXM 4.3 | AIXM 5.1 | TFMS | VATSWIM |
 |---------|----------|----------|------|-------------|
 | ARTCC/FIR | `airspace/designator` | `AirspaceDesignator` | `CTR` | `artcc` |
 | Sector | `airspace/sectorIdentifier` | `SectorDesignator` | `SECTOR` | `sector` |
@@ -279,7 +279,7 @@
 
 ## 12. Weather Integration (IWXXM/WXXM)
 
-| Concept | IWXXM 3.0 | METAR/TAF | GFS/GRIB | VATSIM SWIM |
+| Concept | IWXXM 3.0 | METAR/TAF | GFS/GRIB | VATSWIM |
 |---------|-----------|-----------|----------|-------------|
 | Wind direction | `iwxxm:windDirection` | `ddd` | `UGRD`/`VGRD` | `wind_dir_deg` |
 | Wind speed | `iwxxm:windSpeed` | `ff` | `WIND` | `wind_speed_kts` |
@@ -331,9 +331,9 @@
 
 ---
 
-## 14. Quick Reference: VATSIM SWIM ↔ Standards Mapping
+## 14. Quick Reference: VATSWIM ↔ Standards Mapping
 
-| VATSIM SWIM Field | FIXM | AIDX | TFMS | A-CDM |
+| VATSWIM Field | FIXM | AIDX | TFMS | A-CDM |
 |-------------------|------|------|------|-------|
 | `gufi` | `gufi` | — | composite | — |
 | `callsign` | `aircraftIdentification` | `FlightNumber` | `ACID` | `arcid` |
@@ -370,4 +370,4 @@
 
 ---
 
-*Document generated for VATSIM SWIM API standards alignment*
+*Document generated for VATSWIM API standards alignment*

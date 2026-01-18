@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API Key Management Portal
+ * VATSWIM API Key Management Portal
  *
  * Self-service interface for users to create and manage their SWIM API keys.
  * Supports public and developer tiers. Partner/system tiers require admin approval.
@@ -367,7 +367,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 <div class="container-fluid mt-3 mb-5" id="keys_section">
     <div class="row mb-3">
         <div class="col-12">
-            <p class="text-muted mb-0">Manage your API credentials for accessing the VATSIM System Wide Information Management (SWIM) data feed.</p>
+            <p class="text-muted mb-0">Manage your API credentials for accessing the VATSWIM (System Wide Information Management) data feed.</p>
         </div>
     </div>
 
@@ -466,7 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <div class="col-12 col-lg-4">
             <div class="info-card">
                 <h5><i class="fas fa-info-circle mr-2"></i>About SWIM API</h5>
-                <p class="mb-3">VATSIM SWIM provides real-time flight data, positions, and traffic management information across the VATSIM network.</p>
+                <p class="mb-3">VATSWIM provides real-time flight data, positions, and traffic management information across the VATSIM network.</p>
                 <a href="api-docs/" target="_blank" class="btn btn-light">
                     <i class="fas fa-book mr-1"></i> View API Documentation
                 </a>

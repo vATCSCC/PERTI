@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - Single Flight Endpoint
+ * VATSWIM API v1 - Single Flight Endpoint
  * 
  * Returns a single flight record by GUFI, flight_uid, or flight_key.
  * Uses JOINs across normalized ADL tables.

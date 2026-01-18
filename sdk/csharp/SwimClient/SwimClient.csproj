@@ -13,7 +13,7 @@
     <Version>1.0.0</Version>
     <Authors>vATCSCC</Authors>
     <Company>Virtual Air Traffic Control System Command Center</Company>
-    <Description>VATSIM SWIM API Client - REST API and real-time WebSocket client for VATSIM flight data</Description>
+    <Description>VATSWIM API Client - REST API and real-time WebSocket client for VATSIM flight data</Description>
     <PackageTags>vatsim;swim;aviation;websocket;flight-tracking;api-client</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://perti.vatcscc.org</PackageProjectUrl>
@@ -27,7 +27,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="8.0.0" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+    <PackageReference Include="System.Text.Json" Version="10.0.2" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
   </ItemGroup>
 
   <ItemGroup>

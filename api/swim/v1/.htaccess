@@ -1,4 +1,4 @@
-# VATSIM SWIM API v1 - Apache Configuration
+# VATSWIM API v1 - Apache Configuration
 # Clean URLs, Authorization passthrough, and CORS
 
 <IfModule mod_rewrite.c>

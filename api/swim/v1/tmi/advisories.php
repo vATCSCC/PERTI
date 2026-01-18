@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - TMI Advisories Endpoint
+ * VATSWIM API v1 - TMI Advisories Endpoint
  * 
  * Returns formal TMI advisories (Ground Stop, GDP, Reroute, etc.).
  * Data from VATSIM_TMI database (tmi_advisories table).

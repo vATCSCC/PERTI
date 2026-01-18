@@ -1,6 +1,6 @@
-# VATSIM SWIM Java SDK
+# VATSWIM Java SDK
 
-Official Java SDK for the VATSIM SWIM (System Wide Information Management) API.
+Official Java SDK for the VATSWIM (System Wide Information Management) API.
 
 [![Maven Central](https://img.shields.io/maven-central/v/org.vatsim.swim/swim-client.svg)](https://search.maven.org/artifact/org.vatsim.swim/swim-client)
 [![Java 11+](https://img.shields.io/badge/java-11+-blue.svg)](https://openjdk.java.net/)

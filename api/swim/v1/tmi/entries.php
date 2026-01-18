@@ -1,6 +1,6 @@
 <?php
 /**
- * VATSIM SWIM API v1 - TMI Entries Endpoint
+ * VATSWIM API v1 - TMI Entries Endpoint
  * 
  * Returns NTML log entries (MIT, MINIT, STOP, APREQ, CFR, TBM, DELAY, CONFIG).
  * Data from VATSIM_TMI database (tmi_entries table).
