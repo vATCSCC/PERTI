@@ -293,3 +293,42 @@ Added explicit CSS in `gdt.php` to ensure icon-only buttons have minimum width:
 
 ### File Modified
 - `gdt.php` - Added CSS rules (lines ~201-220)
+
+---
+
+## 🔧 Feature: Show All Flights Toggle
+
+### Requirement
+User requested ability to show all flights (including exempt/airborne) with exemption reasons displayed.
+
+### Implementation
+1. **Default behavior:** Show only GS-eligible flights (gs_flag = 1)
+2. **Toggle enabled:** Show all flights with EXEMPT column showing reason
+
+### Exemption Reason Codes
+| Code | Meaning | FSM Reference |
+|------|---------|---------------|
+| DEP | Already departed | Ch 19 - Flight took off |
+| ENR | Enroute/airborne | Ch 19 - Flight is airborne |
+| DESC | Descending to destination | Ch 19 - Flight in descent |
+| ARR | Already arrived | Ch 19 - Flight landed |
+| DISC | Pilot disconnected | VATSIM-specific |
+| AIR | Generic airborne/ineligible | Fallback |
+
+### Files Modified
+- `gdt.php` - Added toggle checkbox, count label element
+- `assets/js/gdt.js` - Added:
+  - `GS_SHOW_ALL_FLIGHTS` state variable
+  - Exemption reason logic based on phase
+  - Dynamic EXEMPT column header
+  - Row styling for exempt flights (grayed out)
+  - Event handler for toggle
+  - Flight count display (eligible vs exempt)
+
+### UI Behavior
+- **Toggle OFF (default):** Shows only eligible flights, no EXEMPT column
+- **Toggle ON:** Shows all flights with:
+  - EXEMPT column added to table
+  - Exempt rows styled with `table-secondary text-muted`
+  - Badge showing exemption reason with tooltip
+  - Count label shows "X eligible + Y exempt"

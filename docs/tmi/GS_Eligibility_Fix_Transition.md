@@ -254,6 +254,31 @@ git checkout HEAD~1 -- gdt.php
 
 ---
 
+## Show All Flights Feature (Added Jan 21, 2026)
+
+Added toggle to show all flights (including exempt ones) with exemption reasons:
+
+### UI Toggle
+- Checkbox: "Show all flights (including airborne/exempt)"
+- When enabled, adds EXEMPT column to table
+- Exempt flights are grayed out with badge showing reason code
+
+### Exemption Reason Codes
+| Code | Phase | Description |
+|------|-------|-------------|
+| DEP | departed | Already took off |
+| ENR | enroute | Airborne, cruising |
+| DESC | descending | Approaching destination |
+| ARR | arrived | Already landed |
+| DISC | disconnected | Pilot left network |
+| AIR | (other) | Generic airborne |
+
+### Files
+- `gdt.php` - Toggle checkbox (`gs_show_all_flights`), count label (`gs_flight_count_label`)
+- `assets/js/gdt.js` - `GS_SHOW_ALL_FLIGHTS` variable, exemption reason logic, dynamic column
+
+---
+
 ## Related Documentation
 
 - **FSM User Guide Chapter 19** - Ground Stop operations
@@ -265,4 +290,5 @@ git checkout HEAD~1 -- gdt.php
 
 *Author: Claude AI Assistant*  
 *Date: January 21, 2026*  
-*Status: DEPLOYED*
+*Status: DEPLOYED*  
+*Updated: Added Show All Flights feature*
