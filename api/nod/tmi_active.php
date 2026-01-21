@@ -168,40 +168,47 @@ try {
         }
         
         // =========================================
-        // 4. Public Routes (Azure SQL - public_routes)
+        // 4. Public Routes (Azure SQL - VATSIM_TMI.tmi_public_routes)
         // =========================================
-        
+
+        // Use TMI connection if available, fallback to ADL
+        $pr_conn = isset($conn_tmi) && $conn_tmi ? $conn_tmi : $conn_adl;
+        $pr_table = isset($conn_tmi) && $conn_tmi ? 'dbo.tmi_public_routes' : 'dbo.public_routes';
+        $pr_id_col = isset($conn_tmi) && $conn_tmi ? 'route_id' : 'id';
+
         // Debug: count total routes in table
-        $count_sql = "SELECT COUNT(*) as total FROM dbo.public_routes";
-        $count_stmt = @sqlsrv_query($conn_adl, $count_sql);
+        $count_sql = "SELECT COUNT(*) as total FROM $pr_table";
+        $count_stmt = @sqlsrv_query($pr_conn, $count_sql);
         if ($count_stmt) {
             $count_row = sqlsrv_fetch_array($count_stmt, SQLSRV_FETCH_ASSOC);
             $result['debug']['total_routes_in_table'] = (int)($count_row['total'] ?? 0);
+            $result['debug']['public_routes_source'] = isset($conn_tmi) && $conn_tmi ? 'VATSIM_TMI' : 'VATSIM_ADL';
             sqlsrv_free_stmt($count_stmt);
         }
-        
-        // Show routes that are active (either no time filter or currently within time window)
-        $pr_sql = "SELECT TOP 50 
-                       id, name, adv_number, route_string, advisory_text,
+
+        // Show routes that are active (status=1 and within time window)
+        $pr_sql = "SELECT TOP 50
+                       $pr_id_col as id, name, adv_number, route_string, advisory_text,
                        color, line_weight, line_style,
                        valid_start_utc, valid_end_utc,
                        constrained_area, reason, origin_filter, dest_filter, facilities,
                        route_geojson,
                        created_by, created_at
-                   FROM dbo.public_routes
-                   WHERE (valid_start_utc IS NULL OR valid_start_utc <= GETUTCDATE())
+                   FROM $pr_table
+                   WHERE status = 1
+                     AND (valid_start_utc IS NULL OR valid_start_utc <= GETUTCDATE())
                      AND (valid_end_utc IS NULL OR valid_end_utc > GETUTCDATE())
                    ORDER BY created_at DESC";
-        
-        $pr_stmt = @sqlsrv_query($conn_adl, $pr_sql);
-        
+
+        $pr_stmt = @sqlsrv_query($pr_conn, $pr_sql);
+
         if ($pr_stmt) {
             while ($row = sqlsrv_fetch_array($pr_stmt, SQLSRV_FETCH_ASSOC)) {
-                $validStart = isset($row['valid_start_utc']) && $row['valid_start_utc'] instanceof DateTime 
+                $validStart = isset($row['valid_start_utc']) && $row['valid_start_utc'] instanceof DateTime
                     ? $row['valid_start_utc']->format('Y-m-d\TH:i:s\Z') : $row['valid_start_utc'];
-                $validEnd = isset($row['valid_end_utc']) && $row['valid_end_utc'] instanceof DateTime 
+                $validEnd = isset($row['valid_end_utc']) && $row['valid_end_utc'] instanceof DateTime
                     ? $row['valid_end_utc']->format('Y-m-d\TH:i:s\Z') : $row['valid_end_utc'];
-                
+
                 $result['public_routes'][] = [
                     'id' => $row['id'],
                     'name' => $row['name'],

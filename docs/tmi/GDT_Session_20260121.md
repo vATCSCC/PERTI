@@ -195,4 +195,65 @@ sqlsrv_query($conn, "
 
 ---
 
+---
+
+## 🔧 Bugfix: GS Flight Eligibility Filtering
+
+### Issue Identified
+GDT Preview/Simulate was showing ineligible flights (already departed, airborne, arrived) in the flight list. These flights should not receive EDCTs since they've already departed.
+
+### Root Cause
+The frontend (`gdt.js` lines 901-1218) expects a `gs_flag` field from ADL to filter GS-eligible flights:
+```javascript
+// Only keep flights that are GS-eligible according to ADL (gs_flag = 1)
+if (enforceGsFlag) {
+    rows = rows.filter(function(r) {
+        return r.gsFlag === 1;
+    });
+}
+```
+
+However, `gs_flag` was never defined in the ADL view or normalized queries - it was always `undefined`, causing all flights to pass or fail the filter inconsistently.
+
+### Solution
+Add computed `gs_flag` column based on flight phase:
+
+| Phase | gs_flag | Reason |
+|-------|---------|--------|
+| `prefile` | 1 | Flight plan filed, pilot not connected - eligible for EDCT |
+| `taxiing` | 1 | On ground at departure - eligible for EDCT |
+| `scheduled` | 1 | Scheduled flight - eligible for EDCT |
+| `departed` | 0 | Just took off - too late for EDCT |
+| `enroute` | 0 | Cruising - already airborne |
+| `descending` | 0 | On approach - already airborne |
+| `arrived` | 0 | Landed - flight complete |
+| `disconnected` | 0 | Lost connection - cannot receive EDCT |
+| NULL/other | 0 | Unknown - default to ineligible |
+
+### Files Modified
+
+1. **`adl/migrations/tmi/009_add_gs_flag_eligibility.sql`** (NEW)
+   - Updates `vw_adl_flights` view to include computed `gs_flag` column
+   - `CASE WHEN phase IN ('prefile', 'taxiing', 'scheduled') THEN 1 ELSE 0 END AS gs_flag`
+
+2. **`api/adl/AdlQueryHelper.php`**
+   - Added `gs_flag` computation to `buildCurrentFlightsNormalizedQuery()`
+   - Ensures both view and normalized query modes return `gs_flag`
+
+### FSM Reference
+Per FSM User Guide Chapter 19:
+- Ground Stops only apply to flights that have not yet departed
+- Once airborne, a flight cannot receive an EDCT
+- FSM uses phases P (Prefiled), S (Scheduled), T (Taxiing) for GS eligibility
+
+### Verification
+After deployment:
+1. Run migration `009_add_gs_flag_eligibility.sql` on VATSIM_ADL database
+2. Test ADL API: `GET /api/adl/current.php?arr=KJFK&limit=10`
+3. Verify `gs_flag` field appears in response
+4. Preview GS on GDT - only pre-departure flights should appear
+
+---
+
 *Session Date: January 21, 2026*
+*Updated with GS Eligibility Fix*
