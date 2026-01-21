@@ -5,14 +5,15 @@
  * Returns active reroute definitions and their flight assignments.
  * Data from VATSIM_TMI database (tmi_reroutes, tmi_reroute_flights tables).
  *
- * GET /api/swim/v1/tmi/reroutes                  - List active reroutes
- * GET /api/swim/v1/tmi/reroutes?active_only=false - List all reroutes
- * GET /api/swim/v1/tmi/reroutes?origin=ZBW       - Filter by origin center
- * GET /api/swim/v1/tmi/reroutes?dest=KJFK        - Filter by destination
- * GET /api/swim/v1/tmi/reroutes?id=123           - Get single reroute
- * GET /api/swim/v1/tmi/reroutes?id=123&flights=1 - Include flight assignments
+ * GET /api/swim/v1/tmi/reroutes                      - List active reroutes
+ * GET /api/swim/v1/tmi/reroutes?active_only=false    - List all reroutes
+ * GET /api/swim/v1/tmi/reroutes?origin=ZBW           - Filter by origin center
+ * GET /api/swim/v1/tmi/reroutes?dest=KJFK            - Filter by destination
+ * GET /api/swim/v1/tmi/reroutes?id=123               - Get single reroute
+ * GET /api/swim/v1/tmi/reroutes?id=123&flights=1     - Include flight assignments
+ * GET /api/swim/v1/tmi/reroutes?id=123&include_advisory=1 - Include Discord advisory text
  *
- * @version 2.0.0
+ * @version 3.0.0
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -34,6 +35,7 @@ $status = swim_get_param('status');
 $active_only = swim_get_param('active_only', 'true') === 'true';
 $include_flights = swim_get_param('flights', '0') === '1' || swim_get_param('flights') === 'true';
 $include_compliance = swim_get_param('compliance', '0') === '1' || swim_get_param('compliance') === 'true';
+$include_advisory = swim_get_param('include_advisory', '0') === '1' || swim_get_param('include_advisory') === 'true';
 
 $page = swim_get_int_param('page', 1, 1, 1000);
 $per_page = swim_get_int_param('per_page', SWIM_DEFAULT_PAGE_SIZE, 1, SWIM_MAX_PAGE_SIZE);
@@ -56,7 +58,7 @@ if ($id) {
         SwimResponse::error('Reroute not found', 404, 'NOT_FOUND');
     }
 
-    $reroute = formatReroute($row);
+    $reroute = formatReroute($row, $conn_tmi, $include_advisory);
 
     // Include assigned flights if requested
     if ($include_flights) {
@@ -135,7 +137,7 @@ $reroutes = [];
 $stats = ['by_status' => []];
 
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    $reroute = formatReroute($row);
+    $reroute = formatReroute($row, $conn_tmi, $include_advisory);
     $reroutes[] = $reroute;
 
     // Update stats
@@ -173,7 +175,7 @@ SwimResponse::json($response);
 /**
  * Format a reroute row for API output
  */
-function formatReroute($row) {
+function formatReroute($row, $conn = null, $includeAdvisory = false) {
     // Parse JSON fields safely
     $protectedFixes = parseJsonField($row['protected_fixes'] ?? null);
     $avoidFixes = parseJsonField($row['avoid_fixes'] ?? null);
@@ -182,7 +184,27 @@ function formatReroute($row) {
     $destAirports = parseJsonField($row['dest_airports'] ?? null);
     $destCenters = parseJsonField($row['dest_centers'] ?? null);
 
-    return [
+    // Get individual routes from tmi_reroute_routes table (or expand from scope)
+    $routes = [];
+    $routesGrouped = [];
+    $rerouteId = $row['reroute_id'] ?? null;
+
+    if ($conn && $rerouteId) {
+        $routes = getRerouteRoutes($conn, $rerouteId);
+    }
+
+    // If no routes in table, expand from origin/dest scope
+    if (empty($routes)) {
+        $routes = expandRoutesFromScope($row);
+    }
+
+    // Group routes by route string for concise display
+    $routesGrouped = groupRoutesByString($routes);
+
+    // Generate plotter-compatible string (strip > and < markers)
+    $plotterString = stripPlotterMarkers($row['protected_segment'] ?? '');
+
+    $result = [
         'reroute_id' => $row['reroute_id'],
         'reroute_guid' => $row['reroute_guid'] ?? null,
         'name' => $row['name'],
@@ -201,7 +223,10 @@ function formatReroute($row) {
             'protected_segment' => $row['protected_segment'] ?? null,
             'protected_fixes' => $protectedFixes,
             'avoid_fixes' => $avoidFixes,
-            'route_type' => $row['route_type'] ?? 'FULL'
+            'route_type' => $row['route_type'] ?? 'FULL',
+            'plotter_string' => $plotterString,
+            'routes' => $routes,
+            'routes_grouped' => $routesGrouped
         ],
 
         'scope' => [
@@ -268,6 +293,13 @@ function formatReroute($row) {
         '_updated_at' => formatDT($row['updated_at'] ?? null),
         '_created_by' => $row['created_by'] ?? null
     ];
+
+    // Include advisory text if requested
+    if ($includeAdvisory && $conn) {
+        $result['advisory_text'] = buildAdvisoryText($row, $routesGrouped, $conn);
+    }
+
+    return $result;
 }
 
 /**
@@ -419,4 +451,306 @@ function parseJsonField($value) {
 function formatDT($dt) {
     if ($dt === null) return null;
     return ($dt instanceof DateTime) ? $dt->format('c') : $dt;
+}
+
+/**
+ * Get individual routes from tmi_reroute_routes table
+ */
+function getRerouteRoutes($conn, $rerouteId) {
+    $sql = "
+        SELECT origin, destination, route_string, sort_order
+        FROM dbo.tmi_reroute_routes
+        WHERE reroute_id = ?
+        ORDER BY sort_order, route_id
+    ";
+
+    $stmt = sqlsrv_query($conn, $sql, [$rerouteId]);
+    if ($stmt === false) return [];
+
+    $routes = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $routes[] = [
+            'origin' => $row['origin'],
+            'dest' => $row['destination'],
+            'route' => $row['route_string']
+        ];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    return $routes;
+}
+
+/**
+ * Expand routes from scope (origin_airports × dest_airports)
+ * Used as fallback when no routes in tmi_reroute_routes table
+ */
+function expandRoutesFromScope($row) {
+    $origins = parseAirportList($row['origin_airports'] ?? '');
+    $dests = parseAirportList($row['dest_airports'] ?? '');
+    $routeString = $row['protected_segment'] ?? '';
+
+    if (empty($origins) || empty($dests) || empty($routeString)) {
+        return [];
+    }
+
+    $routes = [];
+    foreach ($origins as $orig) {
+        foreach ($dests as $dest) {
+            $routes[] = [
+                'origin' => $orig,
+                'dest' => $dest,
+                'route' => $routeString
+            ];
+        }
+    }
+
+    return $routes;
+}
+
+/**
+ * Parse airport list from comma/space/slash separated string
+ */
+function parseAirportList($str) {
+    if (empty($str)) return [];
+    // Handle JSON arrays
+    if (is_array($str)) return $str;
+    if ($str[0] === '[') {
+        $decoded = json_decode($str, true);
+        if ($decoded !== null) return $decoded;
+    }
+    // Parse comma/space/slash separated string
+    $airports = array_filter(array_map('trim', preg_split('/[\s,\/]+/', strtoupper($str))));
+    return array_values($airports);
+}
+
+/**
+ * Group routes by route string for concise display
+ * Consolidates origins that share the same route
+ */
+function groupRoutesByString($routes) {
+    if (empty($routes)) return [];
+
+    $grouped = [];
+    foreach ($routes as $r) {
+        $key = $r['route'];
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = [
+                'origins' => [],
+                'dests' => [],
+                'route' => $key
+            ];
+        }
+        // Add origin if not already present
+        $originParts = preg_split('/\s+/', trim($r['origin']));
+        foreach ($originParts as $o) {
+            if (!in_array($o, $grouped[$key]['origins'])) {
+                $grouped[$key]['origins'][] = $o;
+            }
+        }
+        // Add dest if not already present
+        $destParts = preg_split('/\s+/', trim($r['dest']));
+        foreach ($destParts as $d) {
+            if (!in_array($d, $grouped[$key]['dests'])) {
+                $grouped[$key]['dests'][] = $d;
+            }
+        }
+    }
+
+    return array_values($grouped);
+}
+
+/**
+ * Strip mandatory segment markers (> and <) for Route Plotter compatibility
+ */
+function stripPlotterMarkers($routeString) {
+    if (empty($routeString)) return '';
+    // Remove > prefix and < suffix from fixes
+    return trim(preg_replace('/[><]/', '', $routeString));
+}
+
+/**
+ * Get next advisory number for today (auto-sequence)
+ */
+function getNextAdvisoryNumber($conn, $peek = false) {
+    if ($peek) {
+        $sql = "DECLARE @num NVARCHAR(3); EXEC dbo.sp_TMI_PeekAdvisoryNumber @num OUTPUT; SELECT @num AS advisory_number;";
+    } else {
+        $sql = "DECLARE @num NVARCHAR(3); EXEC dbo.sp_TMI_GetNextAdvisoryNumber @num OUTPUT; SELECT @num AS advisory_number;";
+    }
+
+    $stmt = sqlsrv_query($conn, $sql);
+    if ($stmt === false) return '001';
+
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    return $row['advisory_number'] ?? '001';
+}
+
+/**
+ * Build advisory text for Discord formatting
+ */
+function buildAdvisoryText($row, $routesGrouped, $conn) {
+    // Get next advisory number (peek, don't consume)
+    $advNumber = getNextAdvisoryNumber($conn, true);
+
+    // Build include traffic string from origins and destinations
+    $origins = parseAirportList($row['origin_airports'] ?? '');
+    $dests = parseAirportList($row['dest_airports'] ?? '');
+    $includeTraffic = '';
+    if (!empty($origins) && !empty($dests)) {
+        $originStr = 'K' . implode('/K', $origins);
+        $destStr = 'K' . implode('/K', $dests);
+        $includeTraffic = "{$originStr} DEPARTURES TO {$destStr}";
+    }
+
+    // Build facilities list from origin_centers
+    $facilities = parseAirportList($row['origin_centers'] ?? '');
+
+    // Convert routes_grouped to TMIDiscord format
+    $discordRoutes = [];
+    foreach ($routesGrouped as $group) {
+        $discordRoutes[] = [
+            'origin' => implode(' ', $group['origins']),
+            'dest' => implode(' ', $group['dests']),
+            'route' => $group['route']
+        ];
+    }
+
+    // Build advisory params
+    $advisoryParams = [
+        'advisory_number' => $advNumber,
+        'facility' => 'DCC',
+        'issue_date' => gmdate('Y-m-d H:i:s'),
+        'name' => $row['name'] ?? '',
+        'route_name' => $row['name'] ?? '',
+        'constrained_area' => implode('/', $facilities),
+        'impacted_area' => implode('/', $facilities),
+        'reason' => strtoupper($row['impacting_condition'] ?? 'WEATHER'),
+        'include_traffic' => $includeTraffic,
+        'facilities' => $facilities,
+        'facilities_included' => $facilities,
+        'flight_status' => 'ALL_FLIGHTS',
+        'start_utc' => formatDT($row['start_utc'] ?? null),
+        'end_utc' => formatDT($row['end_utc'] ?? null),
+        'valid_from' => formatDT($row['start_utc'] ?? null),
+        'valid_until' => formatDT($row['end_utc'] ?? null),
+        'valid_type' => $row['time_basis'] ?? 'ETD',
+        'prob_extension' => 'MEDIUM',
+        'remarks' => $row['comments'] ?? '',
+        'associated_restrictions' => '',
+        'modifications' => '',
+        'routes' => $discordRoutes
+    ];
+
+    // Try to use TMIDiscord class if available
+    $discordText = null;
+    $plainText = null;
+
+    $tmiDiscordPath = __DIR__ . '/../../../../load/discord/TMIDiscord.php';
+    if (file_exists($tmiDiscordPath)) {
+        require_once $tmiDiscordPath;
+        if (class_exists('TMIDiscord')) {
+            $discord = new TMIDiscord();
+            // Use reflection to call private method, or manually format
+            $plainText = formatRerouteAdvisoryText($advisoryParams);
+            $discordText = "```\n{$plainText}\n```";
+        }
+    }
+
+    // Fallback to manual formatting if TMIDiscord not available
+    if ($plainText === null) {
+        $plainText = formatRerouteAdvisoryText($advisoryParams);
+        $discordText = "```\n{$plainText}\n```";
+    }
+
+    return [
+        'discord' => $discordText,
+        'plain' => $plainText,
+        'params' => $advisoryParams
+    ];
+}
+
+/**
+ * Format reroute advisory text (standalone implementation)
+ */
+function formatRerouteAdvisoryText($data) {
+    $advNum = str_pad($data['advisory_number'] ?? '001', 3, '0', STR_PAD_LEFT);
+    $facility = strtoupper($data['facility'] ?? 'DCC');
+    $headerDate = gmdate('m/d/Y', strtotime($data['issue_date'] ?? 'now'));
+    $routeName = strtoupper($data['name'] ?? $data['route_name'] ?? '');
+    $constrainedArea = strtoupper($data['constrained_area'] ?? $data['impacted_area'] ?? '');
+    $reason = strtoupper($data['reason'] ?? 'WEATHER');
+    $includeTraffic = strtoupper($data['include_traffic'] ?? '');
+    $facilities = $data['facilities'] ?? $data['facilities_included'] ?? [];
+    $facilitiesStr = is_array($facilities) ? implode('/', array_map('strtoupper', $facilities)) : strtoupper($facilities);
+    $flightStatus = strtoupper($data['flight_status'] ?? 'ALL_FLIGHTS');
+
+    $startUtc = $data['start_utc'] ?? $data['valid_from'] ?? null;
+    $endUtc = $data['end_utc'] ?? $data['valid_until'] ?? null;
+    $startTime = $startUtc ? gmdate('dHi', strtotime($startUtc)) : gmdate('dHi');
+    $endTime = $endUtc ? gmdate('dHi', strtotime($endUtc)) : gmdate('dHi');
+
+    $validType = strtoupper($data['valid_type'] ?? 'ETD');
+    $probExt = strtoupper($data['prob_extension'] ?? 'NONE');
+    $tmiId = 'RR' . $facility . $advNum;
+
+    $lines = [];
+    $lines[] = "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} ROUTE RQD";
+
+    if ($routeName) $lines[] = "NAME: {$routeName}";
+    if ($constrainedArea) $lines[] = "CONSTRAINED AREA: {$constrainedArea}";
+    $lines[] = "REASON: {$reason}";
+    if ($includeTraffic) $lines[] = "INCLUDE TRAFFIC: {$includeTraffic}";
+    if ($facilitiesStr) $lines[] = "FACILITIES INCLUDED: {$facilitiesStr}";
+    $lines[] = "FLIGHT STATUS: {$flightStatus}";
+    $lines[] = "VALID: {$validType} {$startTime} TO {$endTime}";
+    $lines[] = "PROBABILITY OF EXTENSION: {$probExt}";
+    $lines[] = "REMARKS: " . ($data['remarks'] ?? '');
+    $lines[] = "ASSOCIATED RESTRICTIONS: " . ($data['associated_restrictions'] ?? '');
+    $lines[] = "MODIFICATIONS: " . ($data['modifications'] ?? '');
+    $lines[] = "ROUTES:";
+    $lines[] = "";
+
+    // Format route table
+    $routes = $data['routes'] ?? [];
+    $lines[] = formatRouteTableText($routes);
+
+    $lines[] = "";
+    $lines[] = "TMI ID: {$tmiId}";
+    $lines[] = "{$startTime} - {$endTime}";
+    $lines[] = gmdate('y/m/d H:i');
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Format route table for advisory text
+ */
+function formatRouteTableText($routes) {
+    if (empty($routes)) {
+        return "ORIG       DEST       ROUTE\n----       ----       -----\n(No routes specified)";
+    }
+
+    $maxOrigLen = 4;
+    $maxDestLen = 4;
+    foreach ($routes as $route) {
+        $maxOrigLen = max($maxOrigLen, strlen(strtoupper($route['origin'] ?? '---')));
+        $maxDestLen = max($maxDestLen, strlen(strtoupper($route['dest'] ?? $route['destination'] ?? '---')));
+    }
+
+    $origColWidth = $maxOrigLen + 3;
+    $destColWidth = $maxDestLen + 3;
+
+    $output = str_pad('ORIG', $origColWidth) . str_pad('DEST', $destColWidth) . "ROUTE\n";
+    $output .= str_pad('----', $origColWidth) . str_pad('----', $destColWidth) . "-----\n";
+
+    foreach ($routes as $route) {
+        $orig = strtoupper($route['origin'] ?? '---');
+        $dest = strtoupper($route['dest'] ?? $route['destination'] ?? '---');
+        $routeStr = strtoupper($route['route'] ?? '');
+        $output .= str_pad($orig, $origColWidth) . str_pad($dest, $destColWidth) . $routeStr . "\n";
+    }
+
+    return rtrim($output);
 }
