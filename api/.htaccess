@@ -1,4 +1,4 @@
-# VATSIM SWIM API - Apache Configuration
+# VATSWIM API - Apache Configuration
 # Ensures Authorization header is passed to PHP and enables CORS
 
 # Pass Authorization header to PHP (required for Bearer token auth)

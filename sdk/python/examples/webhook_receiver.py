@@ -58,7 +58,7 @@ def create_app(webhook_secret: Optional[str] = None) -> FastAPI:
     
     app = FastAPI(
         title="SWIM Webhook Receiver",
-        description="Receives flight events from VATSIM SWIM API",
+        description="Receives flight events from VATSWIM API",
         version="1.0.0",
     )
     

@@ -69,7 +69,7 @@ class SWIMDiscordBot(commands.Bot):
         super().__init__(
             command_prefix='!',
             intents=intents,
-            description='VATSIM SWIM Flight Tracker'
+            description='VATSWIM Flight Tracker'
         )
         
         # REST client for commands
