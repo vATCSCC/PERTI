@@ -726,6 +726,17 @@ include("load/config.php");
                         </div>
                     </div>
 
+                    <!-- Show All Flights Toggle -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="custom-control custom-switch">
+                            <input type="checkbox" class="custom-control-input" id="gs_show_all_flights">
+                            <label class="custom-control-label small" for="gs_show_all_flights">
+                                Show all flights <span class="text-muted">(including airborne/exempt)</span>
+                            </label>
+                        </div>
+                        <small id="gs_flight_count_label" class="text-muted"></small>
+                    </div>
+
                     <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
                         <table class="table table-sm table-striped table-hover tmi-flight-table mb-0" id="gs_flights_matching_table">
                             <thead class="thead-light" style="position: sticky; top: 0; z-index: 5;">
