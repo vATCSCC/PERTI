@@ -327,9 +327,29 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | **Adaptive Compression (ADPT)** | Moves flights up to fill wasted slots |
 | **AffAvgDelay** | Affected Average Delay - total delay ÷ non-exempted flights |
 | **Blanket** | GDP affecting all flights regardless of distance |
+| **DAS** | Delay Assignment Strategy - GDP compression algorithm |
 | **Distance Tier** | GDP scope based on flight distance from destination |
+| **ECR** | EDCT Change Request - request to modify assigned departure time |
+| **GAAP** | Ground Allocated Arrival Period - GDP slot methodology |
+| **Pop-up** | Flight appearing in scope after program activation |
 | **Purge** | Cancel a GDP/GS and release all assigned EDCTs |
+| **Recontrol** | Re-assign EDCT to a previously controlled flight |
 | **Revision** | Modification to an active GDP/GS |
+| **Slot Credit Substitution (SCS)** | Swap flights between slots |
+| **UDP** | Unified Delay Program - GDP variant with automatic compression |
+
+---
+
+## Data Systems
+
+| Acronym | Definition |
+|---------|------------|
+| **SWIM** | System Wide Information Management - FAA data sharing program |
+| **STDDS** | SWIM Terminal Data Distribution System |
+| **SFDPS** | SWIM Flight Data Publication Service |
+| **AOC** | Airline Operations Center |
+| **FIXM** | Flight Information Exchange Model - XML standard for flight data |
+| **WXXM** | Weather Information Exchange Model |
 
 ---
 
