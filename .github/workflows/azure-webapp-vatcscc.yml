@@ -37,7 +37,8 @@ jobs:
     - name: Create deployment package
       run: |
         mkdir -p deploy
-        rsync -av --exclude='sdk/' \
+        rsync -av --exclude='deploy/' \
+                  --exclude='sdk/' \
                   --exclude='.git/' \
                   --exclude='.github/' \
                   --exclude='docs/' \
