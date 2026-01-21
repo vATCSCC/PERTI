@@ -1,4 +1,4 @@
-# VATSIM SWIM Implementation - Session Transition Summary
+# VATSWIM Implementation - Session Transition Summary
 
 **Date:** 2026-01-16 06:00 UTC  
 **Session:** Standards Documentation Complete  

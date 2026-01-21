@@ -7,7 +7,7 @@
 
 ## Session Summary
 
-Built complete client SDKs for the VATSIM SWIM API in four languages: Python (enhanced), C#, Java, and JavaScript/TypeScript. All SDKs include both REST API clients and WebSocket clients for real-time streaming.
+Built complete client SDKs for the VATSWIM API in four languages: Python (enhanced), C#, Java, and JavaScript/TypeScript. All SDKs include both REST API clients and WebSocket clients for real-time streaming.
 
 ---
 
