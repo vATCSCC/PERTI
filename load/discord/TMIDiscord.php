@@ -336,9 +336,9 @@ class TMIDiscord {
         }
         
         $lines = array_merge($lines, $this->formatFlightInclusions($data));
-        
+
         if (!empty($data['dep_facilities'])) {
-            $lines[] = "ADDITIONAL DEP FACILITIES INCLUDED: " . $this->formatDepFacilities($data['dep_facilities']);
+            $lines[] = "DEP FACILITIES INCLUDED: " . $this->formatDepFacilitiesWithScope($data);
         }
         
         $currDelays = ($data['curr_total_delay'] ?? '0') . ' / ' . ($data['curr_max_delay'] ?? '0') . ' / ' . ($data['curr_avg_delay'] ?? '0');
@@ -867,6 +867,48 @@ class TMIDiscord {
     private function formatDepFacilities($facilities): string {
         if (empty($facilities)) return '';
         return is_array($facilities) ? implode('/', array_map('strtoupper', $facilities)) : strtoupper($facilities);
+    }
+
+    /**
+     * Format departure facilities with scope/tier name
+     * Example: "(Manual) ZTL ZHU ZJX ZFW ZMA ZKC ZME ZAB"
+     * Tier names like Manual, Tier1, Tier2, 6West are preserved in mixed case
+     *
+     * Accepts either:
+     * - Separate 'dep_scope' parameter + 'dep_facilities' array/string
+     * - Or 'dep_facilities' string with embedded tier: "(Tier1) ZBW ZDC ZOB"
+     */
+    private function formatDepFacilitiesWithScope(array $data): string {
+        $facilities = $data['dep_facilities'] ?? [];
+        $scopeTier = $data['dep_scope'] ?? $data['scope_tier'] ?? '';
+
+        // If facilities is a string, check if tier is embedded at start
+        if (is_string($facilities) && preg_match('/^\s*\(([^)]+)\)\s*(.*)$/', $facilities, $matches)) {
+            // Extract tier from embedded format: "(Tier1) ZBW ZDC..."
+            if (empty($scopeTier)) {
+                $scopeTier = $matches[1];
+            }
+            $facilities = $matches[2];
+        }
+
+        // Format scope/tier name - preserve mixed case for named groups
+        $scopeStr = '';
+        if (!empty($scopeTier)) {
+            // Ensure parentheses, preserve original case
+            $scopeTier = trim($scopeTier, '() ');
+            $scopeStr = "({$scopeTier}) ";
+        }
+
+        // Format facilities as space-separated uppercase
+        if (is_array($facilities)) {
+            $facStr = implode(' ', array_map('strtoupper', $facilities));
+        } else {
+            // Parse string and uppercase individual facilities
+            $facArr = preg_split('/[\s,\/]+/', trim($facilities));
+            $facStr = implode(' ', array_map('strtoupper', array_filter($facArr)));
+        }
+
+        return $scopeStr . $facStr;
     }
     
     private function formatFacilitiesList($facilities): string {
