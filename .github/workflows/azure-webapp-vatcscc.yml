@@ -34,19 +34,21 @@ jobs:
         composer install --no-interaction --prefer-dist --no-dev
 
     # Create deployment package excluding non-PHP directories
-    # NOTE: docs/swim/ is INCLUDED for VATSWIM documentation viewer (swim-doc.php)
     - name: Create deployment package
       run: |
         mkdir -p deploy
-        rsync -av --include='docs/' \
-                  --include='docs/swim/' \
-                  --include='docs/swim/**' \
-                  --exclude='sdk/' \
+        rsync -av --exclude='sdk/' \
                   --exclude='.git/' \
                   --exclude='.github/' \
-                  --exclude='docs/**' \
+                  --exclude='docs/' \
                   --exclude='nul' \
                   . deploy/ || test $? = 24
+
+        # Explicitly copy docs/swim for VATSWIM documentation viewer (swim-doc.php)
+        mkdir -p deploy/docs/swim
+        cp -r docs/swim/* deploy/docs/swim/
+        echo "=== Copied VATSWIM documentation ==="
+        ls -la deploy/docs/swim/*.md | head -10
 
     # Verify critical files are in deployment package
     - name: Verify deployment package
