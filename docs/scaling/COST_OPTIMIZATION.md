@@ -1,14 +1,30 @@
 # PERTI/SWIM Cost Optimization Guide
 
-## Current Infrastructure (P1v2 - ~$81/month)
+> **Last Updated:** January 21, 2026
+
+## Current Infrastructure
 
 | Component | Tier | Cost/Month |
 |-----------|------|------------|
 | App Service | P1v2 (3.5GB, 1 vCPU) | ~$81 |
-| VATSIM_ADL | Serverless | ~$5-50 (usage) |
+| **VATSIM_ADL** | **Hyperscale Serverless (3/16 vCores)** | **~$2,100** |
 | SWIM_API | Basic (2GB) | ~$5 |
 | VATSIM_REF | Basic (2GB) | ~$5 |
-| **Total** | | **~$96-141/month** |
+| VATSIM_TMI | Basic (2GB) | ~$5 |
+| MySQL (PERTI) | B1ms Burstable | ~$13 |
+| **Total** | | **~$2,200/month** |
+
+### VATSIM_ADL Configuration (Updated January 21, 2026)
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| SKU | HS_S_Gen5_16 | Hyperscale Serverless |
+| Min vCores | 3 | Auto-pause disabled for production |
+| Max vCores | 16 | Reduced from 24 (Jan 21, 2026) |
+| Max Workers | 1,200 | Sufficient for peak events (558 observed) |
+| Storage | ~270 GB | Legacy data pending archival |
+
+**Recent Optimization:** Reduced from 4/24 vCores to 3/16 vCores based on actual usage analysis. Peak worker utilization during major VATSIM events (Jan 16, 2026) was 558 workers (46.5% of 1,200 capacity), providing 54% headroom. **Savings: ~$1,140/month (~$13,700/year)**
 
 ---
 
