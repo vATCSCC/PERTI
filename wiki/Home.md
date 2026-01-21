@@ -10,10 +10,12 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 
 | Section | Description |
 |---------|-------------|
+| [[Navigation Helper]] | **NEW** - Find the right documentation quickly |
 | [[Getting Started]] | Installation, prerequisites, and first steps |
 | [[Architecture]] | System design, data flow, and components |
 | [[Configuration]] | Environment setup and configuration options |
 | [[API Reference]] | Complete API documentation |
+| [[Database Schema]] | Tables, columns, and relationships |
 | [[Deployment]] | Azure deployment and CI/CD pipeline |
 | [[Contributing]] | How to contribute to PERTI |
 | [[FAQ]] | Frequently asked questions |
@@ -84,4 +86,4 @@ See [[Changelog]] for full version history.
 
 ---
 
-*Last updated: 2026-01-15*
+*Last updated: 2026-01-21*

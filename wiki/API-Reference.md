@@ -690,8 +690,345 @@ Exceeded limits return HTTP 429 with retry information.
 
 ---
 
+## SWIM v1 APIs
+
+System Wide Information Management - external flight data integration.
+
+### Authentication
+
+#### POST /api/swim/v1/auth.php
+
+Validates API key and returns session token.
+
+**Access:** API Key
+
+**Request Body:**
+
+```json
+{
+  "api_key": "swim_xxxxxxxxxxxx"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_at": "2026-01-10T16:00:00Z"
+}
+```
+
+### Flight Data
+
+#### GET /api/swim/v1/flights.php
+
+Returns current flights with optional filters.
+
+**Access:** API Key
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dest` | string | Destination airport (ICAO) |
+| `orig` | string | Origin airport (ICAO) |
+| `artcc` | string | Current ARTCC |
+| `phase` | string | Flight phase (prefile, departed, enroute, arrived) |
+| `limit` | int | Maximum results (default: 500) |
+
+#### GET /api/swim/v1/flight.php
+
+Returns single flight details.
+
+**Access:** API Key
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `callsign` | string | Flight callsign (required) |
+| `flight_uid` | int | Flight UID (alternative to callsign) |
+
+#### GET /api/swim/v1/positions.php
+
+Returns position data for active flights.
+
+**Access:** API Key
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `bounds` | string | Geographic bounds (lat1,lon1,lat2,lon2) |
+| `artcc` | string | Filter by ARTCC |
+| `since` | datetime | Positions updated since (ISO 8601) |
+
+### API Key Management
+
+#### POST /api/swim/v1/keys/provision.php
+
+Provisions a new SWIM API key.
+
+**Access:** Authenticated (Admin role)
+
+**Request Body:**
+
+```json
+{
+  "name": "My Integration",
+  "organization": "vZNY",
+  "contact_email": "admin@example.com",
+  "rate_limit": 300
+}
+```
+
+#### POST /api/swim/v1/keys/revoke.php
+
+Revokes an existing API key.
+
+**Access:** Authenticated (Admin role)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key_id` | int | Key ID to revoke |
+
+### TMI via SWIM
+
+#### GET /api/swim/v1/tmi/programs.php
+
+Returns active TMI programs (GS, GDP, AFP).
+
+**Access:** API Key
+
+#### GET /api/swim/v1/tmi/advisories.php
+
+Returns active advisories.
+
+**Access:** API Key
+
+#### GET /api/swim/v1/tmi/controlled.php
+
+Returns flights under TMI control (with EDCTs).
+
+**Access:** API Key
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `program_id` | int | Filter by specific program |
+| `airport` | string | Filter by control element |
+
+### WebSocket
+
+#### /api/swim/v1/ws/
+
+Real-time position and event streaming via WebSocket.
+
+**Connection:** `wss://perti.vatcscc.org/api/swim/v1/ws/`
+
+**Subscription Message:**
+
+```json
+{
+  "action": "subscribe",
+  "channels": ["positions", "tmi_events"],
+  "filters": {
+    "artcc": "ZNY",
+    "dest": "KJFK"
+  }
+}
+```
+
+See `docs/swim/README.md` for full SWIM documentation.
+
+---
+
+## Statistics APIs
+
+Real-time and historical statistics.
+
+### GET /api/stats/realtime.php
+
+Returns current system statistics.
+
+**Access:** Authenticated
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "timestamp": "2026-01-10T14:30:00Z",
+  "flights": {
+    "active": 1247,
+    "by_phase": {
+      "prefile": 89,
+      "taxiing": 23,
+      "departed": 156,
+      "enroute": 834,
+      "descending": 112,
+      "arrived": 33
+    }
+  },
+  "queue": {
+    "pending": 45,
+    "processing": 3,
+    "avg_parse_ms": 142
+  },
+  "tmi": {
+    "active_gs": 1,
+    "active_gdp": 2,
+    "controlled_flights": 87
+  }
+}
+```
+
+### GET /api/stats/daily.php
+
+Returns daily aggregated statistics.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `date` | date | Date (YYYY-MM-DD), defaults to today |
+| `days` | int | Number of days (for trends) |
+
+### GET /api/stats/hourly.php
+
+Returns hourly statistics breakdown.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `date` | date | Date (YYYY-MM-DD) |
+| `hours` | int | Hours to include (default: 24) |
+
+### GET /api/stats/airport.php
+
+Returns statistics for a specific airport.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `airport` | string | ICAO code (required) |
+| `hours` | int | Lookback hours (default: 6) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "airport": "KJFK",
+  "arrivals": {
+    "last_hour": 38,
+    "next_hour": 42,
+    "avg_delay_min": 8.5
+  },
+  "departures": {
+    "last_hour": 35,
+    "next_hour": 40
+  },
+  "current_config": "ILS 22L | ILS 22R | DEP 31L",
+  "weather_category": "VMC"
+}
+```
+
+### GET /api/stats/artcc.php
+
+Returns statistics for an ARTCC.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `artcc` | string | ARTCC code (required) |
+
+### GET /api/stats/citypair.php
+
+Returns statistics for city pair routes.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `origin` | string | Origin ICAO |
+| `destination` | string | Destination ICAO |
+| `date` | date | Date for statistics |
+
+### GET /api/stats/tmi.php
+
+Returns TMI program statistics.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from` | datetime | Start date |
+| `to` | datetime | End date |
+| `type` | string | Filter by program type (GS, GDP) |
+
+### GET /api/stats/flight_phase_history.php
+
+Returns historical flight phase distribution.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `hours` | int | Lookback hours (default: 24) |
+
+---
+
+## Reroute APIs
+
+Reroute management and compliance tracking.
+
+### GET /api/tmi/reroutes.php
+
+Returns reroute definitions.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | int | Filter: 0=draft, 1=proposed, 2=active, 3=monitoring, 4=expired, 5=cancelled |
+| `active_only` | bool | Only active reroutes |
+
+### POST /api/tmi/reroutes.php
+
+Creates a new reroute.
+
+**Access:** Authenticated (DCC role)
+
+**Request Body:**
+
+```json
+{
+  "name": "ZNY WEST GATE",
+  "protected_segment": "MERIT..HAAYS..NEION",
+  "origin_centers": "ZDC ZOB",
+  "dest_airports": "KJFK KEWR KLGA KTEB",
+  "start_utc": "2026-01-10T14:00:00Z",
+  "end_utc": "2026-01-10T22:00:00Z",
+  "time_basis": "ETD",
+  "comments": "Weather avoidance routing"
+}
+```
+
+### GET /api/tmi/reroutes.php?id={reroute_id}
+
+Returns reroute details with assigned flights.
+
+**Access:** Authenticated
+
+**Response includes:**
+- Reroute definition
+- Assigned flights with compliance status
+- Compliance statistics (compliant, partial, non-compliant)
+
+---
+
 ## See Also
 
 - [[ADL API]] - Detailed ADL API documentation
 - [[TMI API]] - Traffic Management Initiative details
 - [[Architecture]] - System architecture overview
+- [[Navigation Helper]] - Find the right documentation quickly

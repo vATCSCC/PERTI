@@ -1,6 +1,7 @@
 ### Navigation
 
 **[[Home]]**
+**[[Navigation Helper]]** (NEW)
 
 ---
 
