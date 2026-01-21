@@ -96,6 +96,11 @@ if (!defined("SQL_USERNAME")) {
     define('DISCORD_API_BASE', 'https://discord.com/api/v' . DISCORD_API_VERSION);
 
     // =====================================================================
+    // INTERNAL API KEYS (for client-side authenticated requests)
+    // =====================================================================
+    define("SWIM_PUBLIC_ROUTES_KEY", "");  // API key for public routes UI writes
+
+    // =====================================================================
     // FEATURE FLAGS
     // =====================================================================
     define("PERTI_LOADED", true);

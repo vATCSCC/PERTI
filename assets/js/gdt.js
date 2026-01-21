@@ -847,6 +847,12 @@ function fallbackCopyAdvisory(text) {
         }
 
         
+// GS eligibility for VATSIM data:
+// - PREFILE: Always eligible (not yet connected, pre-departure)
+// - PILOT: Unknown without ADL phase data; default to NOT eligible
+//   (ADL augmentation will set correct gsFlag based on actual phase)
+var vatsimGsFlag = (sourceTag === "PREFILE") ? 1 : 0;
+
 return {
     callsign: callsign,
     dep: dep,
@@ -869,7 +875,9 @@ return {
     etdEpoch: depEpoch,
     etdPrefix: etaSource || "VATSIM",
     // Flight status / FSM (from data)
-    flightStatus: (sourceTag || "").toUpperCase()
+    flightStatus: (sourceTag || "").toUpperCase(),
+    // GS eligibility (will be overridden by ADL if matched)
+    gsFlag: vatsimGsFlag
 };
 
     }
@@ -898,7 +906,9 @@ if (!flightStatus) {
     flightStatus = status;
 }
 
-// GS eligibility flag from ADL
+// GS eligibility flag from ADL (or computed from phase)
+// Pre-departure phases eligible for TMI control: prefile, taxiing, scheduled
+// Airborne/completed phases NOT eligible: departed, enroute, descending, arrived, disconnected
 var rawGsFlag = (typeof f.gs_flag !== "undefined"
                  ? f.gs_flag
                  : (typeof f.GS_FLAG !== "undefined" ? f.GS_FLAG : null));
@@ -909,6 +919,13 @@ if (rawGsFlag === true ||
     rawGsFlag === "true" ||
     rawGsFlag === "TRUE") {
     gsFlag = 1;
+} else if (rawGsFlag === null || typeof rawGsFlag === "undefined") {
+    // Fallback: compute GS eligibility from phase if API didn't provide gs_flag
+    // Only pre-departure flights can receive EDCTs
+    var eligiblePhases = ["PREFILE", "TAXIING", "SCHEDULED", "P", "T", "S"];
+    if (eligiblePhases.indexOf(flightStatus) !== -1) {
+        gsFlag = 1;
+    }
 }
 
         // Filed departure epoch
@@ -1205,18 +1222,23 @@ function buildAirportColorMap(airports) {
     });
 
     // Augment timing information with ADL when available
-    var enforceGsFlag = false;
-    if (GS_ADL && Array.isArray(GS_ADL.flights) && GS_ADL.flights.length) {
+    var hasAdlData = GS_ADL && Array.isArray(GS_ADL.flights) && GS_ADL.flights.length;
+    if (hasAdlData) {
         augmentRowsWithAdl(rows);
-        enforceGsFlag = true;
     }
 
-    // Only keep flights that are GS-eligible according to ADL (gs_flag = 1)
-    if (enforceGsFlag) {
-        rows = rows.filter(function(r) {
-            return r.gsFlag === 1;
-        });
-    }
+    // Filter to keep only GS-eligible flights (gs_flag = 1)
+    // Eligibility is determined by flight phase:
+    //   - Eligible: prefile, taxiing, scheduled (pre-departure)
+    //   - NOT Eligible: departed, enroute, descending, arrived, disconnected
+    // 
+    // When ADL data is available: gsFlag comes from ADL (computed from phase)
+    // When ADL data is NOT available: gsFlag defaults from VATSIM sourceTag
+    //   - PREFILE = eligible (gsFlag=1)
+    //   - PILOT = NOT eligible without ADL phase confirmation (gsFlag=0)
+    rows = rows.filter(function(r) {
+        return r.gsFlag === 1;
+    });
 
     rows.sort(function(a, b) {
         var aEta = (a.roughEtaEpoch != null && !isNaN(a.roughEtaEpoch)) ? a.roughEtaEpoch : Number.MAX_SAFE_INTEGER;

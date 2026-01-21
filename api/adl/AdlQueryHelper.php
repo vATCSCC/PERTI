@@ -97,7 +97,12 @@ class AdlQueryHelper {
             $params[] = $arr;
         }
 
-        $sql = "SELECT TOP {$limit} * FROM dbo.vw_adl_flights";
+        // Select all columns plus computed gs_flag for GS eligibility filtering
+        // GS eligibility: only pre-departure flights (prefile, taxiing, scheduled) can receive EDCTs
+        // Airborne/completed flights (departed, enroute, descending, arrived, disconnected) are NOT eligible
+        $sql = "SELECT TOP {$limit} *,
+                CASE WHEN phase IN ('prefile', 'taxiing', 'scheduled') THEN 1 ELSE 0 END AS gs_flag
+                FROM dbo.vw_adl_flights";
         if (!empty($where)) {
             $sql .= " WHERE " . implode(" AND ", $where);
         }

@@ -233,20 +233,27 @@ body.offcanvas-open {
         min-height: auto;
     }
 
-    /* Custom checkboxes and radios */
-    .custom-control {
+    /* Custom checkboxes and radios (exclude switches which have their own sizing) */
+    .custom-control:not(.custom-switch) {
         min-height: var(--touch-target-min);
         padding-left: 2rem;
         display: flex;
         align-items: center;
     }
 
-    .custom-control-label::before,
-    .custom-control-label::after {
+    .custom-control:not(.custom-switch) .custom-control-label::before,
+    .custom-control:not(.custom-switch) .custom-control-label::after {
         width: 1.25rem;
         height: 1.25rem;
         top: 50%;
         transform: translateY(-50%);
+    }
+
+    /* Custom switches - keep proper dimensions, just add touch-friendly sizing */
+    .custom-switch {
+        min-height: var(--touch-target-min);
+        display: flex;
+        align-items: center;
     }
 
     /* Bootstrap Select plugin */

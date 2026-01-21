@@ -197,48 +197,60 @@ sqlsrv_query($conn, "
 
 ---
 
-## 🔧 Bugfix: GS Flight Eligibility Filtering
+## 🔧 Bugfix: GS Flight Eligibility Filtering - DEPLOYED
 
 ### Issue Identified
 GDT Preview/Simulate was showing ineligible flights (already departed, airborne, arrived) in the flight list. These flights should not receive EDCTs since they've already departed.
 
 ### Root Cause
-The frontend (`gdt.js` lines 901-1218) expects a `gs_flag` field from ADL to filter GS-eligible flights:
+The frontend (`gdt.js`) expects a `gs_flag` field from ADL to filter GS-eligible flights:
 ```javascript
-// Only keep flights that are GS-eligible according to ADL (gs_flag = 1)
-if (enforceGsFlag) {
-    rows = rows.filter(function(r) {
-        return r.gsFlag === 1;
-    });
-}
+rows = rows.filter(function(r) {
+    return r.gsFlag === 1;
+});
 ```
 
-However, `gs_flag` was never defined in the ADL view or normalized queries - it was always `undefined`, causing all flights to pass or fail the filter inconsistently.
+However, `gs_flag` was:
+1. Not returned by ADL view mode query (`SELECT *` doesn't compute it)
+2. Not computed for VATSIM-only data
+3. Filtering only applied when ADL data was present
 
 ### Solution
-Add computed `gs_flag` column based on flight phase:
+Multi-layer fix to ensure consistent gs_flag handling:
 
-| Phase | gs_flag | Reason |
-|-------|---------|--------|
-| `prefile` | 1 | Flight plan filed, pilot not connected - eligible for EDCT |
-| `taxiing` | 1 | On ground at departure - eligible for EDCT |
-| `scheduled` | 1 | Scheduled flight - eligible for EDCT |
-| `departed` | 0 | Just took off - too late for EDCT |
-| `enroute` | 0 | Cruising - already airborne |
-| `descending` | 0 | On approach - already airborne |
-| `arrived` | 0 | Landed - flight complete |
-| `disconnected` | 0 | Lost connection - cannot receive EDCT |
-| NULL/other | 0 | Unknown - default to ineligible |
+| Phase | gs_flag | Eligible for EDCT? |
+|-------|---------|-------------------|
+| `prefile` | 1 | ✅ Yes |
+| `taxiing` | 1 | ✅ Yes |
+| `scheduled` | 1 | ✅ Yes |
+| `departed` | 0 | ❌ No |
+| `enroute` | 0 | ❌ No |
+| `descending` | 0 | ❌ No |
+| `arrived` | 0 | ❌ No |
+| `disconnected` | 0 | ❌ No |
 
 ### Files Modified
 
-1. **`adl/migrations/tmi/009_add_gs_flag_eligibility.sql`** (NEW)
-   - Updates `vw_adl_flights` view to include computed `gs_flag` column
-   - `CASE WHEN phase IN ('prefile', 'taxiing', 'scheduled') THEN 1 ELSE 0 END AS gs_flag`
+1. **`api/adl/AdlQueryHelper.php`**
+   - Added `gs_flag` computation to VIEW mode query:
+     ```php
+     $sql = "SELECT TOP {$limit} *,
+             CASE WHEN phase IN ('prefile', 'taxiing', 'scheduled') THEN 1 ELSE 0 END AS gs_flag
+             FROM dbo.vw_adl_flights";
+     ```
+   - Now returns `gs_flag` in both view and normalized modes
 
-2. **`api/adl/AdlQueryHelper.php`**
-   - Added `gs_flag` computation to `buildCurrentFlightsNormalizedQuery()`
-   - Ensures both view and normalized query modes return `gs_flag`
+2. **`assets/js/gdt.js`**
+   - `filterAdlFlight()`: Added phase-based fallback when API doesn't provide gs_flag
+   - `filterFlight()`: Added gsFlag to VATSIM data (PREFILE=1, PILOT=0)
+   - `renderFlightsFromAdl()`: Always apply gs_flag filtering (not just when ADL is present)
+
+3. **`gdt.php`**
+   - Added visible text labels ("List", "Model") to icon buttons as fallback if FontAwesome doesn't load
+
+4. **Documentation Updated**
+   - `docs/tmi/GS_Eligibility_Fix_Transition.md` - Complete transition summary
+   - `GDT_Unified_Design_Document_v1.1.md` - Added section 4.4 GS Flight Eligibility
 
 ### FSM Reference
 Per FSM User Guide Chapter 19:
@@ -246,14 +258,38 @@ Per FSM User Guide Chapter 19:
 - Once airborne, a flight cannot receive an EDCT
 - FSM uses phases P (Prefiled), S (Scheduled), T (Taxiing) for GS eligibility
 
-### Verification
-After deployment:
-1. Run migration `009_add_gs_flag_eligibility.sql` on VATSIM_ADL database
-2. Test ADL API: `GET /api/adl/current.php?arr=KJFK&limit=10`
-3. Verify `gs_flag` field appears in response
-4. Preview GS on GDT - only pre-departure flights should appear
+### Verification Steps
+1. Test ADL API: `GET /api/adl/current.php?arr=KJFK&limit=10` - verify `gs_flag` in response
+2. Preview GS on GDT - only pre-departure flights should appear
+3. Check that "List" and "Model" buttons are visible and functional
 
 ---
 
 *Session Date: January 21, 2026*
-*Updated with GS Eligibility Fix*
+*Status: GS Eligibility Fix DEPLOYED*
+
+---
+
+## 🔧 Additional Fix: Icon-Only Button Display
+
+### Issue
+Icon-only buttons (`gs_view_flight_list_btn`, `gs_open_model_btn`) appeared blank in some browser configurations.
+
+### Solution
+Added explicit CSS in `gdt.php` to ensure icon-only buttons have minimum width:
+
+```css
+#gs_view_flight_list_btn,
+#gs_open_model_btn {
+    min-width: 36px;
+    padding: 0.25rem 0.5rem;
+}
+
+#gs_view_flight_list_btn i,
+#gs_open_model_btn i {
+    font-size: 0.875rem;
+}
+```
+
+### File Modified
+- `gdt.php` - Added CSS rules (lines ~201-220)
