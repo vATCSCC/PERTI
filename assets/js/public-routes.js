@@ -30,7 +30,9 @@ window.PublicRoutes = (function() {
         // Individual route visibility (Set of hidden route IDs)
         hiddenRouteIds: new Set(),
         // Track if initial auto-hide has been done
-        initialAutoHideDone: false
+        initialAutoHideDone: false,
+        // API key for write operations (set via setApiKey or SWIM_PUBLIC_ROUTES_KEY global)
+        apiKey: null
     };
 
     // Route colors for new routes (will cycle through)
@@ -191,6 +193,13 @@ window.PublicRoutes = (function() {
     }
 
     /**
+     * Get the API key for write operations
+     */
+    function getApiKey() {
+        return state.apiKey || window.SWIM_PUBLIC_ROUTES_KEY || null;
+    }
+
+    /**
      * Create or update a public route
      */
     function saveRoute(routeData) {
@@ -200,11 +209,19 @@ window.PublicRoutes = (function() {
         if (routeData.route_geojson) {
             console.log('[PublicRoutes] route_geojson length:', routeData.route_geojson.length);
         }
-        
+
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            console.error('[PublicRoutes] No API key configured for write operations');
+            alert('API key not configured. Contact administrator.');
+            return $.Deferred().reject('No API key');
+        }
+
         return $.ajax({
             url: 'api/swim/v1/tmi/routes',
             method: 'POST',
             contentType: 'application/json',
+            headers: { 'X-API-Key': apiKey },
             data: JSON.stringify(routeData),
             dataType: 'json'
         }).done(function(data) {
@@ -229,12 +246,20 @@ window.PublicRoutes = (function() {
         if (!confirm('Are you sure you want to ' + (hard ? 'permanently delete' : 'deactivate') + ' this route?')) {
             return $.Deferred().reject();
         }
-        
+
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            console.error('[PublicRoutes] No API key configured for write operations');
+            alert('API key not configured. Contact administrator.');
+            return $.Deferred().reject('No API key');
+        }
+
         console.log('[PublicRoutes] Deleting route:', routeId);
-        
+
         return $.ajax({
             url: 'api/swim/v1/tmi/routes?id=' + routeId + (hard ? '&hard=1' : ''),
             method: 'DELETE',
+            headers: { 'X-API-Key': apiKey },
             dataType: 'json'
         }).done(function(data) {
             if (data.success) {
@@ -1875,7 +1900,9 @@ window.PublicRoutes = (function() {
         // Allow integration to override these
         setRenderFunction: function(fn) { renderRoutes = fn; },
         setZoomFunction: function(fn) { zoomToRoute = fn; },
-        setClearFunction: function(fn) { clearRoutes = fn; }
+        setClearFunction: function(fn) { clearRoutes = fn; },
+        // API key for write operations
+        setApiKey: function(key) { state.apiKey = key; }
     };
 })();
 

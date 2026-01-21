@@ -108,9 +108,13 @@
             border: 1px solid #dee2e6;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+
+        /* Fix custom-switch padding to ensure toggle track is visible */
+        .map-toolbar .custom-switch,
         .adl-controls .custom-switch {
-            padding-left: 2.5rem;
+            padding-left: 3.25rem;
         }
+        .map-toolbar .custom-control-label,
         .adl-controls .custom-control-label {
             cursor: pointer;
         }
@@ -2451,6 +2455,9 @@ include('load/footer.php');
 <script src="assets/js/awys.js"></script>
 <script src="assets/js/procs_enhanced.js"></script>
 <script src="assets/js/route-symbology.js"></script>
+<?php if (defined('SWIM_PUBLIC_ROUTES_KEY') && SWIM_PUBLIC_ROUTES_KEY): ?>
+<script>window.SWIM_PUBLIC_ROUTES_KEY = '<?php echo SWIM_PUBLIC_ROUTES_KEY; ?>';</script>
+<?php endif; ?>
 <script src="assets/js/public-routes.js"></script>
 <script src="assets/js/playbook-cdr-search.js"></script>
 <script>

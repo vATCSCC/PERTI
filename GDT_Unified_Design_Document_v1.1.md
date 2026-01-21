@@ -1,9 +1,9 @@
 # Unified Ground Delay Tools (GDT) Design Document
 ## Normalized ADL Architecture Integration
 
-**Version:** 1.1  
-**Date:** January 18, 2026  
-**Status:** Phase 1 Complete - Schema Implemented
+**Version:** 1.2  
+**Date:** January 21, 2026  
+**Status:** Phase 1 Complete - Schema Implemented + GS Eligibility Fix
 
 ---
 
@@ -233,6 +233,57 @@ if ($active_gdp_programs) {
 - **Process**: Move later flights to earlier slots
 - **Result**: Reduced total delay while maintaining schedule order
 
+### 4.4 GS Flight Eligibility (gs_flag)
+
+**Added:** January 21, 2026
+
+Ground Stops only apply to pre-departure flights. The system uses `gs_flag` to filter eligible flights in GDT Preview/Simulate.
+
+#### 4.4.1 Eligibility Rules
+
+| Phase | gs_flag | Eligible for EDCT? | Description |
+|-------|---------|-------------------|-------------|
+| `prefile` | 1 | ✅ Yes | Flight plan filed, pilot not connected |
+| `taxiing` | 1 | ✅ Yes | On ground at departure airport |
+| `scheduled` | 1 | ✅ Yes | Scheduled flight, not yet active |
+| `departed` | 0 | ❌ No | Airborne, climbing out |
+| `enroute` | 0 | ❌ No | Cruising at altitude |
+| `descending` | 0 | ❌ No | On approach to destination |
+| `arrived` | 0 | ❌ No | Landed at destination |
+| `disconnected` | 0 | ❌ No | Lost connection mid-flight |
+
+#### 4.4.2 Implementation Layers
+
+1. **ADL API** (`AdlQueryHelper.php`): Computes `gs_flag` in SQL query
+   ```sql
+   CASE WHEN phase IN ('prefile', 'taxiing', 'scheduled') THEN 1 ELSE 0 END AS gs_flag
+   ```
+
+2. **Client-Side** (`gdt.js`): Filters flights where `gsFlag === 1`
+   - `filterAdlFlight()`: Parses gs_flag from ADL response
+   - `filterFlight()`: Sets gsFlag for VATSIM data (PREFILE=1, PILOT=0)
+   - `renderFlightsFromAdl()`: Final filtering step
+
+#### 4.4.3 Data Flow
+
+```
+VATSIM Data → filterFlight() → [gsFlag: PREFILE=1, PILOT=0]
+                                    ↓
+                          augmentRowsWithAdl()
+                                    ↓
+ADL API → filterAdlFlight() → [gsFlag from phase]
+                                    ↓
+                          rows.filter(r => r.gsFlag === 1)
+                                    ↓
+                         Only pre-departure flights shown
+```
+
+#### 4.4.4 FSM Reference
+
+Per FSM User Guide Chapter 19:
+- Ground Stops only affect flights in phases P (Prefiled), S (Scheduled), T (Taxiing)
+- Flights already airborne (D/E/A phases) or completed (Z) are NOT impacted
+
 ---
 
 ## 5. API Structure
@@ -355,4 +406,4 @@ if ($active_gdp_programs) {
 
 ---
 
-*Document Version: 1.1 | Last Updated: January 18, 2026*
+*Document Version: 1.2 | Last Updated: January 21, 2026*

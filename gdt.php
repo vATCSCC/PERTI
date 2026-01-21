@@ -199,6 +199,27 @@ include("load/config.php");
         pre {
             color: #333;
         }
+
+        /* Icon-only button sizing fix */
+        /* Ensures icon buttons in btn-group-sm have minimum width for visibility */
+        .btn-group-sm > .btn:has(> i.fas):not(:has(span)):not(:has(.sr-only)) {
+            min-width: 32px;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        /* Fallback for browsers without :has() support */
+        #gs_view_flight_list_btn,
+        #gs_open_model_btn {
+            min-width: 36px;
+            padding: 0.25rem 0.5rem;
+        }
+
+        /* Ensure FontAwesome icons are visible */
+        #gs_view_flight_list_btn i,
+        #gs_open_model_btn i {
+            font-size: 0.875rem;
+        }
     </style>
 
 </head>
@@ -672,10 +693,10 @@ include("load/config.php");
                             </div>
                             <div class="btn-group btn-group-sm mr-1" role="group">
                                 <button class="btn btn-outline-secondary" id="gs_view_flight_list_btn" type="button" title="View GS Flight List">
-                                    <i class="fas fa-list-alt"></i>
+                                    <i class="fas fa-list-alt mr-1"></i>List
                                 </button>
                                 <button class="btn btn-outline-primary" id="gs_open_model_btn" type="button" title="Open Model GS Data Graph">
-                                    <i class="fas fa-chart-line"></i>
+                                    <i class="fas fa-chart-line mr-1"></i>Model
                                 </button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
