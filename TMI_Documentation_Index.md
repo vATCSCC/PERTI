@@ -1,5 +1,5 @@
 # PERTI TMI System Documentation Index
-**Last Updated:** January 17, 2026
+**Last Updated:** January 21, 2026
 
 ---
 
@@ -45,10 +45,14 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Schema Design | ✅ Complete | See GDT design doc |
+| Database Migration | ✅ Complete | Jan 21, 2026 - 010/011/012 deployed |
+| GDT Tables | ✅ Complete | tmi_flight_control, tmi_popup_queue |
+| GDT Views | ✅ Complete | 6 views deployed |
+| GDT Procedures | ✅ Complete | 12 procedures deployed |
 | Ground Stop UI | 🔄 In Progress | Basic implementation |
 | GDP UI | 📋 Planned | After GS complete |
-| Slot Assignment | 📋 Planned | RBS algorithm |
-| EDCT Management | 📋 Planned | Per-flight control |
+| API Layer | 📋 Planned | /api/gdt/* endpoints |
+| Daemon Integration | 📋 Planned | Pop-up detection |
 
 ---
 
@@ -126,6 +130,7 @@ YY/MM/DD HH:MM
 | Jan 17, 2026 | TMI API infrastructure | docs/tmi/SESSION_TRANSITION_20260117.md |
 | Jan 17, 2026 | Format compliance | NTML_Advisory_Formatting_Transition.md |
 | Jan 17, 2026 | Parser & Discord alignment | docs/tmi/NTML_Discord_Parser_Alignment_20260117.md |
+| Jan 21, 2026 | GDT Database Migration | GDT_Incremental_Migration.md |
 
 ---
 
