@@ -2480,8 +2480,9 @@ components:
         is_active:
           type: boolean
 
-    GdpProgram:
+    GdpProgramSummary:
       type: object
+      description: GDP program summary for TMI listings
       properties:
         id:
           type: integer
@@ -2559,7 +2560,7 @@ components:
             gdp_programs:
               type: array
               items:
-                $ref: '#/components/schemas/GdpProgram'
+                $ref: '#/components/schemas/GdpProgramSummary'
             summary:
               type: object
               properties:
@@ -4376,6 +4377,11 @@ components:
               enum: [Polygon, MultiPolygon]
             coordinates:
               type: array
+              description: GeoJSON coordinates array
+              items:
+                type: array
+                items:
+                  type: number
         created_utc:
           type: string
           format: date-time
