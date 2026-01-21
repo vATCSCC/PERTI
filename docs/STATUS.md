@@ -1,6 +1,6 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-01-17
+> **Last Updated:** 2026-01-21
 > **System Version:** v17 - Main Branch
 
 ---
@@ -123,12 +123,19 @@ Unified Traffic Management Initiative database consolidating NTML entries, Advis
 
 ```
 Azure SQL Server: vatsim.database.windows.net
-├── VATSIM_ADL    ($15/mo)  - Flight data
-├── SWIM_API     ($5/mo)   - Public API  
-└── VATSIM_TMI   ($5/mo)   - TMI data ✅ NEW
-                 ─────────
-                 Total: ~$25/mo
+├── VATSIM_ADL   (~$2,100/mo) - Flight data (Hyperscale Serverless 3/16 vCores)
+├── SWIM_API     ($5/mo)      - Public API (Basic)
+├── VATSIM_REF   ($5/mo)      - Reference data (Basic)
+└── VATSIM_TMI   ($5/mo)      - TMI data (Basic)
+                 ───────────
+                 Total: ~$2,115/mo (database compute + storage)
 ```
+
+**VATSIM_ADL Configuration (Updated January 21, 2026):**
+- SKU: HS_S_Gen5_16 (Hyperscale Serverless)
+- Min/Max vCores: 3/16 (reduced from 4/24)
+- Max Workers: 1,200 (peak observed: 558 during major events)
+- Savings from right-sizing: ~$1,140/month
 
 ### Database Objects
 

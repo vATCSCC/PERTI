@@ -1,8 +1,9 @@
 # PERTI Azure Cost Optimization Analysis
 
-**Date:** January 16, 2026
-**Current Monthly Cost:** ~$1,600-1,700 (after geo-replica removal)
-**Target Monthly Cost:** ~$200-400
+**Date:** January 21, 2026 (Updated)
+**Current Monthly Cost:** ~$2,100-2,400 (after ADL right-sizing)
+**Previous Monthly Cost:** ~$3,900 (before optimization)
+**Savings Achieved:** ~$1,140/month (~$13,700/year)
 
 ---
 
@@ -153,28 +154,50 @@ The VATSIM_ADL database (284 GB) contains **217 GB of legacy data** that is no l
 
 ## Compute Cost Considerations
 
-### Current Hyperscale Serverless Configuration
+### Current Hyperscale Serverless Configuration (Updated January 21, 2026)
 
-- **VATSIM_ADL**: Gen5 8 vCores max, auto-pause disabled
-- **VATSIM_Data**: Gen5 4 vCores max, auto-pause disabled
+| Database | SKU | Min vCores | Max vCores | Max Workers | Est. Monthly |
+|----------|-----|------------|------------|-------------|--------------|
+| **VATSIM_ADL** | HS_S_Gen5_16 | **3** | **16** | 1,200 | ~$2,100 |
+| VATSIM_Data | HS_S_Gen5_4 | 0.5 | 4 | 240 | ~$536 |
+
+**Previous Configuration (before Jan 21, 2026):**
+- VATSIM_ADL: 4/24 vCores (~$3,241/month)
+- Changed to 3/16 based on actual usage analysis
+
+### Why 3/16 vCores?
+
+**Actual workload analysis (7-day metrics):**
+- Average CPU: 2-4% (rarely exceeds 12%)
+- Peak workers: 31% of capacity (558 workers during Jan 16 event)
+- Peak CPU: 100% during major VATSIM events (sustained 7+ hours)
+
+**Worker limits by tier:**
+| Max vCores | Max Workers | Peak Usage (558) | Utilization |
+|------------|-------------|------------------|-------------|
+| 24 (old) | 1,800 | 558 | 31% ✅ |
+| **16 (new)** | **1,200** | **558** | **46.5%** ✅ |
+| 8 | 600 | 558 | 93% ❌ (caused worker exhaustion) |
+
+**Decision:** 16 max vCores provides 54% headroom during peak events while saving ~$1,140/month.
 
 ### Compute Cost Factors
 
-1. **vCore Hours**: $0.77/vCore/hour (Gen5)
-2. **Current estimate**: 8 vCores × 730 hours = $4,496/month MAX
-3. **Actual**: Serverless scales down, likely 1-2 avg vCores = $560-1,120/month
+1. **vCore Hours**: ~$0.18/vCore/hour (Gen5 Hyperscale Serverless)
+2. **Current estimate**: Scales between 3-16 vCores based on demand
+3. **Typical usage**: 3-6 avg vCores during normal operation
 
-### Compute Optimization Opportunities
+### Remaining Optimization Opportunities
 
 | Optimization | Potential Savings | Trade-off |
 |--------------|-------------------|-----------|
-| Reduce max vCores (8→4) | Caps burst capability | May slow peak queries |
-| Move heavy compute to Functions | $50-100/month | Requires code changes |
-| Optimize slow queries | Reduces vCore usage | Development time |
+| Reserved capacity (1-year) | ~30% discount | Commitment required |
+| Further vCore reduction | Not recommended | Risk of worker exhaustion during events |
+| Query optimization | Reduces vCore usage | Development time |
 
 **Top Query Candidates for Optimization:**
-1. `sp_LogTrajectory` - Runs for every position update
-2. Changelog triggers - Fire on all table changes
+1. `sp_UpdateFlightWindAdjustments_V2` - Currently timing out during peak
+2. `sp_Adl_RefreshFromVatsim_Staged` - Can take 10-47s under load
 3. Boundary detection - GIS calculations
 
 ---

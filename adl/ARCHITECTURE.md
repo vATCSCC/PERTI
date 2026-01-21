@@ -20,13 +20,17 @@ Transform the monolithic `adl_flights` table into a normalized, GIS-enabled arch
 
 ### 1.2 Key Metrics
 
-| Metric | Current | Redesigned | Improvement |
-|--------|---------|------------|-------------|
-| Refresh time (typical) | ~10 sec | **~5.6 sec** | 44% faster |
-| Refresh time (peak) | ~18 sec (fails) | **~8.5 sec** | 53% faster |
-| Spatial query capability | None | **Full GIS** | New capability |
-| SimBrief data extraction | None | **Runways, steps, CI** | New capability |
-| Azure monthly cost | ~$175 | **~$220-270** | +$45-95 for GIS |
+| Metric | Current (Jan 2026) | Notes |
+|--------|-------------------|-------|
+| Refresh time (typical) | **~5.6 sec** | 44% faster than legacy |
+| Refresh time (peak) | **~8.5 sec** | 53% faster than legacy |
+| Spatial query capability | **Full GIS** | GEOGRAPHY-enabled |
+| SimBrief data extraction | **Runways, steps, CI** | Automatic parsing |
+| Azure ADL monthly cost | **~$2,100** | Hyperscale Serverless (3/16 vCores) |
+
+**Infrastructure Note (Updated January 21, 2026):**
+VATSIM_ADL runs on Azure SQL Hyperscale Serverless (HS_S_Gen5_16) with 3 min/16 max vCores.
+Configuration was right-sized from 4/24 vCores, saving ~$1,140/month while maintaining 54% worker headroom during peak VATSIM events.
 
 ---
 
