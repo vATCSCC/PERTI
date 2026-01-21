@@ -43,7 +43,7 @@ jobs:
                   --exclude='docs/' \
                   --exclude='*.md' \
                   --exclude='nul' \
-                  . deploy/
+                  . deploy/ || test $? = 24
 
     # Verify critical files are in deployment package
     - name: Verify deployment package
