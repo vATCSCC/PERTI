@@ -1,0 +1,22 @@
+; VATSWIM P3D Plugin Configuration
+;
+; Copy this file to vatswim_p3d.ini in the same folder as the DLL
+
+[VATSWIM]
+; Your VATSWIM API key (required for data submission)
+ApiKey=
+
+; API base URL
+ApiBaseUrl=https://perti.vatcscc.org/api/swim/v1
+
+; Position report interval in milliseconds
+TrackIntervalMs=1000
+
+; Enable OOOI detection (1=enabled, 0=disabled)
+EnableOOOI=1
+
+; Enable track position reporting (1=enabled, 0=disabled)
+EnableTracks=1
+
+; Enable verbose logging (1=enabled, 0=disabled)
+VerboseLogging=0

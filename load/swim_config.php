@@ -72,8 +72,15 @@ $SWIM_DATA_SOURCES = [
     'CRC'             => 'crc',              // CRC (track, tags, handoffs)
     'EUROSCOPE'       => 'euroscope',        // EuroScope (track, tags)
 
-    // Pilot sources
-    'SIMULATOR'       => 'simulator',        // Pilot simulators (telemetry, FMC)
+    // Flight simulator plugin sources (pilot telemetry)
+    'MSFS_PLUGIN'     => 'msfs_plugin',      // MSFS SimConnect plugin (position, OOOI)
+    'XPLANE_PLUGIN'   => 'xplane_plugin',    // X-Plane XPLM plugin (position, OOOI)
+    'P3D_PLUGIN'      => 'p3d_plugin',       // P3D SimConnect plugin (position, OOOI)
+    'SIMULATOR'       => 'simulator',        // Generic pilot simulators (telemetry, FMC)
+
+    // Pilot client sources
+    'VPILOT_PLUGIN'   => 'vpilot_plugin',    // vPilot plugin (flight plan, SimBrief)
+    'XPILOT_PLUGIN'   => 'xpilot_plugin',    // xPilot plugin (flight plan, SimBrief)
 
     // ACARS sources (CDM T11-T14 actuals)
     'ACARS'           => 'acars',            // Generic ACARS (OOOI, position reports)
@@ -87,9 +94,15 @@ $SWIM_DATA_SOURCES = [
     'SIMBRIEF'        => 'simbrief',         // SimBrief (OFP data, ETD/ETA)
     'VIRTUAL_AIRLINE' => 'virtual_airline',  // Virtual airlines (schedules, LRTD/LRTA/LGTD/LGTA)
 
-    // Future integrations (planned - per plan)
-    'VFDS'            => 'vfds',             // vFlightDataSystems (vEDST, TDLS, vTFMS)
+    // Virtual airline platform sources (CDM T1-T4, OOOI)
+    'PHPVMS'          => 'phpvms',           // phpVMS 7 module (PIREPs, schedules)
+    'SMARTCARS'       => 'smartcars',        // smartCARS webhooks (PIREPs, position)
+    'VAM'             => 'vam',              // VAM REST sync (flights, PIREPs)
+
+    // ATC tool integrations
+    'VFDS'            => 'vfds',             // vFDS (vEDST, TDLS, departure sequencing)
     'VEDST'           => 'vedst',            // vEDST - Enhanced Departure Sequencing Tool
+    'VATIS'           => 'vatis',            // vATIS correlation (runway, weather)
 ];
 
 /**
@@ -147,29 +160,48 @@ $SWIM_DATA_AUTHORITY = [
  */
 $SWIM_SOURCE_PRIORITY = [
     // Track position data
+    // Priority: ATC automation > sim plugins > pilot clients > generic sim > ACARS
     'track' => [
-        'vnas'       => 1,  // Primary ATC automation (radar)
-        'crc'        => 2,  // Secondary ATC client
-        'euroscope'  => 3,  // European ATC client
-        'simulator'  => 4,  // Pilot flight sim telemetry
-        'acars'      => 5,  // Generic ACARS position reports
-        'hoppie'     => 5,  // Hoppie (same priority as acars)
+        'vnas'          => 1,  // Primary ATC automation (radar)
+        'crc'           => 2,  // Secondary ATC client
+        'euroscope'     => 3,  // European ATC client
+        'msfs_plugin'   => 4,  // MSFS plugin (direct sim connection)
+        'xplane_plugin' => 4,  // X-Plane plugin (direct sim connection)
+        'p3d_plugin'    => 4,  // P3D plugin (direct sim connection)
+        'vpilot_plugin' => 5,  // vPilot plugin
+        'xpilot_plugin' => 5,  // xPilot plugin
+        'simulator'     => 6,  // Generic pilot flight sim telemetry
+        'acars'         => 7,  // Generic ACARS position reports
+        'hoppie'        => 7,  // Hoppie (same priority as acars)
     ],
 
     // OOOI times (CDM T11-T14 actuals)
-    // Priority: ACARS > VA AOC > simulator > ADL parsing
+    // Priority: ACARS > VA platforms > sim plugins > generic sim > ADL parsing
     // VAs have more reliable OOOI detection than raw sim telemetry
     'oooi' => [
         'acars'           => 1,  // ACARS is authoritative for OOOI
         'hoppie'          => 1,  // Hoppie (same priority as acars)
-        'virtual_airline' => 2,  // VA AOC systems (better detection than raw sim)
-        'simulator'       => 3,  // Flight sim telemetry
-        'vatcscc'         => 4,  // ADL parsing fallback
+        'phpvms'          => 2,  // phpVMS PIREP OOOI
+        'smartcars'       => 2,  // smartCARS OOOI detection
+        'vam'             => 2,  // VAM PIREP OOOI
+        'virtual_airline' => 2,  // Generic VA AOC systems
+        'msfs_plugin'     => 3,  // MSFS plugin OOOI detection
+        'xplane_plugin'   => 3,  // X-Plane plugin OOOI detection
+        'p3d_plugin'      => 3,  // P3D plugin OOOI detection
+        'vpilot_plugin'   => 4,  // vPilot (if it reports OOOI)
+        'xpilot_plugin'   => 4,  // xPilot (if it reports OOOI)
+        'simulator'       => 5,  // Generic flight sim telemetry
+        'vatcscc'         => 6,  // ADL parsing fallback
     ],
 
     // Schedule data (CDM STD/STA - OAG analog)
     'schedule' => [
-        'virtual_airline' => 1,  // VA schedules (OAG analog)
+        'phpvms'          => 1,  // phpVMS schedules (OAG analog)
+        'smartcars'       => 1,  // smartCARS schedules
+        'vam'             => 1,  // VAM schedules
+        'virtual_airline' => 1,  // Generic VA schedules
+        'vpilot_plugin'   => 2,  // vPilot with SimBrief
+        'xpilot_plugin'   => 2,  // xPilot with SimBrief
         'simbrief'        => 2,  // SimBrief OFP scheduled times
         'vatcscc'         => 3,  // Manual schedule entry
     ],
@@ -179,31 +211,56 @@ $SWIM_SOURCE_PRIORITY = [
         'simtraffic' => 1,  // SimTraffic is primary metering
         'vatcscc'    => 2,  // PERTI manual metering
         'vnas'       => 3,  // vNAS arrival management
-        'topsky'     => 4,  // TopSky EuroScope AMAN plugin
+        'vfds'       => 4,  // vFDS departure sequencing
+        'topsky'     => 5,  // TopSky EuroScope AMAN plugin
     ],
 
     // General times (ETA/ETD, runway times)
     'times' => [
-        'simtraffic' => 1,  // SimTraffic for runway ETAs
-        'vatcscc'    => 2,  // ADL calculated times
-        'vnas'       => 3,  // vNAS times
-        'vfds'       => 4,  // vFDS (EDST/TDLS/vTFMS) - planned
-        'simbrief'   => 5,  // SimBrief OFP calculated times
-        'simulator'  => 6,  // Flight sim FMC times
+        'simtraffic'      => 1,  // SimTraffic for runway ETAs
+        'vatcscc'         => 2,  // ADL calculated times
+        'vnas'            => 3,  // vNAS times
+        'vfds'            => 4,  // vFDS (EDST/TDLS/vTFMS)
+        'vpilot_plugin'   => 5,  // vPilot FMC times
+        'xpilot_plugin'   => 5,  // xPilot FMC times
+        'simbrief'        => 6,  // SimBrief OFP calculated times
+        'msfs_plugin'     => 7,  // MSFS plugin times
+        'xplane_plugin'   => 7,  // X-Plane plugin times
+        'p3d_plugin'      => 7,  // P3D plugin times
+        'simulator'       => 8,  // Generic flight sim FMC times
     ],
 
     // CDM T1-T4 airline predictions (LRTD/LRTA/LGTD/LGTA)
     'cdm_predictions' => [
-        'virtual_airline' => 1,  // VA is authoritative for T1-T4
+        'phpvms'          => 1,  // phpVMS predictions
+        'smartcars'       => 1,  // smartCARS predictions
+        'vam'             => 1,  // VAM predictions
+        'virtual_airline' => 1,  // Generic VA authoritative for T1-T4
+        'vpilot_plugin'   => 2,  // vPilot (with SimBrief)
+        'xpilot_plugin'   => 2,  // xPilot (with SimBrief)
         'simbrief'        => 2,  // SimBrief fallback
     ],
 
     // Telemetry data
     'telemetry' => [
-        'simulator'       => 1,  // Direct from flight sim
-        'virtual_airline' => 2,  // VA PIREP systems
-        'acars'           => 3,  // Generic ACARS reports
-        'hoppie'          => 3,  // Hoppie (same as acars)
+        'msfs_plugin'     => 1,  // MSFS direct sim connection
+        'xplane_plugin'   => 1,  // X-Plane direct sim connection
+        'p3d_plugin'      => 1,  // P3D direct sim connection
+        'simulator'       => 2,  // Generic flight sim
+        'phpvms'          => 3,  // phpVMS PIREP telemetry
+        'smartcars'       => 3,  // smartCARS telemetry
+        'vam'             => 3,  // VAM telemetry
+        'virtual_airline' => 3,  // Generic VA PIREP systems
+        'acars'           => 4,  // Generic ACARS reports
+        'hoppie'          => 4,  // Hoppie (same as acars)
+    ],
+
+    // Runway/weather correlation
+    'runway_weather' => [
+        'vatis'      => 1,  // vATIS correlation is authoritative
+        'vfds'       => 2,  // vFDS runway assignments
+        'vatcscc'    => 3,  // PERTI manual entry
+        'vnas'       => 4,  // vNAS runway data
     ],
 ];
 

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <Version>1.0.0</Version>
+    <Authors>VATCSCC</Authors>
+    <Description>VATSWIM integration plugin for vPilot</Description>
+    <AssemblyName>VatswimPlugin</AssemblyName>
+    <RootNamespace>VatSwim.VPilot</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- Reference vPilot plugin SDK -->
+  <ItemGroup Condition="Exists('$(VPILOT_SDK)')">
+    <Reference Include="vPilot.Plugin">
+      <HintPath>$(VPILOT_SDK)\vPilot.Plugin.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+{
+    "content": [
+        {
+            "path": "modules/vatswim_msfs.wasm",
+            "size": 0,
+            "date": 0
+        },
+        {
+            "path": "vatswim_config.ini",
+            "size": 0,
+            "date": 0
+        }
+    ]
+}
