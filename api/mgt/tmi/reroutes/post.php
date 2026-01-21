@@ -1,11 +1,19 @@
 <?php
 /**
  * api/mgt/tmi/reroutes/post.php
- * 
+ *
  * POST - Create or update a reroute definition (Azure SQL)
- * 
+ *
  * If 'id' is provided in POST data, updates existing record.
  * Otherwise, creates a new record.
+ *
+ * Supports 'routes' array for individual origin/destination route pairs:
+ * routes: [
+ *   { "origin": "JFK", "dest": "PIT", "route": "DEEZZ5 >CANDR J60 PSB< HAYNZ6" },
+ *   { "origin": "EWR LGA", "dest": "PIT", "route": ">NEWEL J60 PSB< HAYNZ6" }
+ * ]
+ *
+ * @version 2.0.0
  */
 
 header('Content-Type: application/json');
@@ -112,14 +120,21 @@ try {
         
         $rowsAffected = sqlsrv_rows_affected($stmt);
         sqlsrv_free_stmt($stmt);
-        
+
+        // Handle routes array if provided
+        $routesUpdated = 0;
+        if (isset($_POST['routes'])) {
+            $routesUpdated = saveRerouteRoutes($conn_tmi ?? $conn_adl, $id, $_POST['routes']);
+        }
+
         echo json_encode([
             'status' => 'ok',
             'action' => 'updated',
             'id' => $id,
-            'affected_rows' => $rowsAffected
+            'affected_rows' => $rowsAffected,
+            'routes_updated' => $routesUpdated
         ]);
-        
+
     } else {
         // INSERT new reroute
         
@@ -164,11 +179,18 @@ try {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         $newId = $row['id'] ?? null;
         sqlsrv_free_stmt($stmt);
-        
+
+        // Handle routes array if provided
+        $routesSaved = 0;
+        if ($newId && isset($_POST['routes'])) {
+            $routesSaved = saveRerouteRoutes($conn_tmi ?? $conn_adl, $newId, $_POST['routes']);
+        }
+
         echo json_encode([
             'status' => 'ok',
             'action' => 'created',
-            'id' => $newId
+            'id' => $newId,
+            'routes_saved' => $routesSaved
         ]);
     }
     
@@ -178,4 +200,72 @@ try {
         'status' => 'error',
         'message' => $e->getMessage()
     ]);
+}
+
+/**
+ * Save individual routes to tmi_reroute_routes table
+ *
+ * @param resource $conn Database connection
+ * @param int $rerouteId The parent reroute ID
+ * @param mixed $routes Routes array (can be JSON string or array)
+ * @return int Number of routes saved
+ */
+function saveRerouteRoutes($conn, $rerouteId, $routes) {
+    if (empty($routes) || empty($rerouteId)) {
+        return 0;
+    }
+
+    // Parse routes if JSON string
+    if (is_string($routes)) {
+        $routes = json_decode($routes, true);
+        if ($routes === null) {
+            return 0;
+        }
+    }
+
+    if (!is_array($routes)) {
+        return 0;
+    }
+
+    // Delete existing routes for this reroute
+    $deleteSql = "DELETE FROM dbo.tmi_reroute_routes WHERE reroute_id = ?";
+    $deleteStmt = sqlsrv_query($conn, $deleteSql, [$rerouteId]);
+    if ($deleteStmt !== false) {
+        sqlsrv_free_stmt($deleteStmt);
+    }
+
+    // Insert new routes
+    $insertSql = "
+        INSERT INTO dbo.tmi_reroute_routes (reroute_id, origin, destination, route_string, sort_order)
+        VALUES (?, ?, ?, ?, ?)
+    ";
+
+    $count = 0;
+    $sortOrder = 0;
+
+    foreach ($routes as $route) {
+        $origin = strtoupper(trim($route['origin'] ?? $route['orig'] ?? ''));
+        $dest = strtoupper(trim($route['dest'] ?? $route['destination'] ?? ''));
+        $routeString = trim($route['route'] ?? $route['route_string'] ?? '');
+
+        if (empty($origin) || empty($dest) || empty($routeString)) {
+            continue;
+        }
+
+        $params = [
+            $rerouteId,
+            $origin,
+            $dest,
+            $routeString,
+            $sortOrder++
+        ];
+
+        $stmt = sqlsrv_query($conn, $insertSql, $params);
+        if ($stmt !== false) {
+            $count++;
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+
+    return $count;
 }
