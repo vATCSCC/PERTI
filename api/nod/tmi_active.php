@@ -116,56 +116,70 @@ try {
         }
         
         // =========================================
-        // 3. Reroutes (Azure SQL - tmi_reroutes)
+        // 3. Reroutes (Azure SQL - VATSIM_TMI.tmi_reroutes)
         // =========================================
-        $rr_sql = "SELECT TOP 50 
-                       r.id, r.name, r.adv_number, r.route_string, r.advisory_text,
-                       r.constrained_area, r.reason, r.valid_start_utc, r.valid_end_utc,
-                       r.origin_filter, r.dest_filter, r.facilities, r.status, r.color,
-                       r.avoid_fixes, r.protect_fixes, r.altitude_filter,
-                       r.route_geojson,
-                       r.created_by, r.created_at,
-                       (SELECT COUNT(*) FROM dbo.tmi_reroute_flights WHERE reroute_id = r.id) as flight_count
+
+        // Use TMI connection if available, fallback to ADL
+        $rr_conn = isset($conn_tmi) && $conn_tmi ? $conn_tmi : $conn_adl;
+
+        $rr_sql = "SELECT TOP 50
+                       r.reroute_id as id, r.name, r.adv_number, r.status,
+                       r.protected_segment, r.protected_fixes, r.avoid_fixes,
+                       r.start_utc, r.end_utc, r.time_basis,
+                       r.origin_airports, r.origin_centers, r.dest_airports, r.dest_centers,
+                       r.impacting_condition, r.advisory_text, r.comments,
+                       r.color, r.line_weight, r.line_style, r.route_geojson,
+                       r.total_assigned, r.compliant_count, r.non_compliant_count, r.compliance_rate,
+                       r.created_by, r.created_at
                    FROM dbo.tmi_reroutes r
-                   WHERE r.status = 'ACTIVE'
-                     AND r.valid_start_utc <= GETUTCDATE()
-                     AND (r.valid_end_utc IS NULL OR r.valid_end_utc > GETUTCDATE())
+                   WHERE r.status IN (2, 3)
+                     AND (r.start_utc IS NULL OR r.start_utc <= GETUTCDATE())
+                     AND (r.end_utc IS NULL OR r.end_utc > GETUTCDATE())
                    ORDER BY r.created_at DESC";
-        
-        $rr_stmt = @sqlsrv_query($conn_adl, $rr_sql);
-        
+
+        $rr_stmt = @sqlsrv_query($rr_conn, $rr_sql);
+
         if ($rr_stmt) {
             while ($row = sqlsrv_fetch_array($rr_stmt, SQLSRV_FETCH_ASSOC)) {
-                $validStart = isset($row['valid_start_utc']) && $row['valid_start_utc'] instanceof DateTime 
-                    ? $row['valid_start_utc']->format('Y-m-d\TH:i:s\Z') : $row['valid_start_utc'];
-                $validEnd = isset($row['valid_end_utc']) && $row['valid_end_utc'] instanceof DateTime 
-                    ? $row['valid_end_utc']->format('Y-m-d\TH:i:s\Z') : $row['valid_end_utc'];
-                
+                $startUtc = isset($row['start_utc']) && $row['start_utc'] instanceof DateTime
+                    ? $row['start_utc']->format('Y-m-d\TH:i:s\Z') : $row['start_utc'];
+                $endUtc = isset($row['end_utc']) && $row['end_utc'] instanceof DateTime
+                    ? $row['end_utc']->format('Y-m-d\TH:i:s\Z') : $row['end_utc'];
+
                 $result['reroutes'][] = [
                     'id' => $row['id'],
                     'name' => $row['name'],
                     'adv_number' => $row['adv_number'],
-                    'route_string' => $row['route_string'],
-                    'advisory_text' => $row['advisory_text'],
-                    'constrained_area' => $row['constrained_area'],
-                    'reason' => $row['reason'],
-                    'valid_start_utc' => $validStart,
-                    'valid_end_utc' => $validEnd,
-                    'origin_filter' => $row['origin_filter'],
-                    'dest_filter' => $row['dest_filter'],
-                    'facilities' => $row['facilities'],
-                    'color' => $row['color'],
+                    'status' => $row['status'],
+                    'protected_segment' => $row['protected_segment'],
+                    'protected_fixes' => $row['protected_fixes'],
                     'avoid_fixes' => $row['avoid_fixes'],
-                    'protect_fixes' => $row['protect_fixes'],
-                    'altitude_filter' => $row['altitude_filter'],
+                    'start_utc' => $startUtc,
+                    'end_utc' => $endUtc,
+                    'time_basis' => $row['time_basis'],
+                    'origin_airports' => $row['origin_airports'],
+                    'origin_centers' => $row['origin_centers'],
+                    'dest_airports' => $row['dest_airports'],
+                    'dest_centers' => $row['dest_centers'],
+                    'impacting_condition' => $row['impacting_condition'],
+                    'advisory_text' => $row['advisory_text'],
+                    'comments' => $row['comments'],
+                    'color' => $row['color'] ?? '#3498db',
+                    'line_weight' => $row['line_weight'] ?? 3,
                     'route_geojson' => $row['route_geojson'],
-                    'flight_count' => (int)$row['flight_count'],
+                    'total_assigned' => (int)($row['total_assigned'] ?? 0),
+                    'compliant_count' => (int)($row['compliant_count'] ?? 0),
+                    'non_compliant_count' => (int)($row['non_compliant_count'] ?? 0),
+                    'compliance_rate' => $row['compliance_rate'],
                     'tmi_type' => 'REROUTE',
-                    'status_label' => 'Reroute'
+                    'status_label' => $row['status'] == 2 ? 'Active Reroute' : 'Monitoring Reroute'
                 ];
             }
             sqlsrv_free_stmt($rr_stmt);
         }
+
+        // Add debug info for reroutes
+        $result['debug']['reroutes_source'] = isset($conn_tmi) && $conn_tmi ? 'VATSIM_TMI' : 'VATSIM_ADL';
         
         // =========================================
         // 4. Public Routes (Azure SQL - VATSIM_TMI.tmi_public_routes)
