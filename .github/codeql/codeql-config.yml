@@ -1,0 +1,8 @@
+name: "PERTI CodeQL Config"
+
+# Only analyze languages that are part of the main application
+# Exclude C++ SDK examples which don't have a build system at repo root
+paths-ignore:
+  - 'sdk/cpp/**'
+  - 'sdk/csharp/**'
+  - 'integrations/**'
