@@ -67,13 +67,14 @@ window.PublicRoutes = (function() {
         var previousRoutes = state.routes ? state.routes.slice() : [];
         
         return $.ajax({
-            url: 'api/routes/public.php',
+            url: 'api/swim/v1/tmi/routes',
             method: 'GET',
             data: { filter: 'all' },
             dataType: 'json'
         }).done(function(data) {
             if (data.success) {
-                var newRoutes = data.routes || [];
+                // Support both 'routes' (legacy) and 'data' (VATSWIM) response formats
+                var newRoutes = data.routes || data.data || [];
 
                 // Always update from API response - empty is valid (all routes deleted/expired)
                 // Client-side filtering handles visibility by time status
@@ -201,14 +202,14 @@ window.PublicRoutes = (function() {
         }
         
         return $.ajax({
-            url: 'api/routes/public_post.php',
+            url: 'api/swim/v1/tmi/routes',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(routeData),
             dataType: 'json'
         }).done(function(data) {
             if (data.success) {
-                console.log('[PublicRoutes] Route saved:', data.route);
+                console.log('[PublicRoutes] Route saved:', data.data || data.route);
                 fetchRoutes();  // Refresh the list
                 return data.route;
             } else {
@@ -232,12 +233,12 @@ window.PublicRoutes = (function() {
         console.log('[PublicRoutes] Deleting route:', routeId);
         
         return $.ajax({
-            url: 'api/routes/public_delete.php?id=' + routeId + (hard ? '&hard=1' : ''),
-            method: 'POST',
+            url: 'api/swim/v1/tmi/routes?id=' + routeId + (hard ? '&hard=1' : ''),
+            method: 'DELETE',
             dataType: 'json'
         }).done(function(data) {
             if (data.success) {
-                console.log('[PublicRoutes] Route deleted');
+                console.log('[PublicRoutes] Route deleted:', data.data || data.message);
                 fetchRoutes();  // Refresh the list
             } else {
                 console.error('[PublicRoutes] Delete error:', data.error);
@@ -1728,14 +1729,14 @@ window.PublicRoutes = (function() {
         console.log('[PublicRoutes] Updating route:', routeId, updateData);
         
         return $.ajax({
-            url: 'api/routes/public_update.php',
-            method: 'POST',
+            url: 'api/swim/v1/tmi/routes?id=' + routeId,
+            method: 'PUT',
             contentType: 'application/json',
-            data: JSON.stringify({ id: routeId, ...updateData }),
+            data: JSON.stringify(updateData),
             dataType: 'json'
         }).done(function(data) {
             if (data.success) {
-                console.log('[PublicRoutes] Route updated:', data.route);
+                console.log('[PublicRoutes] Route updated:', data.data || data.route);
                 fetchRoutes();  // Refresh the list
                 return data.route;
             } else {

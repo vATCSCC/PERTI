@@ -140,6 +140,11 @@ class AdlQueryHelper {
                 c.logon_time_utc,
                 c.snapshot_utc,
 
+                -- GS Eligibility Flag (computed)
+                -- Pre-departure flights (prefile, taxiing, scheduled) are eligible for TMI control
+                -- Airborne and completed flights are NOT eligible
+                CASE WHEN c.phase IN ('prefile', 'taxiing', 'scheduled') THEN 1 ELSE 0 END AS gs_flag,
+
                 -- Position fields
                 p.lat,
                 p.lon,

@@ -47,11 +47,12 @@
 | Schema Design | ✅ Complete | See GDT design doc |
 | Database Migration | ✅ Complete | Jan 21, 2026 - 010/011/012 deployed |
 | GDT Tables | ✅ Complete | tmi_flight_control, tmi_popup_queue |
-| GDT Views | ✅ Complete | 6 views deployed |
+| GDT Views | ✅ Complete | 6 views deployed + gs_flag |
 | GDT Procedures | ✅ Complete | 12 procedures deployed |
+| GS Eligibility Flag | ✅ Complete | Migration 009 - phase-based gs_flag |
 | Ground Stop UI | 🔄 In Progress | Basic implementation |
 | GDP UI | 📋 Planned | After GS complete |
-| API Layer | 📋 Planned | /api/gdt/* endpoints |
+| API Layer | 🔄 In Progress | /api/gdt/* endpoints |
 | Daemon Integration | 📋 Planned | Pop-up detection |
 
 ---
@@ -131,6 +132,7 @@ YY/MM/DD HH:MM
 | Jan 17, 2026 | Format compliance | NTML_Advisory_Formatting_Transition.md |
 | Jan 17, 2026 | Parser & Discord alignment | docs/tmi/NTML_Discord_Parser_Alignment_20260117.md |
 | Jan 21, 2026 | GDT Database Migration | GDT_Incremental_Migration.md |
+| Jan 21, 2026 | GS Eligibility Fix | docs/tmi/GS_Eligibility_Fix_Transition.md |
 
 ---
 
