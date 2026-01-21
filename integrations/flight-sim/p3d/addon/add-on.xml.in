@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SimBase.Document Type="AddOnXml" version="4,0" id="add-on">
+    <AddOn.Name>VATSWIM P3D Plugin</AddOn.Name>
+    <AddOn.Description>VATSIM System Wide Information Management - Track reporting and OOOI detection</AddOn.Description>
+    <AddOn.Component>
+        <Category>DLL</Category>
+        <Name>VATSWIM P3D Plugin</Name>
+        <Path>vatswim_p3d.dll</Path>
+        <DLLType>PDK</DLLType>
+    </AddOn.Component>
+</SimBase.Document>

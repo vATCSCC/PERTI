@@ -1,0 +1,12 @@
+{
+    "name": "Vatswim",
+    "alias": "vatswim",
+    "description": "VATSWIM integration for phpVMS 7 - Real-time flight data sync",
+    "keywords": ["vatswim", "vatsim", "swim", "cdm", "flight-data"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Vatswim\\Providers\\VatswimServiceProvider"
+    ],
+    "files": [],
+    "requires": []
+}

@@ -1,0 +1,36 @@
+; VATSWIM MSFS Plugin Configuration
+;
+; Copy this file to vatswim_config.ini and configure your settings.
+;
+; API Key:
+;   Obtain your API key from VATSIM OAuth or request at:
+;   https://perti.vatcscc.org/swim/keys
+;
+; Note: When using vPilot with VATSWIM integration, the API key and
+; flight info will be set automatically. This config is for standalone use.
+
+[VATSWIM]
+; Your VATSWIM API key (required for data submission)
+; Leave blank to disable track/OOOI reporting
+ApiKey=
+
+; API base URL (default: production)
+; For testing, use: https://perti-dev.vatcscc.org/api/swim/v1
+ApiBaseUrl=https://perti.vatcscc.org/api/swim/v1
+
+; Position report interval in milliseconds (default: 1000)
+; Lower values = more frequent updates but more API calls
+; Recommended: 1000-5000
+TrackIntervalMs=1000
+
+; Enable OOOI detection (Out, Off, On, In times)
+; 1 = enabled, 0 = disabled
+EnableOOOI=1
+
+; Enable track position reporting
+; 1 = enabled, 0 = disabled
+EnableTracks=1
+
+; Enable verbose logging (for debugging)
+; 1 = enabled, 0 = disabled
+VerboseLogging=0

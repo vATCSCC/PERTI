@@ -1,0 +1,26 @@
+# VATSWIM X-Plane Plugin Configuration
+#
+# Copy this file to the X-Plane preferences folder as vatswim_config.txt
+#
+# Location:
+#   Windows: %APPDATA%\X-Plane 12\Output\preferences\vatswim_config.txt
+#   macOS:   ~/Library/Preferences/X-Plane 12/Output/preferences/vatswim_config.txt
+#   Linux:   ~/.x-plane/Output/preferences/vatswim_config.txt
+
+# Your VATSWIM API key (required for data submission)
+api_key=
+
+# API base URL (default: production)
+api_base_url=https://perti.vatcscc.org/api/swim/v1
+
+# Position report interval in seconds (default: 1.0)
+track_interval=1.0
+
+# Enable OOOI detection (1=enabled, 0=disabled)
+enable_oooi=1
+
+# Enable track position reporting (1=enabled, 0=disabled)
+enable_tracks=1
+
+# Enable verbose logging (1=enabled, 0=disabled)
+verbose_logging=0
