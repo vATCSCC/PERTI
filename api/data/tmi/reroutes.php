@@ -1,9 +1,9 @@
 <?php
 /**
  * api/data/tmi/reroutes.php
- * 
- * GET - List all reroute definitions (Azure SQL)
- * 
+ *
+ * GET - List all reroute definitions (VATSIM_TMI database)
+ *
  * Query params:
  *   status  - Filter by status (optional, comma-separated for multiple)
  *   active  - If "1", returns only status IN (1,2,3)
@@ -13,6 +13,9 @@
 
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../../load/connect.php';
+
+// Use TMI connection (migrated from ADL)
+$conn = $conn_tmi ?? $conn_adl;
 
 // Status labels for human-readable output
 $STATUS_LABELS = [
@@ -27,7 +30,7 @@ $STATUS_LABELS = [
 try {
     $where = [];
     $params = [];
-    
+
     // Status filter
     if (isset($_GET['status']) && $_GET['status'] !== '') {
         $statuses = array_map('intval', explode(',', $_GET['status']));
@@ -36,46 +39,46 @@ try {
     } elseif (isset($_GET['active']) && $_GET['active'] === '1') {
         $where[] = "status IN (1, 2, 3)";
     }
-    
-    // Build query
-    $sql = "SELECT 
-                id, status, name, adv_number,
+
+    // Build query - use TMI column names with aliases for compatibility
+    $sql = "SELECT
+                reroute_id as id, status, name, adv_number,
                 start_utc, end_utc, time_basis,
                 protected_fixes, avoid_fixes,
                 origin_airports, origin_centers,
                 dest_airports, dest_centers,
                 include_ac_cat, include_carriers,
                 impacting_condition,
-                created_by, created_utc, updated_utc, activated_utc
+                created_by, created_at as created_utc, updated_at as updated_utc, activated_utc
             FROM dbo.tmi_reroutes";
-    
+
     if (!empty($where)) {
         $sql .= " WHERE " . implode(' AND ', $where);
     }
-    
-    $sql .= " ORDER BY 
-                CASE WHEN status = 2 THEN 0 
-                     WHEN status = 3 THEN 1 
-                     WHEN status = 1 THEN 2 
+
+    $sql .= " ORDER BY
+                CASE WHEN status = 2 THEN 0
+                     WHEN status = 3 THEN 1
+                     WHEN status = 1 THEN 2
                      ELSE 3 END,
-                updated_utc DESC";
-    
+                updated_at DESC";
+
     // Limit/offset
     $limit = isset($_GET['limit']) ? get_int('limit') : 100;
     $offset = isset($_GET['offset']) ? get_int('offset') : 0;
     $sql .= " OFFSET $offset ROWS FETCH NEXT $limit ROWS ONLY";
-    
+
     // Execute
-    $stmt = sqlsrv_query($conn_adl, $sql);
+    $stmt = sqlsrv_query($conn, $sql);
     if ($stmt === false) {
         throw new Exception('Query failed: ' . print_r(sqlsrv_errors(), true));
     }
-    
+
     $reroutes = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         // Convert DateTime objects to strings
         foreach (['created_utc', 'updated_utc', 'activated_utc'] as $field) {
-            if ($row[$field] instanceof DateTime) {
+            if (isset($row[$field]) && $row[$field] instanceof DateTime) {
                 $row[$field] = $row[$field]->format('Y-m-d H:i:s');
             }
         }
@@ -83,10 +86,10 @@ try {
         $reroutes[] = $row;
     }
     sqlsrv_free_stmt($stmt);
-    
+
     // Get counts by status
     $countSql = "SELECT status, COUNT(*) as cnt FROM dbo.tmi_reroutes GROUP BY status";
-    $countStmt = sqlsrv_query($conn_adl, $countSql);
+    $countStmt = sqlsrv_query($conn, $countSql);
     $counts = [];
     if ($countStmt) {
         while ($row = sqlsrv_fetch_array($countStmt, SQLSRV_FETCH_ASSOC)) {
@@ -94,14 +97,15 @@ try {
         }
         sqlsrv_free_stmt($countStmt);
     }
-    
+
     echo json_encode([
         'status' => 'ok',
+        'source' => 'vatsim_tmi',
         'total' => count($reroutes),
         'counts' => $counts,
         'reroutes' => $reroutes
     ]);
-    
+
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
