@@ -1,22 +1,22 @@
 <?php
 /**
  * VATSWIM API v1 - TMI Programs Endpoint
- * 
+ *
  * Returns active Traffic Management Initiative programs (Ground Stops, GDPs).
- * Ground Stops: MySQL (tmi_ground_stops)
- * GDP Programs: Azure SQL (gdp_log)
- * 
- * @version 1.2.0 - Added error handling
+ *
+ * Data Sources:
+ * - Ground Stops: Azure SQL (dbo.ntml table - new GDT schema)
+ * - GDP Programs: Azure SQL (dbo.ntml for new programs, dbo.gdp_log for legacy)
+ *
+ * @version 2.0.0 - Updated to use dbo.ntml for Ground Stops (new GDT schema)
  */
 
 require_once __DIR__ . '/../auth.php';
 
 // Get database connections
-// MySQL: $conn_sqli for Ground Stops (tmi_ground_stops table)
-// Azure SQL: $conn_adl for GDP programs (gdp_log table)
 global $conn_sqli, $conn_adl, $conn_swim;
 
-// GDP queries can use SWIM_API if available, fall back to VATSIM_ADL
+// All TMI queries use Azure SQL (SWIM_API or VATSIM_ADL)
 $conn_sql = $conn_swim ?: $conn_adl;
 
 $auth = swim_init_auth(true, false);
@@ -36,102 +36,280 @@ $response = [
     ]
 ];
 
-// GROUND STOPS - MySQL
+// ============================================================================
+// GROUND STOPS - Azure SQL (dbo.ntml table - new GDT schema)
+// ============================================================================
 if ($type === 'all' || $type === 'gs') {
-    // Check if MySQL connection is available
-    if (isset($conn_sqli) && $conn_sqli) {
-        $gs_where = [];
-        $gs_params = [];
-        $gs_types = '';
-        
-        if ($include_history) {
-            $gs_where[] = "(status = 1 OR (status != 1 AND end_utc >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 HOUR)))";
+    $gs_where = ["n.program_type = 'GS'"];
+    $gs_params = [];
+
+    if ($include_history) {
+        $gs_where[] = "(n.status = 'ACTIVE' OR (n.status NOT IN ('ACTIVE') AND n.end_utc >= DATEADD(HOUR, -2, GETUTCDATE())))";
+    } else {
+        $gs_where[] = "n.status = 'ACTIVE'";
+    }
+
+    if ($airport) {
+        $airport_list = array_map('trim', explode(',', strtoupper($airport)));
+        $placeholders = implode(',', array_fill(0, count($airport_list), '?'));
+        $gs_where[] = "n.ctl_element IN ($placeholders)";
+        $gs_params = array_merge($gs_params, $airport_list);
+    }
+
+    if ($artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $gs_where[] = "a.RESP_ARTCC_ID IN ($placeholders)";
+        $gs_params = array_merge($gs_params, $artcc_list);
+    }
+
+    $gs_sql = "
+        SELECT
+            n.program_id,
+            n.program_guid,
+            n.ctl_element,
+            n.element_type,
+            n.program_name,
+            n.adv_number,
+            n.start_utc,
+            n.end_utc,
+            n.cumulative_start,
+            n.cumulative_end,
+            n.status,
+            n.is_active,
+            n.scope_type,
+            n.scope_tier,
+            n.scope_json,
+            n.impacting_condition,
+            n.cause_text,
+            n.comments,
+            n.prob_extension,
+            n.total_flights,
+            n.controlled_flights,
+            n.exempt_flights,
+            n.airborne_flights,
+            n.avg_delay_min,
+            n.max_delay_min,
+            n.total_delay_min,
+            n.flt_incl_carrier,
+            n.flt_incl_type,
+            n.activated_utc,
+            n.created_utc,
+            a.ARPT_NAME as airport_name,
+            a.RESP_ARTCC_ID as artcc
+        FROM dbo.ntml n
+        LEFT JOIN dbo.apts a ON n.ctl_element = a.ICAO_ID
+        WHERE " . implode(' AND ', $gs_where) . "
+        ORDER BY n.ctl_element, n.start_utc DESC
+    ";
+
+    try {
+        $gs_stmt = sqlsrv_query($conn_sql, $gs_sql, $gs_params);
+
+        if ($gs_stmt !== false) {
+            while ($row = sqlsrv_fetch_array($gs_stmt, SQLSRV_FETCH_ASSOC)) {
+                // Parse scope JSON for dep_facilities
+                $scope_data = null;
+                if (!empty($row['scope_json'])) {
+                    $scope_data = json_decode($row['scope_json'], true);
+                }
+
+                $response['ground_stops'][] = [
+                    'type' => 'ground_stop',
+                    'program_id' => $row['program_id'],
+                    'program_guid' => $row['program_guid'],
+                    'airport' => $row['ctl_element'],
+                    'airport_name' => $row['airport_name'],
+                    'artcc' => $row['artcc'],
+                    'name' => $row['program_name'] ?? 'CDM GROUND STOP',
+                    'reason' => $row['impacting_condition'],
+                    'reason_detail' => $row['cause_text'],
+                    'comments' => $row['comments'],
+                    'probability_of_extension' => $row['prob_extension'],
+                    'scope' => [
+                        'type' => $row['scope_type'],
+                        'tier' => $row['scope_tier'],
+                        'dep_facilities' => $scope_data['dep_facilities'] ?? null,
+                        'origin_centers' => $scope_data['origin_centers'] ?? null
+                    ],
+                    'times' => [
+                        'start' => formatDT($row['start_utc']),
+                        'end' => formatDT($row['end_utc']),
+                        'cumulative_start' => formatDT($row['cumulative_start']),
+                        'cumulative_end' => formatDT($row['cumulative_end']),
+                        'activated' => formatDT($row['activated_utc'])
+                    ],
+                    'delays' => [
+                        'total_minutes' => (int)($row['total_delay_min'] ?? 0),
+                        'average_minutes' => (int)($row['avg_delay_min'] ?? 0),
+                        'maximum_minutes' => (int)($row['max_delay_min'] ?? 0)
+                    ],
+                    'flights' => [
+                        'total' => (int)($row['total_flights'] ?? 0),
+                        'controlled' => (int)($row['controlled_flights'] ?? 0),
+                        'exempt' => (int)($row['exempt_flights'] ?? 0),
+                        'airborne' => (int)($row['airborne_flights'] ?? 0)
+                    ],
+                    'filters' => [
+                        'carrier' => $row['flt_incl_carrier'],
+                        'aircraft_type' => $row['flt_incl_type']
+                    ],
+                    'advisory' => [
+                        'number' => $row['adv_number']
+                    ],
+                    'status' => $row['status'],
+                    'is_active' => (bool)$row['is_active']
+                ];
+
+                if ($row['status'] === 'ACTIVE') {
+                    $response['summary']['active_ground_stops']++;
+                }
+            }
+            sqlsrv_free_stmt($gs_stmt);
         } else {
-            $gs_where[] = "status = 1";
+            $errors = sqlsrv_errors();
+            error_log("SWIM TMI Programs - GS SQL Server error: " . ($errors[0]['message'] ?? 'Unknown'));
         }
-        
-        if ($airport) {
-            $airport_list = array_map('trim', explode(',', strtoupper($airport)));
-            $placeholders = implode(',', array_fill(0, count($airport_list), '?'));
-            $gs_where[] = "ctl_element IN ($placeholders)";
-            $gs_params = array_merge($gs_params, $airport_list);
-            $gs_types .= str_repeat('s', count($airport_list));
-        }
-        
-        $gs_sql = "SELECT name, ctl_element, element_type, airports, start_utc, end_utc, prob_ext,
-                          origin_centers, origin_airports, comments, adv_number, advisory_text, status
-                   FROM tmi_ground_stops WHERE " . implode(' AND ', $gs_where) . " ORDER BY ctl_element";
-        
-        try {
-            if (!empty($gs_params)) {
-                $gs_stmt = $conn_sqli->prepare($gs_sql);
-                if ($gs_stmt) {
-                    $gs_stmt->bind_param($gs_types, ...$gs_params);
-                    $gs_stmt->execute();
-                    $gs_result = $gs_stmt->get_result();
-                }
-            } else {
-                $gs_result = $conn_sqli->query($gs_sql);
-            }
-            
-            if ($gs_result) {
-                while ($row = $gs_result->fetch_assoc()) {
-                    $airport_info = getAirportInfo($row['ctl_element']);
-                    
-                    if ($artcc) {
-                        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
-                        if ($airport_info && !in_array($airport_info['artcc'], $artcc_list)) continue;
-                    }
-                    
-                    $response['ground_stops'][] = [
-                        'type' => 'ground_stop',
-                        'airport' => $row['ctl_element'],
-                        'airport_name' => $airport_info ? $airport_info['name'] : null,
-                        'artcc' => $airport_info ? $airport_info['artcc'] : null,
-                        'name' => $row['name'],
-                        'reason' => $row['comments'],
-                        'probability_of_extension' => intval($row['prob_ext']),
-                        'times' => ['start' => $row['start_utc'], 'end' => $row['end_utc']],
-                        'advisory' => ['number' => $row['adv_number'], 'text' => $row['advisory_text']],
-                        'is_active' => ($row['status'] == 1)
-                    ];
-                    
-                    if ($row['status'] == 1) $response['summary']['active_ground_stops']++;
-                }
-                if (isset($gs_stmt)) $gs_stmt->close();
-            }
-        } catch (Exception $e) {
-            // Log error but continue - GDPs may still work
-            error_log("SWIM TMI Programs - MySQL error: " . $e->getMessage());
-        }
+    } catch (Exception $e) {
+        error_log("SWIM TMI Programs - GS error: " . $e->getMessage());
     }
 }
 
-// GDP PROGRAMS - Azure SQL
+// ============================================================================
+// GDP PROGRAMS - Azure SQL (dbo.ntml for new programs + dbo.gdp_log for legacy)
+// ============================================================================
 if ($type === 'all' || $type === 'gdp') {
+    // First, query new GDP programs from dbo.ntml (GDP-DAS, GDP-GAAP, GDP-UDP)
+    $gdp_ntml_where = ["n.program_type LIKE 'GDP%'"];
+    $gdp_ntml_params = [];
+
+    if ($include_history) {
+        $gdp_ntml_where[] = "(n.status = 'ACTIVE' OR (n.status NOT IN ('ACTIVE') AND n.end_utc >= DATEADD(HOUR, -2, GETUTCDATE())))";
+    } else {
+        $gdp_ntml_where[] = "n.status = 'ACTIVE'";
+    }
+
+    if ($airport) {
+        $airport_list = array_map('trim', explode(',', strtoupper($airport)));
+        $placeholders = implode(',', array_fill(0, count($airport_list), '?'));
+        $gdp_ntml_where[] = "n.ctl_element IN ($placeholders)";
+        $gdp_ntml_params = array_merge($gdp_ntml_params, $airport_list);
+    }
+
+    if ($artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $gdp_ntml_where[] = "a.RESP_ARTCC_ID IN ($placeholders)";
+        $gdp_ntml_params = array_merge($gdp_ntml_params, $artcc_list);
+    }
+
+    $gdp_ntml_sql = "
+        SELECT
+            n.program_id,
+            n.program_guid,
+            n.ctl_element,
+            n.program_type,
+            n.program_name,
+            n.adv_number,
+            n.start_utc,
+            n.end_utc,
+            n.status,
+            n.is_active,
+            n.program_rate,
+            n.reserve_rate,
+            n.delay_limit_min,
+            n.scope_json,
+            n.impacting_condition,
+            n.prob_extension,
+            n.total_flights,
+            n.controlled_flights,
+            n.avg_delay_min,
+            n.max_delay_min,
+            n.total_delay_min,
+            a.ARPT_NAME as airport_name,
+            a.RESP_ARTCC_ID as artcc
+        FROM dbo.ntml n
+        LEFT JOIN dbo.apts a ON n.ctl_element = a.ICAO_ID
+        WHERE " . implode(' AND ', $gdp_ntml_where) . "
+        ORDER BY n.ctl_element, n.start_utc DESC
+    ";
+
+    try {
+        $gdp_ntml_stmt = sqlsrv_query($conn_sql, $gdp_ntml_sql, $gdp_ntml_params);
+
+        if ($gdp_ntml_stmt !== false) {
+            while ($row = sqlsrv_fetch_array($gdp_ntml_stmt, SQLSRV_FETCH_ASSOC)) {
+                $response['gdp_programs'][] = [
+                    'type' => 'gdp',
+                    'program_id' => $row['program_id'],
+                    'program_guid' => $row['program_guid'],
+                    'program_type' => $row['program_type'],
+                    'airport' => $row['ctl_element'],
+                    'airport_name' => $row['airport_name'],
+                    'artcc' => $row['artcc'],
+                    'name' => $row['program_name'],
+                    'reason' => $row['impacting_condition'],
+                    'probability_of_extension' => $row['prob_extension'],
+                    'rates' => [
+                        'program_rate' => (int)($row['program_rate'] ?? 0),
+                        'reserve_rate' => (int)($row['reserve_rate'] ?? 0)
+                    ],
+                    'delays' => [
+                        'limit_minutes' => (int)($row['delay_limit_min'] ?? 180),
+                        'total_minutes' => (int)($row['total_delay_min'] ?? 0),
+                        'average_minutes' => (int)($row['avg_delay_min'] ?? 0),
+                        'maximum_minutes' => (int)($row['max_delay_min'] ?? 0)
+                    ],
+                    'times' => [
+                        'start' => formatDT($row['start_utc']),
+                        'end' => formatDT($row['end_utc'])
+                    ],
+                    'flights' => [
+                        'total' => (int)($row['total_flights'] ?? 0),
+                        'controlled' => (int)($row['controlled_flights'] ?? 0)
+                    ],
+                    'advisory' => [
+                        'number' => $row['adv_number']
+                    ],
+                    'status' => $row['status'],
+                    'is_active' => (bool)$row['is_active'],
+                    'source' => 'ntml'
+                ];
+
+                if ($row['status'] === 'ACTIVE') {
+                    $response['summary']['active_gdp_programs']++;
+                }
+            }
+            sqlsrv_free_stmt($gdp_ntml_stmt);
+        }
+    } catch (Exception $e) {
+        error_log("SWIM TMI Programs - GDP NTML error: " . $e->getMessage());
+    }
+
+    // Also query legacy GDP programs from gdp_log (for backwards compatibility)
     $gdp_where = [];
     $gdp_params = [];
-    
+
     if ($include_history) {
         $gdp_where[] = "(g.status = 'ACTIVE' OR (g.status != 'ACTIVE' AND g.program_end_utc >= DATEADD(HOUR, -2, GETUTCDATE())))";
     } else {
         $gdp_where[] = "g.status = 'ACTIVE'";
     }
-    
+
     if ($airport) {
         $airport_list = array_map('trim', explode(',', strtoupper($airport)));
         $placeholders = implode(',', array_fill(0, count($airport_list), '?'));
         $gdp_where[] = "g.ctl_element IN ($placeholders)";
         $gdp_params = array_merge($gdp_params, $airport_list);
     }
-    
+
     if ($artcc) {
         $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
         $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
         $gdp_where[] = "a.RESP_ARTCC_ID IN ($placeholders)";
         $gdp_params = array_merge($gdp_params, $artcc_list);
     }
-    
+
     $gdp_sql = "
         SELECT g.id, g.program_id, g.ctl_element, g.adv_number,
                g.program_start_utc, g.program_end_utc, g.program_rate,
@@ -143,43 +321,44 @@ if ($type === 'all' || $type === 'gdp') {
         LEFT JOIN dbo.apts a ON g.ctl_element = a.ICAO_ID
         WHERE " . implode(' AND ', $gdp_where) . "
         ORDER BY g.ctl_element";
-    
-    $gdp_stmt = sqlsrv_query($conn_sql, $gdp_sql, $gdp_params);
-    if ($gdp_stmt !== false) {
-        while ($row = sqlsrv_fetch_array($gdp_stmt, SQLSRV_FETCH_ASSOC)) {
-            $response['gdp_programs'][] = [
-                'id' => $row['id'],
-                'type' => 'gdp',
-                'program_id' => $row['program_id'],
-                'airport' => $row['ctl_element'],
-                'airport_name' => $row['airport_name'],
-                'artcc' => $row['artcc'],
-                'reason' => $row['impacting_condition'],
-                'probability_of_extension' => intval($row['probability_of_extension']),
-                'rates' => ['program_rate' => intval($row['program_rate'])],
-                'delays' => [
-                    'limit_minutes' => intval($row['delay_limit_minutes']),
-                    'average_minutes' => intval($row['avg_delay_min']),
-                    'maximum_minutes' => intval($row['max_delay_min'])
-                ],
-                'times' => [
-                    'start' => formatDT($row['program_start_utc']),
-                    'end' => formatDT($row['program_end_utc'])
-                ],
-                'flights' => [
-                    'total' => intval($row['total_flights']),
-                    'affected' => intval($row['affected_flights'])
-                ],
-                'status' => $row['status'],
-                'is_active' => ($row['status'] === 'ACTIVE')
-            ];
-            if ($row['status'] === 'ACTIVE') $response['summary']['active_gdp_programs']++;
+
+    try {
+        $gdp_stmt = sqlsrv_query($conn_sql, $gdp_sql, $gdp_params);
+        if ($gdp_stmt !== false) {
+            while ($row = sqlsrv_fetch_array($gdp_stmt, SQLSRV_FETCH_ASSOC)) {
+                $response['gdp_programs'][] = [
+                    'id' => $row['id'],
+                    'type' => 'gdp',
+                    'program_id' => $row['program_id'],
+                    'airport' => $row['ctl_element'],
+                    'airport_name' => $row['airport_name'],
+                    'artcc' => $row['artcc'],
+                    'reason' => $row['impacting_condition'],
+                    'probability_of_extension' => intval($row['probability_of_extension']),
+                    'rates' => ['program_rate' => intval($row['program_rate'])],
+                    'delays' => [
+                        'limit_minutes' => intval($row['delay_limit_minutes']),
+                        'average_minutes' => intval($row['avg_delay_min']),
+                        'maximum_minutes' => intval($row['max_delay_min'])
+                    ],
+                    'times' => [
+                        'start' => formatDT($row['program_start_utc']),
+                        'end' => formatDT($row['program_end_utc'])
+                    ],
+                    'flights' => [
+                        'total' => intval($row['total_flights']),
+                        'affected' => intval($row['affected_flights'])
+                    ],
+                    'status' => $row['status'],
+                    'is_active' => ($row['status'] === 'ACTIVE'),
+                    'source' => 'gdp_log'
+                ];
+                if ($row['status'] === 'ACTIVE') $response['summary']['active_gdp_programs']++;
+            }
+            sqlsrv_free_stmt($gdp_stmt);
         }
-        sqlsrv_free_stmt($gdp_stmt);
-    } else {
-        // Log SQL Server error
-        $errors = sqlsrv_errors();
-        error_log("SWIM TMI Programs - SQL Server error: " . ($errors[0]['message'] ?? 'Unknown'));
+    } catch (Exception $e) {
+        error_log("SWIM TMI Programs - GDP legacy error: " . $e->getMessage());
     }
 }
 

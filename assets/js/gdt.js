@@ -3777,8 +3777,8 @@ function handleGsSendActual() {
 
         return showConfirmDialog(
             "Activate GS Program " + GS_CURRENT_PROGRAM_ID + "?",
-            "This will activate the GS program and apply EDCTs to affected flights in the live ADL.",
-            "Activate",
+            "This will activate the GS program and apply EDCTs to affected flights in the live ADL. The advisory will be published to VATSWIM.",
+            "Activate & Publish",
             "warning"
         ).then(function(confirmed) {
             if (!confirmed) return;
@@ -3787,7 +3787,9 @@ function handleGsSendActual() {
 
             return apiPostJson(GS_API.activate, {
                 program_id: GS_CURRENT_PROGRAM_ID,
-                activated_by: "TMU"
+                activated_by: "TMU",
+                publish_swim: true,
+                publish_discord: true
             })
                 .then(function(activateResp) {
                     if (activateResp.status !== "ok") {
@@ -3795,34 +3797,54 @@ function handleGsSendActual() {
                     }
 
                     GS_CURRENT_PROGRAM_STATUS = "ACTIVE";
-                    
-                    var program = activateResp.data.program || {};
-                    var flightCount = activateResp.data.controlled_flights || program.controlled_flights || 0;
 
-                    if (statusEl) {
-                        statusEl.textContent = "GS ACTIVE | Program " + GS_CURRENT_PROGRAM_ID + 
-                            " | " + flightCount + " flights controlled | " +
-                            program.adv_number;
+                    var program = activateResp.data.program || {};
+                    var flightsData = activateResp.data.flights || {};
+                    var powerRun = activateResp.data.power_run || {};
+                    var advisory = activateResp.data.advisory || {};
+
+                    var flightCount = flightsData.controlled || program.controlled_flights || 0;
+
+                    // Build comprehensive status message
+                    var statusMsg = "GS ACTIVE | Program " + GS_CURRENT_PROGRAM_ID +
+                        " | " + flightCount + " controlled";
+                    if (powerRun.max_delay) {
+                        statusMsg += " | Max delay: " + powerRun.max_delay + " min";
                     }
+                    if (activateResp.data.swim_published) {
+                        statusMsg += " | Published to VATSWIM";
+                    }
+                    if (statusEl) {
+                        statusEl.textContent = statusMsg;
+                    }
+
                     setGsTableMode("LIVE");
-                    
+
                     // Disable Send Actual - program is now active
                     GS_SIMULATION_READY = false;
                     setSendActualEnabled(false, "GS is ACTIVE - create new program or extend/purge current");
 
-                    // Show the GS Flight List modal with affected flights
-                    if (activateResp.data && activateResp.data.flights) {
-                        showGsFlightListModal(activateResp.data.flights, workflowPayload);
-                    } else {
-                        // Fetch flight list separately
-                        return fetch(GS_API.flights + "?program_id=" + GS_CURRENT_PROGRAM_ID)
-                            .then(function(r) { return r.json(); })
-                            .then(function(flightsResp) {
-                                if (flightsResp.status === "ok" && flightsResp.data && flightsResp.data.flights) {
-                                    showGsFlightListModal(flightsResp.data.flights, workflowPayload);
-                                }
-                            });
+                    // Update the advisory preview with the finalized advisory text
+                    if (advisory.text) {
+                        var advPreview = document.getElementById("gs_advisory_preview");
+                        if (advPreview) {
+                            advPreview.textContent = advisory.text;
+                        }
                     }
+
+                    // Show success notification with full results
+                    showGsActivationSuccess(activateResp.data, workflowPayload);
+
+                    // Show the GS Flight List modal with affected flights
+                    var flightListData = {
+                        flights: flightsData.flights || [],
+                        total: flightsData.total || 0,
+                        affected: flightsData.controlled || 0,
+                        max_delay: flightsData.max_delay || powerRun.max_delay || 0,
+                        avg_delay: flightsData.avg_delay || powerRun.avg_delay || 0,
+                        total_delay: flightsData.total_delay || powerRun.total_delay || 0
+                    };
+                    showGsFlightListModal(flightListData, workflowPayload);
                 })
                 .catch(function(err) {
                     console.error("GS activate failed", err);
@@ -3834,6 +3856,73 @@ function handleGsSendActual() {
                     }
                 });
         });
+    }
+
+    /**
+     * Show success notification after GS activation with full results
+     */
+    function showGsActivationSuccess(data, workflowPayload) {
+        var program = data.program || {};
+        var flightsData = data.flights || {};
+        var powerRun = data.power_run || {};
+        var advisory = data.advisory || {};
+
+        // Build HTML for the success modal
+        var html = '<div class="text-left">';
+        html += '<h5 class="text-success"><i class="fas fa-check-circle"></i> Ground Stop Activated</h5>';
+
+        // Program Info
+        html += '<div class="mb-3">';
+        html += '<strong>Program:</strong> ' + escapeHtml(program.program_name || 'GS-' + program.ctl_element) + '<br>';
+        html += '<strong>Airport:</strong> ' + escapeHtml(program.ctl_element) + '<br>';
+        html += '<strong>Period:</strong> ' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc);
+        html += '</div>';
+
+        // Power Run Results
+        html += '<div class="card bg-light mb-3">';
+        html += '<div class="card-header py-1"><strong><i class="fas fa-chart-bar"></i> Power Run Results</strong></div>';
+        html += '<div class="card-body py-2">';
+        html += '<table class="table table-sm mb-0">';
+        html += '<tr><td>Controlled Flights</td><td class="text-right font-weight-bold">' + (flightsData.controlled || 0) + '</td></tr>';
+        html += '<tr><td>Exempt Flights</td><td class="text-right">' + (flightsData.exempt || 0) + '</td></tr>';
+        html += '<tr><td>Airborne Flights</td><td class="text-right">' + (flightsData.airborne || 0) + '</td></tr>';
+        html += '<tr><td>Total Delay</td><td class="text-right">' + (powerRun.total_delay || 0) + ' min</td></tr>';
+        html += '<tr><td>Max Delay</td><td class="text-right text-danger font-weight-bold">' + (powerRun.max_delay || 0) + ' min</td></tr>';
+        html += '<tr><td>Avg Delay</td><td class="text-right">' + (powerRun.avg_delay || 0) + ' min</td></tr>';
+        html += '</table>';
+        html += '</div></div>';
+
+        // Publishing Status
+        html += '<div class="mb-3">';
+        if (data.swim_published) {
+            html += '<span class="badge badge-success mr-2"><i class="fas fa-cloud-upload-alt"></i> Published to VATSWIM</span>';
+        }
+        if (data.discord_posted) {
+            html += '<span class="badge badge-primary"><i class="fab fa-discord"></i> Posted to Discord</span>';
+        }
+        html += '</div>';
+
+        // Advisory Preview (collapsible)
+        if (advisory.text) {
+            html += '<details>';
+            html += '<summary class="mb-2" style="cursor:pointer;"><strong>Advisory Text</strong> (click to expand)</summary>';
+            html += '<pre class="bg-dark text-light p-2 rounded" style="font-size:0.75rem; white-space:pre-wrap;">' + escapeHtml(advisory.text) + '</pre>';
+            html += '</details>';
+        }
+
+        html += '</div>';
+
+        if (window.Swal) {
+            window.Swal.fire({
+                icon: "success",
+                title: "Ground Stop Issued",
+                html: html,
+                width: 600,
+                confirmButtonText: "View Flight List",
+                showCancelButton: true,
+                cancelButtonText: "Close"
+            });
+        }
     }
 
 function handleGsPurgeAll() {
