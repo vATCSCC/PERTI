@@ -2221,9 +2221,13 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         }
                         $days = ['', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                         // Calculate explicit thresholds for legend
-                        $thresh25 = (int)floor($maxCount * 0.25);
                         $thresh50 = (int)floor($maxCount * 0.50);
                         $thresh75 = (int)floor($maxCount * 0.75);
+                        $thresh90 = (int)floor($maxCount * 0.90);
+                        // Current time for highlighting
+                        $nowUtc = new DateTime('now', new DateTimeZone('UTC'));
+                        $currentDay = (int)$nowUtc->format('w') + 1; // 1=Sun, 7=Sat (matches DATEPART WEEKDAY)
+                        $currentHour = (int)$nowUtc->format('G');
                         ?>
                         <div style="display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 1px; font-size: 0.55rem;">
                             <div></div>
@@ -2234,23 +2238,25 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <div style="color: #666; font-weight: 600; line-height: 14px;"><?= $days[$d] ?></div>
                             <?php for ($h = 0; $h < 24; $h++):
                                 $count = $heatmap[$d][$h] ?? 0;
-                                // Color thresholds: 0=none, <25%=low, <50%=med, <75%=high, ≥75%=peak
+                                // Color thresholds: 0=none, <50%=low, <75%=med, <90%=high, ≥90%=peak
                                 $intensity = $maxCount > 0 ? $count / $maxCount : 0;
                                 $bg = $intensity === 0 ? '#f0f0f0' :
-                                      ($intensity < 0.25 ? '#c6f6d5' :
-                                      ($intensity < 0.5 ? '#68d391' :
-                                      ($intensity < 0.75 ? '#f6ad55' : '#fc8181')));
+                                      ($intensity < 0.5 ? '#c6f6d5' :
+                                      ($intensity < 0.75 ? '#68d391' :
+                                      ($intensity < 0.9 ? '#f6ad55' : '#fc8181')));
+                                $isCurrentHour = ($d === $currentDay && $h === $currentHour);
+                                $border = $isCurrentHour ? 'border: 2px solid #1a202c; box-shadow: 0 0 3px rgba(0,0,0,0.4);' : '';
                             ?>
-                            <div style="height: 14px; background: <?= $bg ?>; border-radius: 1px;" title="<?= $days[$d] ?> <?= sprintf('%02d', $h) ?>:00 - <?= $count ?> flights"></div>
+                            <div style="height: 14px; background: <?= $bg ?>; border-radius: 1px; <?= $border ?>" title="<?= $days[$d] ?> <?= sprintf('%02d', $h) ?>:00 - <?= $count ?> flights<?= $isCurrentHour ? ' (NOW)' : '' ?>"></div>
                             <?php endfor; ?>
                             <?php endfor; ?>
                         </div>
                         <div class="d-flex justify-content-end mt-1" style="font-size: 0.55rem; color: #888;">
                             <span style="display: inline-block; width: 10px; height: 10px; background: #f0f0f0; margin-right: 2px;"></span>0
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low (1-<?= $thresh25 ?>)
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med (<?= $thresh25+1 ?>-<?= $thresh50 ?>)
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High (<?= $thresh50+1 ?>-<?= $thresh75 ?>)
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak (<?= $thresh75+1 ?>+)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low (1-<?= $thresh50 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med (<?= $thresh50+1 ?>-<?= $thresh75 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High (<?= $thresh75+1 ?>-<?= $thresh90 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak (<?= $thresh90+1 ?>+)
                         </div>
                     </div>
                 </div>
