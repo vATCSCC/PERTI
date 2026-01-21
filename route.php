@@ -109,13 +109,13 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        /* Fix custom-switch padding to ensure toggle track is visible */
-        .map-toolbar .custom-switch,
-        .adl-controls .custom-switch {
-            padding-left: 3.25rem;
+        /* Fix custom-switch padding to ensure toggle track is visible
+           The switch track is 2.5rem wide and positioned at left: -3rem,
+           so we need at least 3rem padding to prevent clipping */
+        .custom-switch {
+            padding-left: 3.25rem !important;
         }
-        .map-toolbar .custom-control-label,
-        .adl-controls .custom-control-label {
+        .custom-switch .custom-control-label {
             cursor: pointer;
         }
         
