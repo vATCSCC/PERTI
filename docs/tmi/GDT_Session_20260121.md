@@ -1,21 +1,21 @@
-# GDT Database Migration Session - January 21, 2026
+# GDT Development Session - January 21, 2026
 
 ## Session Summary
 
-Successfully deployed the GDT (Ground Delay Tools) database schema to VATSIM_TMI.
+Completed Phase 1 (Database Migration) and substantial Phase 2 (API Layer) work.
 
 ---
 
-## ✅ Completed Tasks
+## ✅ Phase 1: Database Migration - COMPLETE
 
-### 1. Database Migrations Deployed
+### Migrations Deployed
 | File | Objects Created |
 |------|-----------------|
 | `010_gdt_incremental_schema.sql` | 2 tables, 12+ columns added, 10+ indexes |
 | `011_create_gdt_views.sql` | 6 views |
 | `012_create_gdt_procedures.sql` | 12 stored procedures |
 
-### 2. New Database Objects
+### New Database Objects
 
 **Tables:**
 - `tmi_flight_control` - Per-flight TMI assignments (55+ columns)
@@ -30,85 +30,68 @@ Successfully deployed the GDT (Ground Delay Tools) database schema to VATSIM_TMI
 - `vw_tmi_program_metrics` - Program dashboard
 
 **Stored Procedures:**
-- `sp_TMI_CreateProgram` - Create GS/GDP/AFP
-- `sp_TMI_GenerateSlots` - RBS slot generation
-- `sp_TMI_ActivateProgram` - Activate proposed
-- `sp_TMI_PurgeProgram` - Cancel/purge
-- `sp_TMI_AssignFlightsRBS` - RBS assignment
-- `sp_TMI_DetectPopups` - Pop-up detection
-- `sp_TMI_AssignPopups` - Auto-assign pop-ups
-- `sp_TMI_ApplyGroundStop` - Apply GS
-- `sp_TMI_TransitionGStoGDP` - GS→GDP transition
-- `sp_TMI_ExtendProgram` - Extend end time
-- `sp_TMI_ArchiveData` - Retention management
+- `sp_TMI_CreateProgram`, `sp_TMI_GenerateSlots`, `sp_TMI_ActivateProgram`
+- `sp_TMI_PurgeProgram`, `sp_TMI_AssignFlightsRBS`, `sp_TMI_DetectPopups`
+- `sp_TMI_AssignPopups`, `sp_TMI_ApplyGroundStop`, `sp_TMI_TransitionGStoGDP`
+- `sp_TMI_ExtendProgram`, `sp_TMI_ArchiveData`
 
 **User Type:**
 - `FlightListType` - Table-valued parameter
 
-### 3. Schema Enhancements
+---
 
-**tmi_programs** (12 new columns):
-- `is_archived`, `gs_probability`, `gs_release_rate`
-- `fca_name`, `fca_entry_time_offset`, `transition_type`
-- `superseded_by_id`, `compression_enabled`, `last_compression_utc`
-- `popup_flights`, `earliest_r_slot_min`, `completed_at`
+## ✅ Phase 2: API Layer - IN PROGRESS
 
-**tmi_slots** (11 new columns):
-- `bin_date`, `assigned_dest`, `original_eta_utc`
-- `slot_delay_min`, `bridge_reason`, `is_popup_slot`
-- `popup_lead_time_min`, `is_archived`, `archive_tier`, `archived_at`
-
-### 4. Documentation Updated
-- `GDT_Incremental_Migration.md` - Marked complete
-- `GDT_Phase1_Transition.md` - Phase 1 marked complete
-- `TMI_Documentation_Index.md` - Updated GDT status
-
-### 5. Files Cleaned Up
-- Renamed migration files (removed version suffixes)
-- Final files: `010_gdt_incremental_schema.sql`, `011_create_gdt_views.sql`, `012_create_gdt_procedures.sql`
-
-### 6. Technical Note
-**SQL Server filtered index syntax:** `INCLUDE` clause must come **before** `WHERE`:
-```sql
-CREATE INDEX name ON table(cols) INCLUDE (cols) WHERE condition;
+### API Directory Structure Created
 ```
+api/gdt/
+├── common.php           ✅ Shared utilities, DB connections
+├── index.php            ✅ API endpoint listing
+├── programs/
+│   ├── create.php       ✅ POST - sp_TMI_CreateProgram
+│   ├── list.php         ✅ GET - Query tmi_programs
+│   ├── get.php          ✅ GET - Single program + slots + counts
+│   ├── simulate.php     ✅ POST - sp_TMI_GenerateSlots + sp_TMI_AssignFlightsRBS
+│   ├── activate.php     ✅ POST - sp_TMI_ActivateProgram
+│   ├── extend.php       ✅ POST - sp_TMI_ExtendProgram
+│   ├── purge.php        ✅ POST - sp_TMI_PurgeProgram
+│   └── transition.php   ✅ POST - sp_TMI_TransitionGStoGDP
+├── flights/
+│   └── list.php         ✅ GET - tmi_flight_control query
+├── slots/
+│   └── list.php         ✅ GET - tmi_slots query
+└── demand/
+    └── hourly.php       ✅ GET - Hourly demand data
+```
+
+### Database Connections
+- **VATSIM_TMI** (`get_conn_tmi()`) - Programs, slots, flight_control
+- **VATSIM_ADL** (`get_conn_adl()`) - Live flight data from vw_adl_flights
+
+### Key Implementation: simulate.php
+The simulate endpoint bridges both databases:
+1. Queries flights from VATSIM_ADL (vw_adl_flights)
+2. Applies exemption rules (airborne, departing soon, etc.)
+3. Builds FlightListType table-valued parameter
+4. Calls stored procedure in VATSIM_TMI
+5. Returns flights, slots, and summary
+
+### Documentation Created
+- `docs/tmi/GDT_API_Documentation.md` - Complete API reference
+- `docs/tmi/GDT_API_Development_Session.md` - Development notes
 
 ---
 
-## 📋 Next Steps (Priority Order)
+## 📋 Remaining Work
 
-### Phase 2: API Layer (HIGH PRIORITY)
-Create `/api/gdt/` endpoint structure to expose the new stored procedures:
-
-```
-/api/gdt/
-├── programs/
-│   ├── create.php       POST - sp_TMI_CreateProgram
-│   ├── list.php         GET  - Query tmi_programs
-│   ├── get.php          GET  - Single program details
-│   ├── simulate.php     POST - Run RBS simulation
-│   ├── activate.php     POST - sp_TMI_ActivateProgram
-│   ├── revise.php       POST - Create revision
-│   ├── extend.php       POST - sp_TMI_ExtendProgram
-│   ├── compress.php     POST - Run compression
-│   ├── purge.php        POST - sp_TMI_PurgeProgram
-│   └── transition.php   POST - sp_TMI_TransitionGStoGDP
-├── flights/
-│   ├── list.php         GET  - vw_tmi_flight_list
-│   ├── exempt.php       POST - Exempt individual flight
-│   ├── ecr.php          POST - EDCT change request
-│   └── substitute.php   POST - Slot substitution
-├── slots/
-│   ├── list.php         GET  - vw_tmi_slot_allocation
-│   ├── hold.php         POST - Hold/release slot
-│   └── bridge.php       POST - Create slot bridge
-└── demand/
-    ├── hourly.php       GET  - vw_tmi_demand_by_hour
-    ├── quarter.php      GET  - vw_tmi_demand_by_quarter
-    └── metrics.php      GET  - vw_tmi_program_metrics
-```
-
-**Existing file to migrate:** `/api/mgt/tmi/ground_stops/post.php`
+### Phase 2 Remaining (API)
+- [ ] `flights/exempt.php` - POST - Exempt individual flight
+- [ ] `flights/ecr.php` - POST - EDCT Change Request
+- [ ] `flights/substitute.php` - POST - Slot substitution
+- [ ] `slots/hold.php` - POST - Hold/release slot
+- [ ] `slots/bridge.php` - POST - Create slot bridge
+- [ ] `demand/metrics.php` - GET - vw_tmi_program_metrics
+- [ ] API Testing with real data
 
 ### Phase 3: Daemon Integration
 - Add pop-up detection to ADL refresh daemon
@@ -130,15 +113,85 @@ Create `/api/gdt/` endpoint structure to expose the new stored procedures:
 
 ---
 
-## Reference Files
+## Files Created/Modified This Session
 
-| File | Location |
-|------|----------|
-| GDT Design Document | `PERTI/GDT_Unified_Design_Document_v1.1.md` |
-| Migration Guide | `PERTI/GDT_Incremental_Migration.md` |
-| Phase 1 Transition | `PERTI/GDT_Phase1_Transition.md` |
-| TMI Doc Index | `PERTI/TMI_Documentation_Index.md` |
-| Migration SQL | `PERTI/database/migrations/tmi/010-012_*.sql` |
+### Database Migrations (renamed)
+```
+database/migrations/tmi/010_gdt_incremental_schema.sql
+database/migrations/tmi/011_create_gdt_views.sql
+database/migrations/tmi/012_create_gdt_procedures.sql
+```
+
+### API Layer (NEW)
+```
+api/gdt/common.php
+api/gdt/index.php
+api/gdt/programs/create.php
+api/gdt/programs/list.php
+api/gdt/programs/get.php
+api/gdt/programs/simulate.php
+api/gdt/programs/activate.php
+api/gdt/programs/extend.php
+api/gdt/programs/purge.php
+api/gdt/programs/transition.php
+api/gdt/flights/list.php
+api/gdt/slots/list.php
+api/gdt/demand/hourly.php
+```
+
+### Documentation (NEW/Updated)
+```
+docs/tmi/GDT_API_Documentation.md
+docs/tmi/GDT_API_Development_Session.md
+docs/tmi/GDT_Session_20260121.md (this file)
+```
+
+---
+
+## Technical Notes
+
+### SQL Server Filtered Index Syntax
+`INCLUDE` clause must come **before** `WHERE`:
+```sql
+CREATE INDEX name ON table(cols) INCLUDE (cols) WHERE condition;
+```
+
+### Table-Valued Parameters in PHP
+Since PHP sqlsrv doesn't directly support TVPs, we use temp tables:
+```php
+// Create temp table
+sqlsrv_query($conn, "CREATE TABLE #FlightList (...)");
+
+// Insert flights
+foreach ($flights as $f) {
+    sqlsrv_query($conn, "INSERT INTO #FlightList ...", [...]);
+}
+
+// Declare TVP from temp table and call SP
+sqlsrv_query($conn, "
+    DECLARE @flights dbo.FlightListType;
+    INSERT INTO @flights SELECT * FROM #FlightList;
+    EXEC dbo.sp_TMI_AssignFlightsRBS @program_id = ?, @flights = @flights, ...
+");
+```
+
+---
+
+## Status Summary
+
+| Component | Status |
+|-----------|--------|
+| Database Schema (010) | ✅ DEPLOYED |
+| Views (011) | ✅ DEPLOYED |
+| Stored Procedures (012) | ✅ DEPLOYED |
+| API: common.php | ✅ CREATED |
+| API: programs/* (8 endpoints) | ✅ CREATED |
+| API: flights/list | ✅ CREATED |
+| API: slots/list | ✅ CREATED |
+| API: demand/hourly | ✅ CREATED |
+| API Testing | ⏳ PENDING |
+| UI Integration | ⏳ PENDING |
+| Daemon Integration | ⏳ PENDING |
 
 ---
 
