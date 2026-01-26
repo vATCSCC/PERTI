@@ -420,7 +420,7 @@ To support existing API consumers during transition, consider:
 ### Example with format parameter:
 
 ```php
-$format = swim_get_param('format', 'legacy');  // legacy | fixm
+$format = swim_get_param('format', 'fixm');  // fixm (default) | legacy
 
 if ($format === 'fixm') {
     return formatFlightRecordFIXM($row, $use_swim_db);

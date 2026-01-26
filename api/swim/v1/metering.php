@@ -65,7 +65,8 @@ $stream_filter = swim_get_param('stream');
 $metered_only = swim_get_param('metered_only', 'true') !== 'false';
 
 // Get format parameter - supports json, fixm, xml, csv, ndjson (not geojson/kml - metering data isn't spatial)
-$format = swim_validate_format(swim_get_param('format', 'json'), 'metering');
+// Default to FIXM for FAA SWIM/TBFM compatibility
+$format = swim_validate_format(swim_get_param('format', 'fixm'), 'metering');
 $use_fixm = ($format === 'fixm');
 
 // Format-specific options for output

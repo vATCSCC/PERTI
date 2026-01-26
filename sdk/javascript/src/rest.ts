@@ -91,7 +91,7 @@ export class SwimRestClient {
       callsign: options.callsign,
       tmi_controlled: options.tmi_controlled,
       phase: this.arrayToString(options.phase),
-      format: options.format || 'legacy',
+      format: options.format || 'fixm',
       page: options.page || 1,
       per_page: options.per_page || 100,
     });
@@ -133,14 +133,14 @@ export class SwimRestClient {
   /**
    * Get single flight by GUFI
    */
-  async getFlightByGufi(gufi: string, format: 'legacy' | 'fixm' = 'legacy'): Promise<Flight | null> {
+  async getFlightByGufi(gufi: string, format: 'legacy' | 'fixm' = 'fixm'): Promise<Flight | null> {
     return this.getFlightBy('gufi', gufi, format);
   }
 
   /**
    * Get single flight by flight key
    */
-  async getFlightByKey(flightKey: string, format: 'legacy' | 'fixm' = 'legacy'): Promise<Flight | null> {
+  async getFlightByKey(flightKey: string, format: 'legacy' | 'fixm' = 'fixm'): Promise<Flight | null> {
     return this.getFlightBy('flight_key', flightKey, format);
   }
 

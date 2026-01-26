@@ -126,7 +126,7 @@ class SWIMRestClient:
         callsign: Optional[str] = None,
         tmi_controlled: Optional[bool] = None,
         phase: Optional[Union[str, List[str]]] = None,
-        format: str = 'legacy',
+        format: str = 'fixm',
         page: int = 1,
         per_page: int = 100,
     ) -> Dict[str, Any]:
@@ -141,7 +141,7 @@ class SWIMRestClient:
             callsign: Callsign pattern (supports * wildcard)
             tmi_controlled: Filter TMI-controlled flights
             phase: Flight phase(s) filter
-            format: 'legacy' or 'fixm' field naming
+            format: 'fixm' (default) or 'legacy' field naming
             page: Page number
             per_page: Results per page (max 1000)
         
@@ -163,7 +163,7 @@ class SWIMRestClient:
         callsign: Optional[str] = None,
         tmi_controlled: Optional[bool] = None,
         phase: Optional[Union[str, List[str]]] = None,
-        format: str = 'legacy',
+        format: str = 'fixm',
         page: int = 1,
         per_page: int = 100,
     ) -> Dict[str, Any]:
@@ -178,7 +178,7 @@ class SWIMRestClient:
         self,
         gufi: Optional[str] = None,
         flight_key: Optional[str] = None,
-        format: str = 'legacy',
+        format: str = 'fixm',
     ) -> Dict[str, Any]:
         """
         Get single flight by GUFI or flight_key.
@@ -186,7 +186,7 @@ class SWIMRestClient:
         Args:
             gufi: Globally Unique Flight Identifier
             flight_key: ADL flight key
-            format: 'legacy' or 'fixm' field naming
+            format: 'fixm' (default) or 'legacy' field naming
         
         Returns:
             Flight data dict
@@ -206,7 +206,7 @@ class SWIMRestClient:
         self,
         gufi: Optional[str] = None,
         flight_key: Optional[str] = None,
-        format: str = 'legacy',
+        format: str = 'fixm',
     ) -> Dict[str, Any]:
         """Async version of get_flight."""
         if not gufi and not flight_key:
