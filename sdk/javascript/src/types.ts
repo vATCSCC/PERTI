@@ -20,6 +20,8 @@ export type FlightStatus = 'active' | 'completed' | 'all';
 
 export type TmiType = 'GS' | 'GDP' | 'MIT' | 'MINIT' | 'AFP';
 
+export type AltitudeStrata = 'low' | 'high' | 'superhigh';
+
 // ============================================================================
 // Flight Models
 // ============================================================================
@@ -385,7 +387,24 @@ export interface GetFlightsOptions {
   status?: FlightStatus;
   dept_icao?: string | string[];
   dest_icao?: string | string[];
+  /** Filter by departure ARTCC (flight plan) */
+  dep_artcc?: string | string[];
+  /** Filter by destination ARTCC (flight plan) */
+  dest_artcc?: string | string[];
+  /** Filter by departure TRACON (flight plan) */
+  dep_tracon?: string | string[];
+  /** Filter by destination TRACON (flight plan) */
+  dest_tracon?: string | string[];
+  /** @deprecated Use dest_artcc instead */
   artcc?: string | string[];
+  /** Filter by current ARTCC (where flight is now, not destination) */
+  current_artcc?: string | string[];
+  /** Filter by current TRACON */
+  current_tracon?: string | string[];
+  /** Filter by current sector */
+  current_sector?: string | string[];
+  /** Filter by altitude stratum: low (<FL180), high (FL180-FL410), superhigh (>FL410) */
+  strata?: AltitudeStrata;
   callsign?: string;
   tmi_controlled?: boolean;
   phase?: FlightPhase | string | string[];
@@ -397,7 +416,24 @@ export interface GetFlightsOptions {
 export interface GetPositionsOptions {
   dept_icao?: string | string[];
   dest_icao?: string | string[];
+  /** Filter by departure ARTCC (flight plan) */
+  dep_artcc?: string | string[];
+  /** Filter by destination ARTCC (flight plan) */
+  dest_artcc?: string | string[];
+  /** Filter by departure TRACON (flight plan) */
+  dep_tracon?: string | string[];
+  /** Filter by destination TRACON (flight plan) */
+  dest_tracon?: string | string[];
+  /** @deprecated Use dest_artcc instead */
   artcc?: string | string[];
+  /** Filter by current ARTCC (where flight is now, not destination) */
+  current_artcc?: string | string[];
+  /** Filter by current TRACON */
+  current_tracon?: string | string[];
+  /** Filter by current sector */
+  current_sector?: string | string[];
+  /** Filter by altitude stratum: low (<FL180), high (FL180-FL410), superhigh (>FL410) */
+  strata?: AltitudeStrata;
   bounds?: string;
   tmi_controlled?: boolean;
   phase?: FlightPhase | string | string[];

@@ -2,7 +2,9 @@
 /**
  * GS API Common Utilities
  * 
- * Shared functions for Ground Stop API endpoints using NTML stored procedures
+ * Shared functions for Ground Stop API endpoints using TMI database
+ * 
+ * UPDATED: 2026-01-26 - Now uses VATSIM_TMI.tmi_programs instead of VATSIM_ADL.ntml
  */
 
 // Prevent direct access
@@ -11,6 +13,13 @@ if (!defined('GS_API_INCLUDED')) {
     echo json_encode(['status' => 'error', 'message' => 'Direct access not allowed']);
     exit;
 }
+
+// Load core dependencies
+if (!defined('PERTI_LOADED')) {
+    define('PERTI_LOADED', true);
+}
+require_once(__DIR__ . '/../../../load/config.php');
+require_once(__DIR__ . '/../../../load/connect.php');
 
 /**
  * Send JSON response and exit
@@ -37,51 +46,41 @@ function read_request_payload() {
 }
 
 /**
- * Get ADL database connection
+ * Get TMI database connection (VATSIM_TMI - programs table)
+ * This is the primary connection for GS/GDP program management
+ */
+function get_tmi_conn() {
+    global $conn_tmi;
+    
+    if (!$conn_tmi) {
+        $errors = function_exists('sqlsrv_errors') ? sqlsrv_errors() : null;
+        respond_json(500, [
+            'status'  => 'error',
+            'message' => 'TMI SQL connection not established. Check TMI_SQL_* constants in config.php.',
+            'errors'  => $errors
+        ]);
+    }
+    
+    return $conn_tmi;
+}
+
+/**
+ * Get ADL database connection (VATSIM_ADL - flight data)
+ * Used for querying live flight data for GS modeling
  */
 function get_adl_conn() {
-    // Check if already connected via global scope
     global $conn_adl;
     
-    if (isset($conn_adl) && $conn_adl) {
-        return $conn_adl;
+    if (!$conn_adl) {
+        $errors = function_exists('sqlsrv_errors') ? sqlsrv_errors() : null;
+        respond_json(500, [
+            'status'  => 'error',
+            'message' => 'ADL SQL connection not established. Check ADL_SQL_* constants in config.php.',
+            'errors'  => $errors
+        ]);
     }
     
-    // Include connect.php - note: when require_once is called inside a function,
-    // variables created in the included file go into local scope, not global.
-    // So we need to access $conn_adl directly after include (not via global).
-    require_once(__DIR__ . '/../../../load/connect.php');
-    
-    // Now $conn_adl exists in local scope from the require_once
-    if (isset($conn_adl) && $conn_adl) {
-        // Also set it globally for future calls
-        $GLOBALS['conn_adl'] = $conn_adl;
-        return $conn_adl;
-    }
-    
-    // Still not connected - return error
-    // Note: filter out informational messages (code 5701, 5703)
-    $errors = null;
-    if (function_exists('sqlsrv_errors')) {
-        $all_errors = sqlsrv_errors();
-        if ($all_errors) {
-            $errors = array_filter($all_errors, function($e) {
-                $code = isset($e['code']) ? $e['code'] : 0;
-                // 5701 = Changed database context, 5703 = Changed language setting
-                return !in_array($code, [5701, 5703]);
-            });
-            $errors = array_values($errors); // Re-index
-            if (empty($errors)) {
-                $errors = null;
-            }
-        }
-    }
-    
-    respond_json(500, [
-        'status'  => 'error',
-        'message' => 'ADL SQL connection not established. Check load/connect.php and ADL_SQL_* constants.',
-        'errors'  => $errors
-    ]);
+    return $conn_adl;
 }
 
 /**

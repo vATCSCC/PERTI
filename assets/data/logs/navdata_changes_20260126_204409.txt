@@ -1,0 +1,100 @@
+NASR NavData Update Report
+============================================================
+
+Generated: 2026-01-26T20:44:09.247965
+AIRAC Cycles: 2601, 2602
+
+
+POINTS:
+  Added: 99
+  Modified: 24
+  Preserved: 269221
+  Renamed to _OLD: 24
+  Details:
+    - Modified JULAS: (32.564464,-117.090036) -> (32.564836,-117.064403), old renamed to JULAS_OLD
+    - Modified WALEY: (32.565594,-117.011164) -> (32.565950,-116.985531), old renamed to WALEY_OLD
+    - Added ALVIE: (41.788486,-80.966617)
+    - Added ANDUC: (41.498919,-81.207764)
+    - Added ASEME: (35.631914,-117.645956)
+    - Added ASHTO: (67.507817,-149.818858)
+    - Added ATKSN: (67.420800,-150.129903)
+    - Added BADRE: (41.933569,-80.599281)
+    - Added BELGR: (67.192867,-150.022836)
+    - Added BELPE: (39.286917,-106.903853)
+    - Added BEWEM: (41.444375,-81.485300)
+    - Added BIDRE: (41.574000,-81.352808)
+    - Added BILME: (41.475492,-81.257594)
+    - Added BOZER: (41.741783,-80.990553)
+    - Added BUHOL: (41.403894,-81.446244)
+    - Added CADUN: (41.687294,-81.018456)
+    - Added CEVAK: (41.444544,-81.323372)
+    - Added CHUNK: (67.533561,-150.385711)
+    - Added COLEP: (41.910844,-80.658947)
+    - Added CURID: (39.271358,-106.891861)
+    - Added DALRE: (41.657178,-81.259728)
+    - Added DARAC: (41.626358,-80.982297)
+    - Added DARRN: (67.121072,-150.458483)
+    - Added DOGEE: (41.387967,-81.276436)
+    - Added DULMY: (41.200119,-81.382222)
+    - Added EBODE: (39.501181,-106.962483)
+    - Added ENGLO: (41.660139,-81.099708)
+    - Added ESOTE: (41.884331,-80.728531)
+    - Added EVOVE: (40.861650,-82.294728)
+    - Added EVUTE: (41.501100,-81.370389)
+    - Added FATNA: (41.135394,-81.403567)
+    - Added FAWLZ: (39.344225,-106.947983)
+    - Added FEDAC: (41.618708,-81.302833)
+    - Added FETUL: (39.462556,-106.988294)
+    - Added FIMIR: (41.832325,-80.693106)
+    - Added FIREL: (41.441828,-81.957842)
+    - Added FISKA: (67.394006,-150.138592)
+    - Added FOBUS: (40.872886,-82.230508)
+    - Added FOLLS: (41.460189,-81.502469)
+    - Added GOPLE: (41.857814,-80.798086)
+    - Added GRESS: (41.777589,-80.972206)
+    - Added HAPEN: (41.507336,-81.351039)
+    - Modified HARBR: (54.604094,-5.869286) -> (41.491936,-81.579378), old renamed to HARBR_OLD
+    - Added HIREB: (40.885992,-82.155569)
+    - Added HOSAB: (67.297189,-150.169817)
+    - Added HUGOP: (41.441808,-82.024322)
+    - Added HYRUM: (67.112628,-150.034700)
+    - Added IMUPY: (41.471231,-81.541825)
+    - Added ISUGE: (41.441783,-82.101886)
+    - Added JESIN: (41.408406,-82.178614)
+    ... and 73 more
+
+NAVAIDS:
+  Added: 0
+  Modified: 0
+  Preserved: 1874
+  Renamed to _OLD: 0
+
+AIRWAYS:
+  Added: 0
+  Modified: 0
+  Preserved: 1528
+  Renamed to _OLD: 0
+
+CDRS:
+  Added: 0
+  Modified: 0
+  Preserved: 44178
+  Renamed to _OLD: 0
+
+DPS:
+  Added: 0
+  Modified: 1717
+  Preserved: 2734
+  Renamed to _OLD: 0
+
+STARS:
+  Added: 0
+  Modified: 2682
+  Preserved: 3139
+  Renamed to _OLD: 0
+
+PLAYBOOK:
+  Added: 0
+  Modified: 0
+  Preserved: 0
+  Renamed to _OLD: 0

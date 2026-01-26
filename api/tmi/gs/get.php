@@ -6,6 +6,8 @@
  * 
  * Gets a single Ground Stop program by ID.
  * 
+ * UPDATED: 2026-01-26 - Now uses VATSIM_TMI.tmi_programs
+ * 
  * Query parameters:
  * - program_id: Required - program to retrieve
  * - include_flights: Optional - include affected flights (default: 0)
@@ -41,7 +43,7 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'])) {
 }
 
 $payload = read_request_payload();
-$conn = get_adl_conn();
+$conn_tmi = get_tmi_conn();  // Use TMI for program data
 
 // Get parameters
 $program_id = isset($payload['program_id']) ? (int)$payload['program_id'] : 0;
@@ -55,8 +57,8 @@ if ($program_id <= 0) {
     ]);
 }
 
-// Fetch program
-$program_result = fetch_one($conn, "SELECT * FROM dbo.ntml WHERE program_id = ?", [$program_id]);
+// Fetch program from TMI
+$program_result = fetch_one($conn_tmi, "SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$program_id]);
 
 if (!$program_result['success'] || !$program_result['data']) {
     respond_json(404, [
@@ -71,21 +73,25 @@ $response_data = [
     'program' => $program
 ];
 
-// Optionally include flights
+// Optionally include flights from flight control table
 if ($include_flights) {
-    $flights_sql = "EXEC dbo.sp_GS_GetFlights @program_id = ?, @include_exempt = 1, @include_airborne = 1";
-    $flights_result = fetch_all($conn, $flights_sql, [$program_id]);
+    $flights_sql = "
+        SELECT * FROM dbo.tmi_flight_control 
+        WHERE program_id = ? 
+        ORDER BY cta_utc ASC, callsign ASC
+    ";
+    $flights_result = fetch_all($conn_tmi, $flights_sql, [$program_id]);
     $response_data['flights'] = $flights_result['success'] ? $flights_result['data'] : [];
 }
 
-// Optionally include events
+// Optionally include events from TMI events table
 if ($include_events) {
-    $events_sql = "SELECT * FROM dbo.ntml_info WHERE program_id = ? ORDER BY performed_utc DESC";
-    $events_result = fetch_all($conn, $events_sql, [$program_id]);
+    $events_sql = "SELECT * FROM dbo.tmi_events WHERE program_id = ? ORDER BY performed_utc DESC";
+    $events_result = fetch_all($conn_tmi, $events_sql, [$program_id]);
     $response_data['events'] = $events_result['success'] ? $events_result['data'] : [];
 }
 
-$response_data['server_utc'] = get_server_utc($conn);
+$response_data['server_utc'] = get_server_utc($conn_tmi);
 
 respond_json(200, [
     'status' => 'ok',

@@ -122,7 +122,15 @@ class SWIMRestClient:
         status: str = 'active',
         dept_icao: Optional[Union[str, List[str]]] = None,
         dest_icao: Optional[Union[str, List[str]]] = None,
-        artcc: Optional[Union[str, List[str]]] = None,
+        dep_artcc: Optional[Union[str, List[str]]] = None,
+        dest_artcc: Optional[Union[str, List[str]]] = None,
+        dep_tracon: Optional[Union[str, List[str]]] = None,
+        dest_tracon: Optional[Union[str, List[str]]] = None,
+        artcc: Optional[Union[str, List[str]]] = None,  # Deprecated: use dest_artcc
+        current_artcc: Optional[Union[str, List[str]]] = None,
+        current_tracon: Optional[Union[str, List[str]]] = None,
+        current_sector: Optional[Union[str, List[str]]] = None,
+        strata: Optional[str] = None,
         callsign: Optional[str] = None,
         tmi_controlled: Optional[bool] = None,
         phase: Optional[Union[str, List[str]]] = None,
@@ -132,25 +140,35 @@ class SWIMRestClient:
     ) -> Dict[str, Any]:
         """
         Get list of flights.
-        
+
         Args:
             status: 'active', 'completed', or 'all'
             dept_icao: Departure airport(s) filter
             dest_icao: Destination airport(s) filter
-            artcc: ARTCC(s) filter
+            dep_artcc: Departure ARTCC(s) filter (flight plan)
+            dest_artcc: Destination ARTCC(s) filter (flight plan)
+            dep_tracon: Departure TRACON(s) filter (flight plan)
+            dest_tracon: Destination TRACON(s) filter (flight plan)
+            artcc: DEPRECATED - use dest_artcc instead
+            current_artcc: Current ARTCC(s) filter (where flight is now)
+            current_tracon: Current TRACON(s) filter
+            current_sector: Current sector(s) filter
+            strata: Altitude stratum: 'low' (<FL180), 'high' (FL180-FL410), 'superhigh' (>FL410)
             callsign: Callsign pattern (supports * wildcard)
             tmi_controlled: Filter TMI-controlled flights
             phase: Flight phase(s) filter
             format: 'fixm' (default) or 'legacy' field naming
             page: Page number
             per_page: Results per page (max 1000)
-        
+
         Returns:
             Dict with 'data' (list of flights) and 'pagination' info
         """
         params = self._build_flight_params(
-            status, dept_icao, dest_icao, artcc, callsign,
-            tmi_controlled, phase, format, page, per_page
+            status, dept_icao, dest_icao, dep_artcc, dest_artcc or artcc,
+            dep_tracon, dest_tracon, current_artcc, current_tracon,
+            current_sector, strata, callsign, tmi_controlled, phase,
+            format, page, per_page
         )
         return self._get('/flights', params)
     
@@ -159,7 +177,15 @@ class SWIMRestClient:
         status: str = 'active',
         dept_icao: Optional[Union[str, List[str]]] = None,
         dest_icao: Optional[Union[str, List[str]]] = None,
-        artcc: Optional[Union[str, List[str]]] = None,
+        dep_artcc: Optional[Union[str, List[str]]] = None,
+        dest_artcc: Optional[Union[str, List[str]]] = None,
+        dep_tracon: Optional[Union[str, List[str]]] = None,
+        dest_tracon: Optional[Union[str, List[str]]] = None,
+        artcc: Optional[Union[str, List[str]]] = None,  # Deprecated: use dest_artcc
+        current_artcc: Optional[Union[str, List[str]]] = None,
+        current_tracon: Optional[Union[str, List[str]]] = None,
+        current_sector: Optional[Union[str, List[str]]] = None,
+        strata: Optional[str] = None,
         callsign: Optional[str] = None,
         tmi_controlled: Optional[bool] = None,
         phase: Optional[Union[str, List[str]]] = None,
@@ -169,8 +195,10 @@ class SWIMRestClient:
     ) -> Dict[str, Any]:
         """Async version of get_flights."""
         params = self._build_flight_params(
-            status, dept_icao, dest_icao, artcc, callsign,
-            tmi_controlled, phase, format, page, per_page
+            status, dept_icao, dest_icao, dep_artcc, dest_artcc or artcc,
+            dep_tracon, dest_tracon, current_artcc, current_tracon,
+            current_sector, strata, callsign, tmi_controlled, phase,
+            format, page, per_page
         )
         return await self._get_async('/flights', params)
     
@@ -228,7 +256,15 @@ class SWIMRestClient:
         self,
         dept_icao: Optional[Union[str, List[str]]] = None,
         dest_icao: Optional[Union[str, List[str]]] = None,
-        artcc: Optional[Union[str, List[str]]] = None,
+        dep_artcc: Optional[Union[str, List[str]]] = None,
+        dest_artcc: Optional[Union[str, List[str]]] = None,
+        dep_tracon: Optional[Union[str, List[str]]] = None,
+        dest_tracon: Optional[Union[str, List[str]]] = None,
+        artcc: Optional[Union[str, List[str]]] = None,  # Deprecated: use dest_artcc
+        current_artcc: Optional[Union[str, List[str]]] = None,
+        current_tracon: Optional[Union[str, List[str]]] = None,
+        current_sector: Optional[Union[str, List[str]]] = None,
+        strata: Optional[str] = None,
         bounds: Optional[str] = None,
         tmi_controlled: Optional[bool] = None,
         phase: Optional[Union[str, List[str]]] = None,
@@ -236,16 +272,24 @@ class SWIMRestClient:
     ) -> Dict[str, Any]:
         """
         Get flight positions as GeoJSON FeatureCollection.
-        
+
         Args:
             dept_icao: Departure airport(s) filter
             dest_icao: Destination airport(s) filter
-            artcc: ARTCC(s) filter
+            dep_artcc: Departure ARTCC(s) filter (flight plan)
+            dest_artcc: Destination ARTCC(s) filter (flight plan)
+            dep_tracon: Departure TRACON(s) filter (flight plan)
+            dest_tracon: Destination TRACON(s) filter (flight plan)
+            artcc: DEPRECATED - use dest_artcc instead
+            current_artcc: Current ARTCC(s) filter (where flight is now)
+            current_tracon: Current TRACON(s) filter
+            current_sector: Current sector(s) filter
+            strata: Altitude stratum: 'low' (<FL180), 'high' (FL180-FL410), 'superhigh' (>FL410)
             bounds: Bounding box 'minLon,minLat,maxLon,maxLat'
             tmi_controlled: Filter TMI-controlled flights
             phase: Flight phase(s) filter
             include_route: Include route string in properties
-        
+
         Returns:
             GeoJSON FeatureCollection
         """
@@ -254,8 +298,22 @@ class SWIMRestClient:
             params['dept_icao'] = self._list_param(dept_icao)
         if dest_icao:
             params['dest_icao'] = self._list_param(dest_icao)
-        if artcc:
-            params['artcc'] = self._list_param(artcc)
+        if dep_artcc:
+            params['dep_artcc'] = self._list_param(dep_artcc)
+        if dest_artcc or artcc:
+            params['dest_artcc'] = self._list_param(dest_artcc or artcc)
+        if dep_tracon:
+            params['dep_tracon'] = self._list_param(dep_tracon)
+        if dest_tracon:
+            params['dest_tracon'] = self._list_param(dest_tracon)
+        if current_artcc:
+            params['current_artcc'] = self._list_param(current_artcc)
+        if current_tracon:
+            params['current_tracon'] = self._list_param(current_tracon)
+        if current_sector:
+            params['current_sector'] = self._list_param(current_sector)
+        if strata:
+            params['strata'] = strata.lower()
         if bounds:
             params['bounds'] = bounds
         if tmi_controlled is not None:
@@ -264,14 +322,22 @@ class SWIMRestClient:
             params['phase'] = self._list_param(phase)
         if include_route:
             params['include_route'] = 'true'
-        
+
         return self._get('/positions', params)
     
     async def get_positions_async(
         self,
         dept_icao: Optional[Union[str, List[str]]] = None,
         dest_icao: Optional[Union[str, List[str]]] = None,
-        artcc: Optional[Union[str, List[str]]] = None,
+        dep_artcc: Optional[Union[str, List[str]]] = None,
+        dest_artcc: Optional[Union[str, List[str]]] = None,
+        dep_tracon: Optional[Union[str, List[str]]] = None,
+        dest_tracon: Optional[Union[str, List[str]]] = None,
+        artcc: Optional[Union[str, List[str]]] = None,  # Deprecated: use dest_artcc
+        current_artcc: Optional[Union[str, List[str]]] = None,
+        current_tracon: Optional[Union[str, List[str]]] = None,
+        current_sector: Optional[Union[str, List[str]]] = None,
+        strata: Optional[str] = None,
         bounds: Optional[str] = None,
         tmi_controlled: Optional[bool] = None,
         phase: Optional[Union[str, List[str]]] = None,
@@ -283,8 +349,22 @@ class SWIMRestClient:
             params['dept_icao'] = self._list_param(dept_icao)
         if dest_icao:
             params['dest_icao'] = self._list_param(dest_icao)
-        if artcc:
-            params['artcc'] = self._list_param(artcc)
+        if dep_artcc:
+            params['dep_artcc'] = self._list_param(dep_artcc)
+        if dest_artcc or artcc:
+            params['dest_artcc'] = self._list_param(dest_artcc or artcc)
+        if dep_tracon:
+            params['dep_tracon'] = self._list_param(dep_tracon)
+        if dest_tracon:
+            params['dest_tracon'] = self._list_param(dest_tracon)
+        if current_artcc:
+            params['current_artcc'] = self._list_param(current_artcc)
+        if current_tracon:
+            params['current_tracon'] = self._list_param(current_tracon)
+        if current_sector:
+            params['current_sector'] = self._list_param(current_sector)
+        if strata:
+            params['strata'] = strata.lower()
         if bounds:
             params['bounds'] = bounds
         if tmi_controlled is not None:
@@ -293,7 +373,7 @@ class SWIMRestClient:
             params['phase'] = self._list_param(phase)
         if include_route:
             params['include_route'] = 'true'
-        
+
         return await self._get_async('/positions', params)
     
     # =========================================================================
@@ -503,9 +583,61 @@ class SWIMRestClient:
         page: int = 1,
         per_page: int = 100,
     ) -> Dict[str, Any]:
-        """Get all traffic in an ARTCC."""
+        """Get all traffic destined for an ARTCC (flight plan based)."""
         return self.get_flights(
             artcc=artcc,
+            status=status,
+            page=page,
+            per_page=per_page,
+        )
+
+    def get_flights_in_artcc(
+        self,
+        artcc: Union[str, List[str]],
+        strata: Optional[str] = None,
+        status: str = 'active',
+        page: int = 1,
+        per_page: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Get flights currently in an ARTCC (position-based).
+
+        Args:
+            artcc: ARTCC code(s) (e.g., 'ZNY' or ['ZNY', 'ZBW'])
+            strata: Altitude stratum: 'low', 'high', 'superhigh'
+            status: 'active', 'completed', or 'all'
+            page: Page number
+            per_page: Results per page
+        """
+        return self.get_flights(
+            current_artcc=artcc,
+            strata=strata,
+            status=status,
+            page=page,
+            per_page=per_page,
+        )
+
+    def get_flights_in_sector(
+        self,
+        sector: Union[str, List[str]],
+        strata: Optional[str] = None,
+        status: str = 'active',
+        page: int = 1,
+        per_page: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Get flights in a specific sector.
+
+        Args:
+            sector: Sector code(s) (e.g., 'ZNY15' or ['ZNY15', 'ZNY16'])
+            strata: Altitude stratum: 'low', 'high', 'superhigh'
+            status: 'active', 'completed', or 'all'
+            page: Page number
+            per_page: Results per page
+        """
+        return self.get_flights(
+            current_sector=sector,
+            strata=strata,
             status=status,
             page=page,
             per_page=per_page,
@@ -552,8 +684,10 @@ class SWIMRestClient:
     # =========================================================================
     
     def _build_flight_params(
-        self, status, dept_icao, dest_icao, artcc, callsign,
-        tmi_controlled, phase, format, page, per_page
+        self, status, dept_icao, dest_icao, dep_artcc, dest_artcc,
+        dep_tracon, dest_tracon, current_artcc, current_tracon,
+        current_sector, strata, callsign, tmi_controlled, phase,
+        format, page, per_page
     ) -> Dict[str, str]:
         """Build query params for flight endpoints."""
         params = {
@@ -562,20 +696,34 @@ class SWIMRestClient:
             'page': str(page),
             'per_page': str(per_page),
         }
-        
+
         if dept_icao:
             params['dept_icao'] = self._list_param(dept_icao)
         if dest_icao:
             params['dest_icao'] = self._list_param(dest_icao)
-        if artcc:
-            params['artcc'] = self._list_param(artcc)
+        if dep_artcc:
+            params['dep_artcc'] = self._list_param(dep_artcc)
+        if dest_artcc:
+            params['dest_artcc'] = self._list_param(dest_artcc)
+        if dep_tracon:
+            params['dep_tracon'] = self._list_param(dep_tracon)
+        if dest_tracon:
+            params['dest_tracon'] = self._list_param(dest_tracon)
+        if current_artcc:
+            params['current_artcc'] = self._list_param(current_artcc)
+        if current_tracon:
+            params['current_tracon'] = self._list_param(current_tracon)
+        if current_sector:
+            params['current_sector'] = self._list_param(current_sector)
+        if strata:
+            params['strata'] = strata.lower()
         if callsign:
             params['callsign'] = callsign
         if tmi_controlled is not None:
             params['tmi_controlled'] = str(tmi_controlled).lower()
         if phase:
             params['phase'] = self._list_param(phase)
-        
+
         return params
     
     def _list_param(self, value: Union[str, List[str]]) -> str:

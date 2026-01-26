@@ -23,11 +23,22 @@ $auth = swim_init_auth(true, false);
 
 $dept_icao = swim_get_param('dept_icao');
 $dest_icao = swim_get_param('dest_icao');
-$artcc = swim_get_param('artcc');
 $bounds = swim_get_param('bounds');
 $tmi_controlled = swim_get_param('tmi_controlled');
 $phase = swim_get_param('phase');
 $include_route = swim_get_param('include_route', 'false') === 'true';
+
+// Flight plan destination filters (explicit names preferred)
+$dest_artcc = swim_get_param('dest_artcc') ?? swim_get_param('artcc');  // artcc is deprecated alias
+$dest_tracon = swim_get_param('dest_tracon');
+$dep_artcc = swim_get_param('dep_artcc');
+$dep_tracon = swim_get_param('dep_tracon');
+
+// Current position filters (filter by where flight IS, not where it's going)
+$current_artcc = swim_get_param('current_artcc');
+$current_tracon = swim_get_param('current_tracon');
+$current_sector = swim_get_param('current_sector');
+$strata = swim_get_param('strata');  // low (<FL180), high (FL180-FL410), superhigh (>FL410)
 
 // Build query
 $where_clauses = [];
@@ -51,13 +62,34 @@ if ($use_swim_db) {
         $params = array_merge($params, $dest_list);
     }
     
-    if ($artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
+    if ($dest_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dest_artcc)));
         $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
         $where_clauses[] = "f.fp_dest_artcc IN ($placeholders)";
         $params = array_merge($params, $artcc_list);
     }
-    
+
+    if ($dep_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dep_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "f.fp_dept_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    if ($dest_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dest_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "f.fp_dest_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    if ($dep_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dep_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "f.fp_dept_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
     if ($bounds) {
         $bbox = array_map('floatval', explode(',', $bounds));
         if (count($bbox) === 4) {
@@ -78,7 +110,46 @@ if ($use_swim_db) {
         $where_clauses[] = "f.phase IN ($placeholders)";
         $params = array_merge($params, $phase_list);
     }
-    
+
+    // Current ARTCC filter (position-based, not flight plan destination)
+    if ($current_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($current_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "f.current_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    // Current TRACON filter
+    if ($current_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($current_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "f.current_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    // Current sector filter
+    if ($current_sector) {
+        $sector_list = array_map('trim', explode(',', strtoupper($current_sector)));
+        $placeholders = implode(',', array_fill(0, count($sector_list), '?'));
+        $where_clauses[] = "f.current_sector IN ($placeholders)";
+        $params = array_merge($params, $sector_list);
+    }
+
+    // Altitude strata filter
+    if ($strata) {
+        switch (strtolower($strata)) {
+            case 'low':
+                $where_clauses[] = "f.altitude_ft < 18000";
+                break;
+            case 'high':
+                $where_clauses[] = "f.altitude_ft >= 18000 AND f.altitude_ft < 41000";
+                break;
+            case 'superhigh':
+                $where_clauses[] = "f.altitude_ft >= 41000";
+                break;
+        }
+    }
+
     $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
     
     // Single-table query
@@ -116,13 +187,34 @@ if ($use_swim_db) {
         $params = array_merge($params, $dest_list);
     }
     
-    if ($artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
+    if ($dest_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dest_artcc)));
         $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
         $where_clauses[] = "fp.fp_dest_artcc IN ($placeholders)";
         $params = array_merge($params, $artcc_list);
     }
-    
+
+    if ($dep_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dep_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "fp.fp_dept_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    if ($dest_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dest_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "fp.fp_dest_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    if ($dep_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dep_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "fp.fp_dept_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
     if ($bounds) {
         $bbox = array_map('floatval', explode(',', $bounds));
         if (count($bbox) === 4) {
@@ -132,7 +224,7 @@ if ($use_swim_db) {
             array_push($params, $minLon, $maxLon, $minLat, $maxLat);
         }
     }
-    
+
     if ($tmi_controlled === 'true' || $tmi_controlled === '1') {
         $where_clauses[] = "(tmi.gs_held = 1 OR tmi.ctl_type IS NOT NULL)";
     }
@@ -143,9 +235,48 @@ if ($use_swim_db) {
         $where_clauses[] = "c.phase IN ($placeholders)";
         $params = array_merge($params, $phase_list);
     }
-    
+
+    // Current ARTCC filter (position-based)
+    if ($current_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($current_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "c.current_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    // Current TRACON filter
+    if ($current_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($current_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "c.current_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    // Current sector filter
+    if ($current_sector) {
+        $sector_list = array_map('trim', explode(',', strtoupper($current_sector)));
+        $placeholders = implode(',', array_fill(0, count($sector_list), '?'));
+        $where_clauses[] = "c.current_sector IN ($placeholders)";
+        $params = array_merge($params, $sector_list);
+    }
+
+    // Altitude strata filter
+    if ($strata) {
+        switch (strtolower($strata)) {
+            case 'low':
+                $where_clauses[] = "pos.altitude_ft < 18000";
+                break;
+            case 'high':
+                $where_clauses[] = "pos.altitude_ft >= 18000 AND pos.altitude_ft < 41000";
+                break;
+            case 'superhigh':
+                $where_clauses[] = "pos.altitude_ft >= 41000";
+                break;
+        }
+    }
+
     $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
-    
+
     // JOIN query for legacy mode
     $sql = "
         SELECT 

@@ -5,7 +5,8 @@
  * POST /api/tmi/gs/create.php
  * 
  * Creates a new Ground Stop program in PROPOSED state.
- * Calls sp_GS_Create stored procedure.
+ * 
+ * UPDATED: 2026-01-26 - Now uses VATSIM_TMI.tmi_programs instead of VATSIM_ADL.ntml
  * 
  * Request body:
  * {
@@ -58,7 +59,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 // Get request payload
 $payload = read_request_payload();
-$conn = get_adl_conn();
+$conn = get_tmi_conn();  // Use TMI database
 
 // Validate required fields
 $ctl_element = isset($payload['ctl_element']) ? strtoupper(trim($payload['ctl_element'])) : '';
@@ -94,51 +95,98 @@ $exempt_airborne = isset($payload['exempt_airborne']) ? (bool)$payload['exempt_a
 $exempt_within_min = isset($payload['exempt_within_min']) ? (int)$payload['exempt_within_min'] : 45;
 $flt_incl_carrier = isset($payload['flt_incl_carrier']) ? trim($payload['flt_incl_carrier']) : null;
 $flt_incl_type = isset($payload['flt_incl_type']) ? strtoupper(trim($payload['flt_incl_type'])) : 'ALL';
-$impacting_condition = isset($payload['impacting_condition']) ? strtoupper(trim($payload['impacting_condition'])) : null;
-$cause_text = isset($payload['cause_text']) ? trim($payload['cause_text']) : null;
+$impacting_condition = isset($payload['impacting_condition']) ? strtoupper(trim($payload['impacting_condition'])) : 'WEATHER';
+$cause_text = isset($payload['cause_text']) ? trim($payload['cause_text']) : 'Ground Stop';
 $comments = isset($payload['comments']) ? trim($payload['comments']) : null;
 $prob_extension = isset($payload['prob_extension']) ? strtoupper(trim($payload['prob_extension'])) : 'MEDIUM';
-$created_by = isset($payload['created_by']) ? trim($payload['created_by']) : null;
+$created_by = isset($payload['created_by']) ? trim($payload['created_by']) : 'TMU';
 
-// Build SQL to call stored procedure with OUTPUT parameter
+// Generate program name and advisory number
+// Format: KJFK-GS-01261530 (element-type-MMddHHmm)
+$start_dt = new DateTime($start_utc, new DateTimeZone('UTC'));
+$program_name = $ctl_element . '-GS-' . $start_dt->format('mdHi');
+
+// Get next advisory number for today
+$today_date = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d');
+$adv_result = fetch_one($conn, "
+    SELECT COUNT(*) + 1 AS next_num 
+    FROM dbo.tmi_programs 
+    WHERE program_type = 'GS' 
+    AND CAST(created_at AS DATE) = ?
+", [$today_date]);
+$adv_num = $adv_result['success'] && $adv_result['data'] ? (int)$adv_result['data']['next_num'] : 1;
+$adv_number = 'ADVZY ' . str_pad($adv_num, 3, '0', STR_PAD_LEFT);
+
+// Insert into tmi_programs
 $sql = "
-    DECLARE @program_id INT;
-    EXEC dbo.sp_GS_Create
-        @ctl_element = ?,
-        @start_utc = ?,
-        @end_utc = ?,
-        @scope_type = ?,
-        @scope_tier = ?,
-        @scope_distance_nm = ?,
-        @exempt_airborne = ?,
-        @exempt_within_min = ?,
-        @flt_incl_carrier = ?,
-        @flt_incl_type = ?,
-        @impacting_condition = ?,
-        @cause_text = ?,
-        @comments = ?,
-        @prob_extension = ?,
-        @created_by = ?,
-        @program_id = @program_id OUTPUT;
-    SELECT @program_id AS program_id;
+    INSERT INTO dbo.tmi_programs (
+        program_guid,
+        ctl_element,
+        element_type,
+        program_type,
+        program_name,
+        adv_number,
+        start_utc,
+        end_utc,
+        cumulative_start,
+        cumulative_end,
+        status,
+        is_proposed,
+        is_active,
+        delay_limit_min,
+        scope_type,
+        scope_tier,
+        scope_distance_nm,
+        exempt_airborne,
+        exempt_within_min,
+        flt_incl_carrier,
+        flt_incl_type,
+        impacting_condition,
+        cause_text,
+        comments,
+        prob_extension,
+        created_by,
+        created_at,
+        updated_at
+    ) VALUES (
+        NEWID(),
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?,
+        'PROPOSED', 1, 0,
+        180,
+        ?, ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?, ?, ?,
+        ?,
+        SYSUTCDATETIME(),
+        SYSUTCDATETIME()
+    );
+    SELECT SCOPE_IDENTITY() AS program_id;
 ";
 
 $params = [
-    $ctl_element,
-    $start_utc,
-    $end_utc,
-    $scope_type,
-    $scope_tier,
-    $scope_distance_nm,
-    $exempt_airborne ? 1 : 0,
-    $exempt_within_min,
-    $flt_incl_carrier,
-    $flt_incl_type,
-    $impacting_condition,
-    $cause_text,
-    $comments,
-    $prob_extension,
-    $created_by
+    $ctl_element,           // ctl_element
+    'APT',                  // element_type
+    'GS',                   // program_type
+    $program_name,          // program_name
+    $adv_number,            // adv_number
+    $start_utc,             // start_utc
+    $end_utc,               // end_utc
+    $start_utc,             // cumulative_start
+    $end_utc,               // cumulative_end
+    $scope_type,            // scope_type
+    $scope_tier,            // scope_tier
+    $scope_distance_nm,     // scope_distance_nm
+    $exempt_airborne ? 1 : 0, // exempt_airborne
+    $exempt_within_min,     // exempt_within_min
+    $flt_incl_carrier,      // flt_incl_carrier
+    $flt_incl_type,         // flt_incl_type
+    $impacting_condition,   // impacting_condition
+    $cause_text,            // cause_text
+    $comments,              // comments
+    $prob_extension,        // prob_extension
+    $created_by             // created_by
 ];
 
 $stmt = sqlsrv_query($conn, $sql, $params);
@@ -152,24 +200,10 @@ if ($stmt === false) {
 }
 
 // Get the output program_id
-// The SELECT @program_id is the first (and only) result set since SP has SET NOCOUNT ON
 $program_id = null;
-
-// Try first result set
 $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 if ($row && isset($row['program_id'])) {
     $program_id = (int)$row['program_id'];
-}
-
-// If not found in first, try next result set (in case SP has multiple statements)
-if ($program_id === null || $program_id <= 0) {
-    while (sqlsrv_next_result($stmt)) {
-        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        if ($row && isset($row['program_id'])) {
-            $program_id = (int)$row['program_id'];
-            break;
-        }
-    }
 }
 
 sqlsrv_free_stmt($stmt);
@@ -177,12 +211,12 @@ sqlsrv_free_stmt($stmt);
 if ($program_id === null || $program_id <= 0) {
     respond_json(500, [
         'status' => 'error',
-        'message' => 'Stored procedure executed but did not return a program_id'
+        'message' => 'Insert executed but did not return a program_id'
     ]);
 }
 
 // Fetch the created program
-$program_result = fetch_one($conn, "SELECT * FROM dbo.ntml WHERE program_id = ?", [$program_id]);
+$program_result = fetch_one($conn, "SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$program_id]);
 
 respond_json(200, [
     'status' => 'ok',
