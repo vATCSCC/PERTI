@@ -1,114 +1,127 @@
 <?php
 /**
  * SWIM Database Diagnostic Endpoint
- *
- * Checks database connectivity, table existence, and permissions.
  */
-
-require_once __DIR__ . '/../../load/config.php';
-require_once __DIR__ . '/../../load/connect.php';
-
 header('Content-Type: application/json');
 
-// Auth check
+// Minimal auth check
 $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-if (!preg_match('/Bearer\s+swim_sys_vatcscc_internal_001$/i', $auth_header)) {
+if (strpos($auth_header, 'swim_sys_vatcscc_internal_001') === false) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
 
-global $conn_swim;
+try {
+    require_once __DIR__ . '/../../load/config.php';
+} catch (Throwable $e) {
+    echo json_encode(['error' => 'Config load failed', 'message' => $e->getMessage()]);
+    exit;
+}
 
 $results = [
-    'connection' => null,
-    'database_name' => null,
-    'current_user' => null,
-    'tables' => [],
-    'swim_flights_exists' => false,
-    'swim_flights_schema' => null,
-    'swim_flights_columns' => [],
-    'permissions' => [],
+    'step' => 'config_loaded',
+    'swim_constants_defined' => [
+        'SWIM_SQL_HOST' => defined('SWIM_SQL_HOST'),
+        'SWIM_SQL_DATABASE' => defined('SWIM_SQL_DATABASE'),
+        'SWIM_SQL_USERNAME' => defined('SWIM_SQL_USERNAME'),
+        'SWIM_SQL_PASSWORD' => defined('SWIM_SQL_PASSWORD'),
+    ],
 ];
 
-if (!$conn_swim) {
-    $results['connection'] = 'FAILED - no connection';
+// Check if sqlsrv is available
+$results['sqlsrv_available'] = function_exists('sqlsrv_connect');
+
+if (!$results['sqlsrv_available']) {
+    $results['error'] = 'sqlsrv extension not loaded';
     echo json_encode($results, JSON_PRETTY_PRINT);
     exit;
 }
 
-$results['connection'] = 'OK';
-
-// Get current database name
-$dbQuery = sqlsrv_query($conn_swim, "SELECT DB_NAME() AS db_name");
-if ($dbQuery && $row = sqlsrv_fetch_array($dbQuery, SQLSRV_FETCH_ASSOC)) {
-    $results['database_name'] = $row['db_name'];
+if (!defined('SWIM_SQL_HOST') || !defined('SWIM_SQL_DATABASE') ||
+    !defined('SWIM_SQL_USERNAME') || !defined('SWIM_SQL_PASSWORD')) {
+    $results['error'] = 'SWIM SQL constants not defined';
+    echo json_encode($results, JSON_PRETTY_PRINT);
+    exit;
 }
-sqlsrv_free_stmt($dbQuery);
 
-// Get current user
-$userQuery = sqlsrv_query($conn_swim, "SELECT CURRENT_USER AS current_user, SYSTEM_USER AS system_user");
-if ($userQuery && $row = sqlsrv_fetch_array($userQuery, SQLSRV_FETCH_ASSOC)) {
-    $results['current_user'] = $row;
+$results['step'] = 'connecting';
+$results['server'] = SWIM_SQL_HOST;
+$results['database'] = SWIM_SQL_DATABASE;
+
+// Try to connect
+$connectionInfo = [
+    'Database' => SWIM_SQL_DATABASE,
+    'UID' => SWIM_SQL_USERNAME,
+    'PWD' => SWIM_SQL_PASSWORD,
+    'Encrypt' => true,
+    'TrustServerCertificate' => false,
+    'LoginTimeout' => 30,
+];
+
+$conn = sqlsrv_connect(SWIM_SQL_HOST, $connectionInfo);
+
+if ($conn === false) {
+    $results['step'] = 'connection_failed';
+    $results['errors'] = sqlsrv_errors();
+    echo json_encode($results, JSON_PRETTY_PRINT);
+    exit;
 }
-sqlsrv_free_stmt($userQuery);
 
-// List all tables
-$tablesQuery = sqlsrv_query($conn_swim, "
-    SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE
+$results['step'] = 'connected';
+
+// Get basic info
+$dbQuery = sqlsrv_query($conn, "SELECT DB_NAME() AS db_name, CURRENT_USER AS cur_user");
+if ($dbQuery) {
+    $row = sqlsrv_fetch_array($dbQuery, SQLSRV_FETCH_ASSOC);
+    $results['db_name'] = $row['db_name'];
+    $results['cur_user'] = $row['cur_user'];
+    sqlsrv_free_stmt($dbQuery);
+}
+
+// List tables
+$tablesQuery = sqlsrv_query($conn, "
+    SELECT TABLE_SCHEMA, TABLE_NAME
     FROM INFORMATION_SCHEMA.TABLES
     WHERE TABLE_TYPE = 'BASE TABLE'
     ORDER BY TABLE_SCHEMA, TABLE_NAME
 ");
+$results['tables'] = [];
 if ($tablesQuery) {
     while ($row = sqlsrv_fetch_array($tablesQuery, SQLSRV_FETCH_ASSOC)) {
-        $results['tables'][] = $row;
-        if ($row['TABLE_NAME'] === 'swim_flights') {
-            $results['swim_flights_exists'] = true;
-            $results['swim_flights_schema'] = $row['TABLE_SCHEMA'];
-        }
+        $results['tables'][] = $row['TABLE_SCHEMA'] . '.' . $row['TABLE_NAME'];
     }
     sqlsrv_free_stmt($tablesQuery);
 }
 
-// If swim_flights exists, get its columns
-if ($results['swim_flights_exists']) {
-    $schema = $results['swim_flights_schema'];
-    $colQuery = sqlsrv_query($conn_swim, "
-        SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+// Check swim_flights specifically
+$sfCheck = sqlsrv_query($conn, "SELECT OBJECT_ID('dbo.swim_flights') AS obj_id");
+if ($sfCheck) {
+    $row = sqlsrv_fetch_array($sfCheck, SQLSRV_FETCH_ASSOC);
+    $results['swim_flights_object_id'] = $row['obj_id'];
+    sqlsrv_free_stmt($sfCheck);
+}
+
+// Get swim_flights columns if it exists
+if (!empty($results['swim_flights_object_id'])) {
+    $colQuery = sqlsrv_query($conn, "
+        SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = '$schema' AND TABLE_NAME = 'swim_flights'
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'swim_flights'
         ORDER BY ORDINAL_POSITION
     ");
+    $results['swim_flights_columns'] = [];
     if ($colQuery) {
         while ($row = sqlsrv_fetch_array($colQuery, SQLSRV_FETCH_ASSOC)) {
-            $results['swim_flights_columns'][] = $row;
+            $results['swim_flights_columns'][] = $row['COLUMN_NAME'];
         }
         sqlsrv_free_stmt($colQuery);
     }
 }
 
-// Check permissions on swim_flights
-$permQuery = sqlsrv_query($conn_swim, "
-    SELECT
-        HAS_PERMS_BY_NAME('dbo.swim_flights', 'OBJECT', 'SELECT') AS can_select,
-        HAS_PERMS_BY_NAME('dbo.swim_flights', 'OBJECT', 'INSERT') AS can_insert,
-        HAS_PERMS_BY_NAME('dbo.swim_flights', 'OBJECT', 'UPDATE') AS can_update,
-        HAS_PERMS_BY_NAME('dbo.swim_flights', 'OBJECT', 'DELETE') AS can_delete,
-        HAS_PERMS_BY_NAME('dbo.swim_flights', 'OBJECT', 'ALTER') AS can_alter
-");
-if ($permQuery && $row = sqlsrv_fetch_array($permQuery, SQLSRV_FETCH_ASSOC)) {
-    $results['permissions'] = $row;
-}
-sqlsrv_free_stmt($permQuery);
+sqlsrv_close($conn);
 
-// Check db-level ALTER permission
-$dbPermQuery = sqlsrv_query($conn_swim, "SELECT HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'ALTER') AS can_alter_db");
-if ($dbPermQuery && $row = sqlsrv_fetch_array($dbPermQuery, SQLSRV_FETCH_ASSOC)) {
-    $results['permissions']['can_alter_db'] = $row['can_alter_db'];
-}
-sqlsrv_free_stmt($dbPermQuery);
-
+$results['step'] = 'done';
 $results['timestamp'] = gmdate('c');
 
 echo json_encode($results, JSON_PRETTY_PRINT);

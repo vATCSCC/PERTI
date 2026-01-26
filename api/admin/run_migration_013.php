@@ -75,7 +75,40 @@ $results = [
     'added' => 0,
     'skipped' => 0,
     'errors' => 0,
+    'diagnostics' => [],
 ];
+
+// Add diagnostics about the database and table
+$dbQuery = sqlsrv_query($conn_swim, "SELECT DB_NAME() AS db_name, CURRENT_USER AS cur_user, SYSTEM_USER AS sys_user");
+if ($dbQuery && $row = sqlsrv_fetch_array($dbQuery, SQLSRV_FETCH_ASSOC)) {
+    $results['diagnostics']['db_name'] = $row['db_name'];
+    $results['diagnostics']['current_user'] = $row['cur_user'];
+    $results['diagnostics']['system_user'] = $row['sys_user'];
+    sqlsrv_free_stmt($dbQuery);
+}
+
+// Check if swim_flights table exists using INFORMATION_SCHEMA
+$tableCheck = sqlsrv_query($conn_swim, "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'swim_flights'");
+if ($tableCheck) {
+    $tableRow = sqlsrv_fetch_array($tableCheck, SQLSRV_FETCH_ASSOC);
+    if ($tableRow) {
+        $results['diagnostics']['table_found'] = true;
+        $results['diagnostics']['table_schema'] = $tableRow['TABLE_SCHEMA'];
+    } else {
+        $results['diagnostics']['table_found'] = false;
+    }
+    sqlsrv_free_stmt($tableCheck);
+}
+
+// If table doesn't exist, we can't proceed
+if (!isset($results['diagnostics']['table_found']) || !$results['diagnostics']['table_found']) {
+    $results['success'] = false;
+    $results['error'] = 'swim_flights table not found. Check database permissions or table existence.';
+    echo json_encode($results, JSON_PRETTY_PRINT);
+    exit;
+}
+
+$tableSchema = $results['diagnostics']['table_schema'] ?? 'dbo';
 
 // Define columns to add
 $columns = [
@@ -94,9 +127,9 @@ $columns = [
 ];
 
 foreach ($columns as $col) {
-    // Check if column exists
-    $checkSql = "SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.swim_flights') AND name = ?";
-    $checkStmt = sqlsrv_query($conn_swim, $checkSql, [$col['name']]);
+    // Check if column exists using INFORMATION_SCHEMA (better permissions)
+    $checkSql = "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'swim_flights' AND COLUMN_NAME = ?";
+    $checkStmt = sqlsrv_query($conn_swim, $checkSql, [$tableSchema, $col['name']]);
 
     if ($checkStmt === false) {
         $err = sqlsrv_errors()[0] ?? ['message' => 'Unknown error'];
@@ -121,7 +154,7 @@ foreach ($columns as $col) {
         $results['skipped']++;
     } else {
         // Add the column
-        $alterSql = "ALTER TABLE dbo.swim_flights ADD {$col['name']} {$col['type']} NULL";
+        $alterSql = "ALTER TABLE [{$tableSchema}].swim_flights ADD {$col['name']} {$col['type']} NULL";
         $alterStmt = sqlsrv_query($conn_swim, $alterSql);
 
         if ($alterStmt === false) {
@@ -145,37 +178,36 @@ foreach ($columns as $col) {
     }
 }
 
-// Create index
-$indexCheckSql = "SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.swim_flights') AND name = 'IX_swim_flights_sector'";
-$indexCheckStmt = sqlsrv_query($conn_swim, $indexCheckSql);
-$indexExists = sqlsrv_fetch_array($indexCheckStmt);
-sqlsrv_free_stmt($indexCheckStmt);
+// Create index - skip check using sys.indexes since we don't have permission, just try to create
+// If it already exists, it will fail with a specific error we can detect
+$indexSql = "CREATE INDEX IX_swim_flights_sector ON [{$tableSchema}].swim_flights (current_airspace, current_sector) WHERE current_sector IS NOT NULL AND is_active = 1";
+$indexStmt = sqlsrv_query($conn_swim, $indexSql);
 
-if ($indexExists) {
-    $results['indexes'][] = [
-        'name' => 'IX_swim_flights_sector',
-        'status' => 'skipped',
-        'reason' => 'already exists',
-    ];
-} else {
-    $indexSql = "CREATE INDEX IX_swim_flights_sector ON dbo.swim_flights (current_airspace, current_sector) WHERE current_sector IS NOT NULL AND is_active = 1";
-    $indexStmt = sqlsrv_query($conn_swim, $indexSql);
+if ($indexStmt === false) {
+    $err = sqlsrv_errors()[0] ?? ['message' => 'Unknown error'];
+    $errMsg = $err['message'] ?? '';
 
-    if ($indexStmt === false) {
-        $err = sqlsrv_errors()[0] ?? ['message' => 'Unknown error'];
+    // Check if error indicates index already exists
+    if (strpos($errMsg, 'already exists') !== false || strpos($errMsg, 'IX_swim_flights_sector') !== false) {
         $results['indexes'][] = [
             'name' => 'IX_swim_flights_sector',
-            'status' => 'error',
-            'error' => $err['message'],
+            'status' => 'skipped',
+            'reason' => 'already exists (or similar named index)',
         ];
-        $results['errors']++;
     } else {
         $results['indexes'][] = [
             'name' => 'IX_swim_flights_sector',
-            'status' => 'created',
+            'status' => 'error',
+            'error' => $errMsg,
         ];
-        sqlsrv_free_stmt($indexStmt);
+        $results['errors']++;
     }
+} else {
+    $results['indexes'][] = [
+        'name' => 'IX_swim_flights_sector',
+        'status' => 'created',
+    ];
+    sqlsrv_free_stmt($indexStmt);
 }
 
 $results['success'] = ($results['errors'] === 0);
