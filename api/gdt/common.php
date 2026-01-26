@@ -50,66 +50,51 @@ function read_request_payload() {
 // Database Connections
 // ============================================================================
 
+// Load core dependencies (same pattern as /api/tmi/helpers.php)
+if (!defined('PERTI_LOADED')) {
+    define('PERTI_LOADED', true);
+}
+require_once(__DIR__ . '/../../load/config.php');
+require_once(__DIR__ . '/../../load/connect.php');
+
 /**
  * Get TMI database connection (VATSIM_TMI - program/slot management)
+ * Uses the global connection established in connect.php
  * @return resource|null SQLSRV connection resource
  */
-function get_conn_tmi() {
+function gdt_get_conn_tmi() {
     global $conn_tmi;
     
-    if (isset($conn_tmi) && $conn_tmi) {
-        return $conn_tmi;
+    if (!$conn_tmi) {
+        $errors = filter_sqlsrv_errors();
+        respond_json(500, [
+            'status'  => 'error',
+            'message' => 'TMI SQL connection not established. Check TMI_SQL_* constants in config.php.',
+            'errors'  => $errors
+        ]);
     }
     
-    // Include connect.php to get the connection
-    require_once(__DIR__ . '/../../load/connect.php');
-    
-    // Try again after include
-    $conn_tmi = get_conn_tmi();
-    
-    if (isset($conn_tmi) && $conn_tmi) {
-        $GLOBALS['conn_tmi'] = $conn_tmi;
-        return $conn_tmi;
-    }
-    
-    // Connection failed
-    $errors = filter_sqlsrv_errors();
-    respond_json(500, [
-        'status'  => 'error',
-        'message' => 'TMI SQL connection not established. Check TMI_SQL_* constants in config.php.',
-        'errors'  => $errors
-    ]);
+    return $conn_tmi;
 }
 
 /**
  * Get ADL database connection (VATSIM_ADL - flight data)
+ * Uses the global connection established in connect.php
  * @return resource|null SQLSRV connection resource
  */
-function get_conn_adl() {
+function gdt_get_conn_adl() {
     global $conn_adl;
     
-    if (isset($conn_adl) && $conn_adl) {
-        return $conn_adl;
+    if (!$conn_adl) {
+        $errors = filter_sqlsrv_errors();
+        respond_json(500, [
+            'status'  => 'error',
+            'message' => 'ADL SQL connection not established. Check ADL_SQL_* constants in config.php.',
+            'errors'  => $errors
+        ]);
     }
     
-    require_once(__DIR__ . '/../../load/connect.php');
-    
-    // Try the getter function
-    if (function_exists('get_conn_adl')) {
-        $conn_adl = \get_conn_adl();
-    }
-    
-    if (isset($conn_adl) && $conn_adl) {
-        $GLOBALS['conn_adl'] = $conn_adl;
-        return $conn_adl;
-    }
-    
-    $errors = filter_sqlsrv_errors();
-    respond_json(500, [
-        'status'  => 'error',
-        'message' => 'ADL SQL connection not established. Check ADL_SQL_* constants in config.php.',
-        'errors'  => $errors
-    ]);
+    return $conn_adl;
 }
 
 /**
