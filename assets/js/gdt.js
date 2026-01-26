@@ -1,6 +1,9 @@
 // assets/js/gdt.js
 // Ground Delay Tool - Ground Stop builder and VATSIM previewer with Tier-based scope and airport coloring
 // Tier/group data is loaded at runtime from the database via api/tiers.php
+//
+// API Migration (2026-01-26): GDT now uses unified /api/gdt/ endpoints targeting VATSIM_TMI database.
+// Data migrated from VATSIM_ADL.dbo.ntml to VATSIM_TMI.dbo.tmi_programs via Migration 014.
 
 (function() {
     "use strict";
@@ -32,20 +35,21 @@
 
 const GS_ADL_API_URL = "api/adl/current.php";
 
-    // GS workflow API endpoints (new normalized API)
+    // GDT API endpoints (unified GDT structure in VATSIM_TMI)
     const GS_API = {
-        list: "api/tmi/gs/list.php",
-        create: "api/tmi/gs/create.php",
-        model: "api/tmi/gs/model.php",
-        activate: "api/tmi/gs/activate.php",
-        extend: "api/tmi/gs/extend.php",
-        purge: "api/tmi/gs/purge.php",
-        get: "api/tmi/gs/get.php",
-        flights: "api/tmi/gs/flights.php",
-        demand: "api/tmi/gs/demand.php"
+        list: "api/gdt/programs/list.php",
+        create: "api/gdt/programs/create.php",
+        model: "api/gdt/programs/simulate.php",
+        activate: "api/gdt/programs/activate.php",
+        extend: "api/gdt/programs/extend.php",
+        purge: "api/gdt/programs/purge.php",
+        get: "api/gdt/programs/get.php",
+        flights: "api/gdt/flights/list.php",
+        demand: "api/gdt/demand/hourly.php"
     };
 
-    // Legacy GS workflow API endpoints (kept for backward compatibility)
+    // Legacy GS workflow API endpoints (deprecated - use GS_API instead)
+    // These endpoints remain for backward compatibility but should not be used for new code
     const GS_WORKFLOW_API = {
         preview: "api/tmi/gs_preview.php",
         simulate: "api/tmi/gs_simulate.php",
@@ -3609,9 +3613,10 @@ function handleGsPreview() {
             return Promise.resolve();
         }
 
-        // Build create payload for new API
+        // Build create payload for new GDT API
         var createPayload = {
             ctl_element: workflowPayload.gs_ctl_element || workflowPayload.gs_airports.split(" ")[0],
+            program_type: "GS",  // Ground Stop
             start_utc: workflowPayload.gs_start,
             end_utc: workflowPayload.gs_end,
             scope_type: "TIER",
