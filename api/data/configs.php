@@ -568,7 +568,7 @@ if (!$conn_adl) {
                 echo '<i class="fas fa-pencil-alt"></i> Update</span></a>';
                 echo ' ';
                 echo '<a href="javascript:void(0)" onclick="showHistory(' . $configId . ', \'' . htmlspecialchars($data['airport_faa'], ENT_QUOTES) . '\', \'' . htmlspecialchars($data['config_name'], ENT_QUOTES) . '\')" data-toggle="tooltip" title="View Rate Change History">';
-                echo '<span class="badge badge-info"><i class="fas fa-history"></i></span></a>';
+                echo '<span class="badge badge-info"><i class="fas fa-history"></i> History</span></a>';
                 echo ' ';
                 echo '<a href="javascript:void(0)" onclick="deleteConfig(' . $configId . ')" data-toggle="tooltip" title="Delete Field Configuration">';
                 echo '<span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
