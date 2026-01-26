@@ -20,7 +20,11 @@ export type FlightStatus = 'active' | 'completed' | 'all';
 
 export type TmiType = 'GS' | 'GDP' | 'MIT' | 'MINIT' | 'AFP';
 
-export type AltitudeStrata = 'low' | 'high' | 'superhigh';
+/** Sector strata classification (based on sector type, not flight altitude) */
+export type SectorStrata = 'low' | 'high' | 'superhigh';
+
+/** @deprecated Use SectorStrata instead - strata is based on sector classification, not altitude */
+export type AltitudeStrata = SectorStrata;
 
 // ============================================================================
 // Flight Models
@@ -403,8 +407,8 @@ export interface GetFlightsOptions {
   current_tracon?: string | string[];
   /** Filter by current sector */
   current_sector?: string | string[];
-  /** Filter by altitude stratum: low (<FL180), high (FL180-FL410), superhigh (>FL410) */
-  strata?: AltitudeStrata;
+  /** Filter by sector strata classification (low, high, superhigh sectors) */
+  strata?: SectorStrata;
   callsign?: string;
   tmi_controlled?: boolean;
   phase?: FlightPhase | string | string[];
@@ -432,8 +436,8 @@ export interface GetPositionsOptions {
   current_tracon?: string | string[];
   /** Filter by current sector */
   current_sector?: string | string[];
-  /** Filter by altitude stratum: low (<FL180), high (FL180-FL410), superhigh (>FL410) */
-  strata?: AltitudeStrata;
+  /** Filter by sector strata classification (low, high, superhigh sectors) */
+  strata?: SectorStrata;
   bounds?: string;
   tmi_controlled?: boolean;
   phase?: FlightPhase | string | string[];
