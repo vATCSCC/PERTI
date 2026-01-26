@@ -1,11 +1,10 @@
 <?php
 /**
- * Migration 014: Migrate NTML to TMI_PROGRAMS
+ * Migration 014: Migrate NTML to TMI_PROGRAMS (v2)
  * 
- * This script migrates Ground Stop programs from VATSIM_ADL.dbo.ntml
- * to VATSIM_TMI.dbo.tmi_programs via web endpoint.
+ * Fixed: IDENTITY_INSERT must be in same batch as INSERT
  * 
- * Access: GET/POST /database/migrations/tmi/014_migrate_ntml_to_tmi_programs_api.php?run=1
+ * Access: GET /database/migrations/tmi/014_migrate_ntml_to_tmi_programs_api.php?run=1
  * 
  * Date: 2026-01-26
  */
@@ -33,8 +32,6 @@ $results = [
 ];
 
 // Step 0: Check connections
-$results['steps'][] = ['step' => 0, 'action' => 'Checking connections'];
-
 if (!$conn_adl) {
     $results['status'] = 'error';
     $results['message'] = 'VATSIM_ADL connection not available';
@@ -92,9 +89,7 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 $results['steps'][] = ['step' => 5, 'action' => 'Fetched source records', 'count' => count($records)];
 
-// Step 6: Enable IDENTITY_INSERT and insert records
-sqlsrv_query($conn_tmi, "SET IDENTITY_INSERT dbo.tmi_programs ON");
-
+// Step 6: Insert records with IDENTITY_INSERT in same batch
 $inserted = 0;
 $skipped = 0;
 $errors = 0;
@@ -108,7 +103,9 @@ foreach ($records as $r) {
         continue;
     }
     
+    // Build SQL with IDENTITY_INSERT in same batch
     $sql = "
+        SET IDENTITY_INSERT dbo.tmi_programs ON;
         INSERT INTO dbo.tmi_programs (
             program_id, program_guid, ctl_element, element_type, program_type,
             program_name, adv_number, start_utc, end_utc, cumulative_start,
@@ -133,7 +130,8 @@ foreach ($records as $r) {
             ?, ?, ?, ?,
             ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?
-        )
+        );
+        SET IDENTITY_INSERT dbo.tmi_programs OFF;
     ";
     
     $params = [
@@ -181,12 +179,12 @@ foreach ($records as $r) {
         $r['max_delay_min'],
         $r['total_delay_min'],
         $r['created_by'],
-        $r['created_utc'],      // -> created_at
-        $r['modified_utc'],     // -> updated_at
+        $r['created_utc'],
+        $r['modified_utc'],
         $r['activated_by'] ?? null,
-        $r['activated_utc'] ?? null,  // -> activated_at
+        $r['activated_utc'] ?? null,
         $r['purged_by'] ?? null,
-        $r['purged_utc'] ?? null      // -> purged_at
+        $r['purged_utc'] ?? null
     ];
     
     $stmt = sqlsrv_query($conn_tmi, $sql, $params);
@@ -203,9 +201,6 @@ foreach ($records as $r) {
         $inserted++;
     }
 }
-
-// Disable IDENTITY_INSERT
-sqlsrv_query($conn_tmi, "SET IDENTITY_INSERT dbo.tmi_programs OFF");
 
 $results['steps'][] = [
     'step' => 6, 
@@ -224,7 +219,9 @@ $stmt = sqlsrv_query($conn_tmi, "SELECT MAX(program_id) AS max_id FROM dbo.tmi_p
 $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 $max_id = $row['max_id'] ?? 0;
 
-sqlsrv_query($conn_tmi, "DBCC CHECKIDENT ('dbo.tmi_programs', RESEED, {$max_id})");
+if ($max_id > 0) {
+    sqlsrv_query($conn_tmi, "DBCC CHECKIDENT ('dbo.tmi_programs', RESEED, {$max_id})");
+}
 $results['steps'][] = ['step' => 7, 'action' => 'Reseed identity', 'max_id' => $max_id];
 
 // Step 8: Final count
