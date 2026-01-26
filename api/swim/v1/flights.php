@@ -45,10 +45,21 @@ if ($format === 'legacy') {
 $status = swim_get_param('status', 'active');
 $dept_icao = swim_get_param('dept_icao');
 $dest_icao = swim_get_param('dest_icao');
-$artcc = swim_get_param('artcc');
 $callsign = swim_get_param('callsign');
 $tmi_controlled = swim_get_param('tmi_controlled');
 $phase = swim_get_param('phase');
+
+// Flight plan destination filters (explicit names preferred)
+$dest_artcc = swim_get_param('dest_artcc') ?? swim_get_param('artcc');  // artcc is deprecated alias
+$dest_tracon = swim_get_param('dest_tracon');
+$dep_artcc = swim_get_param('dep_artcc');
+$dep_tracon = swim_get_param('dep_tracon');
+
+// Current position filters (filter by where flight IS, not where it's going)
+$current_artcc = swim_get_param('current_artcc');
+$current_tracon = swim_get_param('current_tracon');
+$current_sector = swim_get_param('current_sector');
+$strata = swim_get_param('strata');  // low (<FL180), high (FL180-FL410), superhigh (>FL410)
 
 $page = swim_get_int_param('page', 1, 1, 1000);
 $per_page = swim_get_int_param('per_page', SWIM_DEFAULT_PAGE_SIZE, 1, SWIM_MAX_PAGE_SIZE);
@@ -60,7 +71,14 @@ $cache_params = array_filter([
     'status' => $status,
     'dept_icao' => $dept_icao,
     'dest_icao' => $dest_icao,
-    'artcc' => $artcc,
+    'dep_artcc' => $dep_artcc,
+    'dest_artcc' => $dest_artcc,
+    'dep_tracon' => $dep_tracon,
+    'dest_tracon' => $dest_tracon,
+    'current_artcc' => $current_artcc,
+    'current_tracon' => $current_tracon,
+    'current_sector' => $current_sector,
+    'strata' => $strata,
     'callsign' => $callsign,
     'tmi_controlled' => $tmi_controlled,
     'phase' => $phase,
@@ -110,13 +128,34 @@ if ($use_swim_db) {
         $params = array_merge($params, $dest_list);
     }
     
-    if ($artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
+    if ($dest_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dest_artcc)));
         $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
         $where_clauses[] = "f.fp_dest_artcc IN ($placeholders)";
         $params = array_merge($params, $artcc_list);
     }
-    
+
+    if ($dep_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dep_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "f.fp_dept_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    if ($dest_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dest_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "f.fp_dest_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    if ($dep_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dep_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "f.fp_dept_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
     if ($callsign) {
         $callsign_pattern = strtoupper(str_replace('*', '%', $callsign));
         $where_clauses[] = "f.callsign LIKE ?";
@@ -133,7 +172,46 @@ if ($use_swim_db) {
         $where_clauses[] = "f.phase IN ($placeholders)";
         $params = array_merge($params, $phase_list);
     }
-    
+
+    // Current ARTCC filter (position-based, not flight plan destination)
+    if ($current_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($current_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "f.current_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    // Current TRACON filter
+    if ($current_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($current_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "f.current_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    // Current sector filter
+    if ($current_sector) {
+        $sector_list = array_map('trim', explode(',', strtoupper($current_sector)));
+        $placeholders = implode(',', array_fill(0, count($sector_list), '?'));
+        $where_clauses[] = "f.current_sector IN ($placeholders)";
+        $params = array_merge($params, $sector_list);
+    }
+
+    // Altitude strata filter (computed from altitude_ft)
+    if ($strata) {
+        switch (strtolower($strata)) {
+            case 'low':
+                $where_clauses[] = "f.altitude_ft < 18000";
+                break;
+            case 'high':
+                $where_clauses[] = "f.altitude_ft >= 18000 AND f.altitude_ft < 41000";
+                break;
+            case 'superhigh':
+                $where_clauses[] = "f.altitude_ft >= 41000";
+                break;
+        }
+    }
+
     $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
     
     // Count total
@@ -194,38 +272,99 @@ if ($use_swim_db) {
         $params = array_merge($params, $dest_list);
     }
     
-    if ($artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($artcc)));
+    if ($dest_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dest_artcc)));
         $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
         $where_clauses[] = "fp.fp_dest_artcc IN ($placeholders)";
         $params = array_merge($params, $artcc_list);
     }
-    
+
+    if ($dep_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($dep_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "fp.fp_dept_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    if ($dest_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dest_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "fp.fp_dest_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    if ($dep_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($dep_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "fp.fp_dept_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
     if ($callsign) {
         $callsign_pattern = strtoupper(str_replace('*', '%', $callsign));
         $where_clauses[] = "c.callsign LIKE ?";
         $params[] = $callsign_pattern;
     }
-    
+
     if ($tmi_controlled === 'true' || $tmi_controlled === '1') {
         $where_clauses[] = "(tmi.gs_held = 1 OR tmi.ctl_type IS NOT NULL)";
     }
-    
+
     if ($phase) {
         $phase_list = array_map('trim', explode(',', strtoupper($phase)));
         $placeholders = implode(',', array_fill(0, count($phase_list), '?'));
         $where_clauses[] = "c.phase IN ($placeholders)";
         $params = array_merge($params, $phase_list);
     }
-    
+
+    // Current ARTCC filter (position-based)
+    if ($current_artcc) {
+        $artcc_list = array_map('trim', explode(',', strtoupper($current_artcc)));
+        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+        $where_clauses[] = "c.current_artcc IN ($placeholders)";
+        $params = array_merge($params, $artcc_list);
+    }
+
+    // Current TRACON filter
+    if ($current_tracon) {
+        $tracon_list = array_map('trim', explode(',', strtoupper($current_tracon)));
+        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+        $where_clauses[] = "c.current_tracon IN ($placeholders)";
+        $params = array_merge($params, $tracon_list);
+    }
+
+    // Current sector filter
+    if ($current_sector) {
+        $sector_list = array_map('trim', explode(',', strtoupper($current_sector)));
+        $placeholders = implode(',', array_fill(0, count($sector_list), '?'));
+        $where_clauses[] = "c.current_sector IN ($placeholders)";
+        $params = array_merge($params, $sector_list);
+    }
+
+    // Altitude strata filter
+    if ($strata) {
+        switch (strtolower($strata)) {
+            case 'low':
+                $where_clauses[] = "pos.altitude_ft < 18000";
+                break;
+            case 'high':
+                $where_clauses[] = "pos.altitude_ft >= 18000 AND pos.altitude_ft < 41000";
+                break;
+            case 'superhigh':
+                $where_clauses[] = "pos.altitude_ft >= 41000";
+                break;
+        }
+    }
+
     $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
-    
-    // Count total
+
+    // Count total (include pos table if strata filter is used)
     $count_sql = "
-        SELECT COUNT(*) as total 
+        SELECT COUNT(*) as total
         FROM dbo.adl_flight_core c
         LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
         LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
+        " . ($strata ? "LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid" : "") . "
         $where_sql
     ";
     

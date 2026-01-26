@@ -5,7 +5,8 @@
  * POST /api/tmi/gs/model.php
  * 
  * Models a Ground Stop by identifying affected flights.
- * Calls sp_GS_Model stored procedure.
+ * 
+ * UPDATED: 2026-01-26 - Now uses VATSIM_TMI.tmi_programs, queries flights from ADL
  * 
  * Request body:
  * {
@@ -49,7 +50,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 }
 
 $payload = read_request_payload();
-$conn = get_adl_conn();
+$conn_tmi = get_tmi_conn();  // For program data
+$conn_adl = get_adl_conn();  // For flight data
 
 // Validate required fields
 $program_id = isset($payload['program_id']) ? (int)$payload['program_id'] : 0;
@@ -70,52 +72,165 @@ if ($dep_facilities === '') {
     ]);
 }
 
-// Call the stored procedure
-$sql = "EXEC dbo.sp_GS_Model @program_id = ?, @dep_facilities = ?, @performed_by = ?";
-$params = [$program_id, $dep_facilities, $performed_by];
-
-$stmt = sqlsrv_query($conn, $sql, $params);
-
-if ($stmt === false) {
-    $errors = sqlsrv_errors();
-    // Check if it's a user error (program not found, etc.)
-    $error_msg = 'Failed to model Ground Stop';
-    if ($errors && isset($errors[0]['message'])) {
-        $error_msg = $errors[0]['message'];
-    }
-    respond_json(500, [
-        'status' => 'error',
-        'message' => $error_msg,
-        'errors' => $errors
-    ]);
-}
-sqlsrv_free_stmt($stmt);
-
-// Fetch updated program
-$program_result = fetch_one($conn, "SELECT * FROM dbo.ntml WHERE program_id = ?", [$program_id]);
+// Fetch program from TMI
+$program_result = fetch_one($conn_tmi, "SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$program_id]);
 
 if (!$program_result['success'] || !$program_result['data']) {
-    respond_json(500, [
+    respond_json(404, [
         'status' => 'error',
-        'message' => 'Program not found after modeling'
+        'message' => 'Program not found.'
     ]);
 }
 
 $program = $program_result['data'];
 
-// Fetch affected flights using the stored procedure
-$flights_sql = "EXEC dbo.sp_GS_GetFlights @program_id = ?, @include_exempt = 1, @include_airborne = 1";
-$flights_result = fetch_all($conn, $flights_sql, [$program_id]);
+// Parse dep_facilities into array
+$facilities = split_codes($dep_facilities);
+if (empty($facilities)) {
+    respond_json(400, [
+        'status' => 'error',
+        'message' => 'No valid departure facilities provided.'
+    ]);
+}
 
-$flights = $flights_result['success'] ? $flights_result['data'] : [];
+// Build query for flights from ADL
+$ctl_element = $program['ctl_element'];
+$start_utc = $program['start_utc'];
+$end_utc = $program['end_utc'];
+$exempt_airborne = isset($program['exempt_airborne']) ? (bool)$program['exempt_airborne'] : true;
+$exempt_within_min = isset($program['exempt_within_min']) ? (int)$program['exempt_within_min'] : 45;
+
+// Build facility placeholders
+$placeholders = implode(',', array_fill(0, count($facilities), '?'));
+
+// Query flights destined for this airport, departing from scope facilities
+// during the GS time window
+$sql = "
+    SELECT 
+        flight_uid,
+        callsign,
+        fp_dept_icao AS dep,
+        fp_dest_icao AS arr,
+        fp_dept_artcc AS dep_artcc,
+        fp_dest_artcc AS arr_artcc,
+        etd_runway_utc,
+        eta_runway_utc,
+        phase,
+        gs_flag,
+        CASE 
+            WHEN phase IN ('departed', 'enroute', 'descending') THEN 1 
+            ELSE 0 
+        END AS is_airborne
+    FROM dbo.vw_adl_flights
+    WHERE fp_dest_icao = ?
+    AND fp_dept_artcc IN ({$placeholders})
+    AND (
+        (etd_runway_utc >= ? AND etd_runway_utc <= ?)
+        OR (eta_runway_utc >= ? AND eta_runway_utc <= ?)
+    )
+    ORDER BY eta_runway_utc ASC
+";
+
+$params = array_merge(
+    [$ctl_element],
+    $facilities,
+    [$start_utc, $end_utc, $start_utc, $end_utc]
+);
+
+$flights_result = fetch_all($conn_adl, $sql, $params);
+
+if (!$flights_result['success']) {
+    respond_json(500, [
+        'status' => 'error',
+        'message' => 'Failed to query flights',
+        'errors' => $flights_result['error']
+    ]);
+}
+
+$flights = $flights_result['data'];
+
+// Apply exemption logic
+$now_utc = new DateTime('now', new DateTimeZone('UTC'));
+$controlled = [];
+$exempt = [];
+$airborne = [];
+
+foreach ($flights as &$flight) {
+    $flight['ctl_exempt'] = 0;
+    $flight['exempt_reason'] = null;
+    
+    // Check if airborne
+    $is_airborne = (bool)($flight['is_airborne'] ?? 0);
+    if ($is_airborne) {
+        if ($exempt_airborne) {
+            $flight['ctl_exempt'] = 1;
+            $flight['exempt_reason'] = 'AIRBORNE';
+            $airborne[] = $flight;
+            $exempt[] = $flight;
+            continue;
+        }
+    }
+    
+    // Check departing-within exemption
+    if ($exempt_within_min > 0 && !empty($flight['etd_runway_utc'])) {
+        $etd = $flight['etd_runway_utc'];
+        if ($etd instanceof DateTime) {
+            $diff_min = ($etd->getTimestamp() - $now_utc->getTimestamp()) / 60;
+            if ($diff_min <= $exempt_within_min && $diff_min >= 0) {
+                $flight['ctl_exempt'] = 1;
+                $flight['exempt_reason'] = 'DEPARTING_SOON';
+                $exempt[] = $flight;
+                continue;
+            }
+        }
+    }
+    
+    // Not exempt - controlled
+    $controlled[] = $flight;
+}
 
 // Build summary
 $summary = [
-    'total_flights' => (int)($program['total_flights'] ?? 0),
-    'controlled' => (int)($program['controlled_flights'] ?? 0),
-    'exempt' => (int)($program['exempt_flights'] ?? 0),
-    'airborne' => (int)($program['airborne_flights'] ?? 0)
+    'total_flights' => count($flights),
+    'controlled' => count($controlled),
+    'exempt' => count($exempt),
+    'airborne' => count($airborne)
 ];
+
+// Update program with metrics
+$update_sql = "
+    UPDATE dbo.tmi_programs SET
+        total_flights = ?,
+        controlled_flights = ?,
+        exempt_flights = ?,
+        airborne_flights = ?,
+        model_time_utc = SYSUTCDATETIME(),
+        modified_utc = SYSUTCDATETIME(),
+        modified_by = ?,
+        updated_at = SYSUTCDATETIME()
+    WHERE program_id = ?
+";
+
+$update_params = [
+    $summary['total_flights'],
+    $summary['controlled'],
+    $summary['exempt'],
+    $summary['airborne'],
+    $performed_by,
+    $program_id
+];
+
+$stmt = sqlsrv_query($conn_tmi, $update_sql, $update_params);
+if ($stmt === false) {
+    // Log but don't fail
+    error_log("Failed to update program metrics: " . json_encode(sqlsrv_errors()));
+} else {
+    sqlsrv_free_stmt($stmt);
+}
+
+// Refresh program data
+$program_result = fetch_one($conn_tmi, "SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$program_id]);
+$program = $program_result['success'] ? $program_result['data'] : $program;
 
 respond_json(200, [
     'status' => 'ok',
@@ -124,6 +239,6 @@ respond_json(200, [
         'program' => $program,
         'flights' => $flights,
         'summary' => $summary,
-        'server_utc' => get_server_utc($conn)
+        'server_utc' => $now_utc->format('Y-m-d\TH:i:s\Z')
     ]
 ]);

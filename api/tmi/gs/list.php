@@ -42,7 +42,7 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'])) {
 }
 
 $payload = read_request_payload();
-$conn = get_adl_conn();
+$conn = get_tmi_conn();  // Use TMI database for program data
 
 // Get parameters
 $ctl_element = isset($payload['ctl_element']) ? strtoupper(trim($payload['ctl_element'])) : null;
@@ -71,14 +71,14 @@ if ($active_only) {
 }
 
 if ($today_only) {
-    $where[] = "(CAST(created_utc AS DATE) = CAST(SYSUTCDATETIME() AS DATE) OR (is_active = 1 AND end_utc > SYSUTCDATETIME()))";
+    $where[] = "(CAST(created_at AS DATE) = CAST(SYSUTCDATETIME() AS DATE) OR (is_active = 1 AND end_utc > SYSUTCDATETIME()))";
 }
 
-$sql = "SELECT TOP {$limit} * FROM dbo.ntml";
+$sql = "SELECT TOP {$limit} * FROM dbo.tmi_programs";
 if (count($where) > 0) {
     $sql .= " WHERE " . implode(" AND ", $where);
 }
-$sql .= " ORDER BY created_utc DESC";
+$sql .= " ORDER BY created_at DESC";
 
 $result = fetch_all($conn, $sql, $params);
 

@@ -72,14 +72,13 @@ class AIRACCycle:
     @classmethod
     def get_cycle_id(cls, dt: datetime) -> str:
         """Get the AIRAC cycle ID (YYNN format) for a given date."""
-        # Calculate cycle number since epoch
+        # Calculate cycle number since epoch (epoch = AIRAC 2401 = Jan 25, 2024)
         days_since_epoch = (dt - cls.EPOCH).days
         cycles_since_epoch = days_since_epoch // cls.CYCLE_DAYS
-        # AIRAC 2401 was Jan 25, 2024
-        cycle_start = 2401 + cycles_since_epoch
-        # Wrap around year
-        year = (cycle_start - 1) // 13 + 24  # Year starts at 24 (2024)
-        cycle_in_year = ((cycle_start - 1) % 13) + 1
+        # Each year has 13 AIRAC cycles
+        # cycles_since_epoch=0 -> 2401, cycles_since_epoch=13 -> 2501, etc.
+        year = 24 + (cycles_since_epoch // 13)
+        cycle_in_year = (cycles_since_epoch % 13) + 1
         return f"{year:02d}{cycle_in_year:02d}"
     
     @classmethod

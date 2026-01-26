@@ -17,6 +17,7 @@ import type {
   GetPositionsOptions,
   GetTmiProgramsOptions,
   Pagination,
+  AltitudeStrata,
 } from './types';
 
 const DEFAULT_BASE_URL = 'https://perti.vatcscc.org/api/swim/v1';
@@ -87,7 +88,14 @@ export class SwimRestClient {
       status: options.status || 'active',
       dept_icao: this.arrayToString(options.dept_icao),
       dest_icao: this.arrayToString(options.dest_icao),
-      artcc: this.arrayToString(options.artcc),
+      dep_artcc: this.arrayToString(options.dep_artcc),
+      dest_artcc: this.arrayToString(options.dest_artcc ?? options.artcc),  // artcc is deprecated alias
+      dep_tracon: this.arrayToString(options.dep_tracon),
+      dest_tracon: this.arrayToString(options.dest_tracon),
+      current_artcc: this.arrayToString(options.current_artcc),
+      current_tracon: this.arrayToString(options.current_tracon),
+      current_sector: this.arrayToString(options.current_sector),
+      strata: options.strata,
       callsign: options.callsign,
       tmi_controlled: options.tmi_controlled,
       phase: this.arrayToString(options.phase),
@@ -162,6 +170,27 @@ export class SwimRestClient {
     }
   }
 
+  /**
+   * Get flights currently in a specific ARTCC
+   */
+  async getFlightsInArtcc(
+    artcc: string | string[],
+    options: Omit<GetFlightsOptions, 'current_artcc'> = {}
+  ): Promise<Flight[]> {
+    return this.getFlights({ ...options, current_artcc: artcc });
+  }
+
+  /**
+   * Get flights in a specific sector with optional strata filter
+   */
+  async getFlightsInSector(
+    sector: string | string[],
+    strata?: AltitudeStrata,
+    options: Omit<GetFlightsOptions, 'current_sector' | 'strata'> = {}
+  ): Promise<Flight[]> {
+    return this.getFlights({ ...options, current_sector: sector, strata });
+  }
+
   // ===========================================================================
   // Position Methods
   // ===========================================================================
@@ -173,7 +202,14 @@ export class SwimRestClient {
     const params = this.buildParams({
       dept_icao: this.arrayToString(options.dept_icao),
       dest_icao: this.arrayToString(options.dest_icao),
-      artcc: this.arrayToString(options.artcc),
+      dep_artcc: this.arrayToString(options.dep_artcc),
+      dest_artcc: this.arrayToString(options.dest_artcc ?? options.artcc),  // artcc is deprecated alias
+      dep_tracon: this.arrayToString(options.dep_tracon),
+      dest_tracon: this.arrayToString(options.dest_tracon),
+      current_artcc: this.arrayToString(options.current_artcc),
+      current_tracon: this.arrayToString(options.current_tracon),
+      current_sector: this.arrayToString(options.current_sector),
+      strata: options.strata,
       bounds: options.bounds,
       tmi_controlled: options.tmi_controlled,
       phase: this.arrayToString(options.phase),
