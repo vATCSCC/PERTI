@@ -59,7 +59,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 // Get request payload and TMI connection
 $payload = read_request_payload();
-$conn_tmi = get_conn_tmi();
+$conn_tmi = gdt_get_conn_tmi();
 
 // ============================================================================
 // Validate Required Fields
