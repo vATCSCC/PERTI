@@ -606,7 +606,8 @@ include('load/nav.php');
                         </div>
                         <div class="col-md-4">
                             <label>Airport (ICAO):</label>
-                            <input type="text" class="form-control" name="airport_icao" id="add_airport_icao" maxlength="4" placeholder="KDTW" readonly>
+                            <input type="text" class="form-control" name="airport_icao" id="add_airport_icao" maxlength="4" placeholder="KDTW">
+                            <small class="text-muted">Auto-filled, edit if needed</small>
                         </div>
                         <div class="col-md-4">
                             <label>Config Code:</label>
@@ -751,7 +752,8 @@ include('load/nav.php');
                         </div>
                         <div class="col-md-4">
                             <label>Airport (ICAO):</label>
-                            <input type="text" class="form-control" name="airport_icao" id="airport_icao" maxlength="4" placeholder="KDTW" readonly>
+                            <input type="text" class="form-control" name="airport_icao" id="airport_icao" maxlength="4" placeholder="KDTW">
+                            <small class="text-muted">Auto-filled, edit if needed</small>
                         </div>
                         <div class="col-md-4">
                             <label>Config Code:</label>
@@ -1235,17 +1237,39 @@ include('load/nav.php');
             });
         }
 
-        // Auto-fill ICAO from FAA code
+        // Auto-fill ICAO from FAA code using API lookup
         function updateIcao(faaInput, icaoInput) {
             var faa = $(faaInput).val().toUpperCase();
+            $(faaInput).val(faa); // Force uppercase in field
+            
             if (faa.length >= 3) {
-                if (faa.charAt(0) === 'P' || faa.length === 4) {
-                    $(icaoInput).val(faa);
-                } else {
-                    $(icaoInput).val('K' + faa);
-                }
+                // Call API to look up ICAO from apts table
+                $.get('api/util/icao_lookup.php', { faa: faa }, function(response) {
+                    if (response.success && response.icao) {
+                        $(icaoInput).val(response.icao);
+                        // Show source indicator
+                        if (response.source === 'apts') {
+                            $(icaoInput).removeClass('is-invalid').addClass('is-valid');
+                        } else {
+                            $(icaoInput).removeClass('is-valid is-invalid');
+                        }
+                    }
+                }).fail(function() {
+                    // Fallback to simple prefix logic if API fails
+                    var icao = faa;
+                    if (faa.length === 4) {
+                        icao = faa;
+                    } else if (faa.charAt(0) === 'Y') {
+                        icao = 'C' + faa;
+                    } else if (faa.charAt(0) === 'P') {
+                        icao = faa;
+                    } else {
+                        icao = 'K' + faa;
+                    }
+                    $(icaoInput).val(icao).removeClass('is-valid is-invalid');
+                });
             } else {
-                $(icaoInput).val('');
+                $(icaoInput).val('').removeClass('is-valid is-invalid');
             }
         }
 

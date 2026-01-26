@@ -40,15 +40,41 @@ if ($perm == true) {
 // (E)
 
 // Get form data
-$airport = isset($_POST['airport']) ? strtoupper(trim(post_input('airport'))) : '';
+$airport = isset($_POST['airport_faa']) ? strtoupper(trim(post_input('airport_faa'))) : (isset($_POST['airport']) ? strtoupper(trim(post_input('airport'))) : '');
 $config_name = isset($_POST['config_name']) ? trim(post_input('config_name')) : 'Default';
 $config_code = isset($_POST['config_code']) ? trim(post_input('config_code')) : null;
-$arr_runways = isset($_POST['arr']) ? trim(post_input('arr')) : '';
-$dep_runways = isset($_POST['dep']) ? trim(post_input('dep')) : '';
+$arr_runways = isset($_POST['arr_runways']) ? trim(post_input('arr_runways')) : (isset($_POST['arr']) ? trim(post_input('arr')) : '');
+$dep_runways = isset($_POST['dep_runways']) ? trim(post_input('dep_runways')) : (isset($_POST['dep']) ? trim(post_input('dep')) : '');
 
-// Build ICAO from FAA (add K prefix for US airports)
+// Get ICAO - use user-provided value if given, otherwise look up from apts table
 $airport_faa = $airport;
-$airport_icao = (strlen($airport) == 3) ? 'K' . $airport : $airport;
+$airport_icao = isset($_POST['airport_icao']) ? strtoupper(trim(post_input('airport_icao'))) : '';
+
+// If no ICAO provided (or empty), look up from apts table or use fallback logic
+if (empty($airport_icao) && $conn_adl) {
+    $lookup_sql = "SELECT ICAO_ID FROM dbo.apts WHERE ARPT_ID = ?";
+    $lookup_stmt = sqlsrv_query($conn_adl, $lookup_sql, [$airport_faa]);
+    if ($lookup_stmt !== false) {
+        $lookup_row = sqlsrv_fetch_array($lookup_stmt, SQLSRV_FETCH_ASSOC);
+        if ($lookup_row && !empty($lookup_row['ICAO_ID'])) {
+            $airport_icao = $lookup_row['ICAO_ID'];
+        }
+        sqlsrv_free_stmt($lookup_stmt);
+    }
+}
+
+// If still empty, use fallback prefix logic
+if (empty($airport_icao)) {
+    if (strlen($airport) == 4) {
+        $airport_icao = $airport;
+    } elseif (strlen($airport) == 3 && $airport[0] === 'Y') {
+        $airport_icao = 'C' . $airport;
+    } elseif (strlen($airport) == 3) {
+        $airport_icao = 'K' . $airport;
+    } else {
+        $airport_icao = $airport;
+    }
+}
 
 // Get VATSIM rates
 $vatsim_rates = [
