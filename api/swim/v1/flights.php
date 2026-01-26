@@ -63,7 +63,7 @@ $current_artcc_raw = swim_get_param('current_artcc');
 $current_artcc = $current_artcc_raw ? swim_normalize_artcc_codes($current_artcc_raw) : null;
 $current_tracon = swim_get_param('current_tracon');
 $current_sector = swim_get_param('current_sector');
-$strata = swim_get_param('strata');  // low (<FL180), high (FL180-FL410), superhigh (>FL410)
+$strata = swim_get_param('strata');  // Sector strata: low, high, superhigh (based on sector classification)
 
 $page = swim_get_int_param('page', 1, 1, 1000);
 $per_page = swim_get_int_param('per_page', SWIM_DEFAULT_PAGE_SIZE, 1, SWIM_MAX_PAGE_SIZE);
@@ -201,18 +201,13 @@ if ($use_swim_db) {
         $params = array_merge($params, $sector_list);
     }
 
-    // Altitude strata filter (computed from altitude_ft)
+    // Sector strata filter (based on sector classification, not altitude)
+    // Strata values: 'low', 'high', 'superhigh' - corresponds to sector boundary types
     if ($strata) {
-        switch (strtolower($strata)) {
-            case 'low':
-                $where_clauses[] = "f.altitude_ft < 18000";
-                break;
-            case 'high':
-                $where_clauses[] = "f.altitude_ft >= 18000 AND f.altitude_ft < 41000";
-                break;
-            case 'superhigh':
-                $where_clauses[] = "f.altitude_ft >= 41000";
-                break;
+        $strata_val = strtolower(trim($strata));
+        if (in_array($strata_val, ['low', 'high', 'superhigh'])) {
+            $where_clauses[] = "f.current_sector_strata = ?";
+            $params[] = $strata_val;
         }
     }
 
