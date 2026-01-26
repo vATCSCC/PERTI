@@ -275,6 +275,182 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 
 ---
 
+## Azure SQL (VATSIM_TMI)
+
+Dedicated database for unified TMI (Traffic Management Initiative) operations.
+
+**Server:** `vatsim.database.windows.net`
+**Credentials:** TMI_admin / fdXuJKanvryNhH2Z!oEC
+
+### TMI Program Tables
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_programs` | Program registry - GS, GDP, AFP (replaces VATSIM_ADL.ntml) |
+| `tmi_slots` | Arrival slot allocation with FSM-format naming |
+| `tmi_flight_control` | Per-flight TMI control assignments (EDCTs, slots) |
+| `tmi_events` | Audit/event history log |
+| `tmi_popup_queue` | Pop-up flight detection queue |
+
+#### tmi_programs (Program Registry)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `program_id` | INT | Primary key (identity) |
+| `program_guid` | UNIQUEIDENTIFIER | External reference GUID |
+| `ctl_element` | NVARCHAR(8) | Control element - airport (KJFK) or FCA |
+| `element_type` | NVARCHAR(8) | APT, FCA, or FEA |
+| `program_type` | NVARCHAR(16) | GS, GDP-DAS, GDP-GAAP, GDP-UDP, AFP, BLANKET, COMPRESSION |
+| `program_name` | NVARCHAR(64) | Display name (e.g., "KJFK GDP #1") |
+| `adv_number` | NVARCHAR(16) | Advisory number |
+| `start_utc` | DATETIME2(0) | Program start time |
+| `end_utc` | DATETIME2(0) | Program end time |
+| `cumulative_start` | DATETIME2(0) | Original start (for extensions) |
+| `cumulative_end` | DATETIME2(0) | Latest end (for extensions) |
+| `status` | NVARCHAR(16) | PROPOSED, MODELING, ACTIVE, PAUSED, COMPLETED, PURGED, SUPERSEDED |
+| `is_proposed` | BIT | Program in proposed state |
+| `is_active` | BIT | Program currently active |
+| `program_rate` | INT | Default arrivals/hour (AAR) |
+| `reserve_rate` | INT | Reserved slots/hour for pop-ups |
+| `delay_limit_min` | INT | Maximum assignable delay (default: 180) |
+| `target_delay_mult` | DECIMAL(3,2) | Target delay multiplier (UDP) |
+| `rates_hourly_json` | NVARCHAR(MAX) | Hourly rate profile JSON |
+| `reserve_hourly_json` | NVARCHAR(MAX) | Pop-up reserve rates by hour |
+| `scope_type` | NVARCHAR(16) | TIER, DISTANCE, CENTER, ALL |
+| `scope_tier` | TINYINT | Scope tier (1, 2, 3) |
+| `scope_distance_nm` | INT | Distance radius (if DISTANCE) |
+| `scope_json` | NVARCHAR(MAX) | Scope definition (JSON) |
+| `exemptions_json` | NVARCHAR(MAX) | Exemption rules (JSON) |
+| `exempt_airborne` | BIT | Exempt airborne flights |
+| `exempt_within_min` | INT | Exempt flights within minutes |
+| `flt_incl_carrier` | NVARCHAR(512) | Include carrier filter |
+| `flt_incl_type` | NVARCHAR(8) | Include aircraft type filter |
+| `flt_incl_fix` | NVARCHAR(8) | Include arrival fix filter |
+| `impacting_condition` | NVARCHAR(32) | WEATHER, VOLUME, RUNWAY, EQUIPMENT, OTHER |
+| `cause_text` | NVARCHAR(512) | Detailed cause description |
+| `comments` | NVARCHAR(MAX) | Internal notes |
+| `prob_extension` | NVARCHAR(8) | Extension probability |
+| `revision_number` | INT | Revision number |
+| `parent_program_id` | INT | FK to parent (for transitions) |
+| `successor_program_id` | INT | FK to successor revision |
+| `total_flights` | INT | Computed: total affected flights |
+| `controlled_flights` | INT | Computed: flights under control |
+| `exempt_flights` | INT | Computed: exempt flights |
+| `airborne_flights` | INT | Computed: airborne flights |
+| `avg_delay_min` | DECIMAL(8,2) | Computed: average delay |
+| `max_delay_min` | INT | Computed: maximum delay |
+| `total_delay_min` | BIGINT | Computed: total delay |
+| `created_by` | NVARCHAR(64) | Creating user |
+| `created_at` | DATETIME2(0) | Creation timestamp |
+| `updated_at` | DATETIME2(0) | Last update timestamp |
+| `activated_by` | NVARCHAR(64) | Activating user |
+| `activated_at` | DATETIME2(0) | Activation timestamp |
+| `purged_by` | NVARCHAR(64) | Purging user |
+| `purged_at` | DATETIME2(0) | Purge timestamp |
+| `model_time_utc` | DATETIME2(0) | Model time |
+| `modified_by` | NVARCHAR(64) | Last modifier |
+| `modified_utc` | DATETIME2(0) | Last modification time |
+
+#### tmi_slots (Arrival Slots)
+
+FSM-format slot naming: `ccc[c].ddddddL` (e.g., KJFK.091530A)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `slot_id` | BIGINT | Primary key |
+| `program_id` | INT | FK to tmi_programs |
+| `slot_name` | NVARCHAR(20) | FSM format (e.g., "KJFK.091530A") |
+| `slot_index` | INT | Sequential index within program |
+| `slot_time_utc` | DATETIME2(0) | Slot arrival time |
+| `slot_type` | NVARCHAR(16) | REGULAR, RESERVED, UNASSIGNED |
+| `slot_status` | NVARCHAR(16) | OPEN, ASSIGNED, BRIDGED, HELD, CANCELLED, COMPRESSED |
+| `bin_date` | DATE | Time bin date |
+| `bin_hour` | TINYINT | Time bin hour (0-23) |
+| `bin_quarter` | TINYINT | Time bin quarter (0, 15, 30, 45) |
+| `assigned_flight_uid` | BIGINT | FK to adl_flight_core |
+| `assigned_callsign` | NVARCHAR(12) | Flight callsign |
+| `assigned_carrier` | NVARCHAR(8) | Carrier code |
+| `assigned_origin` | NVARCHAR(4) | Origin airport |
+| `original_eta_utc` | DATETIME2(0) | ETA before slot assignment |
+| `slot_delay_min` | INT | Delay imposed by this slot |
+| `sl_hold` | BIT | Held by carrier |
+| `sl_hold_carrier` | NVARCHAR(8) | Carrier holding slot |
+| `subbable` | BIT | Available for substitution |
+| `bridge_from_slot_id` | BIGINT | Original slot in bridge chain |
+| `bridge_to_slot_id` | BIGINT | Target slot in bridge chain |
+| `bridge_reason` | NVARCHAR(32) | ECR, SCS, COMPRESSION |
+| `is_popup_slot` | BIT | Assigned to pop-up flight |
+
+#### tmi_flight_control (Flight Assignments)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `control_id` | BIGINT | Primary key |
+| `flight_uid` | BIGINT | FK to adl_flight_core |
+| `callsign` | NVARCHAR(12) | Flight callsign |
+| `program_id` | INT | FK to tmi_programs |
+| `slot_id` | BIGINT | FK to tmi_slots |
+| `ctd_utc` | DATETIME2(0) | Controlled Time of Departure |
+| `cta_utc` | DATETIME2(0) | Controlled Time of Arrival |
+| `octd_utc` | DATETIME2(0) | Original CTD (never changes) |
+| `octa_utc` | DATETIME2(0) | Original CTA (never changes) |
+| `aslot` | NVARCHAR(20) | Assigned slot name |
+| `ctl_elem` | NVARCHAR(8) | Control element (airport/FCA) |
+| `ctl_prgm` | NVARCHAR(64) | Control program name |
+| `ctl_type` | NVARCHAR(8) | GDP, AFP, GS, DAS, GAAP, UDP, COMP, BLKT, ECR, ADPT, ABRG, CTOP |
+| `ctl_exempt` | BIT | Flight is exempt |
+| `ctl_exempt_reason` | NVARCHAR(32) | AIRBORNE, DISTANCE, CENTER, CARRIER, TYPE, EARLY, LATE, MANUAL |
+| `program_delay_min` | INT | Assigned delay (minutes) |
+| `delay_capped` | BIT | Hit delay limit |
+| `orig_etd_utc` | DATETIME2(0) | Original ETD before control |
+| `orig_eta_utc` | DATETIME2(0) | Original ETA before control |
+| `gs_held` | BIT | Currently ground stopped |
+| `gs_release_utc` | DATETIME2(0) | Scheduled GS release time |
+| `is_popup` | BIT | Pop-up flight |
+| `is_recontrol` | BIT | Re-controlled flight |
+| `ecr_pending` | BIT | EDCT Change Request pending |
+| `ecr_requested_cta` | DATETIME2(0) | Requested new CTA |
+| `compliance_status` | NVARCHAR(16) | PENDING, COMPLIANT, EARLY, LATE, NO_SHOW |
+| `actual_dep_utc` | DATETIME2(0) | Actual departure time |
+| `compliance_delta_min` | INT | Minutes early(-) or late(+) |
+
+#### tmi_events (Audit Log)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `event_id` | BIGINT | Primary key |
+| `event_type` | NVARCHAR(32) | PROGRAM_CREATED, SLOT_ASSIGNED, FLIGHT_CONTROLLED, etc. |
+| `event_subtype` | NVARCHAR(32) | Additional categorization |
+| `program_id` | INT | FK to tmi_programs |
+| `slot_id` | BIGINT | FK to tmi_slots |
+| `flight_uid` | BIGINT | FK to adl_flight_core |
+| `ctl_element` | NVARCHAR(8) | Airport/FCA |
+| `callsign` | NVARCHAR(12) | Flight callsign |
+| `details_json` | NVARCHAR(MAX) | Event details (JSON) |
+| `old_value` | NVARCHAR(256) | Previous value |
+| `new_value` | NVARCHAR(256) | New value |
+| `description` | NVARCHAR(512) | Event description |
+| `event_source` | NVARCHAR(16) | USER, SYSTEM, DAEMON, API, COMPRESSION |
+| `event_user` | NVARCHAR(64) | Acting user |
+| `event_utc` | DATETIME2(3) | Event timestamp |
+
+#### tmi_popup_queue (Pop-up Detection)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `queue_id` | BIGINT | Primary key |
+| `flight_uid` | BIGINT | FK to adl_flight_core |
+| `callsign` | NVARCHAR(12) | Flight callsign |
+| `program_id` | INT | FK to tmi_programs |
+| `detected_utc` | DATETIME2(0) | Detection timestamp |
+| `flight_eta_utc` | DATETIME2(0) | ETA when detected |
+| `lead_time_min` | INT | Minutes before ETA |
+| `queue_status` | NVARCHAR(16) | PENDING, PROCESSING, ASSIGNED, EXEMPT, FAILED, EXPIRED |
+| `assigned_slot_id` | BIGINT | FK to tmi_slots |
+| `assignment_type` | NVARCHAR(16) | RESERVED, DAS, GAAP |
+
+---
+
 ## Key Relationships
 
 ### Flight → Route

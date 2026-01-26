@@ -78,6 +78,16 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 
 ## By Database
 
+### VATSIM_TMI (Azure SQL) - Unified TMI Database
+
+| Table Group | Tables | Documentation |
+|-------------|--------|---------------|
+| **Programs** | `tmi_programs` | [[Database Schema]] - GS, GDP, AFP program registry |
+| **Slots** | `tmi_slots` | [[Database Schema]] - FSM-format arrival slots |
+| **Flight Control** | `tmi_flight_control` | [[Database Schema]] - Per-flight EDCTs/CTAs |
+| **Events** | `tmi_events` | [[Database Schema]] - Audit log |
+| **Pop-ups** | `tmi_popup_queue` | [[Database Schema]] - Pop-up detection queue |
+
 ### VATSIM_ADL (Azure SQL)
 
 | Table Group | Tables | Documentation |
@@ -85,7 +95,7 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 | **Flight Core** | `adl_flight_core`, `adl_flight_position`, `adl_flight_plan`, `adl_flight_times`, `adl_flight_aircraft` | [[Database Schema]] |
 | **Route Data** | `adl_parse_queue`, `adl_flight_waypoints`, `adl_flight_trajectory` | [[Algorithm Route Parsing]] |
 | **Boundaries** | `adl_boundary`, `adl_flight_boundary_log`, `adl_flight_planned_crossings` | [[Database Schema]] |
-| **TMI/NTML** | `ntml`, `ntml_info`, `ntml_slots`, `adl_flight_tmi` | [[TMI API]] |
+| **TMI/NTML (Legacy)** | `ntml`, `ntml_info`, `ntml_slots`, `adl_flight_tmi` | [[TMI API]] - Being migrated to VATSIM_TMI |
 | **Reroutes** | `tmi_reroutes`, `tmi_reroute_flights`, `tmi_reroute_compliance_log` | [[TMI API]] |
 | **Airport Config** | `airport_config`, `airport_config_runway`, `airport_config_rate`, `runway_in_use`, `vatsim_atis` | [[Database Schema]] |
 | **Modifiers** | `modifier_category`, `modifier_type`, `config_modifier` | [[Database Schema]] |
@@ -115,7 +125,7 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 | **Splits** | `/api/splits/` | `areas.php`, `configs.php`, `active.php` | [[Splits]] |
 | **Stats** | `/api/stats/` | `realtime.php`, `daily.php`, `airport.php`, `artcc.php` | [[API Reference]] |
 | **SWIM v1** | `/api/swim/v1/` | `flights.php`, `positions.php`, `auth.php`, `tmi/*` | `docs/swim/` |
-| **GDT** | `/api/gdt/` | `demand/*`, `flights/*`, `programs/*`, `slots/*` | [[GDT Ground Delay Tool]] |
+| **GDT** | `/api/gdt/` | `programs/*`, `flights/*`, `slots/*`, `demand/*` | [[GDT Ground Delay Tool]] - Uses VATSIM_TMI |
 | **Simulator** | `/api/simulator/` | `engine.php`, `traffic.php`, `navdata.php` | [[ATFM Training Simulator]] |
 | **Data** | `/api/data/` | `weather.php`, `sua.php`, `tfr.php`, `routes.php` | [[API Reference]] |
 | **Routes** | `/api/routes/` | `public.php`, `public_post.php` | [[API Reference]] |
@@ -253,7 +263,7 @@ See [[Daemons and Scripts]] for full documentation.
 | Where are rates stored? | `airport_config_rate` |
 | How do I query flight ETAs? | `adl_flight_times.eta_utc` |
 | Where's the VATSIM sync code? | `daemons/adl_refresh.php` + `sp_Adl_RefreshFromVatsim_Normalized` |
-| How do Ground Stops work? | `ntml` table with `program_type='GS'` |
+| How do Ground Stops work? | `tmi_programs` table (VATSIM_TMI) with `program_type='GS'` |
 | Where are reroutes defined? | `tmi_reroutes` table |
 | What's the demand monitor table? | `demand_monitors` |
 | How do I get real-time stats? | `GET /api/stats/realtime.php` |
@@ -274,4 +284,4 @@ See [[Daemons and Scripts]] for full documentation.
 
 ---
 
-*Last updated: 2026-01-21*
+*Last updated: 2026-01-26*

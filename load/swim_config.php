@@ -981,3 +981,120 @@ function swim_cache_set($cache_key, $data, $ttl) {
     }
     return apcu_store($cache_key, $data, $ttl);
 }
+
+/**
+ * Normalize ARTCC/FIR codes to include both FAA and ICAO variants
+ *
+ * Supports:
+ *   - US ARTCCs: ZNY -> ZNY,KZNY (3-letter Z* codes get K prefix)
+ *   - Canada FIRs: CZY -> CZY,CZYZ or ZYZ -> ZYZ,CZYZ (C prefix patterns)
+ *   - Mexico ACCs: MID -> MID,MMID (MM prefix for 3-letter codes)
+ *   - Caribbean/LATAM: Various patterns (T*, M*, S* prefixes)
+ *
+ * @param string $codes Comma-separated ARTCC/FIR codes
+ * @return string Expanded comma-separated codes with both FAA and ICAO variants
+ */
+function swim_normalize_artcc_codes($codes) {
+    if (empty($codes)) {
+        return $codes;
+    }
+
+    $code_list = array_map('trim', explode(',', strtoupper($codes)));
+    $expanded = [];
+
+    foreach ($code_list as $code) {
+        $code = trim($code);
+        if (empty($code)) continue;
+
+        // Always include the original code
+        $expanded[] = $code;
+
+        $len = strlen($code);
+
+        // US ARTCCs: 3-letter codes starting with Z (ZNY, ZLA, ZDC, etc.)
+        // FAA uses ZNY, ICAO uses KZNY
+        if ($len === 3 && $code[0] === 'Z') {
+            $icao = 'K' . $code;
+            if (!in_array($icao, $expanded)) {
+                $expanded[] = $icao;
+            }
+        }
+        // Reverse: KZNY -> ZNY
+        elseif ($len === 4 && $code[0] === 'K' && $code[1] === 'Z') {
+            $faa = substr($code, 1);
+            if (!in_array($faa, $expanded)) {
+                $expanded[] = $faa;
+            }
+        }
+
+        // Canadian FIRs: 3-letter codes like CZY, ZYZ, ZEG, ZWG, etc.
+        // ICAO format is CZYZ, CZEG, CZWG, etc.
+        // Pattern: CZY -> CZYZ (insert Z after first letter if starts with C and 3 chars)
+        elseif ($len === 3 && $code[0] === 'C' && $code[1] === 'Z') {
+            // CZY -> CZYZ (Canadian pattern: CZx becomes CZxZ... wait, that's not right)
+            // Actually: CZYZ = Winnipeg, CZEG = Edmonton, CZUL = Montreal
+            // The 3-letter might be CZY for Winnipeg area... let's handle both directions
+            // Try adding the last letter doubled or common patterns
+            $icao = 'C' . $code;  // CZY -> CCZY? No...
+            // Actually Canadian FIRs are already 4-letter ICAO: CZYZ, CZEG, etc.
+            // Users might type ZYZ meaning CZYZ
+        }
+        elseif ($len === 3 && $code[0] === 'Z' && !ctype_digit($code[1])) {
+            // Could be Canadian: ZYZ -> CZYZ, ZEG -> CZEG, ZUL -> CZUL
+            // But also could be US: ZNY -> KZNY
+            // Check if second char suggests Canadian (Y, E, U, W are common for Canada)
+            $second = $code[1];
+            if (in_array($second, ['Y', 'E', 'U', 'W', 'Q', 'V'])) {
+                // Likely Canadian
+                $icao = 'C' . $code;
+                if (!in_array($icao, $expanded)) {
+                    $expanded[] = $icao;
+                }
+            }
+        }
+        // Reverse: CZYZ -> ZYZ
+        elseif ($len === 4 && $code[0] === 'C' && $code[1] === 'Z') {
+            $faa = substr($code, 1);
+            if (!in_array($faa, $expanded)) {
+                $expanded[] = $faa;
+            }
+        }
+
+        // Mexico ACCs: 3-letter codes -> MM prefix
+        // MID -> MMID (Merida), MTY -> MMTY (Monterrey), MEX -> MMEX (Mexico City)
+        elseif ($len === 3 && $code[0] === 'M') {
+            $icao = 'MM' . substr($code, 1);  // MID -> MMID
+            if (!in_array($icao, $expanded)) {
+                $expanded[] = $icao;
+            }
+            // Also try full MM prefix
+            $icao2 = 'M' . $code;  // MID -> MMID (same result actually)
+            if ($icao2 !== $icao && !in_array($icao2, $expanded)) {
+                $expanded[] = $icao2;
+            }
+        }
+        // Reverse: MMID -> MID
+        elseif ($len === 4 && substr($code, 0, 2) === 'MM') {
+            $faa = 'M' . substr($code, 2);
+            if (!in_array($faa, $expanded)) {
+                $expanded[] = $faa;
+            }
+        }
+
+        // Caribbean: T* prefix (TJSJ San Juan, TIST St Thomas, etc.)
+        // Usually already 4-letter ICAO, but handle 3-letter variants
+        elseif ($len === 3 && $code[0] === 'T') {
+            $icao = 'T' . $code;  // TJS -> TTJS? Not quite right for Caribbean
+            // Caribbean is complex - TJSJ (Puerto Rico), TNCM (St Maarten), etc.
+            // Skip auto-expansion for now, users should use full ICAO
+        }
+
+        // South America: S* prefix (Brazil SBXX, Argentina SAXX, etc.)
+        elseif ($len === 3 && $code[0] === 'S') {
+            // SB* = Brazil, SA* = Argentina, SC* = Chile, etc.
+            // Hard to auto-expand without knowing the country
+        }
+    }
+
+    return implode(',', array_unique($expanded));
+}

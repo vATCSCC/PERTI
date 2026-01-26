@@ -210,6 +210,37 @@ Returns all Ground Stop programs.
 
 ---
 
+## GDT APIs (Unified TMI)
+
+Ground Delay Tool unified API for managing GS, GDP, and AFP programs. Uses `VATSIM_TMI` database.
+
+**Base Path:** `/api/gdt/`
+
+### Program Operations
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/gdt/programs/create.php` | POST | Create new GS/GDP/AFP program |
+| `/api/gdt/programs/list.php` | GET | List programs with filtering |
+| `/api/gdt/programs/get.php` | GET | Get single program with slots |
+| `/api/gdt/programs/simulate.php` | POST | Generate slots and run RBS |
+| `/api/gdt/programs/activate.php` | POST | Activate proposed program |
+| `/api/gdt/programs/extend.php` | POST | Extend program end time |
+| `/api/gdt/programs/purge.php` | POST | Cancel/purge program |
+| `/api/gdt/programs/transition.php` | POST | Transition GS to GDP |
+
+### Flight and Slot Operations
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/gdt/flights/list.php` | GET | List flights for a program |
+| `/api/gdt/slots/list.php` | GET | List slots for a program |
+| `/api/gdt/demand/hourly.php` | GET | Get hourly demand/capacity |
+
+See [[TMI API]] for full request/response documentation.
+
+---
+
 ## JATOC APIs
 
 Joint Air Traffic Operations Command incident tracking.

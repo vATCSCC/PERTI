@@ -29,13 +29,17 @@ $phase = swim_get_param('phase');
 $include_route = swim_get_param('include_route', 'false') === 'true';
 
 // Flight plan destination filters (explicit names preferred)
-$dest_artcc = swim_get_param('dest_artcc') ?? swim_get_param('artcc');  // artcc is deprecated alias
+// Normalize ARTCC codes to support both FAA (ZNY) and ICAO (KZNY) formats
+$dest_artcc_raw = swim_get_param('dest_artcc') ?? swim_get_param('artcc');  // artcc is deprecated alias
+$dest_artcc = $dest_artcc_raw ? swim_normalize_artcc_codes($dest_artcc_raw) : null;
 $dest_tracon = swim_get_param('dest_tracon');
-$dep_artcc = swim_get_param('dep_artcc');
+$dep_artcc_raw = swim_get_param('dep_artcc');
+$dep_artcc = $dep_artcc_raw ? swim_normalize_artcc_codes($dep_artcc_raw) : null;
 $dep_tracon = swim_get_param('dep_tracon');
 
 // Current position filters (filter by where flight IS, not where it's going)
-$current_artcc = swim_get_param('current_artcc');
+$current_artcc_raw = swim_get_param('current_artcc');
+$current_artcc = $current_artcc_raw ? swim_normalize_artcc_codes($current_artcc_raw) : null;
 $current_tracon = swim_get_param('current_tracon');
 $current_sector = swim_get_param('current_sector');
 $strata = swim_get_param('strata');  // low (<FL180), high (FL180-FL410), superhigh (>FL410)
