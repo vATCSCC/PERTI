@@ -4,6 +4,22 @@ The Ground Delay Tool (GDT) provides FSM-style traffic flow management capabilit
 
 ---
 
+## Database
+
+GDT uses the dedicated `VATSIM_TMI` database (Azure SQL) with unified program management:
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_programs` | Program registry (GS, GDP-DAS, GDP-GAAP, GDP-UDP, AFP) |
+| `tmi_slots` | FSM-format arrival slots (KJFK.091530A) |
+| `tmi_flight_control` | Per-flight EDCTs, CTAs, exemptions |
+| `tmi_events` | Audit log for all TMI operations |
+| `tmi_popup_queue` | Pop-up flight detection queue |
+
+**API:** `/api/gdt/` endpoints - see [[TMI API]] for details.
+
+---
+
 ## Overview
 
 GDT enables Traffic Management personnel to:
