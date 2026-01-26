@@ -33,11 +33,12 @@ if (!$conn) {
 $auth = swim_init_auth(true, false);
 
 // Get format parameter - supports json, fixm, xml, geojson, csv, kml, ndjson
-$format = swim_validate_format(swim_get_param('format', 'json'), 'flights');
+// Default to FIXM for FAA SWIM compatibility
+$format = swim_validate_format(swim_get_param('format', 'fixm'), 'flights');
 
-// Handle legacy 'legacy' format alias
+// Handle legacy 'legacy' format alias - maps to FIXM for backward compatibility
 if ($format === 'legacy') {
-    $format = 'json';
+    $format = 'fixm';
 }
 
 // Get filter parameters

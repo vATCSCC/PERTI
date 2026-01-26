@@ -1865,9 +1865,9 @@ components:
         - All formats supported
       schema:
         type: string
-        enum: [json, fixm, xml, geojson, csv, kml, ndjson]
-        default: json
-      example: json
+        enum: [fixm, json, xml, geojson, csv, kml, ndjson]
+        default: fixm
+      example: fixm
 
   responses:
     Unauthorized:

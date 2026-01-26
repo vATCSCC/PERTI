@@ -234,7 +234,7 @@ const geojson = await response.json();
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `format` | string | `legacy` (default) or `fixm` for FIXM 4.3.0 field names |
+| `format` | string | `fixm` (default) for FIXM 4.3.0 field names, or `legacy` for original field names |
 | `page` | int | Page number (default: 1) |
 | `per_page` | int | Results per page (default: 100, max: 1000) |
 
@@ -320,14 +320,14 @@ Returns paginated list of flights with optional filtering.
 | `callsign` | string | Callsign pattern with `*` wildcards (e.g., `UAL*`) |
 | `tmi_controlled` | boolean | `true` to filter TMI-controlled flights |
 | `phase` | string | Comma-separated flight phases (e.g., `ENROUTE,DESCENDING`) |
-| `format` | string | Response format: `json` (default), `fixm`, `xml`, `geojson`, `csv`, `kml`, `ndjson` |
+| `format` | string | Response format: `fixm` (default), `json`, `xml`, `geojson`, `csv`, `kml`, `ndjson` |
 
 **Supported Formats:**
 
 | Format | Content-Type | Description |
 |--------|--------------|-------------|
-| `json` | `application/json` | Standard JSON with snake_case fields (default) |
-| `fixm` | `application/json` | JSON with FIXM 4.3.0 camelCase field names |
+| `fixm` | `application/json` | JSON with FIXM 4.3.0 camelCase field names (default) |
+| `json` | `application/json` | Standard JSON with snake_case fields |
 | `xml` | `application/xml` | XML format for enterprise/SOAP integrations |
 | `geojson` | `application/geo+json` | GeoJSON FeatureCollection for mapping |
 | `csv` | `text/csv` | CSV for spreadsheet/analytics export |

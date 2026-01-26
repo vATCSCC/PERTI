@@ -86,7 +86,7 @@ public class SwimRestClient : IDisposable
         string? callsign = null,
         bool? tmiControlled = null,
         string? phase = null,
-        string format = "legacy",
+        string format = "fixm",
         int page = 1,
         int perPage = 100,
         CancellationToken cancellationToken = default)
@@ -108,7 +108,7 @@ public class SwimRestClient : IDisposable
         string? callsign = null,
         bool? tmiControlled = null,
         string? phase = null,
-        string format = "legacy",
+        string format = "fixm",
         int page = 1,
         int perPage = 100,
         CancellationToken cancellationToken = default)
@@ -135,7 +135,7 @@ public class SwimRestClient : IDisposable
     public async Task<Flight?> GetFlightAsync(
         string? gufi = null,
         string? flightKey = null,
-        string format = "legacy",
+        string format = "fixm",
         CancellationToken cancellationToken = default)
     {
         if (gufi == null && flightKey == null)

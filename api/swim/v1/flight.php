@@ -31,9 +31,10 @@ if (!$conn) {
 $auth = swim_init_auth(true, false);
 
 // Get format parameter (legacy or fixm)
-$format = swim_get_param('format', 'legacy');  // legacy | fixm
+// Default to FIXM for FAA SWIM compatibility
+$format = swim_get_param('format', 'fixm');  // legacy | fixm
 if (!in_array($format, ['legacy', 'fixm'])) {
-    $format = 'legacy';
+    $format = 'fixm';
 }
 
 // Get identifier parameters
