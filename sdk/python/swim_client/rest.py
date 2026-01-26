@@ -153,7 +153,7 @@ class SWIMRestClient:
             current_artcc: Current ARTCC(s) filter (where flight is now)
             current_tracon: Current TRACON(s) filter
             current_sector: Current sector(s) filter
-            strata: Altitude stratum: 'low' (<FL180), 'high' (FL180-FL410), 'superhigh' (>FL410)
+            strata: Sector strata classification: 'low', 'high', 'superhigh' (based on sector type)
             callsign: Callsign pattern (supports * wildcard)
             tmi_controlled: Filter TMI-controlled flights
             phase: Flight phase(s) filter
@@ -284,7 +284,7 @@ class SWIMRestClient:
             current_artcc: Current ARTCC(s) filter (where flight is now)
             current_tracon: Current TRACON(s) filter
             current_sector: Current sector(s) filter
-            strata: Altitude stratum: 'low' (<FL180), 'high' (FL180-FL410), 'superhigh' (>FL410)
+            strata: Sector strata classification: 'low', 'high', 'superhigh' (based on sector type)
             bounds: Bounding box 'minLon,minLat,maxLon,maxLat'
             tmi_controlled: Filter TMI-controlled flights
             phase: Flight phase(s) filter

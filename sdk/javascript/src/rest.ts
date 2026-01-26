@@ -17,7 +17,7 @@ import type {
   GetPositionsOptions,
   GetTmiProgramsOptions,
   Pagination,
-  AltitudeStrata,
+  SectorStrata,
 } from './types';
 
 const DEFAULT_BASE_URL = 'https://perti.vatcscc.org/api/swim/v1';
@@ -182,10 +182,12 @@ export class SwimRestClient {
 
   /**
    * Get flights in a specific sector with optional strata filter
+   * @param sector - Sector code(s) to filter by
+   * @param strata - Sector strata classification (low, high, superhigh)
    */
   async getFlightsInSector(
     sector: string | string[],
-    strata?: AltitudeStrata,
+    strata?: SectorStrata,
     options: Omit<GetFlightsOptions, 'current_sector' | 'strata'> = {}
   ): Promise<Flight[]> {
     return this.getFlights({ ...options, current_sector: sector, strata });
