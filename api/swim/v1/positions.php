@@ -42,7 +42,7 @@ $current_artcc_raw = swim_get_param('current_artcc');
 $current_artcc = $current_artcc_raw ? swim_normalize_artcc_codes($current_artcc_raw) : null;
 $current_tracon = swim_get_param('current_tracon');
 $current_sector = swim_get_param('current_sector');
-$strata = swim_get_param('strata');  // low (<FL180), high (FL180-FL410), superhigh (>FL410)
+$strata = swim_get_param('strata');  // Sector strata: low, high, superhigh (based on sector classification)
 
 // Build query
 $where_clauses = [];
@@ -139,23 +139,17 @@ if ($use_swim_db) {
         $params = array_merge($params, $sector_list);
     }
 
-    // Altitude strata filter
+    // Sector strata filter (based on sector classification, not altitude)
     if ($strata) {
-        switch (strtolower($strata)) {
-            case 'low':
-                $where_clauses[] = "f.altitude_ft < 18000";
-                break;
-            case 'high':
-                $where_clauses[] = "f.altitude_ft >= 18000 AND f.altitude_ft < 41000";
-                break;
-            case 'superhigh':
-                $where_clauses[] = "f.altitude_ft >= 41000";
-                break;
+        $strata_val = strtolower(trim($strata));
+        if (in_array($strata_val, ['low', 'high', 'superhigh'])) {
+            $where_clauses[] = "f.current_sector_strata = ?";
+            $params[] = $strata_val;
         }
     }
 
     $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
-    
+
     // Single-table query
     $sql = "
         SELECT 
@@ -264,18 +258,12 @@ if ($use_swim_db) {
         $params = array_merge($params, $sector_list);
     }
 
-    // Altitude strata filter
+    // Sector strata filter (based on sector classification, not altitude)
     if ($strata) {
-        switch (strtolower($strata)) {
-            case 'low':
-                $where_clauses[] = "pos.altitude_ft < 18000";
-                break;
-            case 'high':
-                $where_clauses[] = "pos.altitude_ft >= 18000 AND pos.altitude_ft < 41000";
-                break;
-            case 'superhigh':
-                $where_clauses[] = "pos.altitude_ft >= 41000";
-                break;
+        $strata_val = strtolower(trim($strata));
+        if (in_array($strata_val, ['low', 'high', 'superhigh'])) {
+            $where_clauses[] = "c.current_sector_strata = ?";
+            $params[] = $strata_val;
         }
     }
 
