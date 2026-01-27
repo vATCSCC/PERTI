@@ -1,9 +1,21 @@
 # VATSIM_ADL Normalized Schema Reference
 ## SWIM API v2.0
 
-**Generated:** 2026-01-15  
-**Database:** Azure SQL (VATSIM_ADL)  
+**Generated:** 2026-01-15 (Updated 2026-01-27)
+**Database:** Azure SQL (VATSIM_ADL)
 **Schema:** Normalized ADL Tables
+
+---
+
+> **FIXM Migration (2026-01-27):** The `adl_flight_times` table will receive new FIXM-aligned
+> columns alongside legacy OOOI columns. During the 30-day transition, both sets are populated.
+>
+> **New FIXM Time Columns:** `actual_off_block_time`, `actual_time_of_departure`,
+> `actual_landing_time`, `actual_in_block_time`, `estimated_time_of_arrival`,
+> `estimated_off_block_time`, `estimated_runway_arrival_time`, `controlled_time_of_departure`,
+> `controlled_time_of_arrival`
+>
+> See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md) for complete mapping.
 
 ---
 

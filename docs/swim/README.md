@@ -5,6 +5,11 @@
 [![Status](https://img.shields.io/badge/status-production-brightgreen)]()
 [![Phase](https://img.shields.io/badge/phase_3-in_progress-yellow)]()
 [![Cost](https://img.shields.io/badge/cost-$5/mo-brightgreen)]()
+[![FIXM](https://img.shields.io/badge/FIXM-migration_active-orange)]()
+
+> **FIXM Migration (2026-01-27):** Transitioning to FIXM-aligned column names (`actual_off_block_time`
+> instead of `out_utc`, etc.). Both column sets populated during 30-day transition. Use `?format=fixm`
+> for FIXM output. See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md).
 
 ## ✅ Status: Production Ready
 

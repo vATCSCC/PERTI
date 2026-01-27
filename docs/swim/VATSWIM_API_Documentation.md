@@ -1,10 +1,32 @@
 # VATSWIM API Documentation
 
-**Version:** 1.0.0  
-**Last Updated:** January 16, 2026  
-**Status:** Production Ready  
-**API Base URL:** `https://perti.vatcscc.org/api/swim/v1`  
+**Version:** 1.1.0
+**Last Updated:** January 27, 2026
+**Status:** Production Ready
+**API Base URL:** `https://perti.vatcscc.org/api/swim/v1`
 **WebSocket URL:** `wss://perti.vatcscc.org/api/swim/v1/ws`
+
+---
+
+> **⚠️ FIXM Migration Notice (2026-01-27)**
+>
+> The VATSWIM API is transitioning from legacy OOOI column names to FIXM-aligned naming:
+>
+> | Legacy Name | FIXM-Aligned Name |
+> |-------------|-------------------|
+> | `out_utc` | `actual_off_block_time` |
+> | `off_utc` | `actual_time_of_departure` |
+> | `on_utc` | `actual_landing_time` |
+> | `in_utc` | `actual_in_block_time` |
+> | `eta_utc` | `estimated_time_of_arrival` |
+> | `etd_utc` | `estimated_off_block_time` |
+>
+> **During the 30-day transition period:**
+> - Both legacy and FIXM columns are populated (dual-write)
+> - API responses prefer FIXM columns with legacy fallback
+> - Consumers should migrate to `format=fixm` for FIXM camelCase output
+>
+> See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md) for complete mapping.
 
 ---
 

@@ -65,6 +65,23 @@ info:
     3. Simulator - raw telemetry
     4. VATCSCC - ADL parsing fallback
 
+    ## FIXM Migration (2026-01-27)
+
+    VATSWIM is transitioning from legacy OOOI column names to FIXM-aligned naming.
+    During the 30-day transition, both column sets are populated (dual-write).
+
+    | Legacy | FIXM-Aligned |
+    |--------|--------------|
+    | out_utc | actual_off_block_time |
+    | off_utc | actual_time_of_departure |
+    | on_utc | actual_landing_time |
+    | in_utc | actual_in_block_time |
+    | eta_utc | estimated_time_of_arrival |
+    | etd_utc | estimated_off_block_time |
+
+    API responses with `format=fixm` return FIXM camelCase field names.
+    See VATSWIM_FIXM_Field_Mapping.md for complete mapping.
+
     ## Consumer Use Cases
 
     This API supports various consumer types with specific patterns:
