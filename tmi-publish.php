@@ -954,15 +954,15 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.7.0"></script>
+<script src="assets/js/tmi-publish.js?v=1.7.1"></script>
 <script src="assets/js/tmi-active-display.js?v=1.0.0"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
 (function() {
     var lastVersion = localStorage.getItem('tmi_publisher_version');
-    if (lastVersion !== '1.7.0') {
+    if (lastVersion !== '1.7.1') {
         localStorage.removeItem('tmi_publisher_queue');
-        localStorage.setItem('tmi_publisher_version', '1.7.0');
+        localStorage.setItem('tmi_publisher_version', '1.7.1');
         console.log('TMI Publisher: Cleared old queue data for version upgrade');
     }
 })();
