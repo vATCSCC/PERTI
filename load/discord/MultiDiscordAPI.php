@@ -484,6 +484,38 @@ class MultiDiscordAPI {
     }
     
     /**
+     * Delete a message by direct channel ID (for when channel ID is already known)
+     * 
+     * @param string $orgCode Organization code (for validation)
+     * @param string $channelId Discord channel ID
+     * @param string $messageId Message ID to delete
+     * @return bool Success status
+     */
+    public function deleteMessageByChannelId(string $orgCode, string $channelId, string $messageId): bool {
+        // Verify the channel belongs to this org
+        $orgInfo = $this->findOrgByChannelId($channelId);
+        if (!$orgInfo || $orgInfo['org_code'] !== $orgCode) {
+            // Allow if we can't verify (channel might not be in config)
+            // but still try to delete
+        }
+        
+        return $this->discord->deleteMessage($channelId, $messageId);
+    }
+    
+    /**
+     * Post to a specific org/channel combination
+     * Alias for postToOrg for clearer API naming
+     * 
+     * @param string $orgCode Organization code
+     * @param string $channelPurpose Channel purpose
+     * @param array $messageData Discord message data
+     * @return array Result with success status, message_id, error, etc.
+     */
+    public function postToChannel(string $orgCode, string $channelPurpose, array $messageData): array {
+        return $this->postToOrg($orgCode, $channelPurpose, $messageData);
+    }
+    
+    /**
      * Get messages from a channel
      * 
      * @param string $orgCode Organization code

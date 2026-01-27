@@ -79,6 +79,12 @@
         initAdvisoryTypeSelector();
         loadSavedState();
         updateUI();
+        
+        // Load staged entries for promotion panel
+        loadStagedEntries();
+        
+        // Refresh staged entries every 30 seconds
+        setInterval(loadStagedEntries, 30000);
     }
     
     function initClock() {
@@ -1157,13 +1163,118 @@
     }
     
     // ===========================================
+    // Staging Management
+    // ===========================================
+    
+    function loadStagedEntries() {
+        $.ajax({
+            url: 'api/mgt/tmi/staged.php',
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    displayStagedEntries(response.entries);
+                }
+            },
+            error: function() {
+                console.error('Failed to load staged entries');
+            }
+        });
+    }
+    
+    function displayStagedEntries(entries) {
+        const container = $('#recentPostsList');
+        container.empty();
+        
+        if (entries.length === 0) {
+            container.html('<div class="list-group-item text-center text-muted py-3"><i class="fas fa-clock"></i> No staged entries</div>');
+            return;
+        }
+        
+        entries.forEach(function(entry) {
+            const item = $(`
+                <div class="list-group-item recent-post-item staging">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="post-type">${entry.entryType}</span>
+                            <div class="small">${escapeHtml(entry.summary)}</div>
+                            <div class="post-time">Staged to: ${entry.stagedOrgs.join(', ')}</div>
+                        </div>
+                        <button class="btn btn-sm btn-success" onclick="TMIPublisher.promoteEntry('${entry.entityType}', ${entry.entityId}, ${JSON.stringify(entry.stagedOrgs)})">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </div>
+                </div>
+            `);
+            container.append(item);
+        });
+    }
+    
+    function promoteEntry(entityType, entityId, orgs) {
+        Swal.fire({
+            title: 'Promote to Production?',
+            html: `<p>Publish this ${entityType.toLowerCase()} to production channels?</p>
+                   <p class="text-danger">This will post to LIVE channels.</p>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            confirmButtonText: 'Promote'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                performPromotion(entityType, entityId, orgs);
+            }
+        });
+    }
+    
+    function performPromotion(entityType, entityId, orgs) {
+        $.ajax({
+            url: 'api/mgt/tmi/promote.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                entityType: entityType,
+                entityId: entityId,
+                orgs: orgs,
+                deleteStaging: true,
+                userCid: CONFIG.userCid
+            }),
+            success: function(response) {
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Promoted!',
+                        text: 'Entry published to production channels.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    loadStagedEntries();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Promotion Failed',
+                        text: response.results?.[0]?.error || 'Unknown error'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to connect to server'
+                });
+            }
+        });
+    }
+    
+    // ===========================================
     // Public API
     // ===========================================
     
     window.TMIPublisher = {
         removeFromQueue: removeFromQueue,
         previewEntry: previewEntry,
-        clearQueue: clearQueue
+        clearQueue: clearQueue,
+        promoteEntry: promoteEntry,
+        loadStagedEntries: loadStagedEntries
     };
     
     // ===========================================
