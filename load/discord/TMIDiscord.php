@@ -10,7 +10,14 @@
  * 
  * @package PERTI
  * @subpackage TMI/Discord
- * @version 3.4.0
+ * @version 3.5.0
+ * 
+ * Changelog v3.5.0 (2026-01-27):
+ * - Added MultiDiscordAPI integration for multi-organization posting
+ * - New methods: postNtmlEntryToOrgs(), postAdvisoryToOrgs()
+ * - New methods: promoteNtmlEntry(), promoteAdvisory()
+ * - Added cross-border TMI detection via determineTargetOrgs()
+ * - Public message builders: buildNTMLMessageFromEntry(), buildAdvisoryMessage()
  * 
  * Changelog v3.4.0 (2026-01-18):
  * - Fixed delay entry formatting for all three types:
@@ -28,10 +35,12 @@
  */
 
 require_once __DIR__ . '/DiscordAPI.php';
+require_once __DIR__ . '/MultiDiscordAPI.php';
 
 class TMIDiscord {
     
     private $discord;
+    private $multiDiscord;
     private $channels;
     
     /** @var int Maximum line length per IATA Type B message format */
@@ -41,9 +50,11 @@ class TMIDiscord {
      * Constructor
      * 
      * @param DiscordAPI|null $discord Discord API instance (creates new if null)
+     * @param MultiDiscordAPI|null $multiDiscord Multi-org Discord API (creates new if null)
      */
-    public function __construct($discord = null) {
+    public function __construct($discord = null, $multiDiscord = null) {
         $this->discord = $discord ?? new DiscordAPI();
+        $this->multiDiscord = $multiDiscord ?? new MultiDiscordAPI();
         $this->channels = $this->discord->getConfiguredChannels();
     }
     
@@ -55,10 +66,137 @@ class TMIDiscord {
     }
     
     /**
+     * Check if multi-org Discord is available
+     */
+    public function isMultiOrgAvailable(): bool {
+        return $this->multiDiscord->isConfigured();
+    }
+    
+    /**
      * Get the Discord API instance
      */
     public function getAPI(): DiscordAPI {
         return $this->discord;
+    }
+    
+    /**
+     * Get the Multi-Discord API instance
+     */
+    public function getMultiDiscordAPI(): MultiDiscordAPI {
+        return $this->multiDiscord;
+    }
+    
+    // =========================================
+    // MULTI-ORG POSTING METHODS
+    // =========================================
+    
+    /**
+     * Post an NTML entry to multiple organizations
+     * 
+     * @param array $entry NTML entry data
+     * @param array $orgCodes Organization codes to post to
+     * @param bool $staging Post to staging channels (true) or production (false)
+     * @return array Results keyed by org code
+     */
+    public function postNtmlEntryToOrgs(array $entry, array $orgCodes, bool $staging = true): array {
+        $message = $this->formatNtmlMessage($entry);
+        $messageData = ['content' => "```\n{$message}\n```"];
+        
+        if ($staging) {
+            return $this->multiDiscord->postToStaging($orgCodes, 'ntml', $messageData);
+        } else {
+            return $this->multiDiscord->postToProduction($orgCodes, 'ntml', $messageData);
+        }
+    }
+    
+    /**
+     * Post an advisory to multiple organizations
+     * 
+     * @param array $advisory Advisory data
+     * @param array $orgCodes Organization codes to post to
+     * @param bool $staging Post to staging channels (true) or production (false)
+     * @return array Results keyed by org code
+     */
+    public function postAdvisoryToOrgs(array $advisory, array $orgCodes, bool $staging = true): array {
+        $message = $this->formatAdvisoryMessage($advisory);
+        $messageData = ['content' => "```\n{$message}\n```"];
+        
+        if ($staging) {
+            return $this->multiDiscord->postToStaging($orgCodes, 'advisory', $messageData);
+        } else {
+            return $this->multiDiscord->postToProduction($orgCodes, 'advisory', $messageData);
+        }
+    }
+    
+    /**
+     * Promote NTML entry from staging to production
+     * 
+     * @param array $entry NTML entry data
+     * @param array $orgCodes Organization codes to promote to
+     * @param array|null $stagingMessageIds Optional staging message IDs to delete
+     * @return array Results keyed by org code
+     */
+    public function promoteNtmlEntry(array $entry, array $orgCodes, ?array $stagingMessageIds = null): array {
+        $message = $this->formatNtmlMessage($entry);
+        $messageData = ['content' => "```\n{$message}\n```"];
+        
+        return $this->multiDiscord->promoteToProduction($orgCodes, 'ntml', $messageData, $stagingMessageIds);
+    }
+    
+    /**
+     * Promote advisory from staging to production
+     * 
+     * @param array $advisory Advisory data
+     * @param array $orgCodes Organization codes to promote to
+     * @param array|null $stagingMessageIds Optional staging message IDs to delete
+     * @return array Results keyed by org code
+     */
+    public function promoteAdvisory(array $advisory, array $orgCodes, ?array $stagingMessageIds = null): array {
+        $message = $this->formatAdvisoryMessage($advisory);
+        $messageData = ['content' => "```\n{$message}\n```"];
+        
+        return $this->multiDiscord->promoteToProduction($orgCodes, 'advisory', $messageData, $stagingMessageIds);
+    }
+    
+    /**
+     * Build NTML message from entry data (public for external use)
+     * 
+     * @param array $entry Entry data
+     * @return string Formatted NTML message
+     */
+    public function buildNTMLMessageFromEntry(array $entry): string {
+        return $this->formatNtmlMessage($entry);
+    }
+    
+    /**
+     * Build advisory message from data (public for external use)
+     * 
+     * @param array $advisory Advisory data
+     * @return string Formatted advisory message
+     */
+    public function buildAdvisoryMessage(array $advisory): string {
+        return $this->formatAdvisoryMessage($advisory);
+    }
+    
+    /**
+     * Get target organizations for entry based on cross-border detection
+     * 
+     * @param array $entry Entry data
+     * @param string $userHomeOrg User's home organization
+     * @param bool $isPrivileged Whether user has privileged posting rights
+     * @return array Target organization codes
+     */
+    public function determineTargetOrgs(array $entry, string $userHomeOrg, bool $isPrivileged = false): array {
+        return $this->multiDiscord->determineTargetOrgs($entry, $userHomeOrg, $isPrivileged);
+    }
+    
+    /**
+     * Get enabled organizations for UI
+     * 
+     * @return array Organization summaries
+     */
+    public function getAvailableOrgs(): array {
+        return $this->multiDiscord->getOrgSummary();
     }
     
     // =========================================

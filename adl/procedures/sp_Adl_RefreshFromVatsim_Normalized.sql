@@ -867,12 +867,13 @@ BEGIN
     SET @step6_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 7: Mark inactive flights as arrived and capture actual arrival time
+    -- Step 7: Mark inactive flights - distinguish arrived vs disconnected
+    -- Fix: Only mark as 'arrived' with ATA if actually near destination (<50nm)
+    -- Flights that disconnect far from destination are marked 'disconnected' without ATA
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    -- V8.9.8: Also set ata_utc in times table when marking flight arrived
-    -- Use last_seen_utc as best approximation of actual arrival time
+    -- 7a. Flights near destination (<50nm) - mark as actually arrived with ATA
     UPDATE t
     SET t.ata_utc = c.last_seen_utc,
         t.ata_runway_utc = c.last_seen_utc,
@@ -880,11 +881,27 @@ BEGIN
         t.times_updated_utc = @now
     FROM dbo.adl_flight_times t
     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+    INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     WHERE c.is_active = 1
-      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now);
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND p.dist_to_dest_nm < 50;  -- Actually near destination
 
-    -- Now mark the core flight as arrived
-    UPDATE dbo.adl_flight_core SET is_active = 0, phase = 'arrived' WHERE is_active = 1 AND last_seen_utc < DATEADD(MINUTE, -5, @now);
+    UPDATE c
+    SET c.is_active = 0, c.phase = 'arrived'
+    FROM dbo.adl_flight_core c
+    INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+    WHERE c.is_active = 1
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND p.dist_to_dest_nm < 50;
+
+    -- 7b. Flights far from destination (>=50nm) - mark as disconnected, no ATA
+    UPDATE c
+    SET c.is_active = 0, c.phase = 'disconnected'
+    FROM dbo.adl_flight_core c
+    LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+    WHERE c.is_active = 1
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND (p.dist_to_dest_nm >= 50 OR p.dist_to_dest_nm IS NULL);
 
     SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
