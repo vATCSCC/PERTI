@@ -50,12 +50,11 @@ $params = [];
 
 if ($use_swim_db) {
     // SWIM_API: Simple single-table queries against swim_flights
-    // Safety net: only show flights seen in the last 5 minutes (matches ADL threshold)
+    // Staleness handled by swim_sync.php marking flights inactive after 5 min
     $where_clauses = [
         "f.is_active = 1",
         "f.lat IS NOT NULL",
-        "f.lon IS NOT NULL",
-        "f.last_seen_utc > DATEADD(minute, -5, GETUTCDATE())"
+        "f.lon IS NOT NULL"
     ];
     
     if ($dept_icao) {
@@ -175,12 +174,11 @@ if ($use_swim_db) {
     
 } else {
     // VATSIM_ADL fallback: JOIN across normalized tables
-    // Safety net: only show flights seen in the last 5 minutes (matches ADL threshold)
+    // Staleness handled by sp_Adl_RefreshFromVatsim marking flights inactive after 5 min
     $where_clauses = [
         "c.is_active = 1",
         "pos.lat IS NOT NULL",
-        "pos.lon IS NOT NULL",
-        "c.last_seen_utc > DATEADD(minute, -5, GETUTCDATE())"
+        "pos.lon IS NOT NULL"
     ];
     
     if ($dept_icao) {

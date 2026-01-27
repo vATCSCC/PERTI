@@ -32,6 +32,11 @@ if (!$authorized && preg_match('/Bearer\s+(.*)$/i', $auth_header, $matches)) {
     }
 }
 
+// Also allow query param for easy browser access
+if (!$authorized && isset($_GET['key']) && $_GET['key'] === 'swim_sys_vatcscc_internal_001') {
+    $authorized = true;
+}
+
 if (!$authorized) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
