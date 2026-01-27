@@ -193,7 +193,7 @@ Top-level PHP pages in `/wwwroot` and which `assets/js/*` files they load.
 
 | Page | Scripts | Size (lines) |
 |------|---------|--------------|
-| `configs.php` | — | ~15K |
+| `airport_config.php` | — | ~15K |
 | `data.php` | `sheet.js` | ~19K |
 | `gdt.php` | `gdt.js` | ~98K |
 | `index.php` | — | ~23K |

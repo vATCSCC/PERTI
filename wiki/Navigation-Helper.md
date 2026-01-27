@@ -278,7 +278,7 @@ See [[Daemons and Scripts]] for full documentation.
 | `gdt.php` | Ground Delay Tool interface |
 | `ntml.php` | National Traffic Management Log |
 | `simulator.php` | ATFM Training Simulator |
-| `configs.php` | Airport configuration management |
+| `airport_config.php` | Airport configuration management |
 | `load/config.php` | Application configuration |
 | `load/connect.php` | Database connections |
 

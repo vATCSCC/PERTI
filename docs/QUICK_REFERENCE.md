@@ -260,7 +260,7 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 | Splits | `splits.php` | Sector configuration |
 | Plan | `plan.php` | Planning worksheets |
 | NTML | `ntml.php` | Traffic Management Log entry |
-| Airport Configs | `configs.php` | Runway configuration |
+| Airport Configs | `airport_config.php` | Runway configuration |
 | Airspace Elements | `airspace-elements.php` | Custom airspace elements |
 | Advisory Builder | `advisory-builder.php` | TMI advisory creation |
 | System Status | `status.php` | System health dashboard |
