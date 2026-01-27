@@ -699,11 +699,40 @@ input[type="time"] {
 
 /* Cancelled Row Styling */
 #restrictionsTable tr.table-secondary {
-    background-color: rgba(108, 117, 125, 0.1);
-    color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.15);
+    color: #495057;
+}
+
+#restrictionsTable tr.table-secondary td {
+    color: #495057;
 }
 
 #restrictionsTable tr.table-secondary .restriction-text {
     text-decoration: line-through;
-    opacity: 0.7;
+    opacity: 0.8;
+}
+
+#restrictionsTable tr.table-secondary .badge-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+/* Cancelled Advisory Card Styling */
+.advisory-card.border-secondary {
+    background-color: #f8f9fa;
+    opacity: 0.9;
+}
+
+.advisory-card.border-secondary .card-header {
+    background-color: #6c757d !important;
+    color: #fff !important;
+}
+
+.advisory-card.border-secondary .advisory-body {
+    background-color: #e9ecef;
+}
+
+.advisory-card.border-secondary .advisory-text {
+    text-decoration: line-through;
+    color: #495057;
 }

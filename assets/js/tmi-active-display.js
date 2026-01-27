@@ -1,16 +1,21 @@
 /**
  * TMI Active Display Controller
- * 
+ *
  * FAA-style display of active TMIs (Restrictions & Advisories)
  * Modeled after:
  *   - https://www.fly.faa.gov/restrictions/restrictions
  *   - https://www.fly.faa.gov/adv/advADB
- * 
+ *
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.1.0
- * @date 2026-01-27
- * 
+ * @version 1.2.0
+ * @date 2026-01-28
+ *
+ * v1.2.0 Changes:
+ *   - Added filter state persistence to localStorage
+ *   - Fixed cancel functionality to use unified API endpoint
+ *   - Added edit button functionality for TMI entries
+ *
  * v1.1.0 Changes:
  *   - Added source filter support (Production/Staging/All)
  *   - Simplified buildFilterControls (filters now in PHP)
@@ -28,8 +33,7 @@
     const CONFIG = {
         refreshIntervalMs: 60000,  // 60 seconds
         apiEndpoint: 'api/mgt/tmi/active.php',
-        cancelEndpoint: 'api/tmi/entries.php',
-        advisoryCancelEndpoint: 'api/tmi/advisories.php'
+        cancelEndpoint: 'api/mgt/tmi/cancel.php'
     };
 
     // ===========================================
@@ -77,17 +81,18 @@
     // ===========================================
     // Initialization
     // ===========================================
-    
+
     function init() {
         console.log('[TMI-Active] Initializing Active TMI Display');
-        
+
         // Only initialize if the active panel exists
         if (!$('#activePanel').length) {
             console.log('[TMI-Active] Active panel not found, skipping init');
             return;
         }
-        
+
         buildFilterControls();
+        loadSavedFilters();  // Restore saved filter state
         bindEvents();
         loadActiveTmis();
         startAutoRefresh();
@@ -101,8 +106,49 @@
             console.warn('[TMI-Active] Filter container not found');
             return;
         }
-        
+
         console.log('[TMI-Active] Filter controls ready');
+    }
+
+    // ===========================================
+    // Filter State Persistence
+    // ===========================================
+
+    const FILTER_STORAGE_KEY = 'tmi_active_filters';
+
+    function saveFilters() {
+        try {
+            localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(state.filters));
+            console.log('[TMI-Active] Filters saved to localStorage');
+        } catch (e) {
+            console.warn('[TMI-Active] Failed to save filters:', e);
+        }
+    }
+
+    function loadSavedFilters() {
+        try {
+            const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+            if (saved) {
+                const savedFilters = JSON.parse(saved);
+                // Merge with defaults to ensure all keys exist
+                state.filters = {
+                    source: savedFilters.source || 'PRODUCTION',
+                    reqFacility: savedFilters.reqFacility || 'ALL',
+                    provFacility: savedFilters.provFacility || 'ALL',
+                    type: savedFilters.type || 'ALL',
+                    status: savedFilters.status || 'ACTIVE'
+                };
+                // Update UI to reflect saved state
+                $('#filterSource').val(state.filters.source);
+                $('#filterReqFac').val(state.filters.reqFacility);
+                $('#filterProvFac').val(state.filters.provFacility);
+                $('#filterType').val(state.filters.type);
+                $('#filterStatus').val(state.filters.status);
+                console.log('[TMI-Active] Filters restored from localStorage:', state.filters);
+            }
+        } catch (e) {
+            console.warn('[TMI-Active] Failed to load saved filters:', e);
+        }
     }
 
     function bindEvents() {
@@ -261,6 +307,14 @@
             const type = $(this).data('type');
             cancelTmi(id, type);
         });
+
+        // Bind edit button events
+        $tbody.find('.btn-edit-tmi').on('click', function(e) {
+            e.stopPropagation();
+            const id = $(this).data('id');
+            const type = $(this).data('type');
+            editTmi(id, type);
+        });
     }
 
     function buildRestrictionRow(item) {
@@ -285,9 +339,14 @@
                 <td class="text-monospace small">${stopTime}</td>
                 <td class="text-center">
                     ${status !== 'CANCELLED' ? `
-                    <button class="btn btn-xs btn-outline-danger btn-cancel-tmi" data-id="${item.entityId}" data-type="${item.entityType}" title="Cancel">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-xs btn-outline-primary btn-edit-tmi" data-id="${item.entityId}" data-type="${item.entityType}" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-xs btn-outline-danger btn-cancel-tmi" data-id="${item.entityId}" data-type="${item.entityType}" title="Cancel">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                     ` : ''}
                 </td>
             </tr>
@@ -391,6 +450,13 @@
             const id = $(this).data('id');
             cancelAdvisory(id);
         });
+
+        // Bind edit buttons
+        $container.find('.btn-edit-advisory').on('click', function(e) {
+            e.stopPropagation();
+            const id = $(this).data('id');
+            editAdvisory(id);
+        });
     }
 
     function buildAdvisoryCard(item) {
@@ -434,9 +500,14 @@
                             ${item.createdByName ? ` by ${escapeHtml(item.createdByName)}` : ''}
                         </small>
                         ${status !== 'CANCELLED' ? `
-                        <button class="btn btn-sm btn-outline-danger btn-cancel-advisory" data-id="${item.entityId}">
-                            <i class="fas fa-times mr-1"></i> Cancel
-                        </button>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-sm btn-outline-primary btn-edit-advisory" data-id="${item.entityId}">
+                                <i class="fas fa-edit mr-1"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-cancel-advisory" data-id="${item.entityId}">
+                                <i class="fas fa-times mr-1"></i> Cancel
+                            </button>
+                        </div>
                         ` : ''}
                     </div>
                 </div>
@@ -454,9 +525,12 @@
         state.filters.provFacility = $('#filterProvFac').val() || 'ALL';
         state.filters.type = $('#filterType').val() || 'ALL';
         state.filters.status = $('#filterStatus').val() || 'ACTIVE';
-        
+
         console.log('[TMI-Active] Applying filters:', state.filters);
-        
+
+        // Save filters to localStorage for persistence
+        saveFilters();
+
         // Reload data with new source filter
         loadActiveTmis();
     }
@@ -469,13 +543,16 @@
             type: 'ALL',
             status: 'ACTIVE'
         };
-        
+
         $('#filterSource').val('PRODUCTION');
         $('#filterReqFac').val('ALL');
         $('#filterProvFac').val('ALL');
         $('#filterType').val('ALL');
         $('#filterStatus').val('ACTIVE');
-        
+
+        // Save reset filters to localStorage
+        saveFilters();
+
         loadActiveTmis();
     }
 
@@ -610,31 +687,39 @@
     }
 
     function performCancel(id, type, reason) {
-        const endpoint = type === 'ADVISORY' ? CONFIG.advisoryCancelEndpoint : CONFIG.cancelEndpoint;
-        
         Swal.fire({
             title: 'Cancelling...',
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading()
         });
-        
+
+        // Get user info from TMI_PUBLISHER_CONFIG if available
+        const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
+        const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+
         $.ajax({
-            url: `${endpoint}?id=${id}`,
-            method: 'DELETE',
+            url: CONFIG.cancelEndpoint,
+            method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ cancel_reason: reason }),
+            data: JSON.stringify({
+                entityType: type === 'ADVISORY' ? 'ADVISORY' : 'ENTRY',
+                entityId: id,
+                reason: reason,
+                userCid: userCid,
+                userName: userName
+            }),
             success: function(response) {
                 Swal.close();
-                
+
                 if (response.success) {
                     Swal.fire({
                         icon: 'success',
                         title: 'TMI Cancelled',
-                        text: 'The TMI has been cancelled successfully.',
+                        text: response.message || 'The TMI has been cancelled successfully.',
                         timer: 2000,
                         showConfirmButton: false
                     });
-                    
+
                     // Reload data
                     loadActiveTmis();
                 } else {
@@ -658,6 +743,182 @@
 
     function cancelAdvisory(id) {
         cancelTmi(id, 'ADVISORY');
+    }
+
+    // ===========================================
+    // Edit Functions
+    // ===========================================
+
+    function editTmi(id, type) {
+        // Find the item in state
+        const allItems = [...state.restrictions, ...state.scheduled];
+        const item = allItems.find(i => i.entityId === id);
+
+        if (!item) {
+            Swal.fire('Error', 'Could not find TMI entry data', 'error');
+            return;
+        }
+
+        // Format current dates for datetime-local inputs
+        const formatForInput = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toISOString().slice(0, 16);
+        };
+
+        Swal.fire({
+            title: '<i class="fas fa-edit text-primary"></i> Edit TMI Entry',
+            html: `
+                <div class="text-left">
+                    <div class="mb-2">
+                        <strong>Type:</strong> ${escapeHtml(item.entryType || '-')}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Control Element:</strong> ${escapeHtml(item.ctlElement || '-')}
+                    </div>
+                    <hr>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Valid From (UTC)</label>
+                        <input type="datetime-local" id="editValidFrom" class="form-control" value="${formatForInput(item.validFrom)}">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Valid Until (UTC)</label>
+                        <input type="datetime-local" id="editValidUntil" class="form-control" value="${formatForInput(item.validUntil)}">
+                    </div>
+                    ${item.restrictionValue ? `
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Value</label>
+                        <input type="number" id="editValue" class="form-control" value="${item.restrictionValue}">
+                    </div>
+                    ` : ''}
+                </div>
+            `,
+            width: 500,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonColor: '#28a745',
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                return {
+                    validFrom: document.getElementById('editValidFrom').value,
+                    validUntil: document.getElementById('editValidUntil').value,
+                    restrictionValue: document.getElementById('editValue')?.value || null
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                performEdit(id, type, result.value);
+            }
+        });
+    }
+
+    function editAdvisory(id) {
+        // Find the advisory in state
+        const allItems = [...state.advisories, ...state.scheduled.filter(i => i.entityType === 'ADVISORY')];
+        const item = allItems.find(i => i.entityId === id);
+
+        if (!item) {
+            Swal.fire('Error', 'Could not find advisory data', 'error');
+            return;
+        }
+
+        const formatForInput = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toISOString().slice(0, 16);
+        };
+
+        Swal.fire({
+            title: '<i class="fas fa-edit text-primary"></i> Edit Advisory',
+            html: `
+                <div class="text-left">
+                    <div class="mb-2">
+                        <strong>Advisory #:</strong> ${escapeHtml(item.advisoryNumber || '-')}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Type:</strong> ${escapeHtml(item.entryType || '-')}
+                    </div>
+                    <hr>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Effective From (UTC)</label>
+                        <input type="datetime-local" id="editValidFrom" class="form-control" value="${formatForInput(item.validFrom)}">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Effective Until (UTC)</label>
+                        <input type="datetime-local" id="editValidUntil" class="form-control" value="${formatForInput(item.validUntil)}">
+                    </div>
+                </div>
+            `,
+            width: 500,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonColor: '#28a745',
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                return {
+                    validFrom: document.getElementById('editValidFrom').value,
+                    validUntil: document.getElementById('editValidUntil').value
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                performEdit(id, 'ADVISORY', result.value);
+            }
+        });
+    }
+
+    function performEdit(id, type, data) {
+        Swal.fire({
+            title: 'Saving...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
+        const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+
+        $.ajax({
+            url: 'api/mgt/tmi/edit.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                entityType: type === 'ADVISORY' ? 'ADVISORY' : 'ENTRY',
+                entityId: id,
+                updates: data,
+                userCid: userCid,
+                userName: userName
+            }),
+            success: function(response) {
+                Swal.close();
+
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Changes Saved',
+                        text: response.message || 'The TMI has been updated successfully.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Reload data
+                    loadActiveTmis();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Update Failed',
+                        text: response.error || 'Unknown error'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Update Failed',
+                    text: 'Failed to connect to server: ' + error
+                });
+            }
+        });
     }
 
     // ===========================================

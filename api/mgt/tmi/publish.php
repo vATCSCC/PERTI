@@ -569,22 +569,29 @@ function updateAdvisoryDiscordInfo($conn, $advisoryId, $messageId, $channelId) {
 }
 
 /**
- * Parse valid time from HH:MM format to full datetime
+ * Parse valid time from various formats to full UTC datetime
+ * Input is expected to be in UTC (from datetime-local fields labeled as UTC)
  */
 function parseValidTime($timeStr) {
     if (empty($timeStr)) return null;
-    
-    // If already a full datetime, return it
+
+    // If already a full datetime (e.g., "2026-01-28T14:30" from datetime-local)
+    // Treat as UTC since our form fields are labeled as UTC
     if (strlen($timeStr) > 10) {
-        return date('Y-m-d H:i:s', strtotime($timeStr));
+        // Parse as UTC - append 'Z' if no timezone specified
+        $ts = strtotime($timeStr . ' UTC');
+        if ($ts === false) {
+            $ts = strtotime($timeStr);
+        }
+        return gmdate('Y-m-d H:i:s', $ts);
     }
-    
+
     // If HH:MM format, combine with today's date (UTC)
     if (preg_match('/^(\d{2}):(\d{2})$/', $timeStr, $matches)) {
         $today = gmdate('Y-m-d');
         return $today . ' ' . $timeStr . ':00';
     }
-    
+
     // If HHMM format
     if (preg_match('/^(\d{4})$/', $timeStr)) {
         $today = gmdate('Y-m-d');
@@ -592,7 +599,7 @@ function parseValidTime($timeStr) {
         $m = substr($timeStr, 2, 2);
         return "{$today} {$h}:{$m}:00";
     }
-    
+
     return null;
 }
 
