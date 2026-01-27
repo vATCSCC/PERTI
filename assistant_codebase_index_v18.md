@@ -1227,6 +1227,7 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
     - **Airport CONFIG presets** - `api/mgt/tmi/airport_configs.php` API, auto-load presets from database
     - **Airport FAA/ICAO lookup** - Auto-lookup with caching via `api/util/icao_lookup.php`
     - **NTML DateTime fields** - Changed from time-only to datetime-local pickers
+    - **Qualifier button CSS** - `assets/css/tmi-publish.css` v1.6.0 fixes for truncation
     - Documentation: `docs/tmi/TMI_Publisher_v1.8.0_Transition.md`
 
 - **v17 (2026-01-15):**
