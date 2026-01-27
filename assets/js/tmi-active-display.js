@@ -8,8 +8,14 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.0.0
+ * @version 1.1.0
  * @date 2026-01-27
+ * 
+ * v1.1.0 Changes:
+ *   - Added source filter support (Production/Staging/All)
+ *   - Simplified buildFilterControls (filters now in PHP)
+ *   - Updated filter state to include source
+ *   - API calls now pass source parameter
  */
 
 (function() {
@@ -40,6 +46,7 @@
         countdownTimer: null,
         secondsUntilRefresh: 60,
         filters: {
+            source: 'PRODUCTION',
             reqFacility: 'ALL',
             provFacility: 'ALL',
             type: 'ALL',
@@ -87,61 +94,15 @@
     }
 
     function buildFilterControls() {
+        // Filters are now defined in PHP (tmi-publish.php)
+        // This function just ensures the filter container exists
         const $filterContainer = $('#activeTmiFilters');
-        if (!$filterContainer.length) return;
-
-        // Build facility dropdowns
-        let reqFacOptions = FACILITIES.map(f => 
-            `<option value="${f}">${f}</option>`
-        ).join('');
-
-        let typeOptions = ENTRY_TYPES.map(t => 
-            `<option value="${t.code}">${t.label}</option>`
-        ).join('');
-
-        const filterHtml = `
-            <div class="row align-items-end">
-                <div class="col-md-2 col-6 mb-2">
-                    <label class="small text-muted mb-0">Requesting</label>
-                    <select class="form-control form-control-sm" id="filterReqFac">
-                        ${reqFacOptions}
-                    </select>
-                </div>
-                <div class="col-md-2 col-6 mb-2">
-                    <label class="small text-muted mb-0">Providing</label>
-                    <select class="form-control form-control-sm" id="filterProvFac">
-                        ${reqFacOptions}
-                    </select>
-                </div>
-                <div class="col-md-2 col-6 mb-2">
-                    <label class="small text-muted mb-0">Type</label>
-                    <select class="form-control form-control-sm" id="filterType">
-                        ${typeOptions}
-                    </select>
-                </div>
-                <div class="col-md-2 col-6 mb-2">
-                    <label class="small text-muted mb-0">Status</label>
-                    <select class="form-control form-control-sm" id="filterStatus">
-                        <option value="ACTIVE">Active</option>
-                        <option value="SCHEDULED">Scheduled</option>
-                        <option value="CANCELLED">Recently Cancelled</option>
-                        <option value="ALL">All</option>
-                    </select>
-                </div>
-                <div class="col-md-2 col-6 mb-2">
-                    <button class="btn btn-sm btn-outline-primary btn-block" id="applyFilters">
-                        <i class="fas fa-filter"></i> Apply
-                    </button>
-                </div>
-                <div class="col-md-2 col-6 mb-2">
-                    <button class="btn btn-sm btn-outline-secondary btn-block" id="resetFilters">
-                        <i class="fas fa-undo"></i> Reset
-                    </button>
-                </div>
-            </div>
-        `;
-
-        $filterContainer.html(filterHtml);
+        if (!$filterContainer.length) {
+            console.warn('[TMI-Active] Filter container not found');
+            return;
+        }
+        
+        console.log('[TMI-Active] Filter controls ready');
     }
 
     function bindEvents() {
@@ -189,6 +150,7 @@
             method: 'GET',
             data: {
                 type: 'all',
+                source: state.filters.source || 'PRODUCTION',
                 include_scheduled: '1',
                 include_cancelled: '1',
                 cancelled_hours: 4,
@@ -487,29 +449,34 @@
     // ===========================================
     
     function applyFilters() {
+        state.filters.source = $('#filterSource').val() || 'PRODUCTION';
         state.filters.reqFacility = $('#filterReqFac').val() || 'ALL';
         state.filters.provFacility = $('#filterProvFac').val() || 'ALL';
         state.filters.type = $('#filterType').val() || 'ALL';
         state.filters.status = $('#filterStatus').val() || 'ACTIVE';
         
         console.log('[TMI-Active] Applying filters:', state.filters);
-        renderDisplay();
+        
+        // Reload data with new source filter
+        loadActiveTmis();
     }
 
     function resetFilters() {
         state.filters = {
+            source: 'PRODUCTION',
             reqFacility: 'ALL',
             provFacility: 'ALL',
             type: 'ALL',
             status: 'ACTIVE'
         };
         
+        $('#filterSource').val('PRODUCTION');
         $('#filterReqFac').val('ALL');
         $('#filterProvFac').val('ALL');
         $('#filterType').val('ALL');
         $('#filterStatus').val('ACTIVE');
         
-        renderDisplay();
+        loadActiveTmis();
     }
 
     function getFilteredRestrictions() {

@@ -65,6 +65,8 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <?php } ?>
     
 <!-- Load Fontawesome Source -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<!-- FontAwesome Kit (backup, may fail with 403) -->
 <script src="https://kit.fontawesome.com/2b05d84399.js" crossorigin="anonymous"></script>
 
 <!-- Load Swal Source -->

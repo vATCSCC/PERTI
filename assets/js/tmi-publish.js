@@ -8,9 +8,29 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.6.0
+ * @version 1.8.0
  * @date 2026-01-27
  * 
+ * v1.8.0 Changes:
+ *   - Hotline form completely redesigned:
+ *     - Hotline names match PERTI Plan options (NY Metro, DC Metro, Chicago, etc.)
+ *     - Participation options expanded (MANDATORY, EXPECTED, STRONGLY ENCOURAGED, etc.)
+ *     - Hotline address selector with auto-mapping (ts.vatusa.net for US, ts.vatcan.ca for Canada)
+ *     - Facility selectors with dropdown + type-to-parse pattern
+ *     - Start/End datetime fields (with dates, not just times)
+ *     - Removed: Associated Restrictions, Prob. of Extension, custom hotline name
+ *   - User Profile modal added:
+ *     - Set operating initials and home facility
+ *     - Shows on first visit
+ *     - Saves to localStorage
+ *     - Requesting facility defaults to user's home facility
+ *   - Queue item buttons now show text fallback (View/Del) when icons fail to load
+ *   - Fixed container ID mismatches for form loading
+ *   - Added NON-RVSM to equipment qualifiers
+ *   - Renamed "Reason category" → "Impacting Condition", "Cause" → "Specific Impact"
+ *   - TBM Freeze Horizon formatted as TIME+{value}MIN
+ *   - Added altitude and speed filter inputs to all NTML forms
+ *
  * v1.6.0 Changes:
  *   - Added Hotline Activation boilerplate with full field support
  *   - Added 68-character line wrapping utility for FAA-standard formatting
@@ -193,6 +213,7 @@
         initAdvisoryTypeSelector();
         loadSavedState();
         initAdvisoryCounters();
+        initUserProfile();
         updateUI();
         
         // Load default forms
@@ -390,6 +411,12 @@
         
         $('#ntmlFormContainer').html(formHtml);
         initNtmlFormHandlers(type);
+        
+        // Default requesting facility to user's saved facility
+        const userFacility = getUserFacility();
+        if (userFacility && $('#ntml_req_facility').length && !$('#ntml_req_facility').val()) {
+            $('#ntml_req_facility').val(userFacility);
+        }
     }
     
     function buildQualifiersHtml(showAll = true) {
@@ -543,7 +570,7 @@
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Providing Facility</label>
@@ -619,7 +646,7 @@
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Providing Facility</label>
@@ -708,7 +735,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Providing Facility</label>
@@ -779,7 +806,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Providing Facility</label>
@@ -1149,7 +1176,41 @@
     
     function buildHotlineForm() {
         const advNum = getNextAdvisoryNumber('HOTLINE');
-        const currentTime = getCurrentTimeHHMM();
+        const currentDateTime = getCurrentDateTimeForInput();
+        
+        // Hotline names matching PERTI Plan options
+        const hotlineNames = [
+            'NY Metro', 'DC Metro', 'Chicago', 'Atlanta', 'Florida', 'Texas',
+            'East Coast', 'West Coast', 'Canada East', 'Canada West', 'Mexico', 'Caribbean'
+        ];
+        
+        // Participation options
+        const participationOptions = [
+            'MANDATORY', 'EXPECTED', 'STRONGLY ENCOURAGED', 'STRONGLY RECOMMENDED',
+            'ENCOURAGED', 'RECOMMENDED', 'OPTIONAL'
+        ];
+        
+        // Hotline address options
+        const hotlineAddresses = [
+            { value: 'ts.vatusa.net', label: 'VATUSA TeamSpeak (ts.vatusa.net)' },
+            { value: 'ts.vatcan.ca', label: 'VATCAN TeamSpeak (ts.vatcan.ca)' },
+            { value: 'discord', label: 'vATCSCC Discord, Hotline Backup voice channel' }
+        ];
+        
+        // Build hotline name options
+        let hotlineNameOptions = hotlineNames.map(name => 
+            `<option value="${name}">${name}</option>`
+        ).join('');
+        
+        // Build participation options
+        let participationOpts = participationOptions.map(opt => 
+            `<option value="${opt}">${opt}</option>`
+        ).join('');
+        
+        // Build address options
+        let addressOptions = hotlineAddresses.map(addr => 
+            `<option value="${addr.value}">${addr.label}</option>`
+        ).join('');
         
         return `
             <div class="card shadow-sm">
@@ -1174,48 +1235,26 @@
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Hotline Name</label>
                             <select class="form-control" id="adv_hotline_name">
-                                <option value="EAST COAST HOTLINE">EAST COAST HOTLINE</option>
-                                <option value="WEST COAST HOTLINE">WEST COAST HOTLINE</option>
-                                <option value="MIDWEST HOTLINE">MIDWEST HOTLINE</option>
-                                <option value="NORTHEAST HOTLINE">NORTHEAST HOTLINE</option>
-                                <option value="SOUTHEAST HOTLINE">SOUTHEAST HOTLINE</option>
-                                <option value="SOUTHWEST HOTLINE">SOUTHWEST HOTLINE</option>
-                                <option value="NORTHWEST HOTLINE">NORTHWEST HOTLINE</option>
-                                <option value="CUSTOM">CUSTOM</option>
+                                ${hotlineNameOptions}
                             </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Custom Name</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_hotline_custom" placeholder="If CUSTOM selected" maxlength="40">
-                        </div>
-                    </div>
-                    
-                    <!-- Row 2: Event Times -->
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Start Time (UTC)</label>
-                            <input type="time" class="form-control" id="adv_effective_time" value="${currentTime}">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">End Time (UTC)</label>
-                            <input type="time" class="form-control" id="adv_end_time">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">Participation</label>
                             <select class="form-control" id="adv_participation">
-                                <option value="MANDATORY">MANDATORY</option>
-                                <option value="OPTIONAL">OPTIONAL</option>
-                                <option value="ENCOURAGED">ENCOURAGED</option>
+                                ${participationOpts}
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Prob. of Extension</label>
-                            <select class="form-control" id="adv_extension_prob">
-                                <option value="NONE">None</option>
-                                <option value="LOW">Low</option>
-                                <option value="MEDIUM">Medium</option>
-                                <option value="HIGH">High</option>
-                            </select>
+                    </div>
+                    
+                    <!-- Row 2: Event Times (with dates) -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Start Date/Time (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="adv_start_datetime" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">End Date/Time (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="adv_end_datetime">
                         </div>
                     </div>
                     
@@ -1223,11 +1262,27 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Constrained Facilities</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_constrained_facilities" placeholder="ZNY, ZBW, ZDC (facilities with constraints)">
+                            <div class="facility-selector-wrapper">
+                                <select class="form-control mb-1" id="adv_constrained_select" multiple size="4">
+                                    ${buildFacilityOptions()}
+                                </select>
+                                <input type="text" class="form-control text-uppercase" id="adv_constrained_facilities" 
+                                       placeholder="Or type: ZNY, ZBW, ZDC" 
+                                       data-linked-select="adv_constrained_select">
+                                <small class="text-muted">Select from list or type comma-separated codes</small>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Facilities to Attend</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_facilities" placeholder="ZNY, ZBW, ZDC, ZOB, ZID">
+                            <div class="facility-selector-wrapper">
+                                <select class="form-control mb-1" id="adv_attend_select" multiple size="4">
+                                    ${buildFacilityOptions()}
+                                </select>
+                                <input type="text" class="form-control text-uppercase" id="adv_facilities" 
+                                       placeholder="Or type: ZNY, ZBW, ZDC, ZOB" 
+                                       data-linked-select="adv_attend_select">
+                                <small class="text-muted">Select from list or type comma-separated codes</small>
+                            </div>
                         </div>
                     </div>
                     
@@ -1251,29 +1306,18 @@
                         </div>
                     </div>
                     
-                    <!-- Row 5: Hotline Location Details -->
+                    <!-- Row 5: Hotline Address (auto-mapped) -->
                     <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">Hotline Location</label>
-                            <input type="text" class="form-control" id="adv_hotline_location" placeholder="e.g., vATCSCC Discord">
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label small text-muted">Hotline Address (URL/Link)</label>
-                            <input type="text" class="form-control" id="adv_hotline_address" placeholder="https://discord.gg/... or phone">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Hotline PIN</label>
-                            <input type="text" class="form-control" id="adv_hotline_pin" placeholder="PIN code if any">
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted">Hotline Address</label>
+                            <select class="form-control" id="adv_hotline_address">
+                                ${addressOptions}
+                            </select>
+                            <small class="text-muted">Auto-selected based on hotline region. Canada hotlines use VATCAN TeamSpeak.</small>
                         </div>
                     </div>
                     
-                    <!-- Row 6: Restrictions -->
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">Associated Restrictions</label>
-                        <input type="text" class="form-control" id="adv_restrictions" placeholder="e.g., 20MIT, APREQ, Ground Stop">
-                    </div>
-                    
-                    <!-- Row 7: Notes -->
+                    <!-- Row 6: Notes -->
                     <div class="mb-3">
                         <label class="form-label small text-muted">Additional Remarks</label>
                         <textarea class="form-control" id="adv_notes" rows="2" placeholder="Additional coordination notes..."></textarea>
@@ -1287,6 +1331,52 @@
                 </div>
             </div>
         `;
+    }
+    
+    // Build facility options for dropdowns
+    function buildFacilityOptions() {
+        const facilities = [
+            // US ARTCCs
+            { code: 'ZBW', name: 'Boston Center' },
+            { code: 'ZNY', name: 'New York Center' },
+            { code: 'ZDC', name: 'Washington Center' },
+            { code: 'ZTL', name: 'Atlanta Center' },
+            { code: 'ZJX', name: 'Jacksonville Center' },
+            { code: 'ZMA', name: 'Miami Center' },
+            { code: 'ZOB', name: 'Cleveland Center' },
+            { code: 'ZID', name: 'Indianapolis Center' },
+            { code: 'ZAU', name: 'Chicago Center' },
+            { code: 'ZMP', name: 'Minneapolis Center' },
+            { code: 'ZKC', name: 'Kansas City Center' },
+            { code: 'ZME', name: 'Memphis Center' },
+            { code: 'ZFW', name: 'Fort Worth Center' },
+            { code: 'ZHU', name: 'Houston Center' },
+            { code: 'ZAB', name: 'Albuquerque Center' },
+            { code: 'ZDV', name: 'Denver Center' },
+            { code: 'ZLC', name: 'Salt Lake Center' },
+            { code: 'ZLA', name: 'Los Angeles Center' },
+            { code: 'ZOA', name: 'Oakland Center' },
+            { code: 'ZSE', name: 'Seattle Center' },
+            { code: 'ZAN', name: 'Anchorage Center' },
+            { code: 'ZHN', name: 'Honolulu Center' },
+            // Special facilities
+            { code: 'N90', name: 'New York TRACON' },
+            // International
+            { code: 'CANADA', name: 'Canada (All FIRs)' },
+            { code: 'MEXICO', name: 'Mexico' },
+            { code: 'CARIBBEAN', name: 'Caribbean' }
+        ];
+        
+        return facilities.map(f => 
+            `<option value="${f.code}">${f.code} - ${f.name}</option>`
+        ).join('');
+    }
+    
+    // Get current datetime for input fields
+    function getCurrentDateTimeForInput() {
+        const now = new Date();
+        // Format: YYYY-MM-DDTHH:MM
+        return now.toISOString().slice(0, 16);
     }
     
     function buildSwapForm() {
@@ -1381,41 +1471,52 @@
     
     function initAdvisoryFormHandlers(type) {
         // Auto-update preview on input
-        $('#adv_form_container input, #adv_form_container textarea, #adv_form_container select').on('input change', function() {
+        $('#advisoryFormContainer input, #advisoryFormContainer textarea, #advisoryFormContainer select').on('input change', function() {
             updateAdvisoryPreview();
         });
         
         // Auto-uppercase inputs
-        $('#adv_form_container .text-uppercase').on('input', function() {
+        $('#advisoryFormContainer .text-uppercase').on('input', function() {
             this.value = this.value.toUpperCase();
         });
         
-        // Handle custom hotline name toggle
+        // Handle Hotline-specific logic
         if (type === 'HOTLINE') {
+            // Auto-map hotline address based on hotline name
             $('#adv_hotline_name').on('change', function() {
-                if ($(this).val() === 'CUSTOM') {
-                    $('#adv_hotline_custom').prop('disabled', false).focus();
+                const name = $(this).val() || '';
+                // Canada hotlines use VATCAN TeamSpeak
+                if (name.includes('Canada')) {
+                    $('#adv_hotline_address').val('ts.vatcan.ca');
                 } else {
-                    $('#adv_hotline_custom').prop('disabled', true).val('');
+                    $('#adv_hotline_address').val('ts.vatusa.net');
                 }
                 updateAdvisoryPreview();
             });
-            $('#adv_hotline_custom').prop('disabled', true);
             
-            // Handle action type change - show/hide fields based on action
-            $('#adv_hotline_action').on('change', function() {
-                const action = $(this).val();
-                
-                // Show full fields for ACTIVATION, simplified for UPDATE/TERMINATION
-                if (action === 'ACTIVATION') {
-                    $('#adv_hotline_location, #adv_hotline_address, #adv_hotline_pin').closest('.col-md-4, .col-md-5, .col-md-3').show();
-                    $('#adv_participation').closest('.col-md-3').show();
-                } else {
-                    // Hide location fields for UPDATE/TERMINATION (optional - keep them visible)
-                    // The preview builder handles the format difference
-                }
-                
+            // Trigger initial address mapping
+            $('#adv_hotline_name').trigger('change');
+            
+            // Facility selector sync (select → input)
+            $('#adv_constrained_select, #adv_attend_select').on('change', function() {
+                const selectId = $(this).attr('id');
+                const inputId = selectId === 'adv_constrained_select' ? 'adv_constrained_facilities' : 'adv_facilities';
+                const selected = $(this).val() || [];
+                $('#' + inputId).val(selected.join(', '));
                 updateAdvisoryPreview();
+            });
+            
+            // Facility input → select sync (parse typed input)
+            $('#adv_constrained_facilities, #adv_facilities').on('blur', function() {
+                const inputId = $(this).attr('id');
+                const selectId = inputId === 'adv_constrained_facilities' ? 'adv_constrained_select' : 'adv_attend_select';
+                const value = $(this).val() || '';
+                const codes = value.split(/[,\s]+/).map(c => c.trim().toUpperCase()).filter(c => c);
+                
+                // Select matching options
+                $('#' + selectId + ' option').each(function() {
+                    $(this).prop('selected', codes.includes($(this).val()));
+                });
             });
         }
     }
@@ -1515,26 +1616,40 @@
     function buildHotlinePreview() {
         const num = $('#adv_number').val() || '001';
         const action = $('#adv_hotline_action').val() || 'ACTIVATION';
-        let hotlineName = $('#adv_hotline_name').val() || 'HOTLINE';
-        if (hotlineName === 'CUSTOM') {
-            hotlineName = $('#adv_hotline_custom').val() || 'CUSTOM HOTLINE';
-        }
-        const effTime = $('#adv_effective_time').val()?.replace(':', '') || getCurrentTimeHHMM().replace(':', '');
-        const endTime = $('#adv_end_time').val()?.replace(':', '') || '';
-        const extensionProb = $('#adv_extension_prob').val() || 'NONE';
+        const hotlineName = ($('#adv_hotline_name').val() || 'NY Metro') + ' HOTLINE';
+        
+        // Parse datetime fields
+        const startDateTime = $('#adv_start_datetime').val() || '';
+        const endDateTime = $('#adv_end_datetime').val() || '';
+        
+        // Format datetime as DD/HHMM
+        const formatDateTime = (dt) => {
+            if (!dt) return '';
+            const d = new Date(dt);
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            const hour = String(d.getUTCHours()).padStart(2, '0');
+            const min = String(d.getUTCMinutes()).padStart(2, '0');
+            return `${day}/${hour}${min}`;
+        };
+        
+        const startFormatted = formatDateTime(startDateTime);
+        const endFormatted = formatDateTime(endDateTime);
+        
         const participation = $('#adv_participation').val() || 'MANDATORY';
         const constrainedFacilities = $('#adv_constrained_facilities').val() || '';
         const facilities = $('#adv_facilities').val() || 'TBD';
         const reason = $('#adv_reason').val() || 'WEATHER';
         const impactedArea = $('#adv_impacted_area').val() || '';
-        const hotlineLocation = $('#adv_hotline_location').val() || 'vATCSCC Discord';
-        const hotlineAddress = $('#adv_hotline_address').val() || '';
-        const hotlinePin = $('#adv_hotline_pin').val() || '';
-        const restrictions = $('#adv_restrictions').val() || '';
+        const hotlineAddressCode = $('#adv_hotline_address').val() || 'ts.vatusa.net';
         const notes = $('#adv_notes').val() || '';
         
-        const now = new Date();
-        const day = String(now.getUTCDate()).padStart(2, '0');
+        // Map address code to display text
+        const addressMap = {
+            'ts.vatusa.net': 'VATUSA TeamSpeak (ts.vatusa.net)',
+            'ts.vatcan.ca': 'VATCAN TeamSpeak (ts.vatcan.ca)',
+            'discord': 'vATCSCC Discord, Hotline Backup voice channel'
+        };
+        const hotlineAddress = addressMap[hotlineAddressCode] || hotlineAddressCode;
         
         let lines = [
             buildAdvisoryHeader(num, 'DCC', `HOTLINE ${action}`),
@@ -1544,7 +1659,7 @@
         // Build different format based on action type
         if (action === 'ACTIVATION') {
             // Full boilerplate for Activation
-            lines.push(`EVENT TIME: ${day}/${effTime}Z - ${endTime ? day + '/' + endTime + 'Z' : 'TBD'}`);
+            lines.push(`EVENT TIME: ${startFormatted}Z - ${endFormatted ? endFormatted + 'Z' : 'TBD'}`);
             
             if (constrainedFacilities) {
                 lines.push(`CONSTRAINED FACILITIES: ${constrainedFacilities}`);
@@ -1556,16 +1671,7 @@
             let boilerplate = `THE ${hotlineName} IS BEING ACTIVATED TO ADDRESS ${reason} IN ${impactedArea || 'THE AFFECTED AREA'}.`;
             
             // Location info
-            let locationInfo = `THE LOCATION IS THE ${hotlineLocation}, ${hotlineName}`;
-            if (hotlineAddress) {
-                locationInfo += `, (${hotlineAddress})`;
-            }
-            if (hotlinePin) {
-                locationInfo += `, PIN: ${hotlinePin}`;
-            }
-            locationInfo += '.';
-            
-            boilerplate += ' ' + locationInfo;
+            boilerplate += ` THE LOCATION IS ${hotlineAddress}.`;
             
             // Participation info
             boilerplate += ` PARTICIPATION IS ${participation} FOR ${facilities}.`;
@@ -1588,19 +1694,15 @@
             lines.push(`REASON: ${reason}`);
             lines.push(`FACILITIES INCLUDED: ${facilities}`);
             
-            if (endTime) {
-                lines.push(`VALID TIMES: ${day}/${effTime}Z - ${day}/${endTime}Z`);
-            } else {
-                lines.push(`EFFECTIVE: ${day}/${effTime}Z`);
-            }
-            
-            if (extensionProb !== 'NONE') {
-                lines.push(`PROBABILITY OF EXTENSION: ${extensionProb}`);
+            if (startFormatted && endFormatted) {
+                lines.push(`VALID TIMES: ${startFormatted}Z - ${endFormatted}Z`);
+            } else if (startFormatted) {
+                lines.push(`EFFECTIVE: ${startFormatted}Z`);
             }
             
         } else if (action === 'TERMINATION') {
             // Termination format - simple
-            lines.push(`THE ${hotlineName} IS BEING TERMINATED EFFECTIVE ${day}/${effTime}Z.`);
+            lines.push(`THE ${hotlineName} IS BEING TERMINATED EFFECTIVE ${startFormatted}Z.`);
             
             if (constrainedFacilities) {
                 lines.push(``);
@@ -1608,12 +1710,7 @@
             }
         }
         
-        // Common elements for all types
-        if (restrictions) {
-            lines.push(``);
-            lines.push(wrapWithLabel('ASSOCIATED RESTRICTIONS: ', restrictions));
-        }
-        
+        // Notes only (removed restrictions)
         if (notes) {
             lines.push(``);
             lines.push(wrapWithLabel('REMARKS: ', notes));
@@ -2235,11 +2332,11 @@
                             </div>
                         </div>
                         <div class="ml-2">
-                            <button class="btn btn-sm btn-outline-primary mb-1" onclick="TMIPublisher.previewEntry(${index})">
-                                <i class="fas fa-eye"></i>
+                            <button class="btn btn-sm btn-outline-primary mb-1" onclick="TMIPublisher.previewEntry(${index})" title="Preview">
+                                <i class="fas fa-eye"></i><span class="ml-1 d-none d-sm-inline">View</span>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="TMIPublisher.removeFromQueue(${index})">
-                                <i class="fas fa-times"></i>
+                            <button class="btn btn-sm btn-outline-danger" onclick="TMIPublisher.removeFromQueue(${index})" title="Remove">
+                                <i class="fas fa-times"></i><span class="ml-1 d-none d-sm-inline">Del</span>
                             </button>
                         </div>
                     </div>
@@ -3004,6 +3101,99 @@
     }
     
     // ===========================================
+    // User Profile Management
+    // ===========================================
+    
+    function initUserProfile() {
+        // Load saved profile from localStorage
+        const savedProfile = localStorage.getItem('tmi_user_profile');
+        if (savedProfile) {
+            try {
+                const profile = JSON.parse(savedProfile);
+                if (profile.oi) CONFIG.userOI = profile.oi;
+                if (profile.facility) CONFIG.userFacility = profile.facility;
+            } catch (e) {
+                console.warn('Failed to load user profile:', e);
+            }
+        }
+        
+        // Check if profile needs to be set (first visit)
+        if (!CONFIG.userFacility && !localStorage.getItem('tmi_profile_dismissed')) {
+            // Show profile modal after a short delay
+            setTimeout(() => {
+                showProfileModal();
+            }, 1000);
+        }
+    }
+    
+    function showProfileModal() {
+        // Pre-populate fields
+        if (CONFIG.userOI) {
+            $('#profileOI').val(CONFIG.userOI);
+        }
+        if (CONFIG.userFacility) {
+            $('#profileFacility').val(CONFIG.userFacility);
+        }
+        $('#userProfileModal').modal('show');
+    }
+    
+    function saveProfile() {
+        const oi = ($('#profileOI').val() || '').trim().toUpperCase();
+        const facility = $('#profileFacility').val() || '';
+        
+        // Validate
+        if (oi && (oi.length < 2 || oi.length > 3)) {
+            Swal.fire('Invalid OI', 'Operating initials must be 2-3 characters', 'warning');
+            return;
+        }
+        
+        // Save to localStorage
+        const profile = { oi, facility };
+        localStorage.setItem('tmi_user_profile', JSON.stringify(profile));
+        
+        // Update CONFIG
+        if (oi) CONFIG.userOI = oi;
+        if (facility) CONFIG.userFacility = facility;
+        
+        // Close modal
+        $('#userProfileModal').modal('hide');
+        
+        // Update any open forms with new facility as default
+        if (facility && $('#ntml_req_facility').length && !$('#ntml_req_facility').val()) {
+            $('#ntml_req_facility').val(facility);
+        }
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Profile Saved',
+            text: 'Your settings have been saved.',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    }
+    
+    function getUserFacility() {
+        return CONFIG.userFacility || '';
+    }
+    
+    function getUserOI() {
+        // Use configured OI if available
+        if (CONFIG.userOI && CONFIG.userOI.length >= 2) {
+            return CONFIG.userOI.toUpperCase();
+        }
+        
+        // Extract initials from userName (first letter of each word)
+        const userName = CONFIG.userName || 'XX';
+        const parts = userName.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            // First letter of first and last word
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        // Single word - use first 2 characters
+        return userName.substr(0, 2).toUpperCase();
+    }
+    
+    // ===========================================
     // Public API
     // ===========================================
     
@@ -3017,7 +3207,9 @@
         loadStagedEntries: loadStagedEntries,
         viewTmiDetails: viewTmiDetails,
         cancelTmi: cancelTmi,
-        updateCauseOptions: updateCauseOptions
+        updateCauseOptions: updateCauseOptions,
+        saveProfile: saveProfile,
+        showProfileModal: showProfileModal
     };
     
 })();

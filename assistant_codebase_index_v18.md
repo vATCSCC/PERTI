@@ -209,12 +209,14 @@ Top-level PHP pages in `/wwwroot` and which `assets/js/*` files they load.
 | `schedule.php` | `schedule.js` | ~8K |
 | `sheet.php` | `sheet.js` | ~21K |
 | `splits.php` | `splits.js` | ~103K |
+| `tmi-publish.php` | `tmi-publish.js`, `tmi-active-display.js` | ~100K |
 
 Notes:
 - `reroutes_index.php` contains **inline** JS (no dedicated `assets/js/*` module).
 - `route.php` uses a **feature flag** (`localStorage.useMapLibre` or `?maplibre=true`) to switch between Leaflet and MapLibre.
 - `jatoc.php` and `nod.php` are publicly accessible (no auth required) for monitoring.
 - `route.php` now includes weather radar integration.
+- `tmi-publish.php` is the unified TMI entry/advisory publisher (v1.8.0) with queue management, user profiles, and staging/production modes.
 
 ---
 
@@ -379,6 +381,31 @@ Notes:
 - Size: ~419 lines
 - Purpose: Integration layer connecting WeatherRadar module to route.php UI
 - Features: Control panel binding, state persistence
+
+#### `tmi-publish.js` **(v1.8.0)**
+- Loaded by: `tmi-publish.php`
+- Size: ~3,200 lines
+- Purpose: Unified TMI Entry + Advisory publisher with multi-Discord support
+- Features:
+  - NTML entry forms (MIT, MINIT, STOP, APREQ/CFR, TBM, DELAY, CONFIG, CANCEL)
+  - Advisory forms (Ops Plan, Free Form, Hotline, SWAP)
+  - Queue management (add, preview, remove, clear)
+  - Staging/Production mode toggle
+  - User profile system (OI, facility, localStorage)
+  - Facility selector with dropdown + text input
+  - 68-char line wrapping for FAA-standard formatting
+  - Auto-incrementing advisory numbers (midnight UTC reset)
+- Calls APIs:
+  - `api/mgt/tmi/publish.php`
+  - `api/mgt/tmi/active.php`
+  - `api/mgt/tmi/staged.php`
+  - `api/mgt/tmi/promote.php`
+
+#### `tmi-active-display.js` **(v1.1.0)**
+- Loaded by: `tmi-publish.php`
+- Size: ~500 lines
+- Purpose: Active TMI display component (FAA-style table)
+- Features: Restrictions table, filter controls, auto-refresh, source filter (Production/Staging/All)
 
 ### 5.2 Utility/support modules
 
@@ -1180,6 +1207,19 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
 ---
 
 ## 31) Changelog
+
+- **v18.1 (2026-01-27):**
+  - **TMI Publisher v1.8.0:**
+    - Added `tmi-publish.php` to main pages table
+    - Added `tmi-publish.js` and `tmi-active-display.js` to client modules
+    - Bug fixes: Container ID mismatches, form loading, queue button icons
+    - Hotline advisory overhaul: PERTI Plan names, expanded participation options, facility selectors, auto-mapped addresses
+    - User profile system: OI, facility storage with localStorage
+    - NTML improvements: Renamed labels, new qualifiers (NON-RVSM, altitude/speed filters), format changes
+    - Default requesting facility from user profile
+    - Active TMI source filter: Production/Staging/All dropdown, API parameter support
+    - `tmi-active-display.js` v1.1.0: Source filter integration
+    - Documentation: `docs/tmi/TMI_Publisher_v1.8.0_Transition.md`
 
 - **v17 (2026-01-15):**
   - **Airspace Element Demand (NEW):**

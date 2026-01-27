@@ -54,6 +54,11 @@ $includeCancelled = ($_GET['include_cancelled'] ?? '1') === '1';
 $cancelledHours = intval($_GET['cancelled_hours'] ?? 4);
 $limit = min(intval($_GET['limit'] ?? 100), 500);
 
+// Source filter: PRODUCTION (default), STAGING, or ALL
+$source = strtoupper($_GET['source'] ?? 'PRODUCTION');
+$includeStaging = ($source === 'ALL' || $source === 'STAGING');
+$stagingOnly = ($source === 'STAGING');
+
 // Connect to TMI database
 $tmiConn = null;
 try {
@@ -86,11 +91,11 @@ $results = [
 try {
     // Get active NTML entries
     if ($type === 'all' || $type === 'ntml') {
-        $activeNtml = getActiveNtmlEntries($tmiConn, $limit);
+        $activeNtml = getActiveNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
         $results['active'] = array_merge($results['active'], $activeNtml);
         
         if ($includeScheduled) {
-            $scheduledNtml = getScheduledNtmlEntries($tmiConn, $limit);
+            $scheduledNtml = getScheduledNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
             $results['scheduled'] = array_merge($results['scheduled'], $scheduledNtml);
         }
         
@@ -102,11 +107,11 @@ try {
     
     // Get active advisories
     if ($type === 'all' || $type === 'advisory') {
-        $activeAdv = getActiveAdvisories($tmiConn, $limit);
+        $activeAdv = getActiveAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
         $results['active'] = array_merge($results['active'], $activeAdv);
         
         if ($includeScheduled) {
-            $scheduledAdv = getScheduledAdvisories($tmiConn, $limit);
+            $scheduledAdv = getScheduledAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
             $results['scheduled'] = array_merge($results['scheduled'], $scheduledAdv);
         }
         
@@ -188,11 +193,19 @@ function formatDatetime($value) {
 /**
  * Get currently active NTML entries
  */
-function getActiveNtmlEntries($conn, $limit) {
+function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOnly = false) {
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
     
+    // Status filter based on source selection
+    if ($stagingOnly) {
+        $statusIn = "('STAGED')";
+    } elseif ($includeStaging) {
+        $statusIn = "('ACTIVE', 'PUBLISHED', 'STAGED')";
+    } else {
+        $statusIn = "('ACTIVE', 'PUBLISHED')";
+    }
     $sql = "SELECT TOP {$limit}
                 entry_id,
                 entry_guid,
@@ -218,7 +231,7 @@ function getActiveNtmlEntries($conn, $limit) {
                 created_by,
                 created_by_name
             FROM dbo.tmi_entries
-            WHERE status IN ('ACTIVE', 'PUBLISHED')
+            WHERE status IN {$statusIn}
               AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())
               AND (valid_from IS NULL OR valid_from <= SYSUTCDATETIME())
             ORDER BY valid_from DESC";
@@ -240,11 +253,19 @@ function getActiveNtmlEntries($conn, $limit) {
 /**
  * Get scheduled (future) NTML entries
  */
-function getScheduledNtmlEntries($conn, $limit) {
+function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagingOnly = false) {
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
     
+    // Status filter based on source selection
+    if ($stagingOnly) {
+        $statusIn = "('STAGED')";
+    } elseif ($includeStaging) {
+        $statusIn = "('SCHEDULED', 'STAGED')";
+    } else {
+        $statusIn = "('SCHEDULED')";
+    }
     $sql = "SELECT TOP {$limit}
                 entry_id,
                 entry_guid,
@@ -270,7 +291,7 @@ function getScheduledNtmlEntries($conn, $limit) {
                 created_by,
                 created_by_name
             FROM dbo.tmi_entries
-            WHERE status IN ('SCHEDULED', 'STAGED')
+            WHERE status IN {$statusIn}
               AND valid_from > SYSUTCDATETIME()
             ORDER BY valid_from ASC";
     
@@ -345,11 +366,19 @@ function getCancelledNtmlEntries($conn, $hours, $limit) {
 /**
  * Get currently active advisories
  */
-function getActiveAdvisories($conn, $limit) {
+function getActiveAdvisories($conn, $limit, $includeStaging = false, $stagingOnly = false) {
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
     
+    // Status filter based on source selection
+    if ($stagingOnly) {
+        $statusIn = "('STAGED')";
+    } elseif ($includeStaging) {
+        $statusIn = "('ACTIVE', 'PUBLISHED', 'STAGED')";
+    } else {
+        $statusIn = "('ACTIVE', 'PUBLISHED')";
+    }
     $sql = "SELECT TOP {$limit}
                 advisory_id,
                 advisory_guid,
@@ -370,7 +399,7 @@ function getActiveAdvisories($conn, $limit) {
                 created_by,
                 created_by_name
             FROM dbo.tmi_advisories
-            WHERE status IN ('ACTIVE', 'PUBLISHED')
+            WHERE status IN {$statusIn}
               AND (effective_until IS NULL OR effective_until > SYSUTCDATETIME())
               AND (effective_from IS NULL OR effective_from <= SYSUTCDATETIME())
             ORDER BY effective_from DESC";
@@ -392,11 +421,19 @@ function getActiveAdvisories($conn, $limit) {
 /**
  * Get scheduled advisories
  */
-function getScheduledAdvisories($conn, $limit) {
+function getScheduledAdvisories($conn, $limit, $includeStaging = false, $stagingOnly = false) {
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
     
+    // Status filter based on source selection
+    if ($stagingOnly) {
+        $statusIn = "('STAGED')";
+    } elseif ($includeStaging) {
+        $statusIn = "('SCHEDULED', 'STAGED')";
+    } else {
+        $statusIn = "('SCHEDULED')";
+    }
     $sql = "SELECT TOP {$limit}
                 advisory_id,
                 advisory_guid,
@@ -417,7 +454,7 @@ function getScheduledAdvisories($conn, $limit) {
                 created_by,
                 created_by_name
             FROM dbo.tmi_advisories
-            WHERE status IN ('SCHEDULED', 'STAGED')
+            WHERE status IN {$statusIn}
               AND effective_from > SYSUTCDATETIME()
             ORDER BY effective_from ASC";
     
