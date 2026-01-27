@@ -656,11 +656,27 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                             </button>
                         </div>
                         <div class="card-body p-0">
-                            <div id="activeTmisList">
-                                <div class="text-center text-muted py-4">
-                                    <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                                    Loading active TMIs...
-                                </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th style="width: 100px;">Type</th>
+                                            <th>Summary</th>
+                                            <th style="width: 100px;">Facilities</th>
+                                            <th style="width: 80px;">Valid</th>
+                                            <th style="width: 70px;">Status</th>
+                                            <th style="width: 80px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activeTmiBody">
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
+                                                Loading active TMIs...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

@@ -1,17 +1,19 @@
 <?php
 /**
- * NTML Protocol Form - API Endpoint
- * Posts NTML entries to Discord via DiscordAPI class
+ * NTML Protocol Form - API Endpoint v1.7.0
+ * Posts NTML entries to Discord AND saves to VATSIM_TMI database
+ * 
+ * @version 1.7.0
+ * @author HP/Claude
  */
 
 // Prevent caching
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 
-// Debug logging function - writes to /home/LogFiles/ntml_debug.log on Azure
+// Debug logging function
 function ntml_debug_log($message, $data = null) {
     $logFile = '/home/LogFiles/ntml_debug.log';
-    // Fallback to local dir if /home/LogFiles doesn't exist
     if (!is_dir('/home/LogFiles')) {
         $logFile = __DIR__ . '/ntml_debug.log';
     }
@@ -23,23 +25,12 @@ function ntml_debug_log($message, $data = null) {
     @file_put_contents($logFile, $entry . "\n", FILE_APPEND);
 }
 
-// Register shutdown function to catch fatal errors
+// Register shutdown function for fatal errors
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
         ntml_debug_log('FATAL ERROR', $error);
     }
-});
-
-// Set error handler for non-fatal errors
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    ntml_debug_log('PHP Error', [
-        'errno' => $errno,
-        'errstr' => $errstr,
-        'errfile' => $errfile,
-        'errline' => $errline
-    ]);
-    return false; // Let PHP handle it normally too
 });
 
 ntml_debug_log('=== NTML POST Request Started ===');
@@ -51,25 +42,13 @@ if (session_status() == PHP_SESSION_NONE) {
     ob_start();
 }
 
-ntml_debug_log('Session started', ['session_id' => session_id()]);
-
 // Load dependencies
 try {
-    ntml_debug_log('Loading config.php');
     include_once("../../../load/config.php");
-    ntml_debug_log('config.php loaded successfully');
-    
-    ntml_debug_log('Loading connect.php');
     include_once("../../../load/connect.php");
-    ntml_debug_log('connect.php loaded successfully');
-    
-    ntml_debug_log('Loading DiscordAPI.php');
     include("../../../load/discord/DiscordAPI.php");
-    ntml_debug_log('DiscordAPI.php loaded successfully');
-    
-    ntml_debug_log('Loading TMIDiscord.php');
     include("../../../load/discord/TMIDiscord.php");
-    ntml_debug_log('TMIDiscord.php loaded successfully');
+    ntml_debug_log('Dependencies loaded successfully');
 } catch (Exception $e) {
     ntml_debug_log('ERROR loading dependencies', ['error' => $e->getMessage()]);
     http_response_code(500);
@@ -87,163 +66,276 @@ function sendResponse($success, $data = [], $error = null) {
     exit();
 }
 
-// Check Perms
-ntml_debug_log('Checking permissions', ['DEV_defined' => defined('DEV'), 'session_cid' => $_SESSION['VATSIM_CID'] ?? 'NOT SET']);
+// Check Permissions
 $perm = false;
+$userId = null;
+$userName = 'Unknown';
+
 if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
         $cid = session_get('VATSIM_CID', '');
         $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
         if ($p_check) {
             $perm = true;
-            ntml_debug_log('Permission granted via session CID', ['cid' => $cid]);
-        } else {
-            ntml_debug_log('Permission denied - user query failed', ['cid' => $cid]);
+            $userId = $cid;
+            $userName = ($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($_SESSION['VATSIM_LAST_NAME'] ?? '');
+            ntml_debug_log('Permission granted', ['cid' => $cid, 'name' => $userName]);
         }
-    } else {
-        ntml_debug_log('Permission denied - no session CID');
     }
 } else {
     $perm = true;
+    $userId = 0;
+    $userName = 'DEV';
     $_SESSION['VATSIM_CID'] = 0;
-    ntml_debug_log('Permission granted via DEV mode');
 }
 
 if (!$perm) {
-    ntml_debug_log('REJECTED - Unauthorized access');
     http_response_code(403);
     sendResponse(false, [], 'Unauthorized access');
 }
 
 // Validate required fields
-ntml_debug_log('Validating required fields');
-if (!isset($_POST['protocol']) || !isset($_POST['determinant'])) {
-    ntml_debug_log('REJECTED - Missing required fields', ['has_protocol' => isset($_POST['protocol']), 'has_determinant' => isset($_POST['determinant'])]);
+if (!isset($_POST['type']) || !isset($_POST['determinant'])) {
     http_response_code(400);
     sendResponse(false, [], 'Missing required fields');
 }
 
 // Get form data
-$protocol = post_input('protocol');
+$entryType = strtoupper(post_input('type'));
 $determinant = post_input('determinant');
 $production = isset($_POST['production']) && $_POST['production'] === '1';
-ntml_debug_log('Form data extracted', ['protocol' => $protocol, 'determinant' => $determinant, 'production' => $production]);
+ntml_debug_log('Form data', ['type' => $entryType, 'determinant' => $determinant, 'production' => $production]);
 
 // Initialize Discord API
-ntml_debug_log('Initializing Discord API');
 $discord = new DiscordAPI();
-ntml_debug_log('Discord API initialized', [
-    'configured' => $discord->isConfigured(),
-    'tmi_channel' => $discord->getChannelByPurpose('tmi')
-]);
-
-// Check if Discord is configured
 if (!$discord->isConfigured()) {
-    ntml_debug_log('ERROR - Discord not configured');
     http_response_code(500);
     sendResponse(false, [], 'Discord integration not configured');
 }
 
 // Build message using TMIDiscord formatter
-ntml_debug_log('Building message for protocol: ' . $protocol);
 $tmiDiscord = new TMIDiscord($discord);
 $entryData = mapPostToEntryData($_POST);
-$message = buildNTMLMessageFromEntry($entryData, $protocol);
-ntml_debug_log('Message built', ['message_length' => strlen($message), 'message_preview' => substr($message, 0, 100)]);
+$message = buildNTMLMessageFromEntry($entryData);
+ntml_debug_log('Message built', ['message_length' => strlen($message)]);
 
 // Add test prefix for non-production
 if (!$production) {
     $message = "🧪 **[TEST]** " . $message;
 }
 
-// Post to Discord using the 'tmi' channel
-ntml_debug_log('Sending to Discord tmi channel');
-$result = $discord->createMessage('tmi', ['content' => $message]);
-ntml_debug_log('Discord API response', [
-    'result' => $result,
-    'last_error' => $discord->getLastError(),
-    'last_http_code' => $discord->getLastHttpCode()
+// Determine Discord channel
+$channel = $production ? 'ntml' : 'ntml_staging';
+
+// Post to Discord
+$result = $discord->createMessage($channel, ['content' => $message]);
+ntml_debug_log('Discord response', ['result' => $result, 'error' => $discord->getLastError()]);
+
+$discordMessageId = $result['id'] ?? null;
+
+if (!$discordMessageId) {
+    $error = $discord->getLastError() ?: 'Unknown Discord API error';
+    http_response_code(500);
+    sendResponse(false, [], "Discord API error: $error");
+}
+
+// ============================================
+// DATABASE PERSISTENCE
+// Save to VATSIM_TMI.tmi_entries (Azure SQL)
+// ============================================
+
+$tmiEntryId = null;
+
+if (isset($conn_tmi) && $conn_tmi) {
+    try {
+        $tmiEntryId = saveTmiEntry($conn_tmi, $entryData, $determinant, $discordMessageId, $production, $userId, $userName);
+        ntml_debug_log('TMI entry saved', ['entry_id' => $tmiEntryId]);
+    } catch (Exception $e) {
+        ntml_debug_log('TMI save error (non-fatal)', ['error' => $e->getMessage()]);
+        // Continue - Discord post succeeded, DB save is secondary
+    }
+}
+
+// Also log to MySQL for legacy compatibility
+logNTMLEntryMySQL($determinant, $_POST, $discordMessageId, $production, $conn_sqli);
+
+// Success response
+$channelName = $production ? 'Production NTML' : 'Test/Staging';
+sendResponse(true, [
+    'channel' => $channelName,
+    'message_id' => $discordMessageId,
+    'tmi_entry_id' => $tmiEntryId
 ]);
 
-if ($result !== null && isset($result['id'])) {
-    ntml_debug_log('SUCCESS - Message posted', ['message_id' => $result['id']]);
-    // Log to database
-    logNTMLEntry($protocol, $determinant, $_POST, $result['id'], $production);
+// ============================================
+// SAVE TO VATSIM_TMI.tmi_entries (Azure SQL)
+// ============================================
+
+function saveTmiEntry($conn, $entry, $determinant, $discordMessageId, $production, $userId, $userName) {
+    // Map entry type to protocol
+    $protocolMap = [
+        'CONFIG' => 1, 'DELAY' => 4, 'HOLDING' => 4,
+        'MIT' => 5, 'MINIT' => 6, 'APREQ' => 7, 'CFR' => 7,
+        'TBM' => 8, 'REROUTE' => 9, 'STOP' => 3, 'CANCEL' => 0
+    ];
+    $protocol = $protocolMap[strtoupper($entry['entry_type'])] ?? 0;
     
-    $channelName = $production ? 'Production NTML' : 'Test/Staging';
-    sendResponse(true, [
-        'channel' => $channelName,
-        'message_id' => $result['id']
+    // Determine status
+    $status = $production ? 'ACTIVE' : 'DRAFT';
+    
+    // Parse valid times
+    $validFrom = null;
+    $validUntil = null;
+    if (!empty($entry['valid_from'])) {
+        $today = gmdate('Y-m-d');
+        $validFrom = $today . ' ' . substr($entry['valid_from'], 0, 2) . ':' . substr($entry['valid_from'], 2, 2) . ':00';
+    }
+    if (!empty($entry['valid_until'])) {
+        $today = gmdate('Y-m-d');
+        $validUntil = $today . ' ' . substr($entry['valid_until'], 0, 2) . ':' . substr($entry['valid_until'], 2, 2) . ':00';
+        // Handle overnight validity
+        if ($validFrom && $validUntil < $validFrom) {
+            $tomorrow = gmdate('Y-m-d', strtotime('+1 day'));
+            $validUntil = $tomorrow . ' ' . substr($entry['valid_until'], 0, 2) . ':' . substr($entry['valid_until'], 2, 2) . ':00';
+        }
+    }
+    
+    // Build restriction value
+    $restrictionValue = null;
+    $restrictionUnit = null;
+    if ($entry['entry_type'] === 'MIT') {
+        $restrictionValue = intval($entry['distance'] ?? $entry['restriction_value'] ?? 0);
+        $restrictionUnit = 'NM';
+    } elseif ($entry['entry_type'] === 'MINIT') {
+        $restrictionValue = intval($entry['minutes'] ?? $entry['restriction_value'] ?? 0);
+        $restrictionUnit = 'MIN';
+    } elseif ($entry['entry_type'] === 'DELAY' || $entry['entry_type'] === 'HOLDING') {
+        $restrictionValue = intval($entry['longest_delay'] ?? $entry['minutes'] ?? 0);
+        $restrictionUnit = 'MIN';
+    }
+    
+    // Build reason
+    $reasonCode = strtoupper($entry['reason_code'] ?? 'VOLUME');
+    $reasonDetail = $entry['reason_detail'] ?? $reasonCode;
+    
+    // Condition text (fix/via route)
+    $conditionText = $entry['fix'] ?? $entry['condition_text'] ?? null;
+    
+    // Qualifiers as JSON
+    $qualifiers = null;
+    if (!empty($entry['qualifiers'])) {
+        $quals = is_string($entry['qualifiers']) ? explode(',', $entry['qualifiers']) : $entry['qualifiers'];
+        $qualifiers = json_encode(array_map('trim', $quals));
+    }
+    
+    // Build content hash for deduplication
+    $hashContent = implode('|', [
+        $determinant,
+        $entry['entry_type'],
+        $entry['airport'] ?? $entry['ctl_element'] ?? '',
+        $restrictionValue ?? '',
+        $validFrom ?? '',
+        $validUntil ?? ''
     ]);
-} else {
-    $error = $discord->getLastError() ?: 'Unknown Discord API error';
-    $httpCode = $discord->getLastHttpCode();
-    ntml_debug_log('FAILED - Discord API error', ['error' => $error, 'http_code' => $httpCode]);
+    $contentHash = hash('sha256', $hashContent);
     
-    http_response_code(500);
-    sendResponse(false, [], "Discord API error: $error (HTTP $httpCode)");
+    // Insert into tmi_entries
+    $sql = "INSERT INTO dbo.tmi_entries (
+        determinant_code, protocol_type, entry_type,
+        ctl_element, element_type, requesting_facility, providing_facility,
+        restriction_value, restriction_unit, condition_text, qualifiers,
+        exclusions, reason_code, reason_detail,
+        valid_from, valid_until, status,
+        source_type, source_channel, discord_message_id, content_hash,
+        created_by, created_by_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    SELECT SCOPE_IDENTITY() AS id;";
+    
+    $params = [
+        $determinant,
+        $protocol,
+        strtoupper($entry['entry_type']),
+        strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? ''),
+        'AIRPORT', // element_type
+        strtoupper($entry['requesting_facility'] ?? ''),
+        strtoupper($entry['providing_facility'] ?? ''),
+        $restrictionValue,
+        $restrictionUnit,
+        $conditionText,
+        $qualifiers,
+        strtoupper($entry['exclusions'] ?? 'NONE'),
+        $reasonCode,
+        $reasonDetail,
+        $validFrom,
+        $validUntil,
+        $status,
+        'NTML_PUBLISHER', // source_type
+        'web', // source_channel
+        $discordMessageId,
+        $contentHash,
+        $userId,
+        $userName
+    ];
+    
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        ntml_debug_log('SQL Error', $errors);
+        throw new Exception(print_r($errors, true));
+    }
+    
+    // Get the inserted ID
+    sqlsrv_next_result($stmt);
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    
+    return $row ? intval($row['id']) : null;
 }
 
 // ============================================
 // MESSAGE BUILDING FUNCTIONS
-// Uses TMIDiscord for consistent formatting
 // ============================================
 
 /**
- * Map POST data to entry data structure expected by TMIDiscord
+ * Map POST data to entry data structure
  */
 function mapPostToEntryData($data) {
     return [
-        // Common fields
         'entry_type' => strtoupper($data['type'] ?? 'MIT'),
         'determinant' => strip_tags($data['determinant'] ?? ''),
         'raw' => strip_tags($data['raw'] ?? ''),
         
-        // Facility coordination
         'requesting_facility' => strtoupper(strip_tags($data['to_facility'] ?? $data['req_facility_id'] ?? '')),
         'providing_facility' => strtoupper(strip_tags($data['from_facility'] ?? $data['prov_facility_id'] ?? '')),
         
-        // Location/condition
         'airport' => strtoupper(strip_tags($data['condition'] ?? $data['airport'] ?? '')),
         'ctl_element' => strtoupper(strip_tags($data['condition'] ?? $data['airport'] ?? '')),
         'condition_text' => strip_tags($data['via_route'] ?? ''),
         'fix' => strip_tags($data['via_route'] ?? ''),
         
-        // MIT/MINIT specific
         'restriction_value' => strip_tags($data['distance'] ?? $data['minutes'] ?? ''),
         'distance' => strip_tags($data['distance'] ?? ''),
         'minutes' => strip_tags($data['minutes'] ?? ''),
         
-        // Flow direction
         'flow_type' => ($data['is_departures'] ?? false) ? 'departures' : 'arrivals',
-        
-        // Qualifiers
         'qualifiers' => strip_tags($data['qualifiers'] ?? ''),
         
-        // Restrictions
         'aircraft_type' => strip_tags($data['aircraft_type'] ?? ''),
-        'speed' => strip_tags($data['speed'] ?? ''),
-        'speed_operator' => strip_tags($data['speed_operator'] ?? ''),
         'altitude' => strip_tags($data['altitude'] ?? ''),
         'alt_type' => strtoupper(strip_tags($data['alt_type'] ?? '')),
         
-        // Reason
         'reason_code' => strtoupper(strip_tags($data['reason'] ?? 'VOLUME')),
         'reason_detail' => strip_tags($data['weather'] ?? $data['reason_detail'] ?? ''),
-        'volume' => strip_tags($data['volume'] ?? ''),
-        'weather' => strip_tags($data['weather'] ?? ''),
         
-        // Exclusions
         'exclusions' => strtoupper(strip_tags($data['exclusions'] ?? 'NONE')),
         
-        // Valid time
         'valid_from' => strip_tags($data['valid_from'] ?? ''),
         'valid_until' => strip_tags($data['valid_until'] ?? ''),
         
         // Delay specific
         'delay_type' => strtoupper(strip_tags($data['delay_type'] ?? 'D/D')),
         'delay_facility' => strtoupper(strip_tags($data['facility'] ?? $data['airport'] ?? '')),
-        'longest_delay' => strip_tags($data['minutes'] ?? $data['delay_minutes'] ?? ''),
+        'longest_delay' => strip_tags($data['minutes'] ?? $data['delay_minutes'] ?? '')),
         'delay_trend' => strip_tags($data['trend'] ?? $data['delay_change'] ?? 'steady'),
         'flights_delayed' => strip_tags($data['flights_delayed'] ?? '1'),
         'holding' => strip_tags($data['holding'] ?? $data['is_holding'] ?? 'no'),
@@ -260,63 +352,68 @@ function mapPostToEntryData($data) {
         
         // Cancel specific
         'cancel_type' => strip_tags($data['cancel_type'] ?? ''),
-        'cancel_reason' => strip_tags($data['cancel_reason'] ?? ''),
         
         // TBM specific
         'sector' => strip_tags($data['sector'] ?? ''),
+        
+        // GS/GDP specific
+        'gs_gs_end_time' => strip_tags($data['gs_end_time'] ?? ''),
+        'gs_included_flights' => strip_tags($data['gs_included_flights'] ?? ''),
+        'gdp_program_rate' => strip_tags($data['gdp_program_rate'] ?? ''),
+        'gdp_delay_limit' => strip_tags($data['gdp_delay_limit'] ?? ''),
+        'advisory_number' => strip_tags($data['advisory_number'] ?? ''),
     ];
 }
 
 /**
- * Build NTML message in proper format
- * Format: DD/HHMM APT [direction] via FIX ##TYPE [QUALIFIERS] REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ * Build NTML message from entry data
  */
-function buildNTMLMessageFromEntry($entry, $protocol) {
+function buildNTMLMessageFromEntry($entry) {
     $logTime = gmdate('d/Hi');
     $type = strtoupper($entry['entry_type'] ?? 'MIT');
     
     switch ($type) {
         case 'MIT':
         case 'MINIT':
+            return formatMitMinitMessage($entry, $logTime);
         case 'STOP':
+            return formatStopMessage($entry, $logTime);
         case 'APREQ':
         case 'CFR':
-            return buildRestrictionNTML($entry, $logTime);
-        case 'HOLDING':
+            return formatApreqCfrMessage($entry, $logTime);
         case 'DELAY':
-            return buildDelayNTML($entry, $logTime);
+        case 'HOLDING':
+            return formatDelayMessage($entry, $logTime);
         case 'CONFIG':
-            return buildConfigNTML($entry, $logTime);
+            return formatConfigMessage($entry, $logTime);
         case 'CANCEL':
-            return buildCancelNTML($entry, $logTime);
+            return formatCancelMessage($entry, $logTime);
         case 'TBM':
-            return buildTBMNTML($entry, $logTime);
+            return formatTbmMessage($entry, $logTime);
+        case 'GS':
+            return formatGroundStopMessage($entry, $logTime);
+        case 'GDP':
+            return formatGdpMessage($entry, $logTime);
         default:
             return "$logTime {$entry['raw']}";
     }
 }
 
 /**
- * Build MIT/MINIT/STOP/APREQ/CFR NTML entry
+ * Format MIT/MINIT message
+ * v1.6.0: Category:Cause format for reason
  */
-function buildRestrictionNTML($entry, $logTime) {
-    $type = strtoupper($entry['entry_type'] ?? 'MIT');
+function formatMitMinitMessage($entry, $logTime) {
+    $type = strtoupper($entry['entry_type']);
     $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
     $fix = strtoupper($entry['fix'] ?? $entry['condition_text'] ?? '');
     $flowType = strtolower($entry['flow_type'] ?? 'arrivals');
     
-    // Build restriction value
-    $restriction = '';
-    if ($type === 'STOP') {
-        $restriction = 'STOP';
-    } elseif ($type === 'APREQ' || $type === 'CFR') {
-        $restriction = $type;
-    } else {
-        $value = $entry['restriction_value'] ?? $entry['distance'] ?? $entry['minutes'] ?? '';
-        $restriction = "{$value}{$type}";
-    }
+    // Restriction value
+    $value = $entry['restriction_value'] ?? $entry['distance'] ?? $entry['minutes'] ?? '';
+    $restriction = "{$value}{$type}";
     
-    // Build qualifiers
+    // Qualifiers
     $qualifiers = '';
     if (!empty($entry['qualifiers'])) {
         $quals = is_string($entry['qualifiers']) ? explode(',', $entry['qualifiers']) : $entry['qualifiers'];
@@ -325,155 +422,145 @@ function buildRestrictionNTML($entry, $logTime) {
         }, $quals));
     }
     
-    // Build optional fields
-    $opts = [];
-    if (!empty($entry['aircraft_type'])) {
-        $opts[] = 'TYPE:' . strtoupper($entry['aircraft_type']);
-    }
-    if (!empty($entry['altitude'])) {
-        $altType = strtoupper($entry['alt_type'] ?? 'AT');
-        $opts[] = "ALT:{$altType}" . strtoupper($entry['altitude']);
-    }
-    
-    // Reason
-    $reason = strtoupper($entry['reason_code'] ?? 'VOLUME');
-    if ($reason === 'VOLUME') {
-        $opts[] = 'VOLUME:VOLUME';
-    } elseif ($reason === 'WEATHER') {
-        $detail = strtoupper($entry['reason_detail'] ?? $entry['weather'] ?? 'WEATHER');
-        $opts[] = "WEATHER:{$detail}";
-    } elseif ($reason === 'RUNWAY') {
-        $detail = strtoupper($entry['reason_detail'] ?? 'CONFIG');
-        $opts[] = "RUNWAY:{$detail}";
-    } else {
-        $opts[] = "{$reason}:{$reason}";
-    }
+    // Build reason (Category:Cause format per v1.6.0)
+    $reason = buildReasonString($entry);
     
     // Exclusions
     $excl = strtoupper($entry['exclusions'] ?? 'NONE');
-    $opts[] = "EXCL:{$excl}";
     
     // Valid time
     $validFrom = $entry['valid_from'] ?? gmdate('Hi');
     $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+2 hours'));
-    $opts[] = "{$validFrom}-{$validUntil}";
     
-    // Facility coordination
+    // Facilities
     $reqFac = strtoupper($entry['requesting_facility'] ?? '');
     $provFac = strtoupper($entry['providing_facility'] ?? '');
+    
+    // Build message
+    $line = "{$logTime}    {$airport}";
+    if ($flowType === 'departures') {
+        $line .= ' departures';
+    }
+    if ($fix) {
+        $line .= " via {$fix}";
+    }
+    $line .= " {$restriction}{$qualifiers} {$reason} EXCL:{$excl} {$validFrom}-{$validUntil}";
     if ($reqFac || $provFac) {
-        $opts[] = "{$reqFac}:{$provFac}";
+        $line .= " {$reqFac}:{$provFac}";
     }
-    
-    $optStr = implode(' ', $opts);
-    
-    // Build the line per format spec
-    if ($type === 'APREQ' || $type === 'CFR') {
-        // APREQ/CFR: DD/HHMM TYPE APT departures [via FIX] [TYPE:xx] REASON...
-        $line = "{$logTime}    {$restriction} {$airport}";
-        if ($flowType === 'departures') {
-            $line .= ' departures';
-        }
-        if ($fix) {
-            $line .= " via {$fix}";
-        }
-    } elseif ($fix) {
-        // With via: DD/HHMM APT [direction] via FIX ##MIT...
-        $line = "{$logTime}    {$airport}";
-        if ($flowType === 'departures') {
-            $line .= ' departures';
-        } else if ($flowType === 'arrivals' && $type !== 'STOP') {
-            // arrivals is implicit via fix pattern, but add if explicit
-            $line .= ' arrivals';
-        }
-        $line .= " via {$fix} {$restriction}";
-    } else {
-        // Without via: DD/HHMM APT [direction] ##MIT...
-        $line = "{$logTime}    {$airport}";
-        if ($flowType === 'departures') {
-            $line .= ' departures';
-        }
-        $line .= " {$restriction}";
-    }
-    
-    $line .= "{$qualifiers} {$optStr}";
     
     return trim($line);
 }
 
 /**
- * Build Delay/Holding NTML entry
- * Format: DD/HHMM [FAC] D/D from APT, +/-##/HHMM[/# ACFT] [NAVAID:xx] REASON
+ * Format STOP message
  */
-function buildDelayNTML($entry, $logTime) {
+function formatStopMessage($entry, $logTime) {
+    $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+    $fix = strtoupper($entry['fix'] ?? '');
+    $flowType = strtolower($entry['flow_type'] ?? 'arrivals');
+    
+    $reason = buildReasonString($entry);
+    $excl = strtoupper($entry['exclusions'] ?? 'NONE');
+    $validFrom = $entry['valid_from'] ?? gmdate('Hi');
+    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+30 minutes'));
+    
+    $reqFac = strtoupper($entry['requesting_facility'] ?? '');
+    $provFac = strtoupper($entry['providing_facility'] ?? '');
+    
+    $line = "{$logTime}    {$airport}";
+    if ($flowType === 'departures') {
+        $line .= ' departures';
+    }
+    if ($fix) {
+        $line .= " via {$fix}";
+    }
+    $line .= " STOP {$reason} EXCL:{$excl} {$validFrom}-{$validUntil}";
+    if ($reqFac || $provFac) {
+        $line .= " {$reqFac}:{$provFac}";
+    }
+    
+    return trim($line);
+}
+
+/**
+ * Format APREQ/CFR message
+ */
+function formatApreqCfrMessage($entry, $logTime) {
+    $type = strtoupper($entry['entry_type']);
+    $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+    $fix = strtoupper($entry['fix'] ?? '');
+    $flowType = strtolower($entry['flow_type'] ?? 'departures');
+    
+    $reason = buildReasonString($entry);
+    $excl = strtoupper($entry['exclusions'] ?? 'NONE');
+    $validFrom = $entry['valid_from'] ?? gmdate('Hi');
+    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+3 hours'));
+    
+    $reqFac = strtoupper($entry['requesting_facility'] ?? '');
+    $provFac = strtoupper($entry['providing_facility'] ?? '');
+    
+    $line = "{$logTime}    {$type} {$airport}";
+    if ($flowType === 'departures') {
+        $line .= ' departures';
+    }
+    if ($fix) {
+        $line .= " via {$fix}";
+    }
+    $line .= " {$reason} EXCL:{$excl} {$validFrom}-{$validUntil}";
+    if ($reqFac || $provFac) {
+        $line .= " {$reqFac}:{$provFac}";
+    }
+    
+    return trim($line);
+}
+
+/**
+ * Format Delay message
+ */
+function formatDelayMessage($entry, $logTime) {
     $delayType = strtoupper($entry['delay_type'] ?? 'D/D');
-    // Normalize E/D, A/D, D/D
     if ($delayType === 'ED') $delayType = 'E/D';
     if ($delayType === 'AD') $delayType = 'A/D';
     if ($delayType === 'DD') $delayType = 'D/D';
     
-    // Preposition based on type
     $prep = 'from';
     if ($delayType === 'E/D') $prep = 'for';
     if ($delayType === 'A/D') $prep = 'to';
     
     $facility = strtoupper($entry['delay_facility'] ?? $entry['airport'] ?? '');
-    $reportingFac = $entry['reporting_facility'] ?? '';
-    
-    // Delay value
-    $delayMin = $entry['longest_delay'] ?? $entry['delay_minutes'] ?? $entry['minutes'] ?? '';
+    $delayMin = $entry['longest_delay'] ?? $entry['minutes'] ?? '';
     $trend = strtolower($entry['delay_trend'] ?? 'steady');
-    $holding = $entry['holding'] ?? $entry['is_holding'] ?? 'no';
+    $holding = $entry['holding'] ?? 'no';
     
     $sign = '';
-    if ($trend === 'increasing' || $trend === 'inc' || $trend === 'initiating') {
-        $sign = '+';
-    } elseif ($trend === 'decreasing' || $trend === 'dec' || $trend === 'terminating') {
-        $sign = '-';
-    }
+    if ($trend === 'increasing' || $trend === 'initiating') $sign = '+';
+    elseif ($trend === 'decreasing' || $trend === 'terminating') $sign = '-';
     
-    // Holding or minutes
     $delayValue = '';
-    if ($holding === 'yes' || $holding === 'yes_initiating' || strpos(strtolower($holding), 'holding') !== false) {
+    if ($holding === 'yes' || strpos(strtolower($holding), 'holding') !== false) {
         $delayValue = ($sign ?: '+') . 'Holding';
     } else {
         $delayValue = "{$sign}{$delayMin}";
     }
     
-    $reportTime = $entry['report_time'] ?? $entry['delay_time'] ?? gmdate('Hi');
-    $acftCount = $entry['flights_delayed'] ?? $entry['acft_count'] ?? '';
+    $reportTime = $entry['report_time'] ?? gmdate('Hi');
+    $acftCount = $entry['flights_delayed'] ?? '';
+    $reason = buildReasonString($entry);
     
-    // Build line
-    $line = "{$logTime}";
-    if ($reportingFac) {
-        $line .= "    {$reportingFac}";
-    }
-    $line .= " {$delayType} {$prep} {$facility}, {$delayValue}/{$reportTime}";
+    $line = "{$logTime} {$delayType} {$prep} {$facility}, {$delayValue}/{$reportTime}";
     if ($acftCount) {
         $line .= "/{$acftCount} ACFT";
     }
-    
-    // Optional navaid
-    if (!empty($entry['fix'])) {
-        $line .= ' NAVAID:' . strtoupper($entry['fix']);
-    }
-    
-    // Reason
-    $reason = strtoupper($entry['reason_code'] ?? 'VOLUME');
-    if ($reason === 'VOLUME') {
-        $line .= ' VOLUME:VOLUME';
-    } else {
-        $line .= " {$reason}:{$reason}";
-    }
+    $line .= " {$reason}";
     
     return trim($line);
 }
 
 /**
- * Build Config NTML entry
- * Format: DD/HHMM APT    WX    ARR:rwys DEP:rwys    AAR(type):##    [AAR Adjustment:xx]    ADR:##
+ * Format Config message
  */
-function buildConfigNTML($entry, $logTime) {
+function formatConfigMessage($entry, $logTime) {
     $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
     $weather = strtoupper($entry['weather'] ?? 'VMC');
     $arrRwys = strtoupper($entry['arr_runways'] ?? '');
@@ -483,7 +570,6 @@ function buildConfigNTML($entry, $logTime) {
     $aarAdj = $entry['aar_adjustment'] ?? '';
     $adr = $entry['adr'] ?? '60';
     
-    // Use tab alignment like historical data
     $line = "{$logTime}    {$airport}    {$weather}    ARR:{$arrRwys} DEP:{$depRwys}    AAR({$aarType}):{$aar}";
     if ($aarAdj) {
         $line .= " AAR Adjustment:{$aarAdj}";
@@ -494,11 +580,11 @@ function buildConfigNTML($entry, $logTime) {
 }
 
 /**
- * Build Cancel NTML entry
+ * Format Cancel message
  */
-function buildCancelNTML($entry, $logTime) {
+function formatCancelMessage($entry, $logTime) {
     $cancelType = strtoupper($entry['cancel_type'] ?? '');
-    $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
+    $airport = strtoupper($entry['airport'] ?? '');
     $fix = strtoupper($entry['fix'] ?? '');
     
     $line = "{$logTime}    ";
@@ -507,9 +593,7 @@ function buildCancelNTML($entry, $logTime) {
         $line .= 'ALL TMI CANCELLED';
     } else {
         $line .= "CANCEL {$airport}";
-        if ($fix) {
-            $line .= " via {$fix}";
-        }
+        if ($fix) $line .= " via {$fix}";
         if (!empty($entry['restriction_value'])) {
             $line .= ' ' . $entry['restriction_value'] . 'MIT';
         }
@@ -525,88 +609,146 @@ function buildCancelNTML($entry, $logTime) {
 }
 
 /**
- * Build TBM NTML entry
- * Format: DD/HHMM APT TBM SECTOR REASON EXCL:xxx HHMM-HHMM REQ:PROV
+ * Format TBM message
  */
-function buildTBMNTML($entry, $logTime) {
+function formatTbmMessage($entry, $logTime) {
     $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
     $sector = strtoupper($entry['sector'] ?? '');
-    
-    // Reason
-    $reason = strtoupper($entry['reason_code'] ?? 'VOLUME');
-    $reasonStr = ($reason === 'VOLUME') ? 'VOLUME:VOLUME' : "{$reason}:{$reason}";
-    
-    // Exclusions
+    $reason = buildReasonString($entry);
     $excl = strtoupper($entry['exclusions'] ?? 'NONE');
-    
-    // Valid time
     $validFrom = $entry['valid_from'] ?? gmdate('Hi');
-    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+2 hours'));
+    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+6 hours'));
     
-    // Facilities
     $reqFac = strtoupper($entry['requesting_facility'] ?? '');
     $provFac = strtoupper($entry['providing_facility'] ?? '');
     
     $line = "{$logTime}    {$airport} TBM";
-    if ($sector) {
-        $line .= " {$sector}";
-    }
-    $line .= " {$reasonStr} EXCL:{$excl} {$validFrom}-{$validUntil}";
-    if ($reqFac || $provFac) {
-        $line .= " {$reqFac}:{$provFac}";
-    }
+    if ($sector) $line .= " {$sector}";
+    $line .= " {$reason} EXCL:{$excl} {$validFrom}-{$validUntil}";
+    if ($reqFac || $provFac) $line .= " {$reqFac}:{$provFac}";
     
     return trim($line);
 }
 
-// ============================================
-// DATABASE LOGGING
-// ============================================
-
-function logNTMLEntry($protocol, $determinant, $data, $messageId, $isProduction) {
-    global $conn_sqli;
+/**
+ * Format Ground Stop advisory message
+ */
+function formatGroundStopMessage($entry, $logTime) {
+    $advNum = $entry['advisory_number'] ?? '';
+    $airport = strtoupper($entry['airport'] ?? '');
+    $artcc = strtoupper($entry['requesting_facility'] ?? '');
+    $reason = buildReasonString($entry);
+    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+2 hours'));
+    $includedFlights = $entry['gs_included_flights'] ?? "ALL FLIGHTS DESTINED TO {$airport}";
     
-    // Sanitize data for JSON storage
+    $line = "**vATCSCC ADVZY {$advNum} {$airport}/{$artcc}** " . gmdate('m/d/Y') . "\n";
+    $line .= "**CDM GROUND STOP**\n\n";
+    $line .= "EFFECTIVE: {$logTime}Z UNTIL {$validUntil}Z\n";
+    $line .= "FLIGHTS INCLUDED: {$includedFlights}\n";
+    $line .= "REASON: {$reason}\n\n";
+    $line .= "MONITOR FOR UPDATES";
+    
+    return $line;
+}
+
+/**
+ * Format GDP advisory message
+ */
+function formatGdpMessage($entry, $logTime) {
+    $advNum = $entry['advisory_number'] ?? '';
+    $airport = strtoupper($entry['airport'] ?? '');
+    $artcc = strtoupper($entry['requesting_facility'] ?? '');
+    $reason = buildReasonString($entry);
+    $validFrom = $entry['valid_from'] ?? gmdate('Hi');
+    $validUntil = $entry['valid_until'] ?? gmdate('Hi', strtotime('+6 hours'));
+    $programRate = $entry['gdp_program_rate'] ?? '30/30/30/30';
+    $delayLimit = $entry['gdp_delay_limit'] ?? '120';
+    
+    $line = "**vATCSCC ADVZY {$advNum} {$airport}/{$artcc}** " . gmdate('m/d/Y') . "\n";
+    $line .= "**CDM GROUND DELAY PROGRAM**\n\n";
+    $line .= "EFFECTIVE: {$validFrom}Z - {$validUntil}Z\n";
+    $line .= "PROGRAM RATE: {$programRate}\n";
+    $line .= "DELAY LIMIT: {$delayLimit} MINUTES\n";
+    $line .= "REASON: {$reason}\n\n";
+    $line .= "MONITOR FOR UPDATES";
+    
+    return $line;
+}
+
+/**
+ * Build reason string in Category:Cause format (v1.6.0)
+ */
+function buildReasonString($entry) {
+    $category = strtoupper($entry['reason_code'] ?? 'VOLUME');
+    $cause = strtoupper($entry['reason_detail'] ?? $category);
+    
+    // Normalize common patterns
+    if ($category === 'WEATHER' || $category === 'WX') {
+        $category = 'WEATHER';
+        if (empty($cause) || $cause === 'WEATHER') {
+            $cause = 'WEATHER';
+        }
+    } elseif ($category === 'VOLUME' || $category === 'VOL') {
+        $category = 'VOLUME';
+        if (empty($cause) || $cause === 'VOLUME') {
+            $cause = 'VOLUME';
+        }
+    } elseif ($category === 'RUNWAY' || $category === 'RWY') {
+        $category = 'RUNWAY';
+        if (empty($cause) || $cause === 'RUNWAY') {
+            $cause = 'CONFIG';
+        }
+    } elseif ($category === 'EQUIPMENT' || $category === 'EQUIP') {
+        $category = 'EQUIPMENT';
+        if (empty($cause) || $cause === 'EQUIPMENT') {
+            $cause = 'EQUIPMENT';
+        }
+    } elseif ($category === 'OTHER') {
+        if (empty($cause)) {
+            $cause = 'OTHER';
+        }
+    }
+    
+    return "{$category}:{$cause}";
+}
+
+/**
+ * Legacy MySQL logging (for backward compatibility)
+ */
+function logNTMLEntryMySQL($determinant, $data, $messageId, $isProduction, $conn) {
+    if (!$conn) return;
+    
     $safeData = array_map('strip_tags', $data);
     $jsonData = json_encode($safeData);
-    
-    $cid = isset($_SESSION['VATSIM_CID']) ? intval($_SESSION['VATSIM_CID']) : 0;
+    $cid = intval($_SESSION['VATSIM_CID'] ?? 0);
     $isTest = $isProduction ? 0 : 1;
     
-    // Check if ntml_entries table exists, create if not
-    $tableCheck = $conn_sqli->query("SHOW TABLES LIKE 'ntml_entries'");
+    // Ensure table exists
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'ntml_entries'");
     if ($tableCheck->num_rows === 0) {
-        createNTMLTable($conn_sqli);
+        $sql = "CREATE TABLE IF NOT EXISTS ntml_entries (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            determinant_code VARCHAR(10),
+            protocol_type TINYINT,
+            entry_data JSON,
+            submitted_by INT,
+            submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            discord_message_id VARCHAR(20),
+            is_test BOOLEAN DEFAULT FALSE,
+            INDEX idx_determinant (determinant_code),
+            INDEX idx_submitted (submitted_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+        $conn->query($sql);
     }
     
     $sql = "INSERT INTO ntml_entries (determinant_code, protocol_type, entry_data, submitted_by, discord_message_id, is_test) 
             VALUES (?, ?, ?, ?, ?, ?)";
     
-    $stmt = $conn_sqli->prepare($sql);
+    $stmt = $conn->prepare($sql);
     if ($stmt) {
+        $protocol = intval($data['protocol'] ?? 0);
         $stmt->bind_param("sisisi", $determinant, $protocol, $jsonData, $cid, $messageId, $isTest);
         $stmt->execute();
         $stmt->close();
     }
 }
-
-function createNTMLTable($conn) {
-    $sql = "CREATE TABLE IF NOT EXISTS ntml_entries (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        determinant_code VARCHAR(10),
-        protocol_type TINYINT,
-        valid_time VARCHAR(20),
-        entry_data JSON,
-        submitted_by INT,
-        submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        discord_message_id VARCHAR(20),
-        is_test BOOLEAN DEFAULT FALSE,
-        INDEX idx_determinant (determinant_code),
-        INDEX idx_protocol (protocol_type),
-        INDEX idx_submitted (submitted_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
-    
-    $conn->query($sql);
-}
-
-?>

@@ -92,26 +92,30 @@ Authorization: Bearer swim_sys_simtraffic_d1b8e35e297f4d30b2b5b4d2
 
 All times in **ISO 8601 UTC format** (e.g., `2026-01-27T14:30:00Z`)
 
-| Field | Description | SWIM Column |
-|-------|-------------|-------------|
-| `departure.push_time` | Actual pushback time (T13 AOBT) | out_utc |
-| `departure.taxi_time` | When taxi begins | taxi_time_utc |
-| `departure.sequence_time` | Departure sequence assignment | sequence_time_utc |
-| `departure.holdshort_time` | Hold short point entry | holdshort_time_utc |
-| `departure.runway_time` | Runway entry time | runway_time_utc |
-| `departure.takeoff_time` | Actual takeoff (T11 ATOT) | off_utc |
-| `departure.edct` | Expected Departure Clearance Time | edct_utc |
+> **FIXM Migration Note:** As of 2026-01-27, SWIM writes to both legacy (`out_utc`, `off_utc`) and
+> FIXM-aligned (`actual_off_block_time`, `actual_time_of_departure`) columns. After the 30-day
+> transition period, legacy columns will be deprecated. API consumers should use FIXM field names.
+
+| Field | Description | Legacy Column | FIXM Column (Preferred) |
+|-------|-------------|---------------|-------------------------|
+| `departure.push_time` | Actual pushback time (T13 AOBT) | out_utc | actual_off_block_time |
+| `departure.taxi_time` | When taxi begins | taxi_time_utc | taxi_start_time |
+| `departure.sequence_time` | Departure sequence assignment | sequence_time_utc | departure_sequence_time |
+| `departure.holdshort_time` | Hold short point entry | holdshort_time_utc | hold_short_time |
+| `departure.runway_time` | Runway entry time | runway_time_utc | runway_entry_time |
+| `departure.takeoff_time` | Actual takeoff (T11 ATOT) | off_utc | actual_time_of_departure |
+| `departure.edct` | Expected Departure Clearance Time | edct_utc | edct_utc |
 
 ### Arrival Times
 
-| Field | Description | SWIM Column |
-|-------|-------------|-------------|
-| `arrival.eta` | Estimated arrival at runway | eta_utc, eta_runway_utc |
-| `arrival.eta_mf` or `arrival.mft` | STA at meter fix | metering_time |
-| `arrival.eta_vertex` or `arrival.vt` | STA at vertex/corner post | eta_vertex |
-| `arrival.on_time` | Actual landing (T12 ALDT) | on_utc |
-| `arrival.metering_fix` | Meter fix identifier (e.g., "CAMRN") | metering_point |
-| `arrival.rwy_assigned` | Assigned arrival runway (e.g., "31L") | arr_runway |
+| Field | Description | Legacy Column | FIXM Column (Preferred) |
+|-------|-------------|---------------|-------------------------|
+| `arrival.eta` | Estimated arrival at runway | eta_utc, eta_runway_utc | estimated_time_of_arrival, estimated_runway_arrival_time |
+| `arrival.eta_mf` or `arrival.mft` | STA at meter fix | metering_time | metering_time |
+| `arrival.eta_vertex` or `arrival.vt` | STA at vertex/corner post | eta_vertex | eta_vertex |
+| `arrival.on_time` | Actual landing (T12 ALDT) | on_utc | actual_landing_time |
+| `arrival.metering_fix` | Meter fix identifier (e.g., "CAMRN") | metering_point | metering_point |
+| `arrival.rwy_assigned` | Assigned arrival runway (e.g., "31L") | arr_runway | arr_runway |
 
 ### Status
 
@@ -253,5 +257,6 @@ For integration questions or issues:
 
 ---
 
-*Document version: 1.0.0*
+*Document version: 1.1.0*
 *Last updated: 2026-01-27*
+*Changelog: v1.1.0 - Added FIXM migration notes, dual-write column references*

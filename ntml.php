@@ -1,7 +1,15 @@
 <?php
 /**
- * NTML Protocol Entry Form - Streamlined Quick Entry
- * National Traffic Management Log - Phase 1: MIT, MINIT, Delay, Airport Config
+ * NTML Protocol Entry Form - Streamlined Quick Entry v1.7.0
+ * National Traffic Management Log - Phase 2: Full TMI Support
+ * 
+ * Features:
+ * - Quick Entry parsing for MIT, MINIT, STOP, APREQ, CFR, TBM, CONFIG, DELAY
+ * - Active TMI Display
+ * - Database persistence to VATSIM_TMI
+ * - Discord integration
+ * 
+ * @version 1.7.0
  */
 
 include("sessions/handler.php");
@@ -166,8 +174,14 @@ if (!defined('DEV')) {
         
         .protocol-pill.mit { background: #007bff; color: white; }
         .protocol-pill.minit { background: #17a2b8; color: white; }
-        .protocol-pill.delay { background: #ffc107; color: black; }
+        .protocol-pill.delay, .protocol-pill.holding { background: #ffc107; color: black; }
         .protocol-pill.config { background: #28a745; color: white; }
+        .protocol-pill.stop { background: #dc3545; color: white; }
+        .protocol-pill.apreq, .protocol-pill.cfr { background: #6f42c1; color: white; }
+        .protocol-pill.tbm { background: #fd7e14; color: white; }
+        .protocol-pill.cancel { background: #6c757d; color: white; }
+        .protocol-pill.gs { background: #dc3545; color: white; }
+        .protocol-pill.gdp { background: #e83e8c; color: white; }
         
         /* Mode Toggle */
         .mode-toggle {
@@ -293,6 +307,103 @@ if (!defined('DEV')) {
             font-size: 0.8rem;
             color: #ccc;
         }
+        
+        /* Active TMI Panel */
+        .active-tmi-panel {
+            background: var(--ntml-dark);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+        
+        .active-tmi-panel h5 {
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .active-entry-card {
+            background: #0d0d1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .active-entry-card .entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .active-entry-card .entry-time {
+            color: #888;
+            font-size: 0.8rem;
+        }
+        
+        .active-entry-card .entry-content {
+            color: var(--ntml-green);
+        }
+        
+        .active-entry-card .entry-meta {
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        
+        .no-active-entries {
+            text-align: center;
+            color: #666;
+            padding: 30px;
+        }
+        
+        .tmi-stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .tmi-stat {
+            background: #2a2a4a;
+            border-radius: 8px;
+            padding: 10px 15px;
+            text-align: center;
+        }
+        
+        .tmi-stat .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--ntml-green);
+        }
+        
+        .tmi-stat .stat-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+        
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+        
+        .refresh-btn:hover {
+            color: var(--ntml-green);
+        }
+        
+        .refresh-btn.spinning i {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -304,7 +415,7 @@ if (!defined('DEV')) {
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
             <h1><i class="fas fa-clipboard-list"></i> NTML Quick Entry</h1>
-            <p class="text-white-50 mb-0">National Traffic Management Log</p>
+            <p class="text-white-50 mb-0">National Traffic Management Log <span class="badge badge-info">v1.7.0</span></p>
         </center>
     </div>
 </section>
@@ -332,7 +443,7 @@ if (!defined('DEV')) {
     
     <!-- Production Warning -->
     <div class="production-warning mb-3" id="prodWarning">
-        <i class="fas fa-exclamation-triangle"></i> <strong>Production Mode Active</strong> - Entries will post to LIVE Discord channels
+        <i class="fas fa-exclamation-triangle"></i> <strong>Production Mode Active</strong> - Entries will post to LIVE Discord channels and be saved to database
     </div>
 
     <!-- Quick Entry Container -->
@@ -380,9 +491,14 @@ if (!defined('DEV')) {
             <button class="template-btn" data-template="mit-arr">MIT Arrival</button>
             <button class="template-btn" data-template="mit-dep">MIT Departure</button>
             <button class="template-btn" data-template="minit">MINIT</button>
+            <button class="template-btn" data-template="stop">STOP</button>
+            <button class="template-btn" data-template="apreq">APREQ</button>
+            <button class="template-btn" data-template="cfr">CFR</button>
+            <button class="template-btn" data-template="tbm">TBM</button>
             <button class="template-btn" data-template="delay">Delay</button>
-            <button class="template-btn" data-template="config">Airport Config</button>
-            <button class="template-btn" data-template="gs">Ground Stop</button>
+            <button class="template-btn" data-template="config">Config</button>
+            <button class="template-btn" data-template="holding">Holding</button>
+            <button class="template-btn" data-template="cancel">Cancel</button>
         </div>
         
         <!-- Syntax Help (collapsible) -->
@@ -393,22 +509,32 @@ if (!defined('DEV')) {
             <div class="collapse mt-2" id="syntaxHelp">
                 <div class="syntax-help">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <strong>MIT/MINIT:</strong><br>
-                            <code>[distance]MIT [from]→[to] [airport/fix] [reason]</code><br>
+                            <code>[distance]MIT [from]→[to] [airport] [fix] [reason]</code><br>
                             <small>Example: <code>20MIT ZBW→ZNY JFK LENDY VOLUME</code></small>
                             <hr class="my-2 border-secondary">
-                            <strong>Delay:</strong><br>
+                            <strong>STOP:</strong><br>
+                            <code>[airport] STOP [reason] EXCL:[excl] [time] [fac]:[fac]</code><br>
+                            <small>Example: <code>BOS STOP VOLUME EXCL:NONE 2345-0015 ZBW:ZNY</code></small>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>APREQ/CFR:</strong><br>
+                            <code>APREQ [airport] departures [reason] [time] [fac]:[fac]</code><br>
+                            <small>Example: <code>APREQ ATL departures via BOBZY VOLUME 2330-0100</code></small>
+                            <hr class="my-2 border-secondary">
+                            <strong>TBM:</strong><br>
+                            <code>[airport] TBM [sector] [reason] [time] [fac]:[fac]</code><br>
+                            <small>Example: <code>ATL TBM 3_WEST VOLUME 2230-0400 ZTL:ZJX</code></small>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>CONFIG:</strong><br>
+                            <code>[airport] [wx] ARR:[rwys] DEP:[rwys] AAR:[n] ADR:[n]</code><br>
+                            <small>Example: <code>JFK VMC ARR:22L/22R DEP:31L AAR:40 ADR:45</code></small>
+                            <hr class="my-2 border-secondary">
+                            <strong>Holding/Delay:</strong><br>
                             <code>DELAY [facility] [minutes]min [trend] [flights]flt</code><br>
                             <small>Example: <code>DELAY JFK 45min INC 12flt WEATHER</code></small>
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Airport Config:</strong><br>
-                            <code>CONFIG [airport] [wx] ARR:[rwys] DEP:[rwys] AAR:[n] ADR:[n]</code><br>
-                            <small>Example: <code>CONFIG JFK IMC ARR:22L/22R DEP:31L AAR:40 ADR:45</code></small>
-                            <hr class="my-2 border-secondary">
-                            <strong>Modifiers:</strong><br>
-                            <code>HEAVY</code> <code>B757</code> <code>EACH</code> <code>AS_ONE</code> <code>PER_FIX</code>
                         </div>
                     </div>
                 </div>
@@ -450,6 +576,40 @@ if (!defined('DEV')) {
         </div>
     </div>
     
+    <!-- Active TMI Panel -->
+    <div class="active-tmi-panel" id="activeTmiPanel">
+        <h5>
+            <i class="fas fa-broadcast-tower"></i> Active TMI Entries
+            <button class="refresh-btn float-right" id="refreshActiveTmi" title="Refresh">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </h5>
+        
+        <!-- TMI Stats -->
+        <div class="tmi-stats" id="tmiStats">
+            <div class="tmi-stat">
+                <div class="stat-value" id="statEntries">-</div>
+                <div class="stat-label">Entries</div>
+            </div>
+            <div class="tmi-stat">
+                <div class="stat-value" id="statPrograms">-</div>
+                <div class="stat-label">Programs</div>
+            </div>
+            <div class="tmi-stat">
+                <div class="stat-value" id="statReroutes">-</div>
+                <div class="stat-label">Reroutes</div>
+            </div>
+        </div>
+        
+        <!-- Active Entries List -->
+        <div id="activeEntriesList">
+            <div class="no-active-entries">
+                <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
+                Loading active TMI data...
+            </div>
+        </div>
+    </div>
+    
     <?php else: ?>
     
     <div class="alert alert-danger">
@@ -484,5 +644,173 @@ if (!defined('DEV')) {
 
 <?php include('load/footer.php'); ?>
 <script src="assets/js/ntml.js"></script>
+<script>
+// ============================================
+// ACTIVE TMI DISPLAY
+// ============================================
+
+$(document).ready(function() {
+    // Load active TMI on page load
+    loadActiveTmi();
+    
+    // Refresh button
+    $('#refreshActiveTmi').click(function() {
+        loadActiveTmi();
+    });
+    
+    // Auto-refresh every 60 seconds
+    setInterval(loadActiveTmi, 60000);
+});
+
+function loadActiveTmi() {
+    const $btn = $('#refreshActiveTmi');
+    const $list = $('#activeEntriesList');
+    
+    $btn.addClass('spinning');
+    
+    $.ajax({
+        url: 'api/tmi/active.php',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            $btn.removeClass('spinning');
+            
+            if (response.success) {
+                renderActiveTmi(response.data);
+            } else {
+                $list.html('<div class="no-active-entries"><i class="fas fa-exclamation-triangle"></i><br>Failed to load TMI data</div>');
+            }
+        },
+        error: function() {
+            $btn.removeClass('spinning');
+            $list.html('<div class="no-active-entries"><i class="fas fa-exclamation-triangle"></i><br>Error loading TMI data</div>');
+        }
+    });
+}
+
+function renderActiveTmi(data) {
+    // Update stats
+    $('#statEntries').text(data.entry_count || 0);
+    $('#statPrograms').text(data.program_count || 0);
+    $('#statReroutes').text(data.reroute_count || 0);
+    
+    const $list = $('#activeEntriesList');
+    
+    // Combine all active items
+    const items = [];
+    
+    // Add entries
+    if (data.entries && data.entries.length > 0) {
+        data.entries.forEach(entry => {
+            items.push({
+                type: entry.entry_type,
+                determinant: entry.determinant_code,
+                content: formatEntryContent(entry),
+                time: formatTime(entry.valid_from, entry.valid_until),
+                meta: `${entry.requesting_facility || ''} → ${entry.providing_facility || ''}`,
+                created: entry.created_at
+            });
+        });
+    }
+    
+    // Add programs (GS/GDP)
+    if (data.programs && data.programs.length > 0) {
+        data.programs.forEach(prog => {
+            items.push({
+                type: prog.program_type,
+                determinant: prog.program_type === 'GS' ? 'GS' : 'GDP',
+                content: `${prog.ctl_element} - ${prog.program_name || prog.program_type}`,
+                time: formatTime(prog.start_utc, prog.end_utc),
+                meta: prog.impacting_condition ? `${prog.impacting_condition}:${prog.cause_text || prog.impacting_condition}` : '',
+                created: prog.created_at
+            });
+        });
+    }
+    
+    // Add reroutes
+    if (data.reroutes && data.reroutes.length > 0) {
+        data.reroutes.forEach(rrt => {
+            items.push({
+                type: 'REROUTE',
+                determinant: 'RTE',
+                content: rrt.name || 'Reroute',
+                time: formatTime(rrt.start_utc, rrt.end_utc),
+                meta: rrt.protected_segment || '',
+                created: rrt.created_at
+            });
+        });
+    }
+    
+    if (items.length === 0) {
+        $list.html('<div class="no-active-entries"><i class="fas fa-check-circle fa-2x mb-2"></i><br>No active TMI entries</div>');
+        return;
+    }
+    
+    // Sort by created time (most recent first)
+    items.sort((a, b) => new Date(b.created) - new Date(a.created));
+    
+    // Render items
+    let html = '';
+    items.slice(0, 20).forEach(item => {
+        const pillClass = item.type.toLowerCase().replace('/', '-');
+        html += `
+            <div class="active-entry-card">
+                <div class="entry-header">
+                    <span class="protocol-pill ${pillClass}">${item.type}</span>
+                    <span class="entry-time">${item.time}</span>
+                </div>
+                <div class="entry-content">${escapeHtml(item.content)}</div>
+                ${item.meta ? `<div class="entry-meta">${escapeHtml(item.meta)}</div>` : ''}
+            </div>
+        `;
+    });
+    
+    if (items.length > 20) {
+        html += `<div class="text-center text-muted mt-2">+ ${items.length - 20} more entries</div>`;
+    }
+    
+    $list.html(html);
+}
+
+function formatEntryContent(entry) {
+    let content = entry.ctl_element || '';
+    
+    if (entry.condition_text) {
+        content += ` via ${entry.condition_text}`;
+    }
+    
+    if (entry.restriction_value) {
+        content += ` ${entry.restriction_value}${entry.restriction_unit || ''}`;
+    }
+    
+    if (entry.reason_code) {
+        content += ` ${entry.reason_code}`;
+        if (entry.reason_detail && entry.reason_detail !== entry.reason_code) {
+            content += `:${entry.reason_detail}`;
+        }
+    }
+    
+    return content || entry.entry_type;
+}
+
+function formatTime(from, until) {
+    if (!from && !until) return '';
+    
+    const formatDt = (dt) => {
+        if (!dt) return '????';
+        const d = new Date(dt);
+        return d.toISOString().substr(11, 4).replace(':', '');
+    };
+    
+    return `${formatDt(from)}Z - ${formatDt(until)}Z`;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
 </body>
 </html>
