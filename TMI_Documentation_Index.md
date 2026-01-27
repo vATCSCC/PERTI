@@ -55,7 +55,8 @@
 | Source Filter | ✅ Complete | v1.8.0 - Production/Staging/All |
 | Active TMI Display | ✅ Complete | v1.7.0 - FAA-style table |
 | Category:Cause | ✅ Complete | v1.6.0 - OPSNET reasons |
-| Airport CONFIG Presets | 📋 Planned | Database integration needed |
+| Airport CONFIG Presets | ✅ Complete | v1.8.1 - Database integration |
+| Airport FAA/ICAO Lookup | ✅ Complete | v1.8.2 - Auto-lookup with caching |
 
 ### GDT System (gdt.php)
 
