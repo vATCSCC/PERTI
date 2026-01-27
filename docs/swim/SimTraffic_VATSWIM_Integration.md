@@ -248,15 +248,6 @@ curl -X POST https://perti.vatcscc.org/api/swim/v1/ingest/simtraffic \
   }'
 ```
 
-## Support
-
-For integration questions or issues:
-- **PERTI Admin:** Jeremy Peterson
-- **VATCSCC Discord:** https://discord.gg/vatcscc
-- **GitHub Issues:** https://github.com/vatcscc/perti/issues
-
 ---
 
-*Document version: 1.1.0*
-*Last updated: 2026-01-27*
-*Changelog: v1.1.0 - Added FIXM migration notes, dual-write column references*
+*Document version: 1.1.0 | Last updated: 2026-01-27*
