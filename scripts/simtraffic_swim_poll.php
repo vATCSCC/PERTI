@@ -247,17 +247,30 @@ function fetch_simtraffic_api($callsign, $debug = false) {
 
     if ($curlError) {
         if ($debug) echo "CURL ERROR: $curlError\n";
-        return null;
+        return null;  // Network error - count toward circuit breaker
     }
 
     if ($httpCode === 404) {
         if ($debug) echo "NOT FOUND\n";
+        return false;  // Flight not in SimTraffic - cache as not found
+    }
+
+    if ($httpCode === 401) {
+        // Auth error - log but don't trip circuit (config issue)
+        if ($debug) echo "UNAUTHORIZED (check API key)\n";
+        error_log('SimTraffic API 401 Unauthorized - check SIMTRAFFIC_API_KEY');
+        return false;  // Treat as "not available" rather than transient error
+    }
+
+    if ($httpCode === 400) {
+        // Bad request - likely malformed callsign, don't trip circuit
+        if ($debug) echo "BAD REQUEST\n";
         return false;
     }
 
     if ($httpCode !== 200) {
         if ($debug) echo "HTTP $httpCode\n";
-        return null;
+        return null;  // Other errors (5xx, etc.) - trip circuit breaker
     }
 
     $data = json_decode($response, true);
