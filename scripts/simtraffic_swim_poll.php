@@ -268,6 +268,17 @@ function fetch_simtraffic_api($callsign, $debug = false) {
         return false;
     }
 
+    if ($httpCode === 403) {
+        // Forbidden - likely CloudFlare/WAF or IP block, log but don't trip circuit
+        if ($debug) echo "FORBIDDEN (possible IP block)\n";
+        static $logged403 = false;
+        if (!$logged403) {
+            error_log('SimTraffic API 403 Forbidden - possible CloudFlare/IP block');
+            $logged403 = true;  // Only log once per process
+        }
+        return false;
+    }
+
     if ($httpCode !== 200) {
         if ($debug) echo "HTTP $httpCode\n";
         return null;  // Other errors (5xx, etc.) - trip circuit breaker
