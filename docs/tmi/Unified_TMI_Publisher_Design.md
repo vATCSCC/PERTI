@@ -630,12 +630,14 @@ foreach ($responses as $response) {
 - [x] Add cross-border TMI detection (basic)
 - [ ] Wire up existing ntml.js parser (full integration)
 
-### Phase 3: Unified API Endpoint (Day 2-3) 🟡 IN PROGRESS
+### Phase 3: Unified API Endpoint (Day 2-3) ✅ COMPLETE
 - [x] Create api/mgt/tmi/publish.php
-- [ ] Migrate logic from api/mgt/ntml/post.php
-- [ ] Add advisory publishing logic (full)
-- [ ] Implement multi-Discord posting with tmi_discord_posts tracking
-- [ ] Create api/mgt/tmi/promote.php for staging→production
+- [x] Migrate NTML message formatting logic
+- [x] Add advisory publishing logic
+- [x] Implement multi-Discord posting with tmi_discord_posts tracking
+- [x] Create api/mgt/tmi/promote.php for staging→production
+- [x] Create api/mgt/tmi/staged.php for listing staged entries
+- [x] Add promotion UI to tmi-publish.js
 
 ### Phase 4: Discord Inbound Webhook (Day 3-4)
 - [ ] Create api/webhook/discord.php
@@ -688,7 +690,8 @@ PERTI/
 │   ├── mgt/
 │   │   └── tmi/
 │   │       ├── publish.php             # ✅ Phase 3: Unified publish endpoint
-│   │       └── promote.php             # Phase 3: Staging→production promotion
+│   │       ├── promote.php             # ✅ Phase 3: Staging→production promotion
+│   │       └── staged.php              # ✅ Phase 3: List staged entries
 │   └── webhook/
 │       └── discord.php                 # Phase 4: Discord webhook handler
 ├── scripts/
