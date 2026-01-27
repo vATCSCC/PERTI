@@ -8,11 +8,19 @@
  * NTML Entry Types: MIT, MINIT, DELAY, CONFIG, STOP, APREQ/CFR, TBM, CANCEL
  * Advisory Types: Operations Plan, Free Form, Hotline, SWAP Implementation
  * 
+ * v1.7.0 - FAA-style Active TMI Display
+ *   - Enhanced restrictions table (FAA format: REQUESTING | PROVIDING | RESTRICTION | START TIME | STOP TIME)
+ *   - Filter controls (Requesting/Providing Facility, Type, Status)
+ *   - Auto-refresh with countdown timer (60 seconds)
+ *   - Status summary cards (Active, Scheduled, Cancelled, Advisories)
+ *   - Expandable advisory cards
+ *   - Cancel action support
+ * 
  * Note: GS/GDP → GDT page, Reroutes/AFP → route.php
  * 
  * @package PERTI
  * @subpackage TMI
- * @version 1.1.0
+ * @version 1.7.0
  * @date 2026-01-27
  */
 
@@ -125,7 +133,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <head>
     <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/info-bar.css">
-    <link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.1">
+    <link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.2">
 </head>
 <body>
 
@@ -642,46 +650,206 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
             </div>
         </div>
         
-        <!-- Active TMIs Panel -->
+        <!-- Active TMIs Panel (FAA-style) -->
         <div class="tab-pane fade" id="activePanel" role="tabpanel">
-            <div class="row">
-                <div class="col-12">
-                    <div class="card shadow-sm mb-3">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span class="tmi-section-title">
-                                <i class="fas fa-broadcast-tower mr-1"></i> Active Traffic Management Initiatives
-                            </span>
-                            <button class="btn btn-sm btn-outline-primary" id="refreshActiveTmis">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
+            
+            <!-- Status Header -->
+            <div class="tmi-status-header mb-3">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h5 class="mb-0"><i class="fas fa-broadcast-tower mr-2"></i>Current Restrictions &amp; Advisories</h5>
+                    </div>
+                    <div class="col-md-6 text-md-right">
+                        <div class="refresh-timer d-inline-block mr-3">
+                            <i class="fas fa-sync-alt mr-1"></i>
+                            <span>Refreshes every minute. Last updated: <span id="lastRefreshTime">--:--:-- UTC</span></span>
+                            <span class="ml-2 countdown" id="refreshCountdown">60s</span>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover mb-0">
-                                    <thead class="thead-light">
-                                        <tr>
-                                            <th style="width: 100px;">Type</th>
-                                            <th>Summary</th>
-                                            <th style="width: 100px;">Facilities</th>
-                                            <th style="width: 80px;">Valid</th>
-                                            <th style="width: 70px;">Status</th>
-                                            <th style="width: 80px;">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="activeTmiBody">
-                                        <tr>
-                                            <td colspan="6" class="text-center text-muted py-4">
-                                                <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                                                Loading active TMIs...
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                        <button class="btn btn-sm btn-light" id="refreshActiveTmis">
+                            <i class="fas fa-sync-alt"></i> Refresh Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Status Summary Cards -->
+            <div class="row mb-3">
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body py-2 text-center">
+                            <div class="tmi-status-count" id="activeCount">0</div>
+                            <div class="tmi-status-label">Active</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body py-2 text-center">
+                            <div class="tmi-status-count" id="scheduledCount">0</div>
+                            <div class="tmi-status-label">Scheduled</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="card bg-secondary text-white h-100">
+                        <div class="card-body py-2 text-center">
+                            <div class="tmi-status-count" id="cancelledCount">0</div>
+                            <div class="tmi-status-label">Cancelled (4h)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body py-2 text-center">
+                            <div class="tmi-status-count" id="advisoryCount">0</div>
+                            <div class="tmi-status-label">Advisories</div>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <!-- Filter Controls -->
+            <div id="activeTmiFilters" class="mb-3">
+                <div class="row align-items-end">
+                    <div class="col-md-2 col-6 mb-2">
+                        <label class="small text-muted mb-0">Requesting</label>
+                        <select class="form-control form-control-sm" id="filterReqFac">
+                            <option value="ALL">ALL</option>
+                            <option value="ZAB">ZAB</option>
+                            <option value="ZAU">ZAU</option>
+                            <option value="ZBW">ZBW</option>
+                            <option value="ZDC">ZDC</option>
+                            <option value="ZDV">ZDV</option>
+                            <option value="ZFW">ZFW</option>
+                            <option value="ZHU">ZHU</option>
+                            <option value="ZID">ZID</option>
+                            <option value="ZJX">ZJX</option>
+                            <option value="ZKC">ZKC</option>
+                            <option value="ZLA">ZLA</option>
+                            <option value="ZLC">ZLC</option>
+                            <option value="ZMA">ZMA</option>
+                            <option value="ZME">ZME</option>
+                            <option value="ZMP">ZMP</option>
+                            <option value="ZNY">ZNY</option>
+                            <option value="ZOA">ZOA</option>
+                            <option value="ZOB">ZOB</option>
+                            <option value="ZSE">ZSE</option>
+                            <option value="ZTL">ZTL</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-6 mb-2">
+                        <label class="small text-muted mb-0">Providing</label>
+                        <select class="form-control form-control-sm" id="filterProvFac">
+                            <option value="ALL">ALL</option>
+                            <option value="ZAB">ZAB</option>
+                            <option value="ZAU">ZAU</option>
+                            <option value="ZBW">ZBW</option>
+                            <option value="ZDC">ZDC</option>
+                            <option value="ZDV">ZDV</option>
+                            <option value="ZFW">ZFW</option>
+                            <option value="ZHU">ZHU</option>
+                            <option value="ZID">ZID</option>
+                            <option value="ZJX">ZJX</option>
+                            <option value="ZKC">ZKC</option>
+                            <option value="ZLA">ZLA</option>
+                            <option value="ZLC">ZLC</option>
+                            <option value="ZMA">ZMA</option>
+                            <option value="ZME">ZME</option>
+                            <option value="ZMP">ZMP</option>
+                            <option value="ZNY">ZNY</option>
+                            <option value="ZOA">ZOA</option>
+                            <option value="ZOB">ZOB</option>
+                            <option value="ZSE">ZSE</option>
+                            <option value="ZTL">ZTL</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-6 mb-2">
+                        <label class="small text-muted mb-0">Type</label>
+                        <select class="form-control form-control-sm" id="filterType">
+                            <option value="ALL">All Types</option>
+                            <option value="MIT">MIT</option>
+                            <option value="MINIT">MINIT</option>
+                            <option value="STOP">STOP</option>
+                            <option value="APREQ">APREQ/CFR</option>
+                            <option value="TBM">TBM</option>
+                            <option value="CONFIG">Config</option>
+                            <option value="DELAY">Delay</option>
+                            <option value="GDP">GDP</option>
+                            <option value="GS">Ground Stop</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-6 mb-2">
+                        <label class="small text-muted mb-0">Status</label>
+                        <select class="form-control form-control-sm" id="filterStatus">
+                            <option value="ACTIVE">Active</option>
+                            <option value="SCHEDULED">Scheduled</option>
+                            <option value="CANCELLED">Recently Cancelled</option>
+                            <option value="ALL">All</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-6 mb-2">
+                        <button class="btn btn-sm btn-primary btn-block" id="applyFilters">
+                            <i class="fas fa-filter"></i> Apply
+                        </button>
+                    </div>
+                    <div class="col-md-2 col-6 mb-2">
+                        <button class="btn btn-sm btn-outline-secondary btn-block" id="resetFilters">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Restrictions Table (FAA-style) -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header py-2" style="background-color: #1a5276;">
+                    <span class="text-white font-weight-bold">
+                        <i class="fas fa-ruler-horizontal mr-1"></i> Current Restrictions
+                        <span class="badge badge-light ml-2" id="restrictionCount">0</span>
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0" id="restrictionsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;">REQUESTING</th>
+                                    <th style="width: 100px;">PROVIDING</th>
+                                    <th>RESTRICTION</th>
+                                    <th style="width: 140px;">START TIME</th>
+                                    <th style="width: 140px;">STOP TIME</th>
+                                    <th style="width: 60px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="restrictionsTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
+                                        Loading restrictions...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advisories Section -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header py-2 bg-primary text-white">
+                    <span class="font-weight-bold">
+                        <i class="fas fa-bullhorn mr-1"></i> Active Advisories
+                        <span class="badge badge-light ml-2" id="advisoryCountHeader">0</span>
+                    </span>
+                </div>
+                <div class="card-body p-2" id="advisoriesContainer">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
+                        Loading advisories...
+                    </div>
+                </div>
+            </div>
+            
         </div>
         
     </div>
@@ -786,14 +954,15 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.5.0"></script>
+<script src="assets/js/tmi-publish.js?v=1.7.0"></script>
+<script src="assets/js/tmi-active-display.js?v=1.0.0"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
 (function() {
     var lastVersion = localStorage.getItem('tmi_publisher_version');
-    if (lastVersion !== '1.5.0') {
+    if (lastVersion !== '1.7.0') {
         localStorage.removeItem('tmi_publisher_queue');
-        localStorage.setItem('tmi_publisher_version', '1.5.0');
+        localStorage.setItem('tmi_publisher_version', '1.7.0');
         console.log('TMI Publisher: Cleared old queue data for version upgrade');
     }
 })();
