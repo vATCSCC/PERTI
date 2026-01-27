@@ -128,6 +128,46 @@ When user profile has a saved facility:
 - Applied after `loadNtmlForm()` completes
 - Only applies if field is empty
 
+### 7. Airport CONFIG Presets (v1.8.1)
+
+**New API** (`api/mgt/tmi/airport_configs.php`):
+- GET endpoint for fetching airport configurations
+- Accepts `airport` parameter (FAA or ICAO code)
+- Returns config presets with runways and rates
+- Queries `dbo.vw_airport_config_summary` and `dbo.vw_airport_config_rates`
+- Falls back to MySQL `config_data` table if ADL unavailable
+
+**CONFIG Form Enhancements**:
+- Removed "Config Name" text input
+- Added "Config Preset" dropdown (populated from database)
+- Auto-loads presets when airport code entered
+- Selecting preset populates: Arrival Runways, Departure Runways, AAR, ADR
+- Weather category change updates rates (VMC vs IMC)
+
+**New Event Handlers**:
+- `initConfigFormHandlers()` - Sets up CONFIG form specific handlers
+- `loadAirportConfigs(airport)` - Fetches presets from API
+- `applyConfigPreset(configId)` - Populates form fields from preset
+
+### 8. Airport FAA/ICAO Code Lookup (v1.8.2)
+
+**Utility Functions** (`tmi-publish.js`):
+- `lookupAirportCode(code, callback)` - Async lookup via API
+- `initAirportLookupHandler($input, $statusEl)` - Binds blur/input events
+- `performAirportLookup(code, $statusEl)` - Executes lookup and displays result
+- `icaoLookupCache` - Caches results to reduce API calls
+
+**Form Updates**:
+- MIT/MINIT, STOP, TBM, DELAY forms now have `#airport_lookup_status` element
+- Status shows: "JFK / KJFK (John F Kennedy Intl)" when found
+- Placeholders updated to show FAA codes (e.g., "JFK" not "KJFK")
+- Debounced input handler (500ms) for real-time feedback
+
+**Existing API** (`api/util/icao_lookup.php`):
+- Already existed - queries `dbo.apts` table
+- Returns FAA code, ICAO code, and airport name
+- Fallback logic for codes not in database (K-prefix for US)
+
 ---
 
 ## Files Modified
@@ -135,14 +175,15 @@ When user profile has a saved facility:
 ### PHP Files
 | File | Changes |
 |------|---------|  
-| `tmi-publish.php` | User profile modal, clickable username, source filter dropdown, CSS/JS version bumps |
+| `tmi-publish.php` | User profile modal, clickable username, source filter dropdown, CSS/JS version bumps (v1.8.1) |
 | `api/mgt/tmi/active.php` | Source filter parameter (PRODUCTION/STAGING/ALL), updated query functions |
+| `api/mgt/tmi/airport_configs.php` | NEW: Airport config presets API for CONFIG form |
 
 ### JavaScript Files
 | File | Changes |
 |------|---------|  
-| `assets/js/tmi-publish.js` | Hotline form rebuild, facility selector, profile functions, container ID fixes |
-| `assets/js/tmi-active-display.js` | Source filter support, simplified buildFilterControls, updated filter state |
+| `assets/js/tmi-publish.js` | v1.8.2: CONFIG presets, FAA/ICAO lookup, Hotline form, facility selector, profile functions |
+| `assets/js/tmi-active-display.js` | v1.1.0: Source filter support, simplified buildFilterControls, updated filter state |
 
 ### CSS Files
 | File | Changes |
@@ -154,11 +195,13 @@ When user profile has a saved facility:
 ## Version History
 
 | Version | Date | Changes |
-|---------|------|---------|
-| 1.7.0 | Jan 27, 2026 | Category:Cause implementation, Active TMI Display |
-| 1.7.1 | Jan 27, 2026 | Container ID fixes, form loading fixes |
-| 1.7.2 | Jan 27, 2026 | Queue button text fallbacks |
+|---------|------|---------|  
+| 1.8.2 | Jan 28, 2026 | Airport FAA/ICAO code lookup |
+| 1.8.1 | Jan 27, 2026 | Airport CONFIG presets from database |
 | 1.8.0 | Jan 27, 2026 | Hotline overhaul, user profile, NTML improvements |
+| 1.7.2 | Jan 27, 2026 | Queue button text fallbacks |
+| 1.7.1 | Jan 27, 2026 | Container ID fixes, form loading fixes |
+| 1.7.0 | Jan 27, 2026 | Category:Cause implementation, Active TMI Display |
 
 ---
 
@@ -166,17 +209,15 @@ When user profile has a saved facility:
 
 The following items from the original request list still need implementation:
 
-### High Priority
-1. **Airport CONFIG presets** - Pull from database table used by airport_config.php
-
 ### Medium Priority
-2. **Airport FAA/ICAO code matching** - Auto-match from apts.csv or dbo.apts table
-3. **NTML date/time fields** - Add date pickers for start/end times (currently time-only)
+1. **NTML date/time fields** - Add date pickers for start/end times (currently time-only)
 
 ### Low Priority
-4. **Qualifier dropdown sizing** - Right-size to prevent truncation
+2. **Qualifier dropdown sizing** - Right-size to prevent truncation
 
 ### Resolved
+- **Airport FAA/ICAO code matching** - Implemented: Auto-lookup with caching
+- **Airport CONFIG presets** - Implemented: API + auto-load from database
 - **Active TMIs toggle** - Implemented: Source filter dropdown (Production/Staging/All)
 - **Duplicate buttons** - Investigated: Buttons are in separate tab panels, not duplicated
 
@@ -197,6 +238,12 @@ The following items from the original request list still need implementation:
 - [ ] Active TMIs: Change source filter to "Staging" → Only staged items shown
 - [ ] Active TMIs: Change source filter to "All Sources" → Both production and staging shown
 - [ ] Active TMIs: Reset filters → Source returns to "Production"
+- [ ] CONFIG form: Enter "JFK" in airport → Presets dropdown populates
+- [ ] CONFIG form: Select a preset → Runways and rates auto-fill
+- [ ] CONFIG form: Change weather to IMC → Rates update from preset
+- [ ] MIT/MINIT form: Enter "JFK" → Shows "JFK / KJFK" with airport name
+- [ ] STOP form: Enter "ORD" → Shows "ORD / KORD (Chicago O'Hare Intl)"
+- [ ] Verify lookup caching → Second lookup of same code is instant
 
 ---
 

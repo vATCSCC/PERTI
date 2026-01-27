@@ -8,9 +8,21 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.8.0
- * @date 2026-01-27
+ * @version 1.8.2
+ * @date 2026-01-28
  * 
+ * v1.8.2 Changes:
+ *   - Airport FAA/ICAO code lookup: Auto-lookup and display both codes
+ *   - API integration with api/util/icao_lookup.php
+ *   - Results cached to reduce API calls
+ *   - Status display under airport input fields
+ *
+ * v1.8.1 Changes:
+ *   - Airport CONFIG presets: Database integration via api/mgt/tmi/airport_configs.php
+ *   - Auto-load presets when airport code entered
+ *   - Auto-populate runways and rates from preset
+ *   - Weather category change updates rates from preset
+ *
  * v1.8.0 Changes:
  *   - Hotline form completely redesigned:
  *     - Hotline names match PERTI Plan options (NY Metro, DC Metro, Chicago, etc.)
@@ -551,6 +563,7 @@
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Airport/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="10">
+                            <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-5">
                             <label class="form-label small text-muted">Via Route/Fix</label>
@@ -587,11 +600,13 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid From (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid Until (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                     </div>
                     
@@ -626,7 +641,8 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Airport/Fix</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="10">
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="10">
+                            <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Via Route/Fix</label>
@@ -662,11 +678,13 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid From (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid Until (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                     </div>
                     
@@ -782,7 +800,8 @@
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Airport</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KATL" maxlength="4">
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="ATL" maxlength="4">
+                            <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Meter Point/Arc</label>
@@ -869,7 +888,8 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="4">
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="4">
+                            <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">Delay (minutes)</label>
@@ -922,7 +942,15 @@
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Airport</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="4">
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="4">
+                            <small class="text-muted">Enter FAA or ICAO code</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Config Preset</label>
+                            <select class="form-control" id="ntml_config_preset">
+                                <option value="">-- Enter airport first --</option>
+                            </select>
+                            <small class="text-muted" id="config_preset_status"></small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Weather Category</label>
@@ -932,10 +960,6 @@
                                 <option value="IMC">IMC</option>
                                 <option value="LIMC">LIMC</option>
                             </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">Config Name</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_config_name" placeholder="EAST, WEST, etc.">
                         </div>
                     </div>
                     
@@ -971,7 +995,7 @@
                     
                     <div class="alert alert-info small mb-3">
                         <i class="fas fa-info-circle"></i> 
-                        For standard configurations, see <a href="airport_config.php" target="_blank">Airport Configurations</a>
+                        Enter an airport code to load saved presets. See <a href="airport_config.php" target="_blank">Airport Configurations</a> for full list.
                     </div>
                     
                     <hr>
@@ -1062,6 +1086,227 @@
         // Facility auto-suggest cross-border detection
         $('.facility-autocomplete').on('change', function() {
             detectCrossBorderFromFacilities();
+        });
+        
+        // Airport code lookup for applicable forms
+        if (['MIT', 'MINIT', 'STOP', 'TBM', 'DELAY', 'CANCEL'].includes(type)) {
+            const $airportInput = $('#ntml_ctl_element');
+            const $statusEl = $('#airport_lookup_status');
+            if ($airportInput.length && $statusEl.length) {
+                initAirportLookupHandler($airportInput, $statusEl);
+            }
+        }
+        
+        // CONFIG form handlers
+        if (type === 'CONFIG') {
+            initConfigFormHandlers();
+        }
+    }
+    
+    // ===========================================
+    // CONFIG Form Handlers (Airport Presets)
+    // ===========================================
+    
+    let configPresets = []; // Store loaded config presets
+    
+    function initConfigFormHandlers() {
+        // Airport code change - fetch presets
+        $('#ntml_ctl_element').on('blur', function() {
+            const airport = $(this).val().trim().toUpperCase();
+            if (airport && airport.length >= 3) {
+                loadAirportConfigs(airport);
+            }
+        });
+        
+        // Also trigger on Enter key
+        $('#ntml_ctl_element').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                $(this).blur();
+            }
+        });
+        
+        // Preset selection - populate fields
+        $('#ntml_config_preset').on('change', function() {
+            const configId = $(this).val();
+            if (configId) {
+                applyConfigPreset(configId);
+            }
+        });
+        
+        // Weather category change - update rates from preset
+        $('#ntml_weather').on('change', function() {
+            const configId = $('#ntml_config_preset').val();
+            if (configId && configPresets.length > 0) {
+                applyConfigPreset(configId);
+            }
+        });
+    }
+    
+    function loadAirportConfigs(airport) {
+        const $preset = $('#ntml_config_preset');
+        const $status = $('#config_preset_status');
+        
+        $status.html('<i class="fas fa-spinner fa-spin"></i> Loading...');
+        $preset.html('<option value="">Loading...</option>').prop('disabled', true);
+        
+        $.ajax({
+            url: 'api/mgt/tmi/airport_configs.php',
+            method: 'GET',
+            data: { airport: airport, active_only: '1' },
+            success: function(response) {
+                if (response.success && response.configs && response.configs.length > 0) {
+                    configPresets = response.configs;
+                    
+                    let options = '<option value="">-- Select config --</option>';
+                    response.configs.forEach(function(cfg) {
+                        const displayName = cfg.configCode 
+                            ? `${cfg.configName} (${cfg.configCode})`
+                            : cfg.configName;
+                        const rateInfo = cfg.rates.vmcAar ? ` [AAR: ${cfg.rates.vmcAar}]` : '';
+                        options += `<option value="${cfg.configId}">${displayName}${rateInfo}</option>`;
+                    });
+                    
+                    $preset.html(options).prop('disabled', false);
+                    $status.html(`<span class="text-success">${response.count} config(s) found</span>`);
+                    
+                    console.log('[TMI] Loaded', response.count, 'configs for', airport);
+                } else {
+                    $preset.html('<option value="">-- No configs found --</option>').prop('disabled', true);
+                    $status.html('<span class="text-warning">No presets available</span>');
+                    configPresets = [];
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('[TMI] Config load error:', error);
+                $preset.html('<option value="">-- Error loading --</option>').prop('disabled', true);
+                $status.html('<span class="text-danger">Error loading configs</span>');
+                configPresets = [];
+            }
+        });
+    }
+    
+    function applyConfigPreset(configId) {
+        const config = configPresets.find(c => c.configId === parseInt(configId));
+        if (!config) {
+            console.warn('[TMI] Config not found:', configId);
+            return;
+        }
+        
+        console.log('[TMI] Applying config preset:', config);
+        
+        // Populate runways
+        $('#ntml_arr_runways').val(config.arrRunways || '');
+        $('#ntml_dep_runways').val(config.depRunways || '');
+        
+        // Populate rates based on current weather category
+        const weather = $('#ntml_weather').val();
+        let aar = config.rates.vmcAar;
+        let adr = config.rates.vmcAdr;
+        
+        if (weather === 'IMC' || weather === 'LIMC') {
+            aar = config.rates.imcAar || config.rates.vmcAar;
+            adr = config.rates.imcAdr || config.rates.vmcAdr;
+        }
+        
+        if (aar) $('#ntml_aar').val(aar);
+        if (adr) $('#ntml_adr').val(adr);
+        
+        // Update preview
+        updateNtmlPreview();
+    }
+    
+    // ===========================================
+    // Airport Code Lookup (FAA ↔ ICAO)
+    // ===========================================
+    
+    let icaoLookupCache = {}; // Cache lookups to reduce API calls
+    
+    function lookupAirportCode(code, callback) {
+        if (!code || code.length < 3) {
+            callback(null);
+            return;
+        }
+        
+        code = code.toUpperCase().trim();
+        
+        // Check cache first
+        if (icaoLookupCache[code]) {
+            callback(icaoLookupCache[code]);
+            return;
+        }
+        
+        $.ajax({
+            url: 'api/util/icao_lookup.php',
+            method: 'GET',
+            data: { faa: code },
+            success: function(response) {
+                if (response.success) {
+                    icaoLookupCache[code] = response;
+                    // Also cache the reverse lookup
+                    if (response.icao && response.icao !== code) {
+                        icaoLookupCache[response.icao] = response;
+                    }
+                    if (response.faa && response.faa !== code) {
+                        icaoLookupCache[response.faa] = response;
+                    }
+                    callback(response);
+                } else {
+                    callback(null);
+                }
+            },
+            error: function() {
+                callback(null);
+            }
+        });
+    }
+    
+    function initAirportLookupHandler($input, $statusEl) {
+        // Debounce to avoid rapid API calls
+        let lookupTimeout = null;
+        
+        $input.on('blur', function() {
+            const code = $(this).val().trim().toUpperCase();
+            if (code.length >= 3) {
+                performAirportLookup(code, $statusEl);
+            } else {
+                $statusEl.html('');
+            }
+        });
+        
+        $input.on('input', function() {
+            clearTimeout(lookupTimeout);
+            const code = $(this).val().trim().toUpperCase();
+            if (code.length >= 3) {
+                lookupTimeout = setTimeout(function() {
+                    performAirportLookup(code, $statusEl);
+                }, 500);
+            } else {
+                $statusEl.html('');
+            }
+        });
+    }
+    
+    function performAirportLookup(code, $statusEl) {
+        $statusEl.html('<i class="fas fa-spinner fa-spin text-muted"></i>');
+        
+        lookupAirportCode(code, function(result) {
+            if (result) {
+                let html = '';
+                if (result.faa && result.icao && result.faa !== result.icao) {
+                    html = `<span class="text-success">${result.faa} / ${result.icao}</span>`;
+                    if (result.name) {
+                        html += ` <small class="text-muted">(${result.name})</small>`;
+                    }
+                } else if (result.name) {
+                    html = `<span class="text-success">${result.faa || result.icao}</span> <small class="text-muted">(${result.name})</small>`;
+                } else {
+                    html = `<span class="text-muted">${code}</span>`;
+                }
+                $statusEl.html(html);
+            } else {
+                $statusEl.html('<span class="text-warning">Not found</span>');
+            }
         });
     }
     
@@ -2877,22 +3122,81 @@
         else snapMinutes = 59;
         
         // Calculate start time (snapped)
-        const startHour = minutes > snapMinutes ? (now.getUTCHours() + 1) % 24 : now.getUTCHours();
-        const startMinutes = snapMinutes;
+        let startDate = new Date(now);
+        if (minutes > snapMinutes) {
+            // Move to next hour
+            startDate.setUTCHours(startDate.getUTCHours() + 1);
+        }
+        startDate.setUTCMinutes(snapMinutes);
+        startDate.setUTCSeconds(0);
+        startDate.setUTCMilliseconds(0);
         
         // End time is 4 hours later
-        const endHour = (startHour + 4) % 24;
+        let endDate = new Date(startDate);
+        endDate.setUTCHours(endDate.getUTCHours() + 4);
+        
+        // Format as datetime-local (YYYY-MM-DDTHH:MM)
+        const formatDateTimeLocal = (d) => {
+            const year = d.getUTCFullYear();
+            const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            const hours = String(d.getUTCHours()).padStart(2, '0');
+            const mins = String(d.getUTCMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${mins}`;
+        };
         
         return {
-            start: `${String(startHour).padStart(2, '0')}:${String(startMinutes).padStart(2, '0')}`,
-            end: `${String(endHour).padStart(2, '0')}:${String(startMinutes).padStart(2, '0')}`
+            start: formatDateTimeLocal(startDate),
+            end: formatDateTimeLocal(endDate),
+            // Also provide time-only for backwards compatibility
+            startTime: `${String(startDate.getUTCHours()).padStart(2, '0')}:${String(startDate.getUTCMinutes()).padStart(2, '0')}`,
+            endTime: `${String(endDate.getUTCHours()).padStart(2, '0')}:${String(endDate.getUTCMinutes()).padStart(2, '0')}`
         };
     }
     
     function formatValidTime(from, until) {
-        const fromStr = (from || '').replace(':', '') || '0000';
-        const untilStr = (until || '').replace(':', '') || '0000';
+        // Handle datetime-local format (YYYY-MM-DDTHH:MM) or time format (HH:MM)
+        const extractTime = (val) => {
+            if (!val) return '0000';
+            // If datetime-local format, extract time part
+            if (val.includes('T')) {
+                const timePart = val.split('T')[1] || '00:00';
+                return timePart.replace(':', '');
+            }
+            // If time format, just remove colon
+            return val.replace(':', '') || '0000';
+        };
+        
+        const fromStr = extractTime(from);
+        const untilStr = extractTime(until);
         return `${fromStr}-${untilStr}`;
+    }
+    
+    function formatValidDateTime(from, until) {
+        // Returns formatted date/time for display: "01/28 1400-1800Z"
+        const extractDateTime = (val) => {
+            if (!val) return { date: '', time: '0000' };
+            if (val.includes('T')) {
+                const [datePart, timePart] = val.split('T');
+                const [year, month, day] = datePart.split('-');
+                return {
+                    date: `${month}/${day}`,
+                    time: (timePart || '00:00').replace(':', '')
+                };
+            }
+            return { date: '', time: val.replace(':', '') || '0000' };
+        };
+        
+        const fromDt = extractDateTime(from);
+        const untilDt = extractDateTime(until);
+        
+        // If dates are same or no dates, just show time range
+        if (!fromDt.date || fromDt.date === untilDt.date) {
+            return `${fromDt.time}-${untilDt.time}Z`;
+        }
+        
+        // If dates differ, show full range
+        return `${fromDt.date} ${fromDt.time}-${untilDt.date} ${untilDt.time}Z`;
     }
     
     function getCurrentTimeHHMM() {

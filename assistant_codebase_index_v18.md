@@ -382,9 +382,9 @@ Notes:
 - Purpose: Integration layer connecting WeatherRadar module to route.php UI
 - Features: Control panel binding, state persistence
 
-#### `tmi-publish.js` **(v1.8.0)**
+#### `tmi-publish.js` **(v1.8.2)**
 - Loaded by: `tmi-publish.php`
-- Size: ~3,200 lines
+- Size: ~3,600 lines
 - Purpose: Unified TMI Entry + Advisory publisher with multi-Discord support
 - Features:
   - NTML entry forms (MIT, MINIT, STOP, APREQ/CFR, TBM, DELAY, CONFIG, CANCEL)
@@ -393,6 +393,8 @@ Notes:
   - Staging/Production mode toggle
   - User profile system (OI, facility, localStorage)
   - Facility selector with dropdown + text input
+  - CONFIG presets from database (v1.8.1)
+  - FAA/ICAO code lookup with caching (v1.8.2)
   - 68-char line wrapping for FAA-standard formatting
   - Auto-incrementing advisory numbers (midnight UTC reset)
 - Calls APIs:
@@ -400,6 +402,8 @@ Notes:
   - `api/mgt/tmi/active.php`
   - `api/mgt/tmi/staged.php`
   - `api/mgt/tmi/promote.php`
+  - `api/mgt/tmi/airport_configs.php` (v1.8.1)
+  - `api/util/icao_lookup.php` (v1.8.2)
 
 #### `tmi-active-display.js` **(v1.1.0)**
 - Loaded by: `tmi-publish.php`
@@ -1208,8 +1212,8 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
 
 ## 31) Changelog
 
-- **v18.1 (2026-01-27):**
-  - **TMI Publisher v1.8.0:**
+- **v18.1 (2026-01-28):**
+  - **TMI Publisher v1.8.2:**
     - Added `tmi-publish.php` to main pages table
     - Added `tmi-publish.js` and `tmi-active-display.js` to client modules
     - Bug fixes: Container ID mismatches, form loading, queue button icons
@@ -1219,6 +1223,8 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
     - Default requesting facility from user profile
     - Active TMI source filter: Production/Staging/All dropdown, API parameter support
     - `tmi-active-display.js` v1.1.0: Source filter integration
+    - **Airport CONFIG presets** - `api/mgt/tmi/airport_configs.php` API, auto-load presets from database
+    - **Airport FAA/ICAO lookup** - Auto-lookup with caching via `api/util/icao_lookup.php`
     - Documentation: `docs/tmi/TMI_Publisher_v1.8.0_Transition.md`
 
 - **v17 (2026-01-15):**

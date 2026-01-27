@@ -958,7 +958,7 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.8.0"></script>
+<script src="assets/js/tmi-publish.js?v=1.8.2"></script>
 <script src="assets/js/tmi-active-display.js?v=1.1.0"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
