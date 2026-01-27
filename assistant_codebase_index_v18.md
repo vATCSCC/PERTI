@@ -382,9 +382,9 @@ Notes:
 - Purpose: Integration layer connecting WeatherRadar module to route.php UI
 - Features: Control panel binding, state persistence
 
-#### `tmi-publish.js` **(v1.8.2)**
+#### `tmi-publish.js` **(v1.8.3)**
 - Loaded by: `tmi-publish.php`
-- Size: ~3,600 lines
+- Size: ~3,700 lines
 - Purpose: Unified TMI Entry + Advisory publisher with multi-Discord support
 - Features:
   - NTML entry forms (MIT, MINIT, STOP, APREQ/CFR, TBM, DELAY, CONFIG, CANCEL)
@@ -395,6 +395,7 @@ Notes:
   - Facility selector with dropdown + text input
   - CONFIG presets from database (v1.8.1)
   - FAA/ICAO code lookup with caching (v1.8.2)
+  - DateTime pickers for validity periods (v1.8.3)
   - 68-char line wrapping for FAA-standard formatting
   - Auto-incrementing advisory numbers (midnight UTC reset)
 - Calls APIs:
@@ -1213,7 +1214,7 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
 ## 31) Changelog
 
 - **v18.1 (2026-01-28):**
-  - **TMI Publisher v1.8.2:**
+  - **TMI Publisher v1.8.3:**
     - Added `tmi-publish.php` to main pages table
     - Added `tmi-publish.js` and `tmi-active-display.js` to client modules
     - Bug fixes: Container ID mismatches, form loading, queue button icons
@@ -1225,6 +1226,7 @@ grep -r "WeatherRadar\|weather_radar" assets/js/
     - `tmi-active-display.js` v1.1.0: Source filter integration
     - **Airport CONFIG presets** - `api/mgt/tmi/airport_configs.php` API, auto-load presets from database
     - **Airport FAA/ICAO lookup** - Auto-lookup with caching via `api/util/icao_lookup.php`
+    - **NTML DateTime fields** - Changed from time-only to datetime-local pickers
     - Documentation: `docs/tmi/TMI_Publisher_v1.8.0_Transition.md`
 
 - **v17 (2026-01-15):**

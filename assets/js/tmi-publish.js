@@ -8,9 +8,22 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.8.2
+ * @version 1.8.4
  * @date 2026-01-28
  * 
+ * v1.8.4 Changes:
+ *   - Qualifier button CSS improvements: white-space: nowrap, flex-shrink
+ *   - Qualifier group layout: flexbox with wrap
+ *   - Responsive sizing for mobile (smaller font/padding)
+ *   - CSS version bump to 1.5
+ *
+ * v1.8.3 Changes:
+ *   - NTML date/time fields: Changed from time-only to datetime-local
+ *   - getSmartDefaultTimes() returns full datetime format (YYYY-MM-DDTHH:MM)
+ *   - formatValidTime() handles both datetime-local and time formats
+ *   - Added formatValidDateTime() for display with dates
+ *   - MIT, MINIT, STOP, APREQ, TBM forms all updated
+ *
  * v1.8.2 Changes:
  *   - Airport FAA/ICAO code lookup: Auto-lookup and display both codes
  *   - API integration with api/util/icao_lookup.php
@@ -764,11 +777,13 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid From (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid Until (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                     </div>
                     
@@ -836,11 +851,13 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid From (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid Until (UTC)</label>
-                            <input type="time" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <small class="text-muted">Date and time in Zulu</small>
                         </div>
                     </div>
                     
