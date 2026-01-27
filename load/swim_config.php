@@ -991,8 +991,8 @@ $SWIM_PACIFIC_ARTCC_MAP = [
     'ZHN' => 'PHZH',  // Honolulu CERAP
     // Alaska
     'ZAN' => 'PAZA',  // Anchorage ARTCC
-    // Guam (if needed in future)
-    // 'ZUA' => 'PGUA',
+    // Guam
+    'ZUA' => 'PGUA',  // Guam CERAP
 ];
 
 /**
