@@ -983,10 +983,24 @@ function swim_cache_set($cache_key, $data, $ttl) {
 }
 
 /**
+ * Pacific US ARTCC mappings (FAA 3-letter -> ICAO 4-letter)
+ * These don't follow the simple K-prefix pattern used by continental US ARTCCs
+ */
+$SWIM_PACIFIC_ARTCC_MAP = [
+    // Hawaii
+    'ZHN' => 'PHZH',  // Honolulu CERAP
+    // Alaska
+    'ZAN' => 'PAZA',  // Anchorage ARTCC
+    // Guam (if needed in future)
+    // 'ZUA' => 'PGUA',
+];
+
+/**
  * Normalize ARTCC/FIR codes to include both FAA and ICAO variants
  *
  * Supports:
- *   - US ARTCCs: ZNY -> ZNY,KZNY (3-letter Z* codes get K prefix)
+ *   - US Continental ARTCCs: ZNY -> ZNY,KZNY (3-letter Z* codes get K prefix)
+ *   - US Pacific ARTCCs: ZHN -> ZHN,PHZH (Hawaii), ZAN -> ZAN,PAZA (Alaska)
  *   - Canada FIRs: CZY -> CZY,CZYZ or ZYZ -> ZYZ,CZYZ (C prefix patterns)
  *   - Mexico ACCs: MID -> MID,MMID (MM prefix for 3-letter codes)
  *   - Caribbean/LATAM: Various patterns (T*, M*, S* prefixes)
@@ -995,8 +1009,16 @@ function swim_cache_set($cache_key, $data, $ttl) {
  * @return string Expanded comma-separated codes with both FAA and ICAO variants
  */
 function swim_normalize_artcc_codes($codes) {
+    global $SWIM_PACIFIC_ARTCC_MAP;
+
     if (empty($codes)) {
         return $codes;
+    }
+
+    // Build reverse mapping for ICAO -> FAA lookups
+    static $pacific_reverse_map = null;
+    if ($pacific_reverse_map === null) {
+        $pacific_reverse_map = array_flip($SWIM_PACIFIC_ARTCC_MAP);
     }
 
     $code_list = array_map('trim', explode(',', strtoupper($codes)));
@@ -1011,8 +1033,26 @@ function swim_normalize_artcc_codes($codes) {
 
         $len = strlen($code);
 
-        // US ARTCCs: 3-letter codes starting with Z (ZNY, ZLA, ZDC, etc.)
+        // Check Pacific ARTCC mappings first (ZHN -> PHZH, ZAN -> PAZA)
+        if (isset($SWIM_PACIFIC_ARTCC_MAP[$code])) {
+            $icao = $SWIM_PACIFIC_ARTCC_MAP[$code];
+            if (!in_array($icao, $expanded)) {
+                $expanded[] = $icao;
+            }
+            continue;  // Skip other processing for Pacific ARTCCs
+        }
+        // Reverse Pacific mapping: PHZH -> ZHN, PAZA -> ZAN
+        if (isset($pacific_reverse_map[$code])) {
+            $faa = $pacific_reverse_map[$code];
+            if (!in_array($faa, $expanded)) {
+                $expanded[] = $faa;
+            }
+            continue;
+        }
+
+        // US Continental ARTCCs: 3-letter codes starting with Z (ZNY, ZLA, ZDC, etc.)
         // FAA uses ZNY, ICAO uses KZNY
+        // Exclude Pacific ARTCCs (ZHN, ZAN) which are handled above
         if ($len === 3 && $code[0] === 'Z') {
             $icao = 'K' . $code;
             if (!in_array($icao, $expanded)) {
