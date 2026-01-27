@@ -69,6 +69,20 @@ nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 -
 SWIM_SYNC_PID=$!
 echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
 
+# Start the SimTraffic -> SWIM polling daemon (fetches ST times every 2 min)
+# Rate limited to 5 req/sec per SimTraffic API docs
+echo "Starting simtraffic_swim_poll.php (polling every 2min)..."
+nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=120 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
+ST_POLL_PID=$!
+echo "  simtraffic_swim_poll.php started (PID: $ST_POLL_PID)"
+
+# Start the SWIM -> ADL reverse sync daemon (propagates ST times to ADL every 2 min)
+# Syncs SimTraffic data from swim_flights back to ADL normalized tables
+echo "Starting swim_adl_reverse_sync.php (reverse sync every 2min)..."
+nohup php "${WWWROOT}/scripts/swim_adl_reverse_sync_daemon.php" --loop --interval=120 >> /home/LogFiles/swim_reverse_sync.log 2>&1 &
+REVERSE_SYNC_PID=$!
+echo "  swim_adl_reverse_sync_daemon.php started (PID: $REVERSE_SYNC_PID)"
+
 # Start the unified scheduler daemon (splits, routes auto-activation)
 echo "Starting scheduler_daemon.php (checks every 60s)..."
 nohup php "${WWWROOT}/scripts/scheduler_daemon.php" --interval=60 >> /home/LogFiles/scheduler.log 2>&1 &
@@ -93,6 +107,7 @@ echo "========================================"
 echo "All daemons started:"
 echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
 echo "  waypoint=$WAYPOINT_PID, ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
+echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
 echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
 echo "========================================"
 

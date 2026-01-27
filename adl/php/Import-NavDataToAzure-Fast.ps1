@@ -41,43 +41,31 @@ try {
 $totalStart = Get-Date
 
 # ============================================================================
-# Clear existing XPLANE data before import
+# Clear existing XPLANE data before import (only for types we're importing)
 # ============================================================================
 Write-Host ""
-Write-Host "Clearing existing XPLANE data..." -ForegroundColor Yellow
+Write-Host "Clearing existing data for import..." -ForegroundColor Yellow
 
 $cmd = $conn.CreateCommand()
 $cmd.CommandTimeout = 300
 
-# Delete ALL airway segments first (foreign key constraint)
-$cmd.CommandText = "DELETE FROM dbo.airway_segments"
-$deleted = $cmd.ExecuteNonQuery()
-Write-Host "  Deleted $deleted airway segments" -ForegroundColor Gray
+# Only clear airways if we're importing them
+if (-not $SkipAirways) {
+    $cmd.CommandText = "DELETE FROM dbo.airway_segments"
+    $deleted = $cmd.ExecuteNonQuery()
+    Write-Host "  Deleted $deleted airway segments" -ForegroundColor Gray
 
-# Delete ALL airways (Navigraph data replaces everything)
-$cmd.CommandText = "DELETE FROM dbo.airways"
-$deleted = $cmd.ExecuteNonQuery()
-Write-Host "  Deleted $deleted airways" -ForegroundColor Gray
-
-# Verify airways are gone
-$cmd.CommandText = "SELECT COUNT(*) FROM dbo.airways"
-$remaining = $cmd.ExecuteScalar()
-if ($remaining -gt 0) {
-    Write-Host "  WARNING: Still have $remaining airways in database!" -ForegroundColor Red
-    Write-Host "  Attempting TRUNCATE..." -ForegroundColor Yellow
-    try {
-        $cmd.CommandText = "TRUNCATE TABLE dbo.airways"
-        $cmd.ExecuteNonQuery() | Out-Null
-        Write-Host "  TRUNCATE successful" -ForegroundColor Green
-    } catch {
-        Write-Host "  TRUNCATE failed (FK constraint?): $_" -ForegroundColor Red
-    }
+    $cmd.CommandText = "DELETE FROM dbo.airways"
+    $deleted = $cmd.ExecuteNonQuery()
+    Write-Host "  Deleted $deleted airways" -ForegroundColor Gray
 }
 
-# Delete XPLANE fixes/navaids (keep FAA/other sources for now)
-$cmd.CommandText = "DELETE FROM dbo.nav_fixes WHERE source = 'XPLANE'"
-$deleted = $cmd.ExecuteNonQuery()
-Write-Host "  Deleted $deleted fixes/navaids" -ForegroundColor Gray
+# Only clear fixes/navaids if we're importing them
+if ((-not $SkipFixes) -or (-not $SkipNavaids)) {
+    $cmd.CommandText = "DELETE FROM dbo.nav_fixes WHERE source = 'XPLANE'"
+    $deleted = $cmd.ExecuteNonQuery()
+    Write-Host "  Deleted $deleted fixes/navaids" -ForegroundColor Gray
+}
 
 Write-Host "  Cleared existing data" -ForegroundColor Green
 
@@ -229,6 +217,8 @@ if (-not $SkipAirways) {
         # Use Import-Csv for airways since fix_sequence can have commas
         $airways = Import-Csv $awyCsv
         $skipped = 0
+        $seenNames = [System.Collections.Generic.HashSet[string]]::new()
+
         foreach ($awy in $airways) {
             # Skip rows with empty required fields
             if ([string]::IsNullOrWhiteSpace($awy.airway_name) -or [string]::IsNullOrWhiteSpace($awy.fix_sequence)) {
@@ -236,9 +226,16 @@ if (-not $SkipAirways) {
                 continue
             }
 
+            # Truncate airway name and check for duplicates
+            $truncatedName = $awy.airway_name.Substring(0, [Math]::Min(16, $awy.airway_name.Length))
+            if ($seenNames.Contains($truncatedName)) {
+                $skipped++
+                continue
+            }
+            [void]$seenNames.Add($truncatedName)
+
             $row = $dt.NewRow()
-            # Truncate strings to fit column sizes
-            $row["airway_name"] = $awy.airway_name.Substring(0, [Math]::Min(16, $awy.airway_name.Length))
+            $row["airway_name"] = $truncatedName
             $row["airway_type"] = if ($awy.airway_type) { $awy.airway_type.Substring(0, [Math]::Min(16, $awy.airway_type.Length)) } else { "OTHER" }
             $row["fix_sequence"] = $awy.fix_sequence
             $row["fix_count"] = if ($awy.fix_count) { [int]$awy.fix_count } else { 0 }
@@ -252,7 +249,7 @@ if (-not $SkipAirways) {
 
         $count = $dt.Rows.Count
         if ($skipped -gt 0) {
-            Write-Host "  Skipped $skipped invalid rows" -ForegroundColor Yellow
+            Write-Host "  Skipped $skipped invalid/duplicate rows" -ForegroundColor Yellow
         }
         Write-Host "  Loaded $count airways, bulk inserting..." -ForegroundColor Gray
 

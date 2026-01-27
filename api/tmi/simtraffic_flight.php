@@ -51,6 +51,14 @@ if (!in_array($target, ['gs_then_adl', 'adl', 'gs', 'both'], true)) {
     $target = 'gs_then_adl';
 }
 
+// swim=1: Route through VATSWIM instead of direct ADL update
+// This enables the new architecture: SimTraffic -> SWIM -> ADL
+$useSwim = false;
+if (isset($_GET['swim'])) {
+    $v = strtolower(trim(strval($_GET['swim'])));
+    $useSwim = ($v === '1' || $v === 'true' || $v === 'yes' || $v === 'on');
+}
+
 // -------------------------------
 // Config
 // -------------------------------
@@ -701,6 +709,191 @@ function adl_update_table($conn, $schema, $table, $callsign, $data) {
     return $info;
 }
 
+/**
+ * Ingest SimTraffic data into VATSWIM
+ * This routes through the SWIM ingest endpoint for the new architecture
+ *
+ * @param string $callsign Aircraft callsign
+ * @param array $data SimTraffic API response data
+ * @return array Result with status and details
+ */
+function swim_ingest_simtraffic($callsign, $data) {
+    $out = [
+        'applied' => false,
+        'status' => null,
+        'message' => null,
+        'error' => null
+    ];
+
+    // Load SWIM config
+    $cfgPath = __DIR__ . '/../../load/config.php';
+    if (is_file($cfgPath)) {
+        require_once($cfgPath);
+    }
+    $swimCfgPath = __DIR__ . '/../../load/swim_config.php';
+    if (is_file($swimCfgPath)) {
+        require_once($swimCfgPath);
+    }
+
+    // Load SWIM database connection
+    $connectPath = __DIR__ . '/../../load/connect.php';
+    if (is_file($connectPath)) {
+        require_once($connectPath);
+    }
+
+    global $conn_swim;
+    if (!$conn_swim) {
+        $out['error'] = 'SWIM database connection not available';
+        return $out;
+    }
+
+    // Extract fields from SimTraffic response
+    $departure = $data['departure'] ?? [];
+    $arrival = $data['arrival'] ?? [];
+    $status = $data['status'] ?? [];
+    $dest_icao = $data['arrival_afld'] ?? null;
+
+    // Build UPDATE for swim_flights
+    $updates = [];
+    $params = [];
+
+    // Departure times
+    if (!empty($departure['push_time'])) {
+        $updates[] = 'out_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['push_time'];
+    }
+    if (!empty($departure['taxi_time'])) {
+        $updates[] = 'taxi_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['taxi_time'];
+    }
+    if (!empty($departure['sequence_time'])) {
+        $updates[] = 'sequence_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['sequence_time'];
+    }
+    if (!empty($departure['holdshort_time'])) {
+        $updates[] = 'holdshort_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['holdshort_time'];
+    }
+    if (!empty($departure['runway_time'])) {
+        $updates[] = 'runway_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['runway_time'];
+    }
+    if (!empty($departure['takeoff_time'])) {
+        $updates[] = 'off_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['takeoff_time'];
+    }
+    if (!empty($departure['edct'])) {
+        $updates[] = 'edct_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['edct'];
+    }
+
+    // Arrival times
+    if (!empty($arrival['eta'])) {
+        $updates[] = 'eta_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $arrival['eta'];
+        $updates[] = 'eta_runway_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $arrival['eta'];
+    }
+
+    $eta_mf = $arrival['eta_mf'] ?? $arrival['etaMF'] ?? $arrival['mft'] ?? $arrival['MFT'] ?? null;
+    if (!empty($eta_mf)) {
+        $updates[] = 'metering_time = TRY_CONVERT(datetime2, ?)';
+        $params[] = $eta_mf;
+    }
+
+    $eta_vt = $arrival['eta_vertex'] ?? $arrival['eta_vt'] ?? $arrival['vt'] ?? $arrival['vertex_time'] ?? null;
+    if (!empty($eta_vt)) {
+        $updates[] = 'eta_vertex = TRY_CONVERT(datetime2, ?)';
+        $params[] = $eta_vt;
+    }
+
+    $on_time = $arrival['on_time'] ?? $arrival['on_utc'] ?? null;
+    if (!empty($on_time)) {
+        $updates[] = 'on_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $on_time;
+    }
+
+    $meter_fix = $arrival['metering_fix'] ?? $arrival['meter_fix'] ?? null;
+    if (!empty($meter_fix)) {
+        $updates[] = 'metering_point = ?';
+        $params[] = strtoupper(trim($meter_fix));
+    }
+
+    $rwy = $arrival['rwy_assigned'] ?? $arrival['runway'] ?? null;
+    if (!empty($rwy)) {
+        $updates[] = 'arr_runway = ?';
+        $params[] = strtoupper(trim($rwy));
+    }
+
+    // Status/phase
+    $phase = null;
+    if (!empty($status['arrived']) || !empty($arrival['arrived'])) {
+        $phase = 'arrived';
+    } elseif (!empty($status['departed']) || !empty($departure['takeoff_time'])) {
+        $phase = 'enroute';
+    } elseif (!empty($departure['taxi_time']) || !empty($departure['push_time'])) {
+        $phase = 'taxiing';
+    }
+
+    if ($phase) {
+        $updates[] = 'phase = ?';
+        $params[] = $phase;
+        $updates[] = 'simtraffic_phase = ?';
+        $params[] = $phase;
+    }
+
+    if (!empty($status['in_artcc'])) {
+        $updates[] = 'current_artcc = ?';
+        $params[] = strtoupper(trim($status['in_artcc']));
+    }
+
+    if (isset($status['delay_value'])) {
+        $updates[] = 'metering_delay = ?';
+        $params[] = intval($status['delay_value']);
+    }
+
+    // Tracking fields
+    $updates[] = 'metering_source = ?';
+    $params[] = 'simtraffic';
+    $updates[] = 'simtraffic_sync_utc = GETUTCDATE()';
+    $updates[] = 'last_sync_utc = GETUTCDATE()';
+
+    if (empty($updates)) {
+        $out['message'] = 'No fields to update';
+        return $out;
+    }
+
+    // Build WHERE clause
+    $params[] = strtoupper(trim($callsign));
+    $where = "callsign = ? AND is_active = 1";
+
+    if ($dest_icao) {
+        $where .= " AND fp_dest_icao = ?";
+        $params[] = strtoupper(trim($dest_icao));
+    }
+
+    $sql = "UPDATE dbo.swim_flights SET " . implode(', ', $updates) . " WHERE " . $where;
+
+    $stmt = @sqlsrv_query($conn_swim, $sql, $params);
+    if ($stmt === false) {
+        $err = sqlsrv_errors();
+        $out['error'] = 'SWIM update failed: ' . ($err[0]['message'] ?? 'Unknown error');
+        return $out;
+    }
+
+    $rows = sqlsrv_rows_affected($stmt);
+    sqlsrv_free_stmt($stmt);
+
+    $out['applied'] = true;
+    $out['status'] = $rows > 0 ? 'updated' : 'not_found';
+    $out['rows_affected'] = $rows;
+    $out['message'] = $rows > 0
+        ? "Updated SWIM flight for $callsign"
+        : "Flight $callsign not found in SWIM";
+
+    return $out;
+}
+
 function adl_apply_simtraffic($callsign, $data, $target) {
     $out = [
         'applied' => false,
@@ -780,8 +973,16 @@ function adl_apply_simtraffic($callsign, $data, $target) {
 }
 
 $adlInfo = null;
+$swimInfo = null;
+
 if ($applyAdl) {
-    $adlInfo = adl_apply_simtraffic($cs, $data, $target);
+    if ($useSwim) {
+        // Route through VATSWIM: SimTraffic -> SWIM -> ADL
+        $swimInfo = swim_ingest_simtraffic($cs, $data);
+    } else {
+        // Legacy: Direct ADL update
+        $adlInfo = adl_apply_simtraffic($cs, $data, $target);
+    }
 }
 
 // Metadata for debugging (safe for JS consumers; extra keys ignored)
@@ -789,10 +990,14 @@ $data['__proxy'] = [
     'cached' => $cached,
     'cache_age_sec' => $cacheAge,
     'target' => $target,
-    'apply_adl' => $applyAdl
+    'apply_adl' => $applyAdl,
+    'use_swim' => $useSwim
 ];
 if ($adlInfo !== null) {
     $data['__adl'] = $adlInfo;
+}
+if ($swimInfo !== null) {
+    $data['__swim'] = $swimInfo;
 }
 
 echo json_encode($data);
