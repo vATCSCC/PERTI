@@ -133,6 +133,9 @@ $SWIM_DATA_AUTHORITY = [
     // Metering - SimTraffic primary, others can override
     'metering'      => ['SIMTRAFFIC', true],
 
+    // Times (ETA/ETD, runway times) - SimTraffic primary, others can override
+    'times'         => ['SIMTRAFFIC', true],
+
     // Telemetry - Simulator primary, others can override
     'telemetry'     => ['SIMULATOR', true],
 

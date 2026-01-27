@@ -725,6 +725,11 @@ function swim_ingest_simtraffic($callsign, $data) {
         'error' => null
     ];
 
+    // Define PERTI_LOADED to allow swim_config.php to load
+    if (!defined('PERTI_LOADED')) {
+        define('PERTI_LOADED', true);
+    }
+
     // Load SWIM config
     $cfgPath = __DIR__ . '/../../load/config.php';
     if (is_file($cfgPath)) {
