@@ -155,16 +155,147 @@
         // Filter controls
         $('#applyFilters').on('click', applyFilters);
         $('#resetFilters').on('click', resetFilters);
-        
+
         // Refresh button
         $('#refreshActiveTmis').off('click').on('click', function() {
             loadActiveTmis();
         });
-        
+
         // Tab shown event
         $('a[href="#activePanel"]').on('shown.bs.tab', function() {
             loadActiveTmis();
         });
+
+        // Batch selection - Select All
+        $('#selectAllRestrictions').on('change', function() {
+            const isChecked = $(this).is(':checked');
+            $('.batch-select-checkbox').prop('checked', isChecked);
+            updateBatchControls();
+        });
+
+        // Individual checkbox changes
+        $(document).on('change', '.batch-select-checkbox', function() {
+            updateBatchControls();
+        });
+
+        // Batch cancel button
+        $('#batchCancelBtn').on('click', performBatchCancel);
+    }
+
+    function updateBatchControls() {
+        const selectedCount = $('.batch-select-checkbox:checked').length;
+        $('#selectedCount').text(selectedCount);
+        if (selectedCount > 0) {
+            $('#batchCancelControls').show();
+        } else {
+            $('#batchCancelControls').hide();
+        }
+    }
+
+    function performBatchCancel() {
+        const selected = [];
+        $('.batch-select-checkbox:checked').each(function() {
+            selected.push({
+                entityId: $(this).data('id'),
+                entityType: $(this).data('type')
+            });
+        });
+
+        if (selected.length === 0) {
+            return;
+        }
+
+        Swal.fire({
+            title: `Cancel ${selected.length} TMI${selected.length > 1 ? 's' : ''}?`,
+            html: `<p>You are about to cancel <strong>${selected.length}</strong> TMI entr${selected.length > 1 ? 'ies' : 'y'}.</p>
+                   <p class="text-danger">This action cannot be undone.</p>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: '<i class="fas fa-times-circle"></i> Cancel All Selected',
+            cancelButtonText: 'Nevermind'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                executeBatchCancel(selected);
+            }
+        });
+    }
+
+    function executeBatchCancel(items) {
+        Swal.fire({
+            title: 'Cancelling...',
+            html: `<div id="batchProgress">Processing 0 of ${items.length}...</div>`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
+        const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+
+        let completed = 0;
+        let successes = 0;
+        let failures = [];
+
+        const processNext = (index) => {
+            if (index >= items.length) {
+                Swal.close();
+                showBatchResult(successes, failures);
+                loadActiveTmis();
+                return;
+            }
+
+            const item = items[index];
+            $('#batchProgress').text(`Processing ${index + 1} of ${items.length}...`);
+
+            $.ajax({
+                url: CONFIG.cancelEndpoint,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    entityType: item.entityType,
+                    entityId: item.entityId,
+                    reason: 'Batch cancellation',
+                    userCid: userCid,
+                    userName: userName
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        successes++;
+                    } else {
+                        failures.push({ id: item.entityId, error: response.error || 'Unknown error' });
+                    }
+                },
+                error: function(xhr) {
+                    failures.push({ id: item.entityId, error: xhr.responseJSON?.error || 'Request failed' });
+                },
+                complete: function() {
+                    processNext(index + 1);
+                }
+            });
+        };
+
+        processNext(0);
+    }
+
+    function showBatchResult(successes, failures) {
+        if (failures.length === 0) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Batch Cancel Complete',
+                text: `Successfully cancelled ${successes} TMI${successes > 1 ? 's' : ''}.`,
+                timer: 2500,
+                showConfirmButton: false
+            });
+        } else {
+            let failureHtml = failures.map(f => `<li>#${f.id}: ${f.error}</li>`).join('');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Batch Cancel Partial',
+                html: `<p>Cancelled ${successes} TMI${successes > 1 ? 's' : ''}.</p>
+                       <p class="text-danger">Failed to cancel ${failures.length}:</p>
+                       <ul class="text-left small">${failureHtml}</ul>`
+            });
+        }
     }
 
     // ===========================================
@@ -270,14 +401,19 @@
 
     function renderRestrictions() {
         const $tbody = $('#restrictionsTableBody');
-        
+
+        // Reset batch controls
+        $('#selectAllRestrictions').prop('checked', false);
+        $('#batchCancelControls').hide();
+        $('#selectedCount').text('0');
+
         // Get filtered restrictions
         let items = getFilteredRestrictions();
-        
+
         if (items.length === 0) {
             $tbody.html(`
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-muted">
+                    <td colspan="7" class="text-center py-4 text-muted">
                         <i class="fas fa-check-circle fa-2x mb-2"></i>
                         <div>No active restrictions</div>
                     </td>
@@ -285,21 +421,21 @@
             `);
             return;
         }
-        
+
         let html = '';
         items.forEach(item => {
             html += buildRestrictionRow(item);
         });
-        
+
         $tbody.html(html);
-        
+
         // Bind row click events
         $tbody.find('.restriction-row').on('click', function() {
             const id = $(this).data('id');
             const type = $(this).data('type');
             showRestrictionDetails(id, type);
         });
-        
+
         // Bind cancel button events
         $tbody.find('.btn-cancel-tmi').on('click', function(e) {
             e.stopPropagation();
@@ -324,14 +460,19 @@
         const startTime = formatFaaDateTime(item.validFrom);
         const stopTime = formatFaaDateTime(item.validUntil);
         const status = item.status || 'ACTIVE';
-        
-        const statusClass = status === 'CANCELLED' ? 'table-secondary' : 
+
+        const statusClass = status === 'CANCELLED' ? 'table-secondary' :
                            status === 'SCHEDULED' ? 'table-info' : '';
         const statusBadge = status === 'CANCELLED' ? '<span class="badge badge-secondary ml-1">CXLD</span>' :
                            status === 'SCHEDULED' ? '<span class="badge badge-info ml-1">SCHED</span>' : '';
-        
+
+        const canSelect = status !== 'CANCELLED';
+
         return `
             <tr class="restriction-row ${statusClass}" data-id="${item.entityId}" data-type="${item.entityType}" style="cursor: pointer;">
+                <td class="text-center" style="width: 30px;">
+                    ${canSelect ? `<input type="checkbox" class="batch-select-checkbox" data-id="${item.entityId}" data-type="${item.entityType}" onclick="event.stopPropagation();">` : ''}
+                </td>
                 <td class="font-weight-bold">${escapeHtml(reqFac)}</td>
                 <td class="font-weight-bold">${escapeHtml(provFac)}</td>
                 <td class="restriction-text">${escapeHtml(restriction)}${statusBadge}</td>
@@ -354,20 +495,27 @@
     }
 
     function buildRestrictionText(item) {
+        const entryType = item.entryType || '';
+
+        // For CONFIG and DELAY entries, show the raw text which has all the details
+        if ((entryType === 'CONFIG' || entryType === 'DELAY') && item.rawText) {
+            // Strip the timestamp prefix if present (format: DD/HHMM    )
+            let text = item.rawText.replace(/^\d{2}\/\d{4}\s+/, '');
+            return text;
+        }
+
         const parts = [];
-        
+
         // Time range at start (FAA format: HHMM-HHMM)
         const startHHMM = item.validFrom ? formatTimeOnly(item.validFrom) : '';
         const endHHMM = item.validUntil ? formatTimeOnly(item.validUntil) : '';
         if (startHHMM || endHHMM) {
             parts.push(`${startHHMM}-${endHHMM}`);
         }
-        
+
         // Entry type and value
-        const entryType = item.entryType || '';
         const value = item.restrictionValue || '';
-        const unit = item.restrictionUnit || '';
-        
+
         if (entryType === 'MIT' && value) {
             parts.push(`${value}MIT`);
         } else if (entryType === 'MINIT' && value) {
@@ -381,22 +529,22 @@
         } else if (entryType) {
             parts.push(entryType);
         }
-        
+
         // Control element
         if (item.ctlElement) {
             parts.push(item.ctlElement);
         }
-        
+
         // Via/condition
         if (item.conditionText) {
             parts.push(`VIA ${item.conditionText}`);
         }
-        
+
         // Qualifiers
         if (item.qualifiers) {
             parts.push(item.qualifiers);
         }
-        
+
         // Reason
         if (item.reasonCode) {
             let reasonStr = item.reasonCode;
@@ -405,12 +553,12 @@
             }
             parts.push(reasonStr);
         }
-        
+
         // Facility codes at end
         if (item.requestingFacility && item.providingFacility) {
             parts.push(`${item.requestingFacility}:${item.providingFacility}`);
         }
-        
+
         return parts.join(' ') || item.summary || item.rawText || 'Restriction';
     }
 
@@ -982,20 +1130,48 @@
     
     function formatFaaDateTime(isoString) {
         if (!isoString) return '-';
-        
+
         try {
             const d = new Date(isoString);
             if (isNaN(d.getTime())) return '-';
-            
+
             const month = String(d.getUTCMonth() + 1).padStart(2, '0');
             const day = String(d.getUTCDate()).padStart(2, '0');
             const year = d.getUTCFullYear();
             const hours = String(d.getUTCHours()).padStart(2, '0');
             const minutes = String(d.getUTCMinutes()).padStart(2, '0');
-            
-            return `${month}/${day}/${year} ${hours}${minutes}`;
+
+            const dateStr = `${month}/${day}/${year} ${hours}${minutes}`;
+            const relativeStr = getRelativeTime(d);
+
+            return `${dateStr}<br><small class="text-muted">${relativeStr}</small>`;
         } catch (e) {
             return '-';
+        }
+    }
+
+    function getRelativeTime(date) {
+        const now = new Date();
+        const diffMs = date.getTime() - now.getTime();
+        const diffMins = Math.round(diffMs / 60000);
+        const diffHours = Math.round(diffMins / 60);
+        const diffDays = Math.round(diffHours / 24);
+
+        if (diffMins === 0) return 'now';
+
+        if (diffMins > 0) {
+            // Future
+            if (diffMins < 60) return `in ${diffMins}m`;
+            if (diffHours < 24) return `in ${diffHours}h`;
+            return `in ${diffDays}d`;
+        } else {
+            // Past
+            const absMins = Math.abs(diffMins);
+            const absHours = Math.abs(diffHours);
+            const absDays = Math.abs(diffDays);
+            if (absMins < 60) return `${absMins}m ago`;
+            if (absHours < 24) return `${absHours}h ago`;
+            return `${absDays}d ago`;
         }
     }
 

@@ -114,7 +114,7 @@ $sql = "
         e.status,
         e.source_type,
         e.source_id,
-        e.raw_text,
+        e.raw_input,
         e.created_at,
         e.created_by
     FROM dbo.tmi_entries e
@@ -249,7 +249,7 @@ function formatEntry($row) {
             'id' => $row['source_id']
         ],
         
-        'raw_text' => $row['raw_text'],
+        'raw_text' => $row['raw_input'],
         
         '_created_at' => formatDT($row['created_at']),
         '_created_by' => $row['created_by']

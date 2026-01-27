@@ -1,8 +1,13 @@
 /**
  * TMI Publisher Styles
- * 
+ *
  * @package PERTI
- * @version 1.6.0
+ * @version 1.7.0
+ *
+ * v1.7.0 Changes:
+ *   - Added cancelled indicator visibility improvements
+ *   - Cancelled rows use readable gray background
+ *   - Cancelled advisory cards have proper contrast
  */
 
 /* ===========================================
@@ -699,40 +704,41 @@ input[type="time"] {
 
 /* Cancelled Row Styling */
 #restrictionsTable tr.table-secondary {
-    background-color: rgba(108, 117, 125, 0.15);
-    color: #495057;
+    background-color: rgba(220, 53, 69, 0.08) !important;
+    color: #212529 !important;
 }
 
 #restrictionsTable tr.table-secondary td {
-    color: #495057;
+    color: #212529 !important;
 }
 
 #restrictionsTable tr.table-secondary .restriction-text {
     text-decoration: line-through;
-    opacity: 0.8;
+    color: #6c757d !important;
 }
 
 #restrictionsTable tr.table-secondary .badge-secondary {
-    background-color: #6c757d;
-    color: #fff;
+    background-color: #dc3545 !important;
+    color: #fff !important;
+    font-weight: 600;
 }
 
 /* Cancelled Advisory Card Styling */
 .advisory-card.border-secondary {
-    background-color: #f8f9fa;
-    opacity: 0.9;
+    background-color: #fff5f5 !important;
+    border-color: #dc3545 !important;
 }
 
 .advisory-card.border-secondary .card-header {
-    background-color: #6c757d !important;
+    background-color: #dc3545 !important;
     color: #fff !important;
 }
 
 .advisory-card.border-secondary .advisory-body {
-    background-color: #e9ecef;
+    background-color: #fff5f5;
 }
 
 .advisory-card.border-secondary .advisory-text {
     text-decoration: line-through;
-    color: #495057;
+    color: #6c757d;
 }

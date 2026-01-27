@@ -42,7 +42,7 @@ $params = [];
 
 if ($active_only) {
     $where_clauses[] = "a.status = 'ACTIVE'";
-    $where_clauses[] = "(a.valid_until IS NULL OR a.valid_until > GETUTCDATE())";
+    $where_clauses[] = "(a.effective_until IS NULL OR a.effective_until > GETUTCDATE())";
 }
 
 if ($type) {
@@ -62,7 +62,8 @@ if ($airport) {
 if ($facility) {
     $facility_list = array_map('trim', explode(',', strtoupper($facility)));
     $placeholders = implode(',', array_fill(0, count($facility_list), '?'));
-    $where_clauses[] = "a.issuing_facility IN ($placeholders)";
+    // scope_facilities contains comma-separated facility codes
+    $where_clauses[] = "a.scope_facilities LIKE '%' + ? + '%'";
     $params = array_merge($params, $facility_list);
 }
 
@@ -86,35 +87,28 @@ $total = sqlsrv_fetch_array($count_stmt, SQLSRV_FETCH_ASSOC)['total'];
 sqlsrv_free_stmt($count_stmt);
 
 // Main query - select columns based on include_text flag
-$text_columns = $include_text ? ", a.advisory_text, a.comments" : "";
+$text_columns = $include_text ? ", a.body_text, a.reason_detail AS comments" : "";
 
 $sql = "
-    SELECT 
+    SELECT
         a.advisory_id,
         a.advisory_guid,
         a.advisory_number,
         a.advisory_type,
         a.ctl_element,
         a.element_type,
-        a.issuing_facility,
-        a.artcc,
+        a.scope_facilities,
+        a.program_id,
         a.is_proposed,
         a.revision_number,
         a.supersedes_advisory_id,
         a.reason_code,
         a.reason_detail,
-        a.probability_extension,
-        a.valid_from,
-        a.valid_until,
-        a.program_start,
-        a.program_end,
-        a.cumulative_start,
-        a.cumulative_end,
+        a.effective_from,
+        a.effective_until,
         a.program_rate,
-        a.delay_limit,
-        a.max_delay,
-        a.avg_delay,
-        a.scope_json,
+        a.delay_cap,
+        a.subject,
         a.status,
         a.source_type,
         a.source_id,
@@ -150,15 +144,20 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     // Update stats
     $type = $row['advisory_type'];
     $stats['by_type'][$type] = ($stats['by_type'][$type] ?? 0) + 1;
-    
+
     $airport = $row['ctl_element'];
     if ($airport) {
         $stats['by_airport'][$airport] = ($stats['by_airport'][$airport] ?? 0) + 1;
     }
-    
-    $facility = $row['issuing_facility'];
-    if ($facility) {
-        $stats['by_facility'][$facility] = ($stats['by_facility'][$facility] ?? 0) + 1;
+
+    // Parse scope_facilities for stats
+    if (!empty($row['scope_facilities'])) {
+        $facilities = array_map('trim', explode(',', $row['scope_facilities']));
+        foreach ($facilities as $fac) {
+            if ($fac) {
+                $stats['by_facility'][$fac] = ($stats['by_facility'][$fac] ?? 0) + 1;
+            }
+        }
     }
 }
 sqlsrv_free_stmt($stmt);
@@ -196,74 +195,61 @@ SwimResponse::json($response);
 
 
 function formatAdvisory($row, $include_text = true) {
-    // Parse scope JSON
-    $scope = null;
-    if (!empty($row['scope_json'])) {
-        $scope = json_decode($row['scope_json'], true);
+    // Parse scope facilities
+    $scopeFacilities = null;
+    if (!empty($row['scope_facilities'])) {
+        $scopeFacilities = array_map('trim', explode(',', $row['scope_facilities']));
     }
-    
+
     $advisory = [
         'advisory_id' => $row['advisory_id'],
         'advisory_guid' => $row['advisory_guid'],
         'advisory_number' => $row['advisory_number'],
         'type' => $row['advisory_type'],
-        
+
         'control_element' => $row['ctl_element'],
         'element_type' => $row['element_type'],
-        'issuing_facility' => $row['issuing_facility'],
-        'artcc' => $row['artcc'],
-        
+        'scope_facilities' => $scopeFacilities,
+        'program_id' => $row['program_id'],
+
         'is_proposed' => (bool)$row['is_proposed'],
         'revision' => $row['revision_number'],
         'supersedes' => $row['supersedes_advisory_id'],
-        
+
         'reason' => [
             'code' => $row['reason_code'],
             'detail' => $row['reason_detail']
         ],
-        
-        'probability_extension' => $row['probability_extension'],
-        
+
+        'subject' => $row['subject'],
+
         'validity' => [
-            'from' => formatDT($row['valid_from']),
-            'until' => formatDT($row['valid_until'])
+            'from' => formatDT($row['effective_from']),
+            'until' => formatDT($row['effective_until'])
         ],
-        
-        'program_period' => [
-            'start' => formatDT($row['program_start']),
-            'end' => formatDT($row['program_end'])
-        ],
-        
-        'cumulative_period' => [
-            'start' => formatDT($row['cumulative_start']),
-            'end' => formatDT($row['cumulative_end'])
-        ],
-        
+
         'rates' => [
             'program_rate' => $row['program_rate'],
-            'delay_limit' => $row['delay_limit'],
-            'max_delay' => $row['max_delay'],
-            'avg_delay' => $row['avg_delay']
+            'delay_cap' => $row['delay_cap']
         ],
-        
-        'scope' => $scope,
+
         'status' => $row['status'],
-        
+
         'source' => [
             'type' => $row['source_type'],
             'id' => $row['source_id']
         ],
-        
+
         '_created_at' => formatDT($row['created_at']),
         '_created_by' => $row['created_by']
     ];
-    
+
     // Add text fields if requested
     if ($include_text) {
-        $advisory['advisory_text'] = $row['advisory_text'] ?? null;
+        $advisory['body_text'] = $row['body_text'] ?? null;
         $advisory['comments'] = $row['comments'] ?? null;
     }
-    
+
     return $advisory;
 }
 

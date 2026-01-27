@@ -74,8 +74,8 @@ CREATE TABLE dbo.tmi_entries (
     -- Scope
     ctl_element             NVARCHAR(8) NULL,
     element_type            NVARCHAR(8) NULL,
-    requesting_facility     NVARCHAR(8) NULL,
-    providing_facility      NVARCHAR(8) NULL,
+    requesting_facility     NVARCHAR(64) NULL,
+    providing_facility      NVARCHAR(64) NULL,
     
     -- Restriction Details
     restriction_value       SMALLINT NULL,

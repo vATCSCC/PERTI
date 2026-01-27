@@ -1069,9 +1069,8 @@
                         <div class="col-md-4">
                             <label class="form-label small text-muted">AAR Type</label>
                             <select class="form-control" id="ntml_aar_type">
-                                <option value="STRAT">Strategic</option>
-                                <option value="OPS">Operational</option>
-                                <option value="CALLED">Called</option>
+                                <option value="Strat">Strategic (config rate)</option>
+                                <option value="Dyn">Dynamic (user-defined)</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -1298,9 +1297,6 @@
         
         if (aar) $('#ntml_aar').val(aar);
         if (adr) $('#ntml_adr').val(adr);
-        
-        // Update preview
-        updateNtmlPreview();
     }
     
     // ===========================================
@@ -1904,41 +1900,104 @@
      * Import PERTI Plan data into Ops Plan advisory
      */
     function importPertiPlan() {
+        // First fetch available plans for the dropdown
+        $.ajax({
+            url: 'api/mgt/plan/get.php',
+            method: 'GET',
+            data: { list: '1' },
+            dataType: 'json',
+            success: function(response) {
+                let planOptions = '<option value="">-- Select a plan --</option>';
+                if (response.success && response.plans) {
+                    response.plans.forEach(function(plan) {
+                        planOptions += `<option value="${plan.id}">${plan.eventName} (${plan.eventDate})</option>`;
+                    });
+                }
+                showImportDialog(planOptions);
+            },
+            error: function() {
+                // Show dialog without plan list
+                showImportDialog('<option value="">-- No plans loaded --</option>');
+            }
+        });
+    }
+
+    function showImportDialog(planOptions) {
         Swal.fire({
             title: '<i class="fas fa-file-import text-primary"></i> Import PERTI Plan',
             html: `
                 <div class="text-left">
                     <p class="small text-muted mb-3">Import planned TMIs from a PERTI Plan to populate the Operations Plan advisory.</p>
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Plan Date</label>
-                        <input type="date" id="importPlanDate" class="form-control" value="${new Date().toISOString().slice(0, 10)}">
+                    <ul class="nav nav-tabs nav-sm mb-3" role="tablist">
+                        <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#importByPlan">By Plan</a></li>
+                        <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#importByDate">By Date</a></li>
+                        <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#importBySearch">Search</a></li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="importByPlan">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">Select Plan</label>
+                                <select id="importPlanId" class="form-control">${planOptions}</select>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="importByDate">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">Plan Date</label>
+                                <input type="date" id="importPlanDate" class="form-control" value="${new Date().toISOString().slice(0, 10)}">
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="importBySearch">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">Event Name Search</label>
+                                <input type="text" id="importPlanSearch" class="form-control" placeholder="Enter event name...">
+                            </div>
+                        </div>
                     </div>
                 </div>
             `,
-            width: 450,
+            width: 500,
             showCancelButton: true,
             confirmButtonText: '<i class="fas fa-download"></i> Fetch Plan',
             confirmButtonColor: '#007bff',
             cancelButtonText: 'Cancel',
             preConfirm: () => {
-                const planDate = document.getElementById('importPlanDate').value;
-                if (!planDate) {
-                    Swal.showValidationMessage('Please select a plan date');
-                    return false;
+                const activeTab = document.querySelector('.tab-pane.show.active')?.id;
+                if (activeTab === 'importByPlan') {
+                    const planId = document.getElementById('importPlanId').value;
+                    if (!planId) {
+                        Swal.showValidationMessage('Please select a plan');
+                        return false;
+                    }
+                    return { type: 'id', value: planId };
+                } else if (activeTab === 'importByDate') {
+                    const planDate = document.getElementById('importPlanDate').value;
+                    if (!planDate) {
+                        Swal.showValidationMessage('Please select a date');
+                        return false;
+                    }
+                    return { type: 'date', value: planDate };
+                } else {
+                    const search = document.getElementById('importPlanSearch').value;
+                    if (!search) {
+                        Swal.showValidationMessage('Please enter a search term');
+                        return false;
+                    }
+                    return { type: 'event', value: search };
                 }
-                return { planDate };
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                fetchPertiPlanData(result.value.planDate);
+                fetchPertiPlanData(result.value.type, result.value.value);
             }
         });
     }
 
     /**
      * Fetch PERTI Plan data from API
+     * @param {string} type - 'date', 'id', or 'event'
+     * @param {string} value - The value for the lookup
      */
-    function fetchPertiPlanData(planDate) {
+    function fetchPertiPlanData(type, value) {
         Swal.fire({
             title: 'Loading...',
             text: 'Fetching PERTI Plan data',
@@ -1946,13 +2005,40 @@
             didOpen: () => Swal.showLoading()
         });
 
+        // Build request params based on type
+        const params = {};
+        if (type === 'id') params.id = value;
+        else if (type === 'date') params.date = value;
+        else if (type === 'event') params.event = value;
+
         $.ajax({
             url: 'api/mgt/plan/get.php',
             method: 'GET',
-            data: { date: planDate },
+            data: params,
             dataType: 'json',
             success: function(response) {
                 Swal.close();
+
+                // Handle multiple results from event search
+                if (response.success && response.plans && response.plans.length > 1) {
+                    // Show plan selection dialog
+                    let options = '';
+                    response.plans.forEach(function(plan) {
+                        options += `<option value="${plan.id}">${plan.eventName} (${plan.eventDate})</option>`;
+                    });
+                    Swal.fire({
+                        title: 'Multiple Plans Found',
+                        html: `<select id="selectPlan" class="form-control">${options}</select>`,
+                        confirmButtonText: 'Select',
+                        showCancelButton: true,
+                        preConfirm: () => document.getElementById('selectPlan').value
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            fetchPertiPlanData('id', result.value);
+                        }
+                    });
+                    return;
+                }
 
                 if (response.success && response.plan) {
                     populateOpsPlanFromPerti(response.plan);
@@ -1967,7 +2053,7 @@
                     Swal.fire({
                         icon: 'info',
                         title: 'No Plan Found',
-                        text: 'No PERTI Plan was found for the selected date.'
+                        text: 'No PERTI Plan was found for the specified criteria.'
                     });
                 } else {
                     Swal.fire({
@@ -2166,7 +2252,7 @@
     function buildHotlinePreview() {
         const num = $('#adv_number').val() || '001';
         const action = $('#adv_hotline_action').val() || 'ACTIVATION';
-        const hotlineName = ($('#adv_hotline_name').val() || 'NY Metro') + ' HOTLINE';
+        const hotlineName = (($('#adv_hotline_name').val() || 'NY Metro') + ' HOTLINE').toUpperCase();
         
         // Parse datetime fields
         const startDateTime = $('#adv_start_datetime').val() || '';
@@ -2445,22 +2531,34 @@
     // Queue Management
     // ===========================================
     
-    function addNtmlToQueue(type) {
+    function addNtmlToQueue(type, skipDuplicateCheck = false) {
         // Validate required fields
         const ctlElement = ($('#ntml_ctl_element').val() || '').trim().toUpperCase();
         const reqFacility = ($('#ntml_req_facility').val() || '').trim().toUpperCase();
         const provFacility = ($('#ntml_prov_facility').val() || '').trim().toUpperCase();
         const validFrom = ($('#ntml_valid_from').val() || '').trim();
         const validUntil = ($('#ntml_valid_until').val() || '').trim();
-        
+
         // Basic validation
         if (!ctlElement && type !== 'DELAY') {
             Swal.fire('Missing Field', 'Please enter an airport or fix', 'warning');
             return;
         }
-        
+
         if (type !== 'DELAY' && type !== 'CONFIG' && (!reqFacility || !provFacility)) {
             Swal.fire('Missing Facilities', 'Please enter requesting and providing facilities', 'warning');
+            return;
+        }
+
+        // Check for duplicate CONFIG entries
+        if (type === 'CONFIG' && ctlElement && !skipDuplicateCheck) {
+            checkDuplicateConfig(ctlElement, function(existingConfig) {
+                if (existingConfig) {
+                    showDuplicateConfigPrompt(ctlElement, existingConfig, type);
+                } else {
+                    addNtmlToQueue(type, true);
+                }
+            });
             return;
         }
         
@@ -2646,21 +2744,22 @@
     }
     
     function formatStopMessage(data, logTime, validTime) {
-        // Format: {DD/HHMM}    {element} via {fix} STOP {qualifiers} EXCL:{excl} {category}:{cause} {filters} {valid} {req}:{prov}
+        // Format: {DD/HHMM}    STOP {element} {traffic_flow} via {fix} {qualifiers} EXCL:{excl} {category}:{cause} {filters} {valid} {req}:{prov}
         const element = (data.ctl_element || 'N/A').toUpperCase();
         const viaFix = data.via_fix ? (data.via_fix).toUpperCase() : 'ALL';
+        const trafficFlow = data.traffic_flow ? ` ${data.traffic_flow}` : '';
         const category = (data.reason_category || 'VOLUME').toUpperCase();
         const cause = (data.reason_cause || category).toUpperCase();
         const exclusions = data.exclusions ? data.exclusions.toUpperCase() : 'NONE';
         const reqFac = (data.req_facility || 'N/A').toUpperCase();
         const provFac = (data.prov_facility || 'N/A').toUpperCase();
-        
+
         // Get qualifiers
         let qualStr = '';
         if (data.qualifiers && data.qualifiers.length > 0) {
             qualStr = ' ' + data.qualifiers.join(' ');
         }
-        
+
         // Build filter string (altitude, speed)
         let filters = '';
         if (data.altitude_filter) {
@@ -2669,9 +2768,9 @@
         if (data.speed_filter) {
             filters += ` SPD:${data.speed_filter}KTS`;
         }
-        
-        let line = `${logTime}    ${element} via ${viaFix} STOP${qualStr} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
-        
+
+        let line = `${logTime}    STOP ${element}${trafficFlow} via ${viaFix}${qualStr} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
+
         return line;
     }
     
@@ -2949,11 +3048,117 @@
         $('#previewModalContent').text(previewText);
         $('#previewModal').modal('show');
     }
-    
+
+    // ===========================================
+    // Duplicate CONFIG Detection
+    // ===========================================
+
+    function checkDuplicateConfig(airport, callback) {
+        // Check active TMIs for existing CONFIG for this airport
+        $.ajax({
+            url: 'api/mgt/tmi/active.php',
+            method: 'GET',
+            data: { type: 'ntml', source: 'ALL' },
+            success: function(response) {
+                if (response.success && response.data) {
+                    const allItems = [...(response.data.active || []), ...(response.data.scheduled || [])];
+                    const existing = allItems.find(item =>
+                        item.entryType === 'CONFIG' &&
+                        item.ctlElement &&
+                        item.ctlElement.toUpperCase() === airport.toUpperCase() &&
+                        item.status !== 'CANCELLED'
+                    );
+                    callback(existing || null);
+                } else {
+                    callback(null);
+                }
+            },
+            error: function() {
+                callback(null);
+            }
+        });
+    }
+
+    function showDuplicateConfigPrompt(airport, existingConfig, type) {
+        const existingTime = existingConfig.validFrom ?
+            new Date(existingConfig.validFrom).toLocaleString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false }) + 'Z' :
+            'Unknown time';
+        const existingStatus = existingConfig.status || 'ACTIVE';
+
+        Swal.fire({
+            title: `<i class="fas fa-exclamation-triangle text-warning"></i> Duplicate CONFIG`,
+            html: `
+                <div class="text-left">
+                    <p>An active CONFIG already exists for <strong>${airport}</strong>:</p>
+                    <div class="alert alert-secondary">
+                        <strong>Status:</strong> ${existingStatus}<br>
+                        <strong>Posted:</strong> ${existingTime}<br>
+                        <strong>ID:</strong> #${existingConfig.entityId}
+                    </div>
+                    <p>What would you like to do?</p>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: '<i class="fas fa-edit"></i> Update Existing',
+            confirmButtonColor: '#007bff',
+            denyButtonText: '<i class="fas fa-plus"></i> Create New Anyway',
+            denyButtonColor: '#6c757d',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Cancel the old one and create new
+                cancelAndReplaceConfig(existingConfig.entityId, type);
+            } else if (result.isDenied) {
+                // Just add the new one without canceling old
+                addNtmlToQueue(type, true);
+            }
+            // If cancelled, do nothing
+        });
+    }
+
+    function cancelAndReplaceConfig(existingId, type) {
+        const userCid = CONFIG.userCid || null;
+        const userName = CONFIG.userName || 'Unknown';
+
+        Swal.fire({
+            title: 'Cancelling old CONFIG...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/cancel.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                entityType: 'ENTRY',
+                entityId: existingId,
+                reason: 'Replaced with updated CONFIG',
+                userCid: userCid,
+                userName: userName
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    // Now add the new CONFIG
+                    addNtmlToQueue(type, true);
+                } else {
+                    Swal.fire('Error', response.error || 'Failed to cancel old CONFIG', 'error');
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                Swal.fire('Error', 'Failed to cancel old CONFIG: ' + (xhr.responseJSON?.error || 'Unknown error'), 'error');
+            }
+        });
+    }
+
     // ===========================================
     // Submit
     // ===========================================
-    
+
     function submitAll() {
         if (!state.queue || state.queue.length === 0) return;
         
