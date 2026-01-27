@@ -11,6 +11,9 @@
 //   - Environment variable SIMTRAFFIC_API_KEY (preferred)
 //   - Or define('SIMTRAFFIC_API_KEY', '...') globally
 
+// Load required helper functions
+require_once __DIR__ . '/../../load/input.php';
+
 header('Content-Type: application/json; charset=utf-8');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
