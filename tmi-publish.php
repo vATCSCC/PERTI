@@ -20,8 +20,8 @@
  * 
  * @package PERTI
  * @subpackage TMI
- * @version 1.7.0
- * @date 2026-01-27
+ * @version 1.8.0
+ * @date 2026-01-28
  */
 
 include("sessions/handler.php");
@@ -133,7 +133,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <head>
     <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/info-bar.css">
-<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.6">
+<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.7">
 </head>
 <body>
 
@@ -740,28 +740,35 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
             
             <!-- Restrictions Table (FAA-style) -->
             <div class="card shadow-sm mb-3">
-                <div class="card-header py-2" style="background-color: #1a5276;">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background-color: #1a5276;">
                     <span class="text-white font-weight-bold">
                         <i class="fas fa-ruler-horizontal mr-1"></i> Current Restrictions
                         <span class="badge badge-light ml-2" id="restrictionCount">0</span>
                     </span>
+                    <div id="batchCancelControls" style="display: none;">
+                        <span class="text-white small mr-2"><span id="selectedCount">0</span> selected</span>
+                        <button class="btn btn-sm btn-danger" id="batchCancelBtn" title="Cancel Selected">
+                            <i class="fas fa-times-circle"></i> Cancel Selected
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0" id="restrictionsTable">
                             <thead>
                                 <tr>
+                                    <th style="width: 30px;"><input type="checkbox" id="selectAllRestrictions" title="Select All"></th>
                                     <th style="width: 100px;">REQUESTING</th>
                                     <th style="width: 100px;">PROVIDING</th>
                                     <th>RESTRICTION</th>
-                                    <th style="width: 140px;">START TIME</th>
-                                    <th style="width: 140px;">STOP TIME</th>
+                                    <th style="width: 150px;">START TIME</th>
+                                    <th style="width: 150px;">END TIME</th>
                                     <th style="width: 60px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="restrictionsTableBody">
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">
+                                    <td colspan="7" class="text-center text-muted py-4">
                                         <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
                                         Loading restrictions...
                                     </td>
@@ -1007,15 +1014,15 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.8.4"></script>
-<script src="assets/js/tmi-active-display.js?v=1.1.0"></script>
+<script src="assets/js/tmi-publish.js?v=1.9.0"></script>
+<script src="assets/js/tmi-active-display.js?v=1.2.0"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
 (function() {
     var lastVersion = localStorage.getItem('tmi_publisher_version');
-    if (lastVersion !== '1.8.0') {
+    if (lastVersion !== '1.9.0') {
         localStorage.removeItem('tmi_publisher_queue');
-        localStorage.setItem('tmi_publisher_version', '1.8.0');
+        localStorage.setItem('tmi_publisher_version', '1.9.0');
         console.log('TMI Publisher: Cleared old queue data for version upgrade');
     }
 })();

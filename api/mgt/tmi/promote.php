@@ -280,19 +280,19 @@ echo json_encode($response);
  */
 function getEntityContent($conn, $entityType, $entityId) {
     if ($entityType === 'ADVISORY') {
-        $sql = "SELECT content_text FROM dbo.tmi_advisories WHERE advisory_id = ?";
+        $sql = "SELECT body_text FROM dbo.tmi_advisories WHERE advisory_id = ?";
     } else {
-        $sql = "SELECT raw_text FROM dbo.tmi_entries WHERE entry_id = ?";
+        $sql = "SELECT raw_input FROM dbo.tmi_entries WHERE entry_id = ?";
     }
-    
+
     $stmt = $conn->prepare($sql);
     $stmt->execute([$entityId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($row) {
-        return $row['content_text'] ?? $row['raw_text'] ?? null;
+        return $row['body_text'] ?? $row['raw_input'] ?? null;
     }
-    
+
     return null;
 }
 
