@@ -193,6 +193,13 @@
         loadSavedState();
         initAdvisoryCounters();
         updateUI();
+        
+        // Load default forms
+        state.selectedNtmlType = 'MIT';
+        loadNtmlForm('MIT');
+        state.selectedAdvisoryType = 'OPS_PLAN';
+        loadAdvisoryForm('OPS_PLAN');
+        
         loadActiveTmis();
         loadStagedEntries();
         
@@ -380,7 +387,7 @@
                 formHtml = '<div class="alert alert-warning">Unknown entry type</div>';
         }
         
-        $('#ntml_form_container').html(formHtml);
+        $('#ntmlFormContainer').html(formHtml);
         initNtmlFormHandlers(type);
     }
     
@@ -1031,9 +1038,11 @@
         let formHtml = '';
         
         switch(type) {
+            case 'OPS_PLAN':
             case 'OPSPLAN':
                 formHtml = buildOpsPlanForm();
                 break;
+            case 'FREE_FORM':
             case 'FREEFORM':
                 formHtml = buildFreeformForm();
                 break;
@@ -1047,7 +1056,7 @@
                 formHtml = '<div class="alert alert-warning">Unknown advisory type</div>';
         }
         
-        $('#adv_form_container').html(formHtml);
+        $('#advisoryFormContainer').html(formHtml);
         initAdvisoryFormHandlers(type);
         updateAdvisoryPreview();
         $('#adv_add_to_queue').prop('disabled', false);
@@ -1413,9 +1422,11 @@
         let preview = '';
         
         switch(type) {
+            case 'OPS_PLAN':
             case 'OPSPLAN':
                 preview = buildOpsPlanPreview();
                 break;
+            case 'FREE_FORM':
             case 'FREEFORM':
                 preview = buildFreeformPreview();
                 break;
