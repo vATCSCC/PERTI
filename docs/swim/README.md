@@ -218,11 +218,11 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 
 | Document | Description |
 |----------|-------------|
-| [API Documentation](./VATSIM_SWIM_API_Documentation.md) | Full API reference |
-| [Implementation Tracker](./SWIM_TODO.md) | Current status |
-| [AOC Telemetry Transition](./SWIM_Session_Transition_20260116_AOCTelemetry.md) | Latest changes |
-| [OpenAPI Spec](./openapi.yaml) | REST API spec (import into Postman) |
-| [Swagger UI](./index.html) | Interactive docs |
+| [API Documentation](/swim-doc?file=VATSWIM_API_Documentation) | Full API reference |
+| [Implementation Tracker](/swim-doc?file=SWIM_TODO) | Current status |
+| [AOC Telemetry Transition](/swim-doc?file=SWIM_Session_Transition_20260116_AOCTelemetry) | Latest changes |
+| [OpenAPI Spec](/docs/swim/openapi.yaml) | REST API spec (import into Postman) |
+| [Swagger UI](/docs/swim/) | Interactive docs |
 
 ---
 
