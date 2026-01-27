@@ -1,8 +1,16 @@
 # Aviation Data Exchange Standards - Consolidated Field Reference
 
-**Version:** 1.0  
-**Date:** 2026-01-16  
+**Version:** 1.1
+**Date:** 2026-01-27
 **Purpose:** Cross-reference of equivalent field names across aviation data exchange standards
+
+---
+
+> **FIXM Migration (2026-01-27):** VATSWIM is transitioning to FIXM-aligned column naming.
+> Legacy OOOI columns (`out_utc`, `off_utc`, `on_utc`, `in_utc`) are being replaced with
+> FIXM-aligned names (`actual_off_block_time`, `actual_time_of_departure`, `actual_landing_time`,
+> `actual_in_block_time`). Both columns populated during 30-day transition.
+> See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md) for complete mapping.
 
 ---
 

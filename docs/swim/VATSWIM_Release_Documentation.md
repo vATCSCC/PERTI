@@ -2,10 +2,21 @@
 
 **System Wide Information Management for VATSIM**
 
-**Version:** 1.0.0  
-**Release Date:** January 2026  
-**Status:** Production Ready  
+**Version:** 1.1.0
+**Release Date:** January 2026 (Updated 2026-01-27)
+**Status:** Production Ready
 **Maintained by:** vATCSCC Development Team
+
+---
+
+> **⚠️ FIXM Migration Notice (v1.1.0 - 2026-01-27)**
+>
+> VATSWIM is transitioning from legacy OOOI column names (`out_utc`, `off_utc`, `on_utc`, `in_utc`)
+> to FIXM-aligned naming (`actual_off_block_time`, `actual_time_of_departure`, `actual_landing_time`,
+> `actual_in_block_time`). During the 30-day transition period, both column sets are populated.
+>
+> API responses prefer FIXM columns with legacy fallback. Use `?format=fixm` for FIXM camelCase output.
+> See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md) for complete mapping.
 
 ---
 

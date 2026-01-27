@@ -1,9 +1,20 @@
 # VATSIM_ADL Database Schema Reference
 ## adl_flights Table
 
-**Generated:** 2026-01-15  
-**Total Columns:** 158  
+**Generated:** 2026-01-15 (Updated 2026-01-27)
+**Total Columns:** 171 (13 new FIXM columns added)
 **Database:** Azure SQL (VATSIM_ADL)
+
+---
+
+> **FIXM Migration (2026-01-27):** New FIXM-aligned time columns have been added alongside legacy
+> OOOI columns. During the 30-day transition, both sets are populated. After transition, legacy
+> columns will be deprecated. See migration 097_adl_fixm_time_columns.sql for details.
+>
+> **New FIXM Columns:** `actual_off_block_time`, `actual_time_of_departure`, `actual_landing_time`,
+> `actual_in_block_time`, `estimated_time_of_arrival`, `estimated_off_block_time`,
+> `estimated_runway_arrival_time`, `controlled_time_of_departure`, `controlled_time_of_arrival`,
+> `taxi_start_time`, `departure_sequence_time`, `hold_short_time`, `runway_entry_time`
 
 ---
 
