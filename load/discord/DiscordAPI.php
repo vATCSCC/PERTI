@@ -39,7 +39,26 @@ class DiscordAPI {
         if (defined('DISCORD_CHANNELS')) {
             $this->channels = json_decode(DISCORD_CHANNELS, true) ?? [];
         } else {
+            // Fallback to individual channel constants
             $this->channels = [];
+            
+            // Map legacy constants to channel purposes
+            $legacyMappings = [
+                'DISCORD_CHANNEL_NTML' => ['tmi', 'ntml'],
+                'DISCORD_CHANNEL_ADVISORIES' => ['advisories'],
+                'DISCORD_CHANNEL_NTML_STAGING' => ['ntml_staging'],
+                'DISCORD_CHANNEL_ADVZY_STAGING' => ['advzy_staging'],
+                'DISCORD_NTML_ACTIVE' => ['ntml_active'],
+                'DISCORD_ADVZY_ACTIVE' => ['advzy_active']
+            ];
+            
+            foreach ($legacyMappings as $constant => $purposes) {
+                if (defined($constant) && constant($constant)) {
+                    foreach ($purposes as $purpose) {
+                        $this->channels[$purpose] = constant($constant);
+                    }
+                }
+            }
         }
     }
 

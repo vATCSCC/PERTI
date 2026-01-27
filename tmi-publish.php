@@ -5,9 +5,14 @@
  * Combined NTML Entry + Advisory Builder with multi-Discord posting support.
  * Supports staging→production workflow and cross-border TMI detection.
  * 
+ * NTML Entry Types: MIT, MINIT, DELAY, CONFIG, STOP, APREQ/CFR, TBM, CANCEL
+ * Advisory Types: Operations Plan, Free Form, Hotline, SWAP Implementation
+ * 
+ * Note: GS/GDP → GDT page, Reroutes/AFP → route.php
+ * 
  * @package PERTI
  * @subpackage TMI
- * @version 1.0.0
+ * @version 1.1.0
  * @date 2026-01-27
  */
 
@@ -25,7 +30,7 @@ $perm = false;
 $userCid = null;
 $userName = null;
 $userPrivileged = false;
-$userHomeOrg = 'vatcscc'; // Default
+$userHomeOrg = 'vatcscc';
 
 if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
@@ -35,7 +40,6 @@ if (!defined('DEV')) {
             $perm = true;
             $userName = session_get('VATSIM_FIRST_NAME', '') . ' ' . session_get('VATSIM_LAST_NAME', '');
             
-            // Check for privileged roles (Admin, NAS Ops, NTMO, NTMS)
             $row = $p_check->fetch_assoc();
             $privilegedRoles = ['Admin', 'NAS Ops', 'NTMO', 'NTMS'];
             if ($row && isset($row['role']) && in_array($row['role'], $privilegedRoles)) {
@@ -51,14 +55,13 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_LAST_NAME'] = 'User';
 }
 
-// Load Discord organization config for the UI
+// Load Discord organization config
 $discordOrgs = [];
 if (defined('DISCORD_ORGANIZATIONS')) {
     $allOrgs = json_decode(DISCORD_ORGANIZATIONS, true);
     if (is_array($allOrgs)) {
         foreach ($allOrgs as $code => $config) {
             if (!empty($config['enabled'])) {
-                // In non-dev mode, skip testing_only orgs
                 if (!defined('DEV') && !empty($config['testing_only'])) {
                     continue;
                 }
@@ -73,7 +76,6 @@ if (defined('DISCORD_ORGANIZATIONS')) {
     }
 }
 
-// Fallback if no orgs configured
 if (empty($discordOrgs)) {
     $discordOrgs['vatcscc'] = [
         'name' => 'vATCSCC',
@@ -82,13 +84,48 @@ if (empty($discordOrgs)) {
         'testing_only' => false,
     ];
 }
+
+// Calculate default times (now to T+4h, snapped to :14/:29/:44/:59)
+function snapToQuarter($timestamp, $roundUp = false) {
+    $minutes = intval(date('i', $timestamp));
+    $snapPoints = [14, 29, 44, 59];
+    
+    foreach ($snapPoints as $snap) {
+        if ($minutes <= $snap) {
+            $snappedMinutes = $snap;
+            break;
+        }
+    }
+    
+    if (!isset($snappedMinutes)) {
+        // Past 59, snap to next hour's :14
+        $snappedMinutes = 14;
+        $timestamp = strtotime('+1 hour', $timestamp);
+    }
+    
+    $hour = intval(date('H', $timestamp));
+    $day = intval(date('d', $timestamp));
+    $month = intval(date('m', $timestamp));
+    $year = intval(date('Y', $timestamp));
+    
+    return gmmktime($hour, $snappedMinutes, 0, $month, $day, $year);
+}
+
+$nowUtc = time();
+$defaultStartTime = snapToQuarter($nowUtc);
+$defaultEndTime = snapToQuarter($nowUtc + (4 * 3600));
+
+$defaultStartFormatted = gmdate('H:i', $defaultStartTime);
+$defaultEndFormatted = gmdate('H:i', $defaultEndTime);
+$defaultStartDatetime = gmdate('Y-m-d\TH:i', $defaultStartTime);
+$defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/info-bar.css">
-    <link rel="stylesheet" href="assets/css/tmi-publish.css">
+    <link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.1">
 </head>
 <body>
 
@@ -99,7 +136,7 @@ if (empty($discordOrgs)) {
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
             <h1><i class="fas fa-broadcast-tower"></i> TMI Publisher</h1>
-            <p class="text-white-50 mb-0">Unified NTML &amp; Advisory Publishing System</p>
+            <p class="text-white-50 mb-0">NTML Entries &amp; Advisories</p>
         </center>
     </div>
 </section>
@@ -108,7 +145,7 @@ if (empty($discordOrgs)) {
     
     <?php if ($perm): ?>
     
-    <!-- Info Bar: UTC Clock & Mode Indicators -->
+    <!-- Info Bar -->
     <div class="perti-info-bar mb-3">
         <div class="row d-flex flex-wrap align-items-stretch" style="gap: 8px; margin: 0 -4px;">
             <!-- Current Time (UTC) -->
@@ -141,7 +178,6 @@ if (empty($discordOrgs)) {
                 </div>
             </div>
             
-            <!-- Spacer -->
             <div class="col"></div>
             
             <!-- Mode Controls -->
@@ -169,12 +205,12 @@ if (empty($discordOrgs)) {
     <ul class="nav nav-tabs nav-tabs-publisher mb-3" id="publisherTabs" role="tablist">
         <li class="nav-item">
             <a class="nav-link active" id="ntml-tab" data-toggle="tab" href="#ntmlPanel" role="tab">
-                <i class="fas fa-clipboard-list mr-1"></i> NTML Quick Entry
+                <i class="fas fa-clipboard-list mr-1"></i> NTML Entry
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="advisory-tab" data-toggle="tab" href="#advisoryPanel" role="tab">
-                <i class="fas fa-bullhorn mr-1"></i> Advisory Builder
+                <i class="fas fa-bullhorn mr-1"></i> Advisory
             </a>
         </li>
         <li class="nav-item">
@@ -183,227 +219,296 @@ if (empty($discordOrgs)) {
                 <span class="badge badge-secondary" id="queueBadge">0</span>
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link" id="active-tab" data-toggle="tab" href="#activePanel" role="tab">
+                <i class="fas fa-broadcast-tower mr-1"></i> Active TMIs
+            </a>
+        </li>
     </ul>
 
     <div class="tab-content" id="publisherTabContent">
         
-        <!-- NTML Quick Entry Panel -->
+        <!-- NTML Entry Panel -->
         <div class="tab-pane fade show active" id="ntmlPanel" role="tabpanel">
             <div class="row">
                 <div class="col-lg-8">
-                    <!-- Quick Entry Input -->
-                    <div class="quick-entry-container">
-                        <div class="row">
-                            <div class="col-12">
-                                <label class="text-white-50 mb-2">
-                                    <i class="fas fa-terminal"></i> Quick Entry 
-                                    <small class="text-muted ml-2">Press <span class="kbd">Enter</span> to add to queue</small>
-                                </label>
-                                <input type="text" class="form-control quick-input" id="quickInput" 
-                                       placeholder="20MIT ZBW→ZNY JFK LENDY VOLUME 1400-1800" autocomplete="off">
-                                <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
-                            </div>
+                    <!-- NTML Type Selection -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-dark text-white">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-list-alt mr-1"></i> NTML Entry Type
+                            </span>
                         </div>
-                        
-                        <!-- Templates -->
-                        <div class="mt-3">
-                            <span class="text-white-50 mr-2"><i class="fas fa-magic"></i> Templates:</span>
-                            <button class="template-btn" data-template="mit-arr">MIT Arrival</button>
-                            <button class="template-btn" data-template="mit-dep">MIT Departure</button>
-                            <button class="template-btn" data-template="minit">MINIT</button>
-                            <button class="template-btn" data-template="delay">Delay</button>
-                            <button class="template-btn" data-template="config">Airport Config</button>
-                            <button class="template-btn" data-template="gs">Ground Stop</button>
-                        </div>
-                        
-                        <!-- Syntax Help -->
-                        <div class="mt-3">
-                            <a class="text-white-50" data-toggle="collapse" href="#syntaxHelp" style="text-decoration: none;">
-                                <i class="fas fa-question-circle"></i> Syntax Help <i class="fas fa-chevron-down ml-1"></i>
-                            </a>
-                            <div class="collapse mt-2" id="syntaxHelp">
-                                <div class="syntax-help">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <strong>MIT/MINIT:</strong><br>
-                                            <code>[distance]MIT [from]→[to] [airport/fix] [reason] [times]</code><br>
-                                            <small>Example: <code>20MIT ZBW→ZNY JFK LENDY VOLUME 1400-1800</code></small>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <strong>Delay:</strong><br>
-                                            <code>DELAY [facility] [minutes]min [trend] [reason]</code><br>
-                                            <small>Example: <code>DELAY JFK 45min INC WEATHER</code></small>
-                                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2 selected" data-type="MIT">
+                                        <div class="ntml-type-icon"><i class="fas fa-ruler-horizontal"></i></div>
+                                        <div class="small font-weight-bold">MIT</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Miles-In-Trail</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2" data-type="MINIT">
+                                        <div class="ntml-type-icon"><i class="fas fa-stopwatch"></i></div>
+                                        <div class="small font-weight-bold">MINIT</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Minutes-In-Trail</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2" data-type="DELAY">
+                                        <div class="ntml-type-icon"><i class="fas fa-clock"></i></div>
+                                        <div class="small font-weight-bold">Delay</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">E/D, A/D, D/D</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2" data-type="CONFIG">
+                                        <div class="ntml-type-icon"><i class="fas fa-plane-arrival"></i></div>
+                                        <div class="small font-weight-bold">Config</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Airport Config</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2" data-type="STOP">
+                                        <div class="ntml-type-icon"><i class="fas fa-hand-paper"></i></div>
+                                        <div class="small font-weight-bold">STOP</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Flow Stoppage</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2" data-type="APREQ">
+                                        <div class="ntml-type-icon"><i class="fas fa-phone-alt"></i></div>
+                                        <div class="small font-weight-bold">APREQ/CFR</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Call for Release</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2" data-type="TBM">
+                                        <div class="ntml-type-icon"><i class="fas fa-tachometer-alt"></i></div>
+                                        <div class="small font-weight-bold">TBM</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Time-Based Metering</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card ntml-type-card text-center p-2" data-type="CANCEL">
+                                        <div class="ntml-type-icon"><i class="fas fa-times-circle"></i></div>
+                                        <div class="small font-weight-bold">Cancel</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Cancel TMI</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- NTML Form - Dynamic based on type -->
+                    <div id="ntmlFormContainer">
+                        <!-- MIT/MINIT Form (default) -->
+                        <div class="card shadow-sm mb-3" id="ntml_form_mit">
+                            <div class="card-header">
+                                <span class="tmi-section-title">
+                                    <i class="fas fa-ruler-horizontal mr-1"></i> MIT/MINIT Details
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-row">
+                                    <div class="form-group col-md-3">
+                                        <label class="tmi-label mb-0">Distance/Minutes</label>
+                                        <input type="number" class="form-control" id="ntml_distance" placeholder="20" min="1" max="100">
+                                    </div>
+                                    <div class="form-group col-md-3">
+                                        <label class="tmi-label mb-0">Airport/Fix</label>
+                                        <input type="text" class="form-control" id="ntml_airport" placeholder="JFK">
+                                    </div>
+                                    <div class="form-group col-md-3">
+                                        <label class="tmi-label mb-0">Via Route/Fix</label>
+                                        <input type="text" class="form-control" id="ntml_via" placeholder="LENDY">
+                                    </div>
+                                    <div class="form-group col-md-3">
+                                        <label class="tmi-label mb-0">Reason</label>
+                                        <select class="form-control" id="ntml_reason">
+                                            <option value="VOLUME">Volume</option>
+                                            <option value="WEATHER">Weather</option>
+                                            <option value="RUNWAY">Runway</option>
+                                            <option value="EQUIPMENT">Equipment</option>
+                                            <option value="OTHER">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label class="tmi-label mb-0">Requesting Facility</label>
+                                        <input type="text" class="form-control" id="ntml_req_facility" placeholder="ZNY" list="facilityList">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label class="tmi-label mb-0">Providing Facility</label>
+                                        <input type="text" class="form-control" id="ntml_prov_facility" placeholder="ZBW" list="facilityList">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label class="tmi-label mb-0">Valid From (UTC)</label>
+                                        <input type="time" class="form-control" id="ntml_valid_from" value="<?= $defaultStartFormatted ?>">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label class="tmi-label mb-0">Valid Until (UTC)</label>
+                                        <input type="time" class="form-control" id="ntml_valid_until" value="<?= $defaultEndFormatted ?>">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-12">
+                                        <label class="tmi-label mb-0">Qualifiers (optional)</label>
+                                        <div class="qualifier-buttons">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="HEAVY">HEAVY</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="B757">B757</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="PER_FIX">PER FIX</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="AS_ONE">AS ONE</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="EACH">EACH</button>
+                                        </div>
+                                        <input type="hidden" id="ntml_qualifiers" value="">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Add to Queue Button -->
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-outline-secondary" id="ntml_reset" type="button">
+                            <i class="fas fa-undo mr-1"></i> Reset
+                        </button>
+                        <button class="btn btn-primary" id="ntml_add_to_queue" type="button">
+                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="col-lg-4">
-                    <!-- Discord Targets -->
-                    <div class="discord-targets-card">
-                        <h6 class="mb-3">
-                            <i class="fab fa-discord"></i> Post To Organizations
-                        </h6>
-                        
-                        <?php foreach ($discordOrgs as $code => $org): ?>
-                        <div class="custom-control custom-checkbox mb-2">
-                            <input type="checkbox" class="custom-control-input discord-org-checkbox" 
-                                   id="org_<?= $code ?>" value="<?= $code ?>" 
-                                   data-region="<?= $org['region'] ?>"
-                                   <?= $org['default'] ? 'checked' : '' ?>>
-                            <label class="custom-control-label" for="org_<?= $code ?>">
-                                <?= htmlspecialchars($org['name']) ?>
-                                <small class="text-muted">(<?= $org['region'] ?>)</small>
-                                <?php if ($org['testing_only']): ?>
-                                <span class="badge badge-secondary badge-sm">TEST</span>
-                                <?php endif; ?>
-                            </label>
+                    <!-- NTML Preview -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-eye mr-1"></i> NTML Preview
+                            </span>
                         </div>
-                        <?php endforeach; ?>
-                        
-                        <hr class="my-2">
-                        <div class="small text-muted">
-                            <i class="fas fa-info-circle"></i>
-                            <span id="crossBorderHint">Cross-border TMIs auto-enable partner orgs</span>
+                        <div class="card-body">
+                            <pre id="ntml_preview" class="ntml-preview">Enter details to preview...</pre>
+                        </div>
+                    </div>
+                    
+                    <!-- Discord Targets -->
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <span class="tmi-section-title">
+                                <i class="fab fa-discord mr-1"></i> Post To Organizations
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <?php foreach ($discordOrgs as $code => $org): ?>
+                            <div class="custom-control custom-checkbox mb-2">
+                                <input type="checkbox" class="custom-control-input discord-org-checkbox" 
+                                       id="org_<?= $code ?>" value="<?= $code ?>" 
+                                       data-region="<?= $org['region'] ?>"
+                                       <?= $org['default'] ? 'checked' : '' ?>>
+                                <label class="custom-control-label" for="org_<?= $code ?>">
+                                    <?= htmlspecialchars($org['name']) ?>
+                                    <small class="text-muted">(<?= $org['region'] ?>)</small>
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Advisory Builder Panel -->
+        <!-- Advisory Panel -->
         <div class="tab-pane fade" id="advisoryPanel" role="tabpanel">
             <div class="row">
-                <!-- Left Column: Advisory Form -->
-                <div class="col-lg-6 mb-4">
-                    <!-- Advisory Type Selector -->
+                <div class="col-lg-8">
+                    <!-- Advisory Type Selection -->
                     <div class="card shadow-sm mb-3">
-                        <div class="card-header">
+                        <div class="card-header bg-info text-white">
                             <span class="tmi-section-title">
-                                <i class="fas fa-list-alt mr-1"></i> Select Advisory Type
+                                <i class="fas fa-bullhorn mr-1"></i> Advisory Type
                             </span>
                         </div>
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="GDP">
-                                        <div class="advisory-type-icon text-warning"><i class="fas fa-hourglass-half"></i></div>
-                                        <div class="small font-weight-bold">GDP</div>
+                                    <div class="card advisory-type-card text-center p-2 selected" data-type="OPS_PLAN">
+                                        <div class="advisory-type-icon text-primary"><i class="fas fa-calendar-alt"></i></div>
+                                        <div class="small font-weight-bold">Ops Plan</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Operations Plan</div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="GS">
-                                        <div class="advisory-type-icon text-danger"><i class="fas fa-ban"></i></div>
-                                        <div class="small font-weight-bold">GS</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="AFP">
-                                        <div class="advisory-type-icon text-info"><i class="fas fa-vector-square"></i></div>
-                                        <div class="small font-weight-bold">AFP</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="REROUTE">
-                                        <div class="advisory-type-icon text-success"><i class="fas fa-directions"></i></div>
-                                        <div class="small font-weight-bold">Reroute</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="MIT">
-                                        <div class="advisory-type-icon" style="color: #fd7e14;"><i class="fas fa-ruler-horizontal"></i></div>
-                                        <div class="small font-weight-bold">MIT/MINIT</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="ATCSCC">
+                                    <div class="card advisory-type-card text-center p-2" data-type="FREE_FORM">
                                         <div class="advisory-type-icon text-secondary"><i class="fas fa-file-alt"></i></div>
                                         <div class="small font-weight-bold">Free-Form</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">ATCSCC Advisory</div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="CNX">
-                                        <div class="advisory-type-icon text-dark"><i class="fas fa-times-circle"></i></div>
-                                        <div class="small font-weight-bold">Cancel</div>
+                                    <div class="card advisory-type-card text-center p-2" data-type="HOTLINE">
+                                        <div class="advisory-type-icon text-danger"><i class="fas fa-phone-volume"></i></div>
+                                        <div class="small font-weight-bold">Hotline</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Activation/Term</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-2">
+                                    <div class="card advisory-type-card text-center p-2" data-type="SWAP">
+                                        <div class="advisory-type-icon text-warning"><i class="fas fa-cloud-sun-rain"></i></div>
+                                        <div class="small font-weight-bold">SWAP</div>
+                                        <div class="text-muted" style="font-size: 0.65rem;">Implementation Plan</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Basic Information -->
-                    <div class="card shadow-sm mb-3" id="adv_section_basic">
-                        <div class="card-header">
-                            <span class="tmi-section-title">
-                                <i class="fas fa-info-circle mr-1"></i> Basic Information
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-row">
-                                <div class="form-group col-md-3">
-                                    <label class="tmi-label mb-0" for="adv_number">Advisory #</label>
-                                    <input type="text" class="form-control form-control-sm" id="adv_number" placeholder="001">
+                    <!-- Advisory Form - Dynamic -->
+                    <div id="advisoryFormContainer">
+                        <!-- Ops Plan Form (default) -->
+                        <div class="card shadow-sm mb-3" id="adv_form_ops_plan">
+                            <div class="card-header">
+                                <span class="tmi-section-title">
+                                    <i class="fas fa-calendar-alt mr-1"></i> Operations Plan Details
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-row">
+                                    <div class="form-group col-md-4">
+                                        <label class="tmi-label mb-0">Advisory #</label>
+                                        <input type="text" class="form-control" id="adv_number" placeholder="001">
+                                    </div>
+                                    <div class="form-group col-md-4">
+                                        <label class="tmi-label mb-0">Facility</label>
+                                        <input type="text" class="form-control" id="adv_facility" value="DCC">
+                                    </div>
+                                    <div class="form-group col-md-4">
+                                        <label class="tmi-label mb-0">CTL Element</label>
+                                        <input type="text" class="form-control" id="adv_ctl_element" placeholder="KATL">
+                                    </div>
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <label class="tmi-label mb-0" for="adv_facility">Facility</label>
-                                    <input type="text" class="form-control form-control-sm" id="adv_facility" value="DCC">
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label class="tmi-label mb-0">Valid From (UTC)</label>
+                                        <input type="datetime-local" class="form-control" id="adv_start" value="<?= $defaultStartDatetime ?>">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label class="tmi-label mb-0">Valid Until (UTC)</label>
+                                        <input type="datetime-local" class="form-control" id="adv_end" value="<?= $defaultEndDatetime ?>">
+                                    </div>
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <label class="tmi-label mb-0" for="adv_ctl_element">CTL Element</label>
-                                    <input type="text" class="form-control form-control-sm" id="adv_ctl_element" placeholder="KATL">
-                                </div>
-                                <div class="form-group col-md-3">
-                                    <label class="tmi-label mb-0" for="adv_priority">Priority</label>
-                                    <select class="form-control form-control-sm" id="adv_priority">
-                                        <option value="1">HIGH</option>
-                                        <option value="2" selected>NORMAL</option>
-                                        <option value="3">LOW</option>
-                                    </select>
+                                <div class="form-group">
+                                    <label class="tmi-label mb-0">Plan Details</label>
+                                    <textarea class="form-control" id="adv_body" rows="6" placeholder="Operations plan details..."></textarea>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Timing Section -->
-                    <div class="card shadow-sm mb-3" id="adv_section_timing">
-                        <div class="card-header">
-                            <span class="tmi-section-title">
-                                <i class="fas fa-clock mr-1"></i> Timing
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label class="tmi-label mb-0" for="adv_start">Start (UTC)</label>
-                                    <input type="datetime-local" class="form-control form-control-sm" id="adv_start">
-                                </div>
-                                <div class="form-group col-md-6">
-                                    <label class="tmi-label mb-0" for="adv_end">End (UTC)</label>
-                                    <input type="datetime-local" class="form-control form-control-sm" id="adv_end">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Dynamic Sections Placeholder (loaded by JS based on type) -->
-                    <div id="adv_dynamic_sections"></div>
-
-                    <!-- Comments Section -->
-                    <div class="card shadow-sm mb-3" id="adv_section_comments">
-                        <div class="card-header">
-                            <span class="tmi-section-title">
-                                <i class="fas fa-comment mr-1"></i> Comments
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <textarea class="form-control form-control-sm" id="adv_comments" rows="2" placeholder="Additional notes..."></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
                     <div class="d-flex justify-content-between">
                         <button class="btn btn-outline-secondary" id="adv_reset" type="button">
                             <i class="fas fa-undo mr-1"></i> Reset
@@ -414,8 +519,7 @@ if (empty($discordOrgs)) {
                     </div>
                 </div>
 
-                <!-- Right Column: Preview -->
-                <div class="col-lg-6 mb-4">
+                <div class="col-lg-4">
                     <!-- Advisory Preview -->
                     <div class="card shadow-sm mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -434,7 +538,7 @@ if (empty($discordOrgs)) {
                         </div>
                     </div>
                     
-                    <!-- Discord Targets for Advisory -->
+                    <!-- Discord Targets -->
                     <div class="card shadow-sm">
                         <div class="card-header">
                             <span class="tmi-section-title">
@@ -443,7 +547,7 @@ if (empty($discordOrgs)) {
                         </div>
                         <div class="card-body">
                             <?php foreach ($discordOrgs as $code => $org): ?>
-                            <div class="custom-control custom-checkbox custom-control-inline">
+                            <div class="custom-control custom-checkbox mb-2">
                                 <input type="checkbox" class="custom-control-input discord-org-checkbox-adv" 
                                        id="adv_org_<?= $code ?>" value="<?= $code ?>" 
                                        <?= $org['default'] ? 'checked' : '' ?>>
@@ -491,8 +595,8 @@ if (empty($discordOrgs)) {
                             </span>
                         </div>
                         <div class="card-body">
-                            <div class="mb-3">
-                                <div class="h3 text-center mb-0">
+                            <div class="mb-3 text-center">
+                                <div class="h3 mb-0">
                                     <span id="submitCount">0</span>
                                     <small class="text-muted">entries ready</small>
                                 </div>
@@ -500,11 +604,11 @@ if (empty($discordOrgs)) {
                             
                             <div class="mb-3">
                                 <strong>Target Mode:</strong>
-                                <div id="targetModeDisplay" class="badge badge-warning">STAGING</div>
+                                <span id="targetModeDisplay" class="badge badge-warning ml-2">STAGING</span>
                             </div>
                             
                             <div class="mb-3">
-                                <strong>Target Organizations:</strong>
+                                <strong>Organizations:</strong>
                                 <div id="targetOrgsDisplay" class="small text-muted">vATCSCC</div>
                             </div>
                             
@@ -514,22 +618,48 @@ if (empty($discordOrgs)) {
                             </button>
                             
                             <div class="mt-2 small text-muted text-center" id="submitHint">
-                                Entries will post to staging channels for review
+                                Posts to staging channels for review
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Recent Activity -->
+                    <!-- Staged Entries -->
                     <div class="card shadow-sm">
                         <div class="card-header">
                             <span class="tmi-section-title">
-                                <i class="fas fa-history mr-1"></i> Recent Posts
+                                <i class="fas fa-clock mr-1"></i> Staged (Awaiting Promotion)
                             </span>
                         </div>
                         <div class="card-body p-0" style="max-height: 250px; overflow-y: auto;">
                             <div id="recentPostsList" class="list-group list-group-flush">
                                 <div class="list-group-item text-center text-muted py-3">
-                                    <i class="fas fa-clock"></i> No recent posts
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active TMIs Panel -->
+        <div class="tab-pane fade" id="activePanel" role="tabpanel">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-broadcast-tower mr-1"></i> Active Traffic Management Initiatives
+                            </span>
+                            <button class="btn btn-sm btn-outline-primary" id="refreshActiveTmis">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="activeTmisList">
+                                <div class="text-center text-muted py-4">
+                                    <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
+                                    Loading active TMIs...
                                 </div>
                             </div>
                         </div>
@@ -539,6 +669,30 @@ if (empty($discordOrgs)) {
         </div>
         
     </div>
+    
+    <!-- Facility Datalist -->
+    <datalist id="facilityList">
+        <option value="ZAB">Albuquerque Center</option>
+        <option value="ZAU">Chicago Center</option>
+        <option value="ZBW">Boston Center</option>
+        <option value="ZDC">Washington Center</option>
+        <option value="ZDV">Denver Center</option>
+        <option value="ZFW">Fort Worth Center</option>
+        <option value="ZHU">Houston Center</option>
+        <option value="ZID">Indianapolis Center</option>
+        <option value="ZJX">Jacksonville Center</option>
+        <option value="ZKC">Kansas City Center</option>
+        <option value="ZLA">Los Angeles Center</option>
+        <option value="ZLC">Salt Lake Center</option>
+        <option value="ZMA">Miami Center</option>
+        <option value="ZME">Memphis Center</option>
+        <option value="ZMP">Minneapolis Center</option>
+        <option value="ZNY">New York Center</option>
+        <option value="ZOA">Oakland Center</option>
+        <option value="ZOB">Cleveland Center</option>
+        <option value="ZSE">Seattle Center</option>
+        <option value="ZTL">Atlanta Center</option>
+    </datalist>
     
     <?php else: ?>
     
@@ -568,7 +722,7 @@ if (empty($discordOrgs)) {
     </div>
 </div>
 
-<!-- Post Result Modal -->
+<!-- Result Modal -->
 <div class="modal fade" id="resultModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -586,7 +740,7 @@ if (empty($discordOrgs)) {
 
 <?php include('load/footer.php'); ?>
 
-<!-- Pass config to JS -->
+<!-- Config for JS -->
 <script>
 window.TMI_PUBLISHER_CONFIG = {
     userCid: <?= json_encode($userCid) ?>,
@@ -595,9 +749,11 @@ window.TMI_PUBLISHER_CONFIG = {
     userHomeOrg: <?= json_encode($userHomeOrg) ?>,
     discordOrgs: <?= json_encode($discordOrgs) ?>,
     stagingRequired: <?= defined('TMI_STAGING_REQUIRED') && TMI_STAGING_REQUIRED ? 'true' : 'false' ?>,
-    crossBorderAutoDetect: <?= defined('TMI_CROSS_BORDER_AUTO_DETECT') && TMI_CROSS_BORDER_AUTO_DETECT ? 'true' : 'false' ?>
+    crossBorderAutoDetect: <?= defined('TMI_CROSS_BORDER_AUTO_DETECT') && TMI_CROSS_BORDER_AUTO_DETECT ? 'true' : 'false' ?>,
+    defaultValidFrom: <?= json_encode($defaultStartFormatted) ?>,
+    defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js"></script>
+<script src="assets/js/tmi-publish.js?v=1.1"></script>
 </body>
 </html>
