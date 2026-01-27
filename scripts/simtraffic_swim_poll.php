@@ -394,11 +394,15 @@ function ingest_simtraffic_to_swim($conn, $callsign, $stData) {
 
     $on_time = $arrival['on_time'] ?? $arrival['on_utc'] ?? null;
     if (!empty($on_time)) {
-        // Legacy: on_utc
+        // Legacy: on_utc, in_utc
         $updates[] = 'on_utc = TRY_CONVERT(datetime2, ?)';
         $params[] = $on_time;
-        // FIXM: actual_landing_time (ALDT)
+        $updates[] = 'in_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $on_time;
+        // FIXM: actual_landing_time (ALDT), actual_in_block_time (AIBT)
         $updates[] = 'actual_landing_time = TRY_CONVERT(datetime2, ?)';
+        $params[] = $on_time;
+        $updates[] = 'actual_in_block_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $on_time;
     }
 

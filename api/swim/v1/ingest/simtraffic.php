@@ -481,14 +481,18 @@ function processSimTrafficFlight($conn, $record, $source) {
         $update_params[] = $eta_vertex;
     }
 
-    // on_time -> on_utc + actual_landing_time (ALDT)
+    // on_time -> on_utc/in_utc + actual_landing_time/actual_in_block_time (ALDT/AIBT)
     $on_time = $arrival['on_time'] ?? $arrival['on_utc'] ?? null;
     if (!empty($on_time)) {
-        // Legacy column
+        // Legacy columns
         $updates[] = 'on_utc = TRY_CONVERT(datetime2, ?)';
         $update_params[] = $on_time;
-        // FIXM column
+        $updates[] = 'in_utc = TRY_CONVERT(datetime2, ?)';
+        $update_params[] = $on_time;
+        // FIXM columns
         $updates[] = 'actual_landing_time = TRY_CONVERT(datetime2, ?)';
+        $update_params[] = $on_time;
+        $updates[] = 'actual_in_block_time = TRY_CONVERT(datetime2, ?)';
         $update_params[] = $on_time;
     }
 

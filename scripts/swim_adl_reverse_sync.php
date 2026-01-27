@@ -19,8 +19,9 @@
  *
  * @package PERTI
  * @subpackage SWIM
- * @version 1.0.0
+ * @version 2.0.0
  * @since 2026-01-27
+ * @updated 2026-01-27 - Added FIXM column dual-write support
  */
 
 // Can be run standalone or included
@@ -227,57 +228,149 @@ function sync_flight_to_adl($conn_adl, $swimFlight) {
     $plan_updated = false;
 
     // === Update adl_flight_times ===
+    // DUAL-WRITE: Write to both legacy columns and FIXM-aligned columns
+    // Legacy columns will be deprecated after 30-day transition period
     $times_updates = [];
     $times_params = [];
 
-    // Departure times
+    // ─────────────────────────────────────────────────────────
+    // DEPARTURE TIMES
+    // ─────────────────────────────────────────────────────────
+
+    // Pushback / Gate departure (AOBT)
     if ($swimFlight['out_utc']) {
+        $formatted = format_datetime($swimFlight['out_utc']);
+        // Legacy column
         $times_updates[] = 'atd_utc = ?';
-        $times_params[] = format_datetime($swimFlight['out_utc']);
+        $times_params[] = $formatted;
+        // FIXM column
+        $times_updates[] = 'actual_off_block_time = ?';
+        $times_params[] = $formatted;
     }
 
+    // Taxi start time (SimTraffic-specific)
+    if (!empty($swimFlight['taxi_time_utc'])) {
+        $formatted = format_datetime($swimFlight['taxi_time_utc']);
+        // FIXM column only (no legacy equivalent)
+        $times_updates[] = 'taxi_start_time = ?';
+        $times_params[] = $formatted;
+    }
+
+    // Departure sequence time (SimTraffic-specific)
+    if (!empty($swimFlight['sequence_time_utc'])) {
+        $formatted = format_datetime($swimFlight['sequence_time_utc']);
+        // FIXM column only (no legacy equivalent)
+        $times_updates[] = 'departure_sequence_time = ?';
+        $times_params[] = $formatted;
+    }
+
+    // Hold short time (SimTraffic-specific)
+    if (!empty($swimFlight['holdshort_time_utc'])) {
+        $formatted = format_datetime($swimFlight['holdshort_time_utc']);
+        // FIXM column only (no legacy equivalent)
+        $times_updates[] = 'hold_short_time = ?';
+        $times_params[] = $formatted;
+    }
+
+    // Runway entry time (SimTraffic-specific)
+    if (!empty($swimFlight['runway_time_utc'])) {
+        $formatted = format_datetime($swimFlight['runway_time_utc']);
+        // FIXM column only (no legacy equivalent)
+        $times_updates[] = 'runway_entry_time = ?';
+        $times_params[] = $formatted;
+    }
+
+    // Takeoff / Wheels up (ATOT)
     if ($swimFlight['off_utc']) {
+        $formatted = format_datetime($swimFlight['off_utc']);
+        // Legacy column
         $times_updates[] = 'atd_runway_utc = ?';
-        $times_params[] = format_datetime($swimFlight['off_utc']);
+        $times_params[] = $formatted;
+        // FIXM column
+        $times_updates[] = 'actual_time_of_departure = ?';
+        $times_params[] = $formatted;
     }
 
+    // EDCT / CTD
     if ($swimFlight['edct_utc']) {
+        $formatted = format_datetime($swimFlight['edct_utc']);
+        // Legacy columns
         $times_updates[] = 'edct_utc = ?';
-        $times_params[] = format_datetime($swimFlight['edct_utc']);
+        $times_params[] = $formatted;
         $times_updates[] = 'ctd_utc = ?';
-        $times_params[] = format_datetime($swimFlight['edct_utc']);
+        $times_params[] = $formatted;
+        // FIXM column
+        $times_updates[] = 'controlled_time_of_departure = ?';
+        $times_params[] = $formatted;
     }
 
-    // Arrival times
+    // ─────────────────────────────────────────────────────────
+    // ARRIVAL TIMES
+    // ─────────────────────────────────────────────────────────
+
+    // ETA at destination
     if ($swimFlight['eta_utc']) {
+        $formatted = format_datetime($swimFlight['eta_utc']);
+        // Legacy column
         $times_updates[] = 'eta_utc = ?';
-        $times_params[] = format_datetime($swimFlight['eta_utc']);
+        $times_params[] = $formatted;
+        // FIXM column
+        $times_updates[] = 'estimated_time_of_arrival = ?';
+        $times_params[] = $formatted;
     }
 
+    // ETA at runway threshold
     if ($swimFlight['eta_runway_utc']) {
+        $formatted = format_datetime($swimFlight['eta_runway_utc']);
+        // Legacy column
         $times_updates[] = 'eta_runway_utc = ?';
-        $times_params[] = format_datetime($swimFlight['eta_runway_utc']);
+        $times_params[] = $formatted;
+        // FIXM column
+        $times_updates[] = 'estimated_runway_arrival_time = ?';
+        $times_params[] = $formatted;
     }
 
+    // Landing / Wheels down (ALDT)
     if ($swimFlight['on_utc']) {
+        $formatted = format_datetime($swimFlight['on_utc']);
+        // Legacy columns
         $times_updates[] = 'ata_utc = ?';
-        $times_params[] = format_datetime($swimFlight['on_utc']);
+        $times_params[] = $formatted;
         $times_updates[] = 'ata_runway_utc = ?';
-        $times_params[] = format_datetime($swimFlight['on_utc']);
+        $times_params[] = $formatted;
+        // FIXM columns
+        $times_updates[] = 'actual_landing_time = ?';
+        $times_params[] = $formatted;
+        $times_updates[] = 'actual_in_block_time = ?';
+        $times_params[] = $formatted;
     }
 
-    // Meter fix times
+    // ─────────────────────────────────────────────────────────
+    // METERING TIMES
+    // ─────────────────────────────────────────────────────────
+
+    // STA at meter fix (scheduled time of arrival)
     if ($swimFlight['metering_time']) {
         $times_updates[] = 'sta_meterfix_utc = ?';
         $times_params[] = format_datetime($swimFlight['metering_time']);
     }
 
+    // Actual time at meter fix
     if ($swimFlight['actual_metering_time']) {
-        $times_updates[] = 'eta_meterfix_utc = ?';  // Note: using eta as ata for meter fix
-        $times_params[] = format_datetime($swimFlight['actual_metering_time']);
+        $formatted = format_datetime($swimFlight['actual_metering_time']);
+        // Legacy column
+        $times_updates[] = 'eta_meterfix_utc = ?';
+        $times_params[] = $formatted;
+        // FIXM column
+        $times_updates[] = 'actual_metering_time = ?';
+        $times_params[] = $formatted;
     }
 
-    // Delay
+    // ─────────────────────────────────────────────────────────
+    // DELAY & SOURCE TRACKING
+    // ─────────────────────────────────────────────────────────
+
+    // Metering delay
     if ($swimFlight['metering_delay'] !== null) {
         $times_updates[] = 'delay_minutes = ?';
         $times_params[] = intval($swimFlight['metering_delay']);
