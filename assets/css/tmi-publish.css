@@ -602,6 +602,45 @@ input[type="time"] {
     vertical-align: middle;
 }
 
+/* Queue Item Button Fixes - ensure buttons display correctly even without FontAwesome */
+.queue-item .btn {
+    min-width: 32px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.5rem;
+}
+
+.queue-item .btn i.fas,
+.queue-item .btn i.far,
+.queue-item .btn i.fab {
+    font-size: 0.875rem;
+}
+
+/* Button text always visible as fallback */
+.queue-item .btn span {
+    font-size: 0.75rem;
+}
+
+/* Facility selector wrapper */
+.facility-selector-wrapper {
+    position: relative;
+}
+
+.facility-selector-wrapper select {
+    font-size: 0.8rem;
+    height: auto;
+}
+
+.facility-selector-wrapper select option {
+    padding: 2px 6px;
+}
+
+.facility-selector-wrapper small {
+    font-size: 0.7rem;
+}
+
 /* Restriction Detail Modal */
 .restriction-detail table th {
     color: #6c757d;

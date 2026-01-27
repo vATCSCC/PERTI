@@ -133,9 +133,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <head>
     <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/info-bar.css">
-<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.2">
-<!-- FontAwesome CDN fallback (kit.fontawesome.com returns 403) -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.4">
 </head>
 <body>
 
@@ -175,11 +173,14 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
             
             <!-- User Info -->
             <div class="col-auto px-1">
-                <div class="card shadow-sm perti-info-card h-100">
+                <div class="card shadow-sm perti-info-card h-100" style="cursor: pointer;" onclick="TMIPublisher.showProfileModal()" data-toggle="tooltip" title="Click to edit profile">
                     <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
                         <div>
                             <div class="perti-info-label">Logged In As</div>
-                            <div class="font-weight-bold"><?= htmlspecialchars($userName) ?></div>
+                            <div class="font-weight-bold">
+                                <i class="fas fa-user-edit mr-1 small text-muted"></i>
+                                <?= htmlspecialchars($userName) ?>
+                            </div>
                         </div>
                         <?php if ($userPrivileged): ?>
                         <span class="badge badge-warning ml-2" data-toggle="tooltip" title="Privileged: Can post to all organizations">PRIV</span>
@@ -641,6 +642,14 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
             <div id="activeTmiFilters" class="mb-3">
                 <div class="row align-items-end">
                     <div class="col-md-2 col-6 mb-2">
+                        <label class="small text-muted mb-0">Source</label>
+                        <select class="form-control form-control-sm" id="filterSource">
+                            <option value="ALL">All Sources</option>
+                            <option value="PRODUCTION" selected>Production</option>
+                            <option value="STAGING">Staging</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-6 mb-2">
                         <label class="small text-muted mb-0">Requesting</label>
                         <select class="form-control form-control-sm" id="filterReqFac">
                             <option value="ALL">ALL</option>
@@ -851,6 +860,72 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
     </div>
 </div>
 
+<!-- User Profile Modal -->
+<div class="modal fade" id="userProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fas fa-user mr-2"></i>User Profile</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Name</label>
+                    <input type="text" class="form-control bg-secondary text-white" id="profileName" value="<?= htmlspecialchars($userName ?? '') ?>" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted">CID</label>
+                    <input type="text" class="form-control bg-secondary text-white" id="profileCid" value="<?= htmlspecialchars($userCid ?? '') ?>" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Operating Initials</label>
+                    <input type="text" class="form-control text-uppercase" id="profileOI" maxlength="3" placeholder="XX" style="max-width: 80px;">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Home Facility</label>
+                    <select class="form-control" id="profileFacility">
+                        <option value="">-- Select Facility --</option>
+                        <optgroup label="ARTCCs">
+                            <option value="ZAB">ZAB - Albuquerque Center</option>
+                            <option value="ZAN">ZAN - Anchorage Center</option>
+                            <option value="ZAU">ZAU - Chicago Center</option>
+                            <option value="ZBW">ZBW - Boston Center</option>
+                            <option value="ZDC">ZDC - Washington Center</option>
+                            <option value="ZDV">ZDV - Denver Center</option>
+                            <option value="ZFW">ZFW - Fort Worth Center</option>
+                            <option value="ZHN">ZHN - Honolulu Center</option>
+                            <option value="ZHU">ZHU - Houston Center</option>
+                            <option value="ZID">ZID - Indianapolis Center</option>
+                            <option value="ZJX">ZJX - Jacksonville Center</option>
+                            <option value="ZKC">ZKC - Kansas City Center</option>
+                            <option value="ZLA">ZLA - Los Angeles Center</option>
+                            <option value="ZLC">ZLC - Salt Lake Center</option>
+                            <option value="ZMA">ZMA - Miami Center</option>
+                            <option value="ZME">ZME - Memphis Center</option>
+                            <option value="ZMP">ZMP - Minneapolis Center</option>
+                            <option value="ZNY">ZNY - New York Center</option>
+                            <option value="ZOA">ZOA - Oakland Center</option>
+                            <option value="ZOB">ZOB - Cleveland Center</option>
+                            <option value="ZSE">ZSE - Seattle Center</option>
+                            <option value="ZTL">ZTL - Atlanta Center</option>
+                        </optgroup>
+                        <optgroup label="TRACONs">
+                            <option value="N90">N90 - New York TRACON</option>
+                        </optgroup>
+                        <optgroup label="Command Center">
+                            <option value="DCC">DCC - ATCSCC</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-primary" onclick="TMIPublisher.saveProfile()">Save</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php include('load/footer.php'); ?>
 
 <!-- Config for JS -->
@@ -883,15 +958,15 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.7.1"></script>
-<script src="assets/js/tmi-active-display.js?v=1.0.0"></script>
+<script src="assets/js/tmi-publish.js?v=1.8.0"></script>
+<script src="assets/js/tmi-active-display.js?v=1.1.0"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
 (function() {
     var lastVersion = localStorage.getItem('tmi_publisher_version');
-    if (lastVersion !== '1.7.1') {
+    if (lastVersion !== '1.8.0') {
         localStorage.removeItem('tmi_publisher_queue');
-        localStorage.setItem('tmi_publisher_version', '1.7.1');
+        localStorage.setItem('tmi_publisher_version', '1.8.0');
         console.log('TMI Publisher: Cleared old queue data for version upgrade');
     }
 })();

@@ -1,5 +1,5 @@
 # PERTI TMI System Documentation Index
-**Last Updated:** January 21, 2026
+**Last Updated:** January 27, 2026
 
 ---
 
@@ -11,6 +11,7 @@
 | **GDT_Unified_Design_Document_v1.md** | GS/GDP/AFP system design | `PERTI/docs/` |
 | **NTML_Discord_Parser_Alignment_20260117.md** | Parser & message format alignment | `PERTI/docs/tmi/` |
 | **NTML_Advisory_Formatting_Transition.md** | Jan 17 format compliance session | `PERTI/` |
+| **TMI_Publisher_v1.8.0_Transition.md** | TMI Publisher v1.8.0 changes | `PERTI/docs/tmi/` |
 | **assistant_codebase_index_v18.md** | Full codebase reference | `PERTI/` |
 
 ---
@@ -39,6 +40,22 @@
 | Validation | ✅ Complete | Required field checks |
 | Discord Posting | ✅ Complete | Format aligned with spec |
 | Parser/Message Alignment | ✅ Complete | Matches NTML_2020.txt format |
+
+### TMI Publisher (tmi-publish.php / tmi-publish.js)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| NTML Entry Forms | ✅ Complete | MIT, MINIT, STOP, APREQ, TBM, DELAY, CONFIG, CANCEL |
+| Advisory Forms | ✅ Complete | Ops Plan, Free Form, Hotline, SWAP |
+| Queue Management | ✅ Complete | Add, preview, remove, clear |
+| Staging/Production Modes | ✅ Complete | Mode toggle with confirmation |
+| User Profile System | ✅ Complete | v1.8.0 - OI, facility storage |
+| Hotline Advisory | ✅ Complete | v1.8.0 - PERTI Plan alignment |
+| Facility Selectors | ✅ Complete | v1.8.0 - Dropdown + text input |
+| Source Filter | ✅ Complete | v1.8.0 - Production/Staging/All |
+| Active TMI Display | ✅ Complete | v1.7.0 - FAA-style table |
+| Category:Cause | ✅ Complete | v1.6.0 - OPSNET reasons |
+| Airport CONFIG Presets | 📋 Planned | Database integration needed |
 
 ### GDT System (gdt.php)
 
@@ -106,6 +123,15 @@ YY/MM/DD HH:MM
 - `api/nod/advisories.php` - Advisory API endpoint
 - `api/nod/discord-post.php` - Discord posting endpoint
 
+### TMI Publisher System
+- `tmi-publish.php` - Unified TMI publisher UI (v1.8.0)
+- `assets/js/tmi-publish.js` - Client-side publisher logic
+- `assets/js/tmi-active-display.js` - Active TMI display component
+- `assets/css/tmi-publish.css` - Publisher styling
+- `api/mgt/tmi/publish.php` - TMI posting endpoint
+- `api/mgt/tmi/active.php` - Active TMI retrieval
+- `api/mgt/tmi/staged.php` - Staged entries retrieval
+
 ### GDT System
 - `gdt.php` - GDT management UI
 - `api/mgt/gdt/*.php` - GDT API endpoints
@@ -133,6 +159,7 @@ YY/MM/DD HH:MM
 | Jan 17, 2026 | Parser & Discord alignment | docs/tmi/NTML_Discord_Parser_Alignment_20260117.md |
 | Jan 21, 2026 | GDT Database Migration | GDT_Incremental_Migration.md |
 | Jan 21, 2026 | GS Eligibility Fix | docs/tmi/GS_Eligibility_Fix_Transition.md |
+| Jan 27, 2026 | TMI Publisher v1.8.0 | docs/tmi/TMI_Publisher_v1.8.0_Transition.md |
 
 ---
 
