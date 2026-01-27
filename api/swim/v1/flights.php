@@ -114,9 +114,8 @@ if ($use_swim_db) {
     
     if ($status === 'active') {
         $where_clauses[] = "f.is_active = 1";
-        // Safety net: only show flights seen in the last 5 minutes
-        // Matches ADL threshold; primary enforcement is in swim_sync.php
-        $where_clauses[] = "f.last_seen_utc > DATEADD(minute, -5, GETUTCDATE())";
+        // Note: Staleness handled by swim_sync.php marking flights inactive after 5 min
+        // Removed redundant datetime check that caused full table scans
     } elseif ($status === 'completed') {
         $where_clauses[] = "f.is_active = 0";
     }
@@ -256,8 +255,7 @@ if ($use_swim_db) {
     // VATSIM_ADL fallback: JOIN across normalized tables (legacy mode during migration)
     if ($status === 'active') {
         $where_clauses[] = "c.is_active = 1";
-        // Safety net: only show flights seen in the last 5 minutes (matches ADL threshold)
-        $where_clauses[] = "c.last_seen_utc > DATEADD(minute, -5, GETUTCDATE())";
+        // Staleness handled by sp_Adl_RefreshFromVatsim marking flights inactive after 5 min
     } elseif ($status === 'completed') {
         $where_clauses[] = "c.is_active = 0";
     }
