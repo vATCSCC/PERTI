@@ -133,7 +133,9 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <head>
     <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/info-bar.css">
-    <link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.2">
+<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.2">
+<!-- FontAwesome CDN fallback (kit.fontawesome.com returns 403) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
 
@@ -311,83 +313,10 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                     
                     <!-- NTML Form - Dynamic based on type -->
                     <div id="ntmlFormContainer">
-                        <!-- MIT/MINIT Form (default) -->
-                        <div class="card shadow-sm mb-3" id="ntml_form_mit">
-                            <div class="card-header">
-                                <span class="tmi-section-title">
-                                    <i class="fas fa-ruler-horizontal mr-1"></i> MIT/MINIT Details
-                                </span>
-                            </div>
-                            <div class="card-body">
-                                <div class="form-row">
-                                    <div class="form-group col-md-3">
-                                        <label class="tmi-label mb-0">Distance/Minutes</label>
-                                        <input type="number" class="form-control" id="ntml_distance" placeholder="20" min="1" max="100">
-                                    </div>
-                                    <div class="form-group col-md-3">
-                                        <label class="tmi-label mb-0">Airport/Fix</label>
-                                        <input type="text" class="form-control" id="ntml_airport" placeholder="JFK">
-                                    </div>
-                                    <div class="form-group col-md-3">
-                                        <label class="tmi-label mb-0">Via Route/Fix</label>
-                                        <input type="text" class="form-control" id="ntml_via" placeholder="LENDY">
-                                    </div>
-                                    <div class="form-group col-md-3">
-                                        <label class="tmi-label mb-0">Reason</label>
-                                        <select class="form-control" id="ntml_reason">
-                                            <option value="VOLUME">Volume</option>
-                                            <option value="WEATHER">Weather</option>
-                                            <option value="RUNWAY">Runway</option>
-                                            <option value="EQUIPMENT">Equipment</option>
-                                            <option value="OTHER">Other</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-6">
-                                        <label class="tmi-label mb-0">Requesting Facility</label>
-                                        <input type="text" class="form-control" id="ntml_req_facility" placeholder="ZNY" list="facilityList">
-                                    </div>
-                                    <div class="form-group col-md-6">
-                                        <label class="tmi-label mb-0">Providing Facility</label>
-                                        <input type="text" class="form-control" id="ntml_prov_facility" placeholder="ZBW" list="facilityList">
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-6">
-                                        <label class="tmi-label mb-0">Valid From (UTC)</label>
-                                        <input type="time" class="form-control" id="ntml_valid_from" value="<?= $defaultStartFormatted ?>">
-                                    </div>
-                                    <div class="form-group col-md-6">
-                                        <label class="tmi-label mb-0">Valid Until (UTC)</label>
-                                        <input type="time" class="form-control" id="ntml_valid_until" value="<?= $defaultEndFormatted ?>">
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-12">
-                                        <label class="tmi-label mb-0">Qualifiers (optional)</label>
-                                        <div class="qualifier-buttons">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="HEAVY">HEAVY</button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="B757">B757</button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="PER_FIX">PER FIX</button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="AS_ONE">AS ONE</button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary qualifier-btn" data-qualifier="EACH">EACH</button>
-                                        </div>
-                                        <input type="hidden" id="ntml_qualifiers" value="">
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- JS will populate this -->
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-spinner fa-spin"></i> Loading form...
                         </div>
-                    </div>
-                    
-                    <!-- Add to Queue Button -->
-                    <div class="d-flex justify-content-between">
-                        <button class="btn btn-outline-secondary" id="ntml_reset" type="button">
-                            <i class="fas fa-undo mr-1"></i> Reset
-                        </button>
-                        <button class="btn btn-primary" id="ntml_add_to_queue" type="button">
-                            <i class="fas fa-plus mr-1"></i> Add to Queue
-                        </button>
                     </div>
                 </div>
                 

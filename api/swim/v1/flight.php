@@ -30,12 +30,10 @@ if (!$conn) {
 
 $auth = swim_init_auth(true, false);
 
-// Get format parameter (legacy or fixm)
-// Default to FIXM for FAA SWIM compatibility
-$format = swim_get_param('format', 'fixm');  // legacy | fixm
-if (!in_array($format, ['legacy', 'fixm'])) {
-    $format = 'fixm';
-}
+// Get format parameter - FIXM only after transition
+// Legacy format redirects to FIXM for backward compatibility
+$format = swim_get_param('format', 'fixm');
+$format = 'fixm';  // FIXM is the only supported format
 
 // Get identifier parameters
 $gufi = swim_get_param('gufi');
@@ -167,11 +165,8 @@ if (!$row) {
     SwimResponse::error('Flight not found', 404, 'NOT_FOUND');
 }
 
-if ($format === 'fixm') {
-    $flight = formatDetailedFlightRecordFIXM($row);
-} else {
-    $flight = formatDetailedFlightRecord($row);
-}
+// FIXM format only after transition
+$flight = formatDetailedFlightRecordFIXM($row);
 
 SwimResponse::success($flight, [
     'source' => 'vatcscc',

@@ -94,7 +94,8 @@
             { code: 'RNAV', label: 'RNAV', desc: 'RNAV-equipped aircraft only' },
             { code: 'NON-RNAV', label: 'NON-RNAV', desc: 'Non-RNAV aircraft only' },
             { code: 'RNP', label: 'RNP', desc: 'RNP-capable aircraft only' },
-            { code: 'RVSM', label: 'RVSM', desc: 'RVSM-compliant only' }
+            { code: 'RVSM', label: 'RVSM', desc: 'RVSM-compliant only' },
+            { code: 'NON-RVSM', label: 'NON-RVSM', desc: 'Non-RVSM aircraft only' }
         ],
         // Flow Type
         flow: [
@@ -445,12 +446,18 @@
             });
             html += '</div>';
             
-            // Altitude
-            html += '<div class="qualifier-group mb-2">';
+            // Altitude Filter (text input)
+            html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
             html += '<span class="small text-muted mr-2">Altitude:</span>';
-            NTML_QUALIFIERS.altitude.forEach(q => {
-                html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="altitude" title="${q.desc}">${q.label}</button>`;
-            });
+            html += '<input type="text" class="form-control form-control-sm text-uppercase" id="ntml_altitude_filter" placeholder="e.g., AOB120, AOA320, 140B180" style="max-width: 200px;" maxlength="20">';
+            html += '<small class="text-muted ml-2">AOB=At/Below, AOA=At/Above, ###B###=Block</small>';
+            html += '</div>';
+            
+            // Speed Filter (text input)
+            html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
+            html += '<span class="small text-muted mr-2">Speed:</span>';
+            html += '<input type="number" class="form-control form-control-sm" id="ntml_speed_filter" placeholder="e.g., 250" style="max-width: 100px;" min="0" max="999">';
+            html += '<span class="small text-muted ml-1">KTS</span>';
             html += '</div>';
         }
         
@@ -462,8 +469,8 @@
         let html = `
             <div class="row">
                 <div class="col-6">
-                    <label class="form-label small text-muted">Category</label>
-                    <select class="form-control" id="ntml_reason_category" onchange="TMIPublisher.updateCauseOptions()">
+                    <label class="form-label small text-muted">Impacting Condition</label>
+                    <select class="form-control" id="ntml_reason_category" onchange="TMIPublisher.updateCauseOptions()" style="min-width: 100%;">
         `;
         REASON_CATEGORIES.forEach(r => {
             html += `<option value="${r.code}">${r.label}</option>`;
@@ -472,8 +479,8 @@
                     </select>
                 </div>
                 <div class="col-6">
-                    <label class="form-label small text-muted">Cause</label>
-                    <select class="form-control" id="ntml_reason_cause">
+                    <label class="form-label small text-muted">Specific Impact</label>
+                    <select class="form-control" id="ntml_reason_cause" style="min-width: 100%;">
         `;
         // Default to VOLUME causes
         REASON_CAUSES.VOLUME.forEach(c => {
@@ -676,23 +683,28 @@
                             <label class="form-label small text-muted">Type</label>
                             <select class="form-control" id="ntml_apreq_type">
                                 <option value="APREQ">APREQ</option>
-                                <option value="CFR">CFR (Call for Release)</option>
+                                <option value="CFR">CFR</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Airport</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="4">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-5">
                             <label class="form-label small text-muted">Via Route/Fix</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" maxlength="10">
+                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" maxlength="30">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Reason</label>
+                    </div>
+                    
+                    <!-- Reason (Category:Cause) -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Reason (Impacting Condition:Specific Impact)</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
                     
+                    <!-- Facilities -->
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Requesting Facility</label>
@@ -715,20 +727,8 @@
                         </div>
                     </div>
                     
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted">Departure Scope</label>
-                            <select class="form-control" id="ntml_dep_scope">
-                                <option value="ALL">All Departures</option>
-                                <option value="TIER1">Tier 1 Airports</option>
-                                <option value="SPECIFIED">Specified Facilities</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted">Additional Dep Facilities (if specified)</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_add_dep_facilities" placeholder="ZDC ZOB ZID" maxlength="50">
-                        </div>
-                    </div>
+                    <!-- Qualifiers -->
+                    ${buildQualifiersHtml(true)}
                     
                     <hr>
                     <div class="d-flex justify-content-between">
@@ -753,20 +753,25 @@
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Airport</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KATL" maxlength="4">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Meter Point/Arc</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_meter_point" placeholder="ZTL33 or ERLIN" maxlength="10">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Freeze Horizon (min)</label>
                             <input type="number" class="form-control" id="ntml_freeze_horizon" min="10" max="120" value="20">
+                            <small class="text-muted">Output: TIME+{value}MIN</small>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Reason</label>
+                    </div>
+                    
+                    <!-- Reason (Category:Cause) -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Reason (Impacting Condition:Specific Impact)</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -800,6 +805,9 @@
                             <small class="text-muted">Space-separated list of ARTCCs participating in metering</small>
                         </div>
                     </div>
+                    
+                    <!-- Qualifiers -->
+                    ${buildQualifiersHtml(true)}
                     
                     <hr>
                     <div class="d-flex justify-content-between">
@@ -1807,6 +1815,15 @@
         });
         data.qualifiers = qualifiers;
         
+        // Collect altitude and speed filters (for all types except CONFIG)
+        if (type !== 'CONFIG') {
+            const altFilter = ($('#ntml_altitude_filter').val() || '').trim().toUpperCase();
+            if (altFilter) data.altitude_filter = altFilter;
+            
+            const speedFilter = $('#ntml_speed_filter').val();
+            if (speedFilter) data.speed_filter = speedFilter;
+        }
+        
         // Type-specific data
         switch(type) {
             case 'MIT':
@@ -1824,17 +1841,17 @@
                 data.exclusions = ($('#ntml_exclusions').val() || 'NONE').trim().toUpperCase();
                 break;
             case 'APREQ':
-                data.apreq_type = $('#ntml_apreq_type').val();
+                data.apreq_type = $('#ntml_apreq_type').val() || 'CFR';
                 data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
-                data.reason = $('#ntml_reason').val();
-                data.dep_scope = $('#ntml_dep_scope').val();
-                data.add_dep_facilities = ($('#ntml_add_dep_facilities').val() || '').trim().toUpperCase();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
                 break;
             case 'TBM':
                 data.meter_point = ($('#ntml_meter_point').val() || '').trim().toUpperCase();
                 data.freeze_horizon = $('#ntml_freeze_horizon').val();
                 data.participating = ($('#ntml_participating').val() || '').trim().toUpperCase();
-                data.reason = $('#ntml_reason').val();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
                 break;
             case 'DELAY':
                 data.delay_type = $('#ntml_delay_type').val();
@@ -1917,7 +1934,7 @@
     }
     
     function formatMitMinitMessage(type, data, logTime, validTime) {
-        // Format: {DD/HHMM}    {element} via {fix} {value}{type} {spacing} EXCL:{excl} {category}:{cause} {valid} {req}:{prov}
+        // Format: {DD/HHMM}    {element} via {fix} {value}{type} {spacing} EXCL:{excl} {category}:{cause} {filters} {valid} {req}:{prov}
         const element = (data.ctl_element || 'N/A').toUpperCase();
         const viaFix = data.via_fix ? (data.via_fix).toUpperCase() : 'ALL';
         const value = data.value || '20';
@@ -1936,14 +1953,34 @@
             if (spacingQual) spacing = spacingQual;
         }
         
-        // Format: 4 spaces between major sections
-        let line = `${logTime}    ${element} via ${viaFix} ${value}${type} ${spacing} EXCL:${exclusions} ${category}:${cause} ${validTime} ${reqFac}:${provFac}`;
+        // Build filter string (altitude, speed)
+        let filters = '';
+        if (data.altitude_filter) {
+            filters += ` ALT:${data.altitude_filter.toUpperCase()}`;
+        }
+        if (data.speed_filter) {
+            filters += ` SPD:${data.speed_filter}KTS`;
+        }
+        
+        // Other qualifiers (aircraft type, weight, equipment, flow, operator)
+        let otherQuals = '';
+        if (data.qualifiers && data.qualifiers.length > 0) {
+            const nonSpacing = data.qualifiers.filter(q => 
+                !['AS ONE', 'PER STREAM', 'PER AIRPORT', 'PER FIX', 'EACH'].includes(q)
+            );
+            if (nonSpacing.length > 0) {
+                otherQuals = ' ' + nonSpacing.join(' ');
+            }
+        }
+        
+        // Format: valid period and req:prov ALWAYS at the end
+        let line = `${logTime}    ${element} via ${viaFix} ${value}${type} ${spacing}${otherQuals} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
         
         return line;
     }
     
     function formatStopMessage(data, logTime, validTime) {
-        // Format: {DD/HHMM}    {element} via {fix} STOP {qualifier} EXCL:{excl} {category}:{cause} {valid} {req}:{prov}
+        // Format: {DD/HHMM}    {element} via {fix} STOP {qualifiers} EXCL:{excl} {category}:{cause} {filters} {valid} {req}:{prov}
         const element = (data.ctl_element || 'N/A').toUpperCase();
         const viaFix = data.via_fix ? (data.via_fix).toUpperCase() : 'ALL';
         const category = (data.reason_category || 'VOLUME').toUpperCase();
@@ -1958,49 +1995,90 @@
             qualStr = ' ' + data.qualifiers.join(' ');
         }
         
-        let line = `${logTime}    ${element} via ${viaFix} STOP${qualStr} EXCL:${exclusions} ${category}:${cause} ${validTime} ${reqFac}:${provFac}`;
+        // Build filter string (altitude, speed)
+        let filters = '';
+        if (data.altitude_filter) {
+            filters += ` ALT:${data.altitude_filter.toUpperCase()}`;
+        }
+        if (data.speed_filter) {
+            filters += ` SPD:${data.speed_filter}KTS`;
+        }
+        
+        let line = `${logTime}    ${element} via ${viaFix} STOP${qualStr} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
         
         return line;
     }
     
     function formatApreqMessage(data, logTime, validTime) {
-        const apreqType = data.apreq_type || 'APREQ';
-        let line = `${logTime}    ${apreqType} ${data.ctl_element || 'N/A'}`;
+        // Use CFR directly, no expansion needed
+        const apreqType = data.apreq_type || 'CFR';
+        const category = (data.reason_category || 'VOLUME').toUpperCase();
+        const cause = (data.reason_cause || category).toUpperCase();
+        let line = `${logTime}    ${apreqType} ${(data.ctl_element || 'N/A').toUpperCase()}`;
         
         if (data.via_fix) {
-            line += ` via ${data.via_fix}`;
+            line += ` via ${data.via_fix.toUpperCase()}`;
         }
         
-        line += ` ${data.reason || 'VOLUME'}`;
+        line += ` ${category}:${cause}`;
         
-        if (data.dep_scope && data.dep_scope !== 'ALL') {
-            line += ` DEP SCOPE: ${data.dep_scope}`;
+        // Get qualifiers
+        if (data.qualifiers && data.qualifiers.length > 0) {
+            line += ' ' + data.qualifiers.join(' ');
         }
         
+        // Filters
+        if (data.altitude_filter) {
+            line += ` ALT:${data.altitude_filter.toUpperCase()}`;
+        }
+        if (data.speed_filter) {
+            line += ` SPD:${data.speed_filter}KTS`;
+        }
+        
+        // Valid period and facilities ALWAYS at the end
         line += ` ${validTime}`;
-        line += ` ${data.req_facility || 'N/A'}:${data.prov_facility || 'N/A'}`;
+        line += ` ${(data.req_facility || 'N/A').toUpperCase()}:${(data.prov_facility || 'N/A').toUpperCase()}`;
         
         return line;
     }
     
     function formatTbmMessage(data, logTime, validTime) {
-        let line = `${logTime}    ${data.ctl_element || 'N/A'} TBM`;
+        const category = (data.reason_category || 'VOLUME').toUpperCase();
+        const cause = (data.reason_cause || category).toUpperCase();
+        let line = `${logTime}    ${(data.ctl_element || 'N/A').toUpperCase()} TBM`;
         
         if (data.meter_point) {
-            line += ` ${data.meter_point}`;
+            line += ` ${data.meter_point.toUpperCase()}`;
         }
         
+        // Freeze horizon formatted as TIME+{VALUE}MIN
         if (data.freeze_horizon) {
-            line += ` FRZ:${data.freeze_horizon}`;
+            line += ` TIME+${data.freeze_horizon}MIN`;
         }
         
-        line += ` ${data.reason || 'VOLUME'}`;
-        line += ` ${validTime}`;
-        line += ` ${data.req_facility || 'N/A'}:${data.prov_facility || 'N/A'}`;
+        line += ` ${category}:${cause}`;
         
+        // Get qualifiers
+        if (data.qualifiers && data.qualifiers.length > 0) {
+            line += ' ' + data.qualifiers.join(' ');
+        }
+        
+        // Filters
+        if (data.altitude_filter) {
+            line += ` ALT:${data.altitude_filter.toUpperCase()}`;
+        }
+        if (data.speed_filter) {
+            line += ` SPD:${data.speed_filter}KTS`;
+        }
+        
+        // Participating facilities
         if (data.participating) {
-            line += ` PARTICIPATING: ${data.participating}`;
+            line += ` PTCP:${data.participating}`;
         }
+        
+        // Valid period and facilities ALWAYS at the end
+        line += ` ${validTime}`;
+        line += ` ${(data.req_facility || 'N/A').toUpperCase()}:${(data.prov_facility || 'N/A').toUpperCase()}`;
         
         return line;
     }

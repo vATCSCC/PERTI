@@ -8,12 +8,12 @@
 
 ---
 
-> **⚠️ FIXM Migration Notice (2026-01-27)**
+> **FIXM Migration Complete (2026-01-27)**
 >
-> The VATSWIM API is transitioning from legacy OOOI column names to FIXM-aligned naming:
+> The VATSWIM API now uses FIXM-aligned field naming exclusively. Legacy OOOI column names have been replaced:
 >
-> | Legacy Name | FIXM-Aligned Name |
-> |-------------|-------------------|
+> | Legacy Name (Removed) | FIXM-Aligned Name (Current) |
+> | --------------------- | --------------------------- |
 > | `out_utc` | `actual_off_block_time` |
 > | `off_utc` | `actual_time_of_departure` |
 > | `on_utc` | `actual_landing_time` |
@@ -21,10 +21,12 @@
 > | `eta_utc` | `estimated_time_of_arrival` |
 > | `etd_utc` | `estimated_off_block_time` |
 >
-> **During the 30-day transition period:**
-> - Both legacy and FIXM columns are populated (dual-write)
-> - API responses prefer FIXM columns with legacy fallback
-> - Consumers should migrate to `format=fixm` for FIXM camelCase output
+> **After FIXM cutover:**
+>
+> - SWIM database uses FIXM column names only
+> - API responses use FIXM field names exclusively
+> - ADL database retains legacy column names (source of truth)
+> - Ingest endpoints accept both legacy and FIXM input names for compatibility
 >
 > See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md) for complete mapping.
 
