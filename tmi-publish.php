@@ -885,7 +885,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                     <label class="form-label small text-muted">Home Facility</label>
                     <select class="form-control" id="profileFacility">
                         <option value="">-- Select Facility --</option>
-                        <optgroup label="ARTCCs">
+                        <optgroup label="ARTCCs (US)">
                             <option value="ZAB">ZAB - Albuquerque Center</option>
                             <option value="ZAN">ZAN - Anchorage Center</option>
                             <option value="ZAU">ZAU - Chicago Center</option>
@@ -910,7 +910,56 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                             <option value="ZTL">ZTL - Atlanta Center</option>
                         </optgroup>
                         <optgroup label="TRACONs">
+                            <option value="A80">A80 - Atlanta TRACON</option>
+                            <option value="A90">A90 - Boston TRACON</option>
+                            <option value="C90">C90 - Chicago TRACON</option>
+                            <option value="D01">D01 - Denver TRACON</option>
+                            <option value="D10">D10 - Dallas/Fort Worth TRACON</option>
+                            <option value="D21">D21 - Detroit TRACON</option>
+                            <option value="I90">I90 - Houston TRACON</option>
+                            <option value="L30">L30 - Las Vegas TRACON</option>
+                            <option value="M98">M98 - Minneapolis TRACON</option>
                             <option value="N90">N90 - New York TRACON</option>
+                            <option value="NCT">NCT - NorCal TRACON</option>
+                            <option value="P50">P50 - Phoenix TRACON</option>
+                            <option value="PCT">PCT - Potomac TRACON</option>
+                            <option value="S46">S46 - Seattle TRACON</option>
+                            <option value="SCT">SCT - SoCal TRACON</option>
+                            <option value="T75">T75 - St. Louis TRACON</option>
+                            <option value="Y90">Y90 - Yankee (Cleveland) TRACON</option>
+                        </optgroup>
+                        <optgroup label="Major Towers">
+                            <option value="ATL">ATL - Atlanta Tower</option>
+                            <option value="BOS">BOS - Boston Tower</option>
+                            <option value="DEN">DEN - Denver Tower</option>
+                            <option value="DFW">DFW - Dallas/Fort Worth Tower</option>
+                            <option value="DTW">DTW - Detroit Tower</option>
+                            <option value="EWR">EWR - Newark Tower</option>
+                            <option value="IAD">IAD - Dulles Tower</option>
+                            <option value="IAH">IAH - Houston Intercontinental Tower</option>
+                            <option value="JFK">JFK - JFK Tower</option>
+                            <option value="LAX">LAX - Los Angeles Tower</option>
+                            <option value="LGA">LGA - LaGuardia Tower</option>
+                            <option value="MIA">MIA - Miami Tower</option>
+                            <option value="MSP">MSP - Minneapolis Tower</option>
+                            <option value="ORD">ORD - Chicago O'Hare Tower</option>
+                            <option value="PHL">PHL - Philadelphia Tower</option>
+                            <option value="PHX">PHX - Phoenix Tower</option>
+                            <option value="SEA">SEA - Seattle Tower</option>
+                            <option value="SFO">SFO - San Francisco Tower</option>
+                        </optgroup>
+                        <optgroup label="Canadian FIRs">
+                            <option value="CZEG">CZEG - Edmonton FIR</option>
+                            <option value="CZQM">CZQM - Moncton FIR</option>
+                            <option value="CZQX">CZQX - Gander FIR</option>
+                            <option value="CZVR">CZVR - Vancouver FIR</option>
+                            <option value="CZWG">CZWG - Winnipeg FIR</option>
+                            <option value="CZYZ">CZYZ - Toronto FIR</option>
+                        </optgroup>
+                        <optgroup label="International">
+                            <option value="MMEX">MMEX - Mexico</option>
+                            <option value="MUFH">MUFH - Havana FIR</option>
+                            <option value="TJSJ">TJSJ - San Juan CERAP</option>
                         </optgroup>
                         <optgroup label="Command Center">
                             <option value="DCC">DCC - ATCSCC</option>

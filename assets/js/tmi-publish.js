@@ -8,7 +8,7 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.8.4
+ * @version 1.9.0
  * @date 2026-01-28
  * 
  * v1.8.4 Changes:
@@ -93,18 +93,38 @@
     const DISCORD_MAX_LENGTH = 2000;
     
     // ARTCC mappings for facility detection
+    // All US ARTCCs, TRACONs, Canadian FIRs, Caribbean, Mexico
     const ARTCCS = {
-        'ZBW': 'Boston Center', 'ZNY': 'New York Center', 'ZDC': 'Washington Center',
-        'ZTL': 'Atlanta Center', 'ZJX': 'Jacksonville Center', 'ZMA': 'Miami Center',
-        'ZOB': 'Cleveland Center', 'ZID': 'Indianapolis Center', 'ZAU': 'Chicago Center',
-        'ZMP': 'Minneapolis Center', 'ZKC': 'Kansas City Center', 'ZME': 'Memphis Center',
-        'ZFW': 'Fort Worth Center', 'ZHU': 'Houston Center', 'ZAB': 'Albuquerque Center',
-        'ZDV': 'Denver Center', 'ZLC': 'Salt Lake Center', 'ZLA': 'Los Angeles Center',
-        'ZOA': 'Oakland Center', 'ZSE': 'Seattle Center', 'ZAN': 'Anchorage Center',
-        'ZHN': 'Honolulu Center',
-        // Canadian
-        'CZYZ': 'Toronto FIR', 'CZWG': 'Winnipeg FIR', 'CZVR': 'Vancouver FIR',
-        'CZEG': 'Edmonton FIR', 'CZQM': 'Moncton FIR', 'CZQX': 'Gander FIR'
+        // US ARTCCs (22)
+        'ZAB': 'Albuquerque Center', 'ZAN': 'Anchorage Center', 'ZAU': 'Chicago Center',
+        'ZBW': 'Boston Center', 'ZDC': 'Washington Center', 'ZDV': 'Denver Center',
+        'ZFW': 'Fort Worth Center', 'ZHN': 'Honolulu Center', 'ZHU': 'Houston Center',
+        'ZID': 'Indianapolis Center', 'ZJX': 'Jacksonville Center', 'ZKC': 'Kansas City Center',
+        'ZLA': 'Los Angeles Center', 'ZLC': 'Salt Lake Center', 'ZMA': 'Miami Center',
+        'ZME': 'Memphis Center', 'ZMP': 'Minneapolis Center', 'ZNY': 'New York Center',
+        'ZOA': 'Oakland Center', 'ZOB': 'Cleveland Center', 'ZSE': 'Seattle Center',
+        'ZTL': 'Atlanta Center',
+        // US TRACONs (Major)
+        'A80': 'Atlanta TRACON', 'A90': 'Boston TRACON', 'C90': 'Chicago TRACON',
+        'D01': 'Denver TRACON', 'D10': 'Dallas/Fort Worth TRACON', 'D21': 'Detroit TRACON',
+        'F11': 'Central Florida TRACON', 'I90': 'Houston TRACON', 'L30': 'Las Vegas TRACON',
+        'M03': 'Memphis TRACON', 'M98': 'Minneapolis TRACON', 'N90': 'New York TRACON',
+        'NCT': 'NorCal TRACON', 'P31': 'Pensacola TRACON', 'P50': 'Phoenix TRACON',
+        'P80': 'Portland TRACON', 'PCT': 'Potomac TRACON', 'R90': 'Omaha TRACON',
+        'S46': 'Seattle TRACON', 'S56': 'Salt Lake TRACON', 'SCT': 'SoCal TRACON',
+        'T75': 'St. Louis TRACON', 'U90': 'Tucson TRACON', 'Y90': 'Yankee TRACON',
+        // Pacific TRACONs
+        'HCF': 'Honolulu CF', 'GUM': 'Guam CERAP',
+        // Canadian FIRs
+        'CZEG': 'Edmonton FIR', 'CZQM': 'Moncton FIR', 'CZQX': 'Gander FIR',
+        'CZVR': 'Vancouver FIR', 'CZWG': 'Winnipeg FIR', 'CZYZ': 'Toronto FIR',
+        'CYUL': 'Montreal FIR',
+        // Caribbean
+        'TJSJ': 'San Juan CERAP', 'MUFH': 'Havana FIR', 'MKJK': 'Kingston FIR',
+        'TNCF': 'Curacao FIR', 'TTPP': 'Piarco FIR',
+        // Mexico
+        'MMEX': 'Mexico City ACC', 'MMTY': 'Monterrey ACC', 'MMZT': 'Mazatlan ACC',
+        'MMUN': 'Cancun ACC', 'MMMD': 'Merida ACC'
     };
     
     // Cross-border facilities
@@ -175,13 +195,13 @@
     // Cause codes - Specific causes per OPSNET/ASPM
     const REASON_CAUSES = {
         VOLUME: [
-            { code: 'VOLUME', label: 'Volume (General)' },
+            { code: 'VOLUME', label: 'Volume' },
             { code: 'COMPACTED DEMAND', label: 'Compacted Demand' },
             { code: 'MULTI-TAXI', label: 'Multi-Taxi' },
             { code: 'AIRSPACE', label: 'Airspace' }
         ],
         WEATHER: [
-            { code: 'WEATHER', label: 'Weather (General)' },
+            { code: 'WEATHER', label: 'Weather' },
             { code: 'THUNDERSTORMS', label: 'Thunderstorms' },
             { code: 'LOW CEILINGS', label: 'Low Ceilings' },
             { code: 'LOW VISIBILITY', label: 'Low Visibility' },
@@ -190,18 +210,18 @@
             { code: 'SNOW/ICE', label: 'Snow/Ice' }
         ],
         RUNWAY: [
-            { code: 'RUNWAY', label: 'Runway (General)' },
+            { code: 'RUNWAY', label: 'Runway' },
             { code: 'RUNWAY CONFIGURATION', label: 'Runway Configuration' },
             { code: 'RUNWAY CONSTRUCTION', label: 'Runway Construction' },
             { code: 'RUNWAY CLOSURE', label: 'Runway Closure' }
         ],
         EQUIPMENT: [
-            { code: 'EQUIPMENT', label: 'Equipment (General)' },
+            { code: 'EQUIPMENT', label: 'Equipment' },
             { code: 'FAA EQUIPMENT', label: 'FAA Equipment' },
             { code: 'NON-FAA EQUIPMENT', label: 'Non-FAA Equipment' }
         ],
         OTHER: [
-            { code: 'OTHER', label: 'Other (General)' },
+            { code: 'OTHER', label: 'Other' },
             { code: 'STAFFING', label: 'Staffing' },
             { code: 'AIR SHOW', label: 'Air Show' },
             { code: 'VIP MOVEMENT', label: 'VIP Movement' },
@@ -335,67 +355,81 @@
     }
     
     function initAdvisoryCounters() {
-        // Load advisory counters from localStorage or fetch from server
+        // Load advisory counters from localStorage
+        // Using a UNIFIED counter for all advisory types (per user request)
         const today = getUtcDateString();
         const saved = localStorage.getItem('tmi_advisory_counters');
-        
+
         if (saved) {
             try {
                 const data = JSON.parse(saved);
                 // Reset if different day (midnight UTC reset)
                 if (data.date !== today) {
-                    state.advisoryCounters = { date: today, opsplan: 1, freeform: 1, hotline: 1, swap: 1 };
+                    state.advisoryCounters = { date: today, counter: 1 };
                     saveAdvisoryCounters();
                 } else {
-                    state.advisoryCounters = data;
+                    // Migrate from old per-type format to unified counter if needed
+                    if (typeof data.counter === 'undefined') {
+                        // Old format - find highest counter across all types
+                        const maxOld = Math.max(
+                            data.opsplan || 1,
+                            data.freeform || 1,
+                            data.hotline || 1,
+                            data.swap || 1
+                        );
+                        state.advisoryCounters = { date: today, counter: maxOld };
+                        saveAdvisoryCounters();
+                    } else {
+                        state.advisoryCounters = data;
+                    }
                 }
             } catch (e) {
-                state.advisoryCounters = { date: today, opsplan: 1, freeform: 1, hotline: 1, swap: 1 };
+                state.advisoryCounters = { date: today, counter: 1 };
             }
         } else {
-            state.advisoryCounters = { date: today, opsplan: 1, freeform: 1, hotline: 1, swap: 1 };
+            state.advisoryCounters = { date: today, counter: 1 };
         }
-        
+
         // Set up midnight UTC reset timer
         scheduleAdvisoryCounterReset();
     }
-    
+
     function scheduleAdvisoryCounterReset() {
         const now = new Date();
         const midnight = new Date(Date.UTC(
-            now.getUTCFullYear(), 
-            now.getUTCMonth(), 
-            now.getUTCDate() + 1, 
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate() + 1,
             0, 0, 0
         ));
         const msUntilMidnight = midnight - now;
-        
+
         setTimeout(function() {
-            // Reset counters at midnight UTC
+            // Reset unified counter at midnight UTC
             const newDate = getUtcDateString();
-            state.advisoryCounters = { date: newDate, opsplan: 1, freeform: 1, hotline: 1, swap: 1 };
+            state.advisoryCounters = { date: newDate, counter: 1 };
             saveAdvisoryCounters();
-            console.log('Advisory counters reset at midnight UTC');
-            
+            console.log('Advisory counter reset at midnight UTC');
+
             // Schedule next reset
             scheduleAdvisoryCounterReset();
         }, msUntilMidnight);
     }
-    
+
     function saveAdvisoryCounters() {
         localStorage.setItem('tmi_advisory_counters', JSON.stringify(state.advisoryCounters));
     }
-    
+
     function getNextAdvisoryNumber(type) {
+        // Unified counter for all advisory types
         // Check if we need to reset (new day)
         const today = getUtcDateString();
         if (state.advisoryCounters.date !== today) {
-            state.advisoryCounters = { date: today, opsplan: 1, freeform: 1, hotline: 1, swap: 1 };
+            state.advisoryCounters = { date: today, counter: 1 };
         }
-        
-        const key = type.toLowerCase();
-        const num = state.advisoryCounters[key] || 1;
-        state.advisoryCounters[key] = num + 1;
+
+        const num = state.advisoryCounters.counter || 1;
+        state.advisoryCounters.counter = num + 1;
         saveAdvisoryCounters();
         return String(num).padStart(3, '0');
     }
@@ -567,27 +601,36 @@
                     <span class="tmi-section-title"><i class="fas fa-ruler-horizontal mr-1"></i> ${type === 'MIT' ? 'Miles-In-Trail' : 'Minutes-In-Trail'} Details</span>
                 </div>
                 <div class="card-body">
-                    <!-- Row 1: Value, Airport/Fix, Via -->
+                    <!-- Row 1: Value, Airport/Fix, Traffic Flow, Via -->
                     <div class="row mb-3">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label small text-muted">${unit}</label>
                             <input type="number" class="form-control" id="ntml_value" min="5" max="100" step="5" value="20">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Airport/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="10">
                             <small id="airport_lookup_status"></small>
                         </div>
-                        <div class="col-md-5">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <select class="form-control" id="ntml_traffic_flow">
+                                <option value="">All Traffic</option>
+                                <option value="ARRIVALS">Arrivals</option>
+                                <option value="DEPARTURES">Departures</option>
+                                <option value="OVERFLIGHTS">Overflights</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Via Route/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="CLIPR/SKILS or ALL" maxlength="30">
                         </div>
                     </div>
                     
-                    <!-- Row 2: Reason (Category:Cause) -->
+                    <!-- Row 2: Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason (Category:Cause)</label>
+                            <label class="form-label small text-muted">Reason</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -596,11 +639,11 @@
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList" value="${getUserFacility()}">
+                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_req_facility" placeholder="ZNY" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Providing Facility</label>
-                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_prov_facility" placeholder="ZOB" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_prov_facility" placeholder="ZOB" maxlength="30" list="facilityList">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Exclusions</label>
@@ -650,23 +693,32 @@
                     <span class="tmi-section-title"><i class="fas fa-hand-paper mr-1"></i> Flow Stoppage Details</span>
                 </div>
                 <div class="card-body">
-                    <!-- Row 1: Airport/Fix, Via -->
+                    <!-- Row 1: Airport/Fix, Traffic Flow, Via -->
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Airport/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="10">
                             <small id="airport_lookup_status"></small>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <select class="form-control" id="ntml_traffic_flow">
+                                <option value="">All Traffic</option>
+                                <option value="ARRIVALS">Arrivals</option>
+                                <option value="DEPARTURES">Departures</option>
+                                <option value="OVERFLIGHTS">Overflights</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Via Route/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="LENDY or ALL" maxlength="30">
                         </div>
                     </div>
                     
-                    <!-- Row 2: Reason (Category:Cause) -->
+                    <!-- Row 2: Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason (Category:Cause)</label>
+                            <label class="form-label small text-muted">Reason</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -675,11 +727,11 @@
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList" value="${getUserFacility()}">
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" placeholder="ZNY" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Providing Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" placeholder="ZBW" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" placeholder="ZBW" maxlength="30" list="facilityList">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small text-muted">Exclusions</label>
@@ -737,27 +789,36 @@
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label small text-muted">Type</label>
                             <select class="form-control" id="ntml_apreq_type">
                                 <option value="APREQ">APREQ</option>
                                 <option value="CFR">CFR</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Airport</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="4">
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="10">
                         </div>
-                        <div class="col-md-5">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <select class="form-control" id="ntml_traffic_flow">
+                                <option value="">All Traffic</option>
+                                <option value="ARRIVALS">Arrivals</option>
+                                <option value="DEPARTURES">Departures</option>
+                                <option value="OVERFLIGHTS">Overflights</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Via Route/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_via_fix" maxlength="30">
                         </div>
                     </div>
-                    
-                    <!-- Reason (Category:Cause) -->
+
+                    <!-- Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason (Impacting Condition:Specific Impact)</label>
+                            <label class="form-label small text-muted">Reason</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -766,11 +827,11 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList" value="${getUserFacility()}">
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Providing Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="30" list="facilityList">
                         </div>
                     </div>
                     
@@ -809,30 +870,39 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-success text-white">
-                    <span class="tmi-section-title"><i class="fas fa-tachometer-alt mr-1"></i> Time-Based Metering Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-tachometer-alt mr-1"></i> TBM/TBFM (Time-Based Flow Management) Details</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Airport</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="ATL" maxlength="4">
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="ATL" maxlength="10">
                             <small id="airport_lookup_status"></small>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <select class="form-control" id="ntml_traffic_flow">
+                                <option value="">All Traffic</option>
+                                <option value="ARRIVALS" selected>Arrivals</option>
+                                <option value="DEPARTURES">Departures</option>
+                                <option value="OVERFLIGHTS">Overflights</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Meter Point/Arc</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_meter_point" placeholder="ZTL33 or ERLIN" maxlength="10">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Freeze Horizon (min)</label>
                             <input type="number" class="form-control" id="ntml_freeze_horizon" min="10" max="120" value="20">
                             <small class="text-muted">Output: TIME+{value}MIN</small>
                         </div>
                     </div>
-                    
-                    <!-- Reason (Category:Cause) -->
+
+                    <!-- Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason (Impacting Condition:Specific Impact)</label>
+                            <label class="form-label small text-muted">Reason</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -840,11 +910,11 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList" value="${getUserFacility()}">
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Providing Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="30" list="facilityList">
                         </div>
                     </div>
                     
@@ -1055,11 +1125,11 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Requesting Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="30" list="facilityList">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Providing Facility</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="4" list="facilityList">
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="30" list="facilityList">
                         </div>
                     </div>
                     
@@ -1361,38 +1431,48 @@
     
     function buildOpsPlanForm() {
         const advNum = getNextAdvisoryNumber('OPSPLAN');
-        
+        const currentDateTime = getCurrentDateTimeForInput();
+        // Default end time: 4 hours from now
+        const endDateTime = new Date(Date.now() + (4 * 60 * 60 * 1000)).toISOString().slice(0, 16);
+
         return `
             <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <span class="tmi-section-title"><i class="fas fa-clipboard-check mr-1"></i> Operations Plan</span>
+                    <button type="button" class="btn btn-sm btn-light" id="btnImportPertiPlan" title="Import from PERTI Plan">
+                        <i class="fas fa-file-import mr-1"></i> Import PERTI Plan
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Advisory #</label>
                             <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Facility</label>
                             <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">Date (Zulu)</label>
-                            <input type="text" class="form-control" id="adv_date" value="${getUtcDateFormatted()}" readonly>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="adv_valid_from" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="adv_valid_until" value="${endDateTime}">
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label small text-muted">Key Initiatives</label>
                         <textarea class="form-control" id="adv_initiatives" rows="4" placeholder="List key TMIs and initiatives for the operational period..."></textarea>
                     </div>
-                    
+
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Weather Impact</label>
-                        <textarea class="form-control" id="adv_weather" rows="2" placeholder="Summarize weather impacts..."></textarea>
+                        <label class="form-label small text-muted">Terminal/Enroute Constraints</label>
+                        <textarea class="form-control" id="adv_weather" rows="2" placeholder="Summarize weather impacts and constraints..."></textarea>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label small text-muted">Special Events</label>
                         <textarea class="form-control" id="adv_events" rows="2" placeholder="List any special events affecting traffic..."></textarea>
@@ -1404,7 +1484,10 @@
     
     function buildFreeformForm() {
         const advNum = getNextAdvisoryNumber('FREEFORM');
-        
+        const currentDateTime = getCurrentDateTimeForInput();
+        // Default end time: 4 hours from now
+        const endDateTime = new Date(Date.now() + (4 * 60 * 60 * 1000)).toISOString().slice(0, 16);
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-secondary text-white">
@@ -1412,20 +1495,31 @@
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Advisory #</label>
                             <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Facility</label>
                             <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label small text-muted">Subject</label>
-                            <input type="text" class="form-control" id="adv_subject" placeholder="Advisory Subject">
+                            <input type="text" class="form-control text-uppercase" id="adv_subject" placeholder="Advisory Subject">
                         </div>
                     </div>
-                    
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="adv_valid_from" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="adv_valid_until" value="${endDateTime}">
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label small text-muted">Advisory Text</label>
                         <textarea class="form-control" id="adv_text" rows="8" placeholder="Enter advisory text..."></textarea>
@@ -1599,37 +1693,53 @@
     function buildFacilityOptions() {
         const facilities = [
             // US ARTCCs
-            { code: 'ZBW', name: 'Boston Center' },
-            { code: 'ZNY', name: 'New York Center' },
-            { code: 'ZDC', name: 'Washington Center' },
-            { code: 'ZTL', name: 'Atlanta Center' },
-            { code: 'ZJX', name: 'Jacksonville Center' },
-            { code: 'ZMA', name: 'Miami Center' },
-            { code: 'ZOB', name: 'Cleveland Center' },
-            { code: 'ZID', name: 'Indianapolis Center' },
-            { code: 'ZAU', name: 'Chicago Center' },
-            { code: 'ZMP', name: 'Minneapolis Center' },
-            { code: 'ZKC', name: 'Kansas City Center' },
-            { code: 'ZME', name: 'Memphis Center' },
-            { code: 'ZFW', name: 'Fort Worth Center' },
-            { code: 'ZHU', name: 'Houston Center' },
             { code: 'ZAB', name: 'Albuquerque Center' },
-            { code: 'ZDV', name: 'Denver Center' },
-            { code: 'ZLC', name: 'Salt Lake Center' },
-            { code: 'ZLA', name: 'Los Angeles Center' },
-            { code: 'ZOA', name: 'Oakland Center' },
-            { code: 'ZSE', name: 'Seattle Center' },
             { code: 'ZAN', name: 'Anchorage Center' },
+            { code: 'ZAU', name: 'Chicago Center' },
+            { code: 'ZBW', name: 'Boston Center' },
+            { code: 'ZDC', name: 'Washington Center' },
+            { code: 'ZDV', name: 'Denver Center' },
+            { code: 'ZFW', name: 'Fort Worth Center' },
             { code: 'ZHN', name: 'Honolulu Center' },
-            // Special facilities
+            { code: 'ZHU', name: 'Houston Center' },
+            { code: 'ZID', name: 'Indianapolis Center' },
+            { code: 'ZJX', name: 'Jacksonville Center' },
+            { code: 'ZKC', name: 'Kansas City Center' },
+            { code: 'ZLA', name: 'Los Angeles Center' },
+            { code: 'ZLC', name: 'Salt Lake Center' },
+            { code: 'ZMA', name: 'Miami Center' },
+            { code: 'ZME', name: 'Memphis Center' },
+            { code: 'ZMP', name: 'Minneapolis Center' },
+            { code: 'ZNY', name: 'New York Center' },
+            { code: 'ZOA', name: 'Oakland Center' },
+            { code: 'ZOB', name: 'Cleveland Center' },
+            { code: 'ZSE', name: 'Seattle Center' },
+            { code: 'ZTL', name: 'Atlanta Center' },
+            // TRACONs
+            { code: 'A80', name: 'Atlanta TRACON' },
+            { code: 'A90', name: 'Boston TRACON' },
+            { code: 'C90', name: 'Chicago TRACON' },
+            { code: 'D01', name: 'Denver TRACON' },
+            { code: 'D10', name: 'Dallas/Fort Worth TRACON' },
+            { code: 'I90', name: 'Houston TRACON' },
             { code: 'N90', name: 'New York TRACON' },
+            { code: 'NCT', name: 'NorCal TRACON' },
+            { code: 'PCT', name: 'Potomac TRACON' },
+            { code: 'S46', name: 'Seattle TRACON' },
+            { code: 'SCT', name: 'SoCal TRACON' },
+            // Canadian FIRs
+            { code: 'CZEG', name: 'Edmonton FIR' },
+            { code: 'CZQM', name: 'Moncton FIR' },
+            { code: 'CZQX', name: 'Gander FIR' },
+            { code: 'CZVR', name: 'Vancouver FIR' },
+            { code: 'CZWG', name: 'Winnipeg FIR' },
+            { code: 'CZYZ', name: 'Toronto FIR' },
             // International
-            { code: 'CANADA', name: 'Canada (All FIRs)' },
-            { code: 'MEXICO', name: 'Mexico' },
+            { code: 'MMEX', name: 'Mexico' },
             { code: 'CARIBBEAN', name: 'Caribbean' }
         ];
-        
-        return facilities.map(f => 
+
+        return facilities.map(f =>
             `<option value="${f.code}">${f.code} - ${f.name}</option>`
         ).join('');
     }
@@ -1643,8 +1753,8 @@
     
     function buildSwapForm() {
         const advNum = getNextAdvisoryNumber('SWAP');
-        const currentTime = getCurrentTimeHHMM();
-        
+        const currentDateTime = getCurrentDateTimeForInput();
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-warning text-dark">
@@ -1665,8 +1775,8 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Effective Time (UTC)</label>
-                            <input type="time" class="form-control" id="adv_effective_time" value="${currentTime}">
+                            <label class="form-label small text-muted">Effective Date/Time (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="adv_effective_datetime" value="${currentDateTime}">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">Duration (hrs)</label>
@@ -1774,13 +1884,157 @@
                 const selectId = inputId === 'adv_constrained_facilities' ? 'adv_constrained_select' : 'adv_attend_select';
                 const value = $(this).val() || '';
                 const codes = value.split(/[,\s]+/).map(c => c.trim().toUpperCase()).filter(c => c);
-                
+
                 // Select matching options
                 $('#' + selectId + ' option').each(function() {
                     $(this).prop('selected', codes.includes($(this).val()));
                 });
             });
         }
+
+        // Handle Ops Plan PERTI Plan import
+        if (type === 'OPS_PLAN' || type === 'OPSPLAN') {
+            $('#btnImportPertiPlan').on('click', function() {
+                importPertiPlan();
+            });
+        }
+    }
+
+    /**
+     * Import PERTI Plan data into Ops Plan advisory
+     */
+    function importPertiPlan() {
+        Swal.fire({
+            title: '<i class="fas fa-file-import text-primary"></i> Import PERTI Plan',
+            html: `
+                <div class="text-left">
+                    <p class="small text-muted mb-3">Import planned TMIs from a PERTI Plan to populate the Operations Plan advisory.</p>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Plan Date</label>
+                        <input type="date" id="importPlanDate" class="form-control" value="${new Date().toISOString().slice(0, 10)}">
+                    </div>
+                </div>
+            `,
+            width: 450,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-download"></i> Fetch Plan',
+            confirmButtonColor: '#007bff',
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                const planDate = document.getElementById('importPlanDate').value;
+                if (!planDate) {
+                    Swal.showValidationMessage('Please select a plan date');
+                    return false;
+                }
+                return { planDate };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetchPertiPlanData(result.value.planDate);
+            }
+        });
+    }
+
+    /**
+     * Fetch PERTI Plan data from API
+     */
+    function fetchPertiPlanData(planDate) {
+        Swal.fire({
+            title: 'Loading...',
+            text: 'Fetching PERTI Plan data',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/plan/get.php',
+            method: 'GET',
+            data: { date: planDate },
+            dataType: 'json',
+            success: function(response) {
+                Swal.close();
+
+                if (response.success && response.plan) {
+                    populateOpsPlanFromPerti(response.plan);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Plan Imported',
+                        text: 'PERTI Plan data has been imported into the Ops Plan.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else if (response.success && !response.plan) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Plan Found',
+                        text: 'No PERTI Plan was found for the selected date.'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Import Failed',
+                        text: response.error || 'Failed to fetch PERTI Plan data.'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Import Failed',
+                    text: 'Failed to connect to server: ' + error
+                });
+            }
+        });
+    }
+
+    /**
+     * Populate Ops Plan form fields from PERTI Plan data
+     */
+    function populateOpsPlanFromPerti(plan) {
+        // Build initiatives text from planned TMIs
+        let initiatives = [];
+
+        if (plan.tmis && plan.tmis.length > 0) {
+            plan.tmis.forEach(tmi => {
+                const entry = `${tmi.type || 'TMI'}: ${tmi.ctlElement || ''} - ${tmi.description || ''}`;
+                initiatives.push(entry.trim());
+            });
+        }
+
+        if (plan.initiatives && plan.initiatives.length > 0) {
+            plan.initiatives.forEach(init => {
+                initiatives.push(init);
+            });
+        }
+
+        if (initiatives.length > 0) {
+            $('#adv_initiatives').val(initiatives.join('\n'));
+        }
+
+        // Weather/constraints
+        if (plan.weather || plan.constraints) {
+            const constraints = [plan.weather, plan.constraints].filter(c => c).join('\n');
+            $('#adv_weather').val(constraints);
+        }
+
+        // Events
+        if (plan.events && plan.events.length > 0) {
+            $('#adv_events').val(plan.events.join('\n'));
+        }
+
+        // Update validity times if plan has them
+        if (plan.validFrom) {
+            const fromDate = new Date(plan.validFrom);
+            $('#adv_valid_from').val(fromDate.toISOString().slice(0, 16));
+        }
+        if (plan.validUntil) {
+            const untilDate = new Date(plan.validUntil);
+            $('#adv_valid_until').val(untilDate.toISOString().slice(0, 16));
+        }
+
+        // Trigger preview update
+        updateAdvisoryPreview();
     }
     
     function updateAdvisoryPreview() {
@@ -1825,11 +2079,27 @@
         const initiatives = $('#adv_initiatives').val() || '';
         const weather = $('#adv_weather').val() || '';
         const events = $('#adv_events').val() || '';
-        const validTimes = getValidTimeRange();
-        
+
+        // Parse datetime-local values
+        const validFrom = $('#adv_valid_from').val() || '';
+        const validUntil = $('#adv_valid_until').val() || '';
+
+        // Format datetime as DD/HHMM
+        const formatDateTime = (dt) => {
+            if (!dt) return 'TBD';
+            const d = new Date(dt + 'Z'); // Treat as UTC
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            const hour = String(d.getUTCHours()).padStart(2, '0');
+            const min = String(d.getUTCMinutes()).padStart(2, '0');
+            return `${day}${hour}${min}`;
+        };
+
+        const startFormatted = formatDateTime(validFrom);
+        const endFormatted = formatDateTime(validUntil);
+
         let lines = [
             buildAdvisoryHeader(num, facility, 'OPERATIONS PLAN'),
-            `VALID FOR ${validTimes.start}Z THRU ${validTimes.end}Z`,
+            `VALID FOR ${startFormatted}Z THRU ${endFormatted}Z`,
             ``
         ];
         
@@ -1863,15 +2133,33 @@
         const facility = $('#adv_facility').val() || 'DCC';
         const subject = $('#adv_subject').val() || 'GENERAL ADVISORY';
         const text = $('#adv_text').val() || '';
-        
+
+        // Parse datetime-local values
+        const validFrom = $('#adv_valid_from').val() || '';
+        const validUntil = $('#adv_valid_until').val() || '';
+
+        // Format datetime as DD/HHMM
+        const formatDateTime = (dt) => {
+            if (!dt) return 'TBD';
+            const d = new Date(dt + 'Z'); // Treat as UTC
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            const hour = String(d.getUTCHours()).padStart(2, '0');
+            const min = String(d.getUTCMinutes()).padStart(2, '0');
+            return `${day}/${hour}${min}`;
+        };
+
+        const startFormatted = formatDateTime(validFrom);
+        const endFormatted = formatDateTime(validUntil);
+
         let lines = [
             buildAdvisoryHeader(num, facility, subject.toUpperCase()),
+            `VALID: ${startFormatted}Z - ${endFormatted}Z`,
             ``,
             text ? wrapText(text) : '(No text entered)',
             ``,
             buildAdvisoryFooter(num, facility)
         ];
-        
+
         return lines.join('\n');
     }
     
@@ -1898,8 +2186,11 @@
         const endFormatted = formatDateTime(endDateTime);
         
         const participation = $('#adv_participation').val() || 'MANDATORY';
-        const constrainedFacilities = $('#adv_constrained_facilities').val() || '';
-        const facilities = $('#adv_facilities').val() || 'TBD';
+        // Convert comma-delimited facilities to / delimited for FAA format
+        const constrainedFacilitiesRaw = $('#adv_constrained_facilities').val() || '';
+        const constrainedFacilities = constrainedFacilitiesRaw.split(/[,\s]+/).filter(f => f.trim()).join('/');
+        const facilitiesRaw = $('#adv_facilities').val() || 'TBD';
+        const facilities = facilitiesRaw === 'TBD' ? 'TBD' : facilitiesRaw.split(/[,\s]+/).filter(f => f.trim()).join('/');
         const reason = $('#adv_reason').val() || 'WEATHER';
         const impactedArea = $('#adv_impacted_area').val() || '';
         const hotlineAddressCode = $('#adv_hotline_address').val() || 'ts.vatusa.net';
@@ -1914,10 +2205,9 @@
         const hotlineAddress = addressMap[hotlineAddressCode] || hotlineAddressCode;
         
         let lines = [
-            buildAdvisoryHeader(num, 'DCC', `HOTLINE ${action}`),
-            ``
+            buildAdvisoryHeader(num, 'DCC', `HOTLINE ${action}`)
         ];
-        
+
         // Build different format based on action type
         if (action === 'ACTIVATION') {
             // Full boilerplate for Activation
@@ -1987,37 +2277,54 @@
     function buildSwapPreview() {
         const num = $('#adv_number').val() || '001';
         const swapType = $('#adv_swap_type').val() || 'IMPLEMENTATION';
-        const effTime = $('#adv_effective_time').val()?.replace(':', '') || getCurrentTimeHHMM().replace(':', '');
         const duration = parseInt($('#adv_duration').val()) || 4;
         const impactedArea = $('#adv_impacted_area').val() || '';
-        const areas = $('#adv_areas').val() || 'TBD';
+        // Convert comma-delimited areas to / delimited for FAA format
+        const areasRaw = $('#adv_areas').val() || 'TBD';
+        const areas = areasRaw === 'TBD' ? 'TBD' : areasRaw.split(/[,\s]+/).filter(f => f.trim()).join('/');
         const includeTraffic = $('#adv_include_traffic').val() || 'ALL';
         const extensionProb = $('#adv_extension_prob').val() || 'NONE';
         const weather = $('#adv_weather').val() || '';
         const routes = $('#adv_routes').val() || '';
         const restrictions = $('#adv_restrictions').val() || '';
         const notes = $('#adv_notes').val() || '';
-        
-        const now = new Date();
-        const day = String(now.getUTCDate()).padStart(2, '0');
-        const startHour = parseInt(effTime.substr(0, 2));
-        const startMin = effTime.substr(2, 2);
-        const endHour = (startHour + duration) % 24;
-        const endDay = (startHour + duration >= 24) ? String(now.getUTCDate() + 1).padStart(2, '0') : day;
-        const endTime = String(endHour).padStart(2, '0') + startMin;
+
+        // Parse datetime-local value (YYYY-MM-DDTHH:MM format)
+        const effDateTime = $('#adv_effective_datetime').val() || '';
+        let startDate, startDay, startHour, startMin;
+
+        if (effDateTime) {
+            startDate = new Date(effDateTime + 'Z'); // Treat as UTC
+            startDay = String(startDate.getUTCDate()).padStart(2, '0');
+            startHour = startDate.getUTCHours();
+            startMin = String(startDate.getUTCMinutes()).padStart(2, '0');
+        } else {
+            startDate = new Date();
+            startDay = String(startDate.getUTCDate()).padStart(2, '0');
+            startHour = startDate.getUTCHours();
+            startMin = String(startDate.getUTCMinutes()).padStart(2, '0');
+        }
+
+        // Calculate end time
+        const endDate = new Date(startDate.getTime() + (duration * 60 * 60 * 1000));
+        const endDay = String(endDate.getUTCDate()).padStart(2, '0');
+        const endHour = endDate.getUTCHours();
+        const endMin = String(endDate.getUTCMinutes()).padStart(2, '0');
+
+        const startTime = String(startHour).padStart(2, '0') + startMin;
+        const endTime = String(endHour).padStart(2, '0') + endMin;
         
         let lines = [
-            buildAdvisoryHeader(num, 'DCC', `SWAP ${swapType}`),
-            ``
+            buildAdvisoryHeader(num, 'DCC', `SWAP ${swapType}`)
         ];
-        
+
         if (impactedArea) {
             lines.push(`IMPACTED AREA: ${impactedArea}`);
         }
         
         lines.push(`REASON: SEVERE WEATHER`);
         lines.push(`INCLUDE TRAFFIC: ${includeTraffic}`);
-        lines.push(`VALID TIMES: ${day}/${effTime}Z - ${endDay}/${endTime}Z`);
+        lines.push(`VALID TIMES: ${startDay}/${startTime}Z - ${endDay}/${endTime}Z`);
         lines.push(`FACILITIES INCLUDED: ${areas}`);
         
         if (extensionProb !== 'NONE') {
