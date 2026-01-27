@@ -76,6 +76,26 @@ $allowed_files = [
     'VATSWIM_Setup_Checklist' => [
         'title' => 'Setup Checklist',
         'description' => 'Production deployment checklist and verification steps'
+    ],
+    'SWIM_Session_Transition_20260116_AOCTelemetry' => [
+        'title' => 'AOC Telemetry Transition',
+        'description' => 'Session notes for AOC telemetry integration changes'
+    ],
+    'SimTraffic_VATSWIM_Integration' => [
+        'title' => 'SimTraffic Integration',
+        'description' => 'SimTraffic feed integration with VATSWIM'
+    ],
+    'vNAS_VATSWIM_Integration' => [
+        'title' => 'vNAS Integration',
+        'description' => 'vNAS ERAM/STARS push integration with VATSWIM'
+    ],
+    'ACARS_VATSWIM_Integration' => [
+        'title' => 'ACARS Integration',
+        'description' => 'ACARS message ingest for OOOI times and PDC'
+    ],
+    'Simulator_VATSWIM_Integration' => [
+        'title' => 'Simulator Integration',
+        'description' => 'Flight simulator plugin integration guide'
     ]
 ];
 
