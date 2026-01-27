@@ -2,7 +2,7 @@
  * TMI Publisher Styles
  * 
  * @package PERTI
- * @version 1.1.0
+ * @version 1.6.0
  */
 
 /* ===========================================
@@ -411,15 +411,20 @@ input.form-control::placeholder {
 }
 
 /* ===========================================
-   Qualifier Buttons
+   Qualifier Buttons (v1.8.3)
    =========================================== */
 .qualifier-btn {
     border-radius: 20px;
     padding: 0.25rem 0.75rem;
     font-size: 0.75rem;
     font-weight: 500;
-    margin: 0.25rem;
+    margin: 0.125rem;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-overflow: unset;
+    overflow: visible;
+    min-width: fit-content;
 }
 
 .qualifier-btn:hover {
@@ -434,6 +439,41 @@ input.form-control::placeholder {
 
 .qualifier-btn:not(.active):hover {
     background-color: #e9ecef;
+}
+
+/* Qualifier Groups */
+.qualifier-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.qualifier-group > span.small {
+    min-width: 70px;
+    flex-shrink: 0;
+}
+
+.qualifier-sections {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* Responsive qualifier sizing */
+@media (max-width: 576px) {
+    .qualifier-btn {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.6rem;
+    }
+    
+    .qualifier-group > span.small {
+        min-width: 60px;
+        font-size: 0.7rem;
+    }
+    
+    .qualifier-group {
+        gap: 0.125rem;
+    }
 }
 
 /* Gap utility for flexbox */

@@ -133,7 +133,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <head>
     <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/info-bar.css">
-<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.4">
+<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.6">
 </head>
 <body>
 
@@ -958,7 +958,7 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.8.2"></script>
+<script src="assets/js/tmi-publish.js?v=1.8.4"></script>
 <script src="assets/js/tmi-active-display.js?v=1.1.0"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade

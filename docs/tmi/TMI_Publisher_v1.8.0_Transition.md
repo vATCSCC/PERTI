@@ -168,6 +168,35 @@ When user profile has a saved facility:
 - Returns FAA code, ICAO code, and airport name
 - Fallback logic for codes not in database (K-prefix for US)
 
+### 9. NTML DateTime Fields (v1.8.3)
+
+**Changed Input Types**:
+- All validity time fields changed from `type="time"` to `type="datetime-local"`
+- Applies to: MIT, MINIT, STOP, APREQ, TBM forms
+- Users can now select both date and time for TMI validity periods
+
+**Updated Functions**:
+- `getSmartDefaultTimes()` - Returns full datetime format (YYYY-MM-DDTHH:MM)
+  - Also provides `startTime`/`endTime` for backwards compatibility
+  - Handles day rollover correctly when end time crosses midnight
+- `formatValidTime(from, until)` - Handles both datetime-local and time-only formats
+- `formatValidDateTime(from, until)` - NEW: Returns display format with dates
+  - Same day: "1400-1800Z"
+  - Different days: "01/28 1400-01/29 0200Z"
+
+**Form Updates**:
+- Added "Date and time in Zulu" helper text under datetime fields
+- Placeholders removed (datetime-local has native picker)
+
+### 10. Qualifier Button CSS Improvements (v1.8.3)
+
+**CSS Changes** (`assets/css/tmi-publish.css` v1.6.0):
+- Added `min-width: fit-content` - prevents text truncation
+- Added `text-overflow: unset` and `overflow: visible`
+- Added `overflow-x: auto` to `.qualifier-sections` - allows horizontal scroll on small screens
+- Improved responsive sizing for mobile (0.7rem font, 0.6rem padding)
+- Better gap spacing for mobile qualifier groups
+
 ---
 
 ## Files Modified
@@ -182,13 +211,13 @@ When user profile has a saved facility:
 ### JavaScript Files
 | File | Changes |
 |------|---------|  
-| `assets/js/tmi-publish.js` | v1.8.2: CONFIG presets, FAA/ICAO lookup, Hotline form, facility selector, profile functions |
-| `assets/js/tmi-active-display.js` | v1.1.0: Source filter support, simplified buildFilterControls, updated filter state |
+| `assets/js/tmi-publish.js` | v1.8.3: DateTime pickers, CONFIG presets, FAA/ICAO lookup, Hotline form |
+| `assets/js/tmi-active-display.js` | v1.1.0: Source filter support, simplified buildFilterControls |
 
 ### CSS Files
 | File | Changes |
 |------|---------|
-| `assets/css/tmi-publish.css` | Queue button styling, facility selector wrapper |
+| `assets/css/tmi-publish.css` | v1.6.0: Qualifier button sizing fixes, queue button styling, facility selector wrapper |
 
 ---
 
@@ -196,6 +225,7 @@ When user profile has a saved facility:
 
 | Version | Date | Changes |
 |---------|------|---------|  
+| 1.8.3 | Jan 28, 2026 | NTML datetime fields (date + time pickers) |
 | 1.8.2 | Jan 28, 2026 | Airport FAA/ICAO code lookup |
 | 1.8.1 | Jan 27, 2026 | Airport CONFIG presets from database |
 | 1.8.0 | Jan 27, 2026 | Hotline overhaul, user profile, NTML improvements |
@@ -209,16 +239,12 @@ When user profile has a saved facility:
 
 The following items from the original request list still need implementation:
 
-### Medium Priority
-1. **NTML date/time fields** - Add date pickers for start/end times (currently time-only)
-
-### Low Priority
-2. **Qualifier dropdown sizing** - Right-size to prevent truncation
-
 ### Resolved
-- **Airport FAA/ICAO code matching** - Implemented: Auto-lookup with caching
-- **Airport CONFIG presets** - Implemented: API + auto-load from database
-- **Active TMIs toggle** - Implemented: Source filter dropdown (Production/Staging/All)
+- **Qualifier button sizing** - Fixed: CSS improvements for fit-content, responsive sizing (v1.8.3)
+- **NTML date/time fields** - Implemented: datetime-local pickers (v1.8.3)
+- **Airport FAA/ICAO code matching** - Implemented: Auto-lookup with caching (v1.8.2)
+- **Airport CONFIG presets** - Implemented: API + auto-load from database (v1.8.1)
+- **Active TMIs toggle** - Implemented: Source filter dropdown (v1.8.0)
 - **Duplicate buttons** - Investigated: Buttons are in separate tab panels, not duplicated
 
 ---
@@ -244,6 +270,14 @@ The following items from the original request list still need implementation:
 - [ ] MIT/MINIT form: Enter "JFK" → Shows "JFK / KJFK" with airport name
 - [ ] STOP form: Enter "ORD" → Shows "ORD / KORD (Chicago O'Hare Intl)"
 - [ ] Verify lookup caching → Second lookup of same code is instant
+- [ ] MIT form: Datetime fields show date picker with today's date
+- [ ] MIT form: Default times are snapped to quarter-hour
+- [ ] MIT form: End time is 4 hours after start
+- [ ] STOP form: Can select date spanning midnight (e.g., 2200-0200)
+- [ ] APREQ form: Datetime fields work correctly
+- [ ] TBM form: Datetime fields work correctly
+- [ ] Qualifier buttons: "AIR CARRIER" and "PER AIRPORT" display fully without truncation
+- [ ] Qualifier buttons: Groups wrap properly on mobile width screens
 
 ---
 

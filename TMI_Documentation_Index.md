@@ -57,6 +57,8 @@
 | Category:Cause | ✅ Complete | v1.6.0 - OPSNET reasons |
 | Airport CONFIG Presets | ✅ Complete | v1.8.1 - Database integration |
 | Airport FAA/ICAO Lookup | ✅ Complete | v1.8.2 - Auto-lookup with caching |
+| NTML DateTime Fields | ✅ Complete | v1.8.3 - Date + time pickers |
+| Qualifier Button Sizing | ✅ Complete | v1.8.3 - CSS improvements |
 
 ### GDT System (gdt.php)
 
