@@ -1,0 +1,624 @@
+/**
+ * TMI Publisher Styles
+ * 
+ * Unified styling for NTML Quick Entry and Advisory Builder
+ * 
+ * @package PERTI
+ * @version 1.0.0
+ * @date 2026-01-27
+ */
+
+/* ============================================
+   CSS Variables
+   ============================================ */
+:root {
+    --ntml-green: #00ff00;
+    --ntml-dark: #1a1a2e;
+    --advisory-blue: #007bff;
+    --discord-purple: #7289DA;
+}
+
+/* ============================================
+   Tab Styling
+   ============================================ */
+.tmi-tabs {
+    background: #1a1a2e;
+    border-radius: 12px 12px 0 0;
+    padding: 0;
+    margin: 0;
+}
+
+.tmi-tabs .nav-link {
+    color: #888;
+    border: none;
+    border-radius: 0;
+    padding: 15px 30px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+}
+
+.tmi-tabs .nav-link:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.05);
+}
+
+.tmi-tabs .nav-link.active {
+    color: #fff;
+    background: #2a2a4a;
+    border-bottom: 3px solid var(--advisory-blue);
+}
+
+.tmi-tabs .nav-link i {
+    margin-right: 8px;
+}
+
+/* Tab Content Container */
+.tmi-content {
+    background: #2a2a4a;
+    border-radius: 0 0 12px 12px;
+    padding: 25px;
+    min-height: 400px;
+}
+
+/* ============================================
+   Discord Target Selection
+   ============================================ */
+.discord-targets {
+    background: linear-gradient(135deg, #1a1a2e 0%, #252545 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.discord-org-check {
+    display: inline-flex;
+    align-items: center;
+    background: #0d0d1a;
+    border: 2px solid #333;
+    border-radius: 25px;
+    padding: 8px 16px;
+    margin: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.discord-org-check:hover {
+    border-color: #555;
+}
+
+.discord-org-check.checked {
+    border-color: var(--discord-purple);
+    background: rgba(114, 137, 218, 0.15);
+}
+
+.discord-org-check.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.discord-org-check input {
+    display: none;
+}
+
+.discord-org-check .org-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--discord-purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    font-size: 12px;
+    color: white;
+}
+
+.discord-org-check .org-name {
+    color: #ccc;
+    font-weight: 500;
+}
+
+.discord-org-check .org-region {
+    color: #666;
+    font-size: 0.75rem;
+    margin-left: 8px;
+}
+
+.discord-org-check.checked .org-name {
+    color: #fff;
+}
+
+/* Cross-border indicator */
+.cross-border-badge {
+    background: linear-gradient(135deg, #007bff, #28a745);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: none;
+}
+
+.cross-border-badge.show {
+    display: inline-block;
+}
+
+/* ============================================
+   Staging/Production Toggle
+   ============================================ */
+.publish-mode-toggle {
+    background: #1a1a2e;
+    border-radius: 25px;
+    padding: 4px;
+    display: inline-flex;
+}
+
+.publish-mode-btn {
+    background: none;
+    border: none;
+    color: #888;
+    padding: 10px 24px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.publish-mode-btn.active {
+    color: white;
+}
+
+.publish-mode-btn.staging.active {
+    background: #ffc107;
+    color: #000;
+}
+
+.publish-mode-btn.production.active {
+    background: #dc3545;
+    color: white;
+}
+
+/* Production Warning Banner */
+.production-banner {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: none;
+    margin-bottom: 15px;
+}
+
+.production-banner.show {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* ============================================
+   NTML Quick Entry Styling
+   ============================================ */
+.quick-entry-container {
+    background: var(--ntml-dark);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+}
+
+.quick-input {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 1.1rem;
+    background: #0d0d1a;
+    border: 2px solid #333;
+    color: var(--ntml-green);
+    padding: 15px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.quick-input:focus {
+    border-color: var(--ntml-green);
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+    outline: none;
+}
+
+.quick-input::placeholder {
+    color: #555;
+}
+
+/* Preview Cards */
+.preview-card {
+    background: #0d0d1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    font-family: monospace;
+    position: relative;
+}
+
+.preview-card.valid {
+    border-color: #28a745;
+}
+
+.preview-card.invalid {
+    border-color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.preview-card .determinant {
+    color: var(--ntml-green);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.preview-card .details {
+    color: #aaa;
+    font-size: 0.9rem;
+    margin-top: 5px;
+}
+
+.preview-card .remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.preview-card .remove-btn:hover {
+    color: #dc3545;
+}
+
+/* Templates */
+.template-btn {
+    background: #2a2a4a;
+    border: 1px solid #444;
+    color: #ccc;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin: 3px;
+}
+
+.template-btn:hover {
+    background: #3a3a5a;
+    border-color: #007bff;
+    color: #fff;
+}
+
+.template-btn.active {
+    background: #007bff;
+    border-color: #007bff;
+}
+
+/* Mode Toggle */
+.mode-toggle {
+    background: #1a1a2e;
+    border-radius: 25px;
+    padding: 4px;
+    display: inline-flex;
+}
+
+.mode-toggle .mode-btn {
+    background: none;
+    border: none;
+    color: #888;
+    padding: 8px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mode-toggle .mode-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+/* Syntax Help */
+.syntax-help {
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 15px;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+.syntax-help code {
+    background: #0d0d1a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--ntml-green);
+}
+
+/* Submit Area */
+.submit-area {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2a2a4a 100%);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.entry-count {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--ntml-green);
+}
+
+.entry-count small {
+    font-size: 0.9rem;
+    color: #888;
+    font-weight: normal;
+}
+
+/* Keyboard shortcuts hint */
+.kbd {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #ccc;
+}
+
+/* Batch Entry Textarea */
+.batch-textarea {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.95rem;
+    background: #0d0d1a;
+    border: 2px solid #333;
+    color: var(--ntml-green);
+    min-height: 150px;
+    resize: vertical;
+}
+
+.batch-textarea:focus {
+    border-color: var(--ntml-green);
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+}
+
+/* Autocomplete */
+.autocomplete-dropdown {
+    position: absolute;
+    background: #1a1a2e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    width: 100%;
+    display: none;
+}
+
+.autocomplete-dropdown.show {
+    display: block;
+}
+
+.autocomplete-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #333;
+    color: #ccc;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+    background: #2a2a4a;
+    color: white;
+}
+
+.autocomplete-item .facility-id {
+    font-family: monospace;
+    color: var(--ntml-green);
+    font-weight: bold;
+}
+
+.autocomplete-item .facility-name {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+/* ============================================
+   Advisory Builder Styles
+   ============================================ */
+.tmi-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: #aaa;
+}
+
+.advisory-type-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    background: #1a1a2e;
+}
+
+.advisory-type-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.advisory-type-card.selected {
+    border-color: #007bff;
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.advisory-type-icon {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+.section-card {
+    display: none;
+    background: #1a1a2e;
+    border: 1px solid #333;
+}
+
+.section-card.active {
+    display: block;
+}
+
+.section-card .card-header {
+    background: #252545;
+    border-bottom: 1px solid #333;
+}
+
+.section-card .card-body {
+    background: #1a1a2e;
+}
+
+/* Type-specific header colors */
+.adv-header-gdp { background: #ffc107 !important; }
+.adv-header-gdp .tmi-section-title { color: #000 !important; }
+.adv-header-gs { background: #dc3545 !important; }
+.adv-header-afp { background: #17a2b8 !important; }
+.adv-header-ctop { background: #6f42c1 !important; }
+.adv-header-reroute { background: #28a745 !important; }
+.adv-header-atcscc { background: #6c757d !important; }
+.adv-header-mit { background: #fd7e14 !important; }
+.adv-header-cnx { background: #343a40 !important; }
+
+.tmi-section-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    color: #fff;
+}
+
+/* Advisory Preview */
+.tmi-advisory-preview {
+    white-space: pre;
+    font-family: "Inconsolata", "Consolas", monospace;
+    font-size: 0.8rem;
+    color: var(--ntml-green);
+    background: #0d0d1a;
+    padding: 15px;
+    border-radius: 4px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #333;
+}
+
+/* Form Controls in Dark Mode */
+.tmi-content .form-control {
+    background: #0d0d1a;
+    border: 1px solid #444;
+    color: #fff;
+}
+
+.tmi-content .form-control:focus {
+    background: #0d0d1a;
+    border-color: #007bff;
+    color: #fff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.tmi-content .form-control::placeholder {
+    color: #666;
+}
+
+.tmi-content select.form-control {
+    background: #0d0d1a;
+    color: #fff;
+}
+
+.tmi-content select.form-control option {
+    background: #1a1a2e;
+    color: #fff;
+}
+
+/* ============================================
+   Results Summary
+   ============================================ */
+.publish-results {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.publish-result-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.publish-result-item:last-child {
+    border-bottom: none;
+}
+
+.publish-result-item .org-badge {
+    background: var(--discord-purple);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    margin-right: 15px;
+    min-width: 80px;
+    text-align: center;
+}
+
+.publish-result-item.success .status-icon {
+    color: #28a745;
+}
+
+.publish-result-item.error .status-icon {
+    color: #dc3545;
+}
+
+.publish-result-item .message-link {
+    color: var(--discord-purple);
+    text-decoration: none;
+}
+
+.publish-result-item .message-link:hover {
+    text-decoration: underline;
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+@media (max-width: 768px) {
+    .tmi-tabs .nav-link {
+        padding: 12px 15px;
+        font-size: 0.85rem;
+    }
+    
+    .discord-org-check {
+        padding: 6px 12px;
+        margin: 2px;
+    }
+    
+    .publish-mode-toggle {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .publish-mode-btn {
+        flex: 1;
+        text-align: center;
+    }
+    
+    .submit-area {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .quick-input {
+        font-size: 1rem;
+        padding: 12px;
+    }
+}

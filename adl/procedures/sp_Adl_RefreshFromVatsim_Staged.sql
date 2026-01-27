@@ -722,8 +722,11 @@ BEGIN
     -- ========================================================================
 
     -- Step 7: Mark inactive flights
+    -- Fix: Only mark as 'arrived' if actually near destination (<50nm)
+    -- Flights that disconnect far from destination are marked 'disconnected'
     SET @step_start = SYSUTCDATETIME();
 
+    -- 7a. Flights near destination (<50nm) - mark as actually arrived
     UPDATE t
     SET t.ata_utc = c.last_seen_utc,
         t.ata_runway_utc = c.last_seen_utc,
@@ -731,10 +734,27 @@ BEGIN
         t.times_updated_utc = @now
     FROM dbo.adl_flight_times t
     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+    INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     WHERE c.is_active = 1
-      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now);
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND p.dist_to_dest_nm < 50;  -- Actually near destination
 
-    UPDATE dbo.adl_flight_core SET is_active = 0, phase = 'arrived' WHERE is_active = 1 AND last_seen_utc < DATEADD(MINUTE, -5, @now);
+    UPDATE c
+    SET c.is_active = 0, c.phase = 'arrived'
+    FROM dbo.adl_flight_core c
+    INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+    WHERE c.is_active = 1
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND p.dist_to_dest_nm < 50;
+
+    -- 7b. Flights far from destination (>=50nm) - mark as disconnected, no ATA
+    UPDATE c
+    SET c.is_active = 0, c.phase = 'disconnected'
+    FROM dbo.adl_flight_core c
+    LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+    WHERE c.is_active = 1
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND (p.dist_to_dest_nm >= 50 OR p.dist_to_dest_nm IS NULL);
 
     SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 

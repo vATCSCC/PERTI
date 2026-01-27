@@ -1352,7 +1352,8 @@ function executeRunwayDetection($conn, array $config): ?array {
 function executeWindCalculation($conn, array $config): ?array {
     $startTime = microtime(true);
 
-    $sql = "EXEC dbo.sp_UpdateFlightWindAdjustments @debug = 0";
+    // V2 uses segment-based wind calculations (climb/cruise/descent)
+    $sql = "EXEC dbo.sp_UpdateFlightWindAdjustments_V2 @debug = 0";
     $options = ['QueryTimeout' => $config['wind_timeout']];
 
     $stmt = @sqlsrv_query($conn, $sql, [], $options);
