@@ -1,6 +1,6 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-01-21
+> **Last Updated:** 2026-01-27
 > **System Version:** v17 - Main Branch
 
 ---
@@ -23,6 +23,7 @@
 | **ATFM Simulator (NEW v17)** | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
 | **SWIM API (NEW v17)** | [DEV] Phase 1 | System Wide Information Management API |
 | **TMI Database (NEW v17)** | [OK] Deployed | Unified TMI database (VATSIM_TMI) |
+| **TMI Publisher (NEW v17)** | [OK] v1.6.0 | Unified NTML/Advisory publishing with multi-Discord |
 
 ---
 
