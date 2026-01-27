@@ -1,497 +1,278 @@
 <?php
 /**
- * Unified TMI Publish API
+ * TMI Unified Publish API
  * 
- * Handles publishing of NTML entries and Advisories to multiple Discord organizations.
- * Supports staging/production workflow and cross-border TMI posting.
+ * Handles publishing of NTML entries and advisories to multiple Discord organizations.
+ * Supports staging and production modes.
+ * 
+ * POST /api/mgt/tmi/publish.php
+ * 
+ * Request Body:
+ * {
+ *   "entries": [
+ *     {
+ *       "type": "ntml" | "advisory",
+ *       "entryType": "MIT" | "MINIT" | "GS" | "GDP" | etc.,
+ *       "data": {...} | null,
+ *       "preview": "formatted message" | null,
+ *       "orgs": ["vatcscc", "vatcan"]
+ *     }
+ *   ],
+ *   "production": false,
+ *   "userCid": "123456"
+ * }
  * 
  * @package PERTI
- * @subpackage TMI/API
+ * @subpackage API/TMI
  * @version 1.0.0
  * @date 2026-01-27
- * 
- * Endpoints:
- *   POST /api/mgt/tmi/publish.php
- *     - entry_type: 'NTML', 'NTML_BATCH', 'ADVISORY'
- *     - data: Entry/Advisory data object
- *     - entries: Array of entries (for NTML_BATCH)
- *     - targets: { orgs: [], staging: bool, production: bool }
- *     - source: 'PERTI', 'API', 'DISCORD'
- *     - user_cid, user_name
  */
 
 header('Content-Type: application/json');
-header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
-// Error handling
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    error_log("[TMI Publish] PHP Error: $errstr in $errfile:$errline");
-    return false;
-});
+// Handle CORS preflight
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
-register_shutdown_function(function() {
-    $error = error_get_last();
-    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR])) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Fatal error: ' . $error['message']]);
-    }
-});
-
-// Start session
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
+// Only allow POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+    exit;
 }
 
 // Load dependencies
 require_once __DIR__ . '/../../../load/config.php';
-require_once __DIR__ . '/../../../load/connect.php';
-require_once __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
 require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
+require_once __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
 
-// Response helper
-function sendResponse($success, $data = [], $error = null, $httpCode = 200) {
-    http_response_code($httpCode);
-    echo json_encode(array_merge(
-        ['success' => $success],
-        $data,
-        $error ? ['error' => $error] : []
-    ));
-    exit();
-}
-
-// Get request body
+// Parse request body
 $input = file_get_contents('php://input');
-$request = json_decode($input, true);
+$payload = json_decode($input, true);
 
-if (!$request) {
-    // Try POST form data as fallback
-    $request = $_POST;
+if (!$payload || !isset($payload['entries'])) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Invalid request body']);
+    exit;
 }
 
-if (empty($request)) {
-    sendResponse(false, [], 'No request data provided', 400);
+$entries = $payload['entries'];
+$production = !empty($payload['production']);
+$userCid = $payload['userCid'] ?? null;
+
+if (empty($entries)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'No entries provided']);
+    exit;
 }
 
-// Validate required fields
-if (empty($request['entry_type'])) {
-    sendResponse(false, [], 'Missing entry_type', 400);
-}
-
-if (empty($request['targets']['orgs']) || !is_array($request['targets']['orgs'])) {
-    sendResponse(false, [], 'No target organizations specified', 400);
-}
-
-// Permission check
-$userCID = $request['user_cid'] ?? ($_SESSION['VATSIM_CID'] ?? null);
-$userName = $request['user_name'] ?? ($_SESSION['VATSIM_FIRST_NAME'] ?? 'Unknown');
-$isAuthorized = false;
-
-if (defined('DEV')) {
-    $isAuthorized = true;
-} elseif ($userCID) {
-    global $conn_sqli;
-    $stmt = $conn_sqli->prepare("SELECT role FROM users WHERE cid = ?");
-    if ($stmt) {
-        $stmt->bind_param("s", $userCID);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result && $result->num_rows > 0) {
-            $isAuthorized = true;
-        }
-        $stmt->close();
-    }
-}
-
-if (!$isAuthorized) {
-    sendResponse(false, [], 'Unauthorized', 403);
-}
-
-// Initialize Discord APIs
-$multiDiscord = new MultiDiscordAPI();
+// Initialize Discord
 $tmiDiscord = new TMIDiscord();
+$multiDiscord = $tmiDiscord->getMultiDiscordAPI();
 
 if (!$multiDiscord->isConfigured()) {
-    sendResponse(false, [], 'Discord integration not configured', 500);
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Discord not configured']);
+    exit;
 }
 
-// Extract request parameters
-$entryType = strtoupper($request['entry_type']);
-$targetOrgs = $request['targets']['orgs'];
-$isStaging = !empty($request['targets']['staging']);
-$isProduction = !empty($request['targets']['production']);
-$source = $request['source'] ?? 'PERTI';
-
-// Validate target orgs
-$validOrgs = [];
-foreach ($targetOrgs as $orgCode) {
-    if ($multiDiscord->isOrgEnabled($orgCode)) {
-        $validOrgs[] = $orgCode;
-    }
-}
-
-if (empty($validOrgs)) {
-    sendResponse(false, [], 'No valid target organizations specified', 400);
-}
-
-// Process based on entry type
-$results = [];
-$entries = [];
-
+// Connect to TMI database for tracking
+$tmiConn = null;
 try {
-    switch ($entryType) {
-        case 'NTML':
-            // Single NTML entry
-            $entries = [$request['data']];
-            $results = processNTMLEntries($entries, $validOrgs, $isStaging, $tmiDiscord, $multiDiscord, $userCID, $userName, $source);
-            break;
-            
-        case 'NTML_BATCH':
-            // Multiple NTML entries
-            $entries = $request['entries'] ?? [];
-            if (empty($entries)) {
-                sendResponse(false, [], 'No entries provided for batch', 400);
-            }
-            $results = processNTMLEntries($entries, $validOrgs, $isStaging, $tmiDiscord, $multiDiscord, $userCID, $userName, $source);
-            break;
-            
-        case 'ADVISORY':
-            // Single advisory
-            $entries = [$request['data']];
-            $results = processAdvisories($entries, $validOrgs, $isStaging, $tmiDiscord, $multiDiscord, $userCID, $userName, $source);
-            break;
-            
-        default:
-            sendResponse(false, [], "Unknown entry_type: $entryType", 400);
+    if (defined('TMI_SQL_HOST') && TMI_SQL_HOST) {
+        $tmiConn = new PDO(
+            "sqlsrv:Server=" . TMI_SQL_HOST . ";Database=" . TMI_SQL_DATABASE,
+            TMI_SQL_USERNAME,
+            TMI_SQL_PASSWORD
+        );
+        $tmiConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
-    
-    // Check if all orgs succeeded
-    $allSuccess = true;
-    $anySuccess = false;
-    foreach ($results as $orgResult) {
-        if ($orgResult['success']) {
-            $anySuccess = true;
-        } else {
-            $allSuccess = false;
-        }
-    }
-    
-    sendResponse($anySuccess, [
-        'results' => $results,
-        'entry_count' => count($entries),
-        'mode' => $isStaging ? 'staging' : 'production',
-        'all_succeeded' => $allSuccess
-    ]);
-    
 } catch (Exception $e) {
-    error_log("[TMI Publish] Exception: " . $e->getMessage());
-    sendResponse(false, [], 'Server error: ' . $e->getMessage(), 500);
+    error_log("TMI Publish: Database connection failed: " . $e->getMessage());
+    // Continue without database tracking
 }
 
-// ============================================
-// NTML PROCESSING
-// ============================================
+// Process each entry
+$results = [];
+$successCount = 0;
+$failCount = 0;
 
-function processNTMLEntries($entries, $targetOrgs, $isStaging, $tmiDiscord, $multiDiscord, $userCID, $userName, $source) {
-    $results = [];
-    $channelPurpose = $isStaging ? 'ntml_staging' : 'ntml';
+foreach ($entries as $index => $entry) {
+    $result = [
+        'index' => $index,
+        'type' => $entry['type'] ?? 'unknown',
+        'orgs' => $entry['orgs'] ?? [],
+        'success' => false,
+        'error' => null,
+        'discordResults' => []
+    ];
     
-    foreach ($entries as $entry) {
-        // Format the NTML message
-        $message = $tmiDiscord->buildNTMLMessageFromEntry($entry);
+    try {
+        // Build message content
+        $messageContent = buildMessageContent($entry, $tmiDiscord);
         
-        // Add staging prefix if applicable
-        if ($isStaging) {
-            $message = "🧪 [STAGING]\n" . $message;
+        if (empty($messageContent)) {
+            $result['error'] = 'Could not build message content';
+            $results[] = $result;
+            $failCount++;
+            continue;
         }
         
-        $messageData = ['content' => "```\n{$message}\n```"];
+        $messageData = [
+            'content' => "```\n{$messageContent}\n```"
+        ];
         
-        // Post to each target org
-        $orgResults = $multiDiscord->postToOrgs($targetOrgs, $channelPurpose, $messageData);
+        // Get target orgs
+        $targetOrgs = $entry['orgs'] ?? ['vatcscc'];
         
-        // Save to database
-        $entryId = saveNTMLEntry($entry, $orgResults, $isStaging, $userCID, $userName, $source);
+        // Determine channel purpose
+        $entryType = $entry['type'] ?? 'ntml';
+        $tmiType = ($entryType === 'advisory') ? 'advisory' : 'ntml';
         
-        // Track Discord posts
-        foreach ($orgResults as $orgCode => $result) {
-            saveDiscordPost('ENTRY', $entryId, $orgCode, $channelPurpose, $result, $userCID, $userName);
-        }
-        
-        // Merge results
-        foreach ($orgResults as $orgCode => $result) {
-            if (!isset($results[$orgCode])) {
-                $results[$orgCode] = $result;
-            } else {
-                // Accumulate for batch
-                if (!$result['success']) {
-                    $results[$orgCode]['success'] = false;
-                    $results[$orgCode]['error'] = ($results[$orgCode]['error'] ?? '') . '; ' . $result['error'];
-                }
-            }
-        }
-    }
-    
-    return $results;
-}
-
-// ============================================
-// ADVISORY PROCESSING
-// ============================================
-
-function processAdvisories($advisories, $targetOrgs, $isStaging, $tmiDiscord, $multiDiscord, $userCID, $userName, $source) {
-    $results = [];
-    $channelPurpose = $isStaging ? 'advzy_staging' : 'advisories';
-    
-    foreach ($advisories as $advisory) {
-        // Format the advisory message
-        $message = '';
-        if (!empty($advisory['content'])) {
-            // Pre-formatted content
-            $message = $advisory['content'];
+        // Post to Discord
+        if ($production) {
+            $discordResults = $multiDiscord->postToProduction($targetOrgs, $tmiType, $messageData);
         } else {
-            // Build from structured data
-            $message = $tmiDiscord->buildAdvisoryMessage($advisory);
+            $discordResults = $multiDiscord->postToStaging($targetOrgs, $tmiType, $messageData);
         }
         
-        // Add staging prefix if applicable
-        if ($isStaging) {
-            $message = "🧪 [STAGING]\n" . $message;
-        }
-        
-        $messageData = ['content' => "```\n{$message}\n```"];
-        
-        // Post to each target org
-        $orgResults = $multiDiscord->postToOrgs($targetOrgs, $channelPurpose, $messageData);
-        
-        // Save to database
-        $advisoryId = saveAdvisory($advisory, $orgResults, $isStaging, $userCID, $userName, $source);
-        
-        // Track Discord posts
-        foreach ($orgResults as $orgCode => $result) {
-            saveDiscordPost('ADVISORY', $advisoryId, $orgCode, $channelPurpose, $result, $userCID, $userName);
-        }
-        
-        // Merge results
-        foreach ($orgResults as $orgCode => $result) {
-            if (!isset($results[$orgCode])) {
-                $results[$orgCode] = $result;
-            } else {
-                if (!$result['success']) {
-                    $results[$orgCode]['success'] = false;
-                    $results[$orgCode]['error'] = ($results[$orgCode]['error'] ?? '') . '; ' . $result['error'];
-                }
-            }
-        }
-    }
-    
-    return $results;
-}
-
-// ============================================
-// DATABASE FUNCTIONS
-// ============================================
-
-/**
- * Save NTML entry to VATSIM_TMI database
- */
-function saveNTMLEntry($entry, $discordResults, $isStaging, $userCID, $userName, $source) {
-    // Get TMI database connection
-    $tmiConn = getTMIConnection();
-    if (!$tmiConn) {
-        error_log("[TMI Publish] Failed to connect to VATSIM_TMI database");
-        return 0;
-    }
-    
-    try {
-        $entryType = strtoupper($entry['entry_type'] ?? 'MIT');
-        $determinant = $entry['determinant_code'] ?? generateDeterminant($entryType);
-        $airport = strtoupper($entry['airport'] ?? $entry['ctl_element'] ?? '');
-        $rawInput = $entry['raw_input'] ?? '';
-        $contentHash = md5(json_encode([
-            $entryType,
-            $determinant,
-            $airport,
-            $entry['valid_from'] ?? '',
-            $entry['valid_until'] ?? ''
-        ]));
-        
-        $sql = "INSERT INTO tmi_entries (
-            entry_type, determinant_code, ctl_element, condition_text,
-            valid_from, valid_until, raw_input, source_type, source_channel,
-            content_hash, created_by_cid, created_by_name, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        $stmt = $tmiConn->prepare($sql);
-        
-        $conditionText = $entry['condition_text'] ?? $entry['via_route'] ?? '';
-        $validFrom = $entry['valid_from'] ?? null;
-        $validUntil = $entry['valid_until'] ?? null;
-        $channel = $isStaging ? 'staging' : 'production';
-        $status = $isStaging ? 'STAGED' : 'ACTIVE';
-        
-        $stmt->bind_param(
-            "sssssssssssss",
-            $entryType, $determinant, $airport, $conditionText,
-            $validFrom, $validUntil, $rawInput, $source, $channel,
-            $contentHash, $userCID, $userName, $status
-        );
-        
-        $stmt->execute();
-        $entryId = $tmiConn->insert_id;
-        $stmt->close();
-        
-        return $entryId;
-        
-    } catch (Exception $e) {
-        error_log("[TMI Publish] Error saving NTML entry: " . $e->getMessage());
-        return 0;
-    }
-}
-
-/**
- * Save advisory to VATSIM_TMI database
- */
-function saveAdvisory($advisory, $discordResults, $isStaging, $userCID, $userName, $source) {
-    $tmiConn = getTMIConnection();
-    if (!$tmiConn) {
-        error_log("[TMI Publish] Failed to connect to VATSIM_TMI database");
-        return 0;
-    }
-    
-    try {
-        $advisoryType = strtoupper($advisory['type'] ?? $advisory['advisory_type'] ?? 'ATCSCC');
-        $advisoryNumber = $advisory['number'] ?? $advisory['adv_number'] ?? null;
-        $facility = strtoupper($advisory['facility'] ?? $advisory['adv_facility'] ?? 'DCC');
-        $ctlElement = strtoupper($advisory['ctl_element'] ?? $advisory['adv_ctl_element'] ?? '');
-        $subject = $advisory['subject'] ?? $advisory['atcscc_subject'] ?? '';
-        $body = $advisory['body'] ?? $advisory['content'] ?? $advisory['atcscc_body'] ?? '';
-        
-        $contentHash = md5(json_encode([
-            $advisoryType,
-            $facility,
-            $ctlElement,
-            substr($body, 0, 100)
-        ]));
-        
-        $sql = "INSERT INTO tmi_advisories (
-            advisory_type, advisory_number, issuing_facility, ctl_element,
-            subject, body, valid_from, valid_until,
-            source_type, content_hash, created_by_cid, created_by_name, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        $stmt = $tmiConn->prepare($sql);
-        
-        $validFrom = $advisory['start'] ?? $advisory['adv_start'] ?? null;
-        $validUntil = $advisory['end'] ?? $advisory['adv_end'] ?? null;
-        $status = $isStaging ? 'STAGED' : 'ACTIVE';
-        
-        $stmt->bind_param(
-            "sssssssssssss",
-            $advisoryType, $advisoryNumber, $facility, $ctlElement,
-            $subject, $body, $validFrom, $validUntil,
-            $source, $contentHash, $userCID, $userName, $status
-        );
-        
-        $stmt->execute();
-        $advisoryId = $tmiConn->insert_id;
-        $stmt->close();
-        
-        return $advisoryId;
-        
-    } catch (Exception $e) {
-        error_log("[TMI Publish] Error saving advisory: " . $e->getMessage());
-        return 0;
-    }
-}
-
-/**
- * Save Discord post tracking record
- */
-function saveDiscordPost($entityType, $entityId, $orgCode, $channelPurpose, $result, $userCID, $userName) {
-    if (!$entityId) return;
-    
-    $tmiConn = getTMIConnection();
-    if (!$tmiConn) return;
-    
-    try {
-        $sql = "INSERT INTO tmi_discord_posts (
-            entity_type, entity_id, org_code, channel_purpose, channel_id,
-            message_id, message_url, status, error_message,
-            direction, created_by, created_by_name, posted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OUTBOUND', ?, ?, ?)";
-        
-        $stmt = $tmiConn->prepare($sql);
-        
-        $channelId = $result['channel_id'] ?? '';
-        $messageId = $result['message_id'] ?? null;
-        $messageUrl = $result['message_url'] ?? null;
-        $status = $result['success'] ? 'POSTED' : 'FAILED';
-        $error = $result['error'] ?? null;
-        $postedAt = $result['success'] ? gmdate('Y-m-d H:i:s') : null;
-        
-        $stmt->bind_param(
-            "sissssssssss",
-            $entityType, $entityId, $orgCode, $channelPurpose, $channelId,
-            $messageId, $messageUrl, $status, $error,
-            $userCID, $userName, $postedAt
-        );
-        
-        $stmt->execute();
-        $stmt->close();
-        
-    } catch (Exception $e) {
-        error_log("[TMI Publish] Error saving Discord post: " . $e->getMessage());
-    }
-}
-
-/**
- * Get VATSIM_TMI database connection
- */
-function getTMIConnection() {
-    static $tmiConn = null;
-    
-    if ($tmiConn === null) {
-        try {
-            // Use sqlsrv for Azure SQL
-            $serverName = TMI_SQL_HOST;
-            $connectionOptions = [
-                "Database" => TMI_SQL_DATABASE,
-                "Uid" => TMI_SQL_USERNAME,
-                "PWD" => TMI_SQL_PASSWORD,
-                "Encrypt" => true,
-                "TrustServerCertificate" => false,
-                "CharacterSet" => "UTF-8"
+        // Track results
+        $allSuccess = true;
+        foreach ($discordResults as $orgCode => $orgResult) {
+            $result['discordResults'][$orgCode] = [
+                'success' => $orgResult['success'],
+                'messageId' => $orgResult['message_id'] ?? null,
+                'messageUrl' => $orgResult['message_url'] ?? null,
+                'error' => $orgResult['error'] ?? null
             ];
             
-            $tmiConn = sqlsrv_connect($serverName, $connectionOptions);
-            
-            if ($tmiConn === false) {
-                error_log("[TMI Publish] Azure SQL connection failed: " . print_r(sqlsrv_errors(), true));
-                return null;
+            if (!$orgResult['success']) {
+                $allSuccess = false;
             }
             
-        } catch (Exception $e) {
-            error_log("[TMI Publish] TMI connection error: " . $e->getMessage());
-            return null;
+            // Track in database
+            if ($tmiConn && $orgResult['success']) {
+                trackDiscordPost($tmiConn, $entry, $orgCode, $orgResult, $production, $userCid);
+            }
         }
+        
+        $result['success'] = $allSuccess;
+        if ($allSuccess) {
+            $successCount++;
+        } else {
+            $failCount++;
+            $result['error'] = 'Some organizations failed';
+        }
+        
+    } catch (Exception $e) {
+        $result['error'] = $e->getMessage();
+        $failCount++;
+        error_log("TMI Publish error for entry {$index}: " . $e->getMessage());
     }
     
-    return $tmiConn;
+    $results[] = $result;
+}
+
+// Response
+echo json_encode([
+    'success' => ($failCount === 0),
+    'summary' => [
+        'total' => count($entries),
+        'success' => $successCount,
+        'failed' => $failCount,
+        'production' => $production
+    ],
+    'results' => $results
+]);
+
+// ===========================================
+// Helper Functions
+// ===========================================
+
+/**
+ * Build message content from entry
+ */
+function buildMessageContent($entry, $tmiDiscord) {
+    $type = $entry['type'] ?? 'ntml';
+    
+    if ($type === 'advisory') {
+        // Advisory already has preview text
+        return $entry['preview'] ?? '';
+    }
+    
+    // NTML entry - format using TMIDiscord
+    $data = $entry['data'] ?? [];
+    
+    if (empty($data)) {
+        return '';
+    }
+    
+    // Use TMIDiscord's formatters
+    $entryData = [
+        'entry_type' => $data['type'] ?? 'OTHER',
+        'airport' => $data['airport'] ?? $data['facility'] ?? '',
+        'fix' => $data['fix'] ?? '',
+        'distance' => $data['distance'] ?? $data['miles'] ?? '',
+        'reason' => $data['reason'] ?? 'VOLUME',
+        'requesting_facility' => $data['toFacility'] ?? '',
+        'providing_facility' => $data['fromFacility'] ?? '',
+        'start_time' => $data['startTime'] ?? null,
+        'end_time' => $data['endTime'] ?? null,
+    ];
+    
+    return $tmiDiscord->buildNTMLMessageFromEntry($entryData);
 }
 
 /**
- * Generate determinant code
+ * Track Discord post in database
  */
-function generateDeterminant($type) {
-    $typeCode = [
-        'MIT' => 'A', 'MINIT' => 'B', 'STOP' => 'C', 'DELAY' => 'D',
-        'CONFIG' => 'E', 'TBM' => 'F', 'CFR' => 'G', 'APREQ' => 'H',
-        'DSP' => 'I'
-    ][$type] ?? 'A';
-    
-    $day = gmdate('d');
-    $hour = gmdate('H');
-    $seq = str_pad(rand(0, 99), 2, '0', STR_PAD_LEFT);
-    
-    return "{$day}{$typeCode}{$hour}";
+function trackDiscordPost($conn, $entry, $orgCode, $discordResult, $production, $userCid) {
+    try {
+        $sql = "EXEC sp_UpsertDiscordPost 
+            @entity_type = :entity_type,
+            @entity_id = :entity_id,
+            @org_code = :org_code,
+            @channel_purpose = :channel_purpose,
+            @channel_id = :channel_id,
+            @guild_id = :guild_id,
+            @message_id = :message_id,
+            @message_url = :message_url,
+            @status = :status,
+            @direction = :direction,
+            @created_by = :created_by,
+            @post_id = :post_id";
+        
+        // For now, use a placeholder entity_id since we're not storing entries yet
+        // In full implementation, this would be the tmi_entries.id or tmi_advisories.id
+        $entityType = ($entry['type'] === 'advisory') ? 'ADVISORY' : 'ENTRY';
+        $entityId = 0; // Placeholder
+        $channelPurpose = ($entry['type'] === 'advisory') ? 'advisories' : 'ntml';
+        if (!$production) {
+            $channelPurpose .= '_staging';
+        }
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':entity_type' => $entityType,
+            ':entity_id' => $entityId,
+            ':org_code' => $orgCode,
+            ':channel_purpose' => $channelPurpose,
+            ':channel_id' => $discordResult['channel_id'] ?? '',
+            ':guild_id' => null,
+            ':message_id' => $discordResult['message_id'] ?? null,
+            ':message_url' => $discordResult['message_url'] ?? null,
+            ':status' => 'POSTED',
+            ':direction' => 'OUTBOUND',
+            ':created_by' => $userCid,
+            ':post_id' => null
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("Failed to track Discord post: " . $e->getMessage());
+    }
 }

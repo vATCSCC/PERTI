@@ -1,204 +1,58 @@
 /**
  * TMI Publisher Styles
- * 
- * Unified styling for NTML Quick Entry and Advisory Builder
+ * Unified NTML Entry + Advisory Builder styling
  * 
  * @package PERTI
  * @version 1.0.0
  * @date 2026-01-27
  */
 
-/* ============================================
+/* ===========================================
    CSS Variables
-   ============================================ */
+   =========================================== */
 :root {
     --ntml-green: #00ff00;
     --ntml-dark: #1a1a2e;
-    --advisory-blue: #007bff;
+    --ntml-darker: #0d0d1a;
     --discord-purple: #7289DA;
 }
 
-/* ============================================
-   Tab Styling
-   ============================================ */
-.tmi-tabs {
-    background: #1a1a2e;
-    border-radius: 12px 12px 0 0;
-    padding: 0;
-    margin: 0;
+/* ===========================================
+   Tab Navigation
+   =========================================== */
+.nav-tabs-publisher {
+    border-bottom: 2px solid #333;
 }
 
-.tmi-tabs .nav-link {
-    color: #888;
+.nav-tabs-publisher .nav-link {
+    background: transparent;
     border: none;
-    border-radius: 0;
-    padding: 15px 30px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: all 0.2s;
-}
-
-.tmi-tabs .nav-link:hover {
-    color: #fff;
-    background: rgba(255,255,255,0.05);
-}
-
-.tmi-tabs .nav-link.active {
-    color: #fff;
-    background: #2a2a4a;
-    border-bottom: 3px solid var(--advisory-blue);
-}
-
-.tmi-tabs .nav-link i {
-    margin-right: 8px;
-}
-
-/* Tab Content Container */
-.tmi-content {
-    background: #2a2a4a;
-    border-radius: 0 0 12px 12px;
-    padding: 25px;
-    min-height: 400px;
-}
-
-/* ============================================
-   Discord Target Selection
-   ============================================ */
-.discord-targets {
-    background: linear-gradient(135deg, #1a1a2e 0%, #252545 100%);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-}
-
-.discord-org-check {
-    display: inline-flex;
-    align-items: center;
-    background: #0d0d1a;
-    border: 2px solid #333;
-    border-radius: 25px;
-    padding: 8px 16px;
-    margin: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.discord-org-check:hover {
-    border-color: #555;
-}
-
-.discord-org-check.checked {
-    border-color: var(--discord-purple);
-    background: rgba(114, 137, 218, 0.15);
-}
-
-.discord-org-check.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.discord-org-check input {
-    display: none;
-}
-
-.discord-org-check .org-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--discord-purple);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 10px;
-    font-size: 12px;
-    color: white;
-}
-
-.discord-org-check .org-name {
-    color: #ccc;
-    font-weight: 500;
-}
-
-.discord-org-check .org-region {
-    color: #666;
-    font-size: 0.75rem;
-    margin-left: 8px;
-}
-
-.discord-org-check.checked .org-name {
-    color: #fff;
-}
-
-/* Cross-border indicator */
-.cross-border-badge {
-    background: linear-gradient(135deg, #007bff, #28a745);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    display: none;
-}
-
-.cross-border-badge.show {
-    display: inline-block;
-}
-
-/* ============================================
-   Staging/Production Toggle
-   ============================================ */
-.publish-mode-toggle {
-    background: #1a1a2e;
-    border-radius: 25px;
-    padding: 4px;
-    display: inline-flex;
-}
-
-.publish-mode-btn {
-    background: none;
-    border: none;
+    border-bottom: 3px solid transparent;
     color: #888;
-    padding: 10px 24px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-weight: 500;
-}
-
-.publish-mode-btn.active {
-    color: white;
-}
-
-.publish-mode-btn.staging.active {
-    background: #ffc107;
-    color: #000;
-}
-
-.publish-mode-btn.production.active {
-    background: #dc3545;
-    color: white;
-}
-
-/* Production Warning Banner */
-.production-banner {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    color: white;
     padding: 12px 20px;
-    border-radius: 8px;
-    display: none;
-    margin-bottom: 15px;
+    font-weight: 500;
+    transition: all 0.2s;
 }
 
-.production-banner.show {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.nav-tabs-publisher .nav-link:hover {
+    color: #fff;
+    border-bottom-color: #555;
 }
 
-/* ============================================
-   NTML Quick Entry Styling
-   ============================================ */
+.nav-tabs-publisher .nav-link.active {
+    color: #fff;
+    background: transparent;
+    border-bottom-color: var(--discord-purple);
+}
+
+.nav-tabs-publisher .nav-link .badge {
+    font-size: 0.7rem;
+    vertical-align: middle;
+}
+
+/* ===========================================
+   Quick Entry Styling
+   =========================================== */
 .quick-entry-container {
     background: var(--ntml-dark);
     border-radius: 12px;
@@ -209,7 +63,7 @@
 .quick-input {
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 1.1rem;
-    background: #0d0d1a;
+    background: var(--ntml-darker);
     border: 2px solid #333;
     color: var(--ntml-green);
     padding: 15px;
@@ -227,54 +81,9 @@
     color: #555;
 }
 
-/* Preview Cards */
-.preview-card {
-    background: #0d0d1a;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 10px;
-    font-family: monospace;
-    position: relative;
-}
-
-.preview-card.valid {
-    border-color: #28a745;
-}
-
-.preview-card.invalid {
-    border-color: #dc3545;
-    background: rgba(220, 53, 69, 0.1);
-}
-
-.preview-card .determinant {
-    color: var(--ntml-green);
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-
-.preview-card .details {
-    color: #aaa;
-    font-size: 0.9rem;
-    margin-top: 5px;
-}
-
-.preview-card .remove-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
-    color: #666;
-    cursor: pointer;
-    padding: 5px;
-}
-
-.preview-card .remove-btn:hover {
-    color: #dc3545;
-}
-
-/* Templates */
+/* ===========================================
+   Templates
+   =========================================== */
 .template-btn {
     background: #2a2a4a;
     border: 1px solid #444;
@@ -298,32 +107,11 @@
     border-color: #007bff;
 }
 
-/* Mode Toggle */
-.mode-toggle {
-    background: #1a1a2e;
-    border-radius: 25px;
-    padding: 4px;
-    display: inline-flex;
-}
-
-.mode-toggle .mode-btn {
-    background: none;
-    border: none;
-    color: #888;
-    padding: 8px 20px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.mode-toggle .mode-btn.active {
-    background: #007bff;
-    color: white;
-}
-
-/* Syntax Help */
+/* ===========================================
+   Syntax Help
+   =========================================== */
 .syntax-help {
-    background: #1a1a2e;
+    background: #2a2a4a;
     border-radius: 8px;
     padding: 15px;
     font-size: 0.85rem;
@@ -331,35 +119,249 @@
 }
 
 .syntax-help code {
-    background: #0d0d1a;
+    background: var(--ntml-darker);
     padding: 2px 6px;
     border-radius: 4px;
     color: var(--ntml-green);
 }
 
-/* Submit Area */
-.submit-area {
-    background: linear-gradient(135deg, #1a1a2e 0%, #2a2a4a 100%);
+/* ===========================================
+   Discord Targets Card
+   =========================================== */
+.discord-targets-card {
+    background: var(--ntml-dark);
     border-radius: 12px;
     padding: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
 
-.entry-count {
+.discord-targets-card h6 {
+    color: var(--discord-purple);
+    margin-bottom: 15px;
+}
+
+.discord-targets-card .custom-control-label {
+    color: #ccc;
+}
+
+.discord-targets-card .custom-control-input:checked ~ .custom-control-label {
+    color: #fff;
+}
+
+.discord-targets-card .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: var(--discord-purple);
+    border-color: var(--discord-purple);
+}
+
+/* ===========================================
+   Advisory Type Cards
+   =========================================== */
+.advisory-type-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.advisory-type-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.advisory-type-card.selected {
+    border-color: #007bff;
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.advisory-type-icon {
     font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--ntml-green);
+    margin-bottom: 5px;
 }
 
-.entry-count small {
+/* ===========================================
+   Section Labels
+   =========================================== */
+.tmi-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: #333;
+}
+
+.tmi-section-title {
+    font-weight: 600;
     font-size: 0.9rem;
-    color: #888;
-    font-weight: normal;
+    text-transform: uppercase;
 }
 
-/* Keyboard shortcuts hint */
+/* ===========================================
+   Advisory Preview
+   =========================================== */
+.tmi-advisory-preview {
+    white-space: pre;
+    font-family: "Inconsolata", "Consolas", monospace;
+    font-size: 0.8rem;
+    color: #333;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    max-height: 400px;
+    overflow-y: auto;
+    user-select: all;
+}
+
+.char-count {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.char-count.warning { color: #ffc107; }
+.char-count.danger { color: #dc3545; }
+
+/* ===========================================
+   Mode Indicator
+   =========================================== */
+#modeIndicator {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+#modeIndicator.badge-warning {
+    background: #ffc107;
+    color: #333;
+}
+
+#modeIndicator.badge-danger {
+    background: #dc3545;
+    color: #fff;
+    animation: pulse-danger 1.5s infinite;
+}
+
+@keyframes pulse-danger {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ===========================================
+   Production Warning
+   =========================================== */
+.production-warning {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    border: none;
+    animation: slide-down 0.3s ease;
+}
+
+@keyframes slide-down {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* ===========================================
+   Queue Items
+   =========================================== */
+.queue-item {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.queue-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+
+.queue-item.ntml-entry {
+    border-left: 4px solid var(--ntml-green);
+}
+
+.queue-item.advisory-entry {
+    border-left: 4px solid var(--discord-purple);
+}
+
+.queue-item .entry-type {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: bold;
+    color: #666;
+}
+
+.queue-item .entry-content {
+    font-family: 'Consolas', monospace;
+    font-size: 0.85rem;
+    color: #333;
+    margin: 8px 0;
+}
+
+.queue-item .entry-meta {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.queue-item .remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 5px;
+    transition: color 0.2s;
+}
+
+.queue-item .remove-btn:hover {
+    color: #dc3545;
+}
+
+.queue-item .preview-btn {
+    background: none;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0;
+}
+
+.queue-item .preview-btn:hover {
+    text-decoration: underline;
+}
+
+/* ===========================================
+   Recent Posts List
+   =========================================== */
+.recent-post-item {
+    border-left: 3px solid #28a745;
+    padding: 8px 12px;
+}
+
+.recent-post-item.failed {
+    border-left-color: #dc3545;
+}
+
+.recent-post-item.staging {
+    border-left-color: #ffc107;
+}
+
+.recent-post-item .post-type {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.recent-post-item .post-time {
+    font-size: 0.7rem;
+    color: #888;
+}
+
+/* ===========================================
+   Keyboard Shortcut Hints
+   =========================================== */
 .kbd {
     background: #333;
     border: 1px solid #555;
@@ -370,26 +372,12 @@
     color: #ccc;
 }
 
-/* Batch Entry Textarea */
-.batch-textarea {
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 0.95rem;
-    background: #0d0d1a;
-    border: 2px solid #333;
-    color: var(--ntml-green);
-    min-height: 150px;
-    resize: vertical;
-}
-
-.batch-textarea:focus {
-    border-color: var(--ntml-green);
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
-}
-
-/* Autocomplete */
+/* ===========================================
+   Autocomplete Dropdown
+   =========================================== */
 .autocomplete-dropdown {
     position: absolute;
-    background: #1a1a2e;
+    background: var(--ntml-dark);
     border: 1px solid #444;
     border-radius: 8px;
     max-height: 200px;
@@ -427,198 +415,99 @@
     color: #888;
 }
 
-/* ============================================
-   Advisory Builder Styles
-   ============================================ */
-.tmi-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
-    color: #aaa;
+/* ===========================================
+   Submit Button States
+   =========================================== */
+#submitAllBtn {
+    transition: all 0.3s;
 }
 
-.advisory-type-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 2px solid transparent;
-    background: #1a1a2e;
+#submitAllBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
-.advisory-type-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+#submitAllBtn.submitting {
+    pointer-events: none;
 }
 
-.advisory-type-card.selected {
-    border-color: #007bff;
-    background: rgba(0, 123, 255, 0.1);
+#submitAllBtn.submitting i {
+    animation: spin 1s linear infinite;
 }
 
-.advisory-type-icon {
-    font-size: 1.5rem;
-    margin-bottom: 5px;
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
-.section-card {
-    display: none;
-    background: #1a1a2e;
-    border: 1px solid #333;
+/* ===========================================
+   Advisory Header Colors
+   =========================================== */
+.adv-header-gdp { background: #ffc107 !important; color: #333 !important; }
+.adv-header-gs { background: #dc3545 !important; color: #fff !important; }
+.adv-header-afp { background: #17a2b8 !important; color: #fff !important; }
+.adv-header-ctop { background: #6f42c1 !important; color: #fff !important; }
+.adv-header-reroute { background: #28a745 !important; color: #fff !important; }
+.adv-header-atcscc { background: #6c757d !important; color: #fff !important; }
+.adv-header-mit { background: #fd7e14 !important; color: #fff !important; }
+.adv-header-cnx { background: #343a40 !important; color: #fff !important; }
+
+/* ===========================================
+   Scope Select
+   =========================================== */
+.scope-select {
+    height: 140px;
 }
 
-.section-card.active {
-    display: block;
-}
-
-.section-card .card-header {
-    background: #252545;
-    border-bottom: 1px solid #333;
-}
-
-.section-card .card-body {
-    background: #1a1a2e;
-}
-
-/* Type-specific header colors */
-.adv-header-gdp { background: #ffc107 !important; }
-.adv-header-gdp .tmi-section-title { color: #000 !important; }
-.adv-header-gs { background: #dc3545 !important; }
-.adv-header-afp { background: #17a2b8 !important; }
-.adv-header-ctop { background: #6f42c1 !important; }
-.adv-header-reroute { background: #28a745 !important; }
-.adv-header-atcscc { background: #6c757d !important; }
-.adv-header-mit { background: #fd7e14 !important; }
-.adv-header-cnx { background: #343a40 !important; }
-
-.tmi-section-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    color: #fff;
-}
-
-/* Advisory Preview */
-.tmi-advisory-preview {
-    white-space: pre;
-    font-family: "Inconsolata", "Consolas", monospace;
-    font-size: 0.8rem;
-    color: var(--ntml-green);
-    background: #0d0d1a;
-    padding: 15px;
-    border-radius: 4px;
-    max-height: 400px;
-    overflow-y: auto;
-    border: 1px solid #333;
-}
-
-/* Form Controls in Dark Mode */
-.tmi-content .form-control {
-    background: #0d0d1a;
-    border: 1px solid #444;
-    color: #fff;
-}
-
-.tmi-content .form-control:focus {
-    background: #0d0d1a;
-    border-color: #007bff;
-    color: #fff;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-}
-
-.tmi-content .form-control::placeholder {
-    color: #666;
-}
-
-.tmi-content select.form-control {
-    background: #0d0d1a;
-    color: #fff;
-}
-
-.tmi-content select.form-control option {
-    background: #1a1a2e;
-    color: #fff;
-}
-
-/* ============================================
-   Results Summary
-   ============================================ */
-.publish-results {
-    background: #1a1a2e;
-    border-radius: 12px;
-    padding: 20px;
-    margin-top: 20px;
-}
-
-.publish-result-item {
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid #333;
-}
-
-.publish-result-item:last-child {
-    border-bottom: none;
-}
-
-.publish-result-item .org-badge {
-    background: var(--discord-purple);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-size: 0.8rem;
-    margin-right: 15px;
-    min-width: 80px;
-    text-align: center;
-}
-
-.publish-result-item.success .status-icon {
-    color: #28a745;
-}
-
-.publish-result-item.error .status-icon {
-    color: #dc3545;
-}
-
-.publish-result-item .message-link {
-    color: var(--discord-purple);
-    text-decoration: none;
-}
-
-.publish-result-item .message-link:hover {
-    text-decoration: underline;
-}
-
-/* ============================================
+/* ===========================================
    Responsive Adjustments
-   ============================================ */
+   =========================================== */
 @media (max-width: 768px) {
-    .tmi-tabs .nav-link {
-        padding: 12px 15px;
-        font-size: 0.85rem;
-    }
-    
-    .discord-org-check {
-        padding: 6px 12px;
-        margin: 2px;
-    }
-    
-    .publish-mode-toggle {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .publish-mode-btn {
-        flex: 1;
-        text-align: center;
-    }
-    
-    .submit-area {
-        flex-direction: column;
-        gap: 15px;
+    .quick-entry-container {
+        padding: 15px;
     }
     
     .quick-input {
         font-size: 1rem;
         padding: 12px;
     }
+    
+    .template-btn {
+        font-size: 0.75rem;
+        padding: 6px 12px;
+    }
+    
+    .discord-targets-card {
+        margin-top: 15px;
+    }
+}
+
+/* ===========================================
+   Dark Mode Overrides for Cards
+   =========================================== */
+.card.shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.2) !important;
+}
+
+/* ===========================================
+   Cross-Border Detection Indicator
+   =========================================== */
+.cross-border-detected {
+    animation: highlight-border 0.5s ease;
+}
+
+@keyframes highlight-border {
+    0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+}
+
+.discord-org-checkbox:not(:checked) + label.auto-selected {
+    color: #007bff !important;
+}
+
+.discord-org-checkbox:not(:checked) + label.auto-selected::after {
+    content: " (auto)";
+    font-size: 0.7rem;
+    color: #007bff;
 }
