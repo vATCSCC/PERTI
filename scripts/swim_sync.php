@@ -486,13 +486,16 @@ function get_existing_swim_uids($conn_swim) {
 
 /**
  * Insert or update a flight in SWIM_API (legacy function)
+ *
+ * V3.1: Dual-write both legacy OOOI columns AND new FIXM-aligned columns
+ *       during the 30-day transition period (Migration 019)
  */
 function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
     $uid = $flight['flight_uid'];
     $is_update = isset($existing_uids[$uid]);
-    
+
     if ($is_update) {
-        // UPDATE
+        // UPDATE - Dual-write both old OOOI and new FIXM columns
         $sql = "
             UPDATE dbo.swim_flights SET
                 flight_key = ?, gufi = ?, callsign = ?, cid = ?, flight_id = ?,
@@ -504,9 +507,17 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
                 phase = ?, is_active = ?, dist_to_dest_nm = ?, dist_flown_nm = ?, pct_complete = ?,
                 gcd_nm = ?, route_total_nm = ?, current_artcc = ?, current_tracon = ?, current_zone = ?,
                 first_seen_utc = ?, last_seen_utc = ?, logon_time_utc = ?,
+                -- Legacy OOOI columns (kept for backward compatibility)
                 eta_utc = ?, eta_runway_utc = ?, eta_source = ?, eta_method = ?, etd_utc = ?,
                 out_utc = ?, off_utc = ?, on_utc = ?, in_utc = ?, ete_minutes = ?,
                 ctd_utc = ?, cta_utc = ?, edct_utc = ?,
+                -- NEW FIXM-aligned columns (dual-write during transition)
+                estimated_time_of_arrival = ?, estimated_runway_arrival_time = ?,
+                estimated_off_block_time = ?,
+                actual_off_block_time = ?, actual_time_of_departure = ?,
+                actual_landing_time = ?, actual_in_block_time = ?,
+                controlled_time_of_departure = ?, controlled_time_of_arrival = ?,
+                -- TMI columns
                 gs_held = ?, gs_release_utc = ?, ctl_type = ?, ctl_prgm = ?, ctl_element = ?,
                 is_exempt = ?, exempt_reason = ?, slot_time_utc = ?, slot_status = ?,
                 program_id = ?, slot_id = ?, delay_minutes = ?, delay_status = ?,
@@ -518,7 +529,7 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
         $params = swim_build_params($flight);
         $params[] = $uid;
     } else {
-        // INSERT
+        // INSERT - Dual-write both old OOOI and new FIXM columns
         $sql = "
             INSERT INTO dbo.swim_flights (
                 flight_uid, flight_key, gufi, callsign, cid, flight_id,
@@ -530,9 +541,17 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
                 phase, is_active, dist_to_dest_nm, dist_flown_nm, pct_complete,
                 gcd_nm, route_total_nm, current_artcc, current_tracon, current_zone,
                 first_seen_utc, last_seen_utc, logon_time_utc,
+                -- Legacy OOOI columns
                 eta_utc, eta_runway_utc, eta_source, eta_method, etd_utc,
                 out_utc, off_utc, on_utc, in_utc, ete_minutes,
                 ctd_utc, cta_utc, edct_utc,
+                -- NEW FIXM-aligned columns
+                estimated_time_of_arrival, estimated_runway_arrival_time,
+                estimated_off_block_time,
+                actual_off_block_time, actual_time_of_departure,
+                actual_landing_time, actual_in_block_time,
+                controlled_time_of_departure, controlled_time_of_arrival,
+                -- TMI columns
                 gs_held, gs_release_utc, ctl_type, ctl_prgm, ctl_element,
                 is_exempt, exempt_reason, slot_time_utc, slot_status,
                 program_id, slot_id, delay_minutes, delay_status,
@@ -552,6 +571,11 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?,
+                ?, ?,
+                ?,
+                ?, ?,
+                ?, ?,
+                ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
@@ -563,34 +587,40 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
         $params = [$uid];
         $params = array_merge($params, swim_build_params($flight));
     }
-    
+
     $result = sqlsrv_query($conn_swim, $sql, $params);
-    
+
     if ($result === false) {
         error_log('SWIM sync - upsert failed for flight_uid ' . $uid . ': ' . print_r(sqlsrv_errors(), true));
         return 'error';
     }
-    
+
     sqlsrv_free_stmt($result);
     return $is_update ? 'updated' : 'inserted';
 }
 
 /**
  * Build parameter array for upsert (legacy function)
+ *
+ * V3.1: Includes both legacy OOOI columns AND new FIXM-aligned columns
+ *       for dual-write during the 30-day transition period (Migration 019)
  */
 function swim_build_params($f) {
     return [
+        // Core identity
         $f['flight_key'],
         $f['gufi'],
         $f['callsign'],
         $f['cid'],
         $f['flight_id'],
+        // Position
         $f['lat'],
         $f['lon'],
         $f['altitude_ft'],
         $f['heading_deg'],
         $f['groundspeed_kts'],
         $f['vertical_rate_fpm'],
+        // Flight plan
         $f['fp_dept_icao'],
         $f['fp_dest_icao'],
         $f['fp_alt_icao'],
@@ -609,6 +639,7 @@ function swim_build_params($f) {
         $f['star_name'],
         $f['dep_runway'],
         $f['arr_runway'],
+        // Status
         $f['phase'],
         $f['is_active'],
         $f['dist_to_dest_nm'],
@@ -619,9 +650,11 @@ function swim_build_params($f) {
         $f['current_artcc'],
         $f['current_tracon'],
         $f['current_zone'],
+        // Timestamps
         swim_format_datetime($f['first_seen_utc']),
         swim_format_datetime($f['last_seen_utc']),
         swim_format_datetime($f['logon_time_utc']),
+        // ===== LEGACY OOOI COLUMNS (kept for backward compatibility) =====
         swim_format_datetime($f['eta_utc']),
         swim_format_datetime($f['eta_runway_utc']),
         $f['eta_source'],
@@ -635,6 +668,20 @@ function swim_build_params($f) {
         swim_format_datetime($f['ctd_utc']),
         swim_format_datetime($f['cta_utc']),
         swim_format_datetime($f['edct_utc']),
+        // ===== NEW FIXM-ALIGNED COLUMNS (dual-write during transition) =====
+        // Estimated times (duplicate values to new FIXM columns)
+        swim_format_datetime($f['eta_utc']),          // -> estimated_time_of_arrival
+        swim_format_datetime($f['eta_runway_utc']),   // -> estimated_runway_arrival_time
+        swim_format_datetime($f['etd_utc']),          // -> estimated_off_block_time
+        // Actual OOOI times (duplicate values to new FIXM columns)
+        swim_format_datetime($f['out_utc']),          // -> actual_off_block_time
+        swim_format_datetime($f['off_utc']),          // -> actual_time_of_departure
+        swim_format_datetime($f['on_utc']),           // -> actual_landing_time
+        swim_format_datetime($f['in_utc']),           // -> actual_in_block_time
+        // Controlled times (duplicate values to new FIXM columns)
+        swim_format_datetime($f['ctd_utc']),          // -> controlled_time_of_departure
+        swim_format_datetime($f['cta_utc']),          // -> controlled_time_of_arrival
+        // ===== TMI COLUMNS =====
         $f['gs_held'],
         swim_format_datetime($f['gs_release_utc']),
         $f['ctl_type'],
@@ -648,6 +695,7 @@ function swim_build_params($f) {
         $f['slot_id'],
         $f['delay_minutes'],
         $f['delay_status'],
+        // Aircraft info
         $f['aircraft_type'],
         $f['aircraft_icao'],
         $f['aircraft_faa'],

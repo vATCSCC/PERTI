@@ -131,22 +131,54 @@ function processFlightUpdate($flight, $source, $conn) {
             'groundspeed_kts' => 'groundspeed_kts',
             // Telemetry from AOC/flight sim
             'vertical_rate' => 'vertical_rate_fpm',
-            'vertical_rate_fpm' => 'vertical_rate_fpm',
-            // OOOI times from AOC/ACARS
-            'out_utc' => 'out_utc',
-            'off_utc' => 'off_utc',
-            'on_utc' => 'on_utc',
-            'in_utc' => 'in_utc',
-            // ETA/ETD from FMC
-            'eta_utc' => 'eta_utc',
-            'etd_utc' => 'etd_utc'
+            'vertical_rate_fpm' => 'vertical_rate_fpm'
         ];
-        
+
         foreach ($field_map as $input_field => $db_field) {
             if (isset($flight[$input_field])) {
                 $update_fields[] = "$db_field = ?";
                 $update_params[] = $flight[$input_field];
             }
+        }
+
+        // OOOI times - dual-write to legacy + FIXM columns
+        if (isset($flight['out_utc'])) {
+            $update_fields[] = 'out_utc = ?';
+            $update_params[] = $flight['out_utc'];
+            $update_fields[] = 'actual_off_block_time = ?';
+            $update_params[] = $flight['out_utc'];
+        }
+        if (isset($flight['off_utc'])) {
+            $update_fields[] = 'off_utc = ?';
+            $update_params[] = $flight['off_utc'];
+            $update_fields[] = 'actual_time_of_departure = ?';
+            $update_params[] = $flight['off_utc'];
+        }
+        if (isset($flight['on_utc'])) {
+            $update_fields[] = 'on_utc = ?';
+            $update_params[] = $flight['on_utc'];
+            $update_fields[] = 'actual_landing_time = ?';
+            $update_params[] = $flight['on_utc'];
+        }
+        if (isset($flight['in_utc'])) {
+            $update_fields[] = 'in_utc = ?';
+            $update_params[] = $flight['in_utc'];
+            $update_fields[] = 'actual_in_block_time = ?';
+            $update_params[] = $flight['in_utc'];
+        }
+
+        // ETA/ETD - dual-write to legacy + FIXM columns
+        if (isset($flight['eta_utc'])) {
+            $update_fields[] = 'eta_utc = ?';
+            $update_params[] = $flight['eta_utc'];
+            $update_fields[] = 'estimated_time_of_arrival = ?';
+            $update_params[] = $flight['eta_utc'];
+        }
+        if (isset($flight['etd_utc'])) {
+            $update_fields[] = 'etd_utc = ?';
+            $update_params[] = $flight['etd_utc'];
+            $update_fields[] = 'estimated_off_block_time = ?';
+            $update_params[] = $flight['etd_utc'];
         }
         
         // Handle TMI fields
@@ -207,6 +239,7 @@ function processFlightUpdate($flight, $source, $conn) {
         
         $flight_key = $flight['flight_key'] ?? sprintf('%s|%s|%s|%s', $callsign, $dept_icao, $dest_icao, gmdate('Ymd'));
         
+        // Insert with both legacy and FIXM columns (dual-write)
         $insert_sql = "
             INSERT INTO dbo.swim_flights (
                 flight_uid, gufi, flight_key, callsign, cid,
@@ -216,8 +249,14 @@ function processFlightUpdate($flight, $source, $conn) {
                 phase, is_active,
                 lat, lon, altitude_ft, heading_deg, groundspeed_kts,
                 vertical_rate_fpm,
+                -- Legacy OOOI columns
                 out_utc, off_utc, on_utc, in_utc,
+                -- FIXM OOOI columns
+                actual_off_block_time, actual_time_of_departure, actual_landing_time, actual_in_block_time,
+                -- Legacy ETA/ETD columns
                 eta_utc, etd_utc,
+                -- FIXM ETA/ETD columns
+                estimated_time_of_arrival, estimated_off_block_time,
                 first_seen_utc, last_seen_utc, last_sync_utc
             ) VALUES (
                 ?, ?, ?, ?, ?,
@@ -228,11 +267,20 @@ function processFlightUpdate($flight, $source, $conn) {
                 ?, ?, ?, ?, ?,
                 ?,
                 ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?,
                 ?, ?,
                 GETUTCDATE(), GETUTCDATE(), GETUTCDATE()
             )
         ";
-        
+
+        $out_utc = $flight['out_utc'] ?? null;
+        $off_utc = $flight['off_utc'] ?? null;
+        $on_utc = $flight['on_utc'] ?? null;
+        $in_utc = $flight['in_utc'] ?? null;
+        $eta_utc = $flight['eta_utc'] ?? null;
+        $etd_utc = $flight['etd_utc'] ?? null;
+
         $insert_params = [
             $flight_uid,
             $gufi,
@@ -255,12 +303,14 @@ function processFlightUpdate($flight, $source, $conn) {
             $flight['heading'] ?? $flight['heading_deg'] ?? null,
             $flight['ground_speed'] ?? $flight['groundspeed_kts'] ?? null,
             $flight['vertical_rate'] ?? $flight['vertical_rate_fpm'] ?? null,
-            $flight['out_utc'] ?? null,
-            $flight['off_utc'] ?? null,
-            $flight['on_utc'] ?? null,
-            $flight['in_utc'] ?? null,
-            $flight['eta_utc'] ?? null,
-            $flight['etd_utc'] ?? null
+            // Legacy OOOI
+            $out_utc, $off_utc, $on_utc, $in_utc,
+            // FIXM OOOI (same values - dual-write)
+            $out_utc, $off_utc, $on_utc, $in_utc,
+            // Legacy ETA/ETD
+            $eta_utc, $etd_utc,
+            // FIXM ETA/ETD (same values - dual-write)
+            $eta_utc, $etd_utc
         ];
         
         $stmt = sqlsrv_query($conn, $insert_sql, $insert_params);

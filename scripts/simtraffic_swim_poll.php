@@ -296,6 +296,10 @@ function fetch_simtraffic_api($callsign, $debug = false) {
 
 /**
  * Ingest SimTraffic data into SWIM database
+ *
+ * Note: During FIXM migration transition, we dual-write to both legacy
+ * columns (out_utc, off_utc, etc.) and new FIXM-aligned columns
+ * (actual_off_block_time, actual_time_of_departure, etc.)
  */
 function ingest_simtraffic_to_swim($conn, $callsign, $stData) {
     $departure = $stData['departure'] ?? [];
@@ -307,41 +311,72 @@ function ingest_simtraffic_to_swim($conn, $callsign, $stData) {
     $updates = [];
     $params = [];
 
-    // Departure times
+    // Departure times (dual-write: legacy + FIXM columns)
     if (!empty($departure['push_time'])) {
+        // Legacy: out_utc
         $updates[] = 'out_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['push_time'];
+        // FIXM: actual_off_block_time (AOBT)
+        $updates[] = 'actual_off_block_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $departure['push_time'];
     }
     if (!empty($departure['taxi_time'])) {
+        // Legacy: taxi_time_utc
         $updates[] = 'taxi_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['taxi_time'];
+        // FIXM: taxi_start_time
+        $updates[] = 'taxi_start_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $departure['taxi_time'];
     }
     if (!empty($departure['sequence_time'])) {
+        // Legacy: sequence_time_utc
         $updates[] = 'sequence_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['sequence_time'];
+        // FIXM: departure_sequence_time
+        $updates[] = 'departure_sequence_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $departure['sequence_time'];
     }
     if (!empty($departure['holdshort_time'])) {
+        // Legacy: holdshort_time_utc
         $updates[] = 'holdshort_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['holdshort_time'];
+        // FIXM: hold_short_time
+        $updates[] = 'hold_short_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $departure['holdshort_time'];
     }
     if (!empty($departure['runway_time'])) {
+        // Legacy: runway_time_utc
         $updates[] = 'runway_time_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['runway_time'];
+        // FIXM: runway_entry_time
+        $updates[] = 'runway_entry_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $departure['runway_time'];
     }
     if (!empty($departure['takeoff_time'])) {
+        // Legacy: off_utc
         $updates[] = 'off_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $departure['takeoff_time'];
+        // FIXM: actual_time_of_departure (ATOT)
+        $updates[] = 'actual_time_of_departure = TRY_CONVERT(datetime2, ?)';
         $params[] = $departure['takeoff_time'];
     }
     if (!empty($departure['edct'])) {
         $updates[] = 'edct_utc = TRY_CONVERT(datetime2, ?)';
         $params[] = $departure['edct'];
+        // Note: edct_utc stays as-is (already FIXM-aligned abbreviation)
     }
 
-    // Arrival times
+    // Arrival times (dual-write: legacy + FIXM columns)
     if (!empty($arrival['eta'])) {
+        // Legacy: eta_utc, eta_runway_utc
         $updates[] = 'eta_utc = TRY_CONVERT(datetime2, ?)';
         $params[] = $arrival['eta'];
         $updates[] = 'eta_runway_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $arrival['eta'];
+        // FIXM: estimated_time_of_arrival, estimated_runway_arrival_time
+        $updates[] = 'estimated_time_of_arrival = TRY_CONVERT(datetime2, ?)';
+        $params[] = $arrival['eta'];
+        $updates[] = 'estimated_runway_arrival_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $arrival['eta'];
     }
 
@@ -359,7 +394,11 @@ function ingest_simtraffic_to_swim($conn, $callsign, $stData) {
 
     $on_time = $arrival['on_time'] ?? $arrival['on_utc'] ?? null;
     if (!empty($on_time)) {
+        // Legacy: on_utc
         $updates[] = 'on_utc = TRY_CONVERT(datetime2, ?)';
+        $params[] = $on_time;
+        // FIXM: actual_landing_time (ALDT)
+        $updates[] = 'actual_landing_time = TRY_CONVERT(datetime2, ?)';
         $params[] = $on_time;
     }
 

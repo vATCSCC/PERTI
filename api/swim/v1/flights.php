@@ -220,7 +220,7 @@ if ($use_swim_db) {
     
     // Main query - single table, no JOINs needed
     $sql = "
-        SELECT 
+        SELECT
             f.flight_uid, f.flight_key, f.gufi, f.callsign, f.cid, f.flight_id,
             f.lat, f.lon, f.altitude_ft, f.heading_deg, f.groundspeed_kts, f.vertical_rate_fpm,
             f.fp_dept_icao, f.fp_dest_icao, f.fp_alt_icao, f.fp_altitude_ft, f.fp_tas_kts,
@@ -230,9 +230,18 @@ if ($use_swim_db) {
             f.phase, f.is_active, f.dist_to_dest_nm, f.dist_flown_nm, f.pct_complete,
             f.gcd_nm, f.route_total_nm, f.current_artcc, f.current_tracon, f.current_zone,
             f.first_seen_utc, f.last_seen_utc, f.logon_time_utc,
+            -- Legacy time columns (for backward compatibility during transition)
             f.eta_utc, f.eta_runway_utc, f.eta_source, f.eta_method, f.etd_utc,
             f.out_utc, f.off_utc, f.on_utc, f.in_utc, f.ete_minutes,
             f.ctd_utc, f.cta_utc, f.edct_utc,
+            -- FIXM-aligned time columns (preferred during transition)
+            f.estimated_time_of_arrival, f.estimated_runway_arrival_time, f.estimated_off_block_time,
+            f.actual_off_block_time, f.actual_time_of_departure, f.actual_landing_time, f.actual_in_block_time,
+            f.controlled_time_of_departure, f.controlled_time_of_arrival,
+            -- SimTraffic FIXM-aligned times
+            f.taxi_start_time, f.departure_sequence_time, f.hold_short_time, f.runway_entry_time,
+            -- Legacy SimTraffic times (for backward compatibility)
+            f.taxi_time_utc, f.sequence_time_utc, f.holdshort_time_utc, f.runway_time_utc,
             f.gs_held, f.gs_release_utc, f.ctl_type, f.ctl_prgm, f.ctl_element,
             f.is_exempt, f.exempt_reason, f.slot_time_utc, f.slot_status,
             f.program_id, f.slot_id, f.delay_minutes, f.delay_status,
@@ -664,22 +673,30 @@ function formatFlightRecordFIXM($row, $use_swim_db = false) {
             'time_to_destination' => $time_to_dest                       // was: time_to_dest_min
         ],
         
-        // Times - FIXM aligned (OOOI terminology)
+        // Times - FIXM aligned (prefer new columns, fallback to legacy)
         'times' => [
-            'estimated_off_block_time' => formatDT($row['etd_utc']),     // was: etd (EOBT)
-            'estimated_time_of_departure' => formatDT($row['etd_runway_utc'] ?? null),  // was: etd_runway (ETD)
-            'estimated_time_of_arrival' => formatDT($row['eta_utc']),    // was: eta (ETA)
-            'estimated_runway_arrival' => formatDT($row['eta_runway_utc']),  // was: eta_runway
+            // Estimated times (prefer FIXM columns)
+            'estimated_off_block_time' => formatDT($row['estimated_off_block_time'] ?? $row['etd_utc']),     // EOBT
+            'estimated_time_of_departure' => formatDT($row['etd_runway_utc'] ?? null),                       // ETD runway
+            'estimated_time_of_arrival' => formatDT($row['estimated_time_of_arrival'] ?? $row['eta_utc']),   // ETA
+            'estimated_runway_arrival' => formatDT($row['estimated_runway_arrival_time'] ?? $row['eta_runway_utc']),  // ELDT
             'eta_source' => $row['eta_source'],
             'eta_method' => $row['eta_method'],
-            'estimated_elapsed_time' => $row['ete_minutes'],             // was: ete_minutes (ETE)
-            'actual_off_block_time' => formatDT($row['out_utc']),        // was: out (AOBT)
-            'actual_time_of_departure' => formatDT($row['off_utc']),     // was: off (ATOT)
-            'actual_landing_time' => formatDT($row['on_utc']),           // was: on (ALDT)
-            'actual_in_block_time' => formatDT($row['in_utc']),          // was: in (AIBT)
-            'controlled_time_of_departure' => formatDT($row['ctd_utc']), // was: ctd (CTD)
-            'controlled_time_of_arrival' => formatDT($row['cta_utc']),   // was: cta (CTA)
-            'edct' => formatDT($row['edct_utc'])                          // already standard (EDCT)
+            'estimated_elapsed_time' => $row['ete_minutes'],                                                  // ETE
+            // Actual OOOI times (prefer FIXM columns)
+            'actual_off_block_time' => formatDT($row['actual_off_block_time'] ?? $row['out_utc']),           // AOBT
+            'actual_time_of_departure' => formatDT($row['actual_time_of_departure'] ?? $row['off_utc']),     // ATOT
+            'actual_landing_time' => formatDT($row['actual_landing_time'] ?? $row['on_utc']),                 // ALDT
+            'actual_in_block_time' => formatDT($row['actual_in_block_time'] ?? $row['in_utc']),               // AIBT
+            // Controlled times (prefer FIXM columns)
+            'controlled_time_of_departure' => formatDT($row['controlled_time_of_departure'] ?? $row['ctd_utc']),  // CTD
+            'controlled_time_of_arrival' => formatDT($row['controlled_time_of_arrival'] ?? $row['cta_utc']),      // CTA
+            'edct' => formatDT($row['edct_utc']),                                                              // EDCT (unchanged)
+            // SimTraffic departure sequence times (prefer FIXM columns)
+            'taxi_start_time' => formatDT($row['taxi_start_time'] ?? $row['taxi_time_utc'] ?? null),
+            'departure_sequence_time' => formatDT($row['departure_sequence_time'] ?? $row['sequence_time_utc'] ?? null),
+            'hold_short_time' => formatDT($row['hold_short_time'] ?? $row['holdshort_time_utc'] ?? null),
+            'runway_entry_time' => formatDT($row['runway_entry_time'] ?? $row['runway_time_utc'] ?? null)
         ],
         
         // TMI - FIXM aligned

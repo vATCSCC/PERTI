@@ -68,6 +68,7 @@ function swim_adl_reverse_sync($force = false) {
         $lastSyncStr = $lastSync ? $lastSync->format('Y-m-d H:i:s') : '2000-01-01 00:00:00';
 
         // Step 2: Query SWIM for SimTraffic-updated flights
+        // V3.1: Read from new FIXM columns with fallback to legacy OOOI columns
         $sql = "
             SELECT
                 sf.flight_uid,
@@ -75,18 +76,18 @@ function swim_adl_reverse_sync($force = false) {
                 sf.callsign,
                 sf.fp_dept_icao,
                 sf.fp_dest_icao,
-                -- Departure times
-                sf.out_utc,
-                sf.taxi_time_utc,
-                sf.sequence_time_utc,
-                sf.holdshort_time_utc,
-                sf.runway_time_utc,
-                sf.off_utc,
+                -- Departure times (FIXM columns with legacy fallback)
+                COALESCE(sf.actual_off_block_time, sf.out_utc) AS out_utc,
+                COALESCE(sf.taxi_start_time, sf.taxi_time_utc) AS taxi_time_utc,
+                COALESCE(sf.departure_sequence_time, sf.sequence_time_utc) AS sequence_time_utc,
+                COALESCE(sf.hold_short_time, sf.holdshort_time_utc) AS holdshort_time_utc,
+                COALESCE(sf.runway_entry_time, sf.runway_time_utc) AS runway_time_utc,
+                COALESCE(sf.actual_time_of_departure, sf.off_utc) AS off_utc,
                 sf.edct_utc,
-                -- Arrival times
-                sf.eta_utc,
-                sf.eta_runway_utc,
-                sf.on_utc,
+                -- Arrival times (FIXM columns with legacy fallback)
+                COALESCE(sf.estimated_time_of_arrival, sf.eta_utc) AS eta_utc,
+                COALESCE(sf.estimated_runway_arrival_time, sf.eta_runway_utc) AS eta_runway_utc,
+                COALESCE(sf.actual_landing_time, sf.on_utc) AS on_utc,
                 sf.metering_time,
                 sf.actual_metering_time,
                 sf.eta_vertex,
