@@ -1,833 +1,1175 @@
 /**
- * TMI Publisher Orchestrator
+ * TMI Publisher - Unified NTML & Advisory Publishing
  * 
- * Coordinates NTML Quick Entry and Advisory Builder with multi-Discord posting.
- * Manages staging/production workflow, cross-border detection, and publish results.
+ * Combines NTML Quick Entry and Advisory Builder functionality
+ * with multi-Discord posting support and staging workflow.
  * 
  * @package PERTI
- * @subpackage TMI
  * @version 1.0.0
  * @date 2026-01-27
  */
 
-const TMIPublisher = (function() {
+(function() {
     'use strict';
-    
+
+    // ===========================================
     // Configuration from PHP
-    const config = window.TMIPublisherConfig || {};
+    // ===========================================
+    const CONFIG = window.TMI_PUBLISHER_CONFIG || {
+        userCid: null,
+        userName: 'Unknown',
+        userPrivileged: false,
+        userHomeOrg: 'vatcscc',
+        discordOrgs: { vatcscc: { name: 'vATCSCC', region: 'US', default: true } },
+        stagingRequired: true,
+        crossBorderAutoDetect: true
+    };
+
+    // ===========================================
+    // Constants
+    // ===========================================
+    const MAX_LINE_LENGTH = 68;
+    const DISCORD_MAX_LENGTH = 2000;
     
+    const ARTCCS = {
+        'ZAB': 'Albuquerque', 'ZAU': 'Chicago', 'ZBW': 'Boston',
+        'ZDC': 'Washington', 'ZDV': 'Denver', 'ZFW': 'Fort Worth',
+        'ZHU': 'Houston', 'ZID': 'Indianapolis', 'ZJX': 'Jacksonville',
+        'ZKC': 'Kansas City', 'ZLA': 'Los Angeles', 'ZLC': 'Salt Lake',
+        'ZMA': 'Miami', 'ZME': 'Memphis', 'ZMP': 'Minneapolis',
+        'ZNY': 'New York', 'ZOA': 'Oakland', 'ZOB': 'Cleveland',
+        'ZSE': 'Seattle', 'ZTL': 'Atlanta',
+        // Canadian
+        'CZYZ': 'Toronto', 'CZUL': 'Montreal', 'CZVR': 'Vancouver',
+        'CZWG': 'Winnipeg', 'CZEG': 'Edmonton', 'CZQX': 'Gander'
+    };
+    
+    // Cross-border facilities
+    const CROSS_BORDER_FACILITIES = {
+        US_CA: ['ZBW', 'ZMP', 'ZSE', 'ZLC', 'ZOB', 'CZYZ', 'CZWG', 'CZVR', 'CZEG']
+    };
+    
+    const ADVISORY_TYPES = {
+        GDP: { sections: ['timing', 'gdp'], headerClass: 'adv-header-gdp' },
+        GS: { sections: ['timing', 'gs'], headerClass: 'adv-header-gs' },
+        AFP: { sections: ['timing', 'afp'], headerClass: 'adv-header-afp' },
+        REROUTE: { sections: ['timing', 'reroute'], headerClass: 'adv-header-reroute' },
+        MIT: { sections: ['timing', 'mit'], headerClass: 'adv-header-mit' },
+        ATCSCC: { sections: ['timing', 'atcscc'], headerClass: 'adv-header-atcscc' },
+        CNX: { sections: ['cnx'], headerClass: 'adv-header-cnx' }
+    };
+
+    // ===========================================
     // State
-    let currentMode = 'staging'; // 'staging' or 'production'
-    let selectedOrgs = [];
-    let entryQueue = [];
-    let isSubmitting = false;
+    // ===========================================
+    const state = {
+        queue: [],
+        productionMode: false,
+        selectedAdvisoryType: null,
+        lastCrossBorderOrgs: []
+    };
+
+    // ===========================================
+    // Initialization
+    // ===========================================
     
-    // DOM Elements
-    let elements = {};
-    
-    /**
-     * Initialize the publisher
-     */
     function init() {
-        console.log('[TMIPublisher] Initializing...');
-        
-        // Cache DOM elements
-        cacheElements();
-        
-        // Set up event listeners
-        bindEvents();
-        
-        // Initialize selected orgs from checkboxes
-        initSelectedOrgs();
-        
-        // Start UTC clock
-        startClock();
-        
-        // Initialize NTML module if present
-        if (typeof NTMLParser !== 'undefined') {
-            console.log('[TMIPublisher] NTML Parser available');
-        }
-        
-        // Initialize Advisory Builder if present
-        if (typeof AdvisoryBuilder !== 'undefined') {
-            console.log('[TMIPublisher] Advisory Builder available');
-        }
-        
-        console.log('[TMIPublisher] Initialized with config:', config);
+        initClock();
+        initEventHandlers();
+        initAdvisoryTypeSelector();
+        loadSavedState();
+        updateUI();
     }
     
-    /**
-     * Cache DOM elements
-     */
-    function cacheElements() {
-        elements = {
-            // Mode controls
-            publishModeBtns: document.querySelectorAll('.publish-mode-btn'),
-            productionBanner: document.getElementById('productionBanner'),
-            
-            // Discord org selection
-            discordOrgList: document.getElementById('discordOrgList'),
-            orgCheckboxes: document.querySelectorAll('.discord-org-check input[type="checkbox"]'),
-            crossBorderBadge: document.getElementById('crossBorderBadge'),
-            
-            // NTML Tab
-            quickInput: document.getElementById('quickInput'),
-            validFrom: document.getElementById('validFrom'),
-            validUntil: document.getElementById('validUntil'),
-            batchInput: document.getElementById('batchInput'),
-            entryQueue: document.getElementById('entryQueue'),
-            queueCount: document.getElementById('queueCount'),
-            emptyQueueMsg: document.getElementById('emptyQueueMsg'),
-            clearQueueBtn: document.getElementById('clearQueue'),
-            ntmlSubmitArea: document.getElementById('ntmlSubmitArea'),
-            submitCount: document.getElementById('submitCount'),
-            submitAllBtn: document.getElementById('submitAllBtn'),
-            previewBtn: document.getElementById('previewBtn'),
-            
-            // Mode toggle (single/batch)
-            modeBtns: document.querySelectorAll('.mode-toggle .mode-btn'),
-            singleMode: document.getElementById('singleMode'),
-            batchMode: document.getElementById('batchMode'),
-            
-            // Template buttons
-            templateBtns: document.querySelectorAll('.template-btn'),
-            
-            // Advisory Tab
-            advisoryTypeCards: document.querySelectorAll('.advisory-type-card'),
-            advisoryPreview: document.getElementById('adv_preview'),
-            publishAdvisoryBtn: document.getElementById('btn_publish_advisory'),
-            copyBtn: document.getElementById('btn_copy'),
-            
-            // Results
-            publishResults: document.getElementById('publishResults'),
-            publishResultsList: document.getElementById('publishResultsList'),
-            
-            // Modals
-            previewModal: document.getElementById('previewModal'),
-            previewContent: document.getElementById('previewContent'),
-            submitFromPreview: document.getElementById('submitFromPreview'),
-            
-            // Clock
-            utcClock: document.getElementById('utc_clock')
-        };
+    function initClock() {
+        function updateClock() {
+            const now = new Date();
+            const utc = now.toISOString().substr(11, 8);
+            $('#utc_clock').text(utc);
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
     }
     
-    /**
-     * Bind event listeners
-     */
-    function bindEvents() {
-        // Publish mode toggle (staging/production)
-        elements.publishModeBtns.forEach(btn => {
-            btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    function initEventHandlers() {
+        // Production mode toggle
+        $('#productionMode').on('change', function() {
+            state.productionMode = $(this).is(':checked');
+            updateModeIndicator();
+            saveState();
+            
+            if (state.productionMode) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Production Mode Enabled',
+                    text: 'Entries will post directly to LIVE Discord channels.',
+                    confirmButtonColor: '#dc3545'
+                });
+            }
         });
         
-        // Discord org checkboxes
-        document.querySelectorAll('.discord-org-check').forEach(label => {
-            label.addEventListener('click', (e) => {
-                if (label.classList.contains('disabled')) {
-                    e.preventDefault();
-                    return;
-                }
-                
-                const checkbox = label.querySelector('input[type="checkbox"]');
-                if (e.target !== checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                }
-                
-                label.classList.toggle('checked', checkbox.checked);
-                updateSelectedOrgs();
-            });
+        // Quick input
+        $('#quickInput').on('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addNtmlFromInput();
+            }
         });
         
-        // NTML Quick Input
-        if (elements.quickInput) {
-            elements.quickInput.addEventListener('keydown', handleQuickInputKeydown);
-            elements.quickInput.addEventListener('input', handleQuickInputChange);
-        }
-        
-        // Batch input
-        if (elements.batchInput) {
-            elements.batchInput.addEventListener('input', handleBatchInputChange);
-        }
-        
-        // Mode toggle (single/batch)
-        elements.modeBtns.forEach(btn => {
-            btn.addEventListener('click', () => setEntryMode(btn.dataset.mode));
+        // Templates
+        $('.template-btn').on('click', function() {
+            const template = $(this).data('template');
+            applyTemplate(template);
         });
         
-        // Template buttons
-        elements.templateBtns.forEach(btn => {
-            btn.addEventListener('click', () => applyTemplate(btn.dataset.template));
+        // Discord org checkboxes - NTML
+        $('.discord-org-checkbox').on('change', function() {
+            updateTargetOrgsDisplay();
         });
         
-        // Clear queue
-        if (elements.clearQueueBtn) {
-            elements.clearQueueBtn.addEventListener('click', clearQueue);
-        }
-        
-        // Preview button
-        if (elements.previewBtn) {
-            elements.previewBtn.addEventListener('click', showPreview);
-        }
-        
-        // Submit all
-        if (elements.submitAllBtn) {
-            elements.submitAllBtn.addEventListener('click', submitAllNTML);
-        }
-        
-        // Submit from preview
-        if (elements.submitFromPreview) {
-            elements.submitFromPreview.addEventListener('click', () => {
-                $('#previewModal').modal('hide');
-                submitAllNTML();
-            });
-        }
-        
-        // Advisory type cards
-        elements.advisoryTypeCards.forEach(card => {
-            card.addEventListener('click', () => selectAdvisoryType(card.dataset.type));
+        // Discord org checkboxes - Advisory
+        $('.discord-org-checkbox-adv').on('change', function() {
+            updateTargetOrgsDisplay();
         });
         
-        // Publish advisory
-        if (elements.publishAdvisoryBtn) {
-            elements.publishAdvisoryBtn.addEventListener('click', publishAdvisory);
-        }
+        // Queue management
+        $('#clearQueue').on('click', clearQueue);
+        $('#submitAllBtn').on('click', submitAll);
         
-        // Copy button
-        if (elements.copyBtn) {
-            elements.copyBtn.addEventListener('click', copyAdvisoryToClipboard);
-        }
+        // Advisory
+        $('#adv_add_to_queue').on('click', addAdvisoryToQueue);
+        $('#adv_reset').on('click', resetAdvisoryForm);
+        $('#adv_copy').on('click', copyAdvisoryToClipboard);
         
-        // Tab change - detect cross-border on advisory changes
+        // Tab changes
         $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
-            const tabId = e.target.getAttribute('href');
-            console.log('[TMIPublisher] Tab changed to:', tabId);
-        });
-    }
-    
-    /**
-     * Initialize selected orgs from DOM
-     */
-    function initSelectedOrgs() {
-        selectedOrgs = [];
-        document.querySelectorAll('.discord-org-check input:checked').forEach(checkbox => {
-            selectedOrgs.push(checkbox.value);
-        });
-        console.log('[TMIPublisher] Initial selected orgs:', selectedOrgs);
-    }
-    
-    /**
-     * Update selected orgs list
-     */
-    function updateSelectedOrgs() {
-        selectedOrgs = [];
-        document.querySelectorAll('.discord-org-check input:checked').forEach(checkbox => {
-            selectedOrgs.push(checkbox.value);
-        });
-        console.log('[TMIPublisher] Selected orgs:', selectedOrgs);
-    }
-    
-    /**
-     * Set publish mode (staging/production)
-     */
-    function setMode(mode) {
-        currentMode = mode;
-        
-        elements.publishModeBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.mode === mode);
+            if ($(e.target).attr('href') === '#queuePanel') {
+                updateQueueDisplay();
+            }
         });
         
-        if (elements.productionBanner) {
-            elements.productionBanner.classList.toggle('show', mode === 'production');
-        }
-        
-        console.log('[TMIPublisher] Mode set to:', mode);
-    }
-    
-    /**
-     * Set entry mode (single/batch)
-     */
-    function setEntryMode(mode) {
-        elements.modeBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.mode === mode);
+        // Sync org checkboxes between tabs
+        $('.discord-org-checkbox').on('change', function() {
+            const code = $(this).val();
+            const checked = $(this).is(':checked');
+            $(`#adv_org_${code}`).prop('checked', checked);
         });
         
-        if (elements.singleMode) {
-            elements.singleMode.style.display = mode === 'single' ? 'block' : 'none';
-        }
-        if (elements.batchMode) {
-            elements.batchMode.style.display = mode === 'batch' ? 'block' : 'none';
-        }
+        $('.discord-org-checkbox-adv').on('change', function() {
+            const code = $(this).val();
+            const checked = $(this).is(':checked');
+            $(`#org_${code}`).prop('checked', checked);
+        });
     }
     
-    /**
-     * Handle quick input keydown
-     */
-    function handleQuickInputKeydown(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
+    function initAdvisoryTypeSelector() {
+        $('.advisory-type-card').on('click', function() {
+            $('.advisory-type-card').removeClass('selected');
+            $(this).addClass('selected');
             
-            if (e.ctrlKey || e.metaKey) {
-                // Ctrl+Enter: Submit all
-                if (entryQueue.length > 0) {
-                    submitAllNTML();
-                }
-            } else {
-                // Enter: Add to queue
-                addEntryToQueue();
-            }
+            const type = $(this).data('type');
+            state.selectedAdvisoryType = type;
+            
+            showAdvisorySections(type);
+            updateAdvisoryPreview();
+        });
+        
+        // Update preview on any input change
+        $(document).on('input change', '[id^="adv_"], [id^="gdp_"], [id^="gs_"], [id^="afp_"], [id^="reroute_"], [id^="mit_"], [id^="atcscc_"], [id^="cnx_"]', function() {
+            updateAdvisoryPreview();
+        });
+    }
+    
+    // ===========================================
+    // Mode Management
+    // ===========================================
+    
+    function updateModeIndicator() {
+        const indicator = $('#modeIndicator');
+        const warning = $('#prodWarning');
+        const submitBtn = $('#submitBtnText');
+        const targetDisplay = $('#targetModeDisplay');
+        const hint = $('#submitHint');
+        
+        if (state.productionMode) {
+            indicator.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
+            warning.show();
+            submitBtn.text('Submit to Production');
+            targetDisplay.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
+            hint.text('⚠️ Entries will post to LIVE channels');
+        } else {
+            indicator.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
+            warning.hide();
+            submitBtn.text('Submit to Staging');
+            targetDisplay.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
+            hint.text('Entries will post to staging channels for review');
         }
     }
     
-    /**
-     * Handle quick input change
-     */
-    function handleQuickInputChange() {
-        const input = elements.quickInput.value.trim();
-        
-        // Check for cross-border facilities
-        checkCrossBorder(input);
-    }
+    // ===========================================
+    // NTML Quick Entry
+    // ===========================================
     
-    /**
-     * Handle batch input change
-     */
-    function handleBatchInputChange() {
-        const lines = elements.batchInput.value.split('\n').filter(l => l.trim());
-        
-        // Clear and rebuild queue from batch
-        entryQueue = [];
-        lines.forEach(line => {
-            const parsed = parseNTMLEntry(line);
-            if (parsed) {
-                entryQueue.push(parsed);
-            }
-        });
-        
-        updateQueueDisplay();
-    }
-    
-    /**
-     * Add entry to queue
-     */
-    function addEntryToQueue() {
-        const input = elements.quickInput.value.trim();
+    function addNtmlFromInput() {
+        const input = $('#quickInput').val().trim();
         if (!input) return;
         
-        const validFrom = elements.validFrom.value.trim();
-        const validUntil = elements.validUntil.value.trim();
-        
-        // Parse the entry
-        const parsed = parseNTMLEntry(input, validFrom, validUntil);
-        
-        if (parsed) {
-            entryQueue.push(parsed);
-            elements.quickInput.value = '';
-            updateQueueDisplay();
-            
-            // Check for cross-border
-            checkCrossBorder(JSON.stringify(parsed));
-        } else {
-            // Show error feedback
-            elements.quickInput.classList.add('is-invalid');
-            setTimeout(() => elements.quickInput.classList.remove('is-invalid'), 2000);
+        const parsed = parseNtmlInput(input);
+        if (!parsed) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Parse Error',
+                text: 'Could not parse the NTML entry. Check syntax.',
+                toast: true,
+                position: 'top-end',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return;
         }
+        
+        // Get selected orgs
+        const selectedOrgs = getSelectedOrgs('ntml');
+        
+        // Check for cross-border
+        if (CONFIG.crossBorderAutoDetect) {
+            const crossBorderOrgs = detectCrossBorderOrgs(parsed);
+            if (crossBorderOrgs.length > 0) {
+                highlightCrossBorderOrgs(crossBorderOrgs);
+            }
+        }
+        
+        const entry = {
+            id: generateId(),
+            type: 'ntml',
+            entryType: parsed.type,
+            data: parsed,
+            rawInput: input,
+            orgs: selectedOrgs,
+            createdAt: new Date().toISOString()
+        };
+        
+        state.queue.push(entry);
+        $('#quickInput').val('');
+        
+        updateUI();
+        saveState();
+        
+        // Show success toast
+        Swal.fire({
+            icon: 'success',
+            title: 'Added to Queue',
+            text: `${parsed.type} entry added`,
+            toast: true,
+            position: 'top-end',
+            timer: 2000,
+            showConfirmButton: false
+        });
     }
     
-    /**
-     * Parse NTML entry (wrapper for NTMLParser if available)
-     */
-    function parseNTMLEntry(input, validFrom, validUntil) {
-        // Use NTMLParser if available, otherwise basic parsing
-        if (typeof NTMLParser !== 'undefined' && NTMLParser.parse) {
-            const result = NTMLParser.parse(input);
-            if (result && result.valid) {
-                if (validFrom) result.data.valid_from = validFrom;
-                if (validUntil) result.data.valid_until = validUntil;
-                return result.data;
-            }
-            return null;
+    function parseNtmlInput(input) {
+        // Simplified parser - handles common patterns
+        const upperInput = input.toUpperCase();
+        
+        // MIT/MINIT pattern: 20MIT ZBW→ZNY JFK LENDY VOLUME 1400-1800
+        const mitMatch = upperInput.match(/^(\d+)(MIT|MINIT)\s+(\w+)[→\->]+(\w+)\s+(\w+)\s+(\w*)\s*(\w*)\s*(\d{4})?[-]?(\d{4})?/);
+        if (mitMatch) {
+            return {
+                type: mitMatch[2],
+                distance: parseInt(mitMatch[1]),
+                fromFacility: mitMatch[3],
+                toFacility: mitMatch[4],
+                airport: mitMatch[5],
+                fix: mitMatch[6] || null,
+                reason: mitMatch[7] || 'VOLUME',
+                startTime: mitMatch[8] || null,
+                endTime: mitMatch[9] || null
+            };
         }
         
-        // Basic fallback parsing
+        // DELAY pattern: DELAY JFK 45min INC WEATHER
+        const delayMatch = upperInput.match(/^DELAY\s+(\w+)\s+(\d+)\s*MIN\s*(\w*)\s*(\w*)/);
+        if (delayMatch) {
+            return {
+                type: 'DELAY',
+                facility: delayMatch[1],
+                minutes: parseInt(delayMatch[2]),
+                trend: delayMatch[3] || 'STABLE',
+                reason: delayMatch[4] || 'VOLUME'
+            };
+        }
+        
+        // CONFIG pattern: CONFIG JFK IMC ARR:22L/22R DEP:31L
+        const configMatch = upperInput.match(/^CONFIG\s+(\w+)\s+(\w+)/);
+        if (configMatch) {
+            return {
+                type: 'CONFIG',
+                airport: configMatch[1],
+                weather: configMatch[2],
+                rawConfig: input
+            };
+        }
+        
+        // GS pattern: GS KJFK WEATHER
+        const gsMatch = upperInput.match(/^GS\s+([A-Z]{3,4})\s*(\w*)/);
+        if (gsMatch) {
+            return {
+                type: 'GS',
+                airport: gsMatch[1],
+                reason: gsMatch[2] || 'WEATHER'
+            };
+        }
+        
+        // STOP pattern
+        const stopMatch = upperInput.match(/^STOP\s+(\w+)[→\->]+(\w+)/);
+        if (stopMatch) {
+            return {
+                type: 'STOP',
+                fromFacility: stopMatch[1],
+                toFacility: stopMatch[2]
+            };
+        }
+        
+        // Generic fallback
         return {
-            raw_input: input,
-            entry_type: detectEntryType(input),
-            valid_from: validFrom || '',
-            valid_until: validUntil || ''
+            type: 'OTHER',
+            raw: input
         };
     }
     
-    /**
-     * Detect entry type from input
-     */
-    function detectEntryType(input) {
-        const upper = input.toUpperCase();
-        if (upper.includes('MIT') && !upper.includes('MINIT')) return 'MIT';
-        if (upper.includes('MINIT')) return 'MINIT';
-        if (upper.includes('STOP')) return 'STOP';
-        if (upper.includes('DELAY')) return 'DELAY';
-        if (upper.includes('CONFIG')) return 'CONFIG';
-        if (upper.includes('TBM')) return 'TBM';
-        if (upper.includes('CFR')) return 'CFR';
-        if (upper.includes('APREQ')) return 'APREQ';
-        if (upper.includes('DSP')) return 'DSP';
-        return 'MIT'; // Default
-    }
-    
-    /**
-     * Check for cross-border TMI
-     */
-    function checkCrossBorder(input) {
-        const upper = input.toUpperCase();
+    function applyTemplate(template) {
+        const templates = {
+            'mit-arr': '20MIT ZBW→ZNY JFK LENDY VOLUME 1400-1800',
+            'mit-dep': '15MIT JFK→ZNY GREKI VOLUME 1400-1800',
+            'minit': '10MINIT ZDC→ZNY EWR WEATHER 1500-1800',
+            'delay': 'DELAY JFK 45min INC WEATHER',
+            'config': 'CONFIG JFK IMC ARR:22L/22R DEP:31L AAR:40 ADR:45',
+            'gs': 'GS KJFK WEATHER'
+        };
         
-        // Check for Canadian facilities/airports
-        const hasCanadian = /\b(CZ[A-Z]{2}|C[A-Z]{3}|CYYZ|CYVR|CYYC|CYUL|CYWG)\b/.test(upper);
-        
-        // Check for US facilities near border
-        const hasBorderUS = /\b(ZBW|ZMP|ZSE|ZLC|ZOB)\b/.test(upper);
-        
-        const isCrossBorder = hasCanadian && hasBorderUS;
-        
-        if (elements.crossBorderBadge) {
-            elements.crossBorderBadge.classList.toggle('show', isCrossBorder);
-        }
-        
-        // Auto-select VATCAN if cross-border detected and user is privileged
-        if (isCrossBorder && config.isPrivileged) {
-            const vatcanCheck = document.querySelector('.discord-org-check[data-org="vatcan"] input');
-            if (vatcanCheck && !vatcanCheck.disabled && !vatcanCheck.checked) {
-                vatcanCheck.checked = true;
-                vatcanCheck.closest('.discord-org-check').classList.add('checked');
-                updateSelectedOrgs();
-            }
+        if (templates[template]) {
+            $('#quickInput').val(templates[template]).focus();
         }
     }
     
-    /**
-     * Update queue display
-     */
-    function updateQueueDisplay() {
-        const count = entryQueue.length;
+    // ===========================================
+    // Advisory Builder
+    // ===========================================
+    
+    function showAdvisorySections(type) {
+        // Hide all dynamic sections
+        $('#adv_dynamic_sections').empty();
         
-        if (elements.queueCount) {
-            elements.queueCount.textContent = count;
+        const typeConfig = ADVISORY_TYPES[type];
+        if (!typeConfig) return;
+        
+        // Update header color
+        $('#adv_section_basic .card-header').removeClass(function(index, className) {
+            return (className.match(/adv-header-\w+/g) || []).join(' ');
+        }).addClass(typeConfig.headerClass);
+        
+        // Load type-specific sections
+        if (type === 'GDP') {
+            loadGDPSection();
+        } else if (type === 'GS') {
+            loadGSSection();
+        } else if (type === 'AFP') {
+            loadAFPSection();
+        } else if (type === 'REROUTE') {
+            loadRerouteSection();
+        } else if (type === 'MIT') {
+            loadMITSection();
+        } else if (type === 'ATCSCC') {
+            loadFreeformSection();
+        } else if (type === 'CNX') {
+            loadCancelSection();
         }
-        
-        if (elements.submitCount) {
-            elements.submitCount.textContent = count;
-        }
-        
-        if (elements.emptyQueueMsg) {
-            elements.emptyQueueMsg.style.display = count === 0 ? 'block' : 'none';
-        }
-        
-        if (elements.clearQueueBtn) {
-            elements.clearQueueBtn.style.display = count > 0 ? 'inline-block' : 'none';
-        }
-        
-        if (elements.ntmlSubmitArea) {
-            elements.ntmlSubmitArea.style.display = count > 0 ? 'flex' : 'none';
-        }
-        
-        // Render queue cards
-        renderQueueCards();
     }
     
-    /**
-     * Render queue cards
-     */
-    function renderQueueCards() {
-        if (!elements.entryQueue) return;
-        
-        const cards = entryQueue.map((entry, index) => {
-            const type = entry.entry_type || 'MIT';
-            const determinant = entry.determinant_code || generateDeterminant(type);
-            const details = entry.raw_input || formatEntryDetails(entry);
-            
-            return `
-                <div class="preview-card valid" data-index="${index}">
-                    <button class="remove-btn" onclick="TMIPublisher.removeFromQueue(${index})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <div class="determinant">[${determinant}] ${type}</div>
-                    <div class="details">${escapeHtml(details)}</div>
-                    ${entry.valid_from || entry.valid_until ? 
-                        `<div class="details text-muted">${entry.valid_from || '????'}Z - ${entry.valid_until || '????'}Z</div>` : ''}
+    function loadGDPSection() {
+        const html = `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header adv-header-gdp">
+                    <span class="tmi-section-title"><i class="fas fa-hourglass-half mr-1"></i> GDP Configuration</span>
                 </div>
-            `;
-        }).join('');
-        
-        // Keep empty message, add cards before it
-        const emptyMsg = elements.emptyQueueMsg.outerHTML;
-        elements.entryQueue.innerHTML = cards + emptyMsg;
-        
-        // Re-cache empty msg element
-        elements.emptyQueueMsg = document.getElementById('emptyQueueMsg');
-        elements.emptyQueueMsg.style.display = entryQueue.length === 0 ? 'block' : 'none';
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Program Rate (/hr)</label>
+                            <input type="number" class="form-control form-control-sm" id="gdp_rate" placeholder="40">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Max Delay (min)</label>
+                            <input type="number" class="form-control form-control-sm" id="gdp_delay_cap" placeholder="90">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Reason</label>
+                            <select class="form-control form-control-sm" id="gdp_reason">
+                                <option value="WEATHER">Weather</option>
+                                <option value="VOLUME">Volume</option>
+                                <option value="RUNWAY">Runway</option>
+                                <option value="EQUIPMENT">Equipment</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="tmi-label mb-0">Scope (Centers)</label>
+                        <input type="text" class="form-control form-control-sm" id="gdp_scope" placeholder="TIER1 or ZBW ZNY ZDC">
+                    </div>
+                </div>
+            </div>`;
+        $('#adv_dynamic_sections').html(html);
     }
     
-    /**
-     * Remove entry from queue
-     */
-    function removeFromQueue(index) {
-        entryQueue.splice(index, 1);
-        updateQueueDisplay();
+    function loadGSSection() {
+        const html = `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header adv-header-gs">
+                    <span class="tmi-section-title"><i class="fas fa-ban mr-1"></i> Ground Stop Configuration</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Reason</label>
+                            <select class="form-control form-control-sm" id="gs_reason">
+                                <option value="WEATHER">Weather</option>
+                                <option value="RUNWAY_CLOSURE">Runway Closure</option>
+                                <option value="EQUIPMENT">Equipment</option>
+                                <option value="SECURITY">Security</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Probability of Extension</label>
+                            <select class="form-control form-control-sm" id="gs_probability">
+                                <option value="">None</option>
+                                <option value="LOW">LOW</option>
+                                <option value="MODERATE">MODERATE</option>
+                                <option value="HIGH">HIGH</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="tmi-label mb-0">Scope (Centers)</label>
+                        <input type="text" class="form-control form-control-sm" id="gs_scope" placeholder="CONUS or ZBW ZNY ZDC">
+                    </div>
+                </div>
+            </div>`;
+        $('#adv_dynamic_sections').html(html);
     }
     
-    /**
-     * Clear entire queue
-     */
-    function clearQueue() {
-        if (confirm('Clear all entries from queue?')) {
-            entryQueue = [];
-            updateQueueDisplay();
+    function loadAFPSection() {
+        const html = `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header adv-header-afp">
+                    <span class="tmi-section-title"><i class="fas fa-vector-square mr-1"></i> AFP Configuration</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">FCA Name</label>
+                            <input type="text" class="form-control form-control-sm" id="afp_fca" placeholder="FCA_XXXX">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Rate (/hr)</label>
+                            <input type="number" class="form-control form-control-sm" id="afp_rate" placeholder="30">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Reason</label>
+                            <select class="form-control form-control-sm" id="afp_reason">
+                                <option value="WEATHER">Weather</option>
+                                <option value="VOLUME">Volume</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        $('#adv_dynamic_sections').html(html);
+    }
+    
+    function loadRerouteSection() {
+        const html = `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header adv-header-reroute">
+                    <span class="tmi-section-title"><i class="fas fa-directions mr-1"></i> Reroute Configuration</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Route Name</label>
+                            <input type="text" class="form-control form-control-sm" id="reroute_name" placeholder="GOLDDR">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Reason</label>
+                            <select class="form-control form-control-sm" id="reroute_reason">
+                                <option value="WEATHER">Weather</option>
+                                <option value="VOLUME">Volume</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="tmi-label mb-0">Route String</label>
+                        <textarea class="form-control form-control-sm font-monospace" id="reroute_string" rows="2" placeholder="KJFK..MERIT..J75..MPASS..KATL"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Traffic From</label>
+                            <input type="text" class="form-control form-control-sm" id="reroute_from" placeholder="KJFK/KLGA">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Traffic To</label>
+                            <input type="text" class="form-control form-control-sm" id="reroute_to" placeholder="KCLT/KATL">
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        $('#adv_dynamic_sections').html(html);
+    }
+    
+    function loadMITSection() {
+        const html = `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header adv-header-mit">
+                    <span class="tmi-section-title"><i class="fas fa-ruler-horizontal mr-1"></i> MIT/MINIT Configuration</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Facility</label>
+                            <input type="text" class="form-control form-control-sm" id="mit_facility" placeholder="ZNY">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Miles/Minutes</label>
+                            <input type="number" class="form-control form-control-sm" id="mit_miles" placeholder="20">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0">Type</label>
+                            <select class="form-control form-control-sm" id="mit_type">
+                                <option value="MIT">MIT (Miles)</option>
+                                <option value="MINIT">MINIT (Minutes)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">At Fix</label>
+                            <input type="text" class="form-control form-control-sm" id="mit_fix" placeholder="MERIT">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Reason</label>
+                            <select class="form-control form-control-sm" id="mit_reason">
+                                <option value="WEATHER">Weather</option>
+                                <option value="VOLUME">Volume</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        $('#adv_dynamic_sections').html(html);
+    }
+    
+    function loadFreeformSection() {
+        const html = `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header adv-header-atcscc">
+                    <span class="tmi-section-title"><i class="fas fa-file-alt mr-1"></i> Free-Form Advisory</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="tmi-label mb-0">Subject</label>
+                        <input type="text" class="form-control form-control-sm" id="atcscc_subject" placeholder="Advisory Subject">
+                    </div>
+                    <div class="form-group">
+                        <label class="tmi-label mb-0">Body</label>
+                        <textarea class="form-control form-control-sm" id="atcscc_body" rows="6" placeholder="Advisory body text..."></textarea>
+                    </div>
+                </div>
+            </div>`;
+        $('#adv_dynamic_sections').html(html);
+    }
+    
+    function loadCancelSection() {
+        const html = `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header adv-header-cnx">
+                    <span class="tmi-section-title"><i class="fas fa-times-circle mr-1"></i> Cancel Advisory</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Original Advisory #</label>
+                            <input type="text" class="form-control form-control-sm" id="cnx_ref_number" placeholder="001">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="tmi-label mb-0">Original Type</label>
+                            <select class="form-control form-control-sm" id="cnx_ref_type">
+                                <option value="GDP">GDP</option>
+                                <option value="GS">GS</option>
+                                <option value="AFP">AFP</option>
+                                <option value="REROUTE">Reroute</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        $('#adv_dynamic_sections').html(html);
+    }
+    
+    function updateAdvisoryPreview() {
+        if (!state.selectedAdvisoryType) {
+            $('#adv_preview').text('Select an advisory type to begin...');
+            return;
         }
+        
+        const preview = formatAdvisoryPreview(state.selectedAdvisoryType);
+        $('#adv_preview').text(preview);
+        
+        // Update char count
+        const len = preview.length;
+        const countEl = $('#preview_char_count');
+        countEl.text(`${len} / ${DISCORD_MAX_LENGTH}`);
+        countEl.removeClass('warning danger');
+        if (len > DISCORD_MAX_LENGTH) countEl.addClass('danger');
+        else if (len > DISCORD_MAX_LENGTH * 0.8) countEl.addClass('warning');
     }
     
-    /**
-     * Generate determinant code
-     */
-    function generateDeterminant(type) {
+    function formatAdvisoryPreview(type) {
+        const advNum = $('#adv_number').val() || '001';
+        const facility = $('#adv_facility').val() || 'DCC';
+        const ctlElement = $('#adv_ctl_element').val() || '';
+        const startTime = $('#adv_start').val();
+        const endTime = $('#adv_end').val();
+        const comments = $('#adv_comments').val();
+        
         const now = new Date();
-        const day = String(now.getUTCDate()).padStart(2, '0');
-        const hour = String(now.getUTCHours()).padStart(2, '0');
-        const min = String(now.getUTCMinutes()).padStart(2, '0');
+        const dateStr = `${(now.getUTCMonth()+1).toString().padStart(2,'0')}/${now.getUTCDate().toString().padStart(2,'0')}/${now.getUTCFullYear()}`;
+        const sigTime = `${now.getUTCFullYear().toString().slice(-2)}/${(now.getUTCMonth()+1).toString().padStart(2,'0')}/${now.getUTCDate().toString().padStart(2,'0')} ${now.getUTCHours().toString().padStart(2,'0')}:${now.getUTCMinutes().toString().padStart(2,'0')}`;
         
-        const typeCode = {
-            'MIT': 'A', 'MINIT': 'B', 'STOP': 'C', 'DELAY': 'D',
-            'CONFIG': 'E', 'TBM': 'F', 'CFR': 'G', 'APREQ': 'H'
-        }[type] || 'A';
+        const formatZulu = (dateStr) => {
+            if (!dateStr) return '--/----Z';
+            const d = new Date(dateStr + 'Z');
+            return `${d.getUTCDate().toString().padStart(2,'0')}/${d.getUTCHours().toString().padStart(2,'0')}${d.getUTCMinutes().toString().padStart(2,'0')}Z`;
+        };
         
-        return `${day}${typeCode}${hour}`;
+        const validRange = `${formatZulu(startTime).replace('Z','')} - ${formatZulu(endTime)}`;
+        
+        let lines = [];
+        
+        // Header
+        lines.push(`vATCSCC ADVZY ${advNum.padStart(3,'0')}   ${facility}   ${dateStr}`);
+        lines.push('');
+        
+        // Type-specific content
+        if (type === 'GDP') {
+            const rate = $('#gdp_rate').val() || '40';
+            const delay = $('#gdp_delay_cap').val() || '90';
+            const reason = $('#gdp_reason').val() || 'WEATHER';
+            const scope = $('#gdp_scope').val() || 'TIER1';
+            
+            lines.push(`${ctlElement || 'KXXX'} GDP`);
+            lines.push(`REASON: ${reason}`);
+            lines.push(`PROGRAM RATE: ${rate}/HR`);
+            lines.push(`MAX DELAY: ${delay} MINUTES`);
+            lines.push(`SCOPE: ${scope}`);
+            lines.push(`VALID: ${validRange}`);
+        } else if (type === 'GS') {
+            const reason = $('#gs_reason').val() || 'WEATHER';
+            const prob = $('#gs_probability').val();
+            const scope = $('#gs_scope').val() || 'CONUS';
+            
+            lines.push(`${ctlElement || 'KXXX'} GROUND STOP`);
+            lines.push(`REASON: ${reason}`);
+            lines.push(`SCOPE: ${scope}`);
+            if (prob) lines.push(`PROBABILITY OF EXTENSION: ${prob}`);
+            lines.push(`VALID: ${validRange}`);
+        } else if (type === 'AFP') {
+            const fca = $('#afp_fca').val() || 'FCA_XXXX';
+            const rate = $('#afp_rate').val() || '30';
+            const reason = $('#afp_reason').val() || 'WEATHER';
+            
+            lines.push(`${fca} AFP`);
+            lines.push(`REASON: ${reason}`);
+            lines.push(`RATE: ${rate}/HR`);
+            lines.push(`VALID: ${validRange}`);
+        } else if (type === 'REROUTE') {
+            const name = $('#reroute_name').val() || 'ROUTE';
+            const routeStr = $('#reroute_string').val() || '';
+            const from = $('#reroute_from').val() || '';
+            const to = $('#reroute_to').val() || '';
+            
+            lines.push(`REROUTE ADVISORY: ${name}`);
+            if (from && to) lines.push(`TRAFFIC: ${from} TO ${to}`);
+            if (routeStr) lines.push(`ROUTE: ${routeStr}`);
+            lines.push(`VALID: ${validRange}`);
+        } else if (type === 'MIT') {
+            const fac = $('#mit_facility').val() || 'ZXX';
+            const miles = $('#mit_miles').val() || '20';
+            const mitType = $('#mit_type').val() || 'MIT';
+            const fix = $('#mit_fix').val() || '';
+            const reason = $('#mit_reason').val() || 'VOLUME';
+            
+            lines.push(`${fac} ${miles}${mitType}${fix ? ' AT ' + fix : ''}`);
+            lines.push(`REASON: ${reason}`);
+            lines.push(`VALID: ${validRange}`);
+        } else if (type === 'ATCSCC') {
+            const subject = $('#atcscc_subject').val() || 'ADVISORY';
+            const body = $('#atcscc_body').val() || '';
+            
+            lines.push(subject.toUpperCase());
+            lines.push('');
+            if (body) lines.push(body);
+        } else if (type === 'CNX') {
+            const refNum = $('#cnx_ref_number').val() || '001';
+            const refType = $('#cnx_ref_type').val() || 'GDP';
+            
+            lines.push(`CANCEL ${refType} ADVISORY ${refNum.padStart(3,'0')}`);
+            lines.push(`${ctlElement || 'KXXX'} ${refType} CANCELLED`);
+        }
+        
+        // Comments
+        if (comments) {
+            lines.push('');
+            lines.push(`COMMENTS: ${comments}`);
+        }
+        
+        // Footer
+        lines.push('');
+        lines.push(`${sigTime}   ${facility}`);
+        
+        return lines.join('\n');
     }
     
-    /**
-     * Format entry details for display
-     */
-    function formatEntryDetails(entry) {
-        const parts = [];
-        if (entry.distance) parts.push(`${entry.distance}${entry.entry_type}`);
-        if (entry.from_facility) parts.push(entry.from_facility);
-        if (entry.to_facility) parts.push(`→${entry.to_facility}`);
-        if (entry.airport || entry.ctl_element) parts.push(entry.airport || entry.ctl_element);
-        if (entry.condition_text || entry.via_route) parts.push(entry.condition_text || entry.via_route);
-        if (entry.reason) parts.push(entry.reason);
-        return parts.join(' ') || entry.raw_input || 'Entry';
+    function addAdvisoryToQueue() {
+        if (!state.selectedAdvisoryType) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Select Advisory Type',
+                text: 'Please select an advisory type first.',
+                toast: true,
+                position: 'top-end',
+                timer: 3000,
+                showConfirmButton: false
+            });
+            return;
+        }
+        
+        const preview = formatAdvisoryPreview(state.selectedAdvisoryType);
+        const selectedOrgs = getSelectedOrgs('advisory');
+        
+        const entry = {
+            id: generateId(),
+            type: 'advisory',
+            advisoryType: state.selectedAdvisoryType,
+            preview: preview,
+            orgs: selectedOrgs,
+            createdAt: new Date().toISOString()
+        };
+        
+        state.queue.push(entry);
+        updateUI();
+        saveState();
+        
+        // Switch to queue tab
+        $('#queue-tab').tab('show');
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Added to Queue',
+            text: `${state.selectedAdvisoryType} advisory added`,
+            toast: true,
+            position: 'top-end',
+            timer: 2000,
+            showConfirmButton: false
+        });
     }
     
-    /**
-     * Show preview modal
-     */
-    function showPreview() {
-        if (!elements.previewContent) return;
+    function resetAdvisoryForm() {
+        state.selectedAdvisoryType = null;
+        $('.advisory-type-card').removeClass('selected');
+        $('#adv_dynamic_sections').empty();
+        $('#adv_number').val('');
+        $('#adv_ctl_element').val('');
+        $('#adv_start').val('');
+        $('#adv_end').val('');
+        $('#adv_comments').val('');
+        $('#adv_preview').text('Select an advisory type to begin...');
+    }
+    
+    function copyAdvisoryToClipboard() {
+        const text = $('#adv_preview').text();
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Copied!',
+                toast: true,
+                position: 'top-end',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        });
+    }
+    
+    // ===========================================
+    // Cross-Border Detection
+    // ===========================================
+    
+    function detectCrossBorderOrgs(parsed) {
+        if (!CONFIG.crossBorderAutoDetect) return [];
         
-        const preview = entryQueue.map((entry, i) => {
-            return `=== Entry ${i + 1} ===\n${formatNTMLMessage(entry)}`;
-        }).join('\n\n');
+        const facilities = [];
+        if (parsed.fromFacility) facilities.push(parsed.fromFacility.toUpperCase());
+        if (parsed.toFacility) facilities.push(parsed.toFacility.toUpperCase());
+        if (parsed.facility) facilities.push(parsed.facility.toUpperCase());
         
-        elements.previewContent.textContent = preview || 'No entries to preview';
+        // Check for Canadian airports (C prefix)
+        if (parsed.airport && parsed.airport.match(/^C[A-Z]{3}$/)) {
+            return ['vatcan'];
+        }
+        
+        // Check for US-Canada border facilities
+        const usInvolved = facilities.some(f => f.match(/^Z[A-Z]{2}$/));
+        const caInvolved = facilities.some(f => f.match(/^CZ[A-Z]{2}$/));
+        
+        if (usInvolved && caInvolved) {
+            return ['vatcscc', 'vatcan'].filter(org => CONFIG.discordOrgs[org]);
+        }
+        
+        // Check for border-area US facilities
+        const borderFacs = CROSS_BORDER_FACILITIES.US_CA;
+        const isBorderFacility = facilities.some(f => borderFacs.includes(f));
+        
+        if (isBorderFacility && caInvolved) {
+            return ['vatcan'];
+        }
+        
+        return [];
+    }
+    
+    function highlightCrossBorderOrgs(orgCodes) {
+        orgCodes.forEach(code => {
+            const checkbox = $(`#org_${code}`);
+            if (checkbox.length && !checkbox.is(':checked')) {
+                checkbox.prop('checked', true);
+                checkbox.closest('.custom-control').addClass('cross-border-detected');
+                setTimeout(() => {
+                    checkbox.closest('.custom-control').removeClass('cross-border-detected');
+                }, 2000);
+            }
+        });
+        
+        state.lastCrossBorderOrgs = orgCodes;
+        updateTargetOrgsDisplay();
+    }
+    
+    // ===========================================
+    // Queue Management
+    // ===========================================
+    
+    function updateQueueDisplay() {
+        const container = $('#entryQueueList');
+        const emptyMsg = $('#emptyQueueMsg');
+        
+        if (state.queue.length === 0) {
+            emptyMsg.show();
+            container.find('.queue-item').remove();
+            return;
+        }
+        
+        emptyMsg.hide();
+        container.find('.queue-item').remove();
+        
+        state.queue.forEach((entry, index) => {
+            const item = createQueueItem(entry, index);
+            container.append(item);
+        });
+    }
+    
+    function createQueueItem(entry, index) {
+        const typeLabel = entry.type === 'ntml' ? entry.entryType : entry.advisoryType;
+        const typeClass = entry.type === 'ntml' ? 'ntml-entry' : 'advisory-entry';
+        const content = entry.type === 'ntml' ? entry.rawInput : entry.preview.substring(0, 100) + '...';
+        
+        return $(`
+            <div class="queue-item ${typeClass}" data-index="${index}">
+                <button class="remove-btn" onclick="TMIPublisher.removeFromQueue(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="entry-type">${entry.type.toUpperCase()} - ${typeLabel}</div>
+                <div class="entry-content">${escapeHtml(content)}</div>
+                <div class="entry-meta">
+                    <span class="mr-3"><i class="fab fa-discord"></i> ${entry.orgs.join(', ')}</span>
+                    <button class="preview-btn" onclick="TMIPublisher.previewEntry(${index})">
+                        <i class="fas fa-eye"></i> Preview
+                    </button>
+                </div>
+            </div>
+        `);
+    }
+    
+    function removeFromQueue(index) {
+        state.queue.splice(index, 1);
+        updateUI();
+        saveState();
+    }
+    
+    function clearQueue() {
+        if (state.queue.length === 0) return;
+        
+        Swal.fire({
+            title: 'Clear Queue?',
+            text: `Remove all ${state.queue.length} entries?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Clear All'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                state.queue = [];
+                updateUI();
+                saveState();
+            }
+        });
+    }
+    
+    function previewEntry(index) {
+        const entry = state.queue[index];
+        if (!entry) return;
+        
+        let content = '';
+        if (entry.type === 'ntml') {
+            content = formatNtmlPreview(entry.data);
+        } else {
+            content = entry.preview;
+        }
+        
+        $('#previewModalContent').text(content);
         $('#previewModal').modal('show');
     }
     
-    /**
-     * Format NTML message (simplified - actual formatting done server-side)
-     */
-    function formatNTMLMessage(entry) {
+    function formatNtmlPreview(data) {
+        // Simple NTML format
         const lines = [];
-        const det = entry.determinant_code || generateDeterminant(entry.entry_type);
         const now = new Date();
-        const logTime = `${String(now.getUTCDate()).padStart(2, '0')}/${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}`;
+        const logTime = `${now.getUTCDate().toString().padStart(2,'0')}/${now.getUTCHours().toString().padStart(2,'0')}${now.getUTCMinutes().toString().padStart(2,'0')}`;
         
-        lines.push(`${logTime}    ${entry.airport || entry.ctl_element || '???'} ${entry.entry_type || 'MIT'}`);
-        if (entry.raw_input) {
-            lines.push(entry.raw_input);
-        }
-        if (entry.valid_from || entry.valid_until) {
-            lines.push(`${entry.valid_from || '????'}-${entry.valid_until || '????'}`);
+        if (data.type === 'MIT' || data.type === 'MINIT') {
+            lines.push(`${logTime}    ${data.airport || 'XXX'} via ${data.fix || 'FIX'} ${data.distance}${data.type} ${data.reason || 'VOLUME'} EXCL:NONE ${data.startTime || '----'}-${data.endTime || '----'} ${data.toFacility}:${data.fromFacility}`);
+        } else if (data.type === 'GS') {
+            lines.push(`${logTime}    ${data.airport} GROUND STOP ${data.reason}`);
+        } else if (data.type === 'DELAY') {
+            lines.push(`${logTime}    ${data.facility} DELAY ${data.minutes}MIN ${data.trend} ${data.reason}`);
+        } else {
+            lines.push(`${logTime}    ${data.raw || JSON.stringify(data)}`);
         }
         
         return lines.join('\n');
     }
     
-    /**
-     * Apply template
-     */
-    function applyTemplate(template) {
-        const templates = {
-            'mit-arr': '20MIT ZBW→ZNY JFK LENDY VOLUME',
-            'mit-dep': '15MIT JFK ZNY→ZDC VOLUME',
-            'minit': '10MINIT ZOB→ZNY LGA WEATHER',
-            'stop': 'STOP JFK WEATHER ZNY:ZDC,ZBW',
-            'delay': 'DELAY JFK 45min INC 12flt WEATHER',
-            'config': 'CONFIG JFK IMC ARR:22L/22R DEP:31L AAR:40 ADR:45',
-            'cancel': 'CANCEL 05B01 MIT'
+    // ===========================================
+    // Submit
+    // ===========================================
+    
+    function submitAll() {
+        if (state.queue.length === 0) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Queue Empty',
+                text: 'Add entries to the queue first.',
+                toast: true,
+                position: 'top-end',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            return;
+        }
+        
+        const mode = state.productionMode ? 'PRODUCTION' : 'STAGING';
+        
+        Swal.fire({
+            title: `Submit to ${mode}?`,
+            html: `<p>Post <strong>${state.queue.length}</strong> entries to Discord.</p>
+                   <p class="${state.productionMode ? 'text-danger' : 'text-warning'}">
+                   Mode: <strong>${mode}</strong></p>`,
+            icon: state.productionMode ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonColor: state.productionMode ? '#dc3545' : '#28a745',
+            confirmButtonText: `Submit to ${mode}`
+        }).then((result) => {
+            if (result.isConfirmed) {
+                performSubmit();
+            }
+        });
+    }
+    
+    function performSubmit() {
+        const submitBtn = $('#submitAllBtn');
+        submitBtn.addClass('submitting').prop('disabled', true);
+        submitBtn.find('i').removeClass('fa-paper-plane').addClass('fa-spinner');
+        
+        // Prepare payload
+        const payload = {
+            entries: state.queue.map(e => ({
+                type: e.type,
+                entryType: e.entryType || e.advisoryType,
+                data: e.data || null,
+                preview: e.preview || null,
+                orgs: e.orgs
+            })),
+            production: state.productionMode,
+            userCid: CONFIG.userCid
         };
         
-        if (templates[template] && elements.quickInput) {
-            elements.quickInput.value = templates[template];
-            elements.quickInput.focus();
-            elements.quickInput.select();
-        }
-    }
-    
-    /**
-     * Submit all NTML entries
-     */
-    async function submitAllNTML() {
-        if (isSubmitting || entryQueue.length === 0) return;
-        
-        if (selectedOrgs.length === 0) {
-            alert('Please select at least one Discord organization to post to.');
-            return;
-        }
-        
-        if (currentMode === 'production') {
-            if (!confirm('You are about to post to PRODUCTION Discord channels. Continue?')) {
-                return;
+        // Submit to API
+        $.ajax({
+            url: 'api/mgt/tmi/publish.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(response) {
+                submitBtn.removeClass('submitting').prop('disabled', false);
+                submitBtn.find('i').removeClass('fa-spinner').addClass('fa-paper-plane');
+                
+                if (response.success) {
+                    // Clear queue
+                    state.queue = [];
+                    updateUI();
+                    saveState();
+                    
+                    // Show results
+                    showSubmitResults(response);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Submit Failed',
+                        text: response.error || 'Unknown error'
+                    });
+                }
+            },
+            error: function(xhr) {
+                submitBtn.removeClass('submitting').prop('disabled', false);
+                submitBtn.find('i').removeClass('fa-spinner').addClass('fa-paper-plane');
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Submit Error',
+                    text: 'Failed to connect to server'
+                });
             }
-        }
-        
-        isSubmitting = true;
-        if (elements.submitAllBtn) {
-            elements.submitAllBtn.disabled = true;
-            elements.submitAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        }
-        
-        try {
-            const response = await fetch('/api/mgt/tmi/publish.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    entry_type: 'NTML_BATCH',
-                    entries: entryQueue,
-                    targets: {
-                        orgs: selectedOrgs,
-                        staging: currentMode === 'staging',
-                        production: currentMode === 'production'
-                    },
-                    source: 'PERTI',
-                    user_cid: config.userCID,
-                    user_name: config.userName
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showPublishResults(result.results);
-                entryQueue = [];
-                updateQueueDisplay();
-            } else {
-                alert('Error publishing entries: ' + (result.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('[TMIPublisher] Submit error:', error);
-            alert('Error submitting entries. See console for details.');
-        } finally {
-            isSubmitting = false;
-            if (elements.submitAllBtn) {
-                elements.submitAllBtn.disabled = false;
-                elements.submitAllBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit All to NTML';
-            }
-        }
-    }
-    
-    /**
-     * Show publish results
-     */
-    function showPublishResults(results) {
-        if (!elements.publishResults || !elements.publishResultsList) return;
-        
-        const html = Object.entries(results).map(([orgCode, orgResult]) => {
-            const isSuccess = orgResult.success;
-            const statusIcon = isSuccess ? 'fa-check-circle text-success' : 'fa-times-circle text-danger';
-            
-            return `
-                <div class="publish-result-item ${isSuccess ? 'success' : 'error'}">
-                    <span class="org-badge">${orgCode.toUpperCase()}</span>
-                    <i class="fas ${statusIcon} status-icon mr-2"></i>
-                    <span class="flex-grow-1">
-                        ${isSuccess ? 
-                            `Posted successfully` : 
-                            `Failed: ${orgResult.error || 'Unknown error'}`}
-                    </span>
-                    ${orgResult.message_url ? 
-                        `<a href="${orgResult.message_url}" target="_blank" class="message-link">
-                            <i class="fas fa-external-link-alt mr-1"></i>View
-                        </a>` : ''}
-                </div>
-            `;
-        }).join('');
-        
-        elements.publishResultsList.innerHTML = html;
-        elements.publishResults.style.display = 'block';
-        
-        // Auto-hide after 30 seconds
-        setTimeout(() => {
-            elements.publishResults.style.display = 'none';
-        }, 30000);
-    }
-    
-    /**
-     * Select advisory type
-     */
-    function selectAdvisoryType(type) {
-        elements.advisoryTypeCards.forEach(card => {
-            card.classList.toggle('selected', card.dataset.type === type);
-        });
-        
-        // Delegate to AdvisoryBuilder if available
-        if (typeof AdvisoryBuilder !== 'undefined' && AdvisoryBuilder.selectType) {
-            AdvisoryBuilder.selectType(type);
-        }
-    }
-    
-    /**
-     * Publish advisory
-     */
-    async function publishAdvisory() {
-        if (isSubmitting) return;
-        
-        if (selectedOrgs.length === 0) {
-            alert('Please select at least one Discord organization to post to.');
-            return;
-        }
-        
-        // Get advisory data from AdvisoryBuilder
-        let advisoryData = {};
-        if (typeof AdvisoryBuilder !== 'undefined' && AdvisoryBuilder.getData) {
-            advisoryData = AdvisoryBuilder.getData();
-        } else {
-            // Fallback: get from preview
-            advisoryData = {
-                content: elements.advisoryPreview ? elements.advisoryPreview.textContent : ''
-            };
-        }
-        
-        if (!advisoryData.content && !advisoryData.type) {
-            alert('Please complete the advisory form before publishing.');
-            return;
-        }
-        
-        if (currentMode === 'production') {
-            if (!confirm('You are about to post to PRODUCTION Discord channels. Continue?')) {
-                return;
-            }
-        }
-        
-        isSubmitting = true;
-        if (elements.publishAdvisoryBtn) {
-            elements.publishAdvisoryBtn.disabled = true;
-            elements.publishAdvisoryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
-        }
-        
-        try {
-            const response = await fetch('/api/mgt/tmi/publish.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    entry_type: 'ADVISORY',
-                    data: advisoryData,
-                    targets: {
-                        orgs: selectedOrgs,
-                        staging: currentMode === 'staging',
-                        production: currentMode === 'production'
-                    },
-                    source: 'PERTI',
-                    user_cid: config.userCID,
-                    user_name: config.userName
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showPublishResults(result.results);
-            } else {
-                alert('Error publishing advisory: ' + (result.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('[TMIPublisher] Advisory publish error:', error);
-            alert('Error publishing advisory. See console for details.');
-        } finally {
-            isSubmitting = false;
-            if (elements.publishAdvisoryBtn) {
-                elements.publishAdvisoryBtn.disabled = false;
-                elements.publishAdvisoryBtn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Publish Advisory';
-            }
-        }
-    }
-    
-    /**
-     * Copy advisory to clipboard
-     */
-    function copyAdvisoryToClipboard() {
-        if (!elements.advisoryPreview) return;
-        
-        const text = elements.advisoryPreview.textContent;
-        
-        navigator.clipboard.writeText(text).then(() => {
-            // Show feedback
-            const originalText = elements.copyBtn.innerHTML;
-            elements.copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Copied!';
-            setTimeout(() => {
-                elements.copyBtn.innerHTML = originalText;
-            }, 2000);
-        }).catch(err => {
-            console.error('Copy failed:', err);
-            alert('Failed to copy to clipboard');
         });
     }
     
-    /**
-     * Start UTC clock
-     */
-    function startClock() {
-        function updateClock() {
-            const now = new Date();
-            const utc = now.toISOString().substr(11, 8) + 'Z';
-            
-            if (elements.utcClock) {
-                elements.utcClock.textContent = utc;
-            }
-            
-            // Also update advisory builder clock if present
-            const advClock = document.getElementById('adv_utc_clock');
-            if (advClock) {
-                advClock.textContent = utc;
-            }
+    function showSubmitResults(response) {
+        let html = '<div class="text-left">';
+        
+        if (response.results) {
+            response.results.forEach((r, i) => {
+                const icon = r.success ? '✓' : '✗';
+                const color = r.success ? 'text-success' : 'text-danger';
+                html += `<div class="mb-2 ${color}">
+                    <strong>${icon}</strong> Entry ${i+1}: ${r.orgs?.join(', ') || 'Unknown'}
+                    ${r.error ? `<br><small class="text-muted">${r.error}</small>` : ''}
+                </div>`;
+            });
         }
         
-        updateClock();
-        setInterval(updateClock, 1000);
+        html += '</div>';
+        
+        $('#resultModalContent').html(html);
+        $('#resultModal').modal('show');
     }
     
-    /**
-     * Escape HTML
-     */
+    // ===========================================
+    // UI Updates
+    // ===========================================
+    
+    function updateUI() {
+        // Queue count
+        const count = state.queue.length;
+        $('#queueBadge').text(count);
+        $('#submitCount').text(count);
+        $('#submitAllBtn').prop('disabled', count === 0);
+        
+        // Update queue display if on queue tab
+        if ($('#queuePanel').hasClass('active')) {
+            updateQueueDisplay();
+        }
+        
+        // Target orgs display
+        updateTargetOrgsDisplay();
+        
+        // Mode indicator
+        updateModeIndicator();
+    }
+    
+    function updateTargetOrgsDisplay() {
+        const selectedOrgs = getSelectedOrgs('ntml');
+        $('#targetOrgsDisplay').text(selectedOrgs.map(code => {
+            return CONFIG.discordOrgs[code]?.name || code;
+        }).join(', ') || 'None selected');
+    }
+    
+    function getSelectedOrgs(source) {
+        const selector = source === 'advisory' ? '.discord-org-checkbox-adv:checked' : '.discord-org-checkbox:checked';
+        return $(selector).map(function() { return $(this).val(); }).get();
+    }
+    
+    // ===========================================
+    // State Persistence
+    // ===========================================
+    
+    function saveState() {
+        try {
+            localStorage.setItem('tmi_publisher_queue', JSON.stringify(state.queue));
+            localStorage.setItem('tmi_publisher_production', state.productionMode);
+        } catch (e) {
+            console.warn('Could not save state:', e);
+        }
+    }
+    
+    function loadSavedState() {
+        try {
+            const savedQueue = localStorage.getItem('tmi_publisher_queue');
+            if (savedQueue) {
+                state.queue = JSON.parse(savedQueue);
+            }
+            
+            const savedMode = localStorage.getItem('tmi_publisher_production');
+            if (savedMode === 'true') {
+                state.productionMode = true;
+                $('#productionMode').prop('checked', true);
+            }
+        } catch (e) {
+            console.warn('Could not load saved state:', e);
+        }
+    }
+    
+    // ===========================================
+    // Utilities
+    // ===========================================
+    
+    function generateId() {
+        return 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
     
+    // ===========================================
     // Public API
-    return {
-        init,
-        setMode,
-        removeFromQueue,
-        clearQueue,
-        getSelectedOrgs: () => selectedOrgs,
-        getCurrentMode: () => currentMode,
-        getEntryQueue: () => entryQueue
+    // ===========================================
+    
+    window.TMIPublisher = {
+        removeFromQueue: removeFromQueue,
+        previewEntry: previewEntry,
+        clearQueue: clearQueue
     };
     
+    // ===========================================
+    // Initialize
+    // ===========================================
+    
+    $(document).ready(init);
+    
 })();
-
-// Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', TMIPublisher.init);

@@ -621,17 +621,19 @@ foreach ($responses as $response) {
 - [ ] Run migration on VATSIM_TMI database
 - [ ] Test posting to vATCSCC backup/staging channels
 
-### Phase 2: Unified Publisher Page (Day 2)
-- [ ] Create tmi-publish.php combining ntml.php + advisory-builder.php
-- [ ] Implement tab-based entry type selection
-- [ ] Add Discord target checkboxes with org detection
-- [ ] Wire up existing ntml.js and advisory-builder.js
-- [ ] Add cross-border TMI detection
+### Phase 2: Unified Publisher Page (Day 2) ✅ COMPLETE
+- [x] Create tmi-publish.php combining ntml.php + advisory-builder.php
+- [x] Implement tab-based entry type selection
+- [x] Add Discord target checkboxes with org detection
+- [x] Create tmi-publish.js unified controller
+- [x] Create tmi-publish.css styles
+- [x] Add cross-border TMI detection (basic)
+- [ ] Wire up existing ntml.js parser (full integration)
 
-### Phase 3: Unified API Endpoint (Day 2-3)
-- [ ] Create api/mgt/tmi/publish.php
+### Phase 3: Unified API Endpoint (Day 2-3) 🟡 IN PROGRESS
+- [x] Create api/mgt/tmi/publish.php
 - [ ] Migrate logic from api/mgt/ntml/post.php
-- [ ] Add advisory publishing logic
+- [ ] Add advisory publishing logic (full)
 - [ ] Implement multi-Discord posting with tmi_discord_posts tracking
 - [ ] Create api/mgt/tmi/promote.php for staging→production
 
@@ -667,14 +669,14 @@ foreach ($responses as $response) {
 
 ```
 PERTI/
-├── tmi-publish.php                     # Phase 2: Unified publisher page
+├── tmi-publish.php                     # ✅ Phase 2: Unified publisher page
 ├── assets/
 │   ├── js/
-│   │   ├── tmi-publish.js              # Phase 2: Unified publisher JS
+│   │   ├── tmi-publish.js              # ✅ Phase 2: Unified publisher JS
 │   │   ├── ntml.js                     # Existing (refactor to module)
 │   │   └── advisory-builder.js         # Existing (refactor to module)
 │   └── css/
-│       └── tmi-publish.css             # Phase 2: Unified styles
+│       └── tmi-publish.css             # ✅ Phase 2: Unified styles
 ├── load/
 │   └── discord/
 │       ├── DiscordAPI.php              # Existing
@@ -685,7 +687,7 @@ PERTI/
 ├── api/
 │   ├── mgt/
 │   │   └── tmi/
-│   │       ├── publish.php             # Phase 3: Unified publish endpoint
+│   │       ├── publish.php             # ✅ Phase 3: Unified publish endpoint
 │   │       └── promote.php             # Phase 3: Staging→production promotion
 │   └── webhook/
 │       └── discord.php                 # Phase 4: Discord webhook handler
