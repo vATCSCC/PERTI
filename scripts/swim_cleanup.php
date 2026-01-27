@@ -34,6 +34,7 @@ function swim_cleanup_stale_data() {
 
     $stats = [
         'start_time' => microtime(true),
+        'flights_marked_inactive' => 0,
         'flights_deleted' => 0,
         'audit_deleted' => 0,
         'subscriptions_deleted' => 0,
@@ -48,6 +49,26 @@ function swim_cleanup_stale_data() {
     }
 
     try {
+        // ========================================================================
+        // 0. Mark flights inactive if not synced in the last 5 minutes
+        // This matches the ADL behavior (sp_Adl_RefreshFromVatsim uses 5 min threshold)
+        // Critical: delta sync only queries active flights from ADL,
+        // so it never sees flights that went inactive. We mark them here based on staleness.
+        // ========================================================================
+        $sql = "
+            UPDATE dbo.swim_flights
+            SET is_active = 0
+            WHERE is_active = 1
+              AND last_sync_utc < DATEADD(MINUTE, -5, GETUTCDATE())
+        ";
+        $result = @sqlsrv_query($conn_swim, $sql);
+        if ($result !== false) {
+            $stats['flights_marked_inactive'] = sqlsrv_rows_affected($result);
+            sqlsrv_free_stmt($result);
+        } else {
+            $stats['errors'][] = 'Failed to mark stale flights inactive: ' . swim_get_last_error();
+        }
+
         // ========================================================================
         // 1. Delete inactive flights older than 24 hours
         // ========================================================================
@@ -140,7 +161,8 @@ function swim_cleanup_stale_data() {
 
         $success = count($stats['errors']) === 0;
         $message = sprintf(
-            'Cleanup completed: %d flights, %d audit, %d subscriptions, %d cache deleted in %dms',
+            'Cleanup completed: %d flights marked inactive, %d flights deleted, %d audit, %d subscriptions, %d cache deleted in %dms',
+            $stats['flights_marked_inactive'],
             $stats['flights_deleted'],
             $stats['audit_deleted'],
             $stats['subscriptions_deleted'],

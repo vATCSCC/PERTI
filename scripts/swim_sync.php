@@ -42,6 +42,7 @@ function swim_sync_from_adl() {
         'inserted' => 0,
         'updated' => 0,
         'deleted' => 0,
+        'marked_inactive' => 0,
         'errors' => 0,
         'duration_ms' => 0,
         'mode' => 'delta'
@@ -91,13 +92,19 @@ function swim_sync_from_adl() {
         $stats['inserted'] = $result['inserted'] ?? 0;
         $stats['updated'] = $result['updated'] ?? 0;
         $stats['deleted'] = $result['deleted'] ?? 0;
+
+        // Step 5: Mark stale flights as inactive (5 min threshold, matches ADL)
+        // This is critical because delta sync only sees active flights from ADL
+        $stats['marked_inactive'] = swim_mark_stale_flights_inactive($conn_swim);
+
         $stats['duration_ms'] = round((microtime(true) - $stats['start_time']) * 1000);
 
         return [
             'success' => true,
             'message' => sprintf(
-                'Delta sync: %d changed, %d ins, %d upd in %dms',
-                $stats['flights_changed'], $stats['inserted'], $stats['updated'], $stats['duration_ms']
+                'Delta sync: %d changed, %d ins, %d upd, %d marked inactive in %dms',
+                $stats['flights_changed'], $stats['inserted'], $stats['updated'],
+                $stats['marked_inactive'], $stats['duration_ms']
             ),
             'stats' => $stats
         ];
@@ -139,6 +146,32 @@ function swim_get_last_sync_time($conn_swim) {
     }
 
     return (new DateTime($lastSync, new DateTimeZone('UTC')))->modify('-30 seconds');
+}
+
+/**
+ * Mark stale flights as inactive in SWIM_API
+ * Uses 5-minute threshold to match ADL behavior (sp_Adl_RefreshFromVatsim)
+ *
+ * @param resource $conn_swim SWIM_API connection
+ * @return int Number of flights marked inactive
+ */
+function swim_mark_stale_flights_inactive($conn_swim) {
+    $sql = "
+        UPDATE dbo.swim_flights
+        SET is_active = 0
+        WHERE is_active = 1
+          AND last_sync_utc < DATEADD(MINUTE, -5, GETUTCDATE())
+    ";
+
+    $result = @sqlsrv_query($conn_swim, $sql);
+    if ($result === false) {
+        error_log('Failed to mark stale flights inactive: ' . print_r(sqlsrv_errors(), true));
+        return 0;
+    }
+
+    $count = sqlsrv_rows_affected($result);
+    sqlsrv_free_stmt($result);
+    return $count;
 }
 
 /**
