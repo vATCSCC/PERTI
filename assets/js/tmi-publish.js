@@ -929,7 +929,7 @@
                     
                     <div class="alert alert-info small mb-3">
                         <i class="fas fa-info-circle"></i> 
-                        For standard configurations, see <a href="configs.php" target="_blank">Airport Configurations</a>
+                        For standard configurations, see <a href="airport_config.php" target="_blank">Airport Configurations</a>
                     </div>
                     
                     <hr>

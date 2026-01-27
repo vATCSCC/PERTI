@@ -36,7 +36,7 @@ PERTI (Plan, Execute, Review, Train, and Improve) is a comprehensive web-based t
 
 | Page | URL | Description |
 |------|-----|-------------|
-| **Airport Configs** | `/configs.php` | Runway configurations and rate management |
+| **Airport Configs** | `/airport_config.php` | Runway configurations and rate management |
 | **Airspace Elements** | `/airspace-elements.php` | Custom airspace element management |
 | **System Status** | `/status.php` | System health dashboard and diagnostics |
 

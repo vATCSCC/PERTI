@@ -15,7 +15,7 @@
  * 
  * @package PERTI
  * @subpackage API/TMI
- * @version 1.0.0
+ * @version 2.0.0
  * @date 2026-01-27
  */
 
@@ -116,17 +116,23 @@ try {
         }
     }
     
-    // Sort each category by valid_from or created_at
+    // Sort each category
     usort($results['active'], function($a, $b) {
-        return strtotime($b['valid_from'] ?? $b['created_at']) - strtotime($a['valid_from'] ?? $a['created_at']);
+        $timeA = strtotime($a['validFrom'] ?? $a['createdAt'] ?? '1970-01-01');
+        $timeB = strtotime($b['validFrom'] ?? $b['createdAt'] ?? '1970-01-01');
+        return $timeB - $timeA;
     });
     
     usort($results['scheduled'], function($a, $b) {
-        return strtotime($a['valid_from'] ?? $a['created_at']) - strtotime($b['valid_from'] ?? $b['created_at']);
+        $timeA = strtotime($a['validFrom'] ?? $a['createdAt'] ?? '2999-12-31');
+        $timeB = strtotime($b['validFrom'] ?? $b['createdAt'] ?? '2999-12-31');
+        return $timeA - $timeB;
     });
     
     usort($results['cancelled'], function($a, $b) {
-        return strtotime($b['cancelled_at'] ?? $b['updated_at']) - strtotime($a['cancelled_at'] ?? $a['updated_at']);
+        $timeA = strtotime($a['cancelledAt'] ?? $a['updatedAt'] ?? '1970-01-01');
+        $timeB = strtotime($b['cancelledAt'] ?? $b['updatedAt'] ?? '1970-01-01');
+        return $timeB - $timeA;
     });
     
 } catch (Exception $e) {
@@ -151,40 +157,71 @@ echo json_encode([
 // ===========================================
 
 /**
+ * Check if table exists
+ */
+function tableExists($conn, $tableName) {
+    try {
+        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '{$tableName}'");
+        return $check->fetch() ? true : false;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
+ * Format datetime for JSON output
+ */
+function formatDatetime($value) {
+    if ($value === null) return null;
+    if ($value instanceof DateTime) {
+        return $value->format('c');
+    }
+    if (is_string($value) && !empty($value)) {
+        $ts = strtotime($value);
+        if ($ts !== false) {
+            return gmdate('c', $ts);
+        }
+    }
+    return null;
+}
+
+/**
  * Get currently active NTML entries
  */
 function getActiveNtmlEntries($conn, $limit) {
-    // Check if tmi_entries table exists
-    try {
-        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_entries'");
-        if (!$check->fetch()) {
-            return [];
-        }
-    } catch (Exception $e) {
+    if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
     
     $sql = "SELECT TOP {$limit}
-                e.entry_id,
-                'ENTRY' as entity_type,
-                e.entry_type,
-                e.ctl_element,
-                e.requesting_facility,
-                e.providing_facility,
-                e.restriction_value,
-                e.reason_code,
-                e.exclusions,
-                e.valid_from,
-                e.valid_until,
-                e.raw_text,
-                e.status,
-                e.created_at,
-                e.created_by
-            FROM dbo.tmi_entries e
-            WHERE e.status IN ('ACTIVE', 'PUBLISHED')
-              AND (e.valid_until IS NULL OR e.valid_until > SYSUTCDATETIME())
-              AND (e.valid_from IS NULL OR e.valid_from <= SYSUTCDATETIME())
-            ORDER BY e.valid_from DESC";
+                entry_id,
+                entry_guid,
+                entry_type,
+                determinant_code,
+                ctl_element,
+                element_type,
+                requesting_facility,
+                providing_facility,
+                restriction_value,
+                restriction_unit,
+                condition_text,
+                qualifiers,
+                exclusions,
+                reason_code,
+                reason_detail,
+                valid_from,
+                valid_until,
+                raw_input,
+                status,
+                discord_message_id,
+                created_at,
+                created_by,
+                created_by_name
+            FROM dbo.tmi_entries
+            WHERE status IN ('ACTIVE', 'PUBLISHED')
+              AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())
+              AND (valid_from IS NULL OR valid_from <= SYSUTCDATETIME())
+            ORDER BY valid_from DESC";
     
     try {
         $stmt = $conn->prepare($sql);
@@ -204,35 +241,38 @@ function getActiveNtmlEntries($conn, $limit) {
  * Get scheduled (future) NTML entries
  */
 function getScheduledNtmlEntries($conn, $limit) {
-    try {
-        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_entries'");
-        if (!$check->fetch()) {
-            return [];
-        }
-    } catch (Exception $e) {
+    if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
     
     $sql = "SELECT TOP {$limit}
-                e.entry_id,
-                'ENTRY' as entity_type,
-                e.entry_type,
-                e.ctl_element,
-                e.requesting_facility,
-                e.providing_facility,
-                e.restriction_value,
-                e.reason_code,
-                e.exclusions,
-                e.valid_from,
-                e.valid_until,
-                e.raw_text,
-                e.status,
-                e.created_at,
-                e.created_by
-            FROM dbo.tmi_entries e
-            WHERE e.status IN ('SCHEDULED', 'STAGED', 'PUBLISHED')
-              AND e.valid_from > SYSUTCDATETIME()
-            ORDER BY e.valid_from ASC";
+                entry_id,
+                entry_guid,
+                entry_type,
+                determinant_code,
+                ctl_element,
+                element_type,
+                requesting_facility,
+                providing_facility,
+                restriction_value,
+                restriction_unit,
+                condition_text,
+                qualifiers,
+                exclusions,
+                reason_code,
+                reason_detail,
+                valid_from,
+                valid_until,
+                raw_input,
+                status,
+                discord_message_id,
+                created_at,
+                created_by,
+                created_by_name
+            FROM dbo.tmi_entries
+            WHERE status IN ('SCHEDULED', 'STAGED')
+              AND valid_from > SYSUTCDATETIME()
+            ORDER BY valid_from ASC";
     
     try {
         $stmt = $conn->prepare($sql);
@@ -252,36 +292,41 @@ function getScheduledNtmlEntries($conn, $limit) {
  * Get recently cancelled NTML entries
  */
 function getCancelledNtmlEntries($conn, $hours, $limit) {
-    try {
-        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_entries'");
-        if (!$check->fetch()) {
-            return [];
-        }
-    } catch (Exception $e) {
+    if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
     
     $sql = "SELECT TOP {$limit}
-                e.entry_id,
-                'ENTRY' as entity_type,
-                e.entry_type,
-                e.ctl_element,
-                e.requesting_facility,
-                e.providing_facility,
-                e.restriction_value,
-                e.reason_code,
-                e.exclusions,
-                e.valid_from,
-                e.valid_until,
-                e.raw_text,
-                e.status,
-                e.created_at,
-                e.updated_at as cancelled_at,
-                e.created_by
-            FROM dbo.tmi_entries e
-            WHERE e.status = 'CANCELLED'
-              AND e.updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
-            ORDER BY e.updated_at DESC";
+                entry_id,
+                entry_guid,
+                entry_type,
+                determinant_code,
+                ctl_element,
+                element_type,
+                requesting_facility,
+                providing_facility,
+                restriction_value,
+                restriction_unit,
+                condition_text,
+                qualifiers,
+                exclusions,
+                reason_code,
+                reason_detail,
+                valid_from,
+                valid_until,
+                raw_input,
+                status,
+                discord_message_id,
+                created_at,
+                updated_at,
+                cancelled_at,
+                cancel_reason,
+                created_by,
+                created_by_name
+            FROM dbo.tmi_entries
+            WHERE status = 'CANCELLED'
+              AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
+            ORDER BY updated_at DESC";
     
     try {
         $stmt = $conn->prepare($sql);
@@ -301,33 +346,34 @@ function getCancelledNtmlEntries($conn, $hours, $limit) {
  * Get currently active advisories
  */
 function getActiveAdvisories($conn, $limit) {
-    try {
-        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_advisories'");
-        if (!$check->fetch()) {
-            return [];
-        }
-    } catch (Exception $e) {
+    if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
     
     $sql = "SELECT TOP {$limit}
-                a.advisory_id,
-                'ADVISORY' as entity_type,
-                a.advisory_type,
-                a.advisory_number,
-                a.facility_code,
-                a.ctl_element,
-                a.valid_from,
-                a.valid_until,
-                a.content_text,
-                a.status,
-                a.created_at,
-                a.created_by
-            FROM dbo.tmi_advisories a
-            WHERE a.status IN ('ACTIVE', 'PUBLISHED')
-              AND (a.valid_until IS NULL OR a.valid_until > SYSUTCDATETIME())
-              AND (a.valid_from IS NULL OR a.valid_from <= SYSUTCDATETIME())
-            ORDER BY a.valid_from DESC";
+                advisory_id,
+                advisory_guid,
+                advisory_number,
+                advisory_type,
+                ctl_element,
+                element_type,
+                scope_facilities,
+                subject,
+                body_text,
+                reason_code,
+                reason_detail,
+                effective_from,
+                effective_until,
+                status,
+                discord_message_id,
+                created_at,
+                created_by,
+                created_by_name
+            FROM dbo.tmi_advisories
+            WHERE status IN ('ACTIVE', 'PUBLISHED')
+              AND (effective_until IS NULL OR effective_until > SYSUTCDATETIME())
+              AND (effective_from IS NULL OR effective_from <= SYSUTCDATETIME())
+            ORDER BY effective_from DESC";
     
     try {
         $stmt = $conn->prepare($sql);
@@ -347,32 +393,33 @@ function getActiveAdvisories($conn, $limit) {
  * Get scheduled advisories
  */
 function getScheduledAdvisories($conn, $limit) {
-    try {
-        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_advisories'");
-        if (!$check->fetch()) {
-            return [];
-        }
-    } catch (Exception $e) {
+    if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
     
     $sql = "SELECT TOP {$limit}
-                a.advisory_id,
-                'ADVISORY' as entity_type,
-                a.advisory_type,
-                a.advisory_number,
-                a.facility_code,
-                a.ctl_element,
-                a.valid_from,
-                a.valid_until,
-                a.content_text,
-                a.status,
-                a.created_at,
-                a.created_by
-            FROM dbo.tmi_advisories a
-            WHERE a.status IN ('SCHEDULED', 'STAGED', 'PUBLISHED')
-              AND a.valid_from > SYSUTCDATETIME()
-            ORDER BY a.valid_from ASC";
+                advisory_id,
+                advisory_guid,
+                advisory_number,
+                advisory_type,
+                ctl_element,
+                element_type,
+                scope_facilities,
+                subject,
+                body_text,
+                reason_code,
+                reason_detail,
+                effective_from,
+                effective_until,
+                status,
+                discord_message_id,
+                created_at,
+                created_by,
+                created_by_name
+            FROM dbo.tmi_advisories
+            WHERE status IN ('SCHEDULED', 'STAGED')
+              AND effective_from > SYSUTCDATETIME()
+            ORDER BY effective_from ASC";
     
     try {
         $stmt = $conn->prepare($sql);
@@ -392,33 +439,36 @@ function getScheduledAdvisories($conn, $limit) {
  * Get recently cancelled advisories
  */
 function getCancelledAdvisories($conn, $hours, $limit) {
-    try {
-        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_advisories'");
-        if (!$check->fetch()) {
-            return [];
-        }
-    } catch (Exception $e) {
+    if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
     
     $sql = "SELECT TOP {$limit}
-                a.advisory_id,
-                'ADVISORY' as entity_type,
-                a.advisory_type,
-                a.advisory_number,
-                a.facility_code,
-                a.ctl_element,
-                a.valid_from,
-                a.valid_until,
-                a.content_text,
-                a.status,
-                a.created_at,
-                a.updated_at as cancelled_at,
-                a.created_by
-            FROM dbo.tmi_advisories a
-            WHERE a.status = 'CANCELLED'
-              AND a.updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
-            ORDER BY a.updated_at DESC";
+                advisory_id,
+                advisory_guid,
+                advisory_number,
+                advisory_type,
+                ctl_element,
+                element_type,
+                scope_facilities,
+                subject,
+                body_text,
+                reason_code,
+                reason_detail,
+                effective_from,
+                effective_until,
+                status,
+                discord_message_id,
+                created_at,
+                updated_at,
+                cancelled_at,
+                cancel_reason,
+                created_by,
+                created_by_name
+            FROM dbo.tmi_advisories
+            WHERE status = 'CANCELLED'
+              AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
+            ORDER BY updated_at DESC";
     
     try {
         $stmt = $conn->prepare($sql);
@@ -440,23 +490,34 @@ function getCancelledAdvisories($conn, $hours, $limit) {
 function formatNtmlEntry($row) {
     return [
         'entityType' => 'ENTRY',
-        'entityId' => intval($row['entry_id']),
+        'entityId' => intval($row['entry_id'] ?? 0),
+        'guid' => $row['entry_guid'] ?? null,
         'type' => 'ntml',
-        'entryType' => $row['entry_type'],
+        'entryType' => $row['entry_type'] ?? 'UNKNOWN',
+        'determinantCode' => $row['determinant_code'] ?? null,
         'summary' => buildNtmlSummary($row),
-        'ctlElement' => $row['ctl_element'],
-        'requestingFacility' => $row['requesting_facility'],
-        'providingFacility' => $row['providing_facility'],
-        'restrictionValue' => $row['restriction_value'],
-        'reasonCode' => $row['reason_code'],
-        'exclusions' => $row['exclusions'],
-        'validFrom' => $row['valid_from'],
-        'validUntil' => $row['valid_until'],
-        'rawText' => $row['raw_text'],
-        'status' => $row['status'],
-        'createdAt' => $row['created_at'],
-        'cancelledAt' => $row['cancelled_at'] ?? null,
-        'createdBy' => $row['created_by']
+        'ctlElement' => $row['ctl_element'] ?? null,
+        'elementType' => $row['element_type'] ?? null,
+        'requestingFacility' => $row['requesting_facility'] ?? null,
+        'providingFacility' => $row['providing_facility'] ?? null,
+        'restrictionValue' => $row['restriction_value'] ?? null,
+        'restrictionUnit' => $row['restriction_unit'] ?? null,
+        'conditionText' => $row['condition_text'] ?? null,
+        'qualifiers' => $row['qualifiers'] ?? null,
+        'exclusions' => $row['exclusions'] ?? null,
+        'reasonCode' => $row['reason_code'] ?? null,
+        'reasonDetail' => $row['reason_detail'] ?? null,
+        'validFrom' => formatDatetime($row['valid_from'] ?? null),
+        'validUntil' => formatDatetime($row['valid_until'] ?? null),
+        'rawText' => $row['raw_input'] ?? null,
+        'status' => $row['status'] ?? 'UNKNOWN',
+        'discordMessageId' => $row['discord_message_id'] ?? null,
+        'createdAt' => formatDatetime($row['created_at'] ?? null),
+        'updatedAt' => formatDatetime($row['updated_at'] ?? null),
+        'cancelledAt' => formatDatetime($row['cancelled_at'] ?? null),
+        'cancelReason' => $row['cancel_reason'] ?? null,
+        'createdBy' => $row['created_by'] ?? null,
+        'createdByName' => $row['created_by_name'] ?? null
     ];
 }
 
@@ -466,20 +527,29 @@ function formatNtmlEntry($row) {
 function formatAdvisory($row) {
     return [
         'entityType' => 'ADVISORY',
-        'entityId' => intval($row['advisory_id']),
+        'entityId' => intval($row['advisory_id'] ?? 0),
+        'guid' => $row['advisory_guid'] ?? null,
         'type' => 'advisory',
-        'entryType' => $row['advisory_type'],
+        'entryType' => $row['advisory_type'] ?? 'UNKNOWN',
+        'advisoryNumber' => $row['advisory_number'] ?? null,
         'summary' => buildAdvisorySummary($row),
-        'advisoryNumber' => $row['advisory_number'],
-        'facilityCode' => $row['facility_code'],
-        'ctlElement' => $row['ctl_element'],
-        'validFrom' => $row['valid_from'],
-        'validUntil' => $row['valid_until'],
-        'contentText' => $row['content_text'],
-        'status' => $row['status'],
-        'createdAt' => $row['created_at'],
-        'cancelledAt' => $row['cancelled_at'] ?? null,
-        'createdBy' => $row['created_by']
+        'ctlElement' => $row['ctl_element'] ?? null,
+        'elementType' => $row['element_type'] ?? null,
+        'scopeFacilities' => $row['scope_facilities'] ?? null,
+        'subject' => $row['subject'] ?? null,
+        'bodyText' => $row['body_text'] ?? null,
+        'reasonCode' => $row['reason_code'] ?? null,
+        'reasonDetail' => $row['reason_detail'] ?? null,
+        'validFrom' => formatDatetime($row['effective_from'] ?? null),
+        'validUntil' => formatDatetime($row['effective_until'] ?? null),
+        'status' => $row['status'] ?? 'UNKNOWN',
+        'discordMessageId' => $row['discord_message_id'] ?? null,
+        'createdAt' => formatDatetime($row['created_at'] ?? null),
+        'updatedAt' => formatDatetime($row['updated_at'] ?? null),
+        'cancelledAt' => formatDatetime($row['cancelled_at'] ?? null),
+        'cancelReason' => $row['cancel_reason'] ?? null,
+        'createdBy' => $row['created_by'] ?? null,
+        'createdByName' => $row['created_by_name'] ?? null
     ];
 }
 
@@ -489,24 +559,41 @@ function formatAdvisory($row) {
 function buildNtmlSummary($row) {
     $parts = [];
     
-    if (!empty($row['entry_type'])) {
-        $parts[] = $row['entry_type'];
+    $entryType = $row['entry_type'] ?? '';
+    if (!empty($entryType)) {
+        $parts[] = $entryType;
     }
     
-    if (!empty($row['restriction_value'])) {
-        $parts[] = $row['restriction_value'];
+    $value = $row['restriction_value'] ?? '';
+    $unit = $row['restriction_unit'] ?? '';
+    if (!empty($value)) {
+        $parts[] = $value . ($unit === 'NM' ? 'MIT' : ($unit === 'MIN' ? 'MINIT' : ''));
     }
     
-    if (!empty($row['ctl_element'])) {
-        $parts[] = $row['ctl_element'];
+    $element = $row['ctl_element'] ?? '';
+    if (!empty($element)) {
+        $parts[] = $element;
     }
     
-    if (!empty($row['requesting_facility']) && !empty($row['providing_facility'])) {
-        $parts[] = $row['requesting_facility'] . '→' . $row['providing_facility'];
+    $via = $row['condition_text'] ?? '';
+    if (!empty($via)) {
+        $parts[] = 'via ' . $via;
     }
     
-    if (!empty($row['reason_code'])) {
-        $parts[] = $row['reason_code'];
+    $reqFac = $row['requesting_facility'] ?? '';
+    $provFac = $row['providing_facility'] ?? '';
+    if (!empty($reqFac) && !empty($provFac)) {
+        $parts[] = $reqFac . ':' . $provFac;
+    }
+    
+    $reason = $row['reason_code'] ?? '';
+    $detail = $row['reason_detail'] ?? '';
+    if (!empty($reason)) {
+        $reasonStr = $reason;
+        if (!empty($detail) && $detail !== $reason) {
+            $reasonStr .= ':' . $detail;
+        }
+        $parts[] = $reasonStr;
     }
     
     return implode(' ', $parts) ?: 'NTML Entry';
@@ -518,20 +605,24 @@ function buildNtmlSummary($row) {
 function buildAdvisorySummary($row) {
     $parts = [];
     
-    if (!empty($row['advisory_type'])) {
-        $parts[] = $row['advisory_type'];
+    $advType = $row['advisory_type'] ?? '';
+    if (!empty($advType)) {
+        $parts[] = $advType;
     }
     
-    if (!empty($row['advisory_number'])) {
-        $parts[] = '#' . $row['advisory_number'];
+    $advNum = $row['advisory_number'] ?? '';
+    if (!empty($advNum)) {
+        $parts[] = '#' . $advNum;
     }
     
-    if (!empty($row['ctl_element'])) {
-        $parts[] = $row['ctl_element'];
+    $subject = $row['subject'] ?? '';
+    if (!empty($subject) && strlen($subject) <= 40) {
+        $parts[] = $subject;
     }
     
-    if (!empty($row['facility_code'])) {
-        $parts[] = $row['facility_code'];
+    $element = $row['ctl_element'] ?? '';
+    if (!empty($element)) {
+        $parts[] = $element;
     }
     
     return implode(' ', $parts) ?: 'Advisory';
