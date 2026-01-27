@@ -67,7 +67,7 @@ if (-not $SkipFixes) {
     if (Test-Path $fixFile) {
         Write-Host "Parsing earth_fix.dat..." -ForegroundColor Yellow
 
-        $fixes = @()
+        $fixes = [System.Collections.Generic.List[PSCustomObject]]::new()
         $lineNum = 0
         $dataStarted = $false
 
@@ -88,14 +88,14 @@ if (-not $SkipFixes) {
 
                 # Validate coordinates
                 if ([Math]::Abs($lat) -le 90 -and [Math]::Abs($lon) -le 180) {
-                    $fixes += [PSCustomObject]@{
+                    $fixes.Add([PSCustomObject]@{
                         fix_name = $name
                         fix_type = "WAYPOINT"
                         lat = $lat
                         lon = $lon
                         country_code = $region
                         source = "XPLANE"
-                    }
+                    })
                 }
             }
 
@@ -126,7 +126,7 @@ if (-not $SkipNavaids) {
     if (Test-Path $navFile) {
         Write-Host "Parsing earth_nav.dat..." -ForegroundColor Yellow
 
-        $navaids = @()
+        $navaids = [System.Collections.Generic.List[PSCustomObject]]::new()
         $lineNum = 0
 
         # Navaid type codes
@@ -167,7 +167,7 @@ if (-not $SkipNavaids) {
                     # Convert frequency (stored as integer, needs decimal)
                     $freqMhz = if ($navType -eq "NDB") { $freq / 10.0 } else { $freq / 100.0 }
 
-                    $navaids += [PSCustomObject]@{
+                    $navaids.Add([PSCustomObject]@{
                         fix_name = $id
                         fix_type = $navType
                         lat = $lat
@@ -176,7 +176,7 @@ if (-not $SkipNavaids) {
                         freq_mhz = $freqMhz
                         mag_var = $magVar
                         source = "XPLANE"
-                    }
+                    })
                 }
             }
 
@@ -199,7 +199,7 @@ if (-not $SkipNavaids) {
 }
 
 # ============================================================================
-# Parse earth_awy.dat - Airways
+# Parse earth_awy.dat - Airways (XP1100 format)
 # ============================================================================
 if (-not $SkipAirways) {
     $awyFile = Join-Path $DataPath "earth_awy.dat"
@@ -212,42 +212,42 @@ if (-not $SkipAirways) {
 
         Get-Content $awyFile -Encoding UTF8 | ForEach-Object {
             $lineNum++
-            $line = $_.Trim()
+            $line = $_
 
-            # Format: from_fix from_lat from_lon to_fix to_lat to_lon dir_code min_alt max_alt airway_name
-            # Example: KSFO 37.619 -122.375 KSFO 37.619 -122.375 2 180 18000 J1
-            if ($line -match '^(\w+)\s+([\d\-]+\.\d+)\s+([\d\-]+\.\d+)\s+(\w+)\s+([\d\-]+\.\d+)\s+([\d\-]+\.\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\w+)') {
-                $fromFix = $Matches[1].ToUpper()
-                $fromLat = [decimal]$Matches[2]
-                $fromLon = [decimal]$Matches[3]
-                $toFix = $Matches[4].ToUpper()
-                $toLat = [decimal]$Matches[5]
-                $toLon = [decimal]$Matches[6]
-                $dirCode = [int]$Matches[7]  # 1=forward, 2=both
-                $minAlt = [int]$Matches[8]
-                $maxAlt = [int]$Matches[9]
-                $airwayName = $Matches[10].ToUpper()
+            # XP1100 Format: FROM_FIX FROM_REGION FROM_TYPE TO_FIX TO_REGION TO_TYPE DIR DIR_CODE MIN_ALT MAX_ALT AIRWAY
+            # Example: 07EBA DT 11 GILEX DT 11 N 1  95 245 G869
+            # Altitudes are in flight levels (multiply by 100 for feet)
+            if ($line -match '^\s*(\S+)\s+(\S+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+([NFBE])\s+(\d+)\s+(\d+)\s+(\d+)\s+(.+)$') {
+                $fromFix = $Matches[1].ToUpper().Trim()
+                $fromRegion = $Matches[2].Trim()
+                $toFix = $Matches[4].ToUpper().Trim()
+                $toRegion = $Matches[5].Trim()
+                $minAltFL = [int]$Matches[9]
+                $maxAltFL = [int]$Matches[10]
+                $airwayName = $Matches[11].Trim().ToUpper()
+
+                # Convert flight levels to feet (FL095 = 9500 ft)
+                $minAlt = $minAltFL * 100
+                $maxAlt = $maxAltFL * 100
 
                 # Add segment to airway
                 if (-not $airwaySegments.ContainsKey($airwayName)) {
                     $airwaySegments[$airwayName] = @{
-                        Segments = @()
+                        Segments = [System.Collections.Generic.List[PSCustomObject]]::new()
                         Fixes = [System.Collections.Generic.HashSet[string]]::new()
                         MinAlt = $minAlt
                         MaxAlt = $maxAlt
                     }
                 }
 
-                $airwaySegments[$airwayName].Segments += [PSCustomObject]@{
+                $airwaySegments[$airwayName].Segments.Add([PSCustomObject]@{
                     from_fix = $fromFix
-                    from_lat = $fromLat
-                    from_lon = $fromLon
+                    from_region = $fromRegion
                     to_fix = $toFix
-                    to_lat = $toLat
-                    to_lon = $toLon
+                    to_region = $toRegion
                     min_alt_ft = $minAlt
                     max_alt_ft = $maxAlt
-                }
+                })
 
                 [void]$airwaySegments[$airwayName].Fixes.Add($fromFix)
                 [void]$airwaySegments[$airwayName].Fixes.Add($toFix)
@@ -270,7 +270,7 @@ if (-not $SkipAirways) {
 
         # Build ordered fix sequences for each airway
         Write-Host "  Building fix sequences..." -ForegroundColor Yellow
-        $airways = @()
+        $airways = [System.Collections.Generic.List[PSCustomObject]]::new()
 
         foreach ($name in $airwaySegments.Keys) {
             $awy = $airwaySegments[$name]
@@ -332,7 +332,7 @@ if (-not $SkipAirways) {
                 default { "OTHER" }
             }
 
-            $airways += [PSCustomObject]@{
+            $airways.Add([PSCustomObject]@{
                 airway_name = $name
                 airway_type = $airwayType
                 fix_sequence = $fixSequence
@@ -342,7 +342,7 @@ if (-not $SkipAirways) {
                 min_alt_ft = $awy.MinAlt
                 max_alt_ft = $awy.MaxAlt
                 source = "XPLANE"
-            }
+            })
         }
 
         # Export airways to CSV
@@ -351,20 +351,18 @@ if (-not $SkipAirways) {
         Write-Host "  Exported $($airways.Count) airways to $awyCsv" -ForegroundColor Green
 
         # Export segments to CSV
-        $allSegments = @()
-        foreach ($name in $airwaySegments.Keys) {
-            foreach ($seg in $airwaySegments[$name].Segments) {
-                $allSegments += [PSCustomObject]@{
-                    airway_name = $name
+        $allSegments = [System.Collections.Generic.List[PSCustomObject]]::new()
+        foreach ($awyName in $airwaySegments.Keys) {
+            foreach ($seg in $airwaySegments[$awyName].Segments) {
+                $allSegments.Add([PSCustomObject]@{
+                    airway_name = $awyName
                     from_fix = $seg.from_fix
-                    from_lat = $seg.from_lat
-                    from_lon = $seg.from_lon
+                    from_region = $seg.from_region
                     to_fix = $seg.to_fix
-                    to_lat = $seg.to_lat
-                    to_lon = $seg.to_lon
+                    to_region = $seg.to_region
                     min_alt_ft = $seg.min_alt_ft
                     max_alt_ft = $seg.max_alt_ft
-                }
+                })
             }
         }
 

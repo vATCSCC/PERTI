@@ -741,10 +741,26 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <?php include('load/footer.php'); ?>
 
 <!-- Config for JS -->
+<?php
+// Get user operating initials if available (from user table or session)
+$userOI = null;
+if (isset($row) && !empty($row['operating_initials'])) {
+    $userOI = strtoupper($row['operating_initials']);
+} elseif (!empty($userName)) {
+    // Extract initials from name (first letter of first and last word)
+    $nameParts = preg_split('/\s+/', trim($userName));
+    if (count($nameParts) >= 2) {
+        $userOI = strtoupper(substr($nameParts[0], 0, 1) . substr($nameParts[count($nameParts) - 1], 0, 1));
+    } else {
+        $userOI = strtoupper(substr($userName, 0, 2));
+    }
+}
+?>
 <script>
 window.TMI_PUBLISHER_CONFIG = {
     userCid: <?= json_encode($userCid) ?>,
     userName: <?= json_encode($userName) ?>,
+    userOI: <?= json_encode($userOI) ?>,
     userPrivileged: <?= json_encode($userPrivileged) ?>,
     userHomeOrg: <?= json_encode($userHomeOrg) ?>,
     discordOrgs: <?= json_encode($discordOrgs) ?>,
@@ -754,6 +770,17 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.1"></script>
+<script src="assets/js/tmi-publish.js?v=1.5.0"></script>
+<script>
+// Clear potentially corrupted localStorage data on version upgrade
+(function() {
+    var lastVersion = localStorage.getItem('tmi_publisher_version');
+    if (lastVersion !== '1.5.0') {
+        localStorage.removeItem('tmi_publisher_queue');
+        localStorage.setItem('tmi_publisher_version', '1.5.0');
+        console.log('TMI Publisher: Cleared old queue data for version upgrade');
+    }
+})();
+</script>
 </body>
 </html>

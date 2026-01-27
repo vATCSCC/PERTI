@@ -5,8 +5,8 @@
 
 param(
     [string]$CsvPath = ".\nav_import",
-    [string]$Server = "perti.database.windows.net",
-    [string]$Database = "perti",
+    [string]$Server = "vatsim.database.windows.net",
+    [string]$Database = "VATSIM_ADL",
     [string]$Username,
     [string]$Password,
     [switch]$SkipFixes,
@@ -100,30 +100,24 @@ if (-not $SkipFixes) {
         [void]$dt.Columns.Add("country_code", [string])
         [void]$dt.Columns.Add("source", [string])
 
-        # Read CSV and populate DataTable
-        $reader = [System.IO.StreamReader]::new($fixCsv, [System.Text.Encoding]::UTF8)
-        $header = $reader.ReadLine()  # Skip header
+        # Use Import-Csv to handle quoted fields properly
+        $fixes = Import-Csv $fixCsv
         $count = 0
+        foreach ($fix in $fixes) {
+            $row = $dt.NewRow()
+            $row["fix_name"] = $fix.fix_name
+            $row["fix_type"] = $fix.fix_type
+            $row["lat"] = [decimal]$fix.lat
+            $row["lon"] = [decimal]$fix.lon
+            $row["country_code"] = $fix.country_code
+            $row["source"] = "XPLANE"
+            $dt.Rows.Add($row)
+            $count++
 
-        while ($null -ne ($line = $reader.ReadLine())) {
-            # Parse CSV line (handle quoted fields)
-            if ($line -match '^"([^"]*)",?"([^"]*)",?([^,]*),([^,]*),?"([^"]*)",?"([^"]*)"?$') {
-                $row = $dt.NewRow()
-                $row["fix_name"] = $Matches[1]
-                $row["fix_type"] = $Matches[2]
-                $row["lat"] = [decimal]$Matches[3]
-                $row["lon"] = [decimal]$Matches[4]
-                $row["country_code"] = $Matches[5]
-                $row["source"] = "XPLANE"
-                $dt.Rows.Add($row)
-                $count++
-
-                if ($count % 50000 -eq 0) {
-                    Write-Host "  Loaded $count fixes..." -ForegroundColor Gray
-                }
+            if ($count % 50000 -eq 0) {
+                Write-Host "  Loaded $count fixes..." -ForegroundColor Gray
             }
         }
-        $reader.Close()
 
         Write-Host "  Loaded $count fixes, bulk inserting..." -ForegroundColor Gray
 
@@ -169,26 +163,22 @@ if (-not $SkipNavaids) {
         [void]$dt.Columns.Add("mag_var", [object])
         [void]$dt.Columns.Add("source", [string])
 
-        $reader = [System.IO.StreamReader]::new($navCsv, [System.Text.Encoding]::UTF8)
-        $header = $reader.ReadLine()
+        # Use Import-Csv to handle quoted fields properly
+        $navaids = Import-Csv $navCsv
         $count = 0
-
-        while ($null -ne ($line = $reader.ReadLine())) {
-            if ($line -match '^"([^"]*)",?"([^"]*)",?([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),?"([^"]*)"?$') {
-                $row = $dt.NewRow()
-                $row["fix_name"] = $Matches[1]
-                $row["fix_type"] = $Matches[2]
-                $row["lat"] = [decimal]$Matches[3]
-                $row["lon"] = [decimal]$Matches[4]
-                $row["elevation_ft"] = if ($Matches[5]) { [int]$Matches[5] } else { [DBNull]::Value }
-                $row["freq_mhz"] = if ($Matches[6]) { [decimal]$Matches[6] } else { [DBNull]::Value }
-                $row["mag_var"] = if ($Matches[7]) { [decimal]$Matches[7] } else { [DBNull]::Value }
-                $row["source"] = "XPLANE"
-                $dt.Rows.Add($row)
-                $count++
-            }
+        foreach ($nav in $navaids) {
+            $row = $dt.NewRow()
+            $row["fix_name"] = $nav.fix_name
+            $row["fix_type"] = $nav.fix_type
+            $row["lat"] = [decimal]$nav.lat
+            $row["lon"] = [decimal]$nav.lon
+            $row["elevation_ft"] = if ($nav.elevation_ft) { [int]$nav.elevation_ft } else { [DBNull]::Value }
+            $row["freq_mhz"] = if ($nav.freq_mhz) { [decimal]$nav.freq_mhz } else { [DBNull]::Value }
+            $row["mag_var"] = if ($nav.mag_var) { [decimal]$nav.mag_var } else { [DBNull]::Value }
+            $row["source"] = "XPLANE"
+            $dt.Rows.Add($row)
+            $count++
         }
-        $reader.Close()
 
         Write-Host "  Loaded $count navaids, bulk inserting..." -ForegroundColor Gray
 
@@ -238,21 +228,32 @@ if (-not $SkipAirways) {
 
         # Use Import-Csv for airways since fix_sequence can have commas
         $airways = Import-Csv $awyCsv
+        $skipped = 0
         foreach ($awy in $airways) {
+            # Skip rows with empty required fields
+            if ([string]::IsNullOrWhiteSpace($awy.airway_name) -or [string]::IsNullOrWhiteSpace($awy.fix_sequence)) {
+                $skipped++
+                continue
+            }
+
             $row = $dt.NewRow()
-            $row["airway_name"] = $awy.airway_name
-            $row["airway_type"] = $awy.airway_type
+            # Truncate strings to fit column sizes
+            $row["airway_name"] = $awy.airway_name.Substring(0, [Math]::Min(16, $awy.airway_name.Length))
+            $row["airway_type"] = if ($awy.airway_type) { $awy.airway_type.Substring(0, [Math]::Min(16, $awy.airway_type.Length)) } else { "OTHER" }
             $row["fix_sequence"] = $awy.fix_sequence
-            $row["fix_count"] = [int]$awy.fix_count
-            $row["start_fix"] = $awy.start_fix
-            $row["end_fix"] = $awy.end_fix
-            $row["min_alt_ft"] = [int]$awy.min_alt_ft
-            $row["max_alt_ft"] = [int]$awy.max_alt_ft
+            $row["fix_count"] = if ($awy.fix_count) { [int]$awy.fix_count } else { 0 }
+            $row["start_fix"] = if ($awy.start_fix) { $awy.start_fix.Substring(0, [Math]::Min(16, $awy.start_fix.Length)) } else { "" }
+            $row["end_fix"] = if ($awy.end_fix) { $awy.end_fix.Substring(0, [Math]::Min(16, $awy.end_fix.Length)) } else { "" }
+            $row["min_alt_ft"] = if ($awy.min_alt_ft) { [int]$awy.min_alt_ft } else { 0 }
+            $row["max_alt_ft"] = if ($awy.max_alt_ft) { [int]$awy.max_alt_ft } else { 99999 }
             $row["source"] = "XPLANE"
             $dt.Rows.Add($row)
         }
 
         $count = $dt.Rows.Count
+        if ($skipped -gt 0) {
+            Write-Host "  Skipped $skipped invalid rows" -ForegroundColor Yellow
+        }
         Write-Host "  Loaded $count airways, bulk inserting..." -ForegroundColor Gray
 
         $bulk = New-Object System.Data.SqlClient.SqlBulkCopy($conn)

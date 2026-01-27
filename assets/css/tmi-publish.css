@@ -409,3 +409,51 @@ input.form-control::placeholder {
     color: #0a58ca;
     font-weight: 500;
 }
+
+/* ===========================================
+   Qualifier Buttons
+   =========================================== */
+.qualifier-btn {
+    border-radius: 20px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.qualifier-btn:hover {
+    transform: translateY(-1px);
+}
+
+.qualifier-btn.active {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+    color: #fff !important;
+}
+
+.qualifier-btn:not(.active):hover {
+    background-color: #e9ecef;
+}
+
+/* Gap utility for flexbox */
+.gap-2 {
+    gap: 0.5rem;
+}
+
+/* ===========================================
+   Time Input Styling
+   =========================================== */
+input[type="time"] {
+    font-family: 'Inconsolata', 'Consolas', monospace;
+}
+
+/* ===========================================
+   XS Button Size
+   =========================================== */
+.btn-xs {
+    padding: 0.1rem 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
