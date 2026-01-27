@@ -742,8 +742,9 @@ PERTI/
 ## 13. Change Log
 
 | Version | Date | Changes |
-|---------|------|---------|
+|---------|------|---------||
 | 1.0 | 2026-01-27 | Initial design document |
+| 1.1 | 2026-01-27 | v1.6.0: Hotline Activation boilerplate, Category:Cause reasons per OPSNET, NTML Zapier format alignment |
 
 ---
 

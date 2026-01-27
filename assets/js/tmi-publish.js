@@ -8,8 +8,23 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.5.0
+ * @version 1.6.0
  * @date 2026-01-27
+ * 
+ * v1.6.0 Changes:
+ *   - Added Hotline Activation boilerplate with full field support
+ *   - Added 68-character line wrapping utility for FAA-standard formatting
+ *   - Enhanced Hotline form with location, PIN, participation fields
+ *   - Updated NTML format to match Zapier/TypeForm output exactly:
+ *     - MIT/MINIT: {time}    {element} via {fix} {value}{type} {spacing} EXCL:{excl} {category}:{cause} {valid} {req}:{prov}
+ *     - CONFIG:   {time}    {airport}    {weather}    ARR:{arr} DEP:{dep}    AAR(type):{aar} ADR:{adr}
+ *   - Added EXCL: (exclusions) field to MIT/MINIT/STOP forms
+ *   - Added Category/Cause reason selector (per OPSNET/ASPM):
+ *     - Categories: Volume, Weather, Runway, Equipment, Other
+ *     - Causes: Compacted Demand, Thunderstorms, Low Ceilings, Fog, etc.
+ *   - Updated spacing qualifiers: AS ONE, PER STREAM, PER AIRPORT, PER FIX, EACH
+ *   - Removed determinant codes (to be implemented later with lookup table)
+ *   - Fixed uppercase enforcement for all facility/runway/fix inputs
  */
 
 (function() {
@@ -50,8 +65,16 @@
     // Cross-border facilities
     const CROSS_BORDER_FACILITIES = ['ZBW', 'ZMP', 'ZSE', 'ZLC', 'ZOB', 'CZYZ', 'CZWG', 'CZVR', 'CZEG'];
     
-    // Extended NTML Qualifiers - expanded per FAA TFMS/FSM specs
+    // Extended NTML Qualifiers - matching Zapier/TypeForm output
     const NTML_QUALIFIERS = {
+        // Spacing Method (appears after MIT value)
+        spacing: [
+            { code: 'AS ONE', label: 'AS ONE', desc: 'Combined traffic as one stream' },
+            { code: 'PER STREAM', label: 'PER STREAM', desc: 'Spacing per traffic stream' },
+            { code: 'PER AIRPORT', label: 'PER AIRPORT', desc: 'Spacing per departure airport' },
+            { code: 'PER FIX', label: 'PER FIX', desc: 'Spacing per arrival fix' },
+            { code: 'EACH', label: 'EACH', desc: 'Each aircraft separately' }
+        ],
         // Aircraft Type
         aircraft: [
             { code: 'JET', label: 'JET', desc: 'Jet aircraft only' },
@@ -66,16 +89,10 @@
             { code: 'SMALL', label: 'SMALL', desc: 'Small aircraft (<41,000 lbs)' },
             { code: 'SUPER', label: 'SUPER', desc: 'Superheavy aircraft (A380, AN-225)' }
         ],
-        // Spacing Method
-        spacing: [
-            { code: 'PER_FIX', label: 'PER FIX', desc: 'Spacing per arrival fix' },
-            { code: 'AS_ONE', label: 'AS ONE', desc: 'Combined traffic as one stream' },
-            { code: 'EACH', label: 'EACH', desc: 'Each aircraft separately' }
-        ],
         // Equipment/Capability
         equipment: [
             { code: 'RNAV', label: 'RNAV', desc: 'RNAV-equipped aircraft only' },
-            { code: 'NON_RNAV', label: 'NON-RNAV', desc: 'Non-RNAV aircraft only' },
+            { code: 'NON-RNAV', label: 'NON-RNAV', desc: 'Non-RNAV aircraft only' },
             { code: 'RNP', label: 'RNP', desc: 'RNP-capable aircraft only' },
             { code: 'RVSM', label: 'RVSM', desc: 'RVSM-compliant only' }
         ],
@@ -83,34 +100,69 @@
         flow: [
             { code: 'ARR', label: 'ARR', desc: 'Arrival traffic only' },
             { code: 'DEP', label: 'DEP', desc: 'Departure traffic only' },
-            { code: 'OVERFLIGHT', label: 'OVFLT', desc: 'Overflight traffic only' }
+            { code: 'OVFLT', label: 'OVFLT', desc: 'Overflight traffic only' }
         ],
         // Operator Category
         operator: [
-            { code: 'AIR_CARRIER', label: 'AIR CARRIER', desc: 'Air carrier operations' },
-            { code: 'AIR_TAXI', label: 'AIR TAXI', desc: 'Air taxi operations' },
+            { code: 'AIR CARRIER', label: 'AIR CARRIER', desc: 'Air carrier operations' },
+            { code: 'AIR TAXI', label: 'AIR TAXI', desc: 'Air taxi operations' },
             { code: 'GA', label: 'GA', desc: 'General aviation' },
             { code: 'CARGO', label: 'CARGO', desc: 'Cargo operations' },
-            { code: 'MILITARY', label: 'MIL', desc: 'Military operations' }
+            { code: 'MIL', label: 'MIL', desc: 'Military operations' }
         ],
         // Altitude
         altitude: [
-            { code: 'HIGH', label: 'HIGH ALT', desc: 'FL240 and above' },
-            { code: 'LOW', label: 'LOW ALT', desc: 'Below FL240' }
+            { code: 'HIGH ALT', label: 'HIGH ALT', desc: 'FL240 and above' },
+            { code: 'LOW ALT', label: 'LOW ALT', desc: 'Below FL240' }
         ]
     };
     
-    // Reason codes
-    const REASON_CODES = [
+    // Reason codes - Category (broad) per OPSNET
+    const REASON_CATEGORIES = [
         { code: 'VOLUME', label: 'Volume' },
         { code: 'WEATHER', label: 'Weather' },
         { code: 'RUNWAY', label: 'Runway' },
-        { code: 'STAFFING', label: 'Staffing' },
         { code: 'EQUIPMENT', label: 'Equipment' },
-        { code: 'COMPACTED_DEMAND', label: 'Compacted Demand' },
-        { code: 'MULTI_TAXI', label: 'Multi-Taxi' },
         { code: 'OTHER', label: 'Other' }
     ];
+    
+    // Cause codes - Specific causes per OPSNET/ASPM
+    const REASON_CAUSES = {
+        VOLUME: [
+            { code: 'VOLUME', label: 'Volume (General)' },
+            { code: 'COMPACTED DEMAND', label: 'Compacted Demand' },
+            { code: 'MULTI-TAXI', label: 'Multi-Taxi' },
+            { code: 'AIRSPACE', label: 'Airspace' }
+        ],
+        WEATHER: [
+            { code: 'WEATHER', label: 'Weather (General)' },
+            { code: 'THUNDERSTORMS', label: 'Thunderstorms' },
+            { code: 'LOW CEILINGS', label: 'Low Ceilings' },
+            { code: 'LOW VISIBILITY', label: 'Low Visibility' },
+            { code: 'FOG', label: 'Fog' },
+            { code: 'WIND', label: 'Wind' },
+            { code: 'SNOW/ICE', label: 'Snow/Ice' }
+        ],
+        RUNWAY: [
+            { code: 'RUNWAY', label: 'Runway (General)' },
+            { code: 'RUNWAY CONFIGURATION', label: 'Runway Configuration' },
+            { code: 'RUNWAY CONSTRUCTION', label: 'Runway Construction' },
+            { code: 'RUNWAY CLOSURE', label: 'Runway Closure' }
+        ],
+        EQUIPMENT: [
+            { code: 'EQUIPMENT', label: 'Equipment (General)' },
+            { code: 'FAA EQUIPMENT', label: 'FAA Equipment' },
+            { code: 'NON-FAA EQUIPMENT', label: 'Non-FAA Equipment' }
+        ],
+        OTHER: [
+            { code: 'OTHER', label: 'Other (General)' },
+            { code: 'STAFFING', label: 'Staffing' },
+            { code: 'AIR SHOW', label: 'Air Show' },
+            { code: 'VIP MOVEMENT', label: 'VIP Movement' },
+            { code: 'SPECIAL EVENT', label: 'Special Event' },
+            { code: 'SECURITY', label: 'Security' }
+        ]
+    };
     
     // ===========================================
     // State
@@ -400,12 +452,43 @@
     }
     
     function buildReasonSelect() {
-        let html = '<select class="form-control" id="ntml_reason">';
-        REASON_CODES.forEach(r => {
+        let html = `
+            <div class="row">
+                <div class="col-6">
+                    <label class="form-label small text-muted">Category</label>
+                    <select class="form-control" id="ntml_reason_category" onchange="TMIPublisher.updateCauseOptions()">
+        `;
+        REASON_CATEGORIES.forEach(r => {
             html += `<option value="${r.code}">${r.label}</option>`;
         });
-        html += '</select>';
+        html += `
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small text-muted">Cause</label>
+                    <select class="form-control" id="ntml_reason_cause">
+        `;
+        // Default to VOLUME causes
+        REASON_CAUSES.VOLUME.forEach(c => {
+            html += `<option value="${c.code}">${c.label}</option>`;
+        });
+        html += `
+                    </select>
+                </div>
+            </div>
+        `;
         return html;
+    }
+    
+    function updateCauseOptions() {
+        const category = $('#ntml_reason_category').val() || 'VOLUME';
+        const causes = REASON_CAUSES[category] || REASON_CAUSES.VOLUME;
+        
+        let html = '';
+        causes.forEach(c => {
+            html += `<option value="${c.code}">${c.label}</option>`;
+        });
+        $('#ntml_reason_cause').html(html);
     }
     
     function buildMitMinitForm(type) {
@@ -418,39 +501,48 @@
                     <span class="tmi-section-title"><i class="fas fa-ruler-horizontal mr-1"></i> ${type === 'MIT' ? 'Miles-In-Trail' : 'Minutes-In-Trail'} Details</span>
                 </div>
                 <div class="card-body">
-                    <!-- Row 1: Value, Airport/Fix, Via, Reason -->
+                    <!-- Row 1: Value, Airport/Fix, Via -->
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <label class="form-label small text-muted">${unit}</label>
                             <input type="number" class="form-control" id="ntml_value" min="5" max="100" step="5" value="20">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Airport/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="10">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-5">
                             <label class="form-label small text-muted">Via Route/Fix</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="LENDY" maxlength="10">
+                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="CLIPR/SKILS or ALL" maxlength="30">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small text-muted">Reason</label>
+                    </div>
+                    
+                    <!-- Row 2: Reason (Category:Cause) -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Reason (Category:Cause)</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
                     
-                    <!-- Row 2: Facilities -->
+                    <!-- Row 3: Facilities + Exclusions -->
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Requesting Facility</label>
                             <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Providing Facility</label>
                             <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_prov_facility" placeholder="ZOB" maxlength="4" list="facilityList">
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Exclusions</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_exclusions" placeholder="NONE" value="NONE" maxlength="30">
+                            <small class="text-muted">e.g., NONE, AAL, UAL</small>
+                        </div>
                     </div>
                     
-                    <!-- Row 3: Valid Times -->
+                    <!-- Row 4: Valid Times -->
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid From (UTC)</label>
@@ -489,32 +581,43 @@
                     <span class="tmi-section-title"><i class="fas fa-hand-paper mr-1"></i> Flow Stoppage Details</span>
                 </div>
                 <div class="card-body">
+                    <!-- Row 1: Airport/Fix, Via -->
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label small text-muted">Airport/Fix</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="10">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label small text-muted">Via Route/Fix</label>
-                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="LENDY" maxlength="10">
+                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="LENDY or ALL" maxlength="30">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">Reason</label>
+                    </div>
+                    
+                    <!-- Row 2: Reason (Category:Cause) -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Reason (Category:Cause)</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
                     
+                    <!-- Row 3: Facilities + Exclusions -->
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Requesting Facility</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Providing Facility</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" placeholder="ZBW" maxlength="4" list="facilityList">
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Exclusions</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_exclusions" placeholder="NONE" value="NONE" maxlength="30">
+                        </div>
                     </div>
                     
+                    <!-- Row 4: Valid Times -->
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Valid From (UTC)</label>
@@ -1037,8 +1140,9 @@
                     <span class="tmi-section-title"><i class="fas fa-phone-volume mr-1"></i> Hotline Advisory</span>
                 </div>
                 <div class="card-body">
+                    <!-- Row 1: Advisory #, Action, Hotline Name -->
                     <div class="row mb-3">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label small text-muted">Advisory #</label>
                             <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
                         </div>
@@ -1050,36 +1154,45 @@
                                 <option value="TERMINATION">Termination</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label small text-muted">Hotline Name</label>
                             <select class="form-control" id="adv_hotline_name">
-                                <option value="EAST COAST">EAST COAST</option>
-                                <option value="WEST COAST">WEST COAST</option>
-                                <option value="MIDWEST">MIDWEST</option>
-                                <option value="NORTHEAST">NORTHEAST</option>
-                                <option value="SOUTHEAST">SOUTHEAST</option>
-                                <option value="SOUTHWEST">SOUTHWEST</option>
-                                <option value="NORTHWEST">NORTHWEST</option>
+                                <option value="EAST COAST HOTLINE">EAST COAST HOTLINE</option>
+                                <option value="WEST COAST HOTLINE">WEST COAST HOTLINE</option>
+                                <option value="MIDWEST HOTLINE">MIDWEST HOTLINE</option>
+                                <option value="NORTHEAST HOTLINE">NORTHEAST HOTLINE</option>
+                                <option value="SOUTHEAST HOTLINE">SOUTHEAST HOTLINE</option>
+                                <option value="SOUTHWEST HOTLINE">SOUTHWEST HOTLINE</option>
+                                <option value="NORTHWEST HOTLINE">NORTHWEST HOTLINE</option>
                                 <option value="CUSTOM">CUSTOM</option>
                             </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">Custom Name</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_hotline_custom" placeholder="If CUSTOM selected" maxlength="30">
+                            <input type="text" class="form-control text-uppercase" id="adv_hotline_custom" placeholder="If CUSTOM selected" maxlength="40">
                         </div>
                     </div>
                     
+                    <!-- Row 2: Event Times -->
                     <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">Effective Time (UTC)</label>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Start Time (UTC)</label>
                             <input type="time" class="form-control" id="adv_effective_time" value="${currentTime}">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">End Time (UTC) - if known</label>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">End Time (UTC)</label>
                             <input type="time" class="form-control" id="adv_end_time">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">Probability of Extension</label>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Participation</label>
+                            <select class="form-control" id="adv_participation">
+                                <option value="MANDATORY">MANDATORY</option>
+                                <option value="OPTIONAL">OPTIONAL</option>
+                                <option value="ENCOURAGED">ENCOURAGED</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Prob. of Extension</label>
                             <select class="form-control" id="adv_extension_prob">
                                 <option value="NONE">None</option>
                                 <option value="LOW">Low</option>
@@ -1089,36 +1202,70 @@
                         </div>
                     </div>
                     
+                    <!-- Row 3: Facilities -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Facilities Included</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_facilities" placeholder="ZNY, ZBW, ZDC, ZOB, ZID">
+                            <label class="form-label small text-muted">Constrained Facilities</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_constrained_facilities" placeholder="ZNY, ZBW, ZDC (facilities with constraints)">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Reason</label>
+                            <label class="form-label small text-muted">Facilities to Attend</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_facilities" placeholder="ZNY, ZBW, ZDC, ZOB, ZID">
+                        </div>
+                    </div>
+                    
+                    <!-- Row 4: Impact Details -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Impacting Condition</label>
                             <select class="form-control" id="adv_reason">
                                 <option value="WEATHER">Weather</option>
                                 <option value="VOLUME">Volume</option>
                                 <option value="EQUIPMENT">Equipment</option>
                                 <option value="STAFFING">Staffing</option>
+                                <option value="RUNWAY CONSTRUCTION">Runway Construction</option>
+                                <option value="SPECIAL EVENT">Special Event</option>
                                 <option value="OTHER">Other</option>
                             </select>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Location of Impact</label>
+                            <input type="text" class="form-control" id="adv_impacted_area" placeholder="e.g., NY Metro, EWR/JFK/LGA arrivals">
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">Impacted Area</label>
-                        <input type="text" class="form-control" id="adv_impacted_area" placeholder="e.g., NY Metro arrivals, EWR/JFK/LGA">
+                    <!-- Row 5: Hotline Location Details -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Hotline Location</label>
+                            <input type="text" class="form-control" id="adv_hotline_location" placeholder="e.g., vATCSCC Discord">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small text-muted">Hotline Address (URL/Link)</label>
+                            <input type="text" class="form-control" id="adv_hotline_address" placeholder="https://discord.gg/... or phone">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Hotline PIN</label>
+                            <input type="text" class="form-control" id="adv_hotline_pin" placeholder="PIN code if any">
+                        </div>
                     </div>
                     
+                    <!-- Row 6: Restrictions -->
                     <div class="mb-3">
                         <label class="form-label small text-muted">Associated Restrictions</label>
                         <input type="text" class="form-control" id="adv_restrictions" placeholder="e.g., 20MIT, APREQ, Ground Stop">
                     </div>
                     
+                    <!-- Row 7: Notes -->
                     <div class="mb-3">
                         <label class="form-label small text-muted">Additional Remarks</label>
                         <textarea class="form-control" id="adv_notes" rows="2" placeholder="Additional coordination notes..."></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info small mb-0">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Note:</strong> For Activation, the boilerplate text will be auto-generated. 
+                        Update/Termination advisories use a simpler format.
                     </div>
                 </div>
             </div>
@@ -1221,6 +1368,11 @@
             updateAdvisoryPreview();
         });
         
+        // Auto-uppercase inputs
+        $('#adv_form_container .text-uppercase').on('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+        
         // Handle custom hotline name toggle
         if (type === 'HOTLINE') {
             $('#adv_hotline_name').on('change', function() {
@@ -1232,6 +1384,22 @@
                 updateAdvisoryPreview();
             });
             $('#adv_hotline_custom').prop('disabled', true);
+            
+            // Handle action type change - show/hide fields based on action
+            $('#adv_hotline_action').on('change', function() {
+                const action = $(this).val();
+                
+                // Show full fields for ACTIVATION, simplified for UPDATE/TERMINATION
+                if (action === 'ACTIVATION') {
+                    $('#adv_hotline_location, #adv_hotline_address, #adv_hotline_pin').closest('.col-md-4, .col-md-5, .col-md-3').show();
+                    $('#adv_participation').closest('.col-md-3').show();
+                } else {
+                    // Hide location fields for UPDATE/TERMINATION (optional - keep them visible)
+                    // The preview builder handles the format difference
+                }
+                
+                updateAdvisoryPreview();
+            });
         }
     }
     
@@ -1285,19 +1453,19 @@
         
         if (weather) {
             lines.push(`TERMINAL/ENROUTE CONSTRAINTS:`);
-            lines.push(weather);
+            lines.push(wrapText(weather));
             lines.push(``);
         }
         
         if (initiatives) {
             lines.push(`KEY INITIATIVES:`);
-            lines.push(initiatives);
+            lines.push(wrapText(initiatives));
             lines.push(``);
         }
         
         if (events) {
             lines.push(`SPECIAL EVENTS:`);
-            lines.push(events);
+            lines.push(wrapText(events));
             lines.push(``);
         }
         
@@ -1317,7 +1485,7 @@
         let lines = [
             buildAdvisoryHeader(num, facility, subject.toUpperCase()),
             ``,
-            text || '(No text entered)',
+            text ? wrapText(text) : '(No text entered)',
             ``,
             buildAdvisoryFooter(num, facility)
         ];
@@ -1328,16 +1496,21 @@
     function buildHotlinePreview() {
         const num = $('#adv_number').val() || '001';
         const action = $('#adv_hotline_action').val() || 'ACTIVATION';
-        let name = $('#adv_hotline_name').val() || 'HOTLINE';
-        if (name === 'CUSTOM') {
-            name = $('#adv_hotline_custom').val() || 'CUSTOM';
+        let hotlineName = $('#adv_hotline_name').val() || 'HOTLINE';
+        if (hotlineName === 'CUSTOM') {
+            hotlineName = $('#adv_hotline_custom').val() || 'CUSTOM HOTLINE';
         }
         const effTime = $('#adv_effective_time').val()?.replace(':', '') || getCurrentTimeHHMM().replace(':', '');
         const endTime = $('#adv_end_time').val()?.replace(':', '') || '';
         const extensionProb = $('#adv_extension_prob').val() || 'NONE';
+        const participation = $('#adv_participation').val() || 'MANDATORY';
+        const constrainedFacilities = $('#adv_constrained_facilities').val() || '';
         const facilities = $('#adv_facilities').val() || 'TBD';
         const reason = $('#adv_reason').val() || 'WEATHER';
         const impactedArea = $('#adv_impacted_area').val() || '';
+        const hotlineLocation = $('#adv_hotline_location').val() || 'vATCSCC Discord';
+        const hotlineAddress = $('#adv_hotline_address').val() || '';
+        const hotlinePin = $('#adv_hotline_pin').val() || '';
         const restrictions = $('#adv_restrictions').val() || '';
         const notes = $('#adv_notes').val() || '';
         
@@ -1349,34 +1522,82 @@
             ``
         ];
         
-        lines.push(`HOTLINE: ${name}`);
-        lines.push(`ACTION: ${action}`);
-        
-        if (impactedArea) {
-            lines.push(`IMPACTED AREA: ${impactedArea}`);
+        // Build different format based on action type
+        if (action === 'ACTIVATION') {
+            // Full boilerplate for Activation
+            lines.push(`EVENT TIME: ${day}/${effTime}Z - ${endTime ? day + '/' + endTime + 'Z' : 'TBD'}`);
+            
+            if (constrainedFacilities) {
+                lines.push(`CONSTRAINED FACILITIES: ${constrainedFacilities}`);
+            }
+            
+            lines.push(``);
+            
+            // Main boilerplate paragraph - wrap at 68 chars
+            let boilerplate = `THE ${hotlineName} IS BEING ACTIVATED TO ADDRESS ${reason} IN ${impactedArea || 'THE AFFECTED AREA'}.`;
+            
+            // Location info
+            let locationInfo = `THE LOCATION IS THE ${hotlineLocation}, ${hotlineName}`;
+            if (hotlineAddress) {
+                locationInfo += `, (${hotlineAddress})`;
+            }
+            if (hotlinePin) {
+                locationInfo += `, PIN: ${hotlinePin}`;
+            }
+            locationInfo += '.';
+            
+            boilerplate += ' ' + locationInfo;
+            
+            // Participation info
+            boilerplate += ` PARTICIPATION IS ${participation} FOR ${facilities}.`;
+            
+            // Standard closing
+            boilerplate += ' AFFECTED MAJOR UNDERLYING FACILITIES ARE STRONGLY ENCOURAGED TO ATTEND. ALL OTHER PARTICIPANTS ARE WELCOME TO JOIN. PLEASE MESSAGE THE NOM IF YOU HAVE ISSUES OR QUESTIONS.';
+            
+            // Wrap the boilerplate text at 68 characters
+            lines.push(wrapText(boilerplate));
+            
+        } else if (action === 'UPDATE') {
+            // Update format
+            lines.push(`HOTLINE: ${hotlineName}`);
+            lines.push(`ACTION: ${action}`);
+            
+            if (impactedArea) {
+                lines.push(`IMPACTED AREA: ${impactedArea}`);
+            }
+            
+            lines.push(`REASON: ${reason}`);
+            lines.push(`FACILITIES INCLUDED: ${facilities}`);
+            
+            if (endTime) {
+                lines.push(`VALID TIMES: ${day}/${effTime}Z - ${day}/${endTime}Z`);
+            } else {
+                lines.push(`EFFECTIVE: ${day}/${effTime}Z`);
+            }
+            
+            if (extensionProb !== 'NONE') {
+                lines.push(`PROBABILITY OF EXTENSION: ${extensionProb}`);
+            }
+            
+        } else if (action === 'TERMINATION') {
+            // Termination format - simple
+            lines.push(`THE ${hotlineName} IS BEING TERMINATED EFFECTIVE ${day}/${effTime}Z.`);
+            
+            if (constrainedFacilities) {
+                lines.push(``);
+                lines.push(`FACILITIES AFFECTED: ${constrainedFacilities}`);
+            }
         }
         
-        lines.push(`REASON: ${reason}`);
-        lines.push(`FACILITIES INCLUDED: ${facilities}`);
-        
-        // Valid times per FAA format
-        if (endTime) {
-            lines.push(`VALID TIMES: ${day}/${effTime}Z - ${day}/${endTime}Z`);
-        } else {
-            lines.push(`EFFECTIVE: ${day}/${effTime}Z`);
-        }
-        
-        if (extensionProb !== 'NONE') {
-            lines.push(`PROBABILITY OF EXTENSION: ${extensionProb}`);
-        }
-        
+        // Common elements for all types
         if (restrictions) {
-            lines.push(`ASSOCIATED RESTRICTIONS: ${restrictions}`);
+            lines.push(``);
+            lines.push(wrapWithLabel('ASSOCIATED RESTRICTIONS: ', restrictions));
         }
         
         if (notes) {
             lines.push(``);
-            lines.push(`REMARKS: ${notes}`);
+            lines.push(wrapWithLabel('REMARKS: ', notes));
         }
         
         lines.push(``);
@@ -1428,23 +1649,23 @@
         if (weather) {
             lines.push(``);
             lines.push(`WEATHER SYNOPSIS:`);
-            lines.push(weather);
+            lines.push(wrapText(weather));
         }
         
         if (routes) {
             lines.push(``);
             lines.push(`PLAYBOOK ROUTES / ACTIVE INITIATIVES:`);
-            lines.push(routes);
+            lines.push(wrapText(routes));
         }
         
         if (restrictions) {
             lines.push(``);
-            lines.push(`ASSOCIATED RESTRICTIONS: ${restrictions}`);
+            lines.push(wrapWithLabel('ASSOCIATED RESTRICTIONS: ', restrictions));
         }
         
         if (notes) {
             lines.push(``);
-            lines.push(`REMARKS: ${notes}`);
+            lines.push(wrapWithLabel('REMARKS: ', notes));
         }
         
         lines.push(``);
@@ -1581,11 +1802,15 @@
             case 'MINIT':
                 data.value = $('#ntml_value').val();
                 data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
-                data.reason = $('#ntml_reason').val();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
+                data.exclusions = ($('#ntml_exclusions').val() || 'NONE').trim().toUpperCase();
                 break;
             case 'STOP':
                 data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
-                data.reason = $('#ntml_reason').val();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
+                data.exclusions = ($('#ntml_exclusions').val() || 'NONE').trim().toUpperCase();
                 break;
             case 'APREQ':
                 data.apreq_type = $('#ntml_apreq_type').val();
@@ -1681,43 +1906,48 @@
     }
     
     function formatMitMinitMessage(type, data, logTime, validTime) {
-        let line = `${logTime}    ${data.ctl_element || 'N/A'}`;
+        // Format: {DD/HHMM}    {element} via {fix} {value}{type} {spacing} EXCL:{excl} {category}:{cause} {valid} {req}:{prov}
+        const element = (data.ctl_element || 'N/A').toUpperCase();
+        const viaFix = data.via_fix ? (data.via_fix).toUpperCase() : 'ALL';
+        const value = data.value || '20';
+        const category = (data.reason_category || 'VOLUME').toUpperCase();
+        const cause = (data.reason_cause || category).toUpperCase();
+        const exclusions = data.exclusions ? data.exclusions.toUpperCase() : 'NONE';
+        const reqFac = (data.req_facility || 'N/A').toUpperCase();
+        const provFac = (data.prov_facility || 'N/A').toUpperCase();
         
-        if (data.via_fix) {
-            line += ` via ${data.via_fix}`;
-        }
-        
-        line += ` ${data.value || '20'}${type}`;
-        
-        // Add qualifiers
+        // Get spacing qualifier (first one found)
+        let spacing = 'AS ONE'; // Default
         if (data.qualifiers && data.qualifiers.length > 0) {
-            line += ` ${data.qualifiers.join(' ')}`;
+            const spacingQual = data.qualifiers.find(q => 
+                ['AS ONE', 'PER STREAM', 'PER AIRPORT', 'PER FIX', 'EACH'].includes(q)
+            );
+            if (spacingQual) spacing = spacingQual;
         }
         
-        line += ` ${data.reason || 'VOLUME'}`;
-        line += ` ${validTime}`;
-        line += ` ${data.req_facility || 'N/A'}:${data.prov_facility || 'N/A'}`;
+        // Format: 4 spaces between major sections
+        let line = `${logTime}    ${element} via ${viaFix} ${value}${type} ${spacing} EXCL:${exclusions} ${category}:${cause} ${validTime} ${reqFac}:${provFac}`;
         
         return line;
     }
     
     function formatStopMessage(data, logTime, validTime) {
-        let line = `${logTime}    ${data.ctl_element || 'N/A'}`;
+        // Format: {DD/HHMM}    {element} via {fix} STOP {qualifier} EXCL:{excl} {category}:{cause} {valid} {req}:{prov}
+        const element = (data.ctl_element || 'N/A').toUpperCase();
+        const viaFix = data.via_fix ? (data.via_fix).toUpperCase() : 'ALL';
+        const category = (data.reason_category || 'VOLUME').toUpperCase();
+        const cause = (data.reason_cause || category).toUpperCase();
+        const exclusions = data.exclusions ? data.exclusions.toUpperCase() : 'NONE';
+        const reqFac = (data.req_facility || 'N/A').toUpperCase();
+        const provFac = (data.prov_facility || 'N/A').toUpperCase();
         
-        if (data.via_fix) {
-            line += ` via ${data.via_fix}`;
-        }
-        
-        line += ` STOP`;
-        
-        // Add qualifiers
+        // Get qualifiers
+        let qualStr = '';
         if (data.qualifiers && data.qualifiers.length > 0) {
-            line += ` ${data.qualifiers.join(' ')}`;
+            qualStr = ' ' + data.qualifiers.join(' ');
         }
         
-        line += ` ${data.reason || 'VOLUME'}`;
-        line += ` ${validTime}`;
-        line += ` ${data.req_facility || 'N/A'}:${data.prov_facility || 'N/A'}`;
+        let line = `${logTime}    ${element} via ${viaFix} STOP${qualStr} EXCL:${exclusions} ${category}:${cause} ${validTime} ${reqFac}:${provFac}`;
         
         return line;
     }
@@ -1784,15 +2014,16 @@
     }
     
     function formatConfigMessage(data, logTime) {
-        let line = `${logTime}    ${data.ctl_element || 'N/A'}    ${data.weather || 'VMC'}`;
+        // Format: {DD/HHMM}    {airport}    {weather}    ARR:{arr} DEP:{dep}    AAR(Strat):{aar} ADR:{adr}
+        const airport = (data.ctl_element || 'N/A').toUpperCase();
+        const weather = (data.weather || 'VMC').toUpperCase();
+        const arrRwys = (data.arr_runways || 'N/A').toUpperCase();
+        const depRwys = (data.dep_runways || 'N/A').toUpperCase();
+        const aar = data.aar || '60';
+        const adr = data.adr || '60';
+        const aarType = data.aar_type || 'Strat';
         
-        if (data.config_name) {
-            line += ` (${data.config_name})`;
-        }
-        
-        line += `    ARR:${data.arr_runways || 'N/A'} DEP:${data.dep_runways || 'N/A'}`;
-        line += `    AAR(${data.aar_type || 'STRAT'}):${data.aar || '60'}`;
-        line += `    ADR:${data.adr || '60'}`;
+        let line = `${logTime}    ${airport}    ${weather}    ARR:${arrRwys} DEP:${depRwys}    AAR(${aarType}):${aar} ADR:${adr}`;
         
         return line;
     }
@@ -2519,6 +2750,127 @@
         return div.innerHTML;
     }
     
+    // ===========================================
+    // Text Formatting Utilities (FAA 68-char standard)
+    // ===========================================
+    
+    const TEXT_FORMAT = {
+        LINE_WIDTH: 68,
+        SEPARATOR: '____________________________________________________________________', // 68 underscores
+        INDENT: '    ' // 4 spaces for continuation
+    };
+    
+    /**
+     * Wrap text to 68 characters with word boundaries
+     * @param {string} text - Text to wrap
+     * @param {number} width - Max line width (default 68)
+     * @param {string} indent - Indent for continuation lines (default none)
+     * @returns {string} Wrapped text
+     */
+    function wrapText(text, width = TEXT_FORMAT.LINE_WIDTH, indent = '') {
+        if (!text) return '';
+        
+        const lines = [];
+        const paragraphs = text.split('\n');
+        
+        paragraphs.forEach((paragraph, pIndex) => {
+            if (paragraph.trim() === '') {
+                lines.push('');
+                return;
+            }
+            
+            const words = paragraph.split(/\s+/);
+            let currentLine = '';
+            const lineIndent = pIndex > 0 || lines.length > 0 ? indent : '';
+            
+            words.forEach(word => {
+                const testLine = currentLine ? `${currentLine} ${word}` : `${lineIndent}${word}`;
+                
+                if (testLine.length <= width) {
+                    currentLine = testLine;
+                } else {
+                    if (currentLine) {
+                        lines.push(currentLine);
+                    }
+                    // Start new line with indent
+                    currentLine = `${indent}${word}`;
+                }
+            });
+            
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+        });
+        
+        return lines.join('\n');
+    }
+    
+    /**
+     * Wrap text with hanging indent (first line flush, continuation indented)
+     * @param {string} label - Label prefix (e.g., "REMARKS: ")
+     * @param {string} text - Text content
+     * @param {number} width - Max line width
+     * @returns {string} Formatted text with hanging indent
+     */
+    function wrapWithLabel(label, text, width = TEXT_FORMAT.LINE_WIDTH) {
+        if (!text) return '';
+        
+        const labelLen = label.length;
+        const indent = ' '.repeat(labelLen);
+        const firstLineWidth = width;
+        const contLineWidth = width;
+        
+        const words = text.split(/\s+/);
+        const lines = [];
+        let currentLine = label;
+        let isFirstLine = true;
+        
+        words.forEach(word => {
+            const maxWidth = isFirstLine ? firstLineWidth : contLineWidth;
+            const testLine = currentLine + (currentLine.endsWith(label) ? '' : ' ') + word;
+            
+            if (testLine.length <= maxWidth) {
+                currentLine = testLine;
+            } else {
+                lines.push(currentLine);
+                currentLine = indent + word;
+                isFirstLine = false;
+            }
+        });
+        
+        if (currentLine.trim()) {
+            lines.push(currentLine);
+        }
+        
+        return lines.join('\n');
+    }
+    
+    /**
+     * Format a section with separator lines
+     * @param {string} content - Section content
+     * @returns {string} Content wrapped with separator lines
+     */
+    function formatSection(content) {
+        return `${TEXT_FORMAT.SEPARATOR}\n${content}\n${TEXT_FORMAT.SEPARATOR}`;
+    }
+    
+    /**
+     * Format column-aligned data (for route tables, etc.)
+     * @param {Array<Array<string>>} rows - Array of row arrays
+     * @param {Array<number>} colWidths - Width for each column
+     * @returns {string} Column-aligned text
+     */
+    function formatColumns(rows, colWidths) {
+        if (!rows || rows.length === 0) return '';
+        
+        return rows.map(row => {
+            return row.map((cell, i) => {
+                const width = colWidths[i] || 10;
+                return String(cell || '').padEnd(width);
+            }).join('');
+        }).join('\n');
+    }
+    
     function saveState() {
         try {
             localStorage.setItem('tmi_publisher_queue', JSON.stringify(state.queue || []));
@@ -2575,7 +2927,8 @@
         promoteEntry: promoteEntry,
         loadStagedEntries: loadStagedEntries,
         viewTmiDetails: viewTmiDetails,
-        cancelTmi: cancelTmi
+        cancelTmi: cancelTmi,
+        updateCauseOptions: updateCauseOptions
     };
     
 })();
