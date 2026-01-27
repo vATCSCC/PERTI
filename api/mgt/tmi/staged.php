@@ -116,38 +116,80 @@ echo json_encode([
  * Get staged NTML entries
  */
 function getStagedNtmlEntries($conn, $orgFilter, $limit) {
-    $sql = "SELECT 
-                e.entry_id,
-                'ENTRY' as entity_type,
-                e.entry_type,
-                e.ctl_element,
-                e.requesting_facility,
-                e.providing_facility,
-                e.restriction_value,
-                e.reason_code,
-                e.raw_text,
-                e.status,
-                e.created_at,
-                e.created_by,
-                (
-                    SELECT STRING_AGG(p.org_code, ',') 
-                    FROM dbo.tmi_discord_posts p 
-                    WHERE p.entity_type = 'ENTRY' 
-                      AND p.entity_id = e.entry_id 
-                      AND p.channel_purpose LIKE '%staging%'
-                      AND p.status = 'POSTED'
-                ) as staged_orgs,
-                (
-                    SELECT COUNT(*) 
-                    FROM dbo.tmi_discord_posts p 
-                    WHERE p.entity_type = 'ENTRY' 
-                      AND p.entity_id = e.entry_id 
-                      AND p.channel_purpose LIKE '%staging%'
-                      AND p.status = 'POSTED'
-                ) as staging_post_count
-            FROM dbo.tmi_entries e
-            WHERE e.status = 'STAGED'
-            ORDER BY e.created_at DESC";
+    // First check if the table exists
+    try {
+        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_entries'");
+        if (!$check->fetch()) {
+            return [];
+        }
+    } catch (Exception $e) {
+        return [];
+    }
+    
+    // Check if tmi_discord_posts exists for the subqueries
+    $hasDiscordPosts = false;
+    try {
+        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_discord_posts'");
+        $hasDiscordPosts = $check->fetch() ? true : false;
+    } catch (Exception $e) {
+        $hasDiscordPosts = false;
+    }
+    
+    if ($hasDiscordPosts) {
+        $sql = "SELECT 
+                    e.entry_id,
+                    'ENTRY' as entity_type,
+                    e.entry_type,
+                    e.ctl_element,
+                    e.requesting_facility,
+                    e.providing_facility,
+                    e.restriction_value,
+                    e.reason_code,
+                    e.raw_input as raw_text,
+                    e.status,
+                    e.created_at,
+                    e.created_by,
+                    e.created_by_name,
+                    (
+                        SELECT STRING_AGG(p.org_code, ',') 
+                        FROM dbo.tmi_discord_posts p 
+                        WHERE p.entity_type = 'ENTRY' 
+                          AND p.entity_id = e.entry_id 
+                          AND p.channel_purpose LIKE '%staging%'
+                          AND p.status = 'POSTED'
+                    ) as staged_orgs,
+                    (
+                        SELECT COUNT(*) 
+                        FROM dbo.tmi_discord_posts p 
+                        WHERE p.entity_type = 'ENTRY' 
+                          AND p.entity_id = e.entry_id 
+                          AND p.channel_purpose LIKE '%staging%'
+                          AND p.status = 'POSTED'
+                    ) as staging_post_count
+                FROM dbo.tmi_entries e
+                WHERE e.status = 'STAGED'
+                ORDER BY e.created_at DESC";
+    } else {
+        $sql = "SELECT 
+                    e.entry_id,
+                    'ENTRY' as entity_type,
+                    e.entry_type,
+                    e.ctl_element,
+                    e.requesting_facility,
+                    e.providing_facility,
+                    e.restriction_value,
+                    e.reason_code,
+                    e.raw_input as raw_text,
+                    e.status,
+                    e.created_at,
+                    e.created_by,
+                    e.created_by_name,
+                    NULL as staged_orgs,
+                    0 as staging_post_count
+                FROM dbo.tmi_entries e
+                WHERE e.status = 'STAGED'
+                ORDER BY e.created_at DESC";
+    }
     
     $stmt = $conn->prepare($sql);
     $stmt->execute();
@@ -184,36 +226,78 @@ function getStagedNtmlEntries($conn, $orgFilter, $limit) {
  * Get staged advisories
  */
 function getStagedAdvisories($conn, $orgFilter, $limit) {
-    $sql = "SELECT 
-                a.advisory_id,
-                'ADVISORY' as entity_type,
-                a.advisory_type,
-                a.advisory_number,
-                a.facility_code,
-                a.ctl_element,
-                a.content_text,
-                a.status,
-                a.created_at,
-                a.created_by,
-                (
-                    SELECT STRING_AGG(p.org_code, ',') 
-                    FROM dbo.tmi_discord_posts p 
-                    WHERE p.entity_type = 'ADVISORY' 
-                      AND p.entity_id = a.advisory_id 
-                      AND p.channel_purpose LIKE '%staging%'
-                      AND p.status = 'POSTED'
-                ) as staged_orgs,
-                (
-                    SELECT COUNT(*) 
-                    FROM dbo.tmi_discord_posts p 
-                    WHERE p.entity_type = 'ADVISORY' 
-                      AND p.entity_id = a.advisory_id 
-                      AND p.channel_purpose LIKE '%staging%'
-                      AND p.status = 'POSTED'
-                ) as staging_post_count
-            FROM dbo.tmi_advisories a
-            WHERE a.status = 'STAGED'
-            ORDER BY a.created_at DESC";
+    // First check if the table exists
+    try {
+        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_advisories'");
+        if (!$check->fetch()) {
+            return [];
+        }
+    } catch (Exception $e) {
+        return [];
+    }
+    
+    // Check if tmi_discord_posts exists for the subqueries
+    $hasDiscordPosts = false;
+    try {
+        $check = $conn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_discord_posts'");
+        $hasDiscordPosts = $check->fetch() ? true : false;
+    } catch (Exception $e) {
+        $hasDiscordPosts = false;
+    }
+    
+    if ($hasDiscordPosts) {
+        $sql = "SELECT 
+                    a.advisory_id,
+                    'ADVISORY' as entity_type,
+                    a.advisory_type,
+                    a.advisory_number,
+                    a.scope_facilities,
+                    a.ctl_element,
+                    a.subject,
+                    a.body_text as content_text,
+                    a.status,
+                    a.created_at,
+                    a.created_by,
+                    a.created_by_name,
+                    (
+                        SELECT STRING_AGG(p.org_code, ',') 
+                        FROM dbo.tmi_discord_posts p 
+                        WHERE p.entity_type = 'ADVISORY' 
+                          AND p.entity_id = a.advisory_id 
+                          AND p.channel_purpose LIKE '%staging%'
+                          AND p.status = 'POSTED'
+                    ) as staged_orgs,
+                    (
+                        SELECT COUNT(*) 
+                        FROM dbo.tmi_discord_posts p 
+                        WHERE p.entity_type = 'ADVISORY' 
+                          AND p.entity_id = a.advisory_id 
+                          AND p.channel_purpose LIKE '%staging%'
+                          AND p.status = 'POSTED'
+                    ) as staging_post_count
+                FROM dbo.tmi_advisories a
+                WHERE a.status = 'STAGED'
+                ORDER BY a.created_at DESC";
+    } else {
+        $sql = "SELECT 
+                    a.advisory_id,
+                    'ADVISORY' as entity_type,
+                    a.advisory_type,
+                    a.advisory_number,
+                    a.scope_facilities,
+                    a.ctl_element,
+                    a.subject,
+                    a.body_text as content_text,
+                    a.status,
+                    a.created_at,
+                    a.created_by,
+                    a.created_by_name,
+                    NULL as staged_orgs,
+                    0 as staging_post_count
+                FROM dbo.tmi_advisories a
+                WHERE a.status = 'STAGED'
+                ORDER BY a.created_at DESC";
+    }
     
     $stmt = $conn->prepare($sql);
     $stmt->execute();
@@ -289,12 +373,16 @@ function buildAdvisorySummary($row) {
         $parts[] = '#' . $row['advisory_number'];
     }
     
+    if (!empty($row['subject'])) {
+        $parts[] = $row['subject'];
+    }
+    
     if (!empty($row['ctl_element'])) {
         $parts[] = $row['ctl_element'];
     }
     
-    if (!empty($row['facility_code'])) {
-        $parts[] = $row['facility_code'];
+    if (!empty($row['scope_facilities'])) {
+        $parts[] = $row['scope_facilities'];
     }
     
     return implode(' ', $parts) ?: 'Advisory';
