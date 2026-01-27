@@ -21,7 +21,7 @@
  * @subpackage SWIM
  * @version 2.0.0
  * @since 2026-01-27
- * @updated 2026-01-27 - Added FIXM column dual-write support
+ * @updated 2026-01-27 - FIXM cutover: SWIM uses FIXM columns, ADL keeps legacy columns
  */
 
 // Can be run standalone or included
@@ -69,7 +69,7 @@ function swim_adl_reverse_sync($force = false) {
         $lastSyncStr = $lastSync ? $lastSync->format('Y-m-d H:i:s') : '2000-01-01 00:00:00';
 
         // Step 2: Query SWIM for SimTraffic-updated flights
-        // V3.1: Read from new FIXM columns with fallback to legacy OOOI columns
+        // Read FIXM columns directly from SWIM (SWIM uses FIXM-only after cutover)
         $sql = "
             SELECT
                 sf.flight_uid,
@@ -77,18 +77,18 @@ function swim_adl_reverse_sync($force = false) {
                 sf.callsign,
                 sf.fp_dept_icao,
                 sf.fp_dest_icao,
-                -- Departure times (FIXM columns with legacy fallback)
-                COALESCE(sf.actual_off_block_time, sf.out_utc) AS out_utc,
-                COALESCE(sf.taxi_start_time, sf.taxi_time_utc) AS taxi_time_utc,
-                COALESCE(sf.departure_sequence_time, sf.sequence_time_utc) AS sequence_time_utc,
-                COALESCE(sf.hold_short_time, sf.holdshort_time_utc) AS holdshort_time_utc,
-                COALESCE(sf.runway_entry_time, sf.runway_time_utc) AS runway_time_utc,
-                COALESCE(sf.actual_time_of_departure, sf.off_utc) AS off_utc,
+                -- Departure times (FIXM columns from SWIM)
+                sf.actual_off_block_time AS out_utc,
+                sf.taxi_start_time AS taxi_time_utc,
+                sf.departure_sequence_time AS sequence_time_utc,
+                sf.hold_short_time AS holdshort_time_utc,
+                sf.runway_entry_time AS runway_time_utc,
+                sf.actual_time_of_departure AS off_utc,
                 sf.edct_utc,
-                -- Arrival times (FIXM columns with legacy fallback)
-                COALESCE(sf.estimated_time_of_arrival, sf.eta_utc) AS eta_utc,
-                COALESCE(sf.estimated_runway_arrival_time, sf.eta_runway_utc) AS eta_runway_utc,
-                COALESCE(sf.actual_landing_time, sf.on_utc) AS on_utc,
+                -- Arrival times (FIXM columns from SWIM)
+                sf.estimated_time_of_arrival AS eta_utc,
+                sf.estimated_runway_arrival_time AS eta_runway_utc,
+                sf.actual_landing_time AS on_utc,
                 sf.metering_time,
                 sf.actual_metering_time,
                 sf.eta_vertex,
@@ -228,8 +228,7 @@ function sync_flight_to_adl($conn_adl, $swimFlight) {
     $plan_updated = false;
 
     // === Update adl_flight_times ===
-    // DUAL-WRITE: Write to both legacy columns and FIXM-aligned columns
-    // Legacy columns will be deprecated after 30-day transition period
+    // Write to ADL's legacy columns (ADL keeps legacy naming)
     $times_updates = [];
     $times_params = [];
 
@@ -240,67 +239,23 @@ function sync_flight_to_adl($conn_adl, $swimFlight) {
     // Pushback / Gate departure (AOBT)
     if ($swimFlight['out_utc']) {
         $formatted = format_datetime($swimFlight['out_utc']);
-        // Legacy column
         $times_updates[] = 'atd_utc = ?';
-        $times_params[] = $formatted;
-        // FIXM column
-        $times_updates[] = 'actual_off_block_time = ?';
-        $times_params[] = $formatted;
-    }
-
-    // Taxi start time (SimTraffic-specific)
-    if (!empty($swimFlight['taxi_time_utc'])) {
-        $formatted = format_datetime($swimFlight['taxi_time_utc']);
-        // FIXM column only (no legacy equivalent)
-        $times_updates[] = 'taxi_start_time = ?';
-        $times_params[] = $formatted;
-    }
-
-    // Departure sequence time (SimTraffic-specific)
-    if (!empty($swimFlight['sequence_time_utc'])) {
-        $formatted = format_datetime($swimFlight['sequence_time_utc']);
-        // FIXM column only (no legacy equivalent)
-        $times_updates[] = 'departure_sequence_time = ?';
-        $times_params[] = $formatted;
-    }
-
-    // Hold short time (SimTraffic-specific)
-    if (!empty($swimFlight['holdshort_time_utc'])) {
-        $formatted = format_datetime($swimFlight['holdshort_time_utc']);
-        // FIXM column only (no legacy equivalent)
-        $times_updates[] = 'hold_short_time = ?';
-        $times_params[] = $formatted;
-    }
-
-    // Runway entry time (SimTraffic-specific)
-    if (!empty($swimFlight['runway_time_utc'])) {
-        $formatted = format_datetime($swimFlight['runway_time_utc']);
-        // FIXM column only (no legacy equivalent)
-        $times_updates[] = 'runway_entry_time = ?';
         $times_params[] = $formatted;
     }
 
     // Takeoff / Wheels up (ATOT)
     if ($swimFlight['off_utc']) {
         $formatted = format_datetime($swimFlight['off_utc']);
-        // Legacy column
         $times_updates[] = 'atd_runway_utc = ?';
-        $times_params[] = $formatted;
-        // FIXM column
-        $times_updates[] = 'actual_time_of_departure = ?';
         $times_params[] = $formatted;
     }
 
     // EDCT / CTD
     if ($swimFlight['edct_utc']) {
         $formatted = format_datetime($swimFlight['edct_utc']);
-        // Legacy columns
         $times_updates[] = 'edct_utc = ?';
         $times_params[] = $formatted;
         $times_updates[] = 'ctd_utc = ?';
-        $times_params[] = $formatted;
-        // FIXM column
-        $times_updates[] = 'controlled_time_of_departure = ?';
         $times_params[] = $formatted;
     }
 
@@ -311,37 +266,23 @@ function sync_flight_to_adl($conn_adl, $swimFlight) {
     // ETA at destination
     if ($swimFlight['eta_utc']) {
         $formatted = format_datetime($swimFlight['eta_utc']);
-        // Legacy column
         $times_updates[] = 'eta_utc = ?';
-        $times_params[] = $formatted;
-        // FIXM column
-        $times_updates[] = 'estimated_time_of_arrival = ?';
         $times_params[] = $formatted;
     }
 
     // ETA at runway threshold
     if ($swimFlight['eta_runway_utc']) {
         $formatted = format_datetime($swimFlight['eta_runway_utc']);
-        // Legacy column
         $times_updates[] = 'eta_runway_utc = ?';
-        $times_params[] = $formatted;
-        // FIXM column
-        $times_updates[] = 'estimated_runway_arrival_time = ?';
         $times_params[] = $formatted;
     }
 
     // Landing / Wheels down (ALDT)
     if ($swimFlight['on_utc']) {
         $formatted = format_datetime($swimFlight['on_utc']);
-        // Legacy columns
         $times_updates[] = 'ata_utc = ?';
         $times_params[] = $formatted;
         $times_updates[] = 'ata_runway_utc = ?';
-        $times_params[] = $formatted;
-        // FIXM columns
-        $times_updates[] = 'actual_landing_time = ?';
-        $times_params[] = $formatted;
-        $times_updates[] = 'actual_in_block_time = ?';
         $times_params[] = $formatted;
     }
 
@@ -358,11 +299,7 @@ function sync_flight_to_adl($conn_adl, $swimFlight) {
     // Actual time at meter fix
     if ($swimFlight['actual_metering_time']) {
         $formatted = format_datetime($swimFlight['actual_metering_time']);
-        // Legacy column
         $times_updates[] = 'eta_meterfix_utc = ?';
-        $times_params[] = $formatted;
-        // FIXM column
-        $times_updates[] = 'actual_metering_time = ?';
         $times_params[] = $formatted;
     }
 
