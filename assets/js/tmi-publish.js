@@ -1,20 +1,24 @@
 /**
- * TMI Publisher - Unified NTML & Advisory Publishing
+ * TMI Publisher Controller
  * 
- * Combines NTML Quick Entry and Advisory Builder functionality
- * with multi-Discord posting support and staging workflow.
+ * Unified NTML Entry + Advisory publishing with multi-Discord support.
+ * 
+ * NTML Types: MIT, MINIT, STOP, APREQ/CFR, TBM, Delay, Config, Cancel
+ * Advisory Types: Operations Plan, Free Form, Hotline, SWAP
  * 
  * @package PERTI
- * @version 1.0.0
+ * @subpackage Assets/JS
+ * @version 1.1.0
  * @date 2026-01-27
  */
 
 (function() {
     'use strict';
-
+    
     // ===========================================
-    // Configuration from PHP
+    // Configuration
     // ===========================================
+    
     const CONFIG = window.TMI_PUBLISHER_CONFIG || {
         userCid: null,
         userName: 'Unknown',
@@ -22,67 +26,63 @@
         userHomeOrg: 'vatcscc',
         discordOrgs: { vatcscc: { name: 'vATCSCC', region: 'US', default: true } },
         stagingRequired: true,
-        crossBorderAutoDetect: true
+        crossBorderAutoDetect: true,
+        defaultStartTime: '0000',
+        defaultEndTime: '0400'
     };
-
-    // ===========================================
-    // Constants
-    // ===========================================
-    const MAX_LINE_LENGTH = 68;
+    
     const DISCORD_MAX_LENGTH = 2000;
     
+    // ARTCC mappings for facility detection
     const ARTCCS = {
-        'ZAB': 'Albuquerque', 'ZAU': 'Chicago', 'ZBW': 'Boston',
-        'ZDC': 'Washington', 'ZDV': 'Denver', 'ZFW': 'Fort Worth',
-        'ZHU': 'Houston', 'ZID': 'Indianapolis', 'ZJX': 'Jacksonville',
-        'ZKC': 'Kansas City', 'ZLA': 'Los Angeles', 'ZLC': 'Salt Lake',
-        'ZMA': 'Miami', 'ZME': 'Memphis', 'ZMP': 'Minneapolis',
-        'ZNY': 'New York', 'ZOA': 'Oakland', 'ZOB': 'Cleveland',
-        'ZSE': 'Seattle', 'ZTL': 'Atlanta',
+        'ZBW': 'Boston Center', 'ZNY': 'New York Center', 'ZDC': 'Washington Center',
+        'ZTL': 'Atlanta Center', 'ZJX': 'Jacksonville Center', 'ZMA': 'Miami Center',
+        'ZOB': 'Cleveland Center', 'ZID': 'Indianapolis Center', 'ZAU': 'Chicago Center',
+        'ZMP': 'Minneapolis Center', 'ZKC': 'Kansas City Center', 'ZME': 'Memphis Center',
+        'ZFW': 'Fort Worth Center', 'ZHU': 'Houston Center', 'ZAB': 'Albuquerque Center',
+        'ZDV': 'Denver Center', 'ZLC': 'Salt Lake Center', 'ZLA': 'Los Angeles Center',
+        'ZOA': 'Oakland Center', 'ZSE': 'Seattle Center', 'ZAN': 'Anchorage Center',
+        'ZHN': 'Honolulu Center',
         // Canadian
-        'CZYZ': 'Toronto', 'CZUL': 'Montreal', 'CZVR': 'Vancouver',
-        'CZWG': 'Winnipeg', 'CZEG': 'Edmonton', 'CZQX': 'Gander'
+        'CZYZ': 'Toronto FIR', 'CZWG': 'Winnipeg FIR', 'CZVR': 'Vancouver FIR',
+        'CZEG': 'Edmonton FIR', 'CZQM': 'Moncton FIR', 'CZQX': 'Gander FIR'
     };
     
     // Cross-border facilities
-    const CROSS_BORDER_FACILITIES = {
-        US_CA: ['ZBW', 'ZMP', 'ZSE', 'ZLC', 'ZOB', 'CZYZ', 'CZWG', 'CZVR', 'CZEG']
-    };
+    const CROSS_BORDER_FACILITIES = ['ZBW', 'ZMP', 'ZSE', 'ZLC', 'ZOB', 'CZYZ', 'CZWG', 'CZVR', 'CZEG'];
     
-    const ADVISORY_TYPES = {
-        GDP: { sections: ['timing', 'gdp'], headerClass: 'adv-header-gdp' },
-        GS: { sections: ['timing', 'gs'], headerClass: 'adv-header-gs' },
-        AFP: { sections: ['timing', 'afp'], headerClass: 'adv-header-afp' },
-        REROUTE: { sections: ['timing', 'reroute'], headerClass: 'adv-header-reroute' },
-        MIT: { sections: ['timing', 'mit'], headerClass: 'adv-header-mit' },
-        ATCSCC: { sections: ['timing', 'atcscc'], headerClass: 'adv-header-atcscc' },
-        CNX: { sections: ['cnx'], headerClass: 'adv-header-cnx' }
-    };
-
     // ===========================================
     // State
     // ===========================================
-    const state = {
+    
+    let state = {
         queue: [],
         productionMode: false,
+        selectedNtmlType: null,
         selectedAdvisoryType: null,
         lastCrossBorderOrgs: []
     };
-
+    
     // ===========================================
     // Initialization
     // ===========================================
     
+    $(document).ready(function() {
+        init();
+    });
+    
     function init() {
         initClock();
         initEventHandlers();
+        initNtmlTypeSelector();
         initAdvisoryTypeSelector();
         loadSavedState();
         updateUI();
-        
-        // Load staged entries for promotion panel
+        loadActiveTmis();
         loadStagedEntries();
         
+        // Refresh active TMIs every 60 seconds
+        setInterval(loadActiveTmis, 60000);
         // Refresh staged entries every 30 seconds
         setInterval(loadStagedEntries, 30000);
     }
@@ -100,679 +100,1041 @@
     function initEventHandlers() {
         // Production mode toggle
         $('#productionMode').on('change', function() {
-            state.productionMode = $(this).is(':checked');
-            updateModeIndicator();
-            saveState();
-            
-            if (state.productionMode) {
+            if ($(this).is(':checked')) {
                 Swal.fire({
+                    title: 'Enable Production Mode?',
+                    html: '<p class="text-danger"><strong>Warning:</strong> Entries will post directly to LIVE Discord channels!</p>',
                     icon: 'warning',
-                    title: 'Production Mode Enabled',
-                    text: 'Entries will post directly to LIVE Discord channels.',
-                    confirmButtonColor: '#dc3545'
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Enable Production'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        state.productionMode = true;
+                        updateModeIndicator();
+                        saveState();
+                    } else {
+                        $(this).prop('checked', false);
+                    }
                 });
+            } else {
+                state.productionMode = false;
+                updateModeIndicator();
+                saveState();
             }
         });
         
-        // Quick input
-        $('#quickInput').on('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addNtmlFromInput();
-            }
-        });
-        
-        // Templates
-        $('.template-btn').on('click', function() {
-            const template = $(this).data('template');
-            applyTemplate(template);
-        });
-        
-        // Discord org checkboxes - NTML
-        $('.discord-org-checkbox').on('change', function() {
-            updateTargetOrgsDisplay();
-        });
-        
-        // Discord org checkboxes - Advisory
-        $('.discord-org-checkbox-adv').on('change', function() {
-            updateTargetOrgsDisplay();
-        });
-        
-        // Queue management
+        // Queue controls
         $('#clearQueue').on('click', clearQueue);
         $('#submitAllBtn').on('click', submitAll);
         
-        // Advisory
-        $('#adv_add_to_queue').on('click', addAdvisoryToQueue);
-        $('#adv_reset').on('click', resetAdvisoryForm);
+        // Advisory controls
         $('#adv_copy').on('click', copyAdvisoryToClipboard);
+        $('#adv_add_to_queue').on('click', addAdvisoryToQueue);
         
-        // Tab changes
+        // Tab change
         $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
-            if ($(e.target).attr('href') === '#queuePanel') {
+            if (e.target.id === 'queue-tab') {
                 updateQueueDisplay();
+            } else if (e.target.id === 'active-tab') {
+                loadActiveTmis();
             }
         });
         
-        // Sync org checkboxes between tabs
-        $('.discord-org-checkbox').on('change', function() {
-            const code = $(this).val();
-            const checked = $(this).is(':checked');
-            $(`#adv_org_${code}`).prop('checked', checked);
-        });
-        
-        $('.discord-org-checkbox-adv').on('change', function() {
-            const code = $(this).val();
-            const checked = $(this).is(':checked');
-            $(`#org_${code}`).prop('checked', checked);
+        // Refresh active TMIs button
+        $('#refreshActiveTmis').on('click', loadActiveTmis);
+    }
+    
+    function initNtmlTypeSelector() {
+        $('.ntml-type-card').on('click', function() {
+            const type = $(this).data('type');
+            $('.ntml-type-card').removeClass('selected');
+            $(this).addClass('selected');
+            state.selectedNtmlType = type;
+            loadNtmlForm(type);
         });
     }
     
     function initAdvisoryTypeSelector() {
         $('.advisory-type-card').on('click', function() {
+            const type = $(this).data('type');
             $('.advisory-type-card').removeClass('selected');
             $(this).addClass('selected');
-            
-            const type = $(this).data('type');
             state.selectedAdvisoryType = type;
-            
-            showAdvisorySections(type);
-            updateAdvisoryPreview();
-        });
-        
-        // Update preview on any input change
-        $(document).on('input change', '[id^="adv_"], [id^="gdp_"], [id^="gs_"], [id^="afp_"], [id^="reroute_"], [id^="mit_"], [id^="atcscc_"], [id^="cnx_"]', function() {
-            updateAdvisoryPreview();
+            loadAdvisoryForm(type);
         });
     }
     
     // ===========================================
-    // Mode Management
+    // NTML Form Loading
     // ===========================================
     
-    function updateModeIndicator() {
-        const indicator = $('#modeIndicator');
-        const warning = $('#prodWarning');
-        const submitBtn = $('#submitBtnText');
-        const targetDisplay = $('#targetModeDisplay');
-        const hint = $('#submitHint');
+    function loadNtmlForm(type) {
+        let formHtml = '';
         
-        if (state.productionMode) {
-            indicator.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
-            warning.show();
-            submitBtn.text('Submit to Production');
-            targetDisplay.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
-            hint.text('⚠️ Entries will post to LIVE channels');
-        } else {
-            indicator.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
-            warning.hide();
-            submitBtn.text('Submit to Staging');
-            targetDisplay.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
-            hint.text('Entries will post to staging channels for review');
+        switch(type) {
+            case 'MIT':
+            case 'MINIT':
+                formHtml = buildMitMinitForm(type);
+                break;
+            case 'STOP':
+                formHtml = buildStopForm();
+                break;
+            case 'APREQ':
+                formHtml = buildApreqForm();
+                break;
+            case 'TBM':
+                formHtml = buildTbmForm();
+                break;
+            case 'DELAY':
+                formHtml = buildDelayForm();
+                break;
+            case 'CONFIG':
+                formHtml = buildConfigForm();
+                break;
+            case 'CANCEL':
+                formHtml = buildCancelForm();
+                break;
+            default:
+                formHtml = '<div class="alert alert-warning">Unknown entry type</div>';
         }
+        
+        $('#ntml_form_container').html(formHtml);
+        initNtmlFormHandlers(type);
     }
     
-    // ===========================================
-    // NTML Quick Entry
-    // ===========================================
-    
-    function addNtmlFromInput() {
-        const input = $('#quickInput').val().trim();
-        if (!input) return;
+    function buildMitMinitForm(type) {
+        const unit = type === 'MIT' ? 'Miles' : 'Minutes';
+        const unitShort = type === 'MIT' ? 'nm' : 'min';
         
-        const parsed = parseNtmlInput(input);
-        if (!parsed) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Parse Error',
-                text: 'Could not parse the NTML entry. Check syntax.',
-                toast: true,
-                position: 'top-end',
-                timer: 3000,
-                showConfirmButton: false
-            });
-            return;
-        }
-        
-        // Get selected orgs
-        const selectedOrgs = getSelectedOrgs('ntml');
-        
-        // Check for cross-border
-        if (CONFIG.crossBorderAutoDetect) {
-            const crossBorderOrgs = detectCrossBorderOrgs(parsed);
-            if (crossBorderOrgs.length > 0) {
-                highlightCrossBorderOrgs(crossBorderOrgs);
-            }
-        }
-        
-        const entry = {
-            id: generateId(),
-            type: 'ntml',
-            entryType: parsed.type,
-            data: parsed,
-            rawInput: input,
-            orgs: selectedOrgs,
-            createdAt: new Date().toISOString()
-        };
-        
-        state.queue.push(entry);
-        $('#quickInput').val('');
-        
-        updateUI();
-        saveState();
-        
-        // Show success toast
-        Swal.fire({
-            icon: 'success',
-            title: 'Added to Queue',
-            text: `${parsed.type} entry added`,
-            toast: true,
-            position: 'top-end',
-            timer: 2000,
-            showConfirmButton: false
-        });
-    }
-    
-    function parseNtmlInput(input) {
-        // Simplified parser - handles common patterns
-        const upperInput = input.toUpperCase();
-        
-        // MIT/MINIT pattern: 20MIT ZBW→ZNY JFK LENDY VOLUME 1400-1800
-        const mitMatch = upperInput.match(/^(\d+)(MIT|MINIT)\s+(\w+)[→\->]+(\w+)\s+(\w+)\s+(\w*)\s*(\w*)\s*(\d{4})?[-]?(\d{4})?/);
-        if (mitMatch) {
-            return {
-                type: mitMatch[2],
-                distance: parseInt(mitMatch[1]),
-                fromFacility: mitMatch[3],
-                toFacility: mitMatch[4],
-                airport: mitMatch[5],
-                fix: mitMatch[6] || null,
-                reason: mitMatch[7] || 'VOLUME',
-                startTime: mitMatch[8] || null,
-                endTime: mitMatch[9] || null
-            };
-        }
-        
-        // DELAY pattern: DELAY JFK 45min INC WEATHER
-        const delayMatch = upperInput.match(/^DELAY\s+(\w+)\s+(\d+)\s*MIN\s*(\w*)\s*(\w*)/);
-        if (delayMatch) {
-            return {
-                type: 'DELAY',
-                facility: delayMatch[1],
-                minutes: parseInt(delayMatch[2]),
-                trend: delayMatch[3] || 'STABLE',
-                reason: delayMatch[4] || 'VOLUME'
-            };
-        }
-        
-        // CONFIG pattern: CONFIG JFK IMC ARR:22L/22R DEP:31L
-        const configMatch = upperInput.match(/^CONFIG\s+(\w+)\s+(\w+)/);
-        if (configMatch) {
-            return {
-                type: 'CONFIG',
-                airport: configMatch[1],
-                weather: configMatch[2],
-                rawConfig: input
-            };
-        }
-        
-        // GS pattern: GS KJFK WEATHER
-        const gsMatch = upperInput.match(/^GS\s+([A-Z]{3,4})\s*(\w*)/);
-        if (gsMatch) {
-            return {
-                type: 'GS',
-                airport: gsMatch[1],
-                reason: gsMatch[2] || 'WEATHER'
-            };
-        }
-        
-        // STOP pattern
-        const stopMatch = upperInput.match(/^STOP\s+(\w+)[→\->]+(\w+)/);
-        if (stopMatch) {
-            return {
-                type: 'STOP',
-                fromFacility: stopMatch[1],
-                toFacility: stopMatch[2]
-            };
-        }
-        
-        // Generic fallback
-        return {
-            type: 'OTHER',
-            raw: input
-        };
-    }
-    
-    function applyTemplate(template) {
-        const templates = {
-            'mit-arr': '20MIT ZBW→ZNY JFK LENDY VOLUME 1400-1800',
-            'mit-dep': '15MIT JFK→ZNY GREKI VOLUME 1400-1800',
-            'minit': '10MINIT ZDC→ZNY EWR WEATHER 1500-1800',
-            'delay': 'DELAY JFK 45min INC WEATHER',
-            'config': 'CONFIG JFK IMC ARR:22L/22R DEP:31L AAR:40 ADR:45',
-            'gs': 'GS KJFK WEATHER'
-        };
-        
-        if (templates[template]) {
-            $('#quickInput').val(templates[template]).focus();
-        }
-    }
-    
-    // ===========================================
-    // Advisory Builder
-    // ===========================================
-    
-    function showAdvisorySections(type) {
-        // Hide all dynamic sections
-        $('#adv_dynamic_sections').empty();
-        
-        const typeConfig = ADVISORY_TYPES[type];
-        if (!typeConfig) return;
-        
-        // Update header color
-        $('#adv_section_basic .card-header').removeClass(function(index, className) {
-            return (className.match(/adv-header-\w+/g) || []).join(' ');
-        }).addClass(typeConfig.headerClass);
-        
-        // Load type-specific sections
-        if (type === 'GDP') {
-            loadGDPSection();
-        } else if (type === 'GS') {
-            loadGSSection();
-        } else if (type === 'AFP') {
-            loadAFPSection();
-        } else if (type === 'REROUTE') {
-            loadRerouteSection();
-        } else if (type === 'MIT') {
-            loadMITSection();
-        } else if (type === 'ATCSCC') {
-            loadFreeformSection();
-        } else if (type === 'CNX') {
-            loadCancelSection();
-        }
-    }
-    
-    function loadGDPSection() {
-        const html = `
-            <div class="card shadow-sm mb-3">
-                <div class="card-header adv-header-gdp">
-                    <span class="tmi-section-title"><i class="fas fa-hourglass-half mr-1"></i> GDP Configuration</span>
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <span class="tmi-section-title"><i class="fas fa-ruler-horizontal mr-1"></i> ${type} Entry</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-row">
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Program Rate (/hr)</label>
-                            <input type="number" class="form-control form-control-sm" id="gdp_rate" placeholder="40">
+                    <!-- Restriction Value -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">${unit}-in-Trail Value</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="ntml_value" min="5" max="100" step="5" value="20">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">${unitShort}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Max Delay (min)</label>
-                            <input type="number" class="form-control form-control-sm" id="gdp_delay_cap" placeholder="90">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Control Element (Airport/Fix)</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK or LENDY" maxlength="10">
                         </div>
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Reason</label>
-                            <select class="form-control form-control-sm" id="gdp_reason">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Via Fix (optional)</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="MERIT" maxlength="10">
+                        </div>
+                    </div>
+                    
+                    <!-- Facilities -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Providing Facility</label>
+                            <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_prov_facility" placeholder="ZBW" maxlength="4" list="facilityList">
+                        </div>
+                    </div>
+                    
+                    <!-- Valid Times -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_from" placeholder="1400" maxlength="4" value="${CONFIG.defaultStartTime}">
+                            <small class="text-muted">Format: HHMM</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_until" placeholder="1800" maxlength="4" value="${CONFIG.defaultEndTime}">
+                            <small class="text-muted">Format: HHMM</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Reason & Options -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Reason</label>
+                            <select class="form-control" id="ntml_reason">
+                                <option value="VOLUME">Volume</option>
+                                <option value="WEATHER">Weather</option>
+                                <option value="RUNWAY">Runway</option>
+                                <option value="STAFFING">Staffing</option>
+                                <option value="EQUIPMENT">Equipment</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Exclusions</label>
+                            <select class="form-control" id="ntml_exclusions">
+                                <option value="NONE">None</option>
+                                <option value="LIFEGUARD">Lifeguard</option>
+                                <option value="MEDEVAC">Medevac</option>
+                                <option value="AIRDROP">Airdrop</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Flow Direction</label>
+                            <select class="form-control" id="ntml_flow">
+                                <option value="arrivals">Arrivals</option>
+                                <option value="departures">Departures</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">
+                            <i class="fas fa-undo mr-1"></i> Reset
+                        </button>
+                        <button class="btn btn-primary" type="button" onclick="TMIPublisher.addNtmlToQueue('${type}')">
+                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                        </button>
+                    </div>
+                </div>
+            </div>
+            ${buildFacilityDatalist()}
+        `;
+    }
+    
+    function buildStopForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <span class="tmi-section-title"><i class="fas fa-hand-paper mr-1"></i> Flow Stoppage Entry</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Control Element (Airport/Fix)</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="10">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Via Fix (optional)</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="LENDY" maxlength="10">
+                        </div>
+                    </div>
+                    
+                    <!-- Facilities -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" placeholder="ZNY" maxlength="4" list="facilityList">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Providing Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" placeholder="ZBW" maxlength="4" list="facilityList">
+                        </div>
+                    </div>
+                    
+                    <!-- Valid Times -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_from" placeholder="1400" maxlength="4" value="${CONFIG.defaultStartTime}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_until" placeholder="1800" maxlength="4" value="${CONFIG.defaultEndTime}">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Reason</label>
+                            <select class="form-control" id="ntml_reason">
                                 <option value="WEATHER">Weather</option>
                                 <option value="VOLUME">Volume</option>
                                 <option value="RUNWAY">Runway</option>
-                                <option value="EQUIPMENT">Equipment</option>
+                                <option value="STAFFING">Staffing</option>
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="tmi-label mb-0">Scope (Centers)</label>
-                        <input type="text" class="form-control form-control-sm" id="gdp_scope" placeholder="TIER1 or ZBW ZNY ZDC">
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">
+                            <i class="fas fa-undo mr-1"></i> Reset
+                        </button>
+                        <button class="btn btn-danger" type="button" onclick="TMIPublisher.addNtmlToQueue('STOP')">
+                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                        </button>
                     </div>
                 </div>
-            </div>`;
-        $('#adv_dynamic_sections').html(html);
+            </div>
+            ${buildFacilityDatalist()}
+        `;
     }
     
-    function loadGSSection() {
-        const html = `
-            <div class="card shadow-sm mb-3">
-                <div class="card-header adv-header-gs">
-                    <span class="tmi-section-title"><i class="fas fa-ban mr-1"></i> Ground Stop Configuration</span>
+    function buildApreqForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <span class="tmi-section-title"><i class="fas fa-phone mr-1"></i> APREQ/CFR Entry</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Reason</label>
-                            <select class="form-control form-control-sm" id="gs_reason">
-                                <option value="WEATHER">Weather</option>
-                                <option value="RUNWAY_CLOSURE">Runway Closure</option>
-                                <option value="EQUIPMENT">Equipment</option>
-                                <option value="SECURITY">Security</option>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Type</label>
+                            <select class="form-control" id="ntml_apreq_type">
+                                <option value="APREQ">APREQ</option>
+                                <option value="CFR">CFR (Call for Release)</option>
                             </select>
                         </div>
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Probability of Extension</label>
-                            <select class="form-control form-control-sm" id="gs_probability">
-                                <option value="">None</option>
-                                <option value="LOW">LOW</option>
-                                <option value="MODERATE">MODERATE</option>
-                                <option value="HIGH">HIGH</option>
-                            </select>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Airport</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="4">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Via Fix (optional)</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" maxlength="10">
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="tmi-label mb-0">Scope (Centers)</label>
-                        <input type="text" class="form-control form-control-sm" id="gs_scope" placeholder="CONUS or ZBW ZNY ZDC">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Providing Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="4" list="facilityList">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_from" value="${CONFIG.defaultStartTime}" maxlength="4">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_until" value="${CONFIG.defaultEndTime}" maxlength="4">
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-warning" type="button" onclick="TMIPublisher.addNtmlToQueue('APREQ')">
+                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                        </button>
                     </div>
                 </div>
-            </div>`;
-        $('#adv_dynamic_sections').html(html);
+            </div>
+            ${buildFacilityDatalist()}
+        `;
     }
     
-    function loadAFPSection() {
-        const html = `
-            <div class="card shadow-sm mb-3">
-                <div class="card-header adv-header-afp">
-                    <span class="tmi-section-title"><i class="fas fa-vector-square mr-1"></i> AFP Configuration</span>
+    function buildTbmForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <span class="tmi-section-title"><i class="fas fa-tachometer-alt mr-1"></i> TBM Entry</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-row">
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">FCA Name</label>
-                            <input type="text" class="form-control form-control-sm" id="afp_fca" placeholder="FCA_XXXX">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Airport</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KATL" maxlength="4">
                         </div>
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Rate (/hr)</label>
-                            <input type="number" class="form-control form-control-sm" id="afp_rate" placeholder="30">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Sector</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_sector" placeholder="ZTL33" maxlength="10">
                         </div>
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Reason</label>
-                            <select class="form-control form-control-sm" id="afp_reason">
-                                <option value="WEATHER">Weather</option>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Reason</label>
+                            <select class="form-control" id="ntml_reason">
                                 <option value="VOLUME">Volume</option>
+                                <option value="WEATHER">Weather</option>
                             </select>
                         </div>
                     </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Providing Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="4" list="facilityList">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_from" value="${CONFIG.defaultStartTime}" maxlength="4">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_valid_until" value="${CONFIG.defaultEndTime}" maxlength="4">
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-success" type="button" onclick="TMIPublisher.addNtmlToQueue('TBM')">
+                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                        </button>
+                    </div>
                 </div>
-            </div>`;
-        $('#adv_dynamic_sections').html(html);
+            </div>
+            ${buildFacilityDatalist()}
+        `;
     }
     
-    function loadRerouteSection() {
-        const html = `
-            <div class="card shadow-sm mb-3">
-                <div class="card-header adv-header-reroute">
-                    <span class="tmi-section-title"><i class="fas fa-directions mr-1"></i> Reroute Configuration</span>
+    function buildDelayForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header" style="background-color: #fd7e14; color: white;">
+                    <span class="tmi-section-title"><i class="fas fa-hourglass-half mr-1"></i> Delay Entry</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Route Name</label>
-                            <input type="text" class="form-control form-control-sm" id="reroute_name" placeholder="GOLDDR">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Delay Type</label>
+                            <select class="form-control" id="ntml_delay_type">
+                                <option value="D/D">D/D (Departure Delay)</option>
+                                <option value="E/D">E/D (En Route Delay)</option>
+                                <option value="A/D">A/D (Arrival Delay)</option>
+                            </select>
                         </div>
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Reason</label>
-                            <select class="form-control form-control-sm" id="reroute_reason">
-                                <option value="WEATHER">Weather</option>
-                                <option value="VOLUME">Volume</option>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="4">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Delay (minutes)</label>
+                            <input type="number" class="form-control" id="ntml_delay_minutes" min="0" max="180" value="30">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Trend</label>
+                            <select class="form-control" id="ntml_delay_trend">
+                                <option value="STABLE">Stable</option>
+                                <option value="INC">Increasing</option>
+                                <option value="DEC">Decreasing</option>
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="tmi-label mb-0">Route String</label>
-                        <textarea class="form-control form-control-sm font-monospace" id="reroute_string" rows="2" placeholder="KJFK..MERIT..J75..MPASS..KATL"></textarea>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Reason</label>
+                            <select class="form-control" id="ntml_reason">
+                                <option value="VOLUME">Volume</option>
+                                <option value="WEATHER">Weather</option>
+                                <option value="RUNWAY">Runway</option>
+                                <option value="STAFFING">Staffing</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Report Time (UTC)</label>
+                            <input type="text" class="form-control time-input" id="ntml_report_time" value="${getCurrentTimeHHMM()}" maxlength="4">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Aircraft Count</label>
+                            <input type="number" class="form-control" id="ntml_acft_count" min="1" value="1">
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Traffic From</label>
-                            <input type="text" class="form-control form-control-sm" id="reroute_from" placeholder="KJFK/KLGA">
-                        </div>
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Traffic To</label>
-                            <input type="text" class="form-control form-control-sm" id="reroute_to" placeholder="KCLT/KATL">
-                        </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-warning" type="button" onclick="TMIPublisher.addNtmlToQueue('DELAY')">
+                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                        </button>
                     </div>
                 </div>
-            </div>`;
-        $('#adv_dynamic_sections').html(html);
+            </div>
+        `;
     }
     
-    function loadMITSection() {
-        const html = `
-            <div class="card shadow-sm mb-3">
-                <div class="card-header adv-header-mit">
-                    <span class="tmi-section-title"><i class="fas fa-ruler-horizontal mr-1"></i> MIT/MINIT Configuration</span>
+    function buildConfigForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header" style="background-color: #6f42c1; color: white;">
+                    <span class="tmi-section-title"><i class="fas fa-plane-departure mr-1"></i> Airport Configuration Entry</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-row">
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Facility</label>
-                            <input type="text" class="form-control form-control-sm" id="mit_facility" placeholder="ZNY">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Airport</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="4">
                         </div>
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Miles/Minutes</label>
-                            <input type="number" class="form-control form-control-sm" id="mit_miles" placeholder="20">
-                        </div>
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0">Type</label>
-                            <select class="form-control form-control-sm" id="mit_type">
-                                <option value="MIT">MIT (Miles)</option>
-                                <option value="MINIT">MINIT (Minutes)</option>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Weather</label>
+                            <select class="form-control" id="ntml_weather">
+                                <option value="VMC">VMC</option>
+                                <option value="IMC">IMC</option>
+                                <option value="MVFR">MVFR</option>
                             </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Config Name (optional)</label>
+                            <input type="text" class="form-control" id="ntml_config_name" placeholder="e.g., EAST">
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">At Fix</label>
-                            <input type="text" class="form-control form-control-sm" id="mit_fix" placeholder="MERIT">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Arrival Runways</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_arr_runways" placeholder="22L/22R">
                         </div>
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Reason</label>
-                            <select class="form-control form-control-sm" id="mit_reason">
-                                <option value="WEATHER">Weather</option>
-                                <option value="VOLUME">Volume</option>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Departure Runways</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_dep_runways" placeholder="31L/31R">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">AAR</label>
+                            <input type="number" class="form-control" id="ntml_aar" min="0" max="120" value="60">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">AAR Type</label>
+                            <select class="form-control" id="ntml_aar_type">
+                                <option value="Strat">Strategic</option>
+                                <option value="Ops">Operational</option>
+                                <option value="Called">Called</option>
                             </select>
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">ADR</label>
+                            <input type="number" class="form-control" id="ntml_adr" min="0" max="120" value="60">
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info small mb-3">
+                        <i class="fas fa-info-circle"></i> 
+                        For standard configurations, see <a href="configs.php" target="_blank">Airport Configurations</a>
+                    </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-primary" type="button" style="background-color: #6f42c1; border-color: #6f42c1;" onclick="TMIPublisher.addNtmlToQueue('CONFIG')">
+                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                        </button>
                     </div>
                 </div>
-            </div>`;
-        $('#adv_dynamic_sections').html(html);
+            </div>
+        `;
     }
     
-    function loadFreeformSection() {
-        const html = `
-            <div class="card shadow-sm mb-3">
-                <div class="card-header adv-header-atcscc">
+    function buildCancelForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <span class="tmi-section-title"><i class="fas fa-times-circle mr-1"></i> Cancel TMI</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Cancel Type</label>
+                            <select class="form-control" id="ntml_cancel_type">
+                                <option value="SPECIFIC">Specific TMI</option>
+                                <option value="ALL">All TMIs (Airport)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Airport/Element</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" maxlength="10">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Via Fix (if specific)</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_via_fix" maxlength="10">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="4" list="facilityList">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Providing Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="4" list="facilityList">
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-dark" type="button" onclick="TMIPublisher.addNtmlToQueue('CANCEL')">
+                            <i class="fas fa-times mr-1"></i> Add Cancel to Queue
+                        </button>
+                    </div>
+                </div>
+            </div>
+            ${buildFacilityDatalist()}
+        `;
+    }
+    
+    function buildFacilityDatalist() {
+        let options = '';
+        for (const [code, name] of Object.entries(ARTCCS)) {
+            options += `<option value="${code}">${name}</option>`;
+        }
+        return `<datalist id="facilityList">${options}</datalist>`;
+    }
+    
+    function initNtmlFormHandlers(type) {
+        // Auto-uppercase inputs
+        $('.text-uppercase').on('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+        
+        // Facility auto-suggest cross-border detection
+        $('.facility-autocomplete').on('change', function() {
+            detectCrossBorderFromFacilities();
+        });
+    }
+    
+    // ===========================================
+    // Advisory Form Loading
+    // ===========================================
+    
+    function loadAdvisoryForm(type) {
+        let formHtml = '';
+        
+        switch(type) {
+            case 'OPSPLAN':
+                formHtml = buildOpsPlanForm();
+                break;
+            case 'FREEFORM':
+                formHtml = buildFreeformForm();
+                break;
+            case 'HOTLINE':
+                formHtml = buildHotlineForm();
+                break;
+            case 'SWAP':
+                formHtml = buildSwapForm();
+                break;
+            default:
+                formHtml = '<div class="alert alert-warning">Unknown advisory type</div>';
+        }
+        
+        $('#adv_form_container').html(formHtml);
+        initAdvisoryFormHandlers(type);
+        updateAdvisoryPreview();
+        $('#adv_add_to_queue').prop('disabled', false);
+    }
+    
+    function buildOpsPlanForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <span class="tmi-section-title"><i class="fas fa-clipboard-check mr-1"></i> Operations Plan</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Advisory #</label>
+                            <input type="text" class="form-control" id="adv_number" value="001">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Date (Zulu)</label>
+                            <input type="text" class="form-control" id="adv_date" value="${getCurrentDateMMDD()}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Key Initiatives</label>
+                        <textarea class="form-control" id="adv_initiatives" rows="4" placeholder="List key TMIs and initiatives for the operational period..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Weather Impact</label>
+                        <textarea class="form-control" id="adv_weather" rows="2" placeholder="Summarize weather impacts..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Special Events</label>
+                        <textarea class="form-control" id="adv_events" rows="2" placeholder="List any special events affecting traffic..."></textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function buildFreeformForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
                     <span class="tmi-section-title"><i class="fas fa-file-alt mr-1"></i> Free-Form Advisory</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
-                        <label class="tmi-label mb-0">Subject</label>
-                        <input type="text" class="form-control form-control-sm" id="atcscc_subject" placeholder="Advisory Subject">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Advisory #</label>
+                            <input type="text" class="form-control" id="adv_number" value="001">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Facility</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Subject</label>
+                            <input type="text" class="form-control" id="adv_subject" placeholder="Advisory Subject">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="tmi-label mb-0">Body</label>
-                        <textarea class="form-control form-control-sm" id="atcscc_body" rows="6" placeholder="Advisory body text..."></textarea>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Advisory Text</label>
+                        <textarea class="form-control" id="adv_text" rows="8" placeholder="Enter advisory text..."></textarea>
+                        <small class="text-muted">Max 2000 characters for Discord</small>
                     </div>
                 </div>
-            </div>`;
-        $('#adv_dynamic_sections').html(html);
+            </div>
+        `;
     }
     
-    function loadCancelSection() {
-        const html = `
-            <div class="card shadow-sm mb-3">
-                <div class="card-header adv-header-cnx">
-                    <span class="tmi-section-title"><i class="fas fa-times-circle mr-1"></i> Cancel Advisory</span>
+    function buildHotlineForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <span class="tmi-section-title"><i class="fas fa-phone-volume mr-1"></i> Hotline Advisory</span>
                 </div>
                 <div class="card-body">
-                    <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Original Advisory #</label>
-                            <input type="text" class="form-control form-control-sm" id="cnx_ref_number" placeholder="001">
-                        </div>
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0">Original Type</label>
-                            <select class="form-control form-control-sm" id="cnx_ref_type">
-                                <option value="GDP">GDP</option>
-                                <option value="GS">GS</option>
-                                <option value="AFP">AFP</option>
-                                <option value="REROUTE">Reroute</option>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Action</label>
+                            <select class="form-control" id="adv_hotline_action">
+                                <option value="ACTIVATION">Activation</option>
+                                <option value="TERMINATION">Termination</option>
                             </select>
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Hotline Name</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_hotline_name" placeholder="e.g., EAST COAST">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Effective Time (UTC)</label>
+                            <input type="text" class="form-control time-input" id="adv_effective_time" value="${getCurrentTimeHHMM()}" maxlength="4">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Facilities Involved</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_facilities" placeholder="ZNY, ZBW, ZDC">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Reason</label>
+                            <input type="text" class="form-control" id="adv_reason" placeholder="Weather, Volume, etc.">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Additional Notes</label>
+                        <textarea class="form-control" id="adv_notes" rows="2"></textarea>
                     </div>
                 </div>
-            </div>`;
-        $('#adv_dynamic_sections').html(html);
+            </div>
+        `;
+    }
+    
+    function buildSwapForm() {
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <span class="tmi-section-title"><i class="fas fa-cloud-sun-rain mr-1"></i> SWAP Advisory</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Advisory #</label>
+                            <input type="text" class="form-control" id="adv_number" value="001">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">SWAP Type</label>
+                            <select class="form-control" id="adv_swap_type">
+                                <option value="IMPLEMENTATION">Implementation</option>
+                                <option value="UPDATE">Update</option>
+                                <option value="TERMINATION">Termination</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Effective Time (UTC)</label>
+                            <input type="text" class="form-control time-input" id="adv_effective_time" value="${getCurrentTimeHHMM()}" maxlength="4">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Affected Areas</label>
+                        <input type="text" class="form-control text-uppercase" id="adv_areas" placeholder="e.g., ZNY, ZBW, ZDC">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Weather Summary</label>
+                        <textarea class="form-control" id="adv_weather" rows="2" placeholder="Describe weather conditions..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Playbook Routes / Initiatives</label>
+                        <textarea class="form-control" id="adv_routes" rows="3" placeholder="List active playbook routes and initiatives..."></textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function initAdvisoryFormHandlers(type) {
+        // Auto-update preview on input
+        $('#adv_form_container input, #adv_form_container textarea, #adv_form_container select').on('input change', function() {
+            updateAdvisoryPreview();
+        });
     }
     
     function updateAdvisoryPreview() {
-        if (!state.selectedAdvisoryType) {
+        const type = state.selectedAdvisoryType;
+        if (!type) {
             $('#adv_preview').text('Select an advisory type to begin...');
             return;
         }
         
-        const preview = formatAdvisoryPreview(state.selectedAdvisoryType);
-        $('#adv_preview').text(preview);
+        let preview = '';
+        const now = new Date();
+        const dateStr = now.toISOString().substr(0, 10).replace(/-/g, '/');
+        const timeStr = now.toISOString().substr(11, 5).replace(':', '');
         
-        // Update char count
-        const len = preview.length;
-        const countEl = $('#preview_char_count');
-        countEl.text(`${len} / ${DISCORD_MAX_LENGTH}`);
-        countEl.removeClass('warning danger');
-        if (len > DISCORD_MAX_LENGTH) countEl.addClass('danger');
-        else if (len > DISCORD_MAX_LENGTH * 0.8) countEl.addClass('warning');
+        switch(type) {
+            case 'OPSPLAN':
+                preview = buildOpsPlanPreview(dateStr, timeStr);
+                break;
+            case 'FREEFORM':
+                preview = buildFreeformPreview(dateStr, timeStr);
+                break;
+            case 'HOTLINE':
+                preview = buildHotlinePreview(dateStr, timeStr);
+                break;
+            case 'SWAP':
+                preview = buildSwapPreview(dateStr, timeStr);
+                break;
+        }
+        
+        $('#adv_preview').text(preview);
+        $('#preview_char_count').text(`${preview.length} / ${DISCORD_MAX_LENGTH}`);
+        
+        if (preview.length > DISCORD_MAX_LENGTH) {
+            $('#preview_char_count').addClass('text-danger');
+        } else {
+            $('#preview_char_count').removeClass('text-danger');
+        }
     }
     
-    function formatAdvisoryPreview(type) {
-        const advNum = $('#adv_number').val() || '001';
+    function buildOpsPlanPreview(dateStr, timeStr) {
+        const num = $('#adv_number').val() || '001';
         const facility = $('#adv_facility').val() || 'DCC';
-        const ctlElement = $('#adv_ctl_element').val() || '';
-        const startTime = $('#adv_start').val();
-        const endTime = $('#adv_end').val();
-        const comments = $('#adv_comments').val();
+        const date = $('#adv_date').val() || dateStr;
+        const initiatives = $('#adv_initiatives').val() || '';
+        const weather = $('#adv_weather').val() || '';
+        const events = $('#adv_events').val() || '';
         
-        const now = new Date();
-        const dateStr = `${(now.getUTCMonth()+1).toString().padStart(2,'0')}/${now.getUTCDate().toString().padStart(2,'0')}/${now.getUTCFullYear()}`;
-        const sigTime = `${now.getUTCFullYear().toString().slice(-2)}/${(now.getUTCMonth()+1).toString().padStart(2,'0')}/${now.getUTCDate().toString().padStart(2,'0')} ${now.getUTCHours().toString().padStart(2,'0')}:${now.getUTCMinutes().toString().padStart(2,'0')}`;
+        let lines = [
+            `=== OPERATIONS PLAN ===`,
+            `ADVISORY ${num}  ${facility}  ${date}Z`,
+            ``,
+            `KEY INITIATIVES:`,
+            initiatives || '(None specified)',
+            ``
+        ];
         
-        const formatZulu = (dateStr) => {
-            if (!dateStr) return '--/----Z';
-            const d = new Date(dateStr + 'Z');
-            return `${d.getUTCDate().toString().padStart(2,'0')}/${d.getUTCHours().toString().padStart(2,'0')}${d.getUTCMinutes().toString().padStart(2,'0')}Z`;
-        };
-        
-        const validRange = `${formatZulu(startTime).replace('Z','')} - ${formatZulu(endTime)}`;
-        
-        let lines = [];
-        
-        // Header
-        lines.push(`vATCSCC ADVZY ${advNum.padStart(3,'0')}   ${facility}   ${dateStr}`);
-        lines.push('');
-        
-        // Type-specific content
-        if (type === 'GDP') {
-            const rate = $('#gdp_rate').val() || '40';
-            const delay = $('#gdp_delay_cap').val() || '90';
-            const reason = $('#gdp_reason').val() || 'WEATHER';
-            const scope = $('#gdp_scope').val() || 'TIER1';
-            
-            lines.push(`${ctlElement || 'KXXX'} GDP`);
-            lines.push(`REASON: ${reason}`);
-            lines.push(`PROGRAM RATE: ${rate}/HR`);
-            lines.push(`MAX DELAY: ${delay} MINUTES`);
-            lines.push(`SCOPE: ${scope}`);
-            lines.push(`VALID: ${validRange}`);
-        } else if (type === 'GS') {
-            const reason = $('#gs_reason').val() || 'WEATHER';
-            const prob = $('#gs_probability').val();
-            const scope = $('#gs_scope').val() || 'CONUS';
-            
-            lines.push(`${ctlElement || 'KXXX'} GROUND STOP`);
-            lines.push(`REASON: ${reason}`);
-            lines.push(`SCOPE: ${scope}`);
-            if (prob) lines.push(`PROBABILITY OF EXTENSION: ${prob}`);
-            lines.push(`VALID: ${validRange}`);
-        } else if (type === 'AFP') {
-            const fca = $('#afp_fca').val() || 'FCA_XXXX';
-            const rate = $('#afp_rate').val() || '30';
-            const reason = $('#afp_reason').val() || 'WEATHER';
-            
-            lines.push(`${fca} AFP`);
-            lines.push(`REASON: ${reason}`);
-            lines.push(`RATE: ${rate}/HR`);
-            lines.push(`VALID: ${validRange}`);
-        } else if (type === 'REROUTE') {
-            const name = $('#reroute_name').val() || 'ROUTE';
-            const routeStr = $('#reroute_string').val() || '';
-            const from = $('#reroute_from').val() || '';
-            const to = $('#reroute_to').val() || '';
-            
-            lines.push(`REROUTE ADVISORY: ${name}`);
-            if (from && to) lines.push(`TRAFFIC: ${from} TO ${to}`);
-            if (routeStr) lines.push(`ROUTE: ${routeStr}`);
-            lines.push(`VALID: ${validRange}`);
-        } else if (type === 'MIT') {
-            const fac = $('#mit_facility').val() || 'ZXX';
-            const miles = $('#mit_miles').val() || '20';
-            const mitType = $('#mit_type').val() || 'MIT';
-            const fix = $('#mit_fix').val() || '';
-            const reason = $('#mit_reason').val() || 'VOLUME';
-            
-            lines.push(`${fac} ${miles}${mitType}${fix ? ' AT ' + fix : ''}`);
-            lines.push(`REASON: ${reason}`);
-            lines.push(`VALID: ${validRange}`);
-        } else if (type === 'ATCSCC') {
-            const subject = $('#atcscc_subject').val() || 'ADVISORY';
-            const body = $('#atcscc_body').val() || '';
-            
-            lines.push(subject.toUpperCase());
-            lines.push('');
-            if (body) lines.push(body);
-        } else if (type === 'CNX') {
-            const refNum = $('#cnx_ref_number').val() || '001';
-            const refType = $('#cnx_ref_type').val() || 'GDP';
-            
-            lines.push(`CANCEL ${refType} ADVISORY ${refNum.padStart(3,'0')}`);
-            lines.push(`${ctlElement || 'KXXX'} ${refType} CANCELLED`);
+        if (weather) {
+            lines.push(`WEATHER IMPACT:`);
+            lines.push(weather);
+            lines.push(``);
         }
         
-        // Comments
-        if (comments) {
-            lines.push('');
-            lines.push(`COMMENTS: ${comments}`);
+        if (events) {
+            lines.push(`SPECIAL EVENTS:`);
+            lines.push(events);
         }
-        
-        // Footer
-        lines.push('');
-        lines.push(`${sigTime}   ${facility}`);
         
         return lines.join('\n');
     }
     
-    function addAdvisoryToQueue() {
-        if (!state.selectedAdvisoryType) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Select Advisory Type',
-                text: 'Please select an advisory type first.',
-                toast: true,
-                position: 'top-end',
-                timer: 3000,
-                showConfirmButton: false
-            });
+    function buildFreeformPreview(dateStr, timeStr) {
+        const num = $('#adv_number').val() || '001';
+        const facility = $('#adv_facility').val() || 'DCC';
+        const subject = $('#adv_subject').val() || 'GENERAL ADVISORY';
+        const text = $('#adv_text').val() || '';
+        
+        return [
+            `=== ${subject.toUpperCase()} ===`,
+            `ADVISORY ${num}  ${facility}  ${dateStr}/${timeStr}Z`,
+            ``,
+            text || '(No text entered)'
+        ].join('\n');
+    }
+    
+    function buildHotlinePreview(dateStr, timeStr) {
+        const action = $('#adv_hotline_action').val() || 'ACTIVATION';
+        const name = $('#adv_hotline_name').val() || 'HOTLINE';
+        const effTime = $('#adv_effective_time').val() || timeStr;
+        const facilities = $('#adv_facilities').val() || '';
+        const reason = $('#adv_reason').val() || '';
+        const notes = $('#adv_notes').val() || '';
+        
+        let lines = [
+            `=== HOTLINE ${action} ===`,
+            ``,
+            `HOTLINE: ${name}`,
+            `EFFECTIVE: ${effTime}Z`,
+            `FACILITIES: ${facilities || 'TBD'}`,
+            `REASON: ${reason || 'N/A'}`
+        ];
+        
+        if (notes) {
+            lines.push(``);
+            lines.push(`NOTES: ${notes}`);
+        }
+        
+        return lines.join('\n');
+    }
+    
+    function buildSwapPreview(dateStr, timeStr) {
+        const num = $('#adv_number').val() || '001';
+        const swapType = $('#adv_swap_type').val() || 'IMPLEMENTATION';
+        const effTime = $('#adv_effective_time').val() || timeStr;
+        const areas = $('#adv_areas').val() || '';
+        const weather = $('#adv_weather').val() || '';
+        const routes = $('#adv_routes').val() || '';
+        
+        let lines = [
+            `=== SWAP ${swapType} ===`,
+            `ADVISORY ${num}  EFFECTIVE ${effTime}Z`,
+            ``,
+            `AFFECTED AREAS: ${areas || 'TBD'}`,
+            ``
+        ];
+        
+        if (weather) {
+            lines.push(`WEATHER: ${weather}`);
+            lines.push(``);
+        }
+        
+        if (routes) {
+            lines.push(`PLAYBOOK ROUTES / INITIATIVES:`);
+            lines.push(routes);
+        }
+        
+        return lines.join('\n');
+    }
+    
+    // ===========================================
+    // Queue Management
+    // ===========================================
+    
+    function addNtmlToQueue(type) {
+        // Validate required fields
+        const ctlElement = $('#ntml_ctl_element').val()?.trim().toUpperCase();
+        const reqFacility = $('#ntml_req_facility').val()?.trim().toUpperCase();
+        const provFacility = $('#ntml_prov_facility').val()?.trim().toUpperCase();
+        const validFrom = $('#ntml_valid_from').val()?.trim();
+        const validUntil = $('#ntml_valid_until').val()?.trim();
+        
+        // Basic validation
+        if (!ctlElement && type !== 'DELAY') {
+            Swal.fire('Missing Field', 'Please enter a control element (airport or fix)', 'warning');
             return;
         }
         
-        const preview = formatAdvisoryPreview(state.selectedAdvisoryType);
-        const selectedOrgs = getSelectedOrgs('advisory');
+        if (type !== 'DELAY' && type !== 'CONFIG' && (!reqFacility || !provFacility)) {
+            Swal.fire('Missing Facilities', 'Please enter requesting and providing facilities', 'warning');
+            return;
+        }
+        
+        // Build entry data
+        const data = {
+            type: type,
+            ctl_element: ctlElement,
+            req_facility: reqFacility,
+            prov_facility: provFacility,
+            valid_from: validFrom,
+            valid_until: validUntil
+        };
+        
+        // Type-specific data
+        switch(type) {
+            case 'MIT':
+            case 'MINIT':
+                data.value = $('#ntml_value').val();
+                data.via_fix = $('#ntml_via_fix').val()?.trim().toUpperCase();
+                data.reason = $('#ntml_reason').val();
+                data.exclusions = $('#ntml_exclusions').val();
+                data.flow = $('#ntml_flow').val();
+                break;
+            case 'STOP':
+                data.via_fix = $('#ntml_via_fix').val()?.trim().toUpperCase();
+                data.reason = $('#ntml_reason').val();
+                break;
+            case 'APREQ':
+                data.apreq_type = $('#ntml_apreq_type').val();
+                data.via_fix = $('#ntml_via_fix').val()?.trim().toUpperCase();
+                break;
+            case 'TBM':
+                data.sector = $('#ntml_sector').val()?.trim().toUpperCase();
+                data.reason = $('#ntml_reason').val();
+                break;
+            case 'DELAY':
+                data.delay_type = $('#ntml_delay_type').val();
+                data.delay_minutes = $('#ntml_delay_minutes').val();
+                data.delay_trend = $('#ntml_delay_trend').val();
+                data.reason = $('#ntml_reason').val();
+                data.report_time = $('#ntml_report_time').val();
+                data.acft_count = $('#ntml_acft_count').val();
+                break;
+            case 'CONFIG':
+                data.weather = $('#ntml_weather').val();
+                data.config_name = $('#ntml_config_name').val();
+                data.arr_runways = $('#ntml_arr_runways').val()?.trim().toUpperCase();
+                data.dep_runways = $('#ntml_dep_runways').val()?.trim().toUpperCase();
+                data.aar = $('#ntml_aar').val();
+                data.aar_type = $('#ntml_aar_type').val();
+                data.adr = $('#ntml_adr').val();
+                break;
+            case 'CANCEL':
+                data.cancel_type = $('#ntml_cancel_type').val();
+                data.via_fix = $('#ntml_via_fix').val()?.trim().toUpperCase();
+                break;
+        }
+        
+        // Build formatted message
+        const message = formatNtmlMessage(type, data);
+        
+        // Get selected orgs
+        const orgs = getSelectedOrgs();
         
         const entry = {
             id: generateId(),
-            type: 'advisory',
-            advisoryType: state.selectedAdvisoryType,
-            preview: preview,
-            orgs: selectedOrgs,
-            createdAt: new Date().toISOString()
+            type: 'ntml',
+            entryType: type,
+            data: data,
+            preview: message,
+            orgs: orgs,
+            timestamp: new Date().toISOString()
         };
         
         state.queue.push(entry);
-        updateUI();
         saveState();
+        updateUI();
         
         // Switch to queue tab
         $('#queue-tab').tab('show');
@@ -780,141 +1142,247 @@
         Swal.fire({
             icon: 'success',
             title: 'Added to Queue',
-            text: `${state.selectedAdvisoryType} advisory added`,
-            toast: true,
-            position: 'top-end',
-            timer: 2000,
+            text: `${type} entry added`,
+            timer: 1500,
             showConfirmButton: false
         });
     }
     
-    function resetAdvisoryForm() {
-        state.selectedAdvisoryType = null;
-        $('.advisory-type-card').removeClass('selected');
-        $('#adv_dynamic_sections').empty();
-        $('#adv_number').val('');
-        $('#adv_ctl_element').val('');
-        $('#adv_start').val('');
-        $('#adv_end').val('');
-        $('#adv_comments').val('');
-        $('#adv_preview').text('Select an advisory type to begin...');
+    function formatNtmlMessage(type, data) {
+        const logTime = getCurrentDateDDHHMM();
+        
+        switch(type) {
+            case 'MIT':
+            case 'MINIT':
+                return formatMitMinitMessage(type, data, logTime);
+            case 'STOP':
+                return formatStopMessage(data, logTime);
+            case 'APREQ':
+                return formatApreqMessage(data, logTime);
+            case 'TBM':
+                return formatTbmMessage(data, logTime);
+            case 'DELAY':
+                return formatDelayMessage(data, logTime);
+            case 'CONFIG':
+                return formatConfigMessage(data, logTime);
+            case 'CANCEL':
+                return formatCancelMessage(data, logTime);
+            default:
+                return `${logTime} ${type} ${data.ctl_element}`;
+        }
     }
     
-    function copyAdvisoryToClipboard() {
-        const text = $('#adv_preview').text();
-        navigator.clipboard.writeText(text).then(() => {
-            Swal.fire({
-                icon: 'success',
-                title: 'Copied!',
-                toast: true,
-                position: 'top-end',
-                timer: 1500,
-                showConfirmButton: false
-            });
+    function formatMitMinitMessage(type, data, logTime) {
+        let line = `${logTime}    ${data.ctl_element}`;
+        
+        if (data.flow === 'departures') {
+            line += ' departures';
+        }
+        
+        if (data.via_fix) {
+            line += ` via ${data.via_fix}`;
+        }
+        
+        line += ` ${data.value}${type}`;
+        line += ` ${data.reason}:${data.reason}`;
+        line += ` EXCL:${data.exclusions}`;
+        line += ` ${data.valid_from}-${data.valid_until}`;
+        line += ` ${data.req_facility}:${data.prov_facility}`;
+        
+        return line;
+    }
+    
+    function formatStopMessage(data, logTime) {
+        let line = `${logTime}    ${data.ctl_element}`;
+        
+        if (data.via_fix) {
+            line += ` via ${data.via_fix}`;
+        }
+        
+        line += ` STOP`;
+        line += ` ${data.reason}:${data.reason}`;
+        line += ` ${data.valid_from}-${data.valid_until}`;
+        line += ` ${data.req_facility}:${data.prov_facility}`;
+        
+        return line;
+    }
+    
+    function formatApreqMessage(data, logTime) {
+        let line = `${logTime}    ${data.apreq_type || 'APREQ'} ${data.ctl_element} departures`;
+        
+        if (data.via_fix) {
+            line += ` via ${data.via_fix}`;
+        }
+        
+        line += ` ${data.valid_from}-${data.valid_until}`;
+        line += ` ${data.req_facility}:${data.prov_facility}`;
+        
+        return line;
+    }
+    
+    function formatTbmMessage(data, logTime) {
+        let line = `${logTime}    ${data.ctl_element} TBM`;
+        
+        if (data.sector) {
+            line += ` ${data.sector}`;
+        }
+        
+        line += ` ${data.reason}:${data.reason}`;
+        line += ` ${data.valid_from}-${data.valid_until}`;
+        line += ` ${data.req_facility}:${data.prov_facility}`;
+        
+        return line;
+    }
+    
+    function formatDelayMessage(data, logTime) {
+        const delayType = data.delay_type || 'D/D';
+        let prep = 'from';
+        if (delayType === 'E/D') prep = 'for';
+        if (delayType === 'A/D') prep = 'to';
+        
+        let sign = '';
+        if (data.delay_trend === 'INC') sign = '+';
+        if (data.delay_trend === 'DEC') sign = '-';
+        
+        let line = `${logTime}    ${delayType} ${prep} ${data.ctl_element}, ${sign}${data.delay_minutes}/${data.report_time}`;
+        
+        if (data.acft_count && data.acft_count > 1) {
+            line += `/${data.acft_count} ACFT`;
+        }
+        
+        line += ` ${data.reason}:${data.reason}`;
+        
+        return line;
+    }
+    
+    function formatConfigMessage(data, logTime) {
+        let line = `${logTime}    ${data.ctl_element}    ${data.weather}`;
+        line += `    ARR:${data.arr_runways} DEP:${data.dep_runways}`;
+        line += `    AAR(${data.aar_type}):${data.aar}`;
+        line += `    ADR:${data.adr}`;
+        
+        return line;
+    }
+    
+    function formatCancelMessage(data, logTime) {
+        let line = `${logTime}    `;
+        
+        if (data.cancel_type === 'ALL') {
+            line += `ALL TMI CANCELLED ${data.ctl_element}`;
+        } else {
+            line += `CANCEL ${data.ctl_element}`;
+            if (data.via_fix) {
+                line += ` via ${data.via_fix}`;
+            }
+        }
+        
+        if (data.req_facility && data.prov_facility) {
+            line += ` ${data.req_facility}:${data.prov_facility}`;
+        }
+        
+        return line;
+    }
+    
+    function addAdvisoryToQueue() {
+        const type = state.selectedAdvisoryType;
+        if (!type) return;
+        
+        const preview = $('#adv_preview').text();
+        const orgs = getSelectedOrgsAdvisory();
+        
+        const entry = {
+            id: generateId(),
+            type: 'advisory',
+            entryType: type,
+            data: collectAdvisoryFormData(type),
+            preview: preview,
+            orgs: orgs,
+            timestamp: new Date().toISOString()
+        };
+        
+        state.queue.push(entry);
+        saveState();
+        updateUI();
+        
+        $('#queue-tab').tab('show');
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Added to Queue',
+            text: `${type} advisory added`,
+            timer: 1500,
+            showConfirmButton: false
         });
     }
     
-    // ===========================================
-    // Cross-Border Detection
-    // ===========================================
-    
-    function detectCrossBorderOrgs(parsed) {
-        if (!CONFIG.crossBorderAutoDetect) return [];
+    function collectAdvisoryFormData(type) {
+        const data = {
+            advisory_type: type,
+            number: $('#adv_number').val(),
+            facility: $('#adv_facility').val()
+        };
         
-        const facilities = [];
-        if (parsed.fromFacility) facilities.push(parsed.fromFacility.toUpperCase());
-        if (parsed.toFacility) facilities.push(parsed.toFacility.toUpperCase());
-        if (parsed.facility) facilities.push(parsed.facility.toUpperCase());
-        
-        // Check for Canadian airports (C prefix)
-        if (parsed.airport && parsed.airport.match(/^C[A-Z]{3}$/)) {
-            return ['vatcan'];
-        }
-        
-        // Check for US-Canada border facilities
-        const usInvolved = facilities.some(f => f.match(/^Z[A-Z]{2}$/));
-        const caInvolved = facilities.some(f => f.match(/^CZ[A-Z]{2}$/));
-        
-        if (usInvolved && caInvolved) {
-            return ['vatcscc', 'vatcan'].filter(org => CONFIG.discordOrgs[org]);
-        }
-        
-        // Check for border-area US facilities
-        const borderFacs = CROSS_BORDER_FACILITIES.US_CA;
-        const isBorderFacility = facilities.some(f => borderFacs.includes(f));
-        
-        if (isBorderFacility && caInvolved) {
-            return ['vatcan'];
-        }
-        
-        return [];
-    }
-    
-    function highlightCrossBorderOrgs(orgCodes) {
-        orgCodes.forEach(code => {
-            const checkbox = $(`#org_${code}`);
-            if (checkbox.length && !checkbox.is(':checked')) {
-                checkbox.prop('checked', true);
-                checkbox.closest('.custom-control').addClass('cross-border-detected');
-                setTimeout(() => {
-                    checkbox.closest('.custom-control').removeClass('cross-border-detected');
-                }, 2000);
+        // Collect all form fields
+        $('#adv_form_container input, #adv_form_container textarea, #adv_form_container select').each(function() {
+            const id = $(this).attr('id');
+            if (id) {
+                data[id.replace('adv_', '')] = $(this).val();
             }
         });
         
-        state.lastCrossBorderOrgs = orgCodes;
-        updateTargetOrgsDisplay();
+        return data;
     }
-    
-    // ===========================================
-    // Queue Management
-    // ===========================================
     
     function updateQueueDisplay() {
         const container = $('#entryQueueList');
         const emptyMsg = $('#emptyQueueMsg');
         
         if (state.queue.length === 0) {
-            emptyMsg.show();
-            container.find('.queue-item').remove();
+            container.html(`
+                <div class="text-center text-muted py-4" id="emptyQueueMsg">
+                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                    No entries queued. Add entries from NTML or Advisory tabs.
+                </div>
+            `);
             return;
         }
         
-        emptyMsg.hide();
-        container.find('.queue-item').remove();
-        
+        let html = '';
         state.queue.forEach((entry, index) => {
-            const item = createQueueItem(entry, index);
-            container.append(item);
-        });
-    }
-    
-    function createQueueItem(entry, index) {
-        const typeLabel = entry.type === 'ntml' ? entry.entryType : entry.advisoryType;
-        const typeClass = entry.type === 'ntml' ? 'ntml-entry' : 'advisory-entry';
-        const content = entry.type === 'ntml' ? entry.rawInput : entry.preview.substring(0, 100) + '...';
-        
-        return $(`
-            <div class="queue-item ${typeClass}" data-index="${index}">
-                <button class="remove-btn" onclick="TMIPublisher.removeFromQueue(${index})">
-                    <i class="fas fa-times"></i>
-                </button>
-                <div class="entry-type">${entry.type.toUpperCase()} - ${typeLabel}</div>
-                <div class="entry-content">${escapeHtml(content)}</div>
-                <div class="entry-meta">
-                    <span class="mr-3"><i class="fab fa-discord"></i> ${entry.orgs.join(', ')}</span>
-                    <button class="preview-btn" onclick="TMIPublisher.previewEntry(${index})">
-                        <i class="fas fa-eye"></i> Preview
-                    </button>
+            const typeClass = entry.type === 'advisory' ? 'border-purple' : 'border-success';
+            const typeBadge = entry.type === 'advisory' ? 'badge-purple' : 'badge-success';
+            
+            html += `
+                <div class="queue-item p-3 border-left-4 ${typeClass} mb-2 bg-light rounded">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <span class="badge ${typeBadge} mr-1">${entry.type.toUpperCase()}</span>
+                            <span class="badge badge-secondary">${entry.entryType}</span>
+                            <div class="mt-2 font-monospace small text-dark" style="white-space: pre-wrap; max-height: 100px; overflow-y: auto;">${escapeHtml(entry.preview.substring(0, 200))}${entry.preview.length > 200 ? '...' : ''}</div>
+                            <div class="mt-1 small text-muted">
+                                <i class="fab fa-discord"></i> ${entry.orgs.join(', ')}
+                            </div>
+                        </div>
+                        <div class="ml-2">
+                            <button class="btn btn-sm btn-outline-primary mb-1" onclick="TMIPublisher.previewEntry(${index})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="TMIPublisher.removeFromQueue(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        `);
+            `;
+        });
+        
+        container.html(html);
     }
     
     function removeFromQueue(index) {
         state.queue.splice(index, 1);
-        updateUI();
         saveState();
+        updateUI();
     }
     
     function clearQueue() {
@@ -922,16 +1390,16 @@
         
         Swal.fire({
             title: 'Clear Queue?',
-            text: `Remove all ${state.queue.length} entries?`,
-            icon: 'warning',
+            text: `Remove all ${state.queue.length} entries from queue?`,
+            icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
             confirmButtonText: 'Clear All'
         }).then((result) => {
             if (result.isConfirmed) {
                 state.queue = [];
-                updateUI();
                 saveState();
+                updateUI();
             }
         });
     }
@@ -940,34 +1408,8 @@
         const entry = state.queue[index];
         if (!entry) return;
         
-        let content = '';
-        if (entry.type === 'ntml') {
-            content = formatNtmlPreview(entry.data);
-        } else {
-            content = entry.preview;
-        }
-        
-        $('#previewModalContent').text(content);
+        $('#previewModalContent').text(entry.preview);
         $('#previewModal').modal('show');
-    }
-    
-    function formatNtmlPreview(data) {
-        // Simple NTML format
-        const lines = [];
-        const now = new Date();
-        const logTime = `${now.getUTCDate().toString().padStart(2,'0')}/${now.getUTCHours().toString().padStart(2,'0')}${now.getUTCMinutes().toString().padStart(2,'0')}`;
-        
-        if (data.type === 'MIT' || data.type === 'MINIT') {
-            lines.push(`${logTime}    ${data.airport || 'XXX'} via ${data.fix || 'FIX'} ${data.distance}${data.type} ${data.reason || 'VOLUME'} EXCL:NONE ${data.startTime || '----'}-${data.endTime || '----'} ${data.toFacility}:${data.fromFacility}`);
-        } else if (data.type === 'GS') {
-            lines.push(`${logTime}    ${data.airport} GROUND STOP ${data.reason}`);
-        } else if (data.type === 'DELAY') {
-            lines.push(`${logTime}    ${data.facility} DELAY ${data.minutes}MIN ${data.trend} ${data.reason}`);
-        } else {
-            lines.push(`${logTime}    ${data.raw || JSON.stringify(data)}`);
-        }
-        
-        return lines.join('\n');
     }
     
     // ===========================================
@@ -975,27 +1417,16 @@
     // ===========================================
     
     function submitAll() {
-        if (state.queue.length === 0) {
-            Swal.fire({
-                icon: 'info',
-                title: 'Queue Empty',
-                text: 'Add entries to the queue first.',
-                toast: true,
-                position: 'top-end',
-                timer: 2000,
-                showConfirmButton: false
-            });
-            return;
-        }
+        if (state.queue.length === 0) return;
         
         const mode = state.productionMode ? 'PRODUCTION' : 'STAGING';
+        const modeClass = state.productionMode ? 'text-danger' : 'text-warning';
         
         Swal.fire({
             title: `Submit to ${mode}?`,
             html: `<p>Post <strong>${state.queue.length}</strong> entries to Discord.</p>
-                   <p class="${state.productionMode ? 'text-danger' : 'text-warning'}">
-                   Mode: <strong>${mode}</strong></p>`,
-            icon: state.productionMode ? 'warning' : 'question',
+                   <p class="${modeClass}">Mode: <strong>${mode}</strong></p>`,
+            icon: 'question',
             showCancelButton: true,
             confirmButtonColor: state.productionMode ? '#dc3545' : '#28a745',
             confirmButtonText: `Submit to ${mode}`
@@ -1007,163 +1438,105 @@
     }
     
     function performSubmit() {
-        const submitBtn = $('#submitAllBtn');
-        submitBtn.addClass('submitting').prop('disabled', true);
-        submitBtn.find('i').removeClass('fa-paper-plane').addClass('fa-spinner');
-        
-        // Prepare payload
         const payload = {
-            entries: state.queue.map(e => ({
-                type: e.type,
-                entryType: e.entryType || e.advisoryType,
-                data: e.data || null,
-                preview: e.preview || null,
-                orgs: e.orgs
-            })),
+            entries: state.queue,
             production: state.productionMode,
             userCid: CONFIG.userCid
         };
         
-        // Submit to API
+        // Show loading
+        Swal.fire({
+            title: 'Submitting...',
+            text: 'Posting entries to Discord',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+        
         $.ajax({
             url: 'api/mgt/tmi/publish.php',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(response) {
-                submitBtn.removeClass('submitting').prop('disabled', false);
-                submitBtn.find('i').removeClass('fa-spinner').addClass('fa-paper-plane');
+                Swal.close();
                 
                 if (response.success) {
-                    // Clear queue
+                    // Clear queue on success
                     state.queue = [];
-                    updateUI();
                     saveState();
+                    updateUI();
                     
-                    // Show results
                     showSubmitResults(response);
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Submit Failed',
-                        text: response.error || 'Unknown error'
+                        text: response.error || 'Unknown error occurred'
                     });
                 }
             },
-            error: function(xhr) {
-                submitBtn.removeClass('submitting').prop('disabled', false);
-                submitBtn.find('i').removeClass('fa-spinner').addClass('fa-paper-plane');
-                
+            error: function(xhr, status, error) {
+                Swal.close();
+                console.error('Submit error:', xhr.responseText);
                 Swal.fire({
                     icon: 'error',
-                    title: 'Submit Error',
-                    text: 'Failed to connect to server'
+                    title: 'Connection Error',
+                    html: `<p>Failed to connect to server.</p><p class="small text-muted">${error}</p>`
                 });
             }
         });
     }
     
     function showSubmitResults(response) {
-        let html = '<div class="text-left">';
+        let html = `<p><strong>Summary:</strong> ${response.summary.success}/${response.summary.total} succeeded</p>`;
         
-        if (response.results) {
-            response.results.forEach((r, i) => {
-                const icon = r.success ? '✓' : '✗';
-                const color = r.success ? 'text-success' : 'text-danger';
-                html += `<div class="mb-2 ${color}">
-                    <strong>${icon}</strong> Entry ${i+1}: ${r.orgs?.join(', ') || 'Unknown'}
-                    ${r.error ? `<br><small class="text-muted">${r.error}</small>` : ''}
-                </div>`;
+        if (response.results && response.results.length > 0) {
+            html += '<ul class="list-unstyled small">';
+            response.results.forEach(r => {
+                const icon = r.success ? '✅' : '❌';
+                html += `<li>${icon} ${r.entryType || r.type}</li>`;
             });
+            html += '</ul>';
         }
         
-        html += '</div>';
+        Swal.fire({
+            icon: response.summary.failed === 0 ? 'success' : 'warning',
+            title: 'Submit Complete',
+            html: html
+        });
         
-        $('#resultModalContent').html(html);
-        $('#resultModal').modal('show');
+        // Refresh staged entries
+        loadStagedEntries();
     }
     
     // ===========================================
-    // UI Updates
+    // Active TMIs
     // ===========================================
     
-    function updateUI() {
-        // Queue count
-        const count = state.queue.length;
-        $('#queueBadge').text(count);
-        $('#submitCount').text(count);
-        $('#submitAllBtn').prop('disabled', count === 0);
+    function loadActiveTmis() {
+        $('#activeTmiBody').html(`
+            <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                    <i class="fas fa-spinner fa-spin"></i> Loading active TMIs...
+                </td>
+            </tr>
+        `);
         
-        // Update queue display if on queue tab
-        if ($('#queuePanel').hasClass('active')) {
-            updateQueueDisplay();
-        }
-        
-        // Target orgs display
-        updateTargetOrgsDisplay();
-        
-        // Mode indicator
-        updateModeIndicator();
-    }
-    
-    function updateTargetOrgsDisplay() {
-        const selectedOrgs = getSelectedOrgs('ntml');
-        $('#targetOrgsDisplay').text(selectedOrgs.map(code => {
-            return CONFIG.discordOrgs[code]?.name || code;
-        }).join(', ') || 'None selected');
-    }
-    
-    function getSelectedOrgs(source) {
-        const selector = source === 'advisory' ? '.discord-org-checkbox-adv:checked' : '.discord-org-checkbox:checked';
-        return $(selector).map(function() { return $(this).val(); }).get();
+        // TODO: Implement API call to fetch active TMIs
+        // For now, show placeholder
+        setTimeout(() => {
+            $('#activeTmiBody').html(`
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        <i class="fas fa-info-circle"></i> No active TMIs found
+                    </td>
+                </tr>
+            `);
+        }, 500);
     }
     
     // ===========================================
-    // State Persistence
-    // ===========================================
-    
-    function saveState() {
-        try {
-            localStorage.setItem('tmi_publisher_queue', JSON.stringify(state.queue));
-            localStorage.setItem('tmi_publisher_production', state.productionMode);
-        } catch (e) {
-            console.warn('Could not save state:', e);
-        }
-    }
-    
-    function loadSavedState() {
-        try {
-            const savedQueue = localStorage.getItem('tmi_publisher_queue');
-            if (savedQueue) {
-                state.queue = JSON.parse(savedQueue);
-            }
-            
-            const savedMode = localStorage.getItem('tmi_publisher_production');
-            if (savedMode === 'true') {
-                state.productionMode = true;
-                $('#productionMode').prop('checked', true);
-            }
-        } catch (e) {
-            console.warn('Could not load saved state:', e);
-        }
-    }
-    
-    // ===========================================
-    // Utilities
-    // ===========================================
-    
-    function generateId() {
-        return 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-    
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    // ===========================================
-    // Staging Management
+    // Staged Entries
     // ===========================================
     
     function loadStagedEntries() {
@@ -1176,37 +1549,41 @@
                 }
             },
             error: function() {
-                console.error('Failed to load staged entries');
+                console.log('No staged entries API available');
             }
         });
     }
     
     function displayStagedEntries(entries) {
         const container = $('#recentPostsList');
-        container.empty();
         
-        if (entries.length === 0) {
-            container.html('<div class="list-group-item text-center text-muted py-3"><i class="fas fa-clock"></i> No staged entries</div>');
+        if (!entries || entries.length === 0) {
+            container.html(`
+                <div class="list-group-item text-center text-muted py-3">
+                    <i class="fas fa-clock"></i> No staged posts
+                </div>
+            `);
             return;
         }
         
-        entries.forEach(function(entry) {
-            const item = $(`
-                <div class="list-group-item recent-post-item staging">
-                    <div class="d-flex justify-content-between align-items-start">
+        let html = '';
+        entries.forEach(entry => {
+            html += `
+                <div class="list-group-item p-2">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <span class="post-type">${entry.entryType}</span>
-                            <div class="small">${escapeHtml(entry.summary)}</div>
-                            <div class="post-time">Staged to: ${entry.stagedOrgs.join(', ')}</div>
+                            <span class="badge badge-warning badge-sm mr-1">STAGED</span>
+                            <span class="small">${escapeHtml(entry.summary || entry.entryType)}</span>
                         </div>
-                        <button class="btn btn-sm btn-success" onclick="TMIPublisher.promoteEntry('${entry.entityType}', ${entry.entityId}, ${JSON.stringify(entry.stagedOrgs)})">
+                        <button class="btn btn-sm btn-success" onclick="TMIPublisher.promoteEntry('${entry.entityType}', ${entry.entityId}, ${JSON.stringify(entry.stagedOrgs || [])})">
                             <i class="fas fa-arrow-up"></i>
                         </button>
                     </div>
                 </div>
-            `);
-            container.append(item);
+            `;
         });
+        
+        container.html(html);
     }
     
     function promoteEntry(entityType, entityId, orgs) {
@@ -1266,6 +1643,180 @@
     }
     
     // ===========================================
+    // UI Updates
+    // ===========================================
+    
+    function updateUI() {
+        updateQueueBadge();
+        updateQueueDisplay();
+        updateModeIndicator();
+        updateSubmitControls();
+    }
+    
+    function updateQueueBadge() {
+        const count = state.queue.length;
+        $('#queueBadge').text(count);
+        $('#submitCount').text(count);
+    }
+    
+    function updateModeIndicator() {
+        const badge = $('#modeIndicator');
+        const targetMode = $('#targetModeDisplay');
+        const btnText = $('#submitBtnText');
+        const hint = $('#submitHint');
+        const warning = $('#prodWarning');
+        
+        if (state.productionMode) {
+            badge.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
+            targetMode.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
+            btnText.text('Submit to Production');
+            hint.text('Entries will post directly to LIVE Discord channels');
+            warning.slideDown();
+            $('#submitAllBtn').removeClass('btn-success').addClass('btn-danger');
+        } else {
+            badge.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
+            targetMode.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
+            btnText.text('Submit to Staging');
+            hint.text('Entries will post to staging channels for review');
+            warning.slideUp();
+            $('#submitAllBtn').removeClass('btn-danger').addClass('btn-success');
+        }
+    }
+    
+    function updateSubmitControls() {
+        const hasEntries = state.queue.length > 0;
+        $('#submitAllBtn').prop('disabled', !hasEntries);
+        
+        // Update target orgs display
+        const orgs = new Set();
+        state.queue.forEach(e => e.orgs.forEach(o => orgs.add(o)));
+        const orgNames = Array.from(orgs).map(code => {
+            return CONFIG.discordOrgs[code]?.name || code;
+        });
+        $('#targetOrgsDisplay').text(orgNames.length > 0 ? orgNames.join(', ') : 'None selected');
+    }
+    
+    function resetNtmlForm() {
+        $('#ntml_form_container input').val('');
+        $('#ntml_form_container select').each(function() {
+            this.selectedIndex = 0;
+        });
+        $('#ntml_value').val('20');
+        $('#ntml_valid_from').val(CONFIG.defaultStartTime);
+        $('#ntml_valid_until').val(CONFIG.defaultEndTime);
+    }
+    
+    // ===========================================
+    // Utilities
+    // ===========================================
+    
+    function getSelectedOrgs() {
+        const orgs = [];
+        $('.discord-org-checkbox:checked').each(function() {
+            orgs.push($(this).val());
+        });
+        return orgs.length > 0 ? orgs : ['vatcscc'];
+    }
+    
+    function getSelectedOrgsAdvisory() {
+        const orgs = [];
+        $('.discord-org-checkbox-adv:checked').each(function() {
+            orgs.push($(this).val());
+        });
+        return orgs.length > 0 ? orgs : ['vatcscc'];
+    }
+    
+    function detectCrossBorderFromFacilities() {
+        const reqFac = $('#ntml_req_facility').val()?.trim().toUpperCase();
+        const provFac = $('#ntml_prov_facility').val()?.trim().toUpperCase();
+        
+        let crossBorder = false;
+        [reqFac, provFac].forEach(fac => {
+            if (CROSS_BORDER_FACILITIES.includes(fac)) {
+                crossBorder = true;
+            }
+        });
+        
+        // Auto-check partner org if cross-border detected
+        if (crossBorder && CONFIG.crossBorderAutoDetect) {
+            // Check if Canadian facility involved
+            if (reqFac?.startsWith('CZ') || provFac?.startsWith('CZ')) {
+                $('#org_vatcan').prop('checked', true);
+            }
+            // Check if US facility involved
+            if (reqFac?.startsWith('Z') || provFac?.startsWith('Z')) {
+                $('#org_vatcscc').prop('checked', true);
+            }
+        }
+    }
+    
+    function getCurrentTimeHHMM() {
+        const now = new Date();
+        return String(now.getUTCHours()).padStart(2, '0') + String(now.getUTCMinutes()).padStart(2, '0');
+    }
+    
+    function getCurrentDateMMDD() {
+        const now = new Date();
+        return String(now.getUTCMonth() + 1).padStart(2, '0') + '/' + String(now.getUTCDate()).padStart(2, '0');
+    }
+    
+    function getCurrentDateDDHHMM() {
+        const now = new Date();
+        return String(now.getUTCDate()).padStart(2, '0') + '/' + 
+               String(now.getUTCHours()).padStart(2, '0') + 
+               String(now.getUTCMinutes()).padStart(2, '0');
+    }
+    
+    function generateId() {
+        return 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function saveState() {
+        try {
+            localStorage.setItem('tmi_publisher_queue', JSON.stringify(state.queue));
+            localStorage.setItem('tmi_publisher_mode', state.productionMode ? '1' : '0');
+        } catch (e) {
+            console.warn('Failed to save state:', e);
+        }
+    }
+    
+    function loadSavedState() {
+        try {
+            const savedQueue = localStorage.getItem('tmi_publisher_queue');
+            if (savedQueue) {
+                state.queue = JSON.parse(savedQueue);
+            }
+            
+            const savedMode = localStorage.getItem('tmi_publisher_mode');
+            if (savedMode === '1') {
+                state.productionMode = true;
+                $('#productionMode').prop('checked', true);
+            }
+        } catch (e) {
+            console.warn('Failed to load state:', e);
+        }
+    }
+    
+    function copyAdvisoryToClipboard() {
+        const text = $('#adv_preview').text();
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Copied!',
+                timer: 1000,
+                showConfirmButton: false
+            });
+        });
+    }
+    
+    // ===========================================
     // Public API
     // ===========================================
     
@@ -1273,14 +1824,10 @@
         removeFromQueue: removeFromQueue,
         previewEntry: previewEntry,
         clearQueue: clearQueue,
+        addNtmlToQueue: addNtmlToQueue,
+        resetNtmlForm: resetNtmlForm,
         promoteEntry: promoteEntry,
         loadStagedEntries: loadStagedEntries
     };
-    
-    // ===========================================
-    // Initialize
-    // ===========================================
-    
-    $(document).ready(init);
     
 })();
