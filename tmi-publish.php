@@ -797,15 +797,15 @@ $perm = true;
                         <table class="table table-sm table-hover mb-0" id="proposalsTable">
                             <thead>
                                 <tr>
-                                    <th style="width: 60px;">ID</th>
-                                    <th style="width: 80px;">TYPE</th>
-                                    <th style="width: 100px;">ELEMENT</th>
-                                    <th>RESTRICTION</th>
-                                    <th style="width: 120px;">PROPOSED BY</th>
-                                    <th style="width: 140px;">DEADLINE</th>
-                                    <th style="width: 100px;">APPROVALS</th>
+                                    <th style="width: 50px;">ID</th>
+                                    <th style="width: 70px;">TYPE</th>
+                                    <th style="width: 80px;">ELEMENT</th>
+                                    <th style="min-width: 150px;">RESTRICTION</th>
+                                    <th style="width: 100px;">PROPOSED BY</th>
+                                    <th style="width: 100px;">DEADLINE</th>
+                                    <th style="width: 70px;">APPROVALS</th>
                                     <th style="width: 80px;">STATUS</th>
-                                    <th style="width: 120px;">ACTIONS</th>
+                                    <th style="width: 160px; min-width: 160px;">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="proposalsTableBody">
@@ -834,14 +834,14 @@ $perm = true;
                         <table class="table table-sm table-hover mb-0" id="recentProposalsTable">
                             <thead>
                                 <tr>
-                                    <th style="width: 60px;">ID</th>
-                                    <th style="width: 80px;">TYPE</th>
-                                    <th style="width: 100px;">ELEMENT</th>
-                                    <th>RESTRICTION</th>
-                                    <th style="width: 120px;">PROPOSED BY</th>
-                                    <th style="width: 100px;">RESULT</th>
-                                    <th style="width: 140px;">RESOLVED AT</th>
-                                    <th style="width: 80px;">ACTIONS</th>
+                                    <th style="width: 50px;">ID</th>
+                                    <th style="width: 70px;">TYPE</th>
+                                    <th style="width: 80px;">ELEMENT</th>
+                                    <th style="min-width: 150px;">RESTRICTION</th>
+                                    <th style="width: 100px;">PROPOSED BY</th>
+                                    <th style="width: 90px;">RESULT</th>
+                                    <th style="width: 120px;">RESOLVED AT</th>
+                                    <th style="width: 70px;">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="recentProposalsTableBody">

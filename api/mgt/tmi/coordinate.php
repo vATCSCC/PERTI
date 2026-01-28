@@ -344,7 +344,13 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'POST':
-        handleSubmitForCoordination();
+        // Check for publish action
+        $postInput = json_decode(file_get_contents('php://input'), true);
+        if (($postInput['action'] ?? '') === 'PUBLISH') {
+            handlePublishApprovedProposal($postInput);
+        } else {
+            handleSubmitForCoordination();
+        }
         break;
     case 'GET':
         handleGetProposalStatus();
@@ -691,12 +697,16 @@ function handleListProposals($includeAll = false) {
                     FROM dbo.tmi_proposals p
                     ORDER BY p.created_at DESC";
         } else {
+            // Include both PENDING and APPROVED proposals
+            // APPROVED proposals are ready for publication but not yet activated
             $sql = "SELECT p.*,
                         (SELECT COUNT(*) FROM dbo.tmi_proposal_facilities f WHERE f.proposal_id = p.proposal_id) as facility_count,
                         (SELECT COUNT(*) FROM dbo.tmi_proposal_facilities f WHERE f.proposal_id = p.proposal_id AND f.approval_status = 'APPROVED') as approved_count
                     FROM dbo.tmi_proposals p
-                    WHERE p.status = 'PENDING'
-                    ORDER BY p.approval_deadline_utc ASC";
+                    WHERE p.status IN ('PENDING', 'APPROVED')
+                    ORDER BY
+                        CASE WHEN p.status = 'APPROVED' THEN 0 ELSE 1 END,
+                        p.approval_deadline_utc ASC";
         }
 
         $stmt = $conn->query($sql);
@@ -1029,10 +1039,16 @@ function handleProcessReaction() {
         $checkStmt->execute([':prop_id' => $proposalId]);
         $result = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-        // If approved, activate the TMI
+        // If approved, log it and notify - do NOT auto-activate
+        // User must manually publish from the queue
         if ($result && $result['status'] === 'APPROVED') {
-            $activationResult = activateProposal($conn, $proposalId);
-            $result['activation'] = $activationResult;
+            // Log the approval
+            logCoordinationActivity($conn, $proposalId, 'PROPOSAL_APPROVED', [
+                'entry_type' => $proposal['entry_type'] ?? '',
+                'ctl_element' => $proposal['ctl_element'] ?? '',
+                'facilities' => array_column($proposal['facilities'] ?? [], 'facility_code')
+            ]);
+            $result['ready_for_publication'] = true;
         }
 
         echo json_encode([
@@ -1151,6 +1167,92 @@ function handleExtendDeadline() {
 }
 
 // =============================================================================
+// POST: Publish Approved Proposal (manual activation from queue)
+// =============================================================================
+
+function handlePublishApprovedProposal($input) {
+    $proposalId = $input['proposal_id'] ?? null;
+    $userCid = $input['user_cid'] ?? null;
+    $userName = $input['user_name'] ?? 'Unknown';
+
+    if (!$proposalId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'proposal_id is required']);
+        return;
+    }
+
+    // Security: Require login for publishing
+    if (!$userCid || !is_numeric($userCid) || intval($userCid) <= 0) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Authentication required: You must be logged in to publish']);
+        return;
+    }
+
+    $conn = getTmiConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Verify proposal exists and is APPROVED
+        $sql = "SELECT * FROM dbo.tmi_proposals WHERE proposal_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':id' => $proposalId]);
+        $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$proposal) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Proposal not found']);
+            return;
+        }
+
+        if ($proposal['status'] !== 'APPROVED') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Only APPROVED proposals can be published',
+                'current_status' => $proposal['status']
+            ]);
+            return;
+        }
+
+        // Call the activation function
+        $activationResult = activateProposal($conn, $proposalId);
+
+        if ($activationResult['success'] ?? false) {
+            // Log the manual publication
+            logCoordinationActivity($conn, $proposalId, 'PUBLISHED', [
+                'entry_type' => $proposal['entry_type'] ?? '',
+                'ctl_element' => $proposal['ctl_element'] ?? '',
+                'tmi_entry_id' => $activationResult['tmi_entry_id'] ?? null,
+                'user_cid' => $userCid,
+                'user_name' => $userName
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'proposal_id' => $proposalId,
+                'activation' => $activationResult,
+                'published_by' => $userName
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Activation failed: ' . ($activationResult['error'] ?? 'Unknown error'),
+                'activation_result' => $activationResult
+            ]);
+        }
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+// =============================================================================
 // PATCH: Edit Proposal (clears approvals, restarts coordination)
 // =============================================================================
 
@@ -1199,12 +1301,15 @@ function handleEditProposal($input) {
             return;
         }
 
-        // Only allow editing PENDING proposals
-        if ($proposal['status'] !== 'PENDING') {
+        // Only allow editing PENDING or APPROVED proposals
+        // Editing APPROVED proposals will reset them to PENDING and restart coordination
+        if (!in_array($proposal['status'], ['PENDING', 'APPROVED'])) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Can only edit PENDING proposals']);
+            echo json_encode(['success' => false, 'error' => 'Can only edit PENDING or APPROVED proposals']);
             return;
         }
+
+        $wasApproved = ($proposal['status'] === 'APPROVED');
 
         // Store old values for diff display
         $oldData = [
@@ -1249,11 +1354,6 @@ function handleEditProposal($input) {
             $params[':valid_until'] = $validUntilDt->format('Y-m-d H:i:s');
         }
 
-        if (isset($updates['raw_text'])) {
-            $setClauses[] = 'raw_text = :raw_text';
-            $params[':raw_text'] = $updates['raw_text'];
-        }
-
         // Update entry_data_json with new values
         $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
         if (isset($updates['restriction_value'])) {
@@ -1266,6 +1366,27 @@ function handleEditProposal($input) {
         }
         $setClauses[] = 'entry_data_json = :entry_data';
         $params[':entry_data'] = json_encode($entryData);
+
+        // Auto-update raw_text if restriction value or unit changed
+        $rawText = $updates['raw_text'] ?? $proposal['raw_text'] ?? '';
+        $oldValue = $entryData['restriction_value'] ?? $entryData['value'] ?? null;
+        $oldUnit = $entryData['restriction_unit'] ?? $entryData['unit'] ?? null;
+
+        // Get original values from the proposal before edit
+        $origEntryData = json_decode($proposal['entry_data_json'], true) ?: [];
+        $origValue = $origEntryData['restriction_value'] ?? $origEntryData['value'] ?? null;
+        $origUnit = $origEntryData['restriction_unit'] ?? $origEntryData['unit'] ?? null;
+        $newValue = $updates['restriction_value'] ?? $origValue;
+        $newUnit = $updates['restriction_unit'] ?? $origUnit;
+
+        // If value or unit changed, update the raw_text pattern
+        if (($newValue !== $origValue || $newUnit !== $origUnit) && $rawText) {
+            // Pattern matches: 4MINIT, 20MIT, etc.
+            $rawText = preg_replace('/(\d+)(MIT|MINIT)/i', $newValue . $newUnit, $rawText);
+        }
+
+        $setClauses[] = 'raw_text = :raw_text';
+        $params[':raw_text'] = $rawText;
 
         // Store edit metadata (only if column exists)
         try {
@@ -1298,6 +1419,10 @@ function handleEditProposal($input) {
                          reacted_by_username = NULL
                      WHERE proposal_id = :prop_id";
         $conn->prepare($resetSql)->execute([':prop_id' => $proposalId]);
+
+        // Reset proposal status to PENDING (in case it was APPROVED)
+        $resetStatusSql = "UPDATE dbo.tmi_proposals SET status = 'PENDING' WHERE proposal_id = :prop_id";
+        $conn->prepare($resetStatusSql)->execute([':prop_id' => $proposalId]);
 
         // Log the edit action
         logCoordinationActivity($conn, $proposalId, 'PROPOSAL_EDITED', [

@@ -539,7 +539,10 @@ function checkAndUpdateProposalStatus($conn, $proposalId) {
         echo "    Status check: {$result['status']} ({$result['action_taken']})\n";
 
         if ($result['status'] === 'APPROVED') {
-            activateApprovedProposal($conn, $proposalId);
+            // Don't auto-activate - proposals stay in APPROVED status
+            // User must manually publish from the TMI Publisher queue
+            echo "    Proposal #{$proposalId} is APPROVED - awaiting manual publication\n";
+            postApprovalNotification($conn, $proposalId);
         }
     }
 }
@@ -605,6 +608,42 @@ function postApprovalConfirmation($proposal, $status) {
 
     } catch (Exception $e) {
         error_log("Failed to post approval confirmation: " . $e->getMessage());
+    }
+}
+
+/**
+ * Post notification that proposal is approved and awaiting manual publication
+ */
+function postApprovalNotification($conn, $proposalId) {
+    try {
+        // Get proposal data
+        $sql = "SELECT * FROM dbo.tmi_proposals WHERE proposal_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':id' => $proposalId]);
+        $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$proposal) return;
+
+        $discord = new DiscordAPI();
+        $channelId = $proposal['discord_channel_id'] ?: COORDINATION_CHANNEL;
+        $messageId = $proposal['discord_message_id'];
+
+        // Reply to the original message
+        $entryType = $proposal['entry_type'] ?? 'TMI';
+        $ctlElement = $proposal['ctl_element'] ?? '';
+        $content = "✅ **Proposal #{$proposalId} FULLY APPROVED** - {$entryType} {$ctlElement}\n";
+        $content .= "📋 Ready for publication in [TMI Publisher](https://perti.vatcscc.net/tmi-publish)";
+
+        $discord->createMessage($channelId, [
+            'content' => $content,
+            'message_reference' => ['message_id' => $messageId]
+        ]);
+
+        echo "    Posted approval notification to Discord\n";
+
+    } catch (Exception $e) {
+        echo "    Failed to post approval notification: " . $e->getMessage() . "\n";
+        error_log("Failed to post approval notification: " . $e->getMessage());
     }
 }
 

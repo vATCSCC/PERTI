@@ -2189,11 +2189,15 @@
                     return;
                 }
 
-                // Filter for active HOTLINE advisories with ACTIVATION action
+                // Filter for active HOTLINE advisories
+                // Exclude TERMINATION advisories (they can't be terminated again)
+                // Only show ACTIVATION advisories that can be updated/terminated
                 const activeHotlines = (response.data?.active || []).filter(item =>
                     item.entityType === 'ADVISORY' &&
                     item.entryType === 'HOTLINE' &&
-                    item.status === 'ACTIVE'
+                    item.status === 'ACTIVE' &&
+                    // Exclude termination advisories (subject contains "TERMINATION")
+                    !(item.subject && item.subject.toUpperCase().includes('TERMINATION'))
                 );
 
                 if (activeHotlines.length === 0) {
@@ -3485,8 +3489,25 @@
     }
 
     function showCoordinationDialog() {
-        // Calculate default deadline (2 hours from now)
-        const defaultDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        // Calculate default deadline: T(start) - 1 minute, or now + 2 hours if no start time
+        let defaultDeadline;
+        const queueEntry = state.queue[0];
+        const entryData = queueEntry?.data || {};
+        const validFrom = entryData.valid_from || entryData.validFrom;
+
+        if (validFrom) {
+            // Parse valid_from and subtract 1 minute for approval deadline
+            const startTime = new Date(validFrom.includes('Z') ? validFrom : validFrom + 'Z');
+            if (!isNaN(startTime.getTime()) && startTime > new Date()) {
+                defaultDeadline = new Date(startTime.getTime() - 60 * 1000); // T-1 minute
+            }
+        }
+
+        // Fallback to now + 2 hours if no valid start time
+        if (!defaultDeadline || defaultDeadline <= new Date()) {
+            defaultDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        }
+
         const deadlineStr = defaultDeadline.toISOString().slice(0, 16);
 
         Swal.fire({
@@ -4826,6 +4847,14 @@
             const proposalId = $(this).data('proposal-id');
             handleEditProposal(proposalId);
         });
+
+        // Publish approved proposal button
+        $(document).on('click', '.publish-proposal-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            const entryType = $(this).data('entry-type') || 'TMI';
+            const ctlElement = $(this).data('ctl-element') || '';
+            handlePublishProposal(proposalId, entryType, ctlElement);
+        });
     }
 
     function handleReopenProposal(proposalId) {
@@ -4880,6 +4909,78 @@
                     loadProposals();
                 } else {
                     Swal.fire('Error', response.error || 'Failed to reopen', 'error');
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+            }
+        });
+    }
+
+    // =========================================
+    // Publish Approved Proposal
+    // =========================================
+
+    function handlePublishProposal(proposalId, entryType, ctlElement) {
+        Swal.fire({
+            title: '<i class="fas fa-broadcast-tower text-success"></i> Publish to Discord?',
+            html: `
+                <div class="text-left">
+                    <p>Ready to publish <strong>${escapeHtml(entryType)} ${escapeHtml(ctlElement)}</strong> to production Discord channels?</p>
+                    <div class="alert alert-info small py-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        This proposal has been fully approved by all required facilities.
+                    </div>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitPublishProposal(proposalId);
+            }
+        });
+    }
+
+    function submitPublishProposal(proposalId) {
+        Swal.fire({
+            title: 'Publishing...',
+            html: '<p>Creating TMI entry and posting to Discord...</p>',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                action: 'PUBLISH',
+                proposal_id: proposalId,
+                user_cid: CONFIG.userCid,
+                user_name: CONFIG.userName || 'DCC'
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    const activation = response.activation || {};
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Published!',
+                        html: `
+                            <p>TMI published successfully.</p>
+                            ${activation.tmi_entry_id ? `<p class="small text-muted">Entry ID: #${activation.tmi_entry_id}</p>` : ''}
+                        `,
+                        timer: 3000,
+                        showConfirmButton: true
+                    });
+                    loadProposals(); // Refresh the list
+                } else {
+                    Swal.fire('Error', response.error || 'Failed to publish', 'error');
                 }
             },
             error: function(xhr) {
@@ -5014,6 +5115,37 @@
             confirmButtonText: '<i class="fas fa-save"></i> Save & Restart Coordination',
             confirmButtonColor: '#17a2b8',
             cancelButtonText: 'Cancel',
+            didOpen: () => {
+                // Auto-update raw_text when restriction value or unit changes
+                const valueInput = document.getElementById('editPropValue');
+                const unitSelect = document.getElementById('editPropUnit');
+                const rawTextArea = document.getElementById('editPropRawText');
+
+                // Store original values
+                const origValue = valueInput.value;
+                const origUnit = unitSelect.value;
+
+                const updateRawText = () => {
+                    const newValue = valueInput.value;
+                    const newUnit = unitSelect.value;
+                    const rawText = rawTextArea.value;
+
+                    // Find pattern like "4MINIT" or "20MIT" and replace with new value/unit
+                    // Match: number followed by MIT or MINIT (case insensitive)
+                    const pattern = new RegExp('(\\d+)(MIT|MINIT)', 'gi');
+                    const newRawText = rawText.replace(pattern, (match, num, unit) => {
+                        return newValue + newUnit;
+                    });
+
+                    if (newRawText !== rawText) {
+                        rawTextArea.value = newRawText;
+                    }
+                };
+
+                valueInput.addEventListener('change', updateRawText);
+                valueInput.addEventListener('input', updateRawText);
+                unitSelect.addEventListener('change', updateRawText);
+            },
             preConfirm: () => {
                 const reason = document.getElementById('editPropReason').value.trim();
                 if (!reason) {
@@ -5157,53 +5289,87 @@
             const resolvedAt = p.updated_at ? formatDateTime(p.updated_at) : '--';
 
             if (isPending) {
+                // Determine if this proposal is APPROVED (ready for publication) or still PENDING
+                const isApproved = p.status === 'APPROVED';
+
                 html += `
-                    <tr>
+                    <tr class="${isApproved ? 'table-success' : ''}">
                         <td class="small font-weight-bold">#${p.proposal_id}</td>
                         <td><span class="badge badge-primary">${escapeHtml(p.entry_type || 'TMI')}</span></td>
                         <td class="small">${escapeHtml(p.ctl_element || p.requesting_facility || '--')}</td>
                         <td class="small text-truncate" style="max-width: 250px;" title="${escapeHtml(p.raw_text || '')}">${escapeHtml(p.raw_text || '--')}</td>
                         <td class="small">${escapeHtml(p.created_by_name || 'Unknown')}</td>
-                        <td class="small">${deadline}</td>
-                        <td><span class="badge badge-info">${approvalProgress}</span></td>
+                        <td class="small">${isApproved ? '<span class="text-success">--</span>' : deadline}</td>
+                        <td><span class="badge ${isApproved ? 'badge-success' : 'badge-info'}">${isApproved ? 'Ready' : approvalProgress}</span></td>
                         <td>${statusBadge}</td>
-                        <td class="text-nowrap">
-                            ${isUserLoggedIn() ? `
-                            <button class="btn btn-sm btn-outline-info edit-proposal-btn mr-1"
-                                    data-proposal-id="${p.proposal_id}"
-                                    title="Edit proposal (clears approvals)">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-success approve-proposal-btn mr-1"
-                                    data-proposal-id="${p.proposal_id}"
-                                    title="Approve (DCC Override)">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger deny-proposal-btn mr-1"
-                                    data-proposal-id="${p.proposal_id}"
-                                    title="Deny (DCC Override)">
-                                <i class="fas fa-times"></i>
-                            </button>
+                        <td class="text-nowrap" style="white-space: nowrap;">
+                            ${isApproved ? `
+                                <div class="btn-group btn-group-sm" role="group">
+                                ${isUserLoggedIn() ? `
+                                    <button class="btn btn-outline-info edit-proposal-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            title="Edit proposal (restarts coordination)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-success publish-proposal-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
+                                            data-ctl-element="${escapeHtml(p.ctl_element || '')}"
+                                            title="Publish to Discord">
+                                        <i class="fas fa-broadcast-tower"></i>
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-outline-secondary" disabled title="Login required">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-secondary" disabled title="Login required to publish">
+                                        <i class="fas fa-broadcast-tower"></i>
+                                    </button>
+                                `}
+                                </div>
                             ` : `
-                            <button class="btn btn-sm btn-outline-secondary mr-1" disabled
-                                    title="Login required">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary mr-1" disabled
-                                    title="Login required for DCC override">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary mr-1" disabled
-                                    title="Login required for DCC override">
-                                <i class="fas fa-times"></i>
-                            </button>
+                                <div class="btn-group btn-group-sm" role="group">
+                                ${isUserLoggedIn() ? `
+                                    <button class="btn btn-outline-info edit-proposal-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            title="Edit proposal (clears approvals)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success approve-proposal-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            title="Approve (DCC Override)">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger deny-proposal-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            title="Deny (DCC Override)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    <button class="btn btn-outline-primary extend-deadline-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
+                                            title="Extend deadline">
+                                        <i class="fas fa-clock"></i>
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-outline-secondary" disabled title="Login required">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" disabled title="Login required">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" disabled title="Login required">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary extend-deadline-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
+                                            title="Extend deadline">
+                                        <i class="fas fa-clock"></i>
+                                    </button>
+                                `}
+                                </div>
                             `}
-                            <button class="btn btn-sm btn-outline-primary extend-deadline-btn"
-                                    data-proposal-id="${p.proposal_id}"
-                                    data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
-                                    title="Extend deadline">
-                                <i class="fas fa-clock"></i>
-                            </button>
                         </td>
                     </tr>
                 `;
