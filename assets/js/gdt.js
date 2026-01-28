@@ -1007,6 +1007,9 @@ if (rawGsFlag === true ||
         if (typeof f.edct_epoch === "number") {
             // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
             edctEpoch = f.edct_epoch < 4102444800 ? f.edct_epoch * 1000 : f.edct_epoch;
+        } else if (typeof f.ctd_epoch === "number") {
+            // CTD epoch from tmi_flight_control (GS simulation result)
+            edctEpoch = f.ctd_epoch < 4102444800 ? f.ctd_epoch * 1000 : f.ctd_epoch;
         } else if (f.edct_utc || f.ctd_utc) {
             // Use edct_utc if present, otherwise fall back to CTD (ctd_utc)
             edctEpoch = parseSimtrafficTimeToEpoch(f.edct_utc || f.ctd_utc);
