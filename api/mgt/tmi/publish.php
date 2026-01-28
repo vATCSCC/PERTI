@@ -172,6 +172,7 @@ foreach ($entries as $index => $entry) {
         // STEP 1: Save to database (before Discord posting)
         // ==================================================
         $databaseId = null;
+        $skipDiscord = false; // For CONFIG deduplication
         $status = $production ? 'ACTIVE' : 'STAGED';
         
         if ($tmiConn) {
@@ -186,18 +187,33 @@ foreach ($entries as $index => $entry) {
                         $userName
                     );
                 } else {
-                    $databaseId = saveNtmlEntryToDatabase(
-                        $tmiConn, 
-                        $entry, 
-                        $messageContent, 
-                        $status, 
-                        $userCid, 
+                    $saveResult = saveNtmlEntryToDatabase(
+                        $tmiConn,
+                        $entry,
+                        $messageContent,
+                        $status,
+                        $userCid,
                         $userName
                     );
+
+                    // Handle CONFIG deduplication response (returns array) vs new entry (returns int)
+                    if (is_array($saveResult)) {
+                        $databaseId = $saveResult['id'];
+                        $skipDiscord = !$saveResult['content_changed'] && $saveResult['already_posted'];
+                        $result['is_update'] = $saveResult['is_update'];
+                        $result['content_changed'] = $saveResult['content_changed'];
+                        if ($skipDiscord) {
+                            $result['discord_skipped'] = true;
+                            $result['discord_skip_reason'] = 'CONFIG unchanged and already posted';
+                        }
+                    } else {
+                        $databaseId = $saveResult;
+                        $skipDiscord = false;
+                    }
                 }
-                
+
                 $result['databaseId'] = $databaseId;
-                tmi_debug_log("Entry {$index} saved to database", ['id' => $databaseId]);
+                tmi_debug_log("Entry {$index} saved to database", ['id' => $databaseId, 'is_update' => $result['is_update'] ?? false]);
                 
             } catch (Exception $e) {
                 tmi_debug_log("Database save error for entry {$index}", ['error' => $e->getMessage()]);
@@ -208,6 +224,16 @@ foreach ($entries as $index => $entry) {
         // ==================================================
         // STEP 2: Post to Discord (sync or async queue)
         // ==================================================
+
+        // Skip Discord if CONFIG was unchanged and already posted
+        if (!empty($skipDiscord)) {
+            tmi_debug_log("Skipping Discord post - CONFIG unchanged and already posted", ['entry_id' => $databaseId]);
+            $result['success'] = true;
+            $result['discordResults'] = ['skipped' => true, 'reason' => 'CONFIG unchanged'];
+            $results[] = $result;
+            $successCount++;
+            continue;
+        }
 
         // Add staging prefix if not production
         $prefix = $production ? '' : '🧪 **[STAGING]** ';
@@ -420,6 +446,9 @@ echo json_encode($response);
 
 /**
  * Save NTML entry to tmi_entries table
+ *
+ * For CONFIG entries: If an active CONFIG already exists for the same airport,
+ * UPDATE it instead of creating a duplicate. Returns ['id' => X, 'is_update' => bool, 'content_changed' => bool]
  */
 function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $userName) {
     $data = $entry['data'] ?? [];
@@ -439,6 +468,36 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
     ];
 
     $determinantCode = $determinantCodes[strtoupper($entryType)] ?? strtoupper($entryType);
+    $ctlElement = strtoupper($data['ctl_element'] ?? '') ?: null;
+
+    // CONFIG deduplication: Check for existing active CONFIG for same airport
+    if (strtoupper($entryType) === 'CONFIG' && $ctlElement) {
+        $existingConfig = checkExistingConfig($conn, $ctlElement);
+        if ($existingConfig) {
+            // Compare content - if same raw text, skip the update entirely
+            if (trim($existingConfig['raw_input']) === trim($rawText)) {
+                tmi_debug_log('CONFIG unchanged, skipping update', [
+                    'entry_id' => $existingConfig['entry_id'],
+                    'ctl_element' => $ctlElement,
+                    'has_discord_id' => !empty($existingConfig['discord_message_id'])
+                ]);
+                // Return existing ID with flags indicating no change needed
+                return [
+                    'id' => $existingConfig['entry_id'],
+                    'is_update' => true,
+                    'content_changed' => false,
+                    'already_posted' => !empty($existingConfig['discord_message_id'])
+                ];
+            }
+
+            // Content changed - update the existing entry
+            tmi_debug_log('CONFIG content changed, updating existing entry', [
+                'entry_id' => $existingConfig['entry_id'],
+                'ctl_element' => $ctlElement
+            ]);
+            return updateExistingConfig($conn, $existingConfig['entry_id'], $rawText, $data, $userCid, $userName);
+        }
+    }
 
     // Parse valid times
     $validFrom = parseValidTime($data['valid_from'] ?? null);
@@ -700,6 +759,59 @@ function parseValidTime($timeStr) {
     }
 
     return null;
+}
+
+/**
+ * Check for existing active CONFIG entry for the same airport
+ * @return array|null Existing config entry or null if not found
+ */
+function checkExistingConfig($conn, $ctlElement) {
+    $sql = "SELECT entry_id, raw_input, discord_message_id, status
+            FROM dbo.tmi_entries
+            WHERE entry_type = 'CONFIG'
+              AND ctl_element = :ctl_element
+              AND status = 'ACTIVE'
+              AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())
+            ORDER BY created_at DESC";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([':ctl_element' => strtoupper($ctlElement)]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+/**
+ * Update existing CONFIG entry instead of creating duplicate
+ * @return array Result with id and flags
+ */
+function updateExistingConfig($conn, $entryId, $rawText, $data, $userCid, $userName) {
+    $sql = "UPDATE dbo.tmi_entries SET
+                raw_input = :raw_input,
+                parsed_data = :parsed_data,
+                updated_by = :user_cid,
+                updated_by_name = :user_name,
+                updated_at = SYSUTCDATETIME()
+            WHERE entry_id = :entry_id";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':raw_input' => $rawText,
+        ':parsed_data' => json_encode($data),
+        ':user_cid' => $userCid,
+        ':user_name' => $userName,
+        ':entry_id' => $entryId
+    ]);
+
+    tmi_debug_log('Updated existing CONFIG entry', [
+        'entry_id' => $entryId,
+        'updated_by' => $userName
+    ]);
+
+    return [
+        'id' => $entryId,
+        'is_update' => true,
+        'content_changed' => true,
+        'already_posted' => false // Content changed, so it should be re-posted
+    ];
 }
 
 /**

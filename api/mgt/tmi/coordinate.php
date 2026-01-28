@@ -90,6 +90,9 @@ switch ($method) {
     case 'PUT':
         handleProcessReaction();
         break;
+    case 'PATCH':
+        handleExtendDeadline();
+        break;
     default:
         http_response_code(405);
         echo json_encode(['success' => false, 'error' => 'Method not allowed']);
@@ -574,6 +577,101 @@ function handleProcessReaction() {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Processing error: ' . $e->getMessage()]);
+    }
+}
+
+// =============================================================================
+// PATCH: Extend Proposal Deadline
+// =============================================================================
+
+function handleExtendDeadline() {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $proposalId = $input['proposal_id'] ?? null;
+    $newDeadlineUtc = $input['new_deadline_utc'] ?? null;
+    $userCid = $input['user_cid'] ?? null;
+    $userName = $input['user_name'] ?? 'Unknown';
+
+    if (!$proposalId || !$newDeadlineUtc) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'proposal_id and new_deadline_utc are required']);
+        return;
+    }
+
+    // Parse new deadline
+    $newDeadline = new DateTime($newDeadlineUtc, new DateTimeZone('UTC'));
+    if (!$newDeadline) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid deadline format']);
+        return;
+    }
+
+    // New deadline must be in the future
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    if ($newDeadline <= $now) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'New deadline must be in the future']);
+        return;
+    }
+
+    $conn = getTmiConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Verify proposal exists and is still pending
+        $checkSql = "SELECT proposal_id, status, approval_deadline_utc, discord_message_id
+                     FROM dbo.tmi_proposals
+                     WHERE proposal_id = :prop_id";
+        $checkStmt = $conn->prepare($checkSql);
+        $checkStmt->execute([':prop_id' => $proposalId]);
+        $proposal = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$proposal) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Proposal not found']);
+            return;
+        }
+
+        if ($proposal['status'] !== 'PENDING') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Can only extend deadline for PENDING proposals']);
+            return;
+        }
+
+        $oldDeadline = $proposal['approval_deadline_utc'];
+
+        // Update deadline
+        $updateSql = "UPDATE dbo.tmi_proposals SET
+                          approval_deadline_utc = :new_deadline,
+                          updated_at = SYSUTCDATETIME()
+                      WHERE proposal_id = :prop_id";
+        $updateStmt = $conn->prepare($updateSql);
+        $updateStmt->execute([
+            ':new_deadline' => $newDeadline->format('Y-m-d H:i:s'),
+            ':prop_id' => $proposalId
+        ]);
+
+        // Optionally update Discord message if it exists
+        if (!empty($proposal['discord_message_id'])) {
+            // TODO: Edit Discord message to show new deadline
+            // This would require retrieving the original message content and updating it
+        }
+
+        echo json_encode([
+            'success' => true,
+            'proposal_id' => $proposalId,
+            'old_deadline' => $oldDeadline,
+            'new_deadline' => $newDeadline->format('Y-m-d H:i:s'),
+            'extended_by' => $userName
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
     }
 }
 
