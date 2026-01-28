@@ -329,6 +329,7 @@ foreach ($adl_flights as $flight) {
         'arr_center' => $flight['arr_center'] ?? null,
         'carrier' => $flight['major_carrier'],
         'aircraft_type' => $flight['aircraft_type'],
+        'flight_status' => $flight['phase'] ?? null,
         'is_exempt' => $is_exempt ? 1 : 0,
         'exempt_reason' => $exempt_reason
     ];
@@ -347,6 +348,7 @@ if (count($flights_for_sp) > 0) {
     // since sqlsrv doesn't directly support table-valued parameters easily
     
     // Create temp table and insert flights
+    // Must match dbo.FlightListType column order exactly
     $temp_sql = "
         CREATE TABLE #FlightList (
             flight_uid BIGINT,
@@ -359,6 +361,7 @@ if (count($flights_for_sp) > 0) {
             arr_center NVARCHAR(4),
             carrier NVARCHAR(8),
             aircraft_type NVARCHAR(8),
+            flight_status NVARCHAR(16),
             is_exempt BIT,
             exempt_reason NVARCHAR(32)
         );
@@ -377,8 +380,8 @@ if (count($flights_for_sp) > 0) {
     // Insert flights in batches
     foreach ($flights_for_sp as $f) {
         $ins_sql = "
-            INSERT INTO #FlightList (flight_uid, callsign, eta_utc, etd_utc, dep_airport, arr_airport, dep_center, arr_center, carrier, aircraft_type, is_exempt, exempt_reason)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO #FlightList (flight_uid, callsign, eta_utc, etd_utc, dep_airport, arr_airport, dep_center, arr_center, carrier, aircraft_type, flight_status, is_exempt, exempt_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
         $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, [
             $f['flight_uid'],
@@ -391,6 +394,7 @@ if (count($flights_for_sp) > 0) {
             $f['arr_center'],
             $f['carrier'],
             $f['aircraft_type'],
+            $f['flight_status'],
             $f['is_exempt'],
             $f['exempt_reason']
         ]);
