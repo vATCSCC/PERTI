@@ -355,6 +355,15 @@ function buildFullPlanData($conn, $row) {
     $plan['constraintsSummary'] = buildConstraintsSummary($plan);
     $plan['eventsSummary'] = buildEventsSummary($plan['events']);
 
+    // Debug info - which tables were checked and counts
+    $plan['_debug'] = [
+        'planId' => $planId,
+        'tablesChecked' => $tablesExist,
+        'tmiCount' => count($plan['tmis']),
+        'weatherCount' => count($plan['weather']),
+        'eventsCount' => count($plan['events'])
+    ];
+
     // Calculate valid times with error handling
     try {
         $eventStart = normalizeTime($row['event_start'] ?? '0000') ?: '00:00';
