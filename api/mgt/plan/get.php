@@ -36,6 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Don't display, but capture
+
 // Load dependencies
 try {
     require_once __DIR__ . '/../../../load/config.php';
@@ -47,9 +51,23 @@ try {
 }
 
 // Check MySQL connection
-if (!$conn_sqli) {
+if (!isset($conn_sqli) || !$conn_sqli) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'MySQL database connection not available']);
+    echo json_encode([
+        'success' => false,
+        'error' => 'MySQL database connection not available',
+        'debug' => [
+            'conn_sqli_set' => isset($conn_sqli),
+            'mysql_host_defined' => defined('MYSQL_HOST')
+        ]
+    ]);
+    exit;
+}
+
+// Verify connection is working
+if ($conn_sqli->connect_error) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'MySQL connection error: ' . $conn_sqli->connect_error]);
     exit;
 }
 
@@ -134,12 +152,22 @@ if ($eventSearch && $result->num_rows > 1) {
 
 // For date or ID lookup, return full plan details
 $planRow = $result->fetch_assoc();
-$plan = buildFullPlanData($conn_sqli, $planRow);
 
-echo json_encode([
-    'success' => true,
-    'plan' => $plan
-]);
+try {
+    $plan = buildFullPlanData($conn_sqli, $planRow);
+
+    echo json_encode([
+        'success' => true,
+        'plan' => $plan
+    ]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Error building plan data: ' . $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+    ]);
+}
 
 // ===========================================
 // Helper Functions

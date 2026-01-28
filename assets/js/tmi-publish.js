@@ -993,20 +993,28 @@
                     </div>
                     
                     <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label small text-muted">Reason</label>
-                            ${buildReasonSelect()}
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Impacting Condition</label>
+                            <select class="form-control" id="ntml_reason_category" onchange="TMIPublisher.updateCauseOptions()">
+                                ${REASON_CATEGORIES.map(r => `<option value="${r.code}">${r.label}</option>`).join('')}
+                            </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Specific Impact</label>
+                            <select class="form-control" id="ntml_reason_cause">
+                                ${REASON_CAUSES.VOLUME.map(c => `<option value="${c.code}">${c.label}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Report Time (UTC)</label>
                             <input type="time" class="form-control" id="ntml_report_time" value="${currentTime}">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small text-muted">Aircraft Count</label>
                             <input type="number" class="form-control" id="ntml_acft_count" min="1" value="1">
                         </div>
                     </div>
-                    
+
                     <hr>
                     <div class="d-flex justify-content-between">
                         <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
@@ -2460,18 +2468,22 @@
             
             // Main boilerplate paragraph - wrap at 68 chars
             let boilerplate = `THE ${hotlineName} IS BEING ACTIVATED TO ADDRESS ${reason} IN ${impactedArea || 'THE AFFECTED AREA'}.`;
-            
+
             // Location info
             boilerplate += ` THE LOCATION IS ${hotlineAddress}.`;
-            
-            // Participation info
-            boilerplate += ` PARTICIPATION IS ${participation} FOR ${facilities}.`;
-            
-            // Standard closing
-            boilerplate += ' AFFECTED MAJOR UNDERLYING FACILITIES ARE STRONGLY ENCOURAGED TO ATTEND. ALL OTHER PARTICIPANTS ARE WELCOME TO JOIN. PLEASE MESSAGE THE NOM IF YOU HAVE ISSUES OR QUESTIONS.';
-            
-            // Wrap the boilerplate text at 68 characters
+
+            // Participation info - handle long facility lists specially
+            boilerplate += ` PARTICIPATION IS ${participation} FOR`;
+
+            // Wrap the main boilerplate text at 68 characters
             lines.push(wrapText(boilerplate));
+
+            // Add wrapped facility list on separate lines
+            lines.push(wrapFacilityList(facilities));
+
+            // Standard closing - wrap separately
+            const closing = 'AFFECTED MAJOR UNDERLYING FACILITIES ARE STRONGLY ENCOURAGED TO ATTEND. ALL OTHER PARTICIPANTS ARE WELCOME TO JOIN. PLEASE MESSAGE THE NOM IF YOU HAVE ISSUES OR QUESTIONS.';
+            lines.push(wrapText(closing));
             
         } else if (action === 'UPDATE') {
             // Update format
@@ -2932,12 +2944,13 @@
         const apreqType = data.apreq_type || 'CFR';
         const category = (data.reason_category || 'VOLUME').toUpperCase();
         const cause = (data.reason_cause || category).toUpperCase();
-        let line = `${logTime}    ${apreqType} ${(data.ctl_element || 'N/A').toUpperCase()}`;
-        
+        const trafficFlow = data.traffic_flow ? ` ${data.traffic_flow.toLowerCase()}` : '';
+        let line = `${logTime}    ${apreqType} ${(data.ctl_element || 'N/A').toUpperCase()}${trafficFlow}`;
+
         if (data.via_fix) {
             line += ` via ${data.via_fix.toUpperCase()}`;
         }
-        
+
         line += ` ${category}:${cause}`;
         
         // Get qualifiers
@@ -4035,7 +4048,7 @@
      */
     function formatColumns(rows, colWidths) {
         if (!rows || rows.length === 0) return '';
-        
+
         return rows.map(row => {
             return row.map((cell, i) => {
                 const width = colWidths[i] || 10;
@@ -4043,7 +4056,45 @@
             }).join('');
         }).join('\n');
     }
-    
+
+    /**
+     * Wrap facility list (slash-separated) to fit within max width
+     * Breaks at / characters to create readable multi-line lists
+     * @param {string} facilityList - Slash-separated facility list (e.g., "ZAB/ZAN/ZAU/...")
+     * @param {number} maxWidth - Maximum line width (default 68)
+     * @returns {string} Wrapped facility list
+     */
+    function wrapFacilityList(facilityList, maxWidth = TEXT_FORMAT.LINE_WIDTH) {
+        if (!facilityList) return '';
+
+        const facilities = facilityList.split('/').filter(f => f.trim());
+        if (facilities.length === 0) return '';
+
+        const lines = [];
+        let currentLine = '';
+
+        facilities.forEach((facility, index) => {
+            const separator = index < facilities.length - 1 ? '/' : '';
+            const testAdd = facility + separator;
+            const testLine = currentLine ? currentLine + testAdd : testAdd;
+
+            if (testLine.length <= maxWidth) {
+                currentLine = testLine;
+            } else {
+                if (currentLine) {
+                    lines.push(currentLine);
+                }
+                currentLine = testAdd;
+            }
+        });
+
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+
+        return lines.join('\n');
+    }
+
     function saveState() {
         try {
             localStorage.setItem('tmi_publisher_queue', JSON.stringify(state.queue || []));
