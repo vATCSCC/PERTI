@@ -2710,38 +2710,43 @@
         return `${oi}.RR${source}${advNum}`;
     }
     
-    // Standard advisory footer with TMI ID and signature
-    // Format:
+    // Standard advisory footer with optional TMI ID and signature
+    // Format (with TMI ID - only for Reroutes):
     //   TMI ID: {OI}.RR{SOURCE}{ADVZY #}
     //   {DDHHMM}-{DDHHMM}
     //   YY/MM/DD HH:MM {OI}
-    function buildAdvisoryFooter(advNum, facility) {
+    // Format (without TMI ID - for all other advisories):
+    //   {DDHHMM}-{DDHHMM}
+    //   YY/MM/DD HH:MM {OI}
+    function buildAdvisoryFooter(advNum, facility, includeTmiId = false) {
         const oi = getUserOI();
         const now = new Date();
-        
-        // TMI ID
-        const tmiId = buildTmiId(advNum || '001', facility || 'DCC');
-        
+
         // Valid time range (DDHHMM-DDHHMM format)
         const day = String(now.getUTCDate()).padStart(2, '0');
         const hour = String(now.getUTCHours()).padStart(2, '0');
         const min = String(now.getUTCMinutes()).padStart(2, '0');
         const timestamp = `${day}${hour}${min}`;
-        
+
         const endHour = (now.getUTCHours() + 4) % 24;
         const endDay = (now.getUTCHours() + 4 >= 24) ? String(now.getUTCDate() + 1).padStart(2, '0') : day;
         const endTimestamp = `${endDay}${String(endHour).padStart(2, '0')}${min}`;
-        
+
         // Signature line: YY/MM/DD HH:MM {OI}
         const year = String(now.getUTCFullYear()).substr(2, 2);
         const month = String(now.getUTCMonth() + 1).padStart(2, '0');
         const signature = `${year}/${month}/${day} ${hour}:${min} ${oi}`;
-        
-        return [
-            `TMI ID: ${tmiId}`,
-            `${timestamp}-${endTimestamp}`,
-            signature
-        ].join('\n');
+
+        // Only include TMI ID for Reroutes
+        const lines = [];
+        if (includeTmiId) {
+            const tmiId = buildTmiId(advNum || '001', facility || 'DCC');
+            lines.push(`TMI ID: ${tmiId}`);
+        }
+        lines.push(`${timestamp}-${endTimestamp}`);
+        lines.push(signature);
+
+        return lines.join('\n');
     }
     
     function getUtcDateMmDdYyyy() {
@@ -3405,6 +3410,23 @@
     function submitAll() {
         if (!state.queue || state.queue.length === 0) return;
 
+        // Check if profile is complete
+        if (!isProfileComplete()) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Profile Required',
+                html: `<p>You must set up your profile before publishing TMIs.</p>
+                       <p class="small text-muted">Click the User Profile card to set your name, CID, operating initials, and home facility.</p>`,
+                confirmButtonText: 'Set Up Profile',
+                showCancelButton: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    showProfileModal();
+                }
+            });
+            return;
+        }
+
         const mode = state.productionMode ? 'PRODUCTION' : 'STAGING';
         const modeClass = state.productionMode ? 'text-danger' : 'text-warning';
 
@@ -3604,16 +3626,16 @@
         state.queue.forEach(entry => {
             const data = entry.data || {};
             // Only add PROVIDING facilities (the ones who need to approve)
-            // Providing facility may be comma-separated list (e.g., "ZOB,ZNY,CZYZ")
-            if (data.providing_facility || data.prov_fac) {
-                const provFacs = (data.providing_facility || data.prov_fac).toUpperCase();
+            // Field name is 'prov_facility' from the form - may be comma-separated (e.g., "ZOB,ZNY,CZYZ")
+            if (data.prov_facility) {
+                const provFacs = data.prov_facility.toUpperCase();
                 provFacs.split(',').forEach(fac => {
                     const trimmed = fac.trim();
                     if (trimmed) detectedFacilities.add(trimmed);
                 });
             }
-            // Check ctl_element (airport) and map to ARTCC
-            if (data.ctl_element) {
+            // Only fall back to airport ARTCC mapping if no providing facility was explicitly specified
+            else if (data.ctl_element) {
                 const airport = data.ctl_element.toUpperCase();
                 const artcc = AIRPORT_TO_ARTCC[airport];
                 if (artcc) {
@@ -4531,57 +4553,158 @@
                 const profile = JSON.parse(savedProfile);
                 if (profile.oi) CONFIG.userOI = profile.oi;
                 if (profile.facility) CONFIG.userFacility = profile.facility;
+                // Load name/cid from localStorage if not set from server session
+                if (profile.name && !CONFIG.userName) CONFIG.userName = profile.name;
+                if (profile.cid && !CONFIG.userCid) CONFIG.userCid = profile.cid;
             } catch (e) {
                 console.warn('Failed to load user profile:', e);
             }
         }
-        
-        // Check if profile needs to be set (first visit)
-        if (!CONFIG.userFacility && !localStorage.getItem('tmi_profile_dismissed')) {
-            // Show profile modal after a short delay
+
+        // Update user info display with localStorage data
+        updateUserInfoDisplay();
+
+        // Check if profile is complete
+        const profileComplete = isProfileComplete();
+
+        // Show profile modal if incomplete
+        if (!profileComplete && !localStorage.getItem('tmi_profile_dismissed')) {
             setTimeout(() => {
                 showProfileModal();
             }, 1000);
         }
     }
+
+    function isProfileComplete() {
+        // Profile is complete if we have name, CID, OI, and facility
+        const hasName = CONFIG.userName || false;
+        const hasCid = CONFIG.userCid || false;
+        const hasOI = CONFIG.userOI && CONFIG.userOI.length >= 2;
+        const hasFacility = CONFIG.userFacility || false;
+        return hasName && hasCid && hasOI && hasFacility;
+    }
+
+    function updateUserInfoDisplay() {
+        const $label = $('#userInfoLabel');
+        const $display = $('#userInfoDisplay');
+
+        if (!$display.length) return;
+
+        // Build display name
+        let displayName = CONFIG.userName;
+        if (!displayName) {
+            // Try localStorage
+            const savedProfile = localStorage.getItem('tmi_user_profile');
+            if (savedProfile) {
+                try {
+                    const profile = JSON.parse(savedProfile);
+                    displayName = profile.name;
+                } catch (e) {}
+            }
+        }
+
+        if (displayName) {
+            $label.text('User Profile');
+            $display.html(`<i class="fas fa-user-edit mr-1 small text-muted"></i>${displayName}`);
+        } else {
+            $label.text('User Profile');
+            $display.html('<i class="fas fa-user-edit mr-1 small text-muted"></i><span class="text-warning">Set Up Profile</span>');
+        }
+    }
     
     function showProfileModal() {
-        // Pre-populate fields
-        if (CONFIG.userOI) {
-            $('#profileOI').val(CONFIG.userOI);
+        // Pre-populate fields from CONFIG or localStorage
+        const savedProfile = localStorage.getItem('tmi_user_profile');
+        let profile = {};
+        if (savedProfile) {
+            try { profile = JSON.parse(savedProfile); } catch(e) {}
         }
-        if (CONFIG.userFacility) {
-            $('#profileFacility').val(CONFIG.userFacility);
+
+        // Pre-populate name/cid if editable (not readonly from server)
+        const $nameField = $('#profileName');
+        const $cidField = $('#profileCid');
+        if (!$nameField.attr('readonly')) {
+            $nameField.val(CONFIG.userName || profile.name || '');
+        }
+        if (!$cidField.attr('readonly')) {
+            $cidField.val(CONFIG.userCid || profile.cid || '');
+        }
+
+        if (CONFIG.userOI || profile.oi) {
+            $('#profileOI').val(CONFIG.userOI || profile.oi);
+        }
+        if (CONFIG.userFacility || profile.facility) {
+            $('#profileFacility').val(CONFIG.userFacility || profile.facility);
         }
         $('#userProfileModal').modal('show');
     }
-    
+
     function saveProfile() {
         const oi = ($('#profileOI').val() || '').trim().toUpperCase();
         const facility = $('#profileFacility').val() || '';
-        
-        // Validate
-        if (oi && (oi.length < 2 || oi.length > 3)) {
+
+        // Get name/cid from fields (only if not readonly)
+        const $nameField = $('#profileName');
+        const $cidField = $('#profileCid');
+        const name = ($nameField.val() || '').trim();
+        const cid = ($cidField.val() || '').trim();
+
+        // Validate all required fields
+        const nameEditable = !$nameField.attr('readonly');
+        const cidEditable = !$cidField.attr('readonly');
+
+        // If editable, name and cid are required
+        if (nameEditable && !name) {
+            Swal.fire('Name Required', 'Please enter your name.', 'warning');
+            return;
+        }
+        if (cidEditable && !cid) {
+            Swal.fire('CID Required', 'Please enter your VATSIM CID.', 'warning');
+            return;
+        }
+        if (!oi || oi.length < 2 || oi.length > 3) {
             Swal.fire('Invalid OI', 'Operating initials must be 2-3 characters', 'warning');
             return;
         }
-        
-        // Save to localStorage
+        if (!facility) {
+            Swal.fire('Facility Required', 'Please select your home facility.', 'warning');
+            return;
+        }
+
+        // Build profile object
         const profile = { oi, facility };
+        if (nameEditable) profile.name = name;
+        if (cidEditable) profile.cid = cid;
+
+        // Preserve existing name/cid if server-set
+        const existingProfile = localStorage.getItem('tmi_user_profile');
+        if (existingProfile) {
+            try {
+                const existing = JSON.parse(existingProfile);
+                if (!nameEditable && existing.name) profile.name = existing.name;
+                if (!cidEditable && existing.cid) profile.cid = existing.cid;
+            } catch(e) {}
+        }
+
         localStorage.setItem('tmi_user_profile', JSON.stringify(profile));
-        
+
         // Update CONFIG
-        if (oi) CONFIG.userOI = oi;
-        if (facility) CONFIG.userFacility = facility;
-        
+        CONFIG.userOI = oi;
+        CONFIG.userFacility = facility;
+        if (name) CONFIG.userName = name;
+        if (cid) CONFIG.userCid = cid;
+
+        // Update user info display
+        updateUserInfoDisplay();
+
         // Close modal
         $('#userProfileModal').modal('hide');
-        
+
         // Update any open forms with new facility as default
         if (facility && $('#ntml_req_facility').length && !$('#ntml_req_facility').val()) {
             $('#ntml_req_facility').val(facility);
         }
-        
+
         Swal.fire({
             icon: 'success',
             title: 'Profile Saved',
@@ -4648,6 +4771,73 @@
         $(document).on('click', '.deny-proposal-btn', function() {
             const proposalId = $(this).data('proposal-id');
             handleProposalAction(proposalId, 'DENY');
+        });
+
+        // Reopen button (for resolved proposals)
+        $(document).on('click', '.reopen-proposal-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            handleReopenProposal(proposalId);
+        });
+    }
+
+    function handleReopenProposal(proposalId) {
+        Swal.fire({
+            title: 'Reopen Proposal?',
+            html: `<p>Reopen Proposal #${proposalId} for coordination?</p>
+                   <p class="small text-muted">This will reset all facility approvals and set status back to PENDING.</p>
+                   <div class="form-group text-left mt-3">
+                       <label class="small">Reason (optional):</label>
+                       <input type="text" id="reopen_reason" class="form-control form-control-sm" placeholder="e.g., Conditions changed">
+                   </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f0ad4e',
+            confirmButtonText: '<i class="fas fa-undo mr-1"></i> Reopen',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const reason = $('#reopen_reason').val();
+                submitReopenProposal(proposalId, reason);
+            }
+        });
+    }
+
+    function submitReopenProposal(proposalId, reason) {
+        Swal.fire({
+            title: 'Reopening...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'DELETE',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                proposal_id: proposalId,
+                action: 'REOPEN',
+                user_cid: CONFIG.userCid,
+                user_name: CONFIG.userName || 'DCC',
+                reason: reason
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Proposal Reopened',
+                        text: `Proposal #${proposalId} is now pending coordination.`,
+                        timer: 2000
+                    });
+                    loadProposals();
+                } else {
+                    Swal.fire('Error', response.error || 'Failed to reopen', 'error');
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+            }
         });
     }
 
@@ -4759,6 +4949,8 @@
                     </tr>
                 `;
             } else {
+                // For resolved proposals, show reopen button if not cancelled
+                const canReopen = p.status !== 'CANCELLED';
                 html += `
                     <tr>
                         <td class="small font-weight-bold">#${p.proposal_id}</td>
@@ -4768,6 +4960,15 @@
                         <td class="small">${escapeHtml(p.created_by_name || 'Unknown')}</td>
                         <td>${statusBadge}</td>
                         <td class="small">${resolvedAt}</td>
+                        <td class="text-nowrap">
+                            ${canReopen ? `
+                                <button class="btn btn-sm btn-outline-warning reopen-proposal-btn"
+                                        data-proposal-id="${p.proposal_id}"
+                                        title="Reopen for coordination">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            ` : ''}
+                        </td>
                     </tr>
                 `;
             }
