@@ -240,14 +240,24 @@ function handleCreate() {
         SwimResponse::error('Failed to get new route ID', 500, 'DB_ERROR');
     }
 
-    // Fetch and return created route
+    // Fetch created route
     $sql = "SELECT * FROM dbo.tmi_public_routes WHERE route_id = ?";
     $stmt = sqlsrv_query($conn_tmi, $sql, [$newId]);
     $created = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
 
+    // Publish to Discord if advisory_text is provided
+    $discordResult = null;
+    $advisoryText = $body['advisory_text'] ?? null;
+    if (!empty($advisoryText)) {
+        $discordResult = publishRouteToDiscord($conn_tmi, $newId, $advisoryText, $body['name'] ?? 'Route');
+    }
+
     http_response_code(201);
-    SwimResponse::success(formatRoute($created), 'Route created');
+    $response = formatRoute($created);
+    $response['discord_published'] = ($discordResult && $discordResult['success']) ? true : false;
+    $response['discord_result'] = $discordResult;
+    SwimResponse::success($response, 'Route created');
 }
 
 // ============================================================================
@@ -563,4 +573,102 @@ function formatGeoJSONFeature($row) {
 function formatDT($dt) {
     if ($dt === null) return null;
     return ($dt instanceof DateTime) ? $dt->format('c') : $dt;
+}
+
+
+// ============================================================================
+// Discord Publishing for Routes
+// ============================================================================
+function publishRouteToDiscord($conn, $routeId, $advisoryText, $routeName) {
+    $result = [
+        'success' => false,
+        'message_id' => null,
+        'channel_id' => null,
+        'error' => null
+    ];
+
+    try {
+        // Load Discord API if available
+        $discordApiPath = __DIR__ . '/../../../../load/discord/DiscordAPI.php';
+        $multiDiscordPath = __DIR__ . '/../../../../load/discord/MultiDiscordAPI.php';
+
+        if (!file_exists($discordApiPath)) {
+            $result['error'] = 'Discord API not available';
+            return $result;
+        }
+
+        require_once $discordApiPath;
+        if (file_exists($multiDiscordPath)) {
+            require_once $multiDiscordPath;
+        }
+
+        // Format the Discord message - wrap in code block like other advisories
+        $discordMessage = "```\n{$advisoryText}\n```";
+
+        // Try MultiDiscordAPI first (posts to multiple orgs)
+        if (class_exists('MultiDiscordAPI')) {
+            $multiDiscord = new MultiDiscordAPI();
+            if ($multiDiscord->isConfigured()) {
+                // Post to vatcscc advisories channel
+                $postResult = $multiDiscord->postToChannel('vatcscc', 'advisories', ['content' => $discordMessage]);
+
+                if ($postResult && $postResult['success']) {
+                    $result['success'] = true;
+                    $result['message_id'] = $postResult['message_id'] ?? null;
+                    $result['channel_id'] = $postResult['channel_id'] ?? null;
+
+                    // Update database with Discord message ID
+                    if ($result['message_id'] && $conn) {
+                        $updateSql = "UPDATE dbo.tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
+                        sqlsrv_query($conn, $updateSql, [$result['message_id'], $routeId]);
+                    }
+
+                    return $result;
+                } else {
+                    $result['error'] = $postResult['error'] ?? 'MultiDiscord post failed';
+                }
+            }
+        }
+
+        // Fallback to single DiscordAPI
+        if (class_exists('DiscordAPI')) {
+            $discord = new DiscordAPI();
+            if ($discord->isConfigured()) {
+                // Get advisories channel
+                $channelId = $discord->getChannelByPurpose('advisories');
+                if (!$channelId) {
+                    $channelId = $discord->getChannelByPurpose('tmi');
+                }
+
+                if ($channelId) {
+                    $response = $discord->createMessage($channelId, ['content' => $discordMessage]);
+
+                    if ($response && isset($response['id'])) {
+                        $result['success'] = true;
+                        $result['message_id'] = $response['id'];
+                        $result['channel_id'] = $channelId;
+
+                        // Update database with Discord message ID
+                        if ($conn) {
+                            $updateSql = "UPDATE dbo.tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
+                            sqlsrv_query($conn, $updateSql, [$result['message_id'], $routeId]);
+                        }
+
+                        return $result;
+                    } else {
+                        $result['error'] = $discord->getLastError() ?? 'Discord post failed';
+                    }
+                } else {
+                    $result['error'] = 'No advisories channel configured';
+                }
+            } else {
+                $result['error'] = 'Discord not configured';
+            }
+        }
+
+    } catch (Exception $e) {
+        $result['error'] = 'Discord error: ' . $e->getMessage();
+    }
+
+    return $result;
 }
