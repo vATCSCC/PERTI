@@ -950,3 +950,162 @@ input[type="time"] {
     color: #495057;
     font-weight: 600;
 }
+
+/* ===========================================
+   Unified Filter Styling (All Select2 + Regular Selects)
+   =========================================== */
+
+/* Make all filters in the filter bar have consistent height and font */
+#activeTmiFilters .form-control,
+#activeTmiFilters .form-control-sm {
+    height: 31px;
+    font-size: 0.8rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+/* All Select2 containers in filter area - consistent sizing */
+#activeTmiFilters .select2-container {
+    min-width: 100%;
+}
+
+#activeTmiFilters .select2-container .select2-selection--multiple,
+#activeTmiFilters .select2-container .select2-selection--single {
+    min-height: 31px;
+    height: auto;
+    padding: 2px 4px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 0.8rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#activeTmiFilters .select2-container .select2-selection--single {
+    display: flex;
+    align-items: center;
+}
+
+#activeTmiFilters .select2-container .select2-selection--single .select2-selection__rendered {
+    padding: 0 4px;
+    line-height: 27px;
+    color: #212529;
+}
+
+#activeTmiFilters .select2-container .select2-selection--single .select2-selection__arrow {
+    height: 29px;
+}
+
+/* Hover and focus states for all Select2 in filters */
+#activeTmiFilters .select2-container .select2-selection--multiple:hover,
+#activeTmiFilters .select2-container .select2-selection--single:hover {
+    border-color: #adb5bd;
+}
+
+#activeTmiFilters .select2-container.select2-container--focus .select2-selection--multiple,
+#activeTmiFilters .select2-container.select2-container--focus .select2-selection--single,
+#activeTmiFilters .select2-container.select2-container--open .select2-selection--multiple,
+#activeTmiFilters .select2-container.select2-container--open .select2-selection--single {
+    border-color: var(--discord-purple);
+    box-shadow: 0 0 0 0.2rem rgba(114, 137, 218, 0.25);
+}
+
+/* Selected tags (pills) - applies to all multiselect in filters */
+#activeTmiFilters .select2-container .select2-selection__choice {
+    border-radius: 12px;
+    padding: 1px 8px 1px 6px;
+    margin: 2px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: none;
+    background-color: #6c757d;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.4;
+}
+
+/* Remove button on tags */
+#activeTmiFilters .select2-container .select2-selection__choice__remove {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    font-weight: normal;
+    margin-right: 0;
+    margin-left: 0;
+    padding: 0 2px;
+    border: none;
+    background: transparent;
+    order: 1;
+}
+
+#activeTmiFilters .select2-container .select2-selection__choice__remove:hover {
+    color: #fff;
+    background: transparent;
+}
+
+/* Placeholder styling */
+#activeTmiFilters .select2-container .select2-selection__placeholder,
+#activeTmiFilters .select2-container .select2-search__field::placeholder {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+/* Search field inside select */
+#activeTmiFilters .select2-container .select2-search__field {
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
+/* Status filter color coding */
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Active"],
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="ACTIVE"] {
+    background-color: #28a745;
+}
+
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Scheduled"],
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="SCHEDULED"] {
+    background-color: #17a2b8;
+}
+
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Cancelled"],
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="CANCELLED"] {
+    background-color: #dc3545;
+}
+
+/* Type filter colors */
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="MIT"],
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="MINIT"] {
+    background-color: #fd7e14;
+}
+
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="STOP"],
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="Ground Stop"],
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="GS"] {
+    background-color: #dc3545;
+}
+
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="GDP"],
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="Delay"],
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="DELAY"] {
+    background-color: #6f42c1;
+}
+
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="Config"],
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="CONFIG"] {
+    background-color: #20c997;
+}
+
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="APREQ/CFR"],
+#activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="TBM"] {
+    background-color: #0d6efd;
+}
+
+/* Ensure buttons have consistent height with filters */
+#activeTmiFilters .btn {
+    height: 31px;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
