@@ -3737,8 +3737,8 @@ function showConfirmDialog(title, text, confirmText, icon) {
                 var delayClass = delay > 30 ? "text-danger font-weight-bold" : (delay > 15 ? "text-warning" : "");
                 flightTableHtml += '<tr>';
                 flightTableHtml += '<td><strong>' + escapeHtml(f.callsign || "") + '</strong></td>';
-                flightTableHtml += '<td>' + escapeHtml(f.dep || f.dep_icao || "") + '</td>';
-                flightTableHtml += '<td>' + escapeHtml(f.arr || f.dest_icao || "") + '</td>';
+                flightTableHtml += '<td>' + escapeHtml(f.dep || f.dep_icao || f.dep_airport || "") + '</td>';
+                flightTableHtml += '<td>' + escapeHtml(f.arr || f.dest_icao || f.arr_airport || "") + '</td>';
                 flightTableHtml += '<td>' + escapeHtml(f.ac_type || f.aircraft_type || "") + '</td>';
                 flightTableHtml += '<td>' + escapeHtml(edct) + '</td>';
                 flightTableHtml += '<td class="' + delayClass + '">' + delay + ' min</td>';

@@ -3598,16 +3598,19 @@
     };
 
     function buildFacilityCheckboxes() {
-        // Get facilities from queue entries
+        // Get PROVIDING facilities from queue entries (facilities that need to approve)
+        // Note: We do NOT auto-select requesting facilities - they proposed the TMI, they don't approve it
         const detectedFacilities = new Set();
         state.queue.forEach(entry => {
             const data = entry.data || {};
-            // Check explicit facility fields
-            if (data.requesting_facility || data.req_fac) {
-                detectedFacilities.add((data.requesting_facility || data.req_fac).toUpperCase());
-            }
+            // Only add PROVIDING facilities (the ones who need to approve)
+            // Providing facility may be comma-separated list (e.g., "ZOB,ZNY,CZYZ")
             if (data.providing_facility || data.prov_fac) {
-                detectedFacilities.add((data.providing_facility || data.prov_fac).toUpperCase());
+                const provFacs = (data.providing_facility || data.prov_fac).toUpperCase();
+                provFacs.split(',').forEach(fac => {
+                    const trimmed = fac.trim();
+                    if (trimmed) detectedFacilities.add(trimmed);
+                });
             }
             // Check ctl_element (airport) and map to ARTCC
             if (data.ctl_element) {
@@ -3647,9 +3650,11 @@
 
     function submitForCoordination(deadline, facilities) {
         // Submit each entry for coordination
+        // NOTE: Form is labeled "UTC" so user enters UTC time directly
+        // datetime-local returns value without timezone, append Z to mark as UTC
         const payload = {
             entry: state.queue[0], // For now, handle one entry at a time
-            deadlineUtc: deadline + ':00Z',
+            deadlineUtc: deadline + ':00.000Z',
             facilities: facilities,
             userCid: CONFIG.userCid,
             userName: CONFIG.userName || 'Unknown'
@@ -3669,6 +3674,7 @@
             data: JSON.stringify(payload),
             success: function(response) {
                 Swal.close();
+                console.log('[Coordination] Response:', response);
 
                 if (response.success) {
                     // Clear queue on success
@@ -3676,14 +3682,31 @@
                     saveState();
                     updateUI();
 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Submitted for Coordination',
-                        html: `<p>Proposal #${response.proposal_id} posted to #coordination.</p>
-                               <p class="small text-muted">Awaiting facility approval.</p>`,
-                        timer: 4000,
-                        showConfirmButton: true
-                    });
+                    // Check if Discord posting succeeded
+                    const discordOk = response.discord && response.discord.success;
+                    const discordError = response.discord && response.discord.error;
+
+                    if (discordOk) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Submitted for Coordination',
+                            html: `<p>Proposal #${response.proposal_id} posted to #coordination.</p>
+                                   <p class="small text-muted">Awaiting facility approval.</p>`,
+                            timer: 4000,
+                            showConfirmButton: true
+                        });
+                    } else {
+                        // Database succeeded but Discord failed
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Proposal Created - Discord Failed',
+                            html: `<p>Proposal #${response.proposal_id} was saved to database.</p>
+                                   <p class="text-danger"><strong>Discord posting FAILED:</strong></p>
+                                   <p class="small">${discordError || 'Could not post to #coordination channel'}</p>
+                                   <p class="small text-muted">Check server logs: api/mgt/tmi/coordination_debug.log</p>`,
+                            showConfirmButton: true
+                        });
+                    }
                 } else {
                     Swal.fire({
                         icon: 'error',
@@ -4608,6 +4631,24 @@
         $('#refreshProposals').on('click', function() {
             loadProposals();
         });
+
+        // Extend deadline button (delegated event)
+        $(document).on('click', '.extend-deadline-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            const currentDeadline = $(this).data('current-deadline');
+            showExtendDeadlineDialog(proposalId, currentDeadline);
+        });
+
+        // Approve/Deny buttons (delegated events)
+        $(document).on('click', '.approve-proposal-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            handleProposalAction(proposalId, 'APPROVE');
+        });
+
+        $(document).on('click', '.deny-proposal-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            handleProposalAction(proposalId, 'DENY');
+        });
     }
 
     function loadProposals() {
@@ -4668,7 +4709,7 @@
         const $tbody = $('#' + containerId);
 
         if (!proposals || proposals.length === 0) {
-            const colSpan = isPending ? 8 : 7;
+            const colSpan = isPending ? 9 : 7;
             $tbody.html(`
                 <tr>
                     <td colspan="${colSpan}" class="text-center text-muted py-3">
@@ -4697,6 +4738,24 @@
                         <td class="small">${deadline}</td>
                         <td><span class="badge badge-info">${approvalProgress}</span></td>
                         <td>${statusBadge}</td>
+                        <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-success approve-proposal-btn mr-1"
+                                    data-proposal-id="${p.proposal_id}"
+                                    title="Approve (DCC Override)">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger deny-proposal-btn mr-1"
+                                    data-proposal-id="${p.proposal_id}"
+                                    title="Deny (DCC Override)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary extend-deadline-btn"
+                                    data-proposal-id="${p.proposal_id}"
+                                    data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
+                                    title="Extend deadline">
+                                <i class="fas fa-clock"></i>
+                            </button>
+                        </td>
                     </tr>
                 `;
             } else {
@@ -4746,12 +4805,19 @@
 
     function formatDeadline(dateStr) {
         try {
-            const d = new Date(dateStr);
+            // Database returns UTC datetime without Z suffix, so append it
+            // to ensure JavaScript interprets it as UTC, not local time
+            let dateStrUtc = dateStr;
+            if (dateStr && !dateStr.includes('Z') && !dateStr.includes('+')) {
+                dateStrUtc = dateStr.replace(' ', 'T') + 'Z';
+            }
+            const d = new Date(dateStrUtc);
             const now = new Date();
             const diff = d - now;
 
             // Format: "14:30Z (in 2h)"
-            const timeStr = d.toISOString().substr(11, 5) + 'Z';
+            const timeStr = String(d.getUTCHours()).padStart(2, '0') + ':' +
+                           String(d.getUTCMinutes()).padStart(2, '0') + 'Z';
 
             if (diff < 0) {
                 return `<span class="text-danger">${timeStr} (expired)</span>`;
@@ -4769,11 +4835,170 @@
 
     function formatDateTime(dateStr) {
         try {
-            const d = new Date(dateStr);
+            // Database returns UTC datetime without Z suffix
+            let dateStrUtc = dateStr;
+            if (dateStr && !dateStr.includes('Z') && !dateStr.includes('+')) {
+                dateStrUtc = dateStr.replace(' ', 'T') + 'Z';
+            }
+            const d = new Date(dateStrUtc);
             return d.toISOString().substr(0, 16).replace('T', ' ') + 'Z';
         } catch (e) {
             return dateStr || '--';
         }
+    }
+
+    function showExtendDeadlineDialog(proposalId, currentDeadline) {
+        // Calculate default new deadline (current + 1 hour, or now + 1 hour if expired)
+        let defaultDeadline;
+        if (currentDeadline) {
+            let currentDate = new Date(currentDeadline.includes('Z') ? currentDeadline : currentDeadline.replace(' ', 'T') + 'Z');
+            let now = new Date();
+            // If expired, start from now; otherwise extend from current
+            let baseTime = currentDate > now ? currentDate : now;
+            defaultDeadline = new Date(baseTime.getTime() + 60 * 60 * 1000);
+        } else {
+            defaultDeadline = new Date(Date.now() + 60 * 60 * 1000);
+        }
+        const deadlineStr = defaultDeadline.toISOString().slice(0, 16);
+
+        Swal.fire({
+            title: 'Extend Deadline',
+            html: `
+                <div class="text-left">
+                    <p>Extend approval deadline for Proposal #${proposalId}</p>
+                    <div class="form-group">
+                        <label for="newDeadline"><strong>New Deadline (UTC):</strong></label>
+                        <input type="datetime-local" class="form-control" id="newDeadline" value="${deadlineStr}">
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Extend',
+            confirmButtonColor: '#007bff',
+            preConfirm: () => {
+                const newDeadline = document.getElementById('newDeadline').value;
+                if (!newDeadline) {
+                    Swal.showValidationMessage('Please enter a new deadline');
+                    return false;
+                }
+                return newDeadline;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                extendDeadline(proposalId, result.value);
+            }
+        });
+    }
+
+    function extendDeadline(proposalId, newDeadline) {
+        Swal.fire({
+            title: 'Extending...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'PATCH',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                proposal_id: proposalId,
+                new_deadline_utc: newDeadline + ':00.000Z',
+                user_cid: CONFIG.userCid,
+                user_name: CONFIG.userName || 'Unknown'
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deadline Extended',
+                        text: `New deadline: ${formatDateTime(response.new_deadline)}`,
+                        timer: 3000
+                    });
+                    loadProposals(); // Refresh the list
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Extension Failed',
+                        text: response.error || 'Unknown error'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Connection Error',
+                    text: error || 'Failed to extend deadline'
+                });
+            }
+        });
+    }
+
+    function handleProposalAction(proposalId, action) {
+        const actionText = action === 'APPROVE' ? 'approve' : 'deny';
+        const actionColor = action === 'APPROVE' ? '#28a745' : '#dc3545';
+
+        Swal.fire({
+            title: `${action === 'APPROVE' ? 'Approve' : 'Deny'} Proposal?`,
+            html: `<p>Are you sure you want to <strong>${actionText}</strong> Proposal #${proposalId}?</p>
+                   <p class="small text-muted">This is a DCC override action.</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: action === 'APPROVE' ? 'Approve' : 'Deny',
+            confirmButtonColor: actionColor
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitProposalAction(proposalId, action);
+            }
+        });
+    }
+
+    function submitProposalAction(proposalId, action) {
+        Swal.fire({
+            title: `${action === 'APPROVE' ? 'Approving' : 'Denying'}...`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                proposal_id: proposalId,
+                reaction_type: 'DCC_OVERRIDE',
+                dcc_action: action,
+                discord_user_id: CONFIG.userCid,
+                discord_username: CONFIG.userName || 'DCC'
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: `Proposal ${action === 'APPROVE' ? 'Approved' : 'Denied'}`,
+                        timer: 2000
+                    });
+                    loadProposals();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Action Failed',
+                        text: response.error || 'Unknown error'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Connection Error',
+                    text: error || 'Failed to process action'
+                });
+            }
+        });
     }
 
     function showProposalsError(containerId, message) {

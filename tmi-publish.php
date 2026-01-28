@@ -794,11 +794,12 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                                     <th style="width: 140px;">DEADLINE</th>
                                     <th style="width: 100px;">APPROVALS</th>
                                     <th style="width: 80px;">STATUS</th>
+                                    <th style="width: 120px;">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="proposalsTableBody">
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted py-4">
+                                    <td colspan="9" class="text-center text-muted py-4">
                                         <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
                                         Loading proposals...
                                     </td>
