@@ -1185,51 +1185,148 @@
     // ===========================================
     
     function showRestrictionDetails(id, type) {
-        // Find the item
-        const allItems = [...state.restrictions, ...state.scheduled, ...state.cancelled];
+        // Find the item - also check programs and reroutes
+        const allItems = [...state.restrictions, ...state.programs, ...state.reroutes, ...state.scheduled, ...state.cancelled];
         const item = allItems.find(i => i.entityId === id);
-        
+
         if (!item) {
             console.warn('[TMI-Active] Item not found:', id);
             return;
         }
-        
-        const detailHtml = `
-            <div class="restriction-detail">
-                <table class="table table-sm table-borderless">
-                    <tr><th width="140">Type:</th><td>${escapeHtml(item.entryType || '-')}</td></tr>
-                    <tr><th>Control Element:</th><td>${escapeHtml(item.ctlElement || '-')}</td></tr>
-                    <tr><th>Requesting:</th><td>${escapeHtml(item.requestingFacility || '-')}</td></tr>
-                    <tr><th>Providing:</th><td>${escapeHtml(item.providingFacility || '-')}</td></tr>
-                    <tr><th>Value:</th><td>${item.restrictionValue ? item.restrictionValue + ' ' + (item.restrictionUnit || '') : '-'}</td></tr>
-                    <tr><th>Via/Condition:</th><td>${escapeHtml(item.conditionText || '-')}</td></tr>
-                    <tr><th>Qualifiers:</th><td>${escapeHtml(item.qualifiers || '-')}</td></tr>
-                    <tr><th>Exclusions:</th><td>${escapeHtml(item.exclusions || '-')}</td></tr>
-                    <tr><th>Reason:</th><td>${escapeHtml(item.reasonCode || '-')} ${item.reasonDetail ? ': ' + escapeHtml(item.reasonDetail) : ''}</td></tr>
-                    <tr><th>Valid From:</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
-                    <tr><th>Valid Until:</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
-                    <tr><th>Status:</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
-                    <tr><th>Created:</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdByName ? 'by ' + escapeHtml(item.createdByName) : ''}</td></tr>
-                    ${item.cancelledAt ? `<tr><th>Cancelled:</th><td>${formatFaaDateTime(item.cancelledAt)} ${item.cancelReason ? '- ' + escapeHtml(item.cancelReason) : ''}</td></tr>` : ''}
-                </table>
-                ${item.rawText ? `
-                <hr>
-                <div class="small text-muted mb-1">Raw Text:</div>
-                <pre class="bg-light p-2 small">${escapeHtml(item.rawText)}</pre>
-                ` : ''}
-            </div>
-        `;
-        
+
+        let detailHtml = '';
+        let title = 'TMI Details';
+        let editUrl = null;
+
+        if (item.entityType === 'PROGRAM') {
+            // GDP/GS Program details
+            title = `${item.entryType || 'Program'} Details`;
+            editUrl = 'gdt?edit=' + item.entityId;
+
+            const scopeCenters = item.scopeCenters ?
+                (typeof item.scopeCenters === 'string' ? JSON.parse(item.scopeCenters) : item.scopeCenters).join(', ') : '-';
+
+            detailHtml = `
+                <div class="restriction-detail">
+                    <table class="table table-sm table-borderless">
+                        <tr><th width="140">Program Type:</th><td><span class="badge badge-${item.entryType === 'GS' ? 'danger' : 'warning'}">${escapeHtml(item.entryType || 'PROGRAM')}</span></td></tr>
+                        <tr><th>Airport:</th><td class="font-weight-bold">${escapeHtml(item.ctlElement || '-')}</td></tr>
+                        <tr><th>Program Rate:</th><td>${item.programRate ? item.programRate + '/hr' : '-'}</td></tr>
+                        <tr><th>Scope Type:</th><td>${escapeHtml(item.scopeType || '-')}</td></tr>
+                        <tr><th>Scope Centers:</th><td>${escapeHtml(scopeCenters)}</td></tr>
+                        <tr><th>Cause:</th><td>${escapeHtml(item.impactingCondition || '-')}</td></tr>
+                        <tr><th>Cause Detail:</th><td>${escapeHtml(item.causeText || '-')}</td></tr>
+                        <tr><th>Total Flights:</th><td>${item.totalFlights || '-'}</td></tr>
+                        <tr><th>Controlled:</th><td>${item.controlledFlights || '-'}</td></tr>
+                        <tr><th>Exempt:</th><td>${item.exemptFlights || '-'}</td></tr>
+                        <tr><th>Start Time:</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
+                        <tr><th>End Time:</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
+                        <tr><th>Status:</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' || item.status === 'COMPLETED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
+                        <tr><th>Created:</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdBy ? 'by ' + escapeHtml(item.createdBy) : ''}</td></tr>
+                    </table>
+                    ${item.comments ? `
+                    <hr>
+                    <div class="small text-muted mb-1">Comments:</div>
+                    <div class="bg-light p-2 small">${escapeHtml(item.comments)}</div>
+                    ` : ''}
+                </div>
+            `;
+        } else if (item.entityType === 'REROUTE') {
+            // Reroute details
+            title = 'Reroute Details';
+            editUrl = 'route?edit=' + item.entityId;
+
+            // Link to view route on map (type=publicroute means it's from tmi_public_routes)
+            const viewMapUrl = item.type === 'publicroute'
+                ? `route?view=${item.entityId}`
+                : `route?view_reroute=${item.entityId}`;
+
+            detailHtml = `
+                <div class="restriction-detail">
+                    <div class="text-center mb-3">
+                        <a href="${viewMapUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-map-marked-alt mr-1"></i> View Route on Map
+                        </a>
+                    </div>
+                    <table class="table table-sm table-borderless">
+                        <tr><th width="140">Name:</th><td class="font-weight-bold">${escapeHtml(item.name || '-')}</td></tr>
+                        <tr><th>Advisory #:</th><td>${escapeHtml(item.advisoryNumber || '-')}</td></tr>
+                        <tr><th>Origin Centers:</th><td>${escapeHtml(item.originCenters || '-')}</td></tr>
+                        <tr><th>Origin Airports:</th><td>${escapeHtml(item.originAirports || '-')}</td></tr>
+                        <tr><th>Dest Centers:</th><td>${escapeHtml(item.destCenters || '-')}</td></tr>
+                        <tr><th>Dest Airports:</th><td>${escapeHtml(item.destAirports || '-')}</td></tr>
+                        <tr><th>Constrained Area:</th><td>${escapeHtml(item.constrainedArea || '-')}</td></tr>
+                        <tr><th>Protected Segment:</th><td>${escapeHtml(item.protectedSegment || item.protectedFixes || '-')}</td></tr>
+                        <tr><th>Avoid Fixes:</th><td>${escapeHtml(item.avoidFixes || '-')}</td></tr>
+                        <tr><th>Cause:</th><td>${escapeHtml(item.impactingCondition || '-')}</td></tr>
+                        <tr><th>Start Time:</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
+                        <tr><th>End Time:</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
+                        <tr><th>Status:</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' || item.status === 'EXPIRED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
+                        <tr><th>Created:</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdBy ? 'by ' + escapeHtml(item.createdBy) : ''}</td></tr>
+                    </table>
+                    ${item.routeString ? `
+                    <hr>
+                    <div class="small text-muted mb-1">Route String:</div>
+                    <pre class="bg-light p-2 small" style="white-space: pre-wrap;">${escapeHtml(item.routeString)}</pre>
+                    ` : ''}
+                    ${item.advisoryText ? `
+                    <hr>
+                    <div class="small text-muted mb-1">Advisory Text:</div>
+                    <pre class="bg-light p-2 small" style="white-space: pre-wrap;">${escapeHtml(item.advisoryText)}</pre>
+                    ` : ''}
+                    ${item.comments ? `
+                    <hr>
+                    <div class="small text-muted mb-1">Comments:</div>
+                    <div class="bg-light p-2 small">${escapeHtml(item.comments)}</div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            // NTML Entry details
+            detailHtml = `
+                <div class="restriction-detail">
+                    <table class="table table-sm table-borderless">
+                        <tr><th width="140">Type:</th><td>${escapeHtml(item.entryType || '-')}</td></tr>
+                        <tr><th>Control Element:</th><td>${escapeHtml(item.ctlElement || '-')}</td></tr>
+                        <tr><th>Requesting:</th><td>${escapeHtml(item.requestingFacility || '-')}</td></tr>
+                        <tr><th>Providing:</th><td>${escapeHtml(item.providingFacility || '-')}</td></tr>
+                        <tr><th>Value:</th><td>${item.restrictionValue ? item.restrictionValue + ' ' + (item.restrictionUnit || '') : '-'}</td></tr>
+                        <tr><th>Via/Condition:</th><td>${escapeHtml(item.conditionText || '-')}</td></tr>
+                        <tr><th>Qualifiers:</th><td>${escapeHtml(item.qualifiers || '-')}</td></tr>
+                        <tr><th>Exclusions:</th><td>${escapeHtml(item.exclusions || '-')}</td></tr>
+                        <tr><th>Reason:</th><td>${escapeHtml(item.reasonCode || '-')} ${item.reasonDetail ? ': ' + escapeHtml(item.reasonDetail) : ''}</td></tr>
+                        <tr><th>Valid From:</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
+                        <tr><th>Valid Until:</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
+                        <tr><th>Status:</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
+                        <tr><th>Created:</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdByName ? 'by ' + escapeHtml(item.createdByName) : ''}</td></tr>
+                        ${item.cancelledAt ? `<tr><th>Cancelled:</th><td>${formatFaaDateTime(item.cancelledAt)} ${item.cancelReason ? '- ' + escapeHtml(item.cancelReason) : ''}</td></tr>` : ''}
+                    </table>
+                    ${item.rawText ? `
+                    <hr>
+                    <div class="small text-muted mb-1">Raw Text:</div>
+                    <pre class="bg-light p-2 small">${escapeHtml(item.rawText)}</pre>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        const isActive = !['CANCELLED', 'PURGED', 'COMPLETED', 'EXPIRED'].includes(item.status);
+
         Swal.fire({
-            title: `<i class="fas fa-info-circle text-primary"></i> TMI Details`,
+            title: `<i class="fas fa-info-circle text-primary"></i> ${title}`,
             html: detailHtml,
-            width: 600,
-            showCancelButton: item.status !== 'CANCELLED',
+            width: 650,
+            showCancelButton: isActive,
+            showDenyButton: isActive && editUrl,
             confirmButtonText: 'Close',
-            cancelButtonText: '<i class="fas fa-times"></i> Cancel TMI',
+            denyButtonText: '<i class="fas fa-edit"></i> Edit',
+            denyButtonColor: '#007bff',
+            cancelButtonText: '<i class="fas fa-times"></i> Cancel',
             cancelButtonColor: '#dc3545'
         }).then((result) => {
-            if (result.dismiss === Swal.DismissReason.cancel) {
+            if (result.isDenied && editUrl) {
+                window.location.href = editUrl;
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
                 cancelTmi(id, type);
             }
         });
@@ -1324,13 +1421,15 @@
     // ===========================================
 
     function editTmi(id, type) {
-        // Route to appropriate edit function based on type
+        // Route to appropriate edit page based on type
         if (type === 'PROGRAM') {
-            editProgram(id);
+            // Redirect to GDT page for GDP/GS editing
+            window.location.href = 'gdt?edit=' + id;
             return;
         }
         if (type === 'REROUTE') {
-            editReroute(id);
+            // Redirect to route page for reroute editing
+            window.location.href = 'route?edit=' + id;
             return;
         }
 

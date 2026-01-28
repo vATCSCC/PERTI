@@ -228,14 +228,45 @@ window.PublicRoutes = (function() {
             if (data.success) {
                 console.log('[PublicRoutes] Route saved:', data.data || data.route);
                 fetchRoutes();  // Refresh the list
+
+                // Show success notification with Advisory # and links
+                const savedRoute = data.data || data.route || {};
+                const advNum = savedRoute.adv_number || routeData.adv_number || '';
+                const routeName = savedRoute.name || routeData.name || 'Route';
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Route Published!',
+                        html: `
+                            <p><strong>${escapeHtml(routeName)}</strong>${advNum ? ` (Advisory #${escapeHtml(advNum)})` : ''} has been published successfully.</p>
+                            <p class="small text-muted mt-2">
+                                <i class="fab fa-discord text-info mr-1"></i> Published to Discord<br>
+                                <i class="fas fa-list-alt text-primary mr-1"></i> Visible on <a href="tmi" target="_blank">Active Restrictions & Advisories</a>
+                            </p>
+                        `,
+                        confirmButtonText: 'OK',
+                        timer: 8000,
+                        timerProgressBar: true
+                    });
+                }
+
                 return data.route;
             } else {
                 console.error('[PublicRoutes] Save error:', data.error);
-                alert('Failed to save route: ' + data.error);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Error', 'Failed to save route: ' + data.error, 'error');
+                } else {
+                    alert('Failed to save route: ' + data.error);
+                }
             }
         }).fail(function(xhr, status, err) {
             console.error('[PublicRoutes] Save failed:', status, err);
-            alert('Failed to save route: ' + err);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Error', 'Failed to save route: ' + err, 'error');
+            } else {
+                alert('Failed to save route: ' + err);
+            }
         });
     }
 
@@ -1752,25 +1783,64 @@ window.PublicRoutes = (function() {
      */
     function updateRoute(routeId, updateData) {
         console.log('[PublicRoutes] Updating route:', routeId, updateData);
-        
+
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            console.error('[PublicRoutes] No API key configured for write operations');
+            alert('API key not configured. Contact administrator.');
+            return $.Deferred().reject('No API key');
+        }
+
         return $.ajax({
             url: 'api/swim/v1/tmi/routes?id=' + routeId,
             method: 'PUT',
             contentType: 'application/json',
+            headers: { 'X-API-Key': apiKey },
             data: JSON.stringify(updateData),
             dataType: 'json'
         }).done(function(data) {
             if (data.success) {
                 console.log('[PublicRoutes] Route updated:', data.data || data.route);
                 fetchRoutes();  // Refresh the list
+
+                // Show success notification
+                const savedRoute = data.data || data.route || {};
+                const advNum = savedRoute.adv_number || updateData.adv_number || '';
+                const routeName = savedRoute.name || updateData.name || 'Route';
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Route Updated!',
+                        html: `
+                            <p><strong>${escapeHtml(routeName)}</strong>${advNum ? ` (Advisory #${escapeHtml(advNum)})` : ''} has been updated successfully.</p>
+                            <p class="small text-muted mt-2">
+                                <i class="fab fa-discord text-info mr-1"></i> Updated on Discord<br>
+                                <i class="fas fa-list-alt text-primary mr-1"></i> Visible on <a href="tmi" target="_blank">Active Restrictions & Advisories</a>
+                            </p>
+                        `,
+                        confirmButtonText: 'OK',
+                        timer: 6000,
+                        timerProgressBar: true
+                    });
+                }
+
                 return data.route;
             } else {
                 console.error('[PublicRoutes] Update error:', data.error);
-                alert('Failed to update route: ' + data.error);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Error', 'Failed to update route: ' + data.error, 'error');
+                } else {
+                    alert('Failed to update route: ' + data.error);
+                }
             }
         }).fail(function(xhr, status, err) {
             console.error('[PublicRoutes] Update failed:', status, err);
-            alert('Failed to update route: ' + err);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Error', 'Failed to update route: ' + err, 'error');
+            } else {
+                alert('Failed to update route: ' + err);
+            }
         });
     }
 
@@ -1826,12 +1896,12 @@ window.PublicRoutes = (function() {
 
     function init() {
         console.log('[PublicRoutes] Initializing...');
-        
+
         // Toggle switch
         $('#public_routes_toggle').on('change', function() {
             $(this).is(':checked') ? enable() : disable();
         });
-        
+
         // Panel toggle
         $('#public_routes_panel_toggle').on('click', function() {
             const $body = $('#public_routes_panel_body');
@@ -1839,22 +1909,59 @@ window.PublicRoutes = (function() {
             $body.slideToggle(200);
             $(this).text(isVisible ? 'Show' : 'Hide');
         });
-        
+
         // Publish button in advisory builder
         $('#adv_publish').on('click', function() {
             publishFromAdvisoryBuilder();
         });
-        
+
         // Layer visibility toggle
         $('#public_routes_layer_toggle').on('change', function() {
             setLayerVisible($(this).is(':checked'));
         });
-        
+
         // Refresh button
         $('#public_routes_refresh').on('click', function() {
             fetchRoutes();
         });
-        
+
+        // Check for URL parameters to view/edit a specific route
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewRouteId = urlParams.get('view');
+        const editRouteId = urlParams.get('edit');
+
+        if (viewRouteId || editRouteId) {
+            // Enable public routes layer and fetch routes
+            enable();
+            $('#public_routes_toggle').prop('checked', true);
+
+            // Wait for routes to load, then show/edit the specified route
+            fetchRoutes().then(function() {
+                const targetId = parseInt(viewRouteId || editRouteId, 10);
+                const targetRoute = state.routes.find(r => r.id === targetId || r.route_id === targetId);
+
+                if (targetRoute) {
+                    console.log('[PublicRoutes] Found route from URL param:', targetRoute.name);
+
+                    if (editRouteId) {
+                        // Open route for editing
+                        editRouteInBuilder(targetRoute);
+                    } else {
+                        // Show route details and zoom to it
+                        showRouteDetails(targetRoute);
+                        if (typeof zoomToRoute === 'function') {
+                            zoomToRoute(targetRoute);
+                        }
+                    }
+                } else {
+                    console.warn('[PublicRoutes] Route not found for ID:', targetId);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Not Found', 'The requested route could not be found.', 'warning');
+                    }
+                }
+            });
+        }
+
         console.log('[PublicRoutes] Initialized');
     }
 
