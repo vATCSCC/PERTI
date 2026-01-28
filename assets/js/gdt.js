@@ -893,11 +893,12 @@ return {
         if (!f) return null;
 
         // Try multiple common field-name patterns to be flexible with the ADL API
+        // and tmi_flight_control table (which uses dep_airport, arr_airport)
         var callsign = (f.callsign || f.CALLSIGN || "").toUpperCase();
-        var dep = (f.fp_dept_icao || f.orig || f.dep_icao || f.dep || f.departure || f.origin || "").toUpperCase();
-        var arr = (f.fp_dest_icao || f.dest || f.arr_icao || f.arr || f.arrival || f.destination || "").toUpperCase();
+        var dep = (f.fp_dept_icao || f.dep_airport || f.orig || f.dep_icao || f.dep || f.departure || f.origin || "").toUpperCase();
+        var arr = (f.fp_dest_icao || f.arr_airport || f.dest || f.arr_icao || f.arr || f.arrival || f.destination || "").toUpperCase();
         var alt = f.fp_altitude_ft || f.filed_altitude || f.altitude || f.alt || "";
-        var icao = (f.aircraft_icao || f.aircraft || f.acft || "").toUpperCase();
+        var icao = (f.aircraft_icao || f.aircraft_type || f.aircraft || f.acft || "").toUpperCase();
         var route = f.fp_route || f.route || f.route_string || f.filed_route || "";
 
 // Status/source from ADL, with sane defaults

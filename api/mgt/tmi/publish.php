@@ -87,12 +87,15 @@ $entries = $payload['entries'];
 $production = !empty($payload['production']);
 $userCid = $payload['userCid'] ?? null;
 $userName = $payload['userName'] ?? 'Unknown';
+$asyncDiscord = $payload['async'] ?? true; // Default to async for better performance
 
 if (empty($entries)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'No entries provided']);
     exit;
 }
+
+tmi_debug_log('Async Discord mode: ' . ($asyncDiscord ? 'enabled' : 'disabled'));
 
 // Initialize Discord API
 $discord = null;
@@ -203,63 +206,114 @@ foreach ($entries as $index => $entry) {
         }
         
         // ==================================================
-        // STEP 2: Post to Discord
+        // STEP 2: Post to Discord (sync or async queue)
         // ==================================================
-        
+
         // Add staging prefix if not production
         $prefix = $production ? '' : '🧪 **[STAGING]** ';
         $fullMessage = $prefix . "```\n{$messageContent}\n```";
-        
+
         // Get target orgs
         $targetOrgs = $entry['orgs'] ?? ['vatcscc'];
         if (empty($targetOrgs)) {
             $targetOrgs = ['vatcscc'];
         }
-        
+
         // Post to Discord
         $discordResults = [];
-        
-        if ($discord && $discord->isConfigured()) {
+
+        if ($asyncDiscord && $databaseId && $tmiConn) {
+            // ==================================================
+            // ASYNC MODE: Queue Discord posts for background processing
+            // ==================================================
+            tmi_debug_log("Queueing Discord posts for async processing");
+
+            foreach ($targetOrgs as $orgCode) {
+                $channelPurpose = $production
+                    ? ($isAdvisory ? 'advisories' : 'ntml')
+                    : ($isAdvisory ? 'advzy_staging' : 'ntml_staging');
+
+                try {
+                    // Queue the Discord post
+                    $queueResult = queueDiscordPost(
+                        $tmiConn,
+                        $isAdvisory ? 'ADVISORY' : 'ENTRY',
+                        $databaseId,
+                        $orgCode,
+                        $channelPurpose,
+                        $fullMessage,
+                        $userCid,
+                        $userName
+                    );
+
+                    $discordResults[$orgCode] = [
+                        'org_code' => $orgCode,
+                        'channel_purpose' => $channelPurpose,
+                        'success' => true,
+                        'queued' => true,
+                        'queue_id' => $queueResult,
+                        'message_id' => null, // Will be set by background processor
+                        'error' => null
+                    ];
+
+                    tmi_debug_log("Queued Discord post for {$orgCode}", ['queue_id' => $queueResult]);
+
+                } catch (Exception $e) {
+                    $discordResults[$orgCode] = [
+                        'org_code' => $orgCode,
+                        'channel_purpose' => $channelPurpose,
+                        'success' => false,
+                        'queued' => false,
+                        'error' => 'Queue failed: ' . $e->getMessage()
+                    ];
+                    tmi_debug_log("Failed to queue Discord post for {$orgCode}", ['error' => $e->getMessage()]);
+                }
+            }
+
+        } elseif ($discord && $discord->isConfigured()) {
+            // ==================================================
+            // SYNC MODE: Post to Discord immediately
+            // ==================================================
             if ($multiDiscord && $multiDiscord->isConfigured()) {
                 // Use multi-org posting
                 foreach ($targetOrgs as $orgCode) {
-                    $channelPurpose = $production 
+                    $channelPurpose = $production
                         ? ($isAdvisory ? 'advisories' : 'ntml')
                         : ($isAdvisory ? 'advzy_staging' : 'ntml_staging');
-                    
+
                     tmi_debug_log("Posting to {$orgCode}/{$channelPurpose}");
-                    
+
                     $postResult = $multiDiscord->postToChannel($orgCode, $channelPurpose, ['content' => $fullMessage]);
                     $discordResults[$orgCode] = $postResult;
-                    
+
                     tmi_debug_log("Post result for {$orgCode}", $postResult);
                 }
             } else {
                 // Fallback: Use single Discord API
-                $channelPurpose = $production 
+                $channelPurpose = $production
                     ? ($isAdvisory ? 'advisories' : 'tmi')
                     : ($isAdvisory ? 'advzy_staging' : 'ntml_staging');
-                
+
                 $channelId = $discord->getChannelByPurpose($channelPurpose);
-                
+
                 if (!$channelId) {
                     // Try fallback channel names
                     $fallbackPurpose = $production ? 'tmi' : 'ntml_staging';
                     $channelId = $discord->getChannelByPurpose($fallbackPurpose);
                 }
-                
+
                 tmi_debug_log("Single Discord posting to channel", ['purpose' => $channelPurpose, 'channelId' => $channelId]);
-                
+
                 if ($channelId) {
                     $response = $discord->createMessage($channelId, ['content' => $fullMessage]);
-                    
+
                     $discordResults['vatcscc'] = [
                         'success' => ($response && isset($response['id'])),
                         'message_id' => $response['id'] ?? null,
                         'channel_id' => $channelId,
                         'error' => $discord->getLastError()
                     ];
-                    
+
                     tmi_debug_log("Discord response", $discordResults['vatcscc']);
                 } else {
                     $discordResults['vatcscc'] = [
@@ -621,28 +675,99 @@ function parseValidTime($timeStr) {
  */
 function detectElementType($element) {
     if (empty($element)) return null;
-    
+
     $element = strtoupper($element);
-    
+
     // Airport (K***, C***, or 4-letter)
     if (preg_match('/^[KC][A-Z]{3}$/', $element)) {
         return 'APT';
     }
-    
+
     // ARTCC (Z**)
     if (preg_match('/^Z[A-Z]{2}$/', $element)) {
         return 'ARTCC';
     }
-    
+
     // FCA/FEA (flight corridor/area)
     if (preg_match('/^(FCA|FEA)/', $element)) {
         return 'FCA';
     }
-    
+
     // Fix/waypoint (5-letter)
     if (preg_match('/^[A-Z]{5}$/', $element)) {
         return 'FIX';
     }
-    
+
     return 'OTHER';
+}
+
+/**
+ * Queue a Discord post for async processing
+ *
+ * Instead of posting to Discord synchronously (which can take 1-3 seconds per request),
+ * this queues the post in the tmi_discord_posts table with status='PENDING'.
+ * A background worker will process the queue with rate limiting.
+ *
+ * @param PDO $conn Database connection
+ * @param string $entityType 'ENTRY' or 'ADVISORY'
+ * @param int $entityId The tmi_entries.entry_id or tmi_advisories.advisory_id
+ * @param string $orgCode Discord organization code (e.g., 'vatcscc')
+ * @param string $channelPurpose Channel purpose (e.g., 'ntml', 'ntml_staging')
+ * @param string $messageContent The full message content to post
+ * @param string|null $createdBy VATSIM CID of creator
+ * @param string|null $createdByName Display name of creator
+ * @return int The queue post_id
+ */
+function queueDiscordPost($conn, $entityType, $entityId, $orgCode, $channelPurpose, $messageContent, $createdBy = null, $createdByName = null) {
+    // Generate content hash for deduplication
+    $contentHash = hash('sha256', $entityType . $entityId . $orgCode . $channelPurpose . $messageContent);
+
+    // Check for duplicate (same entity + org + purpose with pending status)
+    $checkSql = "SELECT post_id FROM dbo.tmi_discord_posts
+                 WHERE entity_type = :entity_type
+                   AND entity_id = :entity_id
+                   AND org_code = :org_code
+                   AND channel_purpose = :channel_purpose
+                   AND status IN ('PENDING', 'POSTED')";
+
+    $checkStmt = $conn->prepare($checkSql);
+    $checkStmt->execute([
+        ':entity_type' => $entityType,
+        ':entity_id' => $entityId,
+        ':org_code' => $orgCode,
+        ':channel_purpose' => $channelPurpose
+    ]);
+
+    $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+    if ($existing) {
+        // Already queued or posted - return existing ID
+        return $existing['post_id'];
+    }
+
+    // Insert new queue entry
+    $sql = "INSERT INTO dbo.tmi_discord_posts (
+                entity_type, entity_id, org_code, channel_purpose,
+                channel_id, status, direction,
+                message_content_hash,
+                created_by, created_by_name
+            ) VALUES (
+                :entity_type, :entity_id, :org_code, :channel_purpose,
+                :channel_id, 'PENDING', 'OUTBOUND',
+                :content_hash,
+                :created_by, :created_by_name
+            )";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':entity_type' => $entityType,
+        ':entity_id' => $entityId,
+        ':org_code' => $orgCode,
+        ':channel_purpose' => $channelPurpose,
+        ':channel_id' => 'PENDING', // Will be resolved by processor
+        ':content_hash' => $contentHash,
+        ':created_by' => $createdBy,
+        ':created_by_name' => $createdByName
+    ]);
+
+    return $conn->lastInsertId();
 }

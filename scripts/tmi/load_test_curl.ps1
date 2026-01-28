@@ -203,7 +203,7 @@ if ($DryRun) {
         }
     }
 } else {
-    # Use PowerShell jobs for concurrent requests
+    # Use PowerShell jobs with Invoke-RestMethod for concurrent requests
     $BatchSize = [math]::Min($ConcurrentJobs, $Total)
     $RequestIndex = 0
 
@@ -218,30 +218,33 @@ if ($DryRun) {
                 param($Url, $Json, $Index)
                 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                 try {
-                    $result = curl.exe -s -w "`n%{http_code}" -X POST $Url `
-                        -H "Content-Type: application/json" `
-                        -H "X-Load-Test: true" `
-                        -d $Json 2>&1
+                    $response = Invoke-RestMethod -Uri $Url -Method POST `
+                        -ContentType "application/json" `
+                        -Headers @{ "X-Load-Test" = "true" } `
+                        -Body $Json `
+                        -TimeoutSec 60
 
                     $stopwatch.Stop()
-                    $lines = $result -split "`n"
-                    $httpCode = $lines[-1]
-                    $body = ($lines[0..($lines.Length-2)]) -join "`n"
+                    $success = $response.success -eq $true
 
                     return @{
                         Index = $Index
-                        Success = ($httpCode -ge 200 -and $httpCode -lt 300)
-                        HttpCode = [int]$httpCode
+                        Success = $success
+                        HttpCode = 200
                         Duration = $stopwatch.ElapsedMilliseconds
-                        Response = $body
+                        Response = ($response | ConvertTo-Json -Compress)
                         Error = $null
                     }
                 } catch {
                     $stopwatch.Stop()
+                    $httpCode = 0
+                    if ($_.Exception.Response) {
+                        $httpCode = [int]$_.Exception.Response.StatusCode
+                    }
                     return @{
                         Index = $Index
                         Success = $false
-                        HttpCode = 0
+                        HttpCode = $httpCode
                         Duration = $stopwatch.ElapsedMilliseconds
                         Response = $null
                         Error = $_.Exception.Message
@@ -392,7 +395,7 @@ $ResultsFile = Join-Path $PSScriptRoot "load_test_results_$(Get-Date -Format 'yy
         p50 = $p50
         p95 = $p95
         p99 = $p99
-        http_codes = $Metrics.HttpCodes
+        http_codes = @($Metrics.HttpCodes.GetEnumerator() | ForEach-Object { @{ code = $_.Key.ToString(); count = $_.Value } })
     }
     timestamp = (Get-Date).ToString("o")
 } | ConvertTo-Json -Depth 5 | Set-Content $ResultsFile
