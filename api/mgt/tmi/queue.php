@@ -257,5 +257,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// DELETE: Clear queue entries
+// DELETE /api/mgt/tmi/queue.php                    - Clear all PENDING/FAILED entries
+// DELETE /api/mgt/tmi/queue.php?status=PENDING     - Clear only PENDING
+// DELETE /api/mgt/tmi/queue.php?entity_type=CONFIG - Clear only CONFIG entries
+// DELETE /api/mgt/tmi/queue.php?element=JFK        - Clear entries for specific element
+// DELETE /api/mgt/tmi/queue.php?all=1              - Clear ALL entries (including POSTED)
+if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    try {
+        $status = $_GET['status'] ?? null;
+        $entityType = $_GET['entity_type'] ?? null;
+        $element = $_GET['element'] ?? null;
+        $clearAll = isset($_GET['all']) && $_GET['all'];
+
+        // Build WHERE clause
+        $conditions = [];
+        $params = [];
+
+        if (!$clearAll) {
+            // By default, only clear PENDING and FAILED entries
+            $conditions[] = "status IN ('PENDING', 'FAILED')";
+        }
+
+        if ($status) {
+            $conditions[] = "status = :status";
+            $params[':status'] = strtoupper($status);
+        }
+
+        if ($entityType) {
+            // Need to join with entries to filter by entry_type
+            // For now, just filter by entity_type column if it exists
+            $conditions[] = "entity_type = :entity_type";
+            $params[':entity_type'] = strtoupper($entityType);
+        }
+
+        if ($element) {
+            // Filter by element in the related entry
+            $conditions[] = "entity_id IN (SELECT entry_id FROM dbo.tmi_entries WHERE ctl_element LIKE :element)";
+            $params[':element'] = '%' . strtoupper($element) . '%';
+        }
+
+        // Get count first
+        $whereClause = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        $countSql = "SELECT COUNT(*) as cnt FROM dbo.tmi_discord_posts {$whereClause}";
+        $countStmt = $tmiConn->prepare($countSql);
+        $countStmt->execute($params);
+        $count = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+
+        if ($count === 0) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'No matching entries to clear',
+                'deleted' => 0
+            ]);
+            exit;
+        }
+
+        // Delete entries
+        $deleteSql = "DELETE FROM dbo.tmi_discord_posts {$whereClause}";
+        $deleteStmt = $tmiConn->prepare($deleteSql);
+        $deleteStmt->execute($params);
+
+        echo json_encode([
+            'success' => true,
+            'message' => "Cleared {$count} queue entries",
+            'deleted' => $count,
+            'filters' => [
+                'status' => $status,
+                'entity_type' => $entityType,
+                'element' => $element,
+                'all' => $clearAll
+            ]
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 http_response_code(405);
 echo json_encode(['success' => false, 'error' => 'Method not allowed']);

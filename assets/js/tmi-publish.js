@@ -4857,6 +4857,13 @@
             const ctlElement = $(this).data('ctl-element') || '';
             handlePublishProposal(proposalId, entryType, ctlElement);
         });
+
+        $(document).on('click', '.cancel-proposal-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            const entryType = $(this).data('entry-type') || 'TMI';
+            const ctlElement = $(this).data('ctl-element') || '';
+            handleCancelProposal(proposalId, entryType, ctlElement);
+        });
     }
 
     function handleReopenProposal(proposalId) {
@@ -4983,6 +4990,74 @@
                     loadProposals(); // Refresh the list
                 } else {
                     Swal.fire('Error', response.error || 'Failed to publish', 'error');
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+            }
+        });
+    }
+
+    function handleCancelProposal(proposalId, entryType, ctlElement) {
+        Swal.fire({
+            title: '<i class="fas fa-trash text-danger"></i> Cancel Proposal?',
+            html: `
+                <div class="text-left">
+                    <p>Cancel <strong>${escapeHtml(entryType)} ${escapeHtml(ctlElement)}</strong> proposal?</p>
+                    <div class="alert alert-warning small py-2">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        This will permanently cancel the proposal. It cannot be undone.
+                    </div>
+                    <div class="form-group mt-3">
+                        <label class="small">Reason (optional):</label>
+                        <input type="text" id="cancel_reason" class="form-control form-control-sm" placeholder="e.g., No longer needed">
+                    </div>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: '<i class="fas fa-trash mr-1"></i> Cancel Proposal',
+            cancelButtonText: 'Keep'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const reason = $('#cancel_reason').val();
+                submitCancelProposal(proposalId, reason);
+            }
+        });
+    }
+
+    function submitCancelProposal(proposalId, reason) {
+        Swal.fire({
+            title: 'Cancelling...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'DELETE',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                proposal_id: proposalId,
+                action: 'CANCEL',
+                user_cid: CONFIG.userCid,
+                user_name: CONFIG.userName || 'DCC',
+                reason: reason
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Proposal Cancelled',
+                        text: `Proposal #${proposalId} has been cancelled.`,
+                        timer: 2000
+                    });
+                    loadProposals();
+                } else {
+                    Swal.fire('Error', response.error || 'Failed to cancel', 'error');
                 }
             },
             error: function(xhr) {
@@ -5320,6 +5395,13 @@
                                             title="Publish to Discord">
                                         <i class="fas fa-broadcast-tower"></i>
                                     </button>
+                                    <button class="btn btn-outline-danger cancel-proposal-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
+                                            data-ctl-element="${escapeHtml(p.ctl_element || '')}"
+                                            title="Cancel proposal">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
                                 ` : `
                                     <button class="btn btn-outline-secondary" disabled title="Login required">
                                         <i class="fas fa-edit"></i>
@@ -5352,6 +5434,13 @@
                                             data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
                                             title="Extend deadline">
                                         <i class="fas fa-clock"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary cancel-proposal-btn"
+                                            data-proposal-id="${p.proposal_id}"
+                                            data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
+                                            data-ctl-element="${escapeHtml(p.ctl_element || '')}"
+                                            title="Cancel proposal">
+                                        <i class="fas fa-trash"></i>
                                     </button>
                                 ` : `
                                     <button class="btn btn-outline-secondary" disabled title="Login required">
