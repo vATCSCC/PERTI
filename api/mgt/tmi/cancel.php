@@ -114,6 +114,15 @@ try {
 
 try {
     if ($entityType === 'ENTRY') {
+        // Fetch entry details BEFORE cancelling (for cancellation posting)
+        $fetchSql = "SELECT e.*, p.proposal_id
+                     FROM dbo.tmi_entries e
+                     LEFT JOIN dbo.tmi_proposals p ON e.entry_id = p.activated_entry_id
+                     WHERE e.entry_id = :entry_id";
+        $fetchStmt = $tmiConn->prepare($fetchSql);
+        $fetchStmt->execute([':entry_id' => $entityId]);
+        $entryData = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+
         // Cancel NTML entry
         $sql = "UPDATE dbo.tmi_entries
                 SET status = 'CANCELLED',
@@ -143,6 +152,12 @@ try {
 
         // Log event
         logCancelEvent($tmiConn, 'ENTRY', $entityId, $reason, $userCid, $userName);
+
+        // Post CANCEL entry to Discord for coordinated TMIs cancelled before valid_until
+        $cancelPostResult = null;
+        if ($entryData) {
+            $cancelPostResult = postCancellationNtmlEntry($tmiConn, $entryData, $userName);
+        }
 
     } elseif ($entityType === 'ADVISORY') {
         // Cancel advisory
@@ -307,6 +322,11 @@ try {
 
     if ($advisoryResult !== null) {
         $response['advisory'] = $advisoryResult;
+    }
+
+    // Include cancellation NTML post result (for ENTRY types)
+    if (isset($cancelPostResult) && $cancelPostResult !== null) {
+        $response['cancelPost'] = $cancelPostResult;
     }
 
     echo json_encode($response);
@@ -571,5 +591,135 @@ function logCancelEvent($conn, $entityType, $entityId, $reason, $actorId, $actor
     } catch (Exception $e) {
         // Log failure but don't fail the cancel
         error_log("Failed to log cancel event: " . $e->getMessage());
+    }
+}
+
+/**
+ * Post CANCEL NTML entry to Discord for coordinated TMIs
+ * Format: {post time (UTC)}    CANCEL {TMI} {original valid start}-{time now (UTC)} {req}:{prov}
+ *
+ * Only posts if:
+ * - Entry was coordinated (has proposal_id)
+ * - Entry is ACTIVE status
+ * - Entry type requires coordination (MIT, MINIT, APREQ, CFR, TBM, TBFM, STOP)
+ * - Being cancelled before valid_until
+ */
+function postCancellationNtmlEntry($conn, $entryData, $userName) {
+    try {
+        // TMI types that require coordination (and thus need CANCEL posting)
+        $coordinatedTypes = ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP'];
+
+        $entryType = strtoupper($entryData['entry_type'] ?? '');
+
+        // Check if this entry type needs coordination
+        if (!in_array($entryType, $coordinatedTypes)) {
+            return null; // Not a coordinated type, no need to post CANCEL
+        }
+
+        // Check if it was coordinated (has a linked proposal)
+        if (empty($entryData['proposal_id'])) {
+            return null; // Not coordinated, no need to post CANCEL
+        }
+
+        // Check if it was ACTIVE (only post CANCEL for entries that went active)
+        $status = strtoupper($entryData['status'] ?? '');
+        if ($status !== 'ACTIVE' && $status !== 'SCHEDULED') {
+            return null; // Wasn't active, no need to post CANCEL
+        }
+
+        // Check if cancelled before valid_until
+        $validUntil = $entryData['valid_until'] ?? null;
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+
+        if ($validUntil) {
+            $validUntilDt = $validUntil instanceof DateTime
+                ? $validUntil
+                : new DateTime($validUntil, new DateTimeZone('UTC'));
+
+            if ($now >= $validUntilDt) {
+                return null; // Already past valid_until, no need for CANCEL
+            }
+        }
+
+        // Build CANCEL NTML entry text
+        // Format: {post time}    CANCEL {TMI details} {original start}-{cancel time} {req}:{prov}
+        $postTime = $now->format('Hi'); // HHmm
+
+        // Build the TMI details (entry type + specifics)
+        $ctlElement = strtoupper($entryData['ctl_element'] ?? '');
+        $via = strtoupper($entryData['via'] ?? '');
+        $restrictionValue = $entryData['restriction_value'] ?? '';
+        $restrictionUnit = strtoupper($entryData['restriction_unit'] ?? '');
+
+        // Build TMI portion: e.g., "MIT KJFK via MERIT 10"
+        $tmiDetails = $entryType;
+        if ($ctlElement) {
+            $tmiDetails .= " {$ctlElement}";
+        }
+        if ($via) {
+            $tmiDetails .= " via {$via}";
+        }
+        if ($restrictionValue) {
+            $tmiDetails .= " {$restrictionValue}";
+            if ($restrictionUnit) {
+                $tmiDetails .= $restrictionUnit;
+            }
+        }
+
+        // Get original start time in dd/hhmm format
+        $validFrom = $entryData['valid_from'] ?? null;
+        $originalStart = $now->format('d') . '/0000'; // Default to today if unknown
+        if ($validFrom) {
+            $validFromDt = $validFrom instanceof DateTime
+                ? $validFrom
+                : new DateTime($validFrom, new DateTimeZone('UTC'));
+            $originalStart = $validFromDt->format('d/Hi'); // dd/hhmm format
+        }
+
+        // Cancel time in dd/hhmm format
+        $cancelTime = $now->format('d/Hi');
+
+        // Get requesting and providing facilities
+        $reqFac = strtoupper($entryData['req_fac'] ?? $entryData['requesting_facility'] ?? 'DCC');
+        $provFac = strtoupper($entryData['prov_fac'] ?? $entryData['providing_facility'] ?? '');
+
+        // Build the CANCEL line
+        // Format: {post time (UTC)}    CANCEL {TMI} {dd/hhmm start}-{dd/hhmm now} {req}:{prov}
+        $cancelLine = "{$postTime}    CANCEL {$tmiDetails} {$originalStart}-{$cancelTime}";
+        if ($provFac) {
+            $cancelLine .= " {$reqFac}:{$provFac}";
+        } else {
+            $cancelLine .= " {$reqFac}";
+        }
+
+        // Post to Discord NTML channel
+        require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
+
+        if (!class_exists('DiscordAPI')) {
+            error_log("DiscordAPI class not found for CANCEL posting");
+            return ['success' => false, 'error' => 'DiscordAPI not available'];
+        }
+
+        $discord = new DiscordAPI();
+
+        // Format for Discord code block
+        $discordContent = "```\n{$cancelLine}\n```";
+
+        // Post to ntml channel (production channel for cancellations)
+        $result = $discord->createMessage('ntml', ['content' => $discordContent]);
+
+        if ($result && isset($result['id'])) {
+            return [
+                'success' => true,
+                'message_id' => $result['id'],
+                'content' => $cancelLine
+            ];
+        }
+
+        return ['success' => false, 'error' => 'Discord post failed'];
+
+    } catch (Exception $e) {
+        error_log("Failed to post CANCEL NTML entry: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
     }
 }
