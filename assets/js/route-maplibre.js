@@ -5715,13 +5715,14 @@ $(document).ready(function() {
                 }
                 if (!body) return;
                 
+                // Check for whole-line mandatory wrapper >...<
                 let isMandatory = false;
                 let spec = body;
                 if (spec.startsWith('>') && spec.endsWith('<')) {
                     isMandatory = true;
                     spec = spec.slice(1, -1).trim();
                 }
-                
+
                 const specUpper = spec.toUpperCase();
                 if (specUpper.startsWith('PB.')) {
                     // Expand playbook directive just like the map does
@@ -5730,7 +5731,7 @@ $(document).ready(function() {
                     const pbParts = pbDirective.split('.');
                     const playName = (pbParts[0] || '').trim();
                     if (playName) usedProcedures.add('PB: ' + playName);
-                    
+
                     const pbRoutes = expandPlaybookDirective(pbDirective, isMandatory, null);
                     if (pbRoutes && pbRoutes.length) {
                         routeStrings = routeStrings.concat(pbRoutes);
@@ -5744,7 +5745,12 @@ $(document).ready(function() {
                             usedProcedures.add('CDR: ' + clean);
                         }
                     });
-                    routeStrings.push(specUpper);
+                    // If whole-line mandatory was detected, re-apply markers for CDR expansion
+                    if (isMandatory) {
+                        routeStrings.push('>' + specUpper + '<');
+                    } else {
+                        routeStrings.push(specUpper);
+                    }
                 }
             });
         }
@@ -6385,6 +6391,16 @@ $(document).ready(function() {
         lines.push('');
         if (advTmiId) lines.push('TMI ID: ' + advTmiId);
         lines.push('EFFECTIVE TIME: ' + (advEffTime || ''));
+
+        // Add signature line: YY/MM/DD HH:MM
+        const now = new Date();
+        const sigYear = String(now.getUTCFullYear()).substr(2, 2);
+        const sigMonth = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const sigDay = String(now.getUTCDate()).padStart(2, '0');
+        const sigHour = String(now.getUTCHours()).padStart(2, '0');
+        const sigMin = String(now.getUTCMinutes()).padStart(2, '0');
+        lines.push(sigYear + '/' + sigMonth + '/' + sigDay + ' ' + sigHour + ':' + sigMin);
+
         $('#advOutput').val(lines.join('\n'));
     }
 

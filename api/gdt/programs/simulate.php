@@ -472,9 +472,14 @@ if (count($flights_for_sp) > 0) {
 // Refresh program data
 $program = get_program($conn_tmi, $program_id);
 
-// Get flight assignments
+// Get flight assignments with epoch values for JavaScript compatibility
 $flight_control_result = fetch_all($conn_tmi, "
-    SELECT * FROM dbo.tmi_flight_control
+    SELECT *,
+        DATEDIFF(SECOND, '1970-01-01', ctd_utc) AS ctd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', cta_utc) AS cta_epoch,
+        DATEDIFF(SECOND, '1970-01-01', orig_etd_utc) AS orig_etd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', orig_eta_utc) AS orig_eta_epoch
+    FROM dbo.tmi_flight_control
     WHERE program_id = ?
     ORDER BY cta_utc ASC, orig_eta_utc ASC
 ", [$program_id]);
