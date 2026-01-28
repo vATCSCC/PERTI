@@ -71,3 +71,11 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 
 <!-- Load Swal Source -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Load Select2 for multi-select dropdowns -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<!-- Load Facility Hierarchy Data -->
+<script src="<?= $filepath; ?>assets/js/facility-hierarchy.js"></script>

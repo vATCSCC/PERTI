@@ -53,19 +53,27 @@
         secondsUntilRefresh: 60,
         filters: {
             source: 'PRODUCTION',
-            reqFacility: 'ALL',
-            provFacility: 'ALL',
+            reqFacilities: [],   // Array for multi-select
+            provFacilities: [],  // Array for multi-select
             type: 'ALL',
             status: 'ACTIVE'
         }
     };
 
-    // Facility list for dropdowns
-    const FACILITIES = [
-        'ALL', 'ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU',
-        'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA',
-        'ZOB', 'ZSE', 'ZTL', 'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX'
-    ];
+    // ===========================================
+    // Use Global Facility Hierarchy
+    // ===========================================
+    // References to global FacilityHierarchy (from facility-hierarchy.js)
+    // These are shortcuts for convenience; the global object has full data
+    const getARTCCS = () => FacilityHierarchy.ARTCCS;
+    const getDCC_REGIONS = () => FacilityHierarchy.DCC_REGIONS;
+    const getFACILITY_GROUPS = () => FacilityHierarchy.FACILITY_GROUPS;
+    const getARTCC_TO_REGION = () => FacilityHierarchy.ARTCC_TO_REGION;
+    const getFACILITY_HIERARCHY = () => FacilityHierarchy.FACILITY_HIERARCHY;
+    const getTRACON_TO_ARTCC = () => FacilityHierarchy.TRACON_TO_ARTCC;
+    const getAIRPORT_TO_TRACON = () => FacilityHierarchy.AIRPORT_TO_TRACON;
+    const getAIRPORT_TO_ARTCC = () => FacilityHierarchy.AIRPORT_TO_ARTCC;
+    const getALL_TRACONS = () => FacilityHierarchy.ALL_TRACONS;
 
     const ENTRY_TYPES = [
         { code: 'ALL', label: 'All Types' },
@@ -93,11 +101,250 @@
             return;
         }
 
-        buildFilterControls();
-        loadSavedFilters();  // Restore saved filter state
-        bindEvents();
-        loadActiveTmis();
-        startAutoRefresh();
+        // Load facility hierarchy first, then initialize controls
+        loadFacilityHierarchy().then(() => {
+            buildFilterControls();
+            initFacilitySelects();
+            loadSavedFilters();
+            bindEvents();
+            loadActiveTmis();
+            startAutoRefresh();
+        });
+    }
+
+    // ===========================================
+    // Facility Hierarchy (uses global FacilityHierarchy)
+    // ===========================================
+
+    async function loadFacilityHierarchy() {
+        // Use the global FacilityHierarchy.load() method
+        try {
+            await FacilityHierarchy.load();
+            console.log('[TMI-Active] Facility hierarchy loaded via global FacilityHierarchy:', {
+                artccs: getARTCCS().length,
+                tracons: getALL_TRACONS().size
+            });
+        } catch (e) {
+            console.warn('[TMI-Active] Failed to load facility hierarchy:', e);
+        }
+    }
+
+    function expandFacilitySelection(facilities) {
+        // Use the global FacilityHierarchy.expandSelection method
+        return FacilityHierarchy.expandSelection(facilities);
+    }
+
+    function initFacilitySelects() {
+        // Build facility options with grouping
+        const $reqFac = $('#filterReqFac');
+        const $provFac = $('#filterProvFac');
+
+        if (!$reqFac.length || !$provFac.length) return;
+
+        // Get data from global FacilityHierarchy
+        const ARTCCS = getARTCCS();
+        const DCC_REGIONS = getDCC_REGIONS();
+        const FACILITY_GROUPS = getFACILITY_GROUPS();
+        const ARTCC_TO_REGION = getARTCC_TO_REGION();
+        const ALL_TRACONS = getALL_TRACONS();
+        const FACILITY_HIERARCHY = getFACILITY_HIERARCHY();
+        const TRACON_TO_ARTCC = getTRACON_TO_ARTCC();
+
+        // Build grouped options HTML
+        let optionsHtml = '';
+
+        // Quick-select groups (special prefix for identification)
+        optionsHtml += '<optgroup label="Quick Select">';
+        Object.entries(FACILITY_GROUPS).forEach(([key, group]) => {
+            optionsHtml += `<option value="GROUP:${key}" data-group="${key}">${group.name}</option>`;
+        });
+        optionsHtml += '</optgroup>';
+
+        // DCC Regions
+        optionsHtml += '<optgroup label="DCC Regions">';
+        Object.entries(DCC_REGIONS).forEach(([key, region]) => {
+            optionsHtml += `<option value="REGION:${key}" data-region="${key}" style="color: ${region.color}">${region.name}</option>`;
+        });
+        optionsHtml += '</optgroup>';
+
+        // ARTCCs grouped by DCC Region
+        Object.entries(DCC_REGIONS).forEach(([regionKey, region]) => {
+            const artccsInRegion = region.artccs.filter(a => ARTCCS.includes(a));
+            if (artccsInRegion.length > 0) {
+                optionsHtml += `<optgroup label="ARTCCs - ${region.name}" data-region="${regionKey}">`;
+                artccsInRegion.forEach(artcc => {
+                    optionsHtml += `<option value="${artcc}" data-artcc-region="${regionKey}" style="color: ${region.color}">${artcc}</option>`;
+                });
+                optionsHtml += '</optgroup>';
+            }
+        });
+
+        // ARTCCs not in any region
+        const otherArtccs = ARTCCS.filter(a => !ARTCC_TO_REGION[a]);
+        if (otherArtccs.length > 0) {
+            optionsHtml += '<optgroup label="ARTCCs - Other">';
+            otherArtccs.forEach(artcc => {
+                optionsHtml += `<option value="${artcc}">${artcc}</option>`;
+            });
+            optionsHtml += '</optgroup>';
+        }
+
+        // TRACONs group (sorted alphabetically, limited to common ones)
+        const sortedTracons = Array.from(ALL_TRACONS).sort();
+        const commonTracons = sortedTracons.filter(t =>
+            ['N90', 'PHL', 'A80', 'C90', 'D10', 'D01', 'I90', 'L30', 'NCT', 'PCT', 'P50', 'P80', 'SCT', 'T75', 'MIA', 'CLE', 'IND', 'BOS', 'DEN', 'ORD'].includes(t) ||
+            (FACILITY_HIERARCHY[t] && FACILITY_HIERARCHY[t].length >= 3)
+        );
+        if (commonTracons.length > 0) {
+            optionsHtml += '<optgroup label="Major TRACONs">';
+            commonTracons.slice(0, 50).forEach(tracon => {
+                const parentArtcc = TRACON_TO_ARTCC[tracon] || '';
+                const region = ARTCC_TO_REGION[parentArtcc];
+                const color = region ? DCC_REGIONS[region]?.color : '';
+                optionsHtml += `<option value="${tracon}"${color ? ` style="color: ${color}"` : ''}>${tracon}${parentArtcc ? ' (' + parentArtcc + ')' : ''}</option>`;
+            });
+            optionsHtml += '</optgroup>';
+        }
+
+        // Apply options to both selects
+        $reqFac.html(optionsHtml);
+        $provFac.html(optionsHtml);
+
+        // Initialize Select2 with multi-select
+        const select2Config = {
+            placeholder: 'All Facilities',
+            allowClear: true,
+            width: '100%',
+            closeOnSelect: false,
+            templateResult: formatFacilityOption,
+            templateSelection: formatFacilitySelection
+        };
+
+        if ($.fn.select2) {
+            $reqFac.select2(select2Config);
+            $provFac.select2(select2Config);
+
+            // Handle group/region selection expansion
+            $reqFac.on('select2:select', handleGroupSelection);
+            $provFac.on('select2:select', handleGroupSelection);
+
+            console.log('[TMI-Active] Select2 initialized for facility filters');
+        } else {
+            console.warn('[TMI-Active] Select2 not available');
+        }
+    }
+
+    function handleGroupSelection(e) {
+        const value = e.params.data.id;
+        const $select = $(e.target);
+        const FACILITY_GROUPS = getFACILITY_GROUPS();
+        const DCC_REGIONS = getDCC_REGIONS();
+
+        // Check if this is a group or region selection
+        if (value.startsWith('GROUP:')) {
+            const groupKey = value.replace('GROUP:', '');
+            const group = FACILITY_GROUPS[groupKey];
+            if (group) {
+                // Get current values and remove the group placeholder
+                let currentVals = $select.val() || [];
+                currentVals = currentVals.filter(v => v !== value);
+                // Add all ARTCCs from this group
+                const newVals = [...new Set([...currentVals, ...group.artccs])];
+                $select.val(newVals).trigger('change.select2');
+            }
+        } else if (value.startsWith('REGION:')) {
+            const regionKey = value.replace('REGION:', '');
+            const region = DCC_REGIONS[regionKey];
+            if (region) {
+                // Get current values and remove the region placeholder
+                let currentVals = $select.val() || [];
+                currentVals = currentVals.filter(v => v !== value);
+                // Add all ARTCCs from this region
+                const newVals = [...new Set([...currentVals, ...region.artccs])];
+                $select.val(newVals).trigger('change.select2');
+            }
+        }
+    }
+
+    function formatFacilityOption(option) {
+        if (!option.id) return option.text;
+
+        const fac = option.id;
+        let badge = '';
+        let style = '';
+        const FACILITY_GROUPS = getFACILITY_GROUPS();
+        const DCC_REGIONS = getDCC_REGIONS();
+        const ARTCCS = getARTCCS();
+        const ARTCC_TO_REGION = getARTCC_TO_REGION();
+        const FACILITY_HIERARCHY = getFACILITY_HIERARCHY();
+
+        // Quick-select group
+        if (fac.startsWith('GROUP:')) {
+            const groupKey = fac.replace('GROUP:', '');
+            const group = FACILITY_GROUPS[groupKey];
+            if (group) {
+                badge = `<span class="badge badge-secondary ml-1">${group.artccs.length} ARTCCs</span>`;
+            }
+            return $(`<span><i class="fas fa-layer-group mr-1"></i>${option.text} ${badge}</span>`);
+        }
+
+        // DCC Region
+        if (fac.startsWith('REGION:')) {
+            const regionKey = fac.replace('REGION:', '');
+            const region = DCC_REGIONS[regionKey];
+            if (region) {
+                badge = `<span class="badge ml-1" style="background-color: ${region.color}; color: white">${region.artccs.length} ARTCCs</span>`;
+            }
+            return $(`<span><i class="fas fa-map-marked-alt mr-1"></i>${option.text} ${badge}</span>`);
+        }
+
+        // ARTCC with region color
+        if (ARTCCS.includes(fac)) {
+            const childCount = FACILITY_HIERARCHY[fac]?.length || 0;
+            const region = ARTCC_TO_REGION[fac];
+            const regionColor = region ? DCC_REGIONS[region]?.color : '#007bff';
+            badge = `<span class="badge ml-1" style="background-color: ${regionColor}; color: white">${childCount} fac</span>`;
+            return $(`<span style="color: ${regionColor}">${option.text} ${badge}</span>`);
+        }
+
+        // TRACON
+        const ALL_TRACONS = getALL_TRACONS();
+        const TRACON_TO_ARTCC = getTRACON_TO_ARTCC();
+        if (ALL_TRACONS.has(fac)) {
+            const childCount = FACILITY_HIERARCHY[fac]?.length || 0;
+            const parentArtcc = TRACON_TO_ARTCC[fac];
+            const region = ARTCC_TO_REGION[parentArtcc];
+            const regionColor = region ? DCC_REGIONS[region]?.color : '#17a2b8';
+            badge = `<span class="badge badge-info ml-1">${childCount} apt</span>`;
+            return $(`<span style="color: ${regionColor}">${option.text} ${badge}</span>`);
+        }
+
+        return $(`<span>${option.text} ${badge}</span>`);
+    }
+
+    function formatFacilitySelection(option) {
+        const fac = option.id || option.text;
+
+        // Don't show GROUP: or REGION: prefixed items in selection
+        if (fac.startsWith('GROUP:') || fac.startsWith('REGION:')) {
+            return null;  // Will be replaced with actual values
+        }
+
+        const DCC_REGIONS = getDCC_REGIONS();
+        const ARTCC_TO_REGION = getARTCC_TO_REGION();
+        const TRACON_TO_ARTCC = getTRACON_TO_ARTCC();
+
+        // Get color for the tag
+        const region = ARTCC_TO_REGION[fac] || ARTCC_TO_REGION[TRACON_TO_ARTCC[fac]];
+        if (region && DCC_REGIONS[region]) {
+            return $(`<span style="color: ${DCC_REGIONS[region].color}">${fac}</span>`);
+        }
+        return fac;
+    }
+
+    function getRegionForFacility(facility) {
+        // Use global FacilityHierarchy.getRegion method
+        return FacilityHierarchy.getRegion(facility);
     }
 
     function buildFilterControls() {
@@ -133,17 +380,22 @@
             if (saved) {
                 const savedFilters = JSON.parse(saved);
                 // Merge with defaults to ensure all keys exist
+                // Handle migration from old single-value format
                 state.filters = {
                     source: savedFilters.source || 'PRODUCTION',
-                    reqFacility: savedFilters.reqFacility || 'ALL',
-                    provFacility: savedFilters.provFacility || 'ALL',
+                    reqFacilities: Array.isArray(savedFilters.reqFacilities) ? savedFilters.reqFacilities :
+                                   (savedFilters.reqFacility && savedFilters.reqFacility !== 'ALL' ? [savedFilters.reqFacility] : []),
+                    provFacilities: Array.isArray(savedFilters.provFacilities) ? savedFilters.provFacilities :
+                                    (savedFilters.provFacility && savedFilters.provFacility !== 'ALL' ? [savedFilters.provFacility] : []),
                     type: savedFilters.type || 'ALL',
                     status: savedFilters.status || 'ACTIVE'
                 };
                 // Update UI to reflect saved state
                 $('#filterSource').val(state.filters.source);
-                $('#filterReqFac').val(state.filters.reqFacility);
-                $('#filterProvFac').val(state.filters.provFacility);
+                if ($.fn.select2) {
+                    $('#filterReqFac').val(state.filters.reqFacilities).trigger('change.select2');
+                    $('#filterProvFac').val(state.filters.provFacilities).trigger('change.select2');
+                }
                 $('#filterType').val(state.filters.type);
                 $('#filterStatus').val(state.filters.status);
                 console.log('[TMI-Active] Filters restored from localStorage:', state.filters);
@@ -795,8 +1047,8 @@
     
     function applyFilters() {
         state.filters.source = $('#filterSource').val() || 'PRODUCTION';
-        state.filters.reqFacility = $('#filterReqFac').val() || 'ALL';
-        state.filters.provFacility = $('#filterProvFac').val() || 'ALL';
+        state.filters.reqFacilities = $('#filterReqFac').val() || [];
+        state.filters.provFacilities = $('#filterProvFac').val() || [];
         state.filters.type = $('#filterType').val() || 'ALL';
         state.filters.status = $('#filterStatus').val() || 'ACTIVE';
 
@@ -805,22 +1057,24 @@
         // Save filters to localStorage for persistence
         saveFilters();
 
-        // Reload data with new source filter
-        loadActiveTmis();
+        // Re-render with new filters (no need to reload data)
+        renderDisplay();
     }
 
     function resetFilters() {
         state.filters = {
             source: 'PRODUCTION',
-            reqFacility: 'ALL',
-            provFacility: 'ALL',
+            reqFacilities: [],
+            provFacilities: [],
             type: 'ALL',
             status: 'ACTIVE'
         };
 
         $('#filterSource').val('PRODUCTION');
-        $('#filterReqFac').val('ALL');
-        $('#filterProvFac').val('ALL');
+        if ($.fn.select2) {
+            $('#filterReqFac').val([]).trigger('change.select2');
+            $('#filterProvFac').val([]).trigger('change.select2');
+        }
         $('#filterType').val('ALL');
         $('#filterStatus').val('ACTIVE');
 
@@ -846,33 +1100,49 @@
             items = items.concat(state.cancelled.filter(i => i.entityType !== 'ADVISORY'));
         }
 
-        // Apply facility filters (for NTML entries)
-        if (state.filters.reqFacility !== 'ALL') {
+        // Apply requesting facility filter with hierarchy expansion
+        if (state.filters.reqFacilities && state.filters.reqFacilities.length > 0) {
+            const expandedReq = expandFacilitySelection(state.filters.reqFacilities);
             items = items.filter(i => {
-                // For PROGRAM/REROUTE, check ctlElement or scopeCenters
+                // For PROGRAM, check ctlElement or scopeCenters
                 if (i.entityType === 'PROGRAM') {
-                    const centers = i.scopeCenters || '';
-                    return centers.includes(state.filters.reqFacility) ||
-                           (i.ctlElement || '').toUpperCase() === state.filters.reqFacility;
+                    const centers = (i.scopeCenters || '').toUpperCase().split(/[,\s]+/);
+                    const ctlEl = (i.ctlElement || '').toUpperCase();
+                    return centers.some(c => expandedReq.has(c)) || expandedReq.has(ctlEl);
                 }
+                // For REROUTE, check origin centers/airports
                 if (i.entityType === 'REROUTE') {
-                    const origins = (i.originCenters || '').toUpperCase();
-                    return origins.includes(state.filters.reqFacility);
+                    const origins = (i.originCenters || '').toUpperCase().split(/[,\s]+/);
+                    const originApts = (i.originAirports || '').toUpperCase().split(/[,\s]+/);
+                    return origins.some(o => expandedReq.has(o)) || originApts.some(a => expandedReq.has(a));
                 }
-                return (i.requestingFacility || '').toUpperCase() === state.filters.reqFacility;
+                // For ENTRY, check requesting facility
+                const reqFac = (i.requestingFacility || '').toUpperCase();
+                return expandedReq.has(reqFac);
             });
         }
 
-        if (state.filters.provFacility !== 'ALL') {
+        // Apply providing facility filter with hierarchy expansion
+        if (state.filters.provFacilities && state.filters.provFacilities.length > 0) {
+            const expandedProv = expandFacilitySelection(state.filters.provFacilities);
+            const AIRPORT_TO_ARTCC = getAIRPORT_TO_ARTCC();
             items = items.filter(i => {
+                // For PROGRAM, check ctlElement (the airport)
                 if (i.entityType === 'PROGRAM') {
-                    return (i.ctlElement || '').toUpperCase() === state.filters.provFacility;
+                    const ctlEl = (i.ctlElement || '').toUpperCase();
+                    // Also check if the ARTCC for this airport is in the filter
+                    const artcc = AIRPORT_TO_ARTCC[ctlEl] || '';
+                    return expandedProv.has(ctlEl) || expandedProv.has(artcc);
                 }
+                // For REROUTE, check destination centers/airports
                 if (i.entityType === 'REROUTE') {
-                    const dests = (i.destCenters || '').toUpperCase();
-                    return dests.includes(state.filters.provFacility);
+                    const dests = (i.destCenters || '').toUpperCase().split(/[,\s]+/);
+                    const destApts = (i.destAirports || '').toUpperCase().split(/[,\s]+/);
+                    return dests.some(d => expandedProv.has(d)) || destApts.some(a => expandedProv.has(a));
                 }
-                return (i.providingFacility || '').toUpperCase() === state.filters.provFacility;
+                // For ENTRY, check providing facility
+                const provFac = (i.providingFacility || '').toUpperCase();
+                return expandedProv.has(provFac);
             });
         }
 
