@@ -937,9 +937,11 @@ if (rawGsFlag === true ||
 }
 
         // Filed departure epoch
+        // NOTE: Database stores epochs as Unix seconds, JavaScript uses milliseconds
         var depEpoch = null;
         if (typeof f.filed_dep_epoch === "number") {
-            depEpoch = f.filed_dep_epoch;
+            // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
+            depEpoch = f.filed_dep_epoch < 4102444800 ? f.filed_dep_epoch * 1000 : f.filed_dep_epoch;
         } else if (f.filed_dep_utc || f.dep_utc || f.planned_dep_utc ||
                    f.estimated_dep_utc || f.etd_runway_utc) {
             depEpoch = parseSimtrafficTimeToEpoch(
@@ -953,9 +955,11 @@ if (rawGsFlag === true ||
         
         // ETD epoch and prefix (if ADL provides explicit fields)
         // NOTE: Check both suffixed (_utc) and non-suffixed field names for API compatibility
+        // NOTE: Database stores epochs as Unix seconds, JavaScript uses milliseconds
         var etdEpoch = null;
         if (typeof f.etd_epoch === "number") {
-            etdEpoch = f.etd_epoch;
+            // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
+            etdEpoch = f.etd_epoch < 4102444800 ? f.etd_epoch * 1000 : f.etd_epoch;
         } else if (f.etd_utc || f.etd || f.etd_runway_utc || f.estimated_dep_utc) {
             etdEpoch = parseSimtrafficTimeToEpoch(
                 f.etd_utc || f.etd || f.etd_runway_utc || f.estimated_dep_utc
@@ -981,10 +985,12 @@ if (rawGsFlag === true ||
 
         // Best-guess ETA from ADL (trajectory, SimTraffic, etc.)
         // NOTE: Check both suffixed (_utc) and non-suffixed field names for API compatibility
+        // NOTE: Database stores epochs as Unix seconds, JavaScript uses milliseconds
         var etaPrefix = f.eta_prefix || f.eta_src || null;
         var etaEpoch = null;
         if (typeof f.eta_epoch === "number") {
-            etaEpoch = f.eta_epoch;
+            // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
+            etaEpoch = f.eta_epoch < 4102444800 ? f.eta_epoch * 1000 : f.eta_epoch;
         } else if (f.eta_best_utc || f.eta_utc || f.eta ||
                    f.eta_runway_utc || f.cta_utc || f.estimated_arr_utc) {
             etaEpoch = parseSimtrafficTimeToEpoch(
@@ -996,9 +1002,11 @@ if (rawGsFlag === true ||
         }
 
         // Additional timing fields if ADL already carries them
+        // NOTE: Database stores epochs as Unix seconds, JavaScript uses milliseconds
         var edctEpoch = null;
         if (typeof f.edct_epoch === "number") {
-            edctEpoch = f.edct_epoch;
+            // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
+            edctEpoch = f.edct_epoch < 4102444800 ? f.edct_epoch * 1000 : f.edct_epoch;
         } else if (f.edct_utc || f.ctd_utc) {
             // Use edct_utc if present, otherwise fall back to CTD (ctd_utc)
             edctEpoch = parseSimtrafficTimeToEpoch(f.edct_utc || f.ctd_utc);
@@ -1006,7 +1014,8 @@ if (rawGsFlag === true ||
 
         var tkofEpoch = null;
         if (typeof f.takeoff_epoch === "number") {
-            tkofEpoch = f.takeoff_epoch;
+            // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
+            tkofEpoch = f.takeoff_epoch < 4102444800 ? f.takeoff_epoch * 1000 : f.takeoff_epoch;
         } else if (f.takeoff_utc || f.offblock_utc || f.wheels_off_utc) {
             tkofEpoch = parseSimtrafficTimeToEpoch(
                 f.takeoff_utc || f.offblock_utc || f.wheels_off_utc
@@ -1015,14 +1024,16 @@ if (rawGsFlag === true ||
 
         var mftEpoch = null;
         if (typeof f.mft_epoch === "number") {
-            mftEpoch = f.mft_epoch;
+            // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
+            mftEpoch = f.mft_epoch < 4102444800 ? f.mft_epoch * 1000 : f.mft_epoch;
         } else if (f.mft_utc || f.eta_mf_utc) {
             mftEpoch = parseSimtrafficTimeToEpoch(f.mft_utc || f.eta_mf_utc);
         }
 
         var vtEpoch = null;
         if (typeof f.vt_epoch === "number") {
-            vtEpoch = f.vt_epoch;
+            // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
+            vtEpoch = f.vt_epoch < 4102444800 ? f.vt_epoch * 1000 : f.vt_epoch;
         } else if (f.vt_utc || f.vertex_utc) {
             vtEpoch = parseSimtrafficTimeToEpoch(f.vt_utc || f.vertex_utc);
         }
@@ -4958,6 +4969,8 @@ function loadTierInfo() {
         Promise.all([loadTierInfo(), loadAirportInfo(), loadBtsStats()]).then(function() {
             populateScopeSelector();
             refreshAdl();
+            // Check for ?edit=ID parameter to load program for editing
+            checkUrlForEditMode();
         }).catch(function(err) {
             console.error("Error initializing TMI page", err);
         });
@@ -5645,6 +5658,175 @@ function loadTierInfo() {
         var endHour = String(endTime.getUTCHours()).padStart(2, "0");
         var endMinFormatted = String(endTime.getUTCMinutes()).padStart(2, "0");
         gsEndEl.value = endYear + "-" + endMonth + "-" + endDay + "T" + endHour + ":" + endMinFormatted;
+    }
+
+    /**
+     * Load a program for editing from URL parameter ?edit=ID
+     * Fetches program data and populates the form
+     */
+    function loadProgramForEdit(programId) {
+        if (!programId) return Promise.resolve(false);
+
+        var statusEl = document.getElementById("gs_status_message");
+        if (statusEl) statusEl.textContent = "Loading program " + programId + " for editing...";
+
+        return fetch("api/tmi/programs.php?id=" + encodeURIComponent(programId), {
+            cache: "no-cache"
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(resp) {
+            if (resp.status !== "ok" || !resp.data) {
+                throw new Error(resp.message || "Program not found");
+            }
+            var prog = resp.data;
+
+            // Set the current program ID
+            GS_CURRENT_PROGRAM_ID = prog.program_id;
+
+            // Populate basic fields
+            var setValue = function(id, val) {
+                var el = document.getElementById(id);
+                if (el) el.value = val || "";
+            };
+
+            setValue("gs_ctl_element", prog.ctl_element);
+            setValue("gs_element_type", prog.element_type || "APT");
+            setValue("gs_name", prog.program_name);
+            setValue("gs_adv_number", prog.adv_number);
+            setValue("gs_impacting_condition", prog.impacting_condition);
+            setValue("gs_comments", prog.comments);
+
+            // Program type - determine if GS or GDP/AFP
+            var progType = (prog.program_type || "GS").toUpperCase();
+            var gsType = document.getElementById("gs_type");
+            if (gsType) {
+                if (progType === "GS") {
+                    gsType.value = "GS";
+                } else if (progType.indexOf("GDP") !== -1) {
+                    gsType.value = "GDP";
+                } else if (progType.indexOf("AFP") !== -1) {
+                    gsType.value = "AFP";
+                }
+            }
+
+            // Parse and set times
+            function isoToDatetimeLocal(isoStr) {
+                if (!isoStr) return "";
+                var d = new Date(isoStr);
+                if (isNaN(d.getTime())) return "";
+                var y = d.getUTCFullYear();
+                var m = String(d.getUTCMonth() + 1).padStart(2, "0");
+                var dy = String(d.getUTCDate()).padStart(2, "0");
+                var h = String(d.getUTCHours()).padStart(2, "0");
+                var mi = String(d.getUTCMinutes()).padStart(2, "0");
+                return y + "-" + m + "-" + dy + "T" + h + ":" + mi;
+            }
+
+            setValue("gs_start", isoToDatetimeLocal(prog.start_utc));
+            setValue("gs_end", isoToDatetimeLocal(prog.end_utc));
+
+            // Airports (ctl_element for single airport programs)
+            if (prog.ctl_element) {
+                setValue("gs_airports", prog.ctl_element);
+            }
+
+            // Parse scope_json if available
+            var scope = null;
+            if (prog.scope_json) {
+                try {
+                    scope = typeof prog.scope_json === "string" ? JSON.parse(prog.scope_json) : prog.scope_json;
+                } catch (e) {
+                    console.warn("Failed to parse scope_json", e);
+                }
+            }
+
+            // Populate scope selector if scope data exists
+            if (scope) {
+                var scopeSel = document.getElementById("gs_scope_select");
+                if (scopeSel) {
+                    // Clear current selection
+                    Array.prototype.forEach.call(scopeSel.options, function(opt) {
+                        opt.selected = false;
+                    });
+
+                    // Select matching options based on scope tokens
+                    var scopeTokens = scope.tokens || scope.origin_centers || [];
+                    if (typeof scopeTokens === "string") {
+                        scopeTokens = scopeTokens.split(/\s+/).filter(Boolean);
+                    }
+
+                    scopeTokens.forEach(function(token) {
+                        var tok = token.toUpperCase();
+                        Array.prototype.forEach.call(scopeSel.options, function(opt) {
+                            if (opt.value.toUpperCase() === tok) {
+                                opt.selected = true;
+                            }
+                        });
+                    });
+
+                    // Also populate hidden origin_centers field
+                    setValue("gs_origin_centers", scopeTokens.join(" "));
+
+                    // Populate dep_facilities from scope if available
+                    if (scope.dep_facilities) {
+                        var depFac = Array.isArray(scope.dep_facilities)
+                            ? scope.dep_facilities.join(" ")
+                            : scope.dep_facilities;
+                        setValue("gs_dep_facilities", depFac);
+                    }
+                }
+            }
+
+            // Parse exemptions_json if available
+            var exemptions = null;
+            if (prog.exemptions_json) {
+                try {
+                    exemptions = typeof prog.exemptions_json === "string"
+                        ? JSON.parse(prog.exemptions_json)
+                        : prog.exemptions_json;
+                } catch (e) {
+                    console.warn("Failed to parse exemptions_json", e);
+                }
+            }
+
+            if (exemptions) {
+                if (exemptions.orig_airports) setValue("gs_exempt_orig_airports", exemptions.orig_airports.join(" "));
+                if (exemptions.orig_tracons) setValue("gs_exempt_orig_tracons", exemptions.orig_tracons.join(" "));
+                if (exemptions.orig_artccs) setValue("gs_exempt_orig_artccs", exemptions.orig_artccs.join(" "));
+                if (exemptions.dest_airports) setValue("gs_exempt_dest_airports", exemptions.dest_airports.join(" "));
+                if (exemptions.dest_tracons) setValue("gs_exempt_dest_tracons", exemptions.dest_tracons.join(" "));
+                if (exemptions.dest_artccs) setValue("gs_exempt_dest_artccs", exemptions.dest_artccs.join(" "));
+                if (exemptions.exempt_flights) setValue("gs_exempt_flights", exemptions.exempt_flights.join(" "));
+            }
+
+            // Update status
+            var statusStr = prog.status || "PROPOSED";
+            if (statusEl) {
+                statusEl.textContent = "Editing " + progType + " Program #" + programId + " (" + statusStr + ")";
+            }
+
+            // Rebuild the advisory preview
+            buildAdvisory();
+
+            console.log("[GDT] Loaded program for edit:", prog);
+            return true;
+        })
+        .catch(function(err) {
+            console.error("Failed to load program for edit:", err);
+            if (statusEl) statusEl.textContent = "Failed to load program: " + (err.message || err);
+            return false;
+        });
+    }
+
+    /**
+     * Check URL for edit parameter and load program if present
+     */
+    function checkUrlForEditMode() {
+        var urlParams = new URLSearchParams(window.location.search);
+        var editId = urlParams.get("edit");
+        if (editId) {
+            loadProgramForEdit(editId);
+        }
     }
 
     // Sort and re-render the Flights Matching table

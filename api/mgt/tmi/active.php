@@ -170,6 +170,22 @@ try {
             $results['cancelled'] = array_merge($results['cancelled'], $cancelledReroutes);
         }
     }
+
+    // Get active public routes (from tmi_public_routes table)
+    if (($type === 'all' || $type === 'reroute' || $type === 'reroutes' || $type === 'publicroute') && $tmiConn) {
+        $activePublicRoutes = getActivePublicRoutes($tmiConn, $limit);
+        $results['active'] = array_merge($results['active'], $activePublicRoutes);
+
+        if ($includeScheduled) {
+            $scheduledPublicRoutes = getScheduledPublicRoutes($tmiConn, $limit);
+            $results['scheduled'] = array_merge($results['scheduled'], $scheduledPublicRoutes);
+        }
+
+        if ($includeCancelled) {
+            $cancelledPublicRoutes = getCancelledPublicRoutes($tmiConn, $cancelledHours, $limit);
+            $results['cancelled'] = array_merge($results['cancelled'], $cancelledPublicRoutes);
+        }
+    }
     
     // Sort each category
     usort($results['active'], function($a, $b) {
@@ -1171,4 +1187,222 @@ function buildRerouteSummary($row) {
     }
 
     return implode(' ', $parts) ?: 'Reroute';
+}
+
+// ===========================================
+// Public Routes (from tmi_public_routes)
+// ===========================================
+
+/**
+ * Get currently active public routes
+ */
+function getActivePublicRoutes($conn, $limit) {
+    if (!tableExists($conn, 'tmi_public_routes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                route_id,
+                route_guid,
+                name,
+                adv_number,
+                status,
+                route_string,
+                advisory_text,
+                valid_start_utc,
+                valid_end_utc,
+                constrained_area,
+                reason,
+                origin_filter,
+                dest_filter,
+                facilities,
+                created_by,
+                created_at,
+                updated_at
+            FROM dbo.tmi_public_routes
+            WHERE status = 1
+              AND (valid_end_utc IS NULL OR valid_end_utc > SYSUTCDATETIME())
+              AND (valid_start_utc IS NULL OR valid_start_utc <= SYSUTCDATETIME())
+            ORDER BY valid_start_utc DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatPublicRoute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get scheduled (future) public routes
+ */
+function getScheduledPublicRoutes($conn, $limit) {
+    if (!tableExists($conn, 'tmi_public_routes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                route_id,
+                route_guid,
+                name,
+                adv_number,
+                status,
+                route_string,
+                advisory_text,
+                valid_start_utc,
+                valid_end_utc,
+                constrained_area,
+                reason,
+                origin_filter,
+                dest_filter,
+                facilities,
+                created_by,
+                created_at,
+                updated_at
+            FROM dbo.tmi_public_routes
+            WHERE status = 1
+              AND valid_start_utc > SYSUTCDATETIME()
+            ORDER BY valid_start_utc ASC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatPublicRoute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get recently cancelled/expired public routes
+ */
+function getCancelledPublicRoutes($conn, $hours, $limit) {
+    if (!tableExists($conn, 'tmi_public_routes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                route_id,
+                route_guid,
+                name,
+                adv_number,
+                status,
+                route_string,
+                advisory_text,
+                valid_start_utc,
+                valid_end_utc,
+                constrained_area,
+                reason,
+                origin_filter,
+                dest_filter,
+                facilities,
+                created_by,
+                created_at,
+                updated_at
+            FROM dbo.tmi_public_routes
+            WHERE (status = 0 OR valid_end_utc < SYSUTCDATETIME())
+              AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
+            ORDER BY updated_at DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatPublicRoute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Format public route for API response
+ */
+function formatPublicRoute($row) {
+    // Parse JSON fields for origin/dest filters
+    $originFilter = !empty($row['origin_filter']) ? json_decode($row['origin_filter'], true) : null;
+    $destFilter = !empty($row['dest_filter']) ? json_decode($row['dest_filter'], true) : null;
+
+    // Convert arrays to space-separated strings for display
+    $originStr = is_array($originFilter) ? implode(' ', $originFilter) : ($originFilter ?? '');
+    $destStr = is_array($destFilter) ? implode(' ', $destFilter) : ($destFilter ?? '');
+
+    // Map numeric status to string
+    $statusMap = [
+        0 => 'CANCELLED',
+        1 => 'ACTIVE'
+    ];
+    $status = $statusMap[intval($row['status'] ?? 0)] ?? 'UNKNOWN';
+
+    return [
+        'entityType' => 'REROUTE',
+        'entityId' => intval($row['route_id'] ?? 0),
+        'guid' => $row['route_guid'] ?? null,
+        'type' => 'publicroute',
+        'entryType' => 'REROUTE',
+        'summary' => buildPublicRouteSummary($row),
+        'name' => $row['name'] ?? null,
+        'advisoryNumber' => $row['adv_number'] ?? null,
+        'routeString' => $row['route_string'] ?? null,
+        'advisoryText' => $row['advisory_text'] ?? null,
+        'constrainedArea' => $row['constrained_area'] ?? null,
+        'originCenters' => $originStr,
+        'destCenters' => $destStr,
+        'facilities' => $row['facilities'] ?? null,
+        'impactingCondition' => $row['reason'] ?? null,
+        'validFrom' => formatDatetime($row['valid_start_utc'] ?? null),
+        'validUntil' => formatDatetime($row['valid_end_utc'] ?? null),
+        'status' => $status,
+        'createdAt' => formatDatetime($row['created_at'] ?? null),
+        'updatedAt' => formatDatetime($row['updated_at'] ?? null),
+        'createdBy' => $row['created_by'] ?? null
+    ];
+}
+
+/**
+ * Build public route summary line
+ */
+function buildPublicRouteSummary($row) {
+    $parts = [];
+
+    $name = $row['name'] ?? '';
+    if (!empty($name)) {
+        $parts[] = $name;
+    }
+
+    // Parse origin/dest filters
+    $originFilter = !empty($row['origin_filter']) ? json_decode($row['origin_filter'], true) : null;
+    $destFilter = !empty($row['dest_filter']) ? json_decode($row['dest_filter'], true) : null;
+
+    $origin = $row['constrained_area'] ?? (is_array($originFilter) ? implode('/', array_slice($originFilter, 0, 2)) : '');
+    $dest = is_array($destFilter) ? implode('/', array_slice($destFilter, 0, 2)) : '';
+
+    if (!empty($origin) && !empty($dest)) {
+        $parts[] = "{$origin}→{$dest}";
+    } elseif (!empty($origin)) {
+        $parts[] = $origin;
+    } elseif (!empty($dest)) {
+        $parts[] = "to {$dest}";
+    }
+
+    $cause = $row['reason'] ?? '';
+    if (!empty($cause)) {
+        $parts[] = "({$cause})";
+    }
+
+    return implode(' ', $parts) ?: 'Public Route';
 }

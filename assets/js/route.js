@@ -4798,29 +4798,111 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
     }
 
     // Auto-correct mandatory segments to NOT include DPs or STARs
+    // Also strip procedure.transition dots even in non-mandatory routes
+    // Handles chains like proc.trans.proc -> proc trans proc or proc >trans< proc
     function advCorrectMandatoryProcedures(routeText) {
         if (!routeText) return routeText;
-        
+
         var tokens = routeText.split(/\s+/).filter(Boolean);
-        if (tokens.length < 2) return routeText;
-        
+        if (tokens.length < 1) return routeText;
+
         // Scan all tokens for patterns needing correction
         for (var i = 0; i < tokens.length; i++) {
             var tok = tokens[i];
-            
-            // Check for >{DP#}.{TRANS} pattern
-            if (tok.startsWith('>') && tok.indexOf('.') !== -1) {
-                var withoutMarker = tok.slice(1);
-                var dotIdx = withoutMarker.indexOf('.');
-                if (dotIdx > 0) {
-                    var dpPart = withoutMarker.slice(0, dotIdx);
-                    var transPart = withoutMarker.slice(dotIdx + 1);
-                    if (advLooksLikeProcedure(dpPart)) {
-                        tokens[i] = dpPart + ' >' + transPart;
+
+            // Handle fully wrapped token with dots: >{...}<
+            // Could be >{PROC}.{TRANS}<, >{TRANS}.{PROC}<, or >{PROC}.{TRANS}.{PROC}<
+            if (tok.startsWith('>') && tok.endsWith('<') && tok.indexOf('.') !== -1) {
+                var inner = tok.slice(1, -1);  // Remove > and <
+                var parts = inner.split('.');
+                if (parts.length >= 2 && parts.every(function(p) { return p.length > 0; })) {
+                    // Classify each part as procedure or not
+                    var resultParts = [];
+                    var inMandatory = false;
+
+                    for (var j = 0; j < parts.length; j++) {
+                        var part = parts[j];
+                        var isProc = advLooksLikeProcedure(part);
+
+                        if (isProc) {
+                            // Procedures go outside mandatory
+                            if (inMandatory) {
+                                // Close mandatory before procedure
+                                resultParts.push('<');
+                                inMandatory = false;
+                            }
+                            resultParts.push(part);
+                        } else {
+                            // Non-procedures go inside mandatory
+                            if (!inMandatory) {
+                                // Open mandatory before non-procedure
+                                resultParts.push('>');
+                                inMandatory = true;
+                            }
+                            resultParts.push(part);
+                        }
                     }
+
+                    // Close mandatory if still open at end
+                    if (inMandatory) {
+                        resultParts.push('<');
+                    }
+
+                    // Combine result, attaching markers to adjacent parts
+                    var combined = '';
+                    for (var k = 0; k < resultParts.length; k++) {
+                        var rp = resultParts[k];
+                        if (rp === '>') {
+                            combined += (combined.length > 0 ? ' ' : '') + '>';
+                        } else if (rp === '<') {
+                            combined += '<';
+                        } else {
+                            if (combined.length > 0 && !combined.endsWith('>')) {
+                                combined += ' ';
+                            }
+                            combined += rp;
+                        }
+                    }
+                    tokens[i] = combined;
+                }
+                continue;  // Skip other checks for this token
+            }
+
+            // Handle non-mandatory token with dots: {PROC}.{TRANS} or chains like {PROC}.{TRANS}.{PROC}
+            if (!tok.startsWith('>') && !tok.endsWith('<') && tok.indexOf('.') !== -1) {
+                // Simply replace all dots with spaces for non-mandatory
+                tokens[i] = tok.split('.').filter(Boolean).join(' ');
+                continue;
+            }
+
+            // Check for >{...} pattern (starts with >, has dots, no < at end)
+            if (tok.startsWith('>') && tok.indexOf('.') !== -1 && !tok.endsWith('<')) {
+                var withoutMarker = tok.slice(1);
+                var dotParts = withoutMarker.split('.').filter(Boolean);
+                if (dotParts.length >= 2) {
+                    // Find first non-procedure part to start mandatory
+                    var resultArr = [];
+                    var mandatoryStarted = false;
+
+                    for (var m = 0; m < dotParts.length; m++) {
+                        var dp = dotParts[m];
+                        if (advLooksLikeProcedure(dp) && !mandatoryStarted) {
+                            // Procedure before mandatory starts - put outside
+                            resultArr.push(dp);
+                        } else {
+                            // Non-procedure or procedure after mandatory started
+                            if (!mandatoryStarted) {
+                                resultArr.push('>' + dp);
+                                mandatoryStarted = true;
+                            } else {
+                                resultArr.push(dp);
+                            }
+                        }
+                    }
+                    tokens[i] = resultArr.join(' ');
                 }
             }
-            // Check for >{DP#} pattern
+            // Check for >{DP#} pattern (no dots)
             else if (tok.startsWith('>') && tok.indexOf('.') === -1 && !tok.endsWith('<')) {
                 var withoutMarker2 = tok.slice(1);
                 if (advLooksLikeProcedure(withoutMarker2)) {
@@ -4830,20 +4912,39 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
                     }
                 }
             }
-            
-            // Check for {TRANS}.{STAR#}< pattern
-            if (tok.endsWith('<') && tok.indexOf('.') !== -1) {
+
+            // Check for {...}< pattern (ends with <, has dots, no > at start)
+            if (tok.endsWith('<') && tok.indexOf('.') !== -1 && !tok.startsWith('>')) {
                 var withoutMarker3 = tok.slice(0, -1);
-                var dotIdx2 = withoutMarker3.lastIndexOf('.');
-                if (dotIdx2 > 0 && dotIdx2 < withoutMarker3.length - 1) {
-                    var transPart2 = withoutMarker3.slice(0, dotIdx2);
-                    var starPart = withoutMarker3.slice(dotIdx2 + 1);
-                    if (advLooksLikeProcedure(starPart)) {
-                        tokens[i] = transPart2 + '< ' + starPart;
+                var dotParts2 = withoutMarker3.split('.').filter(Boolean);
+                if (dotParts2.length >= 2) {
+                    // Find last non-procedure part to end mandatory
+                    var resultArr2 = [];
+                    var lastNonProcIdx = -1;
+
+                    // Find the last non-procedure
+                    for (var n = dotParts2.length - 1; n >= 0; n--) {
+                        if (!advLooksLikeProcedure(dotParts2[n])) {
+                            lastNonProcIdx = n;
+                            break;
+                        }
                     }
+
+                    for (var p = 0; p < dotParts2.length; p++) {
+                        var dp2 = dotParts2[p];
+                        if (p === lastNonProcIdx) {
+                            resultArr2.push(dp2 + '<');
+                        } else if (p > lastNonProcIdx && advLooksLikeProcedure(dp2)) {
+                            // Procedure after mandatory ends
+                            resultArr2.push(dp2);
+                        } else {
+                            resultArr2.push(dp2);
+                        }
+                    }
+                    tokens[i] = resultArr2.join(' ');
                 }
             }
-            // Check for {STAR#}< pattern
+            // Check for {STAR#}< pattern (no dots)
             else if (tok.endsWith('<') && tok.indexOf('.') === -1 && !tok.startsWith('>')) {
                 var withoutMarker4 = tok.slice(0, -1);
                 if (advLooksLikeProcedure(withoutMarker4)) {
@@ -4854,7 +4955,7 @@ var CartoDB_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/da
                 }
             }
         }
-        
+
         return tokens.join(' ').replace(/\s+/g, ' ').trim();
     }
 
@@ -5101,14 +5202,30 @@ function advIsFacility(code) {
     // Convert DP/STAR dot notation to spaces (e.g., KORRY5.KORRY -> KORRY5 KORRY)
     function advCleanRouteString(routeText) {
         if (!routeText) return '';
-        var tokens = routeText.split(/\s+/).filter(Boolean);
+
+        // First pass: convert all dots to spaces (procedure.transition -> procedure transition)
+        // This handles both mandatory and non-mandatory routes uniformly
+        // Also handles chains like proc.trans.proc
+        var normalized = routeText;
+
+        // Replace procedure.transition patterns (handles any alphanumeric.alphanumeric)
+        // Pattern: word.word where both parts are at least 2 chars
+        // Apply repeatedly to handle chains like A.B.C -> A B.C -> A B C
+        var prevNormalized;
+        do {
+            prevNormalized = normalized;
+            normalized = normalized.replace(/([A-Z0-9]{2,})\.([A-Z0-9]{2,})/gi, '$1 $2');
+        } while (normalized !== prevNormalized);
+
+        var tokens = normalized.split(/\s+/).filter(Boolean);
         var cleaned = [];
-        
+
         tokens.forEach(function(tok) {
             var clean = tok.replace(/[<>]/g, '').toUpperCase();
             // Skip facilities (airports, ARTCCs, TRACONs)
             if (advIsFacility(clean)) return;
-            
+
+            // Double-check for any remaining dots (shouldn't happen after normalization)
             // Convert DP/STAR dot notation to space
             // Patterns: {PROC}{#}.{TRANSITION} or {TRANSITION}.{PROC}{#}
             // e.g., KORRY5.KORRY -> KORRY5 KORRY, CAMRN.CAMRN4 -> CAMRN CAMRN4
@@ -5121,11 +5238,11 @@ function advIsFacility(code) {
                     return;
                 }
             }
-            
+
             // Keep everything else (NAVAIDs, fixes, airways, DP/STAR codes without dots)
             cleaned.push(clean);
         });
-        
+
         return cleaned.join(' ');
     }
 
