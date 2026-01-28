@@ -9,9 +9,16 @@
 
 /**
  * Format config name for display
- * Parses "ARR / DEP" pattern and adds explicit labels
+ * Uses explicit runway parameters when provided, otherwise parses config name
  */
 window.formatConfigName = function(configName, arrRunways, depRunways) {
+    // If explicit runway parameters are provided, use them directly
+    if (arrRunways || depRunways) {
+        const arrPart = (arrRunways || '--').replace(/\//g, ' ');
+        const depPart = (depRunways || '--').replace(/\//g, ' ');
+        return `ARR: ${arrPart} | DEP: ${depPart}`;
+    }
+
     if (!configName) return '--';
 
     // Check if it's a simple descriptive name
@@ -25,7 +32,7 @@ window.formatConfigName = function(configName, arrRunways, depRunways) {
         return configName;
     }
 
-    // Parse "ARR / DEP" pattern
+    // Parse "ARR / DEP" pattern as fallback
     const match = configName.match(/^(.+?)\s*\/\s*(.+)$/);
     if (match) {
         const arrPart = match[1].trim().replace(/\//g, ' ');

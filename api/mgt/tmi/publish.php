@@ -87,7 +87,7 @@ $entries = $payload['entries'];
 $production = !empty($payload['production']);
 $userCid = $payload['userCid'] ?? null;
 $userName = $payload['userName'] ?? 'Unknown';
-$asyncDiscord = $payload['async'] ?? true; // Default to async for better performance
+$asyncDiscord = $payload['async'] ?? false; // DISABLED: Queue processor not implemented - post directly to Discord
 
 if (empty($entries)) {
     http_response_code(400);

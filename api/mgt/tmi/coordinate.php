@@ -251,12 +251,20 @@ function handleSubmitForCoordination() {
 }
 
 // =============================================================================
-// GET: Get Proposal Status
+// GET: Get Proposal Status or List Pending
 // =============================================================================
 
 function handleGetProposalStatus() {
     $proposalId = $_GET['proposal_id'] ?? null;
     $messageId = $_GET['message_id'] ?? null;
+    $listPending = isset($_GET['list']) && $_GET['list'] === 'pending';
+    $listAll = isset($_GET['list']) && $_GET['list'] === 'all';
+
+    // If listing pending proposals
+    if ($listPending || $listAll) {
+        handleListProposals($listAll);
+        return;
+    }
 
     if (!$proposalId && !$messageId) {
         http_response_code(400);

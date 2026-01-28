@@ -2073,49 +2073,71 @@
      * Populate Ops Plan form fields from PERTI Plan data
      */
     function populateOpsPlanFromPerti(plan) {
-        // Build initiatives text from planned TMIs
-        let initiatives = [];
+        console.log('[TMI-Publish] Populating from plan:', plan);
 
-        if (plan.tmis && plan.tmis.length > 0) {
-            plan.tmis.forEach(tmi => {
-                const entry = `${tmi.type || 'TMI'}: ${tmi.ctlElement || ''} - ${tmi.description || ''}`;
-                initiatives.push(entry.trim());
-            });
-        }
-
-        if (plan.initiatives && plan.initiatives.length > 0) {
-            plan.initiatives.forEach(init => {
-                initiatives.push(init);
-            });
-        }
-
-        if (initiatives.length > 0) {
+        // Use pre-built initiative summary from API, or build from TMIs
+        if (plan.initiativesSummary) {
+            $('#adv_initiatives').val(plan.initiativesSummary);
+        } else if (plan.tmis && plan.tmis.length > 0) {
+            // Fallback: build from TMIs array
+            const initiatives = plan.tmis.map(tmi => {
+                if (tmi.type === 'terminal') {
+                    return `${tmi.airport || ''}${tmi.context ? ' - ' + tmi.context : ''}`;
+                } else {
+                    return `${tmi.element || 'Enroute'}${tmi.context ? ' - ' + tmi.context : ''}`;
+                }
+            }).filter(i => i.trim());
             $('#adv_initiatives').val(initiatives.join('\n'));
         }
 
-        // Weather/constraints
-        if (plan.weather || plan.constraints) {
-            const constraints = [plan.weather, plan.constraints].filter(c => c).join('\n');
-            $('#adv_weather').val(constraints);
+        // Use pre-built constraints summary from API
+        if (plan.constraintsSummary) {
+            $('#adv_weather').val(plan.constraintsSummary);
+        } else if (plan.weather) {
+            // Fallback: weather might be array or string
+            const weatherStr = Array.isArray(plan.weather) ? plan.weather.join('\n') : plan.weather;
+            $('#adv_weather').val(weatherStr);
         }
 
-        // Events
-        if (plan.events && plan.events.length > 0) {
-            $('#adv_events').val(plan.events.join('\n'));
+        // Use pre-built events summary from API, or build from events array
+        if (plan.eventsSummary) {
+            $('#adv_events').val(plan.eventsSummary);
+        } else if (plan.events && plan.events.length > 0) {
+            // Fallback: build from events array
+            const events = plan.events.map(ev => {
+                let line = ev.title || '';
+                if (ev.description) line += ': ' + ev.description;
+                if (ev.time) line += ' (' + ev.time + ')';
+                return line;
+            }).filter(e => e.trim());
+            $('#adv_events').val(events.join('\n'));
         }
 
         // Update validity times if plan has them
         if (plan.validFrom) {
-            const fromDate = new Date(plan.validFrom);
-            $('#adv_valid_from').val(fromDate.toISOString().slice(0, 16));
+            try {
+                // Handle various date formats
+                let fromStr = plan.validFrom;
+                if (!fromStr.includes('T')) fromStr = fromStr.replace(' ', 'T');
+                $('#adv_valid_from').val(fromStr.slice(0, 16));
+            } catch (e) {
+                console.warn('[TMI-Publish] Could not parse validFrom:', plan.validFrom);
+            }
         }
         if (plan.validUntil) {
-            const untilDate = new Date(plan.validUntil);
-            $('#adv_valid_until').val(untilDate.toISOString().slice(0, 16));
+            try {
+                let untilStr = plan.validUntil;
+                if (!untilStr.includes('T')) untilStr = untilStr.replace(' ', 'T');
+                $('#adv_valid_until').val(untilStr.slice(0, 16));
+            } catch (e) {
+                console.warn('[TMI-Publish] Could not parse validUntil:', plan.validUntil);
+            }
         }
 
         // Trigger preview update
         updateAdvisoryPreview();
+
+        console.log('[TMI-Publish] Form populated - initiatives:', $('#adv_initiatives').val());
     }
 
     /**
@@ -3485,34 +3507,98 @@
         });
     }
 
+    // Airport to ARTCC mapping for auto-selecting coordination facilities
+    const AIRPORT_TO_ARTCC = {
+        // ZNY - New York Center
+        'JFK': 'ZNY', 'KJFK': 'ZNY', 'LGA': 'ZNY', 'KLGA': 'ZNY', 'EWR': 'ZNY', 'KEWR': 'ZNY',
+        'TEB': 'ZNY', 'KTEB': 'ZNY', 'ISP': 'ZNY', 'KISP': 'ZNY', 'HPN': 'ZNY', 'KHPN': 'ZNY',
+        'SWF': 'ZNY', 'KSWF': 'ZNY', 'ACY': 'ZNY', 'KACY': 'ZNY',
+        // ZDC - Washington Center
+        'DCA': 'ZDC', 'KDCA': 'ZDC', 'IAD': 'ZDC', 'KIAD': 'ZDC', 'BWI': 'ZDC', 'KBWI': 'ZDC',
+        'PHL': 'ZDC', 'KPHL': 'ZDC', 'RIC': 'ZDC', 'KRIC': 'ZDC', 'ORF': 'ZDC', 'KORF': 'ZDC',
+        'CLT': 'ZDC', 'KCLT': 'ZDC',
+        // ZBW - Boston Center
+        'BOS': 'ZBW', 'KBOS': 'ZBW', 'BDL': 'ZBW', 'KBDL': 'ZBW', 'PVD': 'ZBW', 'KPVD': 'ZBW',
+        'MHT': 'ZBW', 'KMHT': 'ZBW', 'PWM': 'ZBW', 'KPWM': 'ZBW',
+        // ZTL - Atlanta Center
+        'ATL': 'ZTL', 'KATL': 'ZTL', 'BNA': 'ZTL', 'KBNA': 'ZTL', 'GSO': 'ZTL', 'KGSO': 'ZTL',
+        'RDU': 'ZTL', 'KRDU': 'ZTL', 'CHS': 'ZTL', 'KCHS': 'ZTL',
+        // ZJX - Jacksonville Center
+        'JAX': 'ZJX', 'KJAX': 'ZJX', 'MCO': 'ZJX', 'KMCO': 'ZJX', 'TPA': 'ZJX', 'KTPA': 'ZJX',
+        'SRQ': 'ZJX', 'KSRQ': 'ZJX', 'PBI': 'ZJX', 'KPBI': 'ZJX', 'FLL': 'ZJX', 'KFLL': 'ZJX',
+        // ZMA - Miami Center
+        'MIA': 'ZMA', 'KMIA': 'ZMA',
+        // ZHU - Houston Center
+        'IAH': 'ZHU', 'KIAH': 'ZHU', 'HOU': 'ZHU', 'KHOU': 'ZHU', 'AUS': 'ZHU', 'KAUS': 'ZHU',
+        'SAT': 'ZHU', 'KSAT': 'ZHU', 'MSY': 'ZHU', 'KMSY': 'ZHU',
+        // ZFW - Fort Worth Center
+        'DFW': 'ZFW', 'KDFW': 'ZFW', 'DAL': 'ZFW', 'KDAL': 'ZFW', 'OKC': 'ZFW', 'KOKC': 'ZFW',
+        // ZAU - Chicago Center
+        'ORD': 'ZAU', 'KORD': 'ZAU', 'MDW': 'ZAU', 'KMDW': 'ZAU', 'MKE': 'ZAU', 'KMKE': 'ZAU',
+        // ZOB - Cleveland Center
+        'CLE': 'ZOB', 'KCLE': 'ZOB', 'PIT': 'ZOB', 'KPIT': 'ZOB', 'CMH': 'ZOB', 'KCMH': 'ZOB',
+        'BUF': 'ZOB', 'KBUF': 'ZOB', 'DTW': 'ZOB', 'KDTW': 'ZOB',
+        // ZID - Indianapolis Center
+        'IND': 'ZID', 'KIND': 'ZID', 'CVG': 'ZID', 'KCVG': 'ZID', 'SDF': 'ZID', 'KSDF': 'ZID',
+        'DAY': 'ZID', 'KDAY': 'ZID',
+        // ZKC - Kansas City Center
+        'MCI': 'ZKC', 'KMCI': 'ZKC', 'STL': 'ZKC', 'KSTL': 'ZKC', 'ICT': 'ZKC', 'KICT': 'ZKC',
+        // ZMP - Minneapolis Center
+        'MSP': 'ZMP', 'KMSP': 'ZMP', 'DSM': 'ZMP', 'KDSM': 'ZMP', 'OMA': 'ZMP', 'KOMA': 'ZMP',
+        // ZME - Memphis Center
+        'MEM': 'ZME', 'KMEM': 'ZME', 'LIT': 'ZME', 'KLIT': 'ZME', 'TUL': 'ZME', 'KTUL': 'ZME',
+        // ZDV - Denver Center
+        'DEN': 'ZDV', 'KDEN': 'ZDV', 'COS': 'ZDV', 'KCOS': 'ZDV', 'ABQ': 'ZDV', 'KABQ': 'ZDV',
+        // ZAB - Albuquerque Center
+        'PHX': 'ZAB', 'KPHX': 'ZAB', 'TUS': 'ZAB', 'KTUS': 'ZAB', 'ELP': 'ZAB', 'KELP': 'ZAB',
+        // ZLA - Los Angeles Center
+        'LAX': 'ZLA', 'KLAX': 'ZLA', 'SAN': 'ZLA', 'KSAN': 'ZLA', 'ONT': 'ZLA', 'KONT': 'ZLA',
+        'BUR': 'ZLA', 'KBUR': 'ZLA', 'LGB': 'ZLA', 'KLGB': 'ZLA', 'SNA': 'ZLA', 'KSNA': 'ZLA',
+        'LAS': 'ZLA', 'KLAS': 'ZLA',
+        // ZOA - Oakland Center
+        'SFO': 'ZOA', 'KSFO': 'ZOA', 'OAK': 'ZOA', 'KOAK': 'ZOA', 'SJC': 'ZOA', 'KSJC': 'ZOA',
+        'SMF': 'ZOA', 'KSMF': 'ZOA', 'RNO': 'ZOA', 'KRNO': 'ZOA',
+        // ZSE - Seattle Center
+        'SEA': 'ZSE', 'KSEA': 'ZSE', 'PDX': 'ZSE', 'KPDX': 'ZSE', 'GEG': 'ZSE', 'KGEG': 'ZSE',
+        // ZLC - Salt Lake Center
+        'SLC': 'ZLC', 'KSLC': 'ZLC', 'BOI': 'ZLC', 'KBOI': 'ZLC'
+    };
+
     function buildFacilityCheckboxes() {
         // Get facilities from queue entries
-        const facilities = new Set();
+        const detectedFacilities = new Set();
         state.queue.forEach(entry => {
             const data = entry.data || {};
+            // Check explicit facility fields
             if (data.requesting_facility || data.req_fac) {
-                facilities.add((data.requesting_facility || data.req_fac).toUpperCase());
+                detectedFacilities.add((data.requesting_facility || data.req_fac).toUpperCase());
             }
             if (data.providing_facility || data.prov_fac) {
-                facilities.add((data.providing_facility || data.prov_fac).toUpperCase());
+                detectedFacilities.add((data.providing_facility || data.prov_fac).toUpperCase());
+            }
+            // Check ctl_element (airport) and map to ARTCC
+            if (data.ctl_element) {
+                const airport = data.ctl_element.toUpperCase();
+                const artcc = AIRPORT_TO_ARTCC[airport];
+                if (artcc) {
+                    detectedFacilities.add(artcc);
+                }
             }
         });
 
-        // Common ARTCCs
+        // Common ARTCCs (always shown)
         const commonFacilities = ['ZNY', 'ZDC', 'ZBW', 'ZOB', 'ZAU', 'ZID', 'ZTL', 'ZJX', 'ZMA', 'ZHU', 'ZFW', 'ZKC', 'ZMP', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZME'];
 
         // Merge detected and common
-        commonFacilities.forEach(f => facilities.add(f));
+        const allFacilities = new Set(commonFacilities);
+        detectedFacilities.forEach(f => allFacilities.add(f));
 
-        const sortedFacilities = Array.from(facilities).sort();
+        const sortedFacilities = Array.from(allFacilities).sort();
 
         let html = '';
         sortedFacilities.forEach(fac => {
-            const checked = state.queue.some(e => {
-                const d = e.data || {};
-                return (d.requesting_facility || d.req_fac || '').toUpperCase() === fac ||
-                       (d.providing_facility || d.prov_fac || '').toUpperCase() === fac;
-            });
+            // Check if this facility was detected from the queue entries
+            const checked = detectedFacilities.has(fac);
             html += `
                 <div class="col-4 mb-1">
                     <div class="custom-control custom-checkbox">
