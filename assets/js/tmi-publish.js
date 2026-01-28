@@ -2987,10 +2987,10 @@
         const reqFac = (data.req_facility || 'N/A').toUpperCase();
         const provFac = (data.prov_facility || 'N/A').toUpperCase();
         
-        // Get spacing qualifier (first one found)
-        let spacing = 'AS ONE'; // Default
+        // Get spacing qualifier (first one found) - only if explicitly selected
+        let spacing = '';
         if (data.qualifiers && data.qualifiers.length > 0) {
-            const spacingQual = data.qualifiers.find(q => 
+            const spacingQual = data.qualifiers.find(q =>
                 ['AS ONE', 'PER STREAM', 'PER AIRPORT', 'PER FIX', 'EACH'].includes(q)
             );
             if (spacingQual) spacing = spacingQual;
@@ -3017,7 +3017,9 @@
         }
         
         // Format: valid period and req:prov ALWAYS at the end
-        let line = `${logTime}    ${element} via ${viaFix} ${value}${type} ${spacing}${otherQuals} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
+        // Only include spacing if explicitly selected
+        const spacingPart = spacing ? ` ${spacing}` : '';
+        let line = `${logTime}    ${element} via ${viaFix} ${value}${type}${spacingPart}${otherQuals} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
         
         return line;
     }
