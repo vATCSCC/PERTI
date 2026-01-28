@@ -706,16 +706,29 @@ class TMIDiscord {
         $startTime = $this->formatTimeDDHHMM($data['start_utc'] ?? $data['valid_from'] ?? null);
         $endTime = $this->formatTimeDDHHMM($data['end_utc'] ?? $data['valid_until'] ?? null);
         $routeName = strtoupper($data['route_name'] ?? $data['name'] ?? 'ROUTE');
-        $cancelText = $data['cancel_text'] ?? "{$routeName} HAS BEEN CANCELLED";
-        
-        return implode("\n", [
+        $cancelText = $data['cancel_text'] ?? "{$routeName} HAS BEEN CANCELLED.";
+        $reason = !empty($data['reason']) ? ' ' . strtoupper(trim($data['reason'])) : '';
+
+        // Format per real-world ATCSCC:
+        // vATCSCC ADVZY 015 DCC 01/28/2022 REROUTE CANCELLATION
+        // FCA001:NO_AR_ATLANTIC_Y-RTES_TO_MCO_TPA_RSW_AREAS HAS BEEN CANCELLED.
+        // REASON TEXT HERE IF ANY.
+
+        $lines = [
             "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} REROUTE CANCELLATION",
-            "VALID FOR {$startTime} THROUGH {$endTime}",
-            strtoupper($cancelText),
-            "",
-            "{$startTime} - {$endTime}",
-            $this->formatSignature(),
-        ]);
+            strtoupper($cancelText) . $reason,
+        ];
+
+        // Add any additional comments
+        if (!empty($data['comments'])) {
+            $lines[] = strtoupper($data['comments']);
+        }
+
+        $lines[] = "";
+        $lines[] = "{$startTime} - {$endTime}";
+        $lines[] = $this->formatSignature();
+
+        return implode("\n", $lines);
     }
     
     public function postFCAAdvisory(array $data, string $channel = 'advzy_staging'): ?array {

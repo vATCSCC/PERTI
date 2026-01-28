@@ -107,11 +107,82 @@ sqlsrv_free_stmt($stmt);
 
 $program = get_program($conn_tmi, $program_id);
 
+// ============================================================================
+// Fetch Flight Control Records and Calculate Power Run Metrics
+// ============================================================================
+
+// Get flight control records for this program
+$flight_sql = "
+    SELECT *,
+        DATEDIFF(SECOND, '1970-01-01', ctd_utc) AS ctd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', cta_utc) AS cta_epoch,
+        DATEDIFF(SECOND, '1970-01-01', orig_etd_utc) AS orig_etd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', orig_eta_utc) AS orig_eta_epoch
+    FROM dbo.tmi_flight_control
+    WHERE program_id = ?
+    ORDER BY cta_utc ASC, orig_eta_utc ASC
+";
+$flight_result = fetch_all($conn_tmi, $flight_sql, [$program_id]);
+$flights = $flight_result['success'] ? $flight_result['data'] : [];
+
+// Calculate power run metrics from flight control records
+$controlled_count = 0;
+$exempt_count = 0;
+$airborne_count = 0;
+$total_delay = 0;
+$max_delay = 0;
+$delay_count = 0;
+
+foreach ($flights as $f) {
+    if (isset($f['ctl_exempt']) && $f['ctl_exempt']) {
+        $exempt_count++;
+    } else {
+        $controlled_count++;
+    }
+
+    // Check for airborne flights (GS held = 0 means they weren't held because they were airborne)
+    if (isset($f['flight_status_at_ctl']) &&
+        in_array(strtoupper($f['flight_status_at_ctl']), ['AIRBORNE', 'DEPARTED', 'ENROUTE'])) {
+        $airborne_count++;
+    }
+
+    $delay = isset($f['program_delay_min']) ? (int)$f['program_delay_min'] : 0;
+    if ($delay > 0) {
+        $total_delay += $delay;
+        if ($delay > $max_delay) {
+            $max_delay = $delay;
+        }
+        $delay_count++;
+    }
+}
+
+$avg_delay = $delay_count > 0 ? round($total_delay / $delay_count, 1) : 0;
+
+// Build flights data response
+$flights_data = [
+    'flights' => $flights,
+    'total' => count($flights),
+    'controlled' => $controlled_count,
+    'exempt' => $exempt_count,
+    'airborne' => $airborne_count
+];
+
+// Build power run response
+$power_run = [
+    'total_delay' => $total_delay,
+    'max_delay' => $max_delay,
+    'avg_delay' => $avg_delay,
+    'controlled' => $controlled_count,
+    'exempt' => $exempt_count
+];
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Program activated',
     'data' => [
         'program_id' => $program_id,
-        'program' => $program
+        'program' => $program,
+        'flights' => $flights_data,
+        'power_run' => $power_run
     ]
 ]);

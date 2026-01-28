@@ -49,7 +49,7 @@ try {
                 dest_airports, dest_centers,
                 include_ac_cat, include_carriers,
                 impacting_condition,
-                created_by, created_at as created_utc, updated_at as updated_utc, activated_utc
+                created_by, created_at as created_utc, updated_at as updated_utc, activated_at as activated_utc
             FROM dbo.tmi_reroutes";
 
     if (!empty($where)) {

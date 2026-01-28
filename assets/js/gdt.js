@@ -3686,6 +3686,127 @@ function showConfirmDialog(title, text, confirmText, icon) {
         return Promise.resolve(window.confirm((title ? title + "\\n\\n" : "") + (text || "")));
     }
 
+    /**
+     * Show detailed GS activation confirmation with flight list and advisory
+     */
+    function showGsActivationConfirmation(workflowPayload) {
+        if (!window.Swal) {
+            return showConfirmDialog(
+                "Activate GS Program " + GS_CURRENT_PROGRAM_ID + "?",
+                "This will activate the GS program and apply EDCTs to affected flights.",
+                "Activate & Publish",
+                "warning"
+            );
+        }
+
+        // Get simulation data
+        var simData = GS_LAST_SIMULATION_DATA || {};
+        var flights = simData.flights || [];
+        var totalFlights = simData.total || flights.length;
+        var affectedFlights = simData.affected || 0;
+        var maxDelay = simData.max_delay || 0;
+        var avgDelay = simData.avg_delay || 0;
+        var totalDelay = simData.total_delay || 0;
+        var exemptFlights = simData.exempt || 0;
+
+        // Get advisory text from preview
+        var advPreviewEl = document.getElementById("gs_advisory_preview");
+        var advisoryText = advPreviewEl ? (advPreviewEl.textContent || advPreviewEl.innerText || "") : "";
+
+        // Build flight list table (show first 15 flights)
+        var flightTableHtml = "";
+        if (flights.length > 0) {
+            flightTableHtml = '<div class="table-responsive" style="max-height: 200px; overflow-y: auto;">';
+            flightTableHtml += '<table class="table table-sm table-striped mb-0" style="font-size: 0.85em;">';
+            flightTableHtml += '<thead class="thead-light"><tr>';
+            flightTableHtml += '<th>Callsign</th><th>Dep</th><th>Arr</th><th>Type</th><th>EDCT</th><th>Delay</th>';
+            flightTableHtml += '</tr></thead><tbody>';
+
+            var displayFlights = flights.slice(0, 15);
+            displayFlights.forEach(function(f) {
+                var edct = f.edct || f.ctd_utc || f.ctd || "";
+                if (edct && typeof edct === "string") {
+                    // Format as HHMM
+                    var edctDate = new Date(edct);
+                    if (!isNaN(edctDate.getTime())) {
+                        edct = String(edctDate.getUTCHours()).padStart(2, "0") +
+                               String(edctDate.getUTCMinutes()).padStart(2, "0") + "Z";
+                    }
+                }
+                var delay = f.delay || f.program_delay_min || f.edct_delay || 0;
+                var delayClass = delay > 30 ? "text-danger font-weight-bold" : (delay > 15 ? "text-warning" : "");
+                flightTableHtml += '<tr>';
+                flightTableHtml += '<td><strong>' + escapeHtml(f.callsign || "") + '</strong></td>';
+                flightTableHtml += '<td>' + escapeHtml(f.dep || f.dep_icao || "") + '</td>';
+                flightTableHtml += '<td>' + escapeHtml(f.arr || f.dest_icao || "") + '</td>';
+                flightTableHtml += '<td>' + escapeHtml(f.ac_type || f.aircraft_type || "") + '</td>';
+                flightTableHtml += '<td>' + escapeHtml(edct) + '</td>';
+                flightTableHtml += '<td class="' + delayClass + '">' + delay + ' min</td>';
+                flightTableHtml += '</tr>';
+            });
+            flightTableHtml += '</tbody></table>';
+            if (flights.length > 15) {
+                flightTableHtml += '<div class="text-muted small text-center py-1">... and ' + (flights.length - 15) + ' more flights</div>';
+            }
+            flightTableHtml += '</div>';
+        } else {
+            flightTableHtml = '<div class="alert alert-warning mb-2"><i class="fas fa-exclamation-triangle"></i> No flights in simulation data.</div>';
+        }
+
+        // Build the confirmation modal HTML
+        var html = '<div class="text-left">';
+
+        // Summary cards
+        html += '<div class="row mb-3">';
+        html += '<div class="col-4 text-center">';
+        html += '<div class="card bg-primary text-white"><div class="card-body py-2">';
+        html += '<div class="h4 mb-0">' + affectedFlights + '</div><small>Controlled</small></div></div>';
+        html += '</div>';
+        html += '<div class="col-4 text-center">';
+        html += '<div class="card bg-danger text-white"><div class="card-body py-2">';
+        html += '<div class="h4 mb-0">' + maxDelay + '</div><small>Max Delay (min)</small></div></div>';
+        html += '</div>';
+        html += '<div class="col-4 text-center">';
+        html += '<div class="card bg-info text-white"><div class="card-body py-2">';
+        html += '<div class="h4 mb-0">' + avgDelay + '</div><small>Avg Delay (min)</small></div></div>';
+        html += '</div>';
+        html += '</div>';
+
+        // Flight list section
+        html += '<div class="card mb-3">';
+        html += '<div class="card-header py-2"><strong><i class="fas fa-plane"></i> Affected Flights (' + totalFlights + ' total)</strong></div>';
+        html += '<div class="card-body p-2">' + flightTableHtml + '</div>';
+        html += '</div>';
+
+        // Advisory preview section
+        html += '<div class="card mb-2">';
+        html += '<div class="card-header py-2"><strong><i class="fas fa-bullhorn"></i> Advisory to be Published</strong></div>';
+        html += '<div class="card-body p-2">';
+        html += '<pre class="mb-0 small" style="max-height: 150px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 0.8em;">' + escapeHtml(advisoryText) + '</pre>';
+        html += '</div></div>';
+
+        html += '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-circle"></i> <strong>Confirm:</strong> This will activate the GS, apply EDCTs to all controlled flights, and publish the advisory to the live network.</div>';
+
+        html += '</div>';
+
+        return window.Swal.fire({
+            title: '<i class="fas fa-plane-departure text-warning"></i> Activate Ground Stop?',
+            html: html,
+            icon: null,
+            width: 700,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-check"></i> Activate & Publish',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            customClass: {
+                popup: 'gs-confirm-popup'
+            }
+        }).then(function(result) {
+            return !!(result && result.isConfirmed);
+        });
+    }
+
 function handleGsPreview() {
         var statusEl = document.getElementById("gs_adl_status");
         if (statusEl) statusEl.textContent = "Creating GS program and modeling flights...";
@@ -3874,12 +3995,8 @@ function handleGsSendActual() {
 
         var workflowPayload = collectGsWorkflowPayload();
 
-        return showConfirmDialog(
-            "Activate GS Program " + GS_CURRENT_PROGRAM_ID + "?",
-            "This will activate the GS program and apply EDCTs to affected flights in the live ADL. The advisory will be published to VATSWIM.",
-            "Activate & Publish",
-            "warning"
-        ).then(function(confirmed) {
+        // Build detailed confirmation modal with flight list and advisory
+        return showGsActivationConfirmation(workflowPayload).then(function(confirmed) {
             if (!confirmed) return;
 
             if (statusEl) statusEl.textContent = "Activating GS program " + GS_CURRENT_PROGRAM_ID + "...";
