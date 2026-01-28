@@ -59,7 +59,7 @@ $source = strtoupper($_GET['source'] ?? 'PRODUCTION');
 $includeStaging = ($source === 'ALL' || $source === 'STAGING');
 $stagingOnly = ($source === 'STAGING');
 
-// Connect to TMI database
+// Connect to TMI database (for entries, advisories, programs)
 $tmiConn = null;
 try {
     if (defined('TMI_SQL_HOST') && TMI_SQL_HOST) {
@@ -80,6 +80,22 @@ if (!$tmiConn) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database not configured']);
     exit;
+}
+
+// Connect to ADL database (for reroutes)
+$adlConn = null;
+try {
+    if (defined('ADL_SQL_HOST') && ADL_SQL_HOST) {
+        $adlConn = new PDO(
+            "sqlsrv:Server=" . ADL_SQL_HOST . ";Database=" . ADL_SQL_DATABASE,
+            ADL_SQL_USERNAME,
+            ADL_SQL_PASSWORD
+        );
+        $adlConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
+} catch (Exception $e) {
+    // ADL connection failure is non-fatal - just log and continue without reroutes
+    $adlConn = null;
 }
 
 $results = [
@@ -137,18 +153,18 @@ try {
         }
     }
 
-    // Get active reroutes
-    if ($type === 'all' || $type === 'reroute' || $type === 'reroutes') {
-        $activeReroutes = getActiveReroutes($tmiConn, $limit);
+    // Get active reroutes (from ADL database)
+    if (($type === 'all' || $type === 'reroute' || $type === 'reroutes') && $adlConn) {
+        $activeReroutes = getActiveReroutes($adlConn, $limit);
         $results['active'] = array_merge($results['active'], $activeReroutes);
 
         if ($includeScheduled) {
-            $scheduledReroutes = getScheduledReroutes($tmiConn, $limit);
+            $scheduledReroutes = getScheduledReroutes($adlConn, $limit);
             $results['scheduled'] = array_merge($results['scheduled'], $scheduledReroutes);
         }
 
         if ($includeCancelled) {
-            $cancelledReroutes = getCancelledReroutes($tmiConn, $cancelledHours, $limit);
+            $cancelledReroutes = getCancelledReroutes($adlConn, $cancelledHours, $limit);
             $results['cancelled'] = array_merge($results['cancelled'], $cancelledReroutes);
         }
     }
@@ -935,7 +951,7 @@ function buildProgramSummary($row) {
 
 /**
  * Get currently active reroutes
- * Note: TMI database uses reroute_id, created_at, updated_at, activated_at
+ * Note: ADL database uses id (not reroute_id), created_utc, updated_utc, activated_utc
  */
 function getActiveReroutes($conn, $limit) {
     if (!tableExists($conn, 'tmi_reroutes')) {
@@ -943,7 +959,7 @@ function getActiveReroutes($conn, $limit) {
     }
 
     $sql = "SELECT TOP {$limit}
-                reroute_id,
+                id,
                 name,
                 adv_number,
                 status,
@@ -961,13 +977,13 @@ function getActiveReroutes($conn, $limit) {
                 comments,
                 advisory_text,
                 created_by,
-                created_at,
-                updated_at,
-                activated_at
+                created_utc,
+                updated_utc,
+                activated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (2, 3)  -- active, monitoring
-              AND (end_utc IS NULL OR end_utc > SYSUTCDATETIME())
-              AND (start_utc IS NULL OR start_utc <= SYSUTCDATETIME())
+              AND (end_utc IS NULL OR end_utc > GETUTCDATE())
+              AND (start_utc IS NULL OR start_utc <= GETUTCDATE())
             ORDER BY start_utc DESC";
 
     try {
@@ -993,7 +1009,7 @@ function getScheduledReroutes($conn, $limit) {
     }
 
     $sql = "SELECT TOP {$limit}
-                reroute_id,
+                id,
                 name,
                 adv_number,
                 status,
@@ -1011,11 +1027,11 @@ function getScheduledReroutes($conn, $limit) {
                 comments,
                 advisory_text,
                 created_by,
-                created_at,
-                updated_at
+                created_utc,
+                updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (0, 1)  -- draft, proposed
-              AND start_utc > SYSUTCDATETIME()
+              AND start_utc > GETUTCDATE()
             ORDER BY start_utc ASC";
 
     try {
@@ -1041,7 +1057,7 @@ function getCancelledReroutes($conn, $hours, $limit) {
     }
 
     $sql = "SELECT TOP {$limit}
-                reroute_id,
+                id,
                 name,
                 adv_number,
                 status,
@@ -1059,12 +1075,12 @@ function getCancelledReroutes($conn, $hours, $limit) {
                 comments,
                 advisory_text,
                 created_by,
-                created_at,
-                updated_at
+                created_utc,
+                updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (4, 5)  -- expired, cancelled
-              AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
-            ORDER BY updated_at DESC";
+              AND updated_utc > DATEADD(HOUR, -{$hours}, GETUTCDATE())
+            ORDER BY updated_utc DESC";
 
     try {
         $stmt = $conn->prepare($sql);
@@ -1082,7 +1098,7 @@ function getCancelledReroutes($conn, $hours, $limit) {
 
 /**
  * Format reroute for API response
- * Note: TMI database uses reroute_id, created_at, updated_at, activated_at
+ * Note: ADL database uses id (not reroute_id), created_utc, updated_utc, activated_utc
  */
 function formatReroute($row) {
     // Map numeric status to string
@@ -1098,7 +1114,7 @@ function formatReroute($row) {
 
     return [
         'entityType' => 'REROUTE',
-        'entityId' => intval($row['reroute_id'] ?? 0),
+        'entityId' => intval($row['id'] ?? 0),
         'type' => 'reroute',
         'entryType' => 'REROUTE',
         'summary' => buildRerouteSummary($row),
@@ -1118,9 +1134,9 @@ function formatReroute($row) {
         'validFrom' => formatDatetime($row['start_utc'] ?? null),
         'validUntil' => formatDatetime($row['end_utc'] ?? null),
         'status' => $status,
-        'createdAt' => formatDatetime($row['created_at'] ?? null),
-        'updatedAt' => formatDatetime($row['updated_at'] ?? null),
-        'activatedAt' => formatDatetime($row['activated_at'] ?? null),
+        'createdAt' => formatDatetime($row['created_utc'] ?? null),
+        'updatedAt' => formatDatetime($row['updated_utc'] ?? null),
+        'activatedAt' => formatDatetime($row['activated_utc'] ?? null),
         'createdBy' => $row['created_by'] ?? null
     ];
 }

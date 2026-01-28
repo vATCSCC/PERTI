@@ -78,7 +78,7 @@ if (empty($updates)) {
     exit;
 }
 
-// Connect to TMI database
+// Connect to TMI database (for entries, advisories, programs)
 $tmiConn = null;
 try {
     if (defined('TMI_SQL_HOST') && TMI_SQL_HOST) {
@@ -99,6 +99,22 @@ if (!$tmiConn) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database not configured']);
     exit;
+}
+
+// Connect to ADL database (for reroutes)
+$adlConn = null;
+try {
+    if (defined('ADL_SQL_HOST') && ADL_SQL_HOST) {
+        $adlConn = new PDO(
+            "sqlsrv:Server=" . ADL_SQL_HOST . ";Database=" . ADL_SQL_DATABASE,
+            ADL_SQL_USERNAME,
+            ADL_SQL_PASSWORD
+        );
+        $adlConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
+} catch (Exception $e) {
+    // ADL connection failure is non-fatal for non-reroute operations
+    $adlConn = null;
 }
 
 try {
@@ -358,11 +374,19 @@ try {
         logEditEvent($tmiConn, 'PROGRAM', $entityId, $updates, $userCid, $userName);
 
     } elseif ($entityType === 'REROUTE') {
-        // Update reroute (TMI uses reroute_id, updated_at)
-        $setClauses = ['updated_at = SYSUTCDATETIME()'];
-        $params = [':reroute_id' => $entityId];
+        // Update reroute (ADL uses id, updated_utc)
+        if (!$adlConn) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'ADL database not configured for reroute operations'
+            ]);
+            exit;
+        }
 
-        // Time fields (DATETIME2 in TMI database)
+        $setClauses = ['updated_utc = GETUTCDATE()'];
+        $params = [':id' => $entityId];
+
+        // Time fields
         if (isset($updates['validFrom']) && $updates['validFrom']) {
             $setClauses[] = 'start_utc = :start_utc';
             $params[':start_utc'] = parseUtcDateTime($updates['validFrom']);
@@ -422,10 +446,10 @@ try {
         // Status 4=expired, 5=cancelled
         $sql = "UPDATE dbo.tmi_reroutes
                 SET " . implode(', ', $setClauses) . "
-                WHERE reroute_id = :reroute_id
+                WHERE id = :id
                   AND status NOT IN (4, 5)";
 
-        $stmt = $tmiConn->prepare($sql);
+        $stmt = $adlConn->prepare($sql);
         $stmt->execute($params);
 
         $rowsAffected = $stmt->rowCount();
@@ -438,7 +462,7 @@ try {
             exit;
         }
 
-        // Log event
+        // Log event (to TMI events table)
         logEditEvent($tmiConn, 'REROUTE', $entityId, $updates, $userCid, $userName);
     }
 
