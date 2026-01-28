@@ -40,6 +40,28 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 error_reporting(E_ALL);
 ini_set('display_errors', 0); // Don't display, but capture
 
+// Set custom error handler to catch fatal errors
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+});
+
+// Shutdown function for uncaught errors
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json');
+        }
+        echo json_encode([
+            'success' => false,
+            'error' => 'Fatal error: ' . $error['message'],
+            'file' => basename($error['file']),
+            'line' => $error['line']
+        ]);
+    }
+});
+
 // Load dependencies
 try {
     require_once __DIR__ . '/../../../load/config.php';
@@ -47,6 +69,10 @@ try {
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Config load error: ' . $e->getMessage()]);
+    exit;
+} catch (Error $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Config error: ' . $e->getMessage()]);
     exit;
 }
 
@@ -58,7 +84,8 @@ if (!isset($conn_sqli) || !$conn_sqli) {
         'error' => 'MySQL database connection not available',
         'debug' => [
             'conn_sqli_set' => isset($conn_sqli),
-            'mysql_host_defined' => defined('MYSQL_HOST')
+            'sql_host_defined' => defined('SQL_HOST'),
+            'sql_database_defined' => defined('SQL_DATABASE')
         ]
     ]);
     exit;
@@ -68,6 +95,21 @@ if (!isset($conn_sqli) || !$conn_sqli) {
 if ($conn_sqli->connect_error) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'MySQL connection error: ' . $conn_sqli->connect_error]);
+    exit;
+}
+
+// Check if p_plans table exists
+$tableCheck = $conn_sqli->query("SHOW TABLES LIKE 'p_plans'");
+if (!$tableCheck || $tableCheck->num_rows === 0) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Table p_plans does not exist in database',
+        'debug' => [
+            'database' => defined('SQL_DATABASE') ? SQL_DATABASE : 'unknown',
+            'host' => defined('SQL_HOST') ? SQL_HOST : 'unknown'
+        ]
+    ]);
     exit;
 }
 
@@ -201,6 +243,24 @@ function returnPlanList($conn) {
 }
 
 /**
+ * Check which related tables exist
+ */
+function checkTablesExist($conn) {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $tables = ['p_terminal_init', 'p_enroute_init', 'p_events'];
+    $cache = [];
+
+    foreach ($tables as $table) {
+        $result = $conn->query("SHOW TABLES LIKE '$table'");
+        $cache[$table] = ($result && $result->num_rows > 0);
+    }
+
+    return $cache;
+}
+
+/**
  * Format basic plan info
  */
 function formatPlanBasic($row) {
@@ -236,52 +296,57 @@ function buildFullPlanData($conn, $row) {
         'events' => []
     ];
 
+    // Check if related tables exist before querying
+    $tablesExist = checkTablesExist($conn);
+
     // Get Terminal Initiatives (with error handling)
-    $termQuery = $conn->query("SELECT * FROM p_terminal_init WHERE p_id = $planId ORDER BY id");
-    if ($termQuery) {
-        while ($t = $termQuery->fetch_assoc()) {
-            $plan['tmis'][] = [
-                'type' => 'terminal',
-                'airport' => $t['title'] ?? '',
-                'program' => $t['program'] ?? null,
-                'rate' => $t['rate'] ?? null,
-                'scope' => $t['scope'] ?? null,
-                'notes' => $t['notes'] ?? null
-            ];
+    // Table schema: p_id, title, context
+    if ($tablesExist['p_terminal_init']) {
+        $termQuery = $conn->query("SELECT * FROM p_terminal_init WHERE p_id = $planId ORDER BY id");
+        if ($termQuery) {
+            while ($t = $termQuery->fetch_assoc()) {
+                $plan['tmis'][] = [
+                    'type' => 'terminal',
+                    'airport' => $t['title'] ?? '',
+                    'context' => $t['context'] ?? null
+                ];
+            }
         }
     }
 
     // Get Enroute Initiatives (with error handling)
-    $enrouteQuery = $conn->query("SELECT * FROM p_enroute_init WHERE p_id = $planId ORDER BY id");
-    if ($enrouteQuery) {
-        while ($e = $enrouteQuery->fetch_assoc()) {
-            $plan['tmis'][] = [
-                'type' => 'enroute',
-                'element' => $e['title'] ?? null,
-                'restriction' => $e['restriction'] ?? null,
-                'scope' => $e['scope'] ?? null,
-                'notes' => $e['notes'] ?? null
-            ];
+    // Table schema: p_id, title, context
+    if ($tablesExist['p_enroute_init']) {
+        $enrouteQuery = $conn->query("SELECT * FROM p_enroute_init WHERE p_id = $planId ORDER BY id");
+        if ($enrouteQuery) {
+            while ($e = $enrouteQuery->fetch_assoc()) {
+                $plan['tmis'][] = [
+                    'type' => 'enroute',
+                    'element' => $e['title'] ?? null,
+                    'context' => $e['context'] ?? null
+                ];
+            }
         }
     }
 
-    // Get Weather constraints (from terminal init notes or separate table if exists)
-    // Try to parse weather info from notes
+    // Get Weather constraints (from context field if it mentions weather)
     foreach ($plan['tmis'] as $tmi) {
-        if (!empty($tmi['notes']) && stripos($tmi['notes'], 'weather') !== false) {
-            $plan['weather'][] = $tmi['notes'];
+        if (!empty($tmi['context']) && stripos($tmi['context'], 'weather') !== false) {
+            $plan['weather'][] = $tmi['context'];
         }
     }
 
     // Get Special Events
-    $eventsQuery = $conn->query("SELECT * FROM p_events WHERE p_id = $planId ORDER BY id");
-    if ($eventsQuery) {
-        while ($ev = $eventsQuery->fetch_assoc()) {
-            $plan['events'][] = [
-                'title' => $ev['title'] ?? null,
-                'description' => $ev['description'] ?? null,
-                'time' => $ev['event_time'] ?? null
-            ];
+    if ($tablesExist['p_events']) {
+        $eventsQuery = $conn->query("SELECT * FROM p_events WHERE p_id = $planId ORDER BY id");
+        if ($eventsQuery) {
+            while ($ev = $eventsQuery->fetch_assoc()) {
+                $plan['events'][] = [
+                    'title' => $ev['title'] ?? null,
+                    'description' => $ev['description'] ?? null,
+                    'time' => $ev['event_time'] ?? null
+                ];
+            }
         }
     }
 
@@ -324,13 +389,12 @@ function buildInitiativesSummary($tmis) {
     $lines = [];
     foreach ($tmis as $tmi) {
         if ($tmi['type'] === 'terminal') {
-            $line = $tmi['airport'];
-            if (!empty($tmi['program'])) $line .= ' - ' . $tmi['program'];
-            if (!empty($tmi['rate'])) $line .= ' (Rate: ' . $tmi['rate'] . ')';
+            $line = $tmi['airport'] ?? '';
+            if (!empty($tmi['context'])) $line .= ' - ' . $tmi['context'];
             $lines[] = $line;
         } else {
             $line = $tmi['element'] ?? 'Enroute';
-            if (!empty($tmi['restriction'])) $line .= ' - ' . $tmi['restriction'];
+            if (!empty($tmi['context'])) $line .= ' - ' . $tmi['context'];
             $lines[] = $line;
         }
     }
@@ -349,8 +413,8 @@ function buildConstraintsSummary($plan) {
     }
 
     foreach ($plan['tmis'] as $tmi) {
-        if (!empty($tmi['scope'])) {
-            $lines[] = ($tmi['airport'] ?? $tmi['element']) . ': ' . $tmi['scope'];
+        if (!empty($tmi['context'])) {
+            $lines[] = ($tmi['airport'] ?? $tmi['element'] ?? 'TMI') . ': ' . $tmi['context'];
         }
     }
 
