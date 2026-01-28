@@ -558,7 +558,12 @@ function handleSubmitForCoordination() {
         $discordResult = postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName);
 
         if ($discordResult && isset($discordResult['id'])) {
-            // Update proposal with Discord message ID
+            // Update proposal with Discord IDs
+            // Use thread_id as channel (Discord treats threads as channels for API calls)
+            // Use thread_message_id as the message (where reactions are added)
+            $channelId = $discordResult['thread_id'] ?? DISCORD_COORDINATION_CHANNEL;
+            $messageId = $discordResult['thread_message_id'] ?? $discordResult['id'];
+
             $updateSql = "UPDATE dbo.tmi_proposals SET
                               discord_channel_id = :channel,
                               discord_message_id = :message_id,
@@ -566,8 +571,8 @@ function handleSubmitForCoordination() {
                           WHERE proposal_id = :prop_id";
             $updateStmt = $conn->prepare($updateSql);
             $updateStmt->execute([
-                ':channel' => DISCORD_COORDINATION_CHANNEL,
-                ':message_id' => $discordResult['id'],
+                ':channel' => $channelId,
+                ':message_id' => $messageId,
                 ':prop_id' => $proposalId
             ]);
         }
@@ -2048,43 +2053,28 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
     }
     $facilityApprovalStr = implode("\n", $facilityApprovalList);
 
-    // Build message
+    // Build message - professional, compact format for Discord threads
     $lines = [
-        "```",
-        "╔═══════════════════════════════════════════════════════════════════╗",
-        "║           TMI COORDINATION PROPOSAL - APPROVAL REQUIRED           ║",
-        "╠═══════════════════════════════════════════════════════════════════╣",
-        "║             THIS IS A PROPOSAL ONLY - NOT YET ACTIVE              ║",
-        "╚═══════════════════════════════════════════════════════════════════╝",
-        "```",
+        "## TMI Coordination Request",
+        "> PROPOSAL ONLY - NOT YET ACTIVE",
         "",
-        "**Proposed by:** {$userName}",
-        "**Proposal ID:** #{$proposalId}",
+        "**Proposed by:** {$userName} | **ID:** #{$proposalId}",
+        "**Deadline:** `{$deadlineUtcStr}` ({$deadlineDiscordRelative})",
         "",
-        "**Approval Deadline:**",
-        "› UTC: `{$deadlineUtcStr}`",
-        "› Local: {$deadlineDiscordLong}",
-        "› {$deadlineDiscordRelative}",
-        "",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "**Proposed TMI:**",
         "```",
         $ntmlText,
         "```",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "",
-        "**Facilities Required to Approve (react with primary or alt emoji):**",
+        "**Facilities Required to Approve:**",
         $facilityApprovalStr,
         "",
-        "**How to Respond:**",
-        "› **Deny:** React with ❌ or 🚫",
-        "› **DCC Override:** React with :DCC: to approve or ❌ to deny",
+        "**Instructions:**",
+        "- React with facility emoji to approve",
+        "- React with X to deny",
+        "- DCC may override with :DCC:",
         "",
-        "```",
-        "╔═══════════════════════════════════════════════════════════════════╗",
-        "║    UNANIMOUS APPROVAL REQUIRED BEFORE DEADLINE - OR DCC ACTION    ║",
-        "╚═══════════════════════════════════════════════════════════════════╝",
-        "```"
+        "_Unanimous approval required before deadline._"
     ];
 
     return implode("\n", $lines);

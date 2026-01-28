@@ -4069,26 +4069,10 @@
             });
         }
 
-        // Check airport -> ARTCC mapping (for destination ARTCC)
-        if (data.ctl_element) {
-            const airport = data.ctl_element.toUpperCase();
-            const artcc = AIRPORT_TO_ARTCC[airport];
-            // Only add if not the requesting facility
-            if (artcc && artcc !== reqFacility) facilities.add(artcc);
-        }
-
-        // Check traffic flow field (may indicate additional ARTCCs)
-        if (data.traffic_flow) {
-            const flow = data.traffic_flow.toUpperCase();
-            // Look for ARTCC codes in traffic flow (e.g., "ZNY DEPS", "ZDC ARR")
-            Object.keys(AIRPORT_TO_ARTCC).forEach(key => {
-                if (flow.includes(key)) {
-                    const artcc = AIRPORT_TO_ARTCC[key];
-                    // Only add if not the requesting facility
-                    if (artcc && artcc !== reqFacility) facilities.add(artcc);
-                }
-            });
-        }
+        // NOTE: Control element (airport) does NOT determine coordination facilities.
+        // Coordination is purely between requesting and providing facilities.
+        // The TMI could be for an airport in a different ARTCC, but that ARTCC
+        // doesn't need to approve - only the specified req:prov facilities do.
 
         return facilities;
     }

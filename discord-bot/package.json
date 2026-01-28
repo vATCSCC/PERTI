@@ -1,0 +1,17 @@
+{
+  "name": "perti-tmi-coordination-bot",
+  "version": "1.0.0",
+  "description": "Discord Gateway bot for real-time TMI coordination reaction processing",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node --watch bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
