@@ -469,6 +469,7 @@ function handleSubmitForCoordination() {
         $proposalGuid = $row['proposal_guid'];
 
         // Insert required facilities
+        $facilityCodes = [];
         foreach ($facilities as $facility) {
             $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
             $facName = is_array($facility) ? ($facility['name'] ?? null) : null;
@@ -484,9 +485,70 @@ function handleSubmitForCoordination() {
                 ':name' => $facName,
                 ':emoji' => $facEmoji
             ]);
+            $facilityCodes[] = strtoupper($facCode);
         }
 
+        // ===================================================
+        // CHECK FOR INTERNAL TMI (same responsible ARTCC)
+        // If all providers share the same responsible ARTCC as the requester,
+        // auto-approve immediately without coordination
+        // ===================================================
+        $isInternalTmi = false;
+        $reqArtcc = getParentArtcc($requestingFacility);
+
+        if ($reqArtcc) {
+            // Check if ALL facility codes share the same responsible ARTCC
+            $allSameArtcc = true;
+            foreach ($facilityCodes as $facCode) {
+                $facArtcc = getParentArtcc($facCode);
+                if ($facArtcc !== $reqArtcc) {
+                    $allSameArtcc = false;
+                    break;
+                }
+            }
+            $isInternalTmi = $allSameArtcc;
+        }
+
+        if ($isInternalTmi) {
+            // Auto-approve all facilities
+            $autoApproveSql = "UPDATE dbo.tmi_proposal_facilities SET
+                                   approval_status = 'APPROVED',
+                                   reacted_at = SYSUTCDATETIME(),
+                                   reacted_by_user_id = 'AUTO',
+                                   reacted_by_username = 'Internal TMI Auto-Approve'
+                               WHERE proposal_id = :prop_id";
+            $conn->prepare($autoApproveSql)->execute([':prop_id' => $proposalId]);
+
+            $conn->commit();
+
+            // Log auto-approval
+            logCoordinationActivity($conn, $proposalId, 'AUTO_APPROVED', [
+                'entry_type' => $entryType,
+                'ctl_element' => $ctlElement,
+                'created_by' => $userCid,
+                'created_by_name' => $userName,
+                'reason' => "Internal {$reqArtcc} TMI - all facilities under same ARTCC",
+                'facilities' => $facilityCodes
+            ]);
+
+            // Activate the proposal immediately
+            $activationResult = activateProposal($conn, $proposalId);
+
+            echo json_encode([
+                'success' => true,
+                'proposal_id' => $proposalId,
+                'proposal_guid' => $proposalGuid,
+                'auto_approved' => true,
+                'reason' => "Internal {$reqArtcc} TMI - no external coordination required",
+                'activation' => $activationResult
+            ]);
+            return;
+        }
+
+        // ===================================================
+        // EXTERNAL TMI - Requires coordination
         // Post to Discord coordination channel
+        // ===================================================
         $discordResult = postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName);
 
         if ($discordResult && isset($discordResult['id'])) {
@@ -905,7 +967,9 @@ function handleProcessReaction() {
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
                 'emoji' => $emoji,
-                'via' => $isWebDccOverride ? 'web' : 'discord'
+                'via' => $isWebDccOverride ? 'web' : 'discord',
+                'entry_type' => $proposal['entry_type'] ?? '',
+                'ctl_element' => $proposal['ctl_element'] ?? ''
             ]);
         } elseif ($facilityCode && $reactionType === 'FACILITY_APPROVE') {
             // Update facility approval status
@@ -928,7 +992,9 @@ function handleProcessReaction() {
                 'facility' => $facilityCode,
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
-                'emoji' => $emoji
+                'emoji' => $emoji,
+                'entry_type' => $proposal['entry_type'] ?? '',
+                'ctl_element' => $proposal['ctl_element'] ?? ''
             ]);
         } elseif ($facilityCode && $reactionType === 'FACILITY_DENY') {
             // Update facility denial status
@@ -951,7 +1017,9 @@ function handleProcessReaction() {
                 'facility' => $facilityCode,
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
-                'emoji' => $emoji
+                'emoji' => $emoji,
+                'entry_type' => $proposal['entry_type'] ?? '',
+                'ctl_element' => $proposal['ctl_element'] ?? ''
             ]);
         }
 
@@ -1237,26 +1305,54 @@ function handleEditProposal($input) {
             'user_name' => $userName,
             'reason' => $updates['edit_reason'] ?? 'No reason provided',
             'old_values' => $oldData,
-            'new_values' => $updates
+            'new_values' => $updates,
+            'entry_type' => $proposal['entry_type'] ?? '',
+            'ctl_element' => $proposal['ctl_element'] ?? ''
         ]);
 
-        // Update Discord message if exists (to show EDITED status with diff)
-        if (!empty($proposal['discord_message_id'])) {
-            updateProposalDiscordMessage(
-                $proposalId,
-                $conn,
-                $oldData,
-                $updates,
-                $updates['edit_reason'] ?? 'No reason provided',
-                $userName
-            );
+        // Re-post to Discord coordination channel (restart coordination)
+        // This posts a NEW message marked as EDITED for re-approval
+        $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
+        $facStmt = $conn->prepare($facSql);
+        $facStmt->execute([':id' => $proposalId]);
+        $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
+        $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
+
+        // Get updated entry data
+        $updatedEntryData = json_decode($params[':entry_data'], true) ?: $entryData;
+
+        // Set new deadline (6 hours from now)
+        $newDeadline = new DateTime('now', new DateTimeZone('UTC'));
+        $newDeadline->modify('+6 hours');
+
+        // Post new coordination message marked as EDITED
+        $discordResult = postProposalToDiscord(
+            $proposalId,
+            $updatedEntryData,
+            $newDeadline,
+            $facilityList,
+            $userName . ' (EDITED)'
+        );
+
+        // Update proposal with new Discord message ID and deadline
+        if ($discordResult && isset($discordResult['id'])) {
+            $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
+                                     discord_message_id = :msg_id,
+                                     approval_deadline_utc = :deadline
+                                 WHERE proposal_id = :prop_id";
+            $conn->prepare($updateDiscordSql)->execute([
+                ':msg_id' => $discordResult['id'],
+                ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
+                ':prop_id' => $proposalId
+            ]);
         }
 
         echo json_encode([
             'success' => true,
             'proposal_id' => $proposalId,
             'message' => 'Proposal updated and coordination restarted',
-            'approvals_cleared' => true
+            'approvals_cleared' => true,
+            'new_discord_message' => isset($discordResult['id'])
         ]);
 
     } catch (Exception $e) {
@@ -1500,7 +1596,10 @@ function handleRescindProposal() {
             'new_status' => $newStatus,
             'user_cid' => $userCid,
             'user_name' => $userName,
-            'reason' => $reason
+            'reason' => $reason,
+            'entry_type' => $proposal['entry_type'] ?? '',
+            'ctl_element' => $proposal['ctl_element'] ?? '',
+            'via' => 'web'
         ]);
 
         echo json_encode([
@@ -1639,39 +1738,33 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
     $deadlineDiscordLong = "<t:{$deadlineUnix}:F>";      // Full date/time
     $deadlineDiscordRelative = "<t:{$deadlineUnix}:R>"; // Relative (in X hours)
 
-    // Build facility list and emoji legend
+    // Build facility list with both primary and alternate emojis
     // Track used emojis to ensure uniqueness across facilities in this proposal
     $usedEmojis = [];
-    $facilityList = [];
-    $emojiLegend = [];
+    $facilityApprovalList = []; // Detailed list with both emojis
     $facilityEmojiMap = []; // Track emoji -> facility for this proposal
 
     foreach ($facilities as $fac) {
         $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
         $facCode = strtoupper(trim($facCode));
-        $facEmoji = is_array($fac) ? ($fac['emoji'] ?? ":$facCode:") : ":$facCode:";
-        $facilityList[] = "{$facEmoji} {$facCode}";
+        $primaryEmoji = is_array($fac) ? ($fac['emoji'] ?? ":$facCode:") : ":$facCode:";
 
         // Get appropriate alternate emoji (ARTCC, parent ARTCC, or fallback)
         $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
         $altEmoji = $emojiInfo['emoji'];
 
-        // Build legend entry with context
-        if ($emojiInfo['type'] === 'artcc') {
-            $emojiLegend[] = "{$altEmoji} = {$facCode}";
-        } elseif ($emojiInfo['type'] === 'parent' && $emojiInfo['parent']) {
-            // Show that parent ARTCC can approve for this facility
-            $emojiLegend[] = "{$altEmoji} = {$facCode} ({$emojiInfo['parent']})";
+        // Build detailed facility entry with both emojis
+        if ($emojiInfo['type'] === 'parent' && $emojiInfo['parent']) {
+            // Show parent ARTCC relationship
+            $facilityApprovalList[] = "› **{$facCode}**: {$primaryEmoji} (primary) or {$altEmoji} ({$emojiInfo['parent']})";
         } else {
-            // Fallback emoji
-            $emojiLegend[] = "{$altEmoji} = {$facCode}";
+            $facilityApprovalList[] = "› **{$facCode}**: {$primaryEmoji} (primary) or {$altEmoji} (alt)";
         }
 
         // Track this mapping for reaction processing
         $facilityEmojiMap[$altEmoji] = $facCode;
     }
-    $facilityStr = implode(' | ', $facilityList);
-    $emojiLegendStr = implode(' | ', $emojiLegend);
+    $facilityApprovalStr = implode("\n", $facilityApprovalList);
 
     // Build message
     $lines = [
@@ -1691,9 +1784,6 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
         "› Local: {$deadlineDiscordLong}",
         "› {$deadlineDiscordRelative}",
         "",
-        "**Facilities Required to Approve:**",
-        $facilityStr,
-        "",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "**Proposed TMI:**",
         "```",
@@ -1701,14 +1791,12 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
         "```",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "",
-        "**How to Respond:**",
-        "› **Approve:** React with your facility's emoji (e.g., :ZDC:)",
-        "› **Approve (Alternate):** Use letter emoji: {$emojiLegendStr}",
-        "› **Deny:** React with ❌ or 🚫",
+        "**Facilities Required to Approve (react with primary or alt emoji):**",
+        $facilityApprovalStr,
         "",
-        "**DCC has final authority to approve or deny any proposed TMI.**",
-        "› DCC Approve: React with :DCC:",
-        "› DCC Deny: React with ❌ or 🚫",
+        "**How to Respond:**",
+        "› **Deny:** React with ❌ or 🚫",
+        "› **DCC Override:** React with :DCC: to approve or ❌ to deny",
         "",
         "```",
         "╔═══════════════════════════════════════════════════════════════════╗",
@@ -1797,7 +1885,9 @@ function activateProposal($conn, $proposalId) {
         logCoordinationActivity($conn, $proposalId, 'ACTIVATED', [
             'status' => $newStatus,
             'tmi_entry_id' => $tmiEntryId,
-            'discord_posted' => !empty($discordResult['success'])
+            'discord_posted' => !empty($discordResult['success']),
+            'entry_type' => $proposal['entry_type'] ?? '',
+            'ctl_element' => $proposal['ctl_element'] ?? ''
         ]);
 
         return [
@@ -1966,84 +2056,147 @@ function logCoordinationActivity($conn, $proposalId, $action, $details = []) {
 
 /**
  * Format a concise coordination log message for Discord
+ * Includes UTC timestamp + Discord long format (:f) + relative format (:R)
  */
 function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp) {
     $userName = $details['user_name'] ?? $details['created_by_name'] ?? 'System';
     $userCid = $details['user_cid'] ?? $details['created_by'] ?? '';
+    $via = isset($details['via']) ? " ({$details['via']})" : '';
+
+    // Get Unix timestamp for Discord formatting
+    $unixTime = time();
+
+    // Build timestamp section: UTC + Discord :f (long) + Discord :R (relative)
+    $discordLong = "<t:{$unixTime}:f>";      // e.g., "January 28, 2026 1:36 PM"
+    $discordRelative = "<t:{$unixTime}:R>";  // e.g., "2 minutes ago"
 
     // Build concise log entry
-    $parts = ["`[{$timestamp}]`"];
+    $parts = ["`[{$timestamp}]` {$discordLong} ({$discordRelative})"];
 
     switch ($action) {
         case 'SUBMITTED':
             $entryType = $details['entry_type'] ?? 'TMI';
             $element = $details['ctl_element'] ?? '';
-            $parts[] = "📝 **SUBMITTED** Proposal #{$proposalId}";
-            $parts[] = "| {$entryType} {$element}";
+            $facilities = $details['facilities'] ?? '';
+            $parts[] = "📝 **SUBMITTED** Prop #{$proposalId}";
+            $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            if ($facilities) $parts[] = "| To: {$facilities}";
             $parts[] = "| by {$userName}";
-            if (!empty($details['deadline'])) {
-                $parts[] = "| deadline: {$details['deadline']}";
-            }
             break;
 
         case 'DCC_APPROVE':
         case 'DCC_APPROVED':
-            $parts[] = "✅ **DCC APPROVED** Proposal #{$proposalId}";
-            $parts[] = "| by {$userName}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "⚡ **DCC OVERRIDE APPROVED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            $parts[] = "| by {$userName}{$via}";
             break;
 
         case 'DCC_DENY':
         case 'DCC_DENIED':
-            $parts[] = "❌ **DCC DENIED** Proposal #{$proposalId}";
-            $parts[] = "| by {$userName}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "⚡ **DCC OVERRIDE DENIED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            $parts[] = "| by {$userName}{$via}";
             break;
 
         case 'FACILITY_APPROVE':
             $facility = $details['facility'] ?? 'Unknown';
-            $parts[] = "✅ **{$facility} APPROVED** Proposal #{$proposalId}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $emoji = $details['emoji'] ?? '';
+            $parts[] = "✅ **{$facility} APPROVED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            if ($emoji) $parts[] = "| via {$emoji}";
             $parts[] = "| by {$userName}";
             break;
 
         case 'FACILITY_DENY':
             $facility = $details['facility'] ?? 'Unknown';
-            $parts[] = "❌ **{$facility} DENIED** Proposal #{$proposalId}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $emoji = $details['emoji'] ?? '';
+            $parts[] = "❌ **{$facility} DENIED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            if ($emoji) $parts[] = "| via {$emoji}";
             $parts[] = "| by {$userName}";
             break;
 
         case 'ACTIVATED':
             $status = $details['status'] ?? 'ACTIVATED';
             $tmiId = $details['tmi_entry_id'] ?? '';
-            $parts[] = "🚀 **{$status}** Proposal #{$proposalId}";
-            if ($tmiId) $parts[] = "| TMI Entry #{$tmiId}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "🚀 **{$status}** Prop #{$proposalId}";
+            if ($tmiId) $parts[] = "→ TMI #{$tmiId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
             $parts[] = "| Discord: " . ($details['discord_posted'] ? '✅' : '❌');
             break;
 
         case 'DCC_REOPEN':
-            $parts[] = "🔄 **REOPENED** Proposal #{$proposalId}";
-            $parts[] = "| by {$userName}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "🔄 **REOPENED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            $parts[] = "| by {$userName}{$via}";
             if (!empty($details['reason'])) $parts[] = "| reason: {$details['reason']}";
             break;
 
         case 'DCC_CANCEL':
-            $parts[] = "🗑️ **CANCELLED** Proposal #{$proposalId}";
-            $parts[] = "| by {$userName}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "🗑️ **CANCELLED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            $parts[] = "| by {$userName}{$via}";
             break;
 
         case 'DEADLINE_EXTENDED':
-            $parts[] = "⏰ **DEADLINE EXTENDED** Proposal #{$proposalId}";
-            $parts[] = "| new: {$details['new_deadline']}";
+            $newDeadlineUnix = strtotime($details['new_deadline'] ?? 'now');
+            $parts[] = "⏰ **DEADLINE EXTENDED** Prop #{$proposalId}";
+            $parts[] = "| new: <t:{$newDeadlineUnix}:f>";
             $parts[] = "| by {$userName}";
             break;
 
         case 'PROPOSAL_EDITED':
-            $parts[] = "✏️ **PROPOSAL EDITED** Proposal #{$proposalId}";
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "✏️ **PROPOSAL EDITED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
             $parts[] = "| by {$userName}";
-            $parts[] = "| reason: " . ($details['reason'] ?? 'No reason');
             $parts[] = "| ⚠️ Approvals cleared, coordination restarted";
             break;
 
+        case 'EXPIRED':
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "⏰ **EXPIRED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            break;
+
+        case 'AUTO_APPROVED':
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $reason = $details['reason'] ?? 'internal TMI';
+            $parts[] = "🤖 **AUTO-APPROVED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            $parts[] = "| {$reason}";
+            break;
+
         default:
-            $parts[] = "📋 **{$action}** Proposal #{$proposalId}";
+            $parts[] = "📋 **{$action}** Prop #{$proposalId}";
             if ($userName) $parts[] = "| by {$userName}";
     }
 

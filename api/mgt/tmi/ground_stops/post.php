@@ -9,6 +9,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 include("../../../../load/config.php");
 include("../../../../load/connect.php");
+require_once __DIR__ . '/../../../../load/coordination_log.php';
 
 $domain = strip_tags(SITE_DOMAIN);
 
@@ -134,6 +135,24 @@ try {
     }
 
     $conn_pdo->commit();
+
+    // Log to coordination channel for new programs (Ground Stops / GDPs)
+    // Only log creation (when we got a new ID from INSERT)
+    $isNewEntry = isset($_POST['id']) && post_int('id') > 0 ? false : true;
+    if ($isNewEntry && $id > 0) {
+        try {
+            logToCoordinationChannel(null, null, 'PROGRAM_CREATED', [
+                'program_id' => $id,
+                'program_name' => $name,
+                'ctl_element' => $ctl_element,
+                'airports' => $airports,
+                'user_cid' => $_SESSION['VATSIM_CID'] ?? null,
+                'user_name' => ($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($_SESSION['VATSIM_LAST_NAME'] ?? '')
+            ]);
+        } catch (Exception $logEx) {
+            // Don't fail the request if logging fails
+        }
+    }
 
     header('Content-Type: application/json');
     echo json_encode([

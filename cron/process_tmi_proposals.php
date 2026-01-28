@@ -334,6 +334,7 @@ function getEmojiForFacility($facilityCode, &$usedEmojis) {
 
 /**
  * Get the parent ARTCC for a facility code
+ * Matches coordinate.php logic - checks TRACONs and airports
  */
 function getParentArtcc($facilityCode) {
     if (empty($facilityCode)) return null;
@@ -348,6 +349,42 @@ function getParentArtcc($facilityCode) {
     if (isset(TRACON_TO_ARTCC[$facilityCode])) {
         return TRACON_TO_ARTCC[$facilityCode];
     }
+
+    // Common airport to ARTCC mappings (matches coordinate.php)
+    $airportToArtcc = [
+        // Major Northeast
+        'KJFK' => 'ZNY', 'KLGA' => 'ZNY', 'KEWR' => 'ZNY', 'KTEB' => 'ZNY',
+        'KPHL' => 'ZNY', 'KBOS' => 'ZBW', 'KBDL' => 'ZBW',
+        'KDCA' => 'ZDC', 'KIAD' => 'ZDC', 'KBWI' => 'ZDC',
+        // Major Southeast
+        'KATL' => 'ZTL', 'KCLT' => 'ZTL', 'KMCO' => 'ZJX', 'KTPA' => 'ZJX',
+        'KMIA' => 'ZMA', 'KFLL' => 'ZMA', 'KPBI' => 'ZMA',
+        // Major Central
+        'KORD' => 'ZAU', 'KMDW' => 'ZAU', 'KDFW' => 'ZFW', 'KDAL' => 'ZFW',
+        'KIAH' => 'ZHU', 'KHOU' => 'ZHU', 'KMEM' => 'ZME', 'KBNA' => 'ZME',
+        'KDEN' => 'ZDV', 'KCOS' => 'ZDV', 'KMCI' => 'ZKC', 'KSTL' => 'ZKC',
+        'KIND' => 'ZID', 'KCVG' => 'ZID', 'KMSP' => 'ZMP', 'KDTW' => 'ZOB',
+        'KCLE' => 'ZOB', 'KPIT' => 'ZOB',
+        // Major West
+        'KLAX' => 'ZLA', 'KSAN' => 'ZLA', 'KLAS' => 'ZLA', 'KPHX' => 'ZAB',
+        'KSFO' => 'ZOA', 'KOAK' => 'ZOA', 'KSJC' => 'ZOA',
+        'KSEA' => 'ZSE', 'KPDX' => 'ZSE', 'KSLC' => 'ZLC',
+        'KABQ' => 'ZAB', 'KHNL' => 'ZHN', 'PANC' => 'ZAN',
+        // Canada
+        'CYYZ' => 'CZYZ', 'CYUL' => 'CZUL', 'CYVR' => 'CZVR', 'CYYC' => 'CZEG',
+        'CYEG' => 'CZEG', 'CYWG' => 'CZWG', 'CYOW' => 'CZUL', 'CYQB' => 'CZUL',
+    ];
+
+    // Check direct airport mapping
+    if (isset($airportToArtcc[$facilityCode])) {
+        return $airportToArtcc[$facilityCode];
+    }
+
+    // Try with K/C prefix for US/Canada airports
+    $withK = 'K' . $facilityCode;
+    $withC = 'C' . $facilityCode;
+    if (isset($airportToArtcc[$withK])) return $airportToArtcc[$withK];
+    if (isset($airportToArtcc[$withC])) return $airportToArtcc[$withC];
 
     return null;
 }

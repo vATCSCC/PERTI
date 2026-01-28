@@ -19,6 +19,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../../../load/connect.php';
 require_once __DIR__ . '/../../../../sessions/handler.php';
+require_once __DIR__ . '/../../../../load/coordination_log.php';
 
 // Permission check
 if (!isset($_SESSION['VATSIM_CID']) && !defined('DEV')) {
@@ -186,6 +187,20 @@ try {
             $routesSaved = saveRerouteRoutes($conn_tmi ?? $conn_adl, $newId, $_POST['routes']);
         }
 
+        // Log to coordination channel
+        if ($newId) {
+            try {
+                logToCoordinationChannel(null, null, 'REROUTE_CREATED', [
+                    'reroute_id' => $newId,
+                    'route_name' => $_POST['name'] ?? '',
+                    'user_cid' => $_SESSION['VATSIM_CID'] ?? null,
+                    'user_name' => ($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($_SESSION['VATSIM_LAST_NAME'] ?? '')
+                ]);
+            } catch (Exception $logEx) {
+                // Don't fail the request if logging fails
+            }
+        }
+
         echo json_encode([
             'status' => 'ok',
             'action' => 'created',
@@ -193,7 +208,7 @@ try {
             'routes_saved' => $routesSaved
         ]);
     }
-    
+
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([

@@ -52,6 +52,7 @@ tmi_debug_log('=== TMI Publish Request Started (v2.0) ===');
 try {
     require_once __DIR__ . '/../../../load/config.php';
     require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
+    require_once __DIR__ . '/../../../load/coordination_log.php';
     
     // Check if MultiDiscordAPI exists
     $multiDiscordPath = __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
@@ -214,7 +215,28 @@ foreach ($entries as $index => $entry) {
 
                 $result['databaseId'] = $databaseId;
                 tmi_debug_log("Entry {$index} saved to database", ['id' => $databaseId, 'is_update' => $result['is_update'] ?? false]);
-                
+
+                // Log to coordination channel (only for new entries in production, not updates)
+                if ($databaseId && $production && !($result['is_update'] ?? false)) {
+                    try {
+                        $logAction = $isAdvisory ? 'ADVISORY_CREATED' : 'TMI_CREATED';
+                        $logDetails = [
+                            'entry_type' => $entrySubType,
+                            'entry_id' => $databaseId,
+                            'ctl_element' => strtoupper($entry['data']['ctl_element'] ?? ''),
+                            'user_cid' => $userCid,
+                            'user_name' => $userName
+                        ];
+                        if ($isAdvisory) {
+                            $logDetails['advisory_type'] = $entrySubType;
+                            $logDetails['advisory_number'] = $entry['data']['number'] ?? '';
+                        }
+                        logToCoordinationChannel($tmiConn, null, $logAction, $logDetails);
+                    } catch (Exception $logEx) {
+                        tmi_debug_log("Coordination log failed", ['error' => $logEx->getMessage()]);
+                    }
+                }
+
             } catch (Exception $e) {
                 tmi_debug_log("Database save error for entry {$index}", ['error' => $e->getMessage()]);
                 // Continue to Discord even if database fails
