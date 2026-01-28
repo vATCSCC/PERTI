@@ -260,6 +260,45 @@ if (!$typeFilter || $typeFilter === 'routes') {
     }
 }
 
+// ============================================================================
+// 3. TMI PROPOSALS - Process Discord reactions and expire deadlines
+// ============================================================================
+if (!$typeFilter || $typeFilter === 'tmi') {
+    $results['tmi_proposals'] = ['processed' => 0, 'approved' => 0, 'denied' => 0, 'expired' => 0, 'errors' => []];
+
+    try {
+        // Include TMI processing logic (uses separate PDO connection)
+        $tmiCronPath = __DIR__ . '/../cron/process_tmi_proposals.php';
+        if (file_exists($tmiCronPath)) {
+            // Capture output from cron script
+            ob_start();
+
+            // Set flag to indicate we're running from scheduler (not CLI)
+            $_GET['cron_key'] = getenv('CRON_KEY') ?: 'tmi_proposal_cron_2026';
+
+            include $tmiCronPath;
+
+            $tmiOutput = ob_get_clean();
+
+            // Parse output for summary (output contains echo statements)
+            if (preg_match('/Found (\d+) pending/', $tmiOutput, $m)) {
+                $results['tmi_proposals']['processed'] = (int)$m[1];
+            }
+            if (preg_match('/(\d+) proposal\(s\) as EXPIRED/', $tmiOutput, $m)) {
+                $results['tmi_proposals']['expired'] = (int)$m[1];
+            }
+            if (preg_match('/set to APPROVED/', $tmiOutput)) {
+                $results['tmi_proposals']['approved']++;
+            }
+            if (preg_match('/set to DENIED/', $tmiOutput)) {
+                $results['tmi_proposals']['denied']++;
+            }
+        }
+    } catch (Exception $e) {
+        $results['tmi_proposals']['errors'][] = $e->getMessage();
+    }
+}
+
 // Calculate totals
 $results['totals']['activated'] = $results['splits']['activated'] + $results['routes']['activated'];
 $results['totals']['deactivated'] = $results['splits']['deactivated'] + $results['routes']['expired'];

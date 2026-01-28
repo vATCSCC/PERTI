@@ -12,17 +12,19 @@
  * @date 2026-01-28
  */
 
-// Prevent browser access
+// Prevent direct browser access (allow CLI, scheduler include, or valid cron key)
 if (php_sapi_name() !== 'cli' && !isset($_GET['cron_key'])) {
     http_response_code(403);
-    die('CLI or cron key required');
+    echo 'CLI or cron key required';
+    return; // Don't die() - allow graceful return when included
 }
 
 // Optional cron key for HTTP access
 $expectedKey = getenv('CRON_KEY') ?: 'tmi_proposal_cron_2026';
 if (isset($_GET['cron_key']) && $_GET['cron_key'] !== $expectedKey) {
     http_response_code(403);
-    die('Invalid cron key');
+    echo 'Invalid cron key';
+    return; // Don't die() - allow graceful return when included
 }
 
 require_once __DIR__ . '/../load/config.php';
@@ -144,7 +146,10 @@ try {
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
     error_log("TMI Proposal Cron Error: " . $e->getMessage());
-    exit(1);
+    // Don't exit - allow scheduler to continue if included from there
+    if (php_sapi_name() === 'cli') {
+        exit(1);
+    }
 }
 
 // =============================================================================
