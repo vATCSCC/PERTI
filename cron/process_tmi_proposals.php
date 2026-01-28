@@ -43,7 +43,13 @@ define('DCC_OVERRIDE_USERS', [
     '396865467840593930'  // jpeterson24
 ]);
 
-// DCC override roles (role names)
+// DCC override roles (role IDs - preferred)
+define('DCC_OVERRIDE_ROLE_IDS', [
+    '1268395552496816231',  // @DCC Staff
+    '1268395359714021396'   // @NTMO
+]);
+
+// DCC override roles (role names - fallback)
 define('DCC_OVERRIDE_ROLE_NAMES', [
     'DCC Staff',
     'NTMO'
@@ -523,8 +529,16 @@ function canDccOverride($userId, $userRoles) {
         return true;
     }
 
-    // Check roles - would need role ID mapping
-    // For now, just check user ID
+    // Check role IDs
+    if (!empty(array_intersect($userRoles, DCC_OVERRIDE_ROLE_IDS))) {
+        return true;
+    }
+
+    // Check role names (fallback)
+    if (!empty(array_intersect($userRoles, DCC_OVERRIDE_ROLE_NAMES))) {
+        return true;
+    }
+
     return false;
 }
 

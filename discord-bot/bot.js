@@ -54,6 +54,7 @@ function log(level, ...args) {
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,  // Required for fetching user roles
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.MessageContent,
@@ -201,14 +202,14 @@ async function processReaction(reaction, user, action) {
         return;
     }
 
-    // Get user's guild member for roles
+    // Get user's guild member for roles (send IDs for reliable matching)
     let userRoles = [];
     try {
         const guild = client.guilds.cache.get(CONFIG.guildId);
         if (guild) {
             const member = await guild.members.fetch(user.id);
             if (member) {
-                userRoles = member.roles.cache.map(r => r.name);
+                userRoles = member.roles.cache.map(r => r.id);
             }
         }
     } catch (err) {
