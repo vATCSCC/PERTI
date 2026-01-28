@@ -542,7 +542,16 @@ input[type="time"] {
 .advisory-card {
     border-radius: 4px;
     overflow: hidden;
+    border: none;
 }
+
+.advisory-card .card-header {
+    border-radius: 0;
+    margin: 0;
+    border: none;
+}
+
+/* Card corner alignment is now handled globally in perti_theme.css */
 
 .advisory-card .card-header {
     font-size: 0.85rem;
@@ -726,7 +735,8 @@ input[type="time"] {
 /* Cancelled Advisory Card Styling */
 .advisory-card.border-secondary {
     background-color: #fff5f5 !important;
-    border-color: #dc3545 !important;
+    border: none !important;
+    box-shadow: 0 0 0 1px #dc3545;
 }
 
 .advisory-card.border-secondary .card-header {
@@ -741,4 +751,21 @@ input[type="time"] {
 .advisory-card.border-secondary .advisory-text {
     text-decoration: line-through;
     color: #6c757d;
+}
+
+/* ===========================================
+   Cancelled Status Card (red-ish indicator)
+   =========================================== */
+#cancelledCount {
+    color: #fff;
+}
+
+/* Target the card containing the cancelled count */
+#activePanel .row.mb-3 .col-md-3:nth-child(3) .card {
+    background-color: #c0392b !important;
+    border-color: #a93226 !important;
+}
+
+#activePanel .row.mb-3 .col-md-3:nth-child(3) .card:hover {
+    background-color: #a93226 !important;
 }

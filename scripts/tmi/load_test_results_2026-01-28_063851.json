@@ -1,0 +1,24 @@
+{
+    "config": {
+        "users": 30,
+        "restrictions_per_user": 25,
+        "advisories_per_user": 4,
+        "duration_seconds": 300,
+        "base_url": "https:\/\/perti.vatcscc.org",
+        "production": false,
+        "concurrent_connections": 10,
+        "dry_run": true
+    },
+    "metrics": {
+        "total_requests": 870,
+        "successful": 870,
+        "failed": 0,
+        "total_duration": 30.459409952163696,
+        "avg_response_time": 0.2765482758620689,
+        "http_codes": {
+            "200": 870
+        },
+        "error_count": 0
+    },
+    "timestamp": "2026-01-28T06:38:51+00:00"
+}
