@@ -474,8 +474,11 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
     if (strtoupper($entryType) === 'CONFIG' && $ctlElement) {
         $existingConfig = checkExistingConfig($conn, $ctlElement);
         if ($existingConfig) {
-            // Compare content - if same raw text, skip the update entirely
-            if (trim($existingConfig['raw_input']) === trim($rawText)) {
+            // Compare CONFIG fields (not raw text, which includes changing timestamp)
+            $existingData = json_decode($existingConfig['parsed_data'], true) ?? [];
+            $contentChanged = isConfigContentChanged($data, $existingData);
+
+            if (!$contentChanged) {
                 tmi_debug_log('CONFIG unchanged, skipping update', [
                     'entry_id' => $existingConfig['entry_id'],
                     'ctl_element' => $ctlElement,
@@ -493,7 +496,8 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
             // Content changed - update the existing entry
             tmi_debug_log('CONFIG content changed, updating existing entry', [
                 'entry_id' => $existingConfig['entry_id'],
-                'ctl_element' => $ctlElement
+                'ctl_element' => $ctlElement,
+                'changes' => getConfigChanges($data, $existingData)
             ]);
             return updateExistingConfig($conn, $existingConfig['entry_id'], $rawText, $data, $userCid, $userName);
         }
@@ -766,7 +770,7 @@ function parseValidTime($timeStr) {
  * @return array|null Existing config entry or null if not found
  */
 function checkExistingConfig($conn, $ctlElement) {
-    $sql = "SELECT entry_id, raw_input, discord_message_id, status
+    $sql = "SELECT entry_id, raw_input, parsed_data, discord_message_id, status
             FROM dbo.tmi_entries
             WHERE entry_type = 'CONFIG'
               AND ctl_element = :ctl_element
@@ -777,6 +781,49 @@ function checkExistingConfig($conn, $ctlElement) {
     $stmt = $conn->prepare($sql);
     $stmt->execute([':ctl_element' => strtoupper($ctlElement)]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+/**
+ * Compare CONFIG data fields to determine if content has actually changed
+ * Ignores timestamp in raw_text, compares meaningful fields only
+ */
+function isConfigContentChanged($newData, $existingData) {
+    // Fields that matter for CONFIG comparison
+    $fieldsToCompare = ['weather', 'arr_runways', 'dep_runways', 'aar', 'aar_type', 'adr'];
+
+    foreach ($fieldsToCompare as $field) {
+        $newVal = strtoupper(trim($newData[$field] ?? ''));
+        $oldVal = strtoupper(trim($existingData[$field] ?? ''));
+
+        // Normalize empty values
+        if ($newVal === '' || $newVal === 'N/A') $newVal = '';
+        if ($oldVal === '' || $oldVal === 'N/A') $oldVal = '';
+
+        if ($newVal !== $oldVal) {
+            return true; // Content has changed
+        }
+    }
+
+    return false; // No meaningful changes
+}
+
+/**
+ * Get list of changed CONFIG fields (for logging)
+ */
+function getConfigChanges($newData, $existingData) {
+    $fieldsToCompare = ['weather', 'arr_runways', 'dep_runways', 'aar', 'aar_type', 'adr'];
+    $changes = [];
+
+    foreach ($fieldsToCompare as $field) {
+        $newVal = strtoupper(trim($newData[$field] ?? ''));
+        $oldVal = strtoupper(trim($existingData[$field] ?? ''));
+
+        if ($newVal !== $oldVal) {
+            $changes[$field] = ['old' => $oldVal, 'new' => $newVal];
+        }
+    }
+
+    return $changes;
 }
 
 /**
