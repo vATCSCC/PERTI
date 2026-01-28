@@ -1133,18 +1133,32 @@ class TMIDiscord {
         $advNum = preg_replace('/^[^0-9]+/', '', $advNum);
         return str_pad($advNum, 3, '0', STR_PAD_LEFT);
     }
-    
+
+    /**
+     * Parse datetime string as UTC
+     * Input times from forms (datetime-local) don't have timezone info - treat as UTC
+     */
+    private function parseAsUtc(?string $datetime): ?int {
+        if (!$datetime) return null;
+        // If already has timezone indicator, use as-is
+        if (preg_match('/[Zz]$|UTC|GMT|\+\d{2}|\-\d{2}/', $datetime)) {
+            return strtotime($datetime);
+        }
+        // Otherwise, append UTC to ensure correct interpretation
+        return strtotime($datetime . ' UTC');
+    }
+
     private function formatLogTime(): string { return gmdate('d/Hi'); }
-    private function formatDateMMDDYYYY(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('m/d/Y', $ts) : gmdate('m/d/Y'); }
-    private function formatTimeHHMM(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('Hi', $ts) : gmdate('Hi'); }
-    private function formatTimeDDHHMM(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('dHi', $ts) : gmdate('dHi'); }
-    private function formatTimeDDHHMMZ(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('d/Hi', $ts) . 'Z' : gmdate('d/Hi') . 'Z'; }
-    private function formatProgramTime(?string $datetime): string { return ($datetime && ($ts = strtotime($datetime)) ? gmdate('d/Hi', $ts) : gmdate('d/Hi')) . 'Z'; }
+    private function formatDateMMDDYYYY(?string $datetime): string { return ($ts = $this->parseAsUtc($datetime)) ? gmdate('m/d/Y', $ts) : gmdate('m/d/Y'); }
+    private function formatTimeHHMM(?string $datetime): string { return ($ts = $this->parseAsUtc($datetime)) ? gmdate('Hi', $ts) : gmdate('Hi'); }
+    private function formatTimeDDHHMM(?string $datetime): string { return ($ts = $this->parseAsUtc($datetime)) ? gmdate('dHi', $ts) : gmdate('dHi'); }
+    private function formatTimeDDHHMMZ(?string $datetime): string { return ($ts = $this->parseAsUtc($datetime)) ? gmdate('d/Hi', $ts) . 'Z' : gmdate('d/Hi') . 'Z'; }
+    private function formatProgramTime(?string $datetime): string { return (($ts = $this->parseAsUtc($datetime)) ? gmdate('d/Hi', $ts) : gmdate('d/Hi')) . 'Z'; }
     private function formatValidTimeRange(?string $start, ?string $end): string { return $this->formatTimeDDHHMM($start) . '-' . $this->formatTimeDDHHMM($end); }
     private function formatValidTimeRangeWithSpaces(?string $start, ?string $end): string { return $this->formatTimeDDHHMM($start) . ' - ' . $this->formatTimeDDHHMM($end); }
     private function formatSignature(): string { return gmdate('y/m/d H:i'); }
     // Format: MM/DD/YYYY HHMM (e.g., 12/06/2025 2359)
-    private function formatDateTimeMMDDYYYYHHMM(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('m/d/Y Hi', $ts) : gmdate('m/d/Y Hi'); }
+    private function formatDateTimeMMDDYYYYHHMM(?string $datetime): string { return ($ts = $this->parseAsUtc($datetime)) ? gmdate('m/d/Y Hi', $ts) : gmdate('m/d/Y Hi'); }
     // Format: MM/DD/YYYY HHMM - MM/DD/YYYY HHMM
     private function formatEventTimeRange(?string $start, ?string $end): string { return $this->formatDateTimeMMDDYYYYHHMM($start) . ' - ' . $this->formatDateTimeMMDDYYYYHHMM($end); }
     

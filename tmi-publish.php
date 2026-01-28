@@ -140,6 +140,13 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 
 <?php include('load/nav.php'); ?>
 
+<?php
+// TMI Publisher is PUBLIC - override nav.php's permission check
+// Anyone can view active TMIs and create entries (with profile set via JS)
+// Only DCC override functions require authenticated login
+$perm = true;
+?>
+
 <section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-6 jarallax bg-dark text-light" data-jarallax data-speed="0.3">
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
@@ -151,7 +158,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 </section>
 
 <div class="container-fluid mt-4 mb-5">
-    
+
     <?php if ($perm): ?>
     
     <!-- Info Bar -->
