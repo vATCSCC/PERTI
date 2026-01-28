@@ -471,9 +471,13 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
     $ctlElement = strtoupper($data['ctl_element'] ?? '') ?: null;
 
     // CONFIG deduplication: Check for existing active CONFIG for same airport
+    // CONFIG posts only ONCE to Discord - subsequent publishes update DB only
     if (strtoupper($entryType) === 'CONFIG' && $ctlElement) {
         $existingConfig = checkExistingConfig($conn, $ctlElement);
         if ($existingConfig) {
+            // Check if already posted to Discord - if so, NEVER re-post
+            $alreadyPostedToDiscord = !empty($existingConfig['discord_message_id']);
+
             // Compare CONFIG fields (not raw text, which includes changing timestamp)
             $existingData = json_decode($existingConfig['parsed_data'], true) ?? [];
             $contentChanged = isConfigContentChanged($data, $existingData);
@@ -482,24 +486,24 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
                 tmi_debug_log('CONFIG unchanged, skipping update', [
                     'entry_id' => $existingConfig['entry_id'],
                     'ctl_element' => $ctlElement,
-                    'has_discord_id' => !empty($existingConfig['discord_message_id'])
+                    'has_discord_id' => $alreadyPostedToDiscord
                 ]);
-                // Return existing ID with flags indicating no change needed
+                // Return existing ID with flags - skip Discord if already posted
                 return [
                     'id' => $existingConfig['entry_id'],
                     'is_update' => true,
                     'content_changed' => false,
-                    'already_posted' => !empty($existingConfig['discord_message_id'])
+                    'already_posted' => $alreadyPostedToDiscord
                 ];
             }
 
-            // Content changed - update the existing entry
-            tmi_debug_log('CONFIG content changed, updating existing entry', [
+            // Content changed - update the existing entry, but NEVER re-post to Discord
+            tmi_debug_log('CONFIG content changed, updating existing entry (Discord skip: ' . ($alreadyPostedToDiscord ? 'yes' : 'no') . ')', [
                 'entry_id' => $existingConfig['entry_id'],
                 'ctl_element' => $ctlElement,
                 'changes' => getConfigChanges($data, $existingData)
             ]);
-            return updateExistingConfig($conn, $existingConfig['entry_id'], $rawText, $data, $userCid, $userName);
+            return updateExistingConfig($conn, $existingConfig['entry_id'], $rawText, $data, $userCid, $userName, $alreadyPostedToDiscord);
         }
     }
 
@@ -830,7 +834,7 @@ function getConfigChanges($newData, $existingData) {
  * Update existing CONFIG entry instead of creating duplicate
  * @return array Result with id and flags
  */
-function updateExistingConfig($conn, $entryId, $rawText, $data, $userCid, $userName) {
+function updateExistingConfig($conn, $entryId, $rawText, $data, $userCid, $userName, $alreadyPostedToDiscord = false) {
     $sql = "UPDATE dbo.tmi_entries SET
                 raw_input = :raw_input,
                 parsed_data = :parsed_data,
@@ -850,14 +854,16 @@ function updateExistingConfig($conn, $entryId, $rawText, $data, $userCid, $userN
 
     tmi_debug_log('Updated existing CONFIG entry', [
         'entry_id' => $entryId,
-        'updated_by' => $userName
+        'updated_by' => $userName,
+        'skip_discord' => $alreadyPostedToDiscord
     ]);
 
+    // CONFIG posts only ONCE - if already posted to Discord, never re-post
     return [
         'id' => $entryId,
         'is_update' => true,
         'content_changed' => true,
-        'already_posted' => false // Content changed, so it should be re-posted
+        'already_posted' => $alreadyPostedToDiscord
     ];
 }
 
