@@ -3372,15 +3372,20 @@
             showSingleEntryCoordinationDialog(entry, []);
         } else {
             // Publish directly without coordination
-            const ctlElement = (entry.data?.ctl_element || '').toUpperCase();
+            const entryDetailHtml = buildEntryDetailHtml(entry);
             Swal.fire({
                 title: 'Publish Entry',
-                html: `<p>Publish <strong>${entryType}</strong>${ctlElement ? ` | ${ctlElement}` : ''} directly to Discord?</p>
-                       <p class="small text-muted">This entry type does not require coordination.</p>`,
+                html: `
+                    <div class="text-left">
+                        ${entryDetailHtml}
+                        <p class="small text-muted mt-2">This entry type does not require coordination and will be published directly.</p>
+                    </div>
+                `,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
-                confirmButtonText: 'Publish'
+                confirmButtonText: 'Publish',
+                width: '500px'
             }).then((result) => {
                 if (result.isConfirmed) {
                     publishSingleEntryDirect(entry, index);
@@ -3750,16 +3755,15 @@
      * Show coordination dialog for a single entry
      */
     function showSingleEntryCoordinationDialog(entry, entriesToPublishDirect) {
-        const data = entry.data || {};
-        const entryType = (entry.entryType || data.entry_type || 'TMI').toUpperCase();
-        const ctlElement = (data.ctl_element || '').toUpperCase();
-
         // Calculate default deadline for this entry
         const deadline = calculateEntryDeadline(entry);
         const deadlineStr = deadline.toISOString().slice(0, 16);
 
         // Detect facilities for this entry
         const suggestedFacilities = detectFacilitiesForEntry(entry);
+
+        // Build detailed entry display
+        const entryDetailHtml = buildEntryDetailHtml(entry);
 
         let directMsg = '';
         if (entriesToPublishDirect.length > 0) {
@@ -3770,10 +3774,7 @@
             title: 'Submit for Coordination',
             html: `
                 <div class="text-left">
-                    <div class="alert alert-info py-2 mb-3">
-                        <strong>${entryType}</strong> ${ctlElement ? `| ${ctlElement}` : ''}
-                        ${data.restriction_value ? `| ${data.restriction_value}${data.restriction_unit || ''}` : ''}
-                    </div>
+                    ${entryDetailHtml}
                     ${directMsg}
 
                     <div class="form-group">
@@ -3871,15 +3872,14 @@
             const deadlineStr = deadline.toISOString().slice(0, 16);
             const suggestedFacilities = detectFacilitiesForEntry(entry);
 
+            // Build detailed entry display
+            const entryDetailHtml = buildEntryDetailHtml(entry);
+
             const result = await Swal.fire({
                 title: `Entry ${i + 1} of ${totalEntries}`,
                 html: `
                     <div class="text-left">
-                        <div class="alert alert-info py-2 mb-3">
-                            <strong>${entryType}</strong> ${ctlElement ? `| ${ctlElement}` : ''}
-                            ${data.restriction_value ? `| ${data.restriction_value}${data.restriction_unit || ''}` : ''}
-                            ${data.via ? `via ${data.via}` : ''}
-                        </div>
+                        ${entryDetailHtml}
 
                         <div class="form-group mb-3">
                             <label for="coordDeadline_${i}"><strong>Approval Deadline (UTC):</strong></label>
@@ -4036,24 +4036,45 @@
 
     /**
      * Detect facilities that should approve this entry based on its data
+     * NOTE: Requesting facility is excluded - they implicitly approve by submitting
      */
     function detectFacilitiesForEntry(entry) {
         const facilities = new Set();
         const data = entry.data || {};
 
+        // Get the requesting facility - they don't need to approve (implicit approval by submitting)
+        const reqFacility = (data.requesting_facility || data.req_facility_id || data.req_facility || '').toUpperCase().trim();
+
         // Check explicitly specified providing facilities
         if (data.prov_facility) {
             data.prov_facility.toUpperCase().split(',').forEach(fac => {
                 const trimmed = fac.trim();
-                if (trimmed) facilities.add(trimmed);
+                if (trimmed && trimmed !== reqFacility) facilities.add(trimmed);
             });
         }
 
-        // Check airport -> ARTCC mapping
+        // Also check providing_facility field
+        if (data.providing_facility) {
+            data.providing_facility.toUpperCase().split(',').forEach(fac => {
+                const trimmed = fac.trim();
+                if (trimmed && trimmed !== reqFacility) facilities.add(trimmed);
+            });
+        }
+
+        // Check prov_facility_id field
+        if (data.prov_facility_id) {
+            data.prov_facility_id.toUpperCase().split(',').forEach(fac => {
+                const trimmed = fac.trim();
+                if (trimmed && trimmed !== reqFacility) facilities.add(trimmed);
+            });
+        }
+
+        // Check airport -> ARTCC mapping (for destination ARTCC)
         if (data.ctl_element) {
             const airport = data.ctl_element.toUpperCase();
             const artcc = AIRPORT_TO_ARTCC[airport];
-            if (artcc) facilities.add(artcc);
+            // Only add if not the requesting facility
+            if (artcc && artcc !== reqFacility) facilities.add(artcc);
         }
 
         // Check traffic flow field (may indicate additional ARTCCs)
@@ -4063,12 +4084,131 @@
             Object.keys(AIRPORT_TO_ARTCC).forEach(key => {
                 if (flow.includes(key)) {
                     const artcc = AIRPORT_TO_ARTCC[key];
-                    if (artcc) facilities.add(artcc);
+                    // Only add if not the requesting facility
+                    if (artcc && artcc !== reqFacility) facilities.add(artcc);
                 }
             });
         }
 
         return facilities;
+    }
+
+    /**
+     * Build detailed HTML display for a TMI entry in the coordination dialog
+     */
+    function buildEntryDetailHtml(entry) {
+        const data = entry.data || {};
+        const entryType = (entry.entryType || data.entry_type || 'TMI').toUpperCase();
+        const ctlElement = (data.ctl_element || '').toUpperCase();
+        const restrictionValue = data.restriction_value || '';
+        const restrictionUnit = data.restriction_unit || (entryType === 'MIT' ? 'NM' : 'MIN');
+        const via = data.via || data.condition_text || '';
+        const flowType = data.flow_type || 'arrivals';
+        const qualifiers = data.qualifiers || '';
+        const reasonCode = data.reason_code || '';
+        const reasonDetail = data.reason_detail || '';
+        const exclusions = data.exclusions || '';
+        const reqFacility = (data.requesting_facility || data.req_facility_id || '').toUpperCase();
+        const provFacility = (data.providing_facility || data.prov_facility_id || '').toUpperCase();
+
+        // Format valid times
+        const validFrom = data.valid_from || data.validFrom || '';
+        const validUntil = data.valid_until || data.validUntil || '';
+
+        const formatTime = (timeStr) => {
+            if (!timeStr) return '--';
+            try {
+                const dt = new Date(timeStr.includes('Z') || timeStr.includes('T') ? timeStr : timeStr + 'Z');
+                return dt.toISOString().slice(11, 16) + 'Z';
+            } catch {
+                return timeStr.slice(0, 5) || '--';
+            }
+        };
+
+        const timeRange = `${formatTime(validFrom)} - ${formatTime(validUntil)}`;
+
+        // Build restriction string
+        let restrictionStr = '';
+        if (entryType === 'STOP') {
+            restrictionStr = 'STOP';
+        } else if (restrictionValue) {
+            restrictionStr = `${restrictionValue}${restrictionUnit}`;
+        }
+
+        // Build the header line (NTML-style)
+        let headerLine = `<strong>${ctlElement}</strong>`;
+        if (via) {
+            headerLine += ` ${flowType} via <strong>${via}</strong>`;
+        }
+        if (restrictionStr) {
+            headerLine += ` <span class="badge badge-warning">${restrictionStr}</span>`;
+        }
+        if (qualifiers) {
+            const qualifierArray = typeof qualifiers === 'string' ? qualifiers.split(',') : qualifiers;
+            qualifierArray.forEach(q => {
+                if (q.trim()) {
+                    headerLine += ` <span class="badge badge-secondary">${q.trim().toUpperCase()}</span>`;
+                }
+            });
+        }
+
+        // Build detail rows in NTML order: reason, exclusions, valid times, facilities
+        let detailRows = '';
+
+        // Reason row
+        if (reasonCode) {
+            const reasonStr = reasonDetail ? `${reasonCode}:${reasonDetail}` : reasonCode;
+            detailRows += `
+                <tr>
+                    <td class="text-muted" style="width: 100px;">Reason:</td>
+                    <td>${reasonStr.toUpperCase()}</td>
+                </tr>
+            `;
+        }
+
+        // Exclusions row
+        if (exclusions && exclusions.toUpperCase() !== 'NONE') {
+            detailRows += `
+                <tr>
+                    <td class="text-muted">Exclusions:</td>
+                    <td>${exclusions.toUpperCase()}</td>
+                </tr>
+            `;
+        }
+
+        // Valid times row
+        detailRows += `
+            <tr>
+                <td class="text-muted">Valid:</td>
+                <td><strong>${timeRange}</strong></td>
+            </tr>
+        `;
+
+        // Facilities row (at the end per NTML format)
+        if (reqFacility || provFacility) {
+            detailRows += `
+                <tr>
+                    <td class="text-muted">Req:Prov:</td>
+                    <td>${reqFacility}${provFacility ? ':' + provFacility : ''}</td>
+                </tr>
+            `;
+        }
+
+        return `
+            <div class="card mb-3">
+                <div class="card-header py-2 bg-info text-white">
+                    <strong>${entryType}</strong>
+                </div>
+                <div class="card-body py-2">
+                    <p class="mb-2">${headerLine}</p>
+                    <table class="table table-sm table-borderless mb-0" style="font-size: 0.9em;">
+                        <tbody>
+                            ${detailRows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
     }
 
     /**

@@ -1820,6 +1820,12 @@ function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
 
 /**
  * Post proposal to Discord coordination channel and create a thread
+ *
+ * Flow:
+ * 1. Post brief starter message to main channel (creates the thread entry point)
+ * 2. Create thread from that message
+ * 3. Post full coordination details INSIDE the thread
+ * 4. Add reactions to the message INSIDE the thread (not main channel)
  */
 function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName) {
     $logFile = __DIR__ . '/coordination_debug.log';
@@ -1840,75 +1846,96 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         }
         $log("Discord is configured");
 
-        // Build message content
-        $content = formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName);
-        $log("Message content built, length: " . strlen($content));
+        // Build thread title
+        $threadTitle = buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities);
+        $log("Thread title: " . $threadTitle);
 
-        // Post to coordination channel
-        $log("Posting to channel: " . DISCORD_COORDINATION_CHANNEL);
-        $result = $discord->createMessage(DISCORD_COORDINATION_CHANNEL, [
+        // Step 1: Post brief starter message to main channel
+        // This message will become the thread entry point - keep it minimal
+        $starterMessage = "**{$threadTitle}**\n_Click thread to view details and react to approve/deny_";
+        $log("Posting starter message to channel: " . DISCORD_COORDINATION_CHANNEL);
+
+        $starterResult = $discord->createMessage(DISCORD_COORDINATION_CHANNEL, [
+            'content' => $starterMessage
+        ]);
+
+        $log("Starter message result: " . json_encode($starterResult));
+
+        if (!$starterResult || !isset($starterResult['id'])) {
+            $log("FAILED - No starter message ID returned");
+            $log("Last HTTP code: " . $discord->getLastHttpCode());
+            $log("Last error: " . ($discord->getLastError() ?? 'none'));
+            return null;
+        }
+
+        $log("Starter message posted with ID: " . $starterResult['id']);
+
+        // Step 2: Create thread from the starter message
+        $log("Creating thread with title: " . $threadTitle);
+        $threadResult = $discord->createThreadFromMessage(
+            DISCORD_COORDINATION_CHANNEL,
+            $starterResult['id'],
+            $threadTitle,
+            1440 // Auto-archive after 24 hours of inactivity
+        );
+
+        if (!$threadResult || !isset($threadResult['id'])) {
+            $log("Thread creation failed: " . ($discord->getLastError() ?? 'unknown error'));
+            // Return the starter message result even if thread fails
+            return $starterResult;
+        }
+
+        $threadId = $threadResult['id'];
+        $log("Thread created with ID: " . $threadId);
+        $starterResult['thread_id'] = $threadId;
+
+        // Step 3: Post full coordination details INSIDE the thread
+        $content = formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName);
+        $log("Posting coordination details to thread, content length: " . strlen($content));
+
+        $threadMessage = $discord->sendMessageToThread($threadId, [
             'content' => $content
         ]);
 
-        $log("createMessage result: " . json_encode($result));
-        $log("Last HTTP code: " . $discord->getLastHttpCode());
-        $log("Last error: " . ($discord->getLastError() ?? 'none'));
-
-        if ($result && isset($result['id'])) {
-            $log("SUCCESS - Message posted with ID: " . $result['id']);
-
-            // Create thread from the message
-            $threadTitle = buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities);
-            $log("Creating thread with title: " . $threadTitle);
-
-            $threadResult = $discord->createThreadFromMessage(
-                DISCORD_COORDINATION_CHANNEL,
-                $result['id'],
-                $threadTitle,
-                1440 // Auto-archive after 24 hours of inactivity
-            );
-
-            if ($threadResult && isset($threadResult['id'])) {
-                $log("Thread created with ID: " . $threadResult['id']);
-                $result['thread_id'] = $threadResult['id'];
-            } else {
-                $log("Thread creation failed: " . ($discord->getLastError() ?? 'unknown error'));
-            }
-
-            // Track used emojis to ensure uniqueness
-            $usedEmojis = [];
-
-            // Add initial reactions for each facility
-            foreach ($facilities as $facility) {
-                $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
-                $facCode = strtoupper(trim($facCode));
-                $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
-
-                // Add custom emoji (for Nitro users)
-                if ($facEmoji) {
-                    $log("Adding custom emoji: {$facEmoji} for facility {$facCode}");
-                    $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $facEmoji);
-                }
-
-                // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
-                $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
-                $altEmoji = $emojiInfo['emoji'];
-                $emojiType = $emojiInfo['type'];
-
-                $log("Adding alternate emoji: {$altEmoji} for facility {$facCode} (type: {$emojiType})");
-                $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $altEmoji);
-            }
-
-            // Add deny reactions (primary and alternate)
-            $log("Adding deny reactions");
-            $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], DENY_EMOJI);
-            $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], DENY_EMOJI_ALT);
-        } else {
-            $log("FAILED - No message ID returned");
-            $log("Full result: " . print_r($result, true));
+        if (!$threadMessage || !isset($threadMessage['id'])) {
+            $log("Failed to post to thread: " . ($discord->getLastError() ?? 'unknown error'));
+            return $starterResult;
         }
 
-        return $result;
+        $threadMessageId = $threadMessage['id'];
+        $log("Thread message posted with ID: " . $threadMessageId);
+        $starterResult['thread_message_id'] = $threadMessageId;
+
+        // Step 4: Add reactions to the message INSIDE the thread (not main channel)
+        $usedEmojis = [];
+
+        foreach ($facilities as $facility) {
+            $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
+            $facCode = strtoupper(trim($facCode));
+            $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
+
+            // Add custom emoji (for Nitro users)
+            if ($facEmoji) {
+                $log("Adding custom emoji to thread: {$facEmoji} for facility {$facCode}");
+                $discord->createReaction($threadId, $threadMessageId, $facEmoji);
+            }
+
+            // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
+            $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+            $altEmoji = $emojiInfo['emoji'];
+            $emojiType = $emojiInfo['type'];
+
+            $log("Adding alternate emoji to thread: {$altEmoji} for facility {$facCode} (type: {$emojiType})");
+            $discord->createReaction($threadId, $threadMessageId, $altEmoji);
+        }
+
+        // Add deny reactions to thread message
+        $log("Adding deny reactions to thread message");
+        $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
+        $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
+
+        $log("=== Discord post complete for proposal #{$proposalId} ===");
+        return $starterResult;
 
     } catch (Exception $e) {
         $log("EXCEPTION: " . $e->getMessage());
