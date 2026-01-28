@@ -35,6 +35,7 @@ require_once __DIR__ . '/../load/discord/TMIDiscord.php';
 
 define('COORDINATION_CHANNEL', '1466013550450577491');
 define('DENY_EMOJI', '❌');
+define('DENY_EMOJI_ALT', '🚫');
 define('DCC_APPROVE_EMOJI', 'DCC');
 
 // DCC override users
@@ -46,6 +47,62 @@ define('DCC_OVERRIDE_USERS', [
 define('DCC_OVERRIDE_ROLE_NAMES', [
     'DCC Staff',
     'NTMO'
+]);
+
+// Regional indicator emoji mapping for alternate approval method
+// Must match coordinate.php FACILITY_REGIONAL_EMOJI_MAP
+define('FACILITY_EMOJI_MAP', [
+    // US ARTCCs
+    'ZAB' => '🇦',  // A - Albuquerque
+    'ZAN' => '🇬',  // G - anchoraGe
+    'ZAU' => '🇺',  // U - Chicago
+    'ZBW' => '🇧',  // B - Boston
+    'ZDC' => '🇩',  // D - Washington DC
+    'ZDV' => '🇻',  // V - DenVer
+    'ZFW' => '🇫',  // F - Fort Worth
+    'ZHN' => '🇭',  // H - Honolulu
+    'ZHU' => '🇼',  // W - Houston
+    'ZID' => '🇮',  // I - Indianapolis
+    'ZJX' => '🇯',  // J - Jacksonville
+    'ZKC' => '🇰',  // K - Kansas City
+    'ZLA' => '🇱',  // L - Los Angeles
+    'ZLC' => '🇨',  // C - Salt Lake City
+    'ZMA' => '🇲',  // M - Miami
+    'ZME' => '🇪',  // E - mEmphis
+    'ZMP' => '🇵',  // P - minneaPolis
+    'ZNY' => '🇳',  // N - New York
+    'ZOA' => '🇴',  // O - Oakland
+    'ZOB' => '🇷',  // R - cleveland
+    'ZSE' => '🇸',  // S - Seattle
+    'ZTL' => '🇹',  // T - aTlanta
+    // Canadian FIRs
+    'CZEG' => '1️⃣',  // 1 - Edmonton
+    'CZVR' => '2️⃣',  // 2 - Vancouver
+    'CZWG' => '3️⃣',  // 3 - Winnipeg
+    'CZYZ' => '4️⃣',  // 4 - Toronto
+    'CZQM' => '5️⃣',  // 5 - Moncton
+    'CZQX' => '6️⃣',  // 6 - Gander Domestic
+    'CZQO' => '7️⃣',  // 7 - Gander Oceanic
+    'CZUL' => '8️⃣',  // 8 - Montreal
+]);
+
+// Reverse mapping: emoji to facility
+define('EMOJI_TO_FACILITY', array_flip(FACILITY_EMOJI_MAP));
+
+// Fallback emojis for non-ARTCC facilities
+define('FALLBACK_EMOJIS', [
+    '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🟫', '⬛', '⬜',
+    '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '🟤', '⚫', '⚪'
+]);
+
+// TRACON to ARTCC mapping (for parent facility lookup)
+define('TRACON_TO_ARTCC', [
+    'N90' => 'ZNY', 'PCT' => 'ZDC', 'PHL' => 'ZNY', 'A90' => 'ZBW',
+    'A80' => 'ZTL', 'MIA' => 'ZMA', 'JAX' => 'ZJX',
+    'C90' => 'ZAU', 'D10' => 'ZFW', 'I90' => 'ZHU', 'M98' => 'ZME',
+    'D01' => 'ZDV', 'MCI' => 'ZKC', 'IND' => 'ZID', 'MSP' => 'ZMP',
+    'SCT' => 'ZLA', 'NCT' => 'ZOA', 'S46' => 'ZSE', 'P50' => 'ZLA',
+    'ABQ' => 'ZAB', 'SLC' => 'ZLC', 'HCF' => 'ZHN',
 ]);
 
 // =============================================================================
@@ -148,10 +205,33 @@ function processProposal($conn, $discord, $proposal) {
 
 function getMessageReactions($discord, $channelId, $messageId, $facilityEmojis) {
     $reactions = [];
+    $facilityCodes = array_keys($facilityEmojis);
 
-    // Get facility emoji reactions
-    foreach ($facilityEmojis as $facCode => $emoji) {
-        $emojiEncoded = extractEmojiName($emoji);
+    // Build emoji-to-facility mapping for this proposal
+    // Track which emojis we need to check and what facility they map to
+    $emojiToFacility = [];
+    $usedEmojis = [];
+
+    foreach ($facilityCodes as $facCode) {
+        // Custom emoji (e.g., :ZDC:)
+        $customEmoji = $facilityEmojis[$facCode];
+        $emojiToFacility[$customEmoji] = $facCode;
+
+        // Alternate emoji (regional indicator or fallback)
+        $altEmojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+        if ($altEmojiInfo['emoji']) {
+            $emojiToFacility[$altEmojiInfo['emoji']] = $facCode;
+        }
+    }
+
+    // Check each emoji for reactions
+    foreach ($emojiToFacility as $emoji => $facCode) {
+        $emojiEncoded = urlencode($emoji);
+        // For custom emojis like :ZDC:, extract the name
+        if (preg_match('/^:(\w+):$/', $emoji)) {
+            $emojiEncoded = extractEmojiName($emoji);
+        }
+
         $users = $discord->getReactions($channelId, $messageId, $emojiEncoded, ['limit' => 100]);
 
         if ($users && is_array($users)) {
@@ -168,13 +248,28 @@ function getMessageReactions($discord, $channelId, $messageId, $facilityEmojis) 
         }
     }
 
-    // Get deny emoji reactions
-    $denyUsers = $discord->getReactions($channelId, $messageId, DENY_EMOJI, ['limit' => 100]);
+    // Get deny emoji reactions (primary ❌)
+    $denyUsers = $discord->getReactions($channelId, $messageId, urlencode(DENY_EMOJI), ['limit' => 100]);
     if ($denyUsers && is_array($denyUsers)) {
         foreach ($denyUsers as $user) {
             $reactions[] = [
                 'emoji' => DENY_EMOJI,
                 'emoji_name' => DENY_EMOJI,
+                'facility_code' => null,
+                'type' => 'DENY',
+                'user_id' => $user['id'],
+                'username' => $user['username'] ?? null
+            ];
+        }
+    }
+
+    // Get alternate deny emoji reactions (🚫)
+    $denyAltUsers = $discord->getReactions($channelId, $messageId, urlencode(DENY_EMOJI_ALT), ['limit' => 100]);
+    if ($denyAltUsers && is_array($denyAltUsers)) {
+        foreach ($denyAltUsers as $user) {
+            $reactions[] = [
+                'emoji' => DENY_EMOJI_ALT,
+                'emoji_name' => DENY_EMOJI_ALT,
                 'facility_code' => null,
                 'type' => 'DENY',
                 'user_id' => $user['id'],
@@ -199,6 +294,62 @@ function getMessageReactions($discord, $channelId, $messageId, $facilityEmojis) 
     }
 
     return $reactions;
+}
+
+/**
+ * Get the appropriate emoji for a facility (matches coordinate.php logic)
+ */
+function getEmojiForFacility($facilityCode, &$usedEmojis) {
+    $facilityCode = strtoupper(trim($facilityCode));
+
+    // 1. Check if facility itself has an emoji mapping (ARTCC/FIR)
+    if (isset(FACILITY_EMOJI_MAP[$facilityCode])) {
+        $emoji = FACILITY_EMOJI_MAP[$facilityCode];
+        if (!in_array($emoji, $usedEmojis)) {
+            $usedEmojis[] = $emoji;
+            return ['emoji' => $emoji, 'type' => 'artcc', 'parent' => null];
+        }
+    }
+
+    // 2. Check if facility has a parent ARTCC with an emoji
+    $parentArtcc = getParentArtcc($facilityCode);
+    if ($parentArtcc && isset(FACILITY_EMOJI_MAP[$parentArtcc])) {
+        $emoji = FACILITY_EMOJI_MAP[$parentArtcc];
+        if (!in_array($emoji, $usedEmojis)) {
+            $usedEmojis[] = $emoji;
+            return ['emoji' => $emoji, 'type' => 'parent', 'parent' => $parentArtcc];
+        }
+    }
+
+    // 3. Use a fallback emoji
+    foreach (FALLBACK_EMOJIS as $fallbackEmoji) {
+        if (!in_array($fallbackEmoji, $usedEmojis)) {
+            $usedEmojis[] = $fallbackEmoji;
+            return ['emoji' => $fallbackEmoji, 'type' => 'fallback', 'parent' => $parentArtcc];
+        }
+    }
+
+    return ['emoji' => null, 'type' => 'none', 'parent' => null];
+}
+
+/**
+ * Get the parent ARTCC for a facility code
+ */
+function getParentArtcc($facilityCode) {
+    if (empty($facilityCode)) return null;
+    $facilityCode = strtoupper(trim($facilityCode));
+
+    // If already an ARTCC/FIR, return itself
+    if (isset(FACILITY_EMOJI_MAP[$facilityCode])) {
+        return $facilityCode;
+    }
+
+    // Check TRACON mapping
+    if (isset(TRACON_TO_ARTCC[$facilityCode])) {
+        return TRACON_TO_ARTCC[$facilityCode];
+    }
+
+    return null;
 }
 
 function extractEmojiName($emoji) {

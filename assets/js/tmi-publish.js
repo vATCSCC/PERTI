@@ -4922,10 +4922,21 @@
 
     function showEditProposalDialog(proposal, facilities) {
         const entryData = proposal.entry_data || {};
+        // Format UTC datetime string for datetime-local input without timezone conversion
+        // Database stores UTC times, so we keep them as-is for the datetime-local input
         const formatForInput = (dateStr) => {
             if (!dateStr) return '';
-            const d = new Date(dateStr);
-            return d.toISOString().slice(0, 16);
+            // Remove any trailing Z or timezone info, replace space with T
+            // Handles: "2026-01-28 03:45:00", "2026-01-28T03:45:00Z", "2026-01-28T03:45"
+            let s = dateStr.toString().replace(' ', 'T').replace('Z', '');
+            // Ensure we have YYYY-MM-DDTHH:MM format for datetime-local
+            if (s.length >= 16) return s.slice(0, 16);
+            // Try parsing if format is unexpected
+            const d = new Date(dateStr + 'Z'); // Append Z to parse as UTC
+            if (isNaN(d.getTime())) return '';
+            // Manual format to avoid local timezone offset
+            const pad = n => n.toString().padStart(2, '0');
+            return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
         };
 
         Swal.fire({

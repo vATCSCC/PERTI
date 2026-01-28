@@ -1169,12 +1169,16 @@ function handleEditProposal($input) {
 
         if (isset($updates['valid_from']) && $updates['valid_from']) {
             $setClauses[] = 'valid_from = :valid_from';
-            $params[':valid_from'] = $updates['valid_from'];
+            // Parse datetime-local format (2026-01-28T03:45) and convert to SQL Server format
+            $validFromDt = new DateTime($updates['valid_from'], new DateTimeZone('UTC'));
+            $params[':valid_from'] = $validFromDt->format('Y-m-d H:i:s');
         }
 
         if (isset($updates['valid_until']) && $updates['valid_until']) {
             $setClauses[] = 'valid_until = :valid_until';
-            $params[':valid_until'] = $updates['valid_until'];
+            // Parse datetime-local format (2026-01-28T03:45) and convert to SQL Server format
+            $validUntilDt = new DateTime($updates['valid_until'], new DateTimeZone('UTC'));
+            $params[':valid_until'] = $validUntilDt->format('Y-m-d H:i:s');
         }
 
         if (isset($updates['raw_text'])) {
@@ -1422,6 +1426,40 @@ function handleRescindProposal() {
                                  reacted_by_username = NULL
                              WHERE proposal_id = :prop_id";
                 $conn->prepare($resetSql)->execute([':prop_id' => $proposalId]);
+
+                // Re-post to Discord coordination channel
+                $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
+                $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
+                $facStmt = $conn->prepare($facSql);
+                $facStmt->execute([':id' => $proposalId]);
+                $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
+                $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
+
+                // Set new deadline (current time + original deadline duration, or 6 hours default)
+                $newDeadline = new DateTime('now', new DateTimeZone('UTC'));
+                $newDeadline->modify('+6 hours');
+
+                // Post new coordination message
+                $discordResult = postProposalToDiscord(
+                    $proposalId,
+                    $entryData,
+                    $newDeadline,
+                    $facilityList,
+                    $userName . ' (REOPENED)'
+                );
+
+                // Update proposal with new deadline and Discord message ID
+                if ($discordResult && isset($discordResult['id'])) {
+                    $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
+                                             discord_message_id = :msg_id,
+                                             approval_deadline_utc = :deadline
+                                         WHERE proposal_id = :prop_id";
+                    $conn->prepare($updateDiscordSql)->execute([
+                        ':msg_id' => $discordResult['id'],
+                        ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
+                        ':prop_id' => $proposalId
+                    ]);
+                }
                 break;
 
             case 'CANCEL':

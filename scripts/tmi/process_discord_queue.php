@@ -197,6 +197,24 @@ function updateQueueStatus($conn, $postId, $status, $messageId = null, $channelI
 }
 
 /**
+ * Check if the entity already has a Discord message ID
+ * Returns the message ID if already posted, null otherwise
+ */
+function getEntityDiscordMessageId($conn, $entityType, $entityId) {
+    if ($entityType === 'ENTRY') {
+        $sql = "SELECT discord_message_id FROM dbo.tmi_entries WHERE entry_id = :entity_id";
+    } else {
+        $sql = "SELECT discord_message_id FROM dbo.tmi_advisories WHERE advisory_id = :entity_id";
+    }
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([':entity_id' => $entityId]);
+    $result = $stmt->fetchColumn();
+
+    return $result ?: null;
+}
+
+/**
  * Update the parent entry/advisory with Discord info
  */
 function updateEntityDiscordInfo($conn, $entityType, $entityId, $messageId, $channelId) {
@@ -257,6 +275,17 @@ function processBatch($conn, $discord, $multiDiscord, $config) {
 
     foreach ($posts as $post) {
         $stats['processed']++;
+
+        // Check if entity already has a discord_message_id (already posted)
+        // This prevents duplicate posts on daemon restart
+        $existingMessageId = getEntityDiscordMessageId($conn, $post['entity_type'], $post['entity_id']);
+        if ($existingMessageId) {
+            echo "  [{$post['post_id']}] SKIP - Entity already posted (msg: {$existingMessageId})\n";
+            // Mark queue entry as POSTED since it's already been posted
+            updateQueueStatus($conn, $post['post_id'], 'POSTED', $existingMessageId, null, null, 'Already posted - marked on restart');
+            $stats['skipped']++;
+            continue;
+        }
 
         // Determine if staging based on channel purpose
         $isStaging = strpos($post['channel_purpose'], 'staging') !== false;

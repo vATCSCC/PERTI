@@ -242,6 +242,14 @@
             $('#filterType').select2({...simpleSelect2Config, placeholder: 'All Types'});
             $('#filterStatus').select2({...simpleSelect2Config, placeholder: 'All Status'});
 
+            // Initialize Source filter with Select2 (single-select)
+            $('#filterSource').select2({
+                placeholder: 'All Sources',
+                allowClear: false,
+                width: '100%',
+                minimumResultsForSearch: Infinity // Hide search box for simple dropdown
+            });
+
             // Set default status selection
             $('#filterStatus').val(['ACTIVE', 'SCHEDULED']).trigger('change.select2');
 
