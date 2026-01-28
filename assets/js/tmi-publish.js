@@ -3327,21 +3327,238 @@
 
     function submitAll() {
         if (!state.queue || state.queue.length === 0) return;
-        
+
         const mode = state.productionMode ? 'PRODUCTION' : 'STAGING';
         const modeClass = state.productionMode ? 'text-danger' : 'text-warning';
-        
+
+        // For production mode, show coordination options
+        if (state.productionMode) {
+            showCoordinationDialog();
+        } else {
+            // Staging - direct submit
+            Swal.fire({
+                title: `Submit to ${mode}?`,
+                html: `<p>Post <strong>${state.queue.length}</strong> entries to Discord.</p>
+                       <p class="${modeClass}">Mode: <strong>${mode}</strong></p>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: `Submit to ${mode}`
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    performSubmit();
+                }
+            });
+        }
+    }
+
+    function showCoordinationDialog() {
+        // Calculate default deadline (2 hours from now)
+        const defaultDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        const deadlineStr = defaultDeadline.toISOString().slice(0, 16);
+
         Swal.fire({
-            title: `Submit to ${mode}?`,
-            html: `<p>Post <strong>${state.queue.length}</strong> entries to Discord.</p>
-                   <p class="${modeClass}">Mode: <strong>${mode}</strong></p>`,
+            title: 'Submit TMI',
+            html: `
+                <div class="text-left">
+                    <p class="mb-3">Post <strong>${state.queue.length}</strong> entry(ies) to <span class="text-danger font-weight-bold">PRODUCTION</span></p>
+
+                    <hr class="my-3">
+
+                    <div class="form-group">
+                        <div class="custom-control custom-radio mb-2">
+                            <input type="radio" id="coordOption_coordinate" name="coordOption" class="custom-control-input" value="coordinate" checked>
+                            <label class="custom-control-label" for="coordOption_coordinate">
+                                <strong>Submit for Coordination</strong>
+                                <small class="d-block text-muted">Post to #coordination for facility approval</small>
+                            </label>
+                        </div>
+                        <div class="custom-control custom-radio mb-2">
+                            <input type="radio" id="coordOption_precoordinated" name="coordOption" class="custom-control-input" value="precoordinated">
+                            <label class="custom-control-label" for="coordOption_precoordinated">
+                                <strong>Already Coordinated</strong>
+                                <small class="d-block text-muted">Publish directly (coordination was done externally)</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="coordinationOptions" class="mt-3 p-3 bg-light rounded">
+                        <div class="form-group mb-3">
+                            <label for="coordDeadline"><strong>Approval Deadline (UTC):</strong></label>
+                            <input type="datetime-local" class="form-control" id="coordDeadline" value="${deadlineStr}">
+                            <small class="text-muted">Facilities must respond by this time</small>
+                        </div>
+
+                        <div class="form-group mb-0">
+                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <div id="facilityCheckboxes" class="row">
+                                ${buildFacilityCheckboxes()}
+                            </div>
+                            <small class="text-muted">Select facilities that must approve this TMI</small>
+                        </div>
+                    </div>
+                </div>
+            `,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: state.productionMode ? '#dc3545' : '#28a745',
-            confirmButtonText: `Submit to ${mode}`
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Submit',
+            cancelButtonText: 'Cancel',
+            width: '550px',
+            didOpen: () => {
+                // Toggle coordination options visibility
+                document.querySelectorAll('input[name="coordOption"]').forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        const coordOptions = document.getElementById('coordinationOptions');
+                        if (this.value === 'coordinate') {
+                            coordOptions.style.display = 'block';
+                        } else {
+                            coordOptions.style.display = 'none';
+                        }
+                    });
+                });
+            },
+            preConfirm: () => {
+                const coordOption = document.querySelector('input[name="coordOption"]:checked').value;
+
+                if (coordOption === 'coordinate') {
+                    const deadline = document.getElementById('coordDeadline').value;
+                    if (!deadline) {
+                        Swal.showValidationMessage('Please set an approval deadline');
+                        return false;
+                    }
+
+                    const selectedFacilities = [];
+                    document.querySelectorAll('.facility-checkbox:checked').forEach(cb => {
+                        selectedFacilities.push({
+                            code: cb.value,
+                            emoji: cb.dataset.emoji || null
+                        });
+                    });
+
+                    if (selectedFacilities.length === 0) {
+                        Swal.showValidationMessage('Please select at least one facility');
+                        return false;
+                    }
+
+                    return {
+                        mode: 'coordinate',
+                        deadline: deadline,
+                        facilities: selectedFacilities
+                    };
+                } else {
+                    return {
+                        mode: 'direct'
+                    };
+                }
+            }
         }).then((result) => {
             if (result.isConfirmed) {
-                performSubmit();
+                if (result.value.mode === 'coordinate') {
+                    submitForCoordination(result.value.deadline, result.value.facilities);
+                } else {
+                    performSubmit();
+                }
+            }
+        });
+    }
+
+    function buildFacilityCheckboxes() {
+        // Get facilities from queue entries
+        const facilities = new Set();
+        state.queue.forEach(entry => {
+            const data = entry.data || {};
+            if (data.requesting_facility || data.req_fac) {
+                facilities.add((data.requesting_facility || data.req_fac).toUpperCase());
+            }
+            if (data.providing_facility || data.prov_fac) {
+                facilities.add((data.providing_facility || data.prov_fac).toUpperCase());
+            }
+        });
+
+        // Common ARTCCs
+        const commonFacilities = ['ZNY', 'ZDC', 'ZBW', 'ZOB', 'ZAU', 'ZID', 'ZTL', 'ZJX', 'ZMA', 'ZHU', 'ZFW', 'ZKC', 'ZMP', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZME'];
+
+        // Merge detected and common
+        commonFacilities.forEach(f => facilities.add(f));
+
+        const sortedFacilities = Array.from(facilities).sort();
+
+        let html = '';
+        sortedFacilities.forEach(fac => {
+            const checked = state.queue.some(e => {
+                const d = e.data || {};
+                return (d.requesting_facility || d.req_fac || '').toUpperCase() === fac ||
+                       (d.providing_facility || d.prov_fac || '').toUpperCase() === fac;
+            });
+            html += `
+                <div class="col-4 mb-1">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input facility-checkbox"
+                               id="fac_${fac}" value="${fac}" data-emoji=":${fac}:" ${checked ? 'checked' : ''}>
+                        <label class="custom-control-label" for="fac_${fac}">${fac}</label>
+                    </div>
+                </div>
+            `;
+        });
+        return html;
+    }
+
+    function submitForCoordination(deadline, facilities) {
+        // Submit each entry for coordination
+        const payload = {
+            entry: state.queue[0], // For now, handle one entry at a time
+            deadlineUtc: deadline + ':00Z',
+            facilities: facilities,
+            userCid: CONFIG.userCid,
+            userName: CONFIG.userName || 'Unknown'
+        };
+
+        Swal.fire({
+            title: 'Submitting for Coordination...',
+            text: 'Posting proposal to #coordination',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(response) {
+                Swal.close();
+
+                if (response.success) {
+                    // Clear queue on success
+                    state.queue = [];
+                    saveState();
+                    updateUI();
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Submitted for Coordination',
+                        html: `<p>Proposal #${response.proposal_id} posted to #coordination.</p>
+                               <p class="small text-muted">Awaiting facility approval.</p>`,
+                        timer: 4000,
+                        showConfirmButton: true
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Submission Failed',
+                        text: response.error || 'Unknown error occurred'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.close();
+                console.error('Coordination submit error:', xhr.responseText);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Connection Error',
+                    html: `<p>Failed to submit for coordination.</p><p class="small text-muted">${error}</p>`
+                });
             }
         });
     }
