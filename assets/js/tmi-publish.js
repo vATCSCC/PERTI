@@ -1028,6 +1028,8 @@
     }
     
     function buildConfigForm() {
+        const times = getSmartDefaultTimes();
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header" style="background-color: #6f42c1; color: white;">
@@ -1057,7 +1059,7 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Arrival Runways</label>
@@ -1068,7 +1070,7 @@
                             <input type="text" class="form-control text-uppercase" id="ntml_dep_runways" placeholder="31L, 31R">
                         </div>
                     </div>
-                    
+
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label small text-muted">AAR</label>
@@ -1086,12 +1088,25 @@
                             <input type="number" class="form-control" id="ntml_adr" min="0" max="120" value="60">
                         </div>
                     </div>
-                    
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
+                            <small class="text-muted">When this config becomes active</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
+                            <small class="text-muted">When this config expires</small>
+                        </div>
+                    </div>
+
                     <div class="alert alert-info small mb-3">
-                        <i class="fas fa-info-circle"></i> 
+                        <i class="fas fa-info-circle"></i>
                         Enter an airport code to load saved presets. See <a href="airport_config.php" target="_blank">Airport Configurations</a> for full list.
                     </div>
-                    
+
                     <hr>
                     <div class="d-flex justify-content-between">
                         <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
@@ -2798,6 +2813,8 @@
                 data.aar = $('#ntml_aar').val();
                 data.aar_type = $('#ntml_aar_type').val();
                 data.adr = $('#ntml_adr').val();
+                data.valid_from = ($('#ntml_valid_from').val() || '').trim();
+                data.valid_until = ($('#ntml_valid_until').val() || '').trim();
                 break;
             case 'CANCEL':
                 data.cancel_type = $('#ntml_cancel_type').val();
@@ -3034,7 +3051,7 @@
     }
     
     function formatConfigMessage(data, logTime) {
-        // Format: {DD/HHMM}    {airport}    {weather}    ARR:{arr} DEP:{dep}    AAR(Strat):{aar} ADR:{adr}
+        // Format: {DD/HHMM}    {airport}    {weather}    ARR:{arr} DEP:{dep}    AAR(Strat):{aar} ADR:{adr} {valid}
         const airport = (data.ctl_element || 'N/A').toUpperCase();
         const weather = (data.weather || 'VMC').toUpperCase();
         const arrRwys = (data.arr_runways || 'N/A').toUpperCase();
@@ -3042,9 +3059,14 @@
         const aar = data.aar || '60';
         const adr = data.adr || '60';
         const aarType = data.aar_type || 'Strat';
-        
-        let line = `${logTime}    ${airport}    ${weather}    ARR:${arrRwys} DEP:${depRwys}    AAR(${aarType}):${aar} ADR:${adr}`;
-        
+        const validTime = formatValidTime(data.valid_from, data.valid_until);
+
+        let line = `${logTime}    ${airport} ${weather} ARR:${arrRwys} DEP:${depRwys} AAR(${aarType}):${aar} ADR:${adr}`;
+
+        if (validTime && validTime !== 'TFN') {
+            line += ` ${validTime}`;
+        }
+
         return line;
     }
     
