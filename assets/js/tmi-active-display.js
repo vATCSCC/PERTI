@@ -207,23 +207,44 @@
             return;
         }
 
+        // Check if any selected items support cancellation advisories
+        const supportsAdvisory = selected.some(item =>
+            ['PROGRAM', 'REROUTE'].includes(item.entityType) ||
+            (item.entityType === 'ADVISORY' && item.advisoryType && item.advisoryType.includes('HOTLINE'))
+        );
+
         Swal.fire({
             title: `Cancel ${selected.length} TMI${selected.length > 1 ? 's' : ''}?`,
             html: `<p>You are about to cancel <strong>${selected.length}</strong> TMI entr${selected.length > 1 ? 'ies' : 'y'}.</p>
-                   <p class="text-danger">This action cannot be undone.</p>`,
+                   <p class="text-danger">This action cannot be undone.</p>
+                   ${supportsAdvisory ? `
+                   <hr class="my-3">
+                   <div class="form-check text-left">
+                       <input type="checkbox" class="form-check-input" id="postCancelAdvisory" checked>
+                       <label class="form-check-label" for="postCancelAdvisory">
+                           <strong>Post Cancellation Advisories</strong><br>
+                           <small class="text-muted">Auto-generates GS CNX, GDP CNX, Reroute Cancellation, or Hotline Termination advisories</small>
+                       </label>
+                   </div>
+                   ` : ''}`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
             confirmButtonText: '<i class="fas fa-times-circle"></i> Cancel All Selected',
-            cancelButtonText: 'Nevermind'
+            cancelButtonText: 'Nevermind',
+            preConfirm: () => {
+                return {
+                    postAdvisory: supportsAdvisory && document.getElementById('postCancelAdvisory')?.checked
+                };
+            }
         }).then((result) => {
             if (result.isConfirmed) {
-                executeBatchCancel(selected);
+                executeBatchCancel(selected, result.value?.postAdvisory || false);
             }
         });
     }
 
-    function executeBatchCancel(items) {
+    function executeBatchCancel(items, postAdvisory = false) {
         Swal.fire({
             title: 'Cancelling...',
             html: `<div id="batchProgress">Processing 0 of ${items.length}...</div>`,
@@ -233,21 +254,29 @@
 
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
         const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+        const advisoryChannel = window.TMI_PUBLISHER_CONFIG?.advisoryChannel || 'advzy_staging';
 
         let completed = 0;
         let successes = 0;
         let failures = [];
+        let advisoriesPosted = 0;
 
         const processNext = (index) => {
             if (index >= items.length) {
                 Swal.close();
-                showBatchResult(successes, failures);
+                showBatchResult(successes, failures, advisoriesPosted);
                 loadActiveTmis();
                 return;
             }
 
             const item = items[index];
             $('#batchProgress').text(`Processing ${index + 1} of ${items.length}...`);
+
+            // Determine if this item supports advisory posting
+            const canPostAdvisory = postAdvisory && (
+                ['PROGRAM', 'REROUTE'].includes(item.entityType) ||
+                (item.entityType === 'ADVISORY' && item.advisoryType && item.advisoryType.includes('HOTLINE'))
+            );
 
             $.ajax({
                 url: CONFIG.cancelEndpoint,
@@ -258,11 +287,16 @@
                     entityId: item.entityId,
                     reason: 'Batch cancellation',
                     userCid: userCid,
-                    userName: userName
+                    userName: userName,
+                    postAdvisory: canPostAdvisory,
+                    advisoryChannel: advisoryChannel
                 }),
                 success: function(response) {
                     if (response.success) {
                         successes++;
+                        if (response.advisory && response.advisory.success) {
+                            advisoriesPosted++;
+                        }
                     } else {
                         failures.push({ id: item.entityId, error: response.error || 'Unknown error' });
                     }
@@ -279,13 +313,17 @@
         processNext(0);
     }
 
-    function showBatchResult(successes, failures) {
+    function showBatchResult(successes, failures, advisoriesPosted = 0) {
         if (failures.length === 0) {
+            let message = `Successfully cancelled ${successes} TMI${successes > 1 ? 's' : ''}.`;
+            if (advisoriesPosted > 0) {
+                message += ` Posted ${advisoriesPosted} cancellation advisor${advisoriesPosted > 1 ? 'ies' : 'y'}.`;
+            }
             Swal.fire({
                 icon: 'success',
                 title: 'Batch Cancel Complete',
-                text: `Successfully cancelled ${successes} TMI${successes > 1 ? 's' : ''}.`,
-                timer: 2500,
+                text: message,
+                timer: 3500,
                 showConfirmButton: false
             });
         } else {

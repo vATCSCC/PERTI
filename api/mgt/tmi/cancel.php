@@ -55,6 +55,8 @@ $entityId = intval($payload['entityId'] ?? 0);
 $reason = $payload['reason'] ?? 'Cancelled via TMI Publisher';
 $userCid = $payload['userCid'] ?? null;
 $userName = $payload['userName'] ?? 'Unknown';
+$postAdvisory = isset($payload['postAdvisory']) ? (bool)$payload['postAdvisory'] : false;
+$advisoryChannel = $payload['advisoryChannel'] ?? 'advzy_staging';
 
 if (empty($entityType) || !in_array($entityType, ['ENTRY', 'ADVISORY', 'PROGRAM', 'REROUTE'])) {
     http_response_code(400);
@@ -236,16 +238,211 @@ try {
         logCancelEvent($tmiConn, 'REROUTE', $entityId, $reason, $userCid, $userName);
     }
 
-    echo json_encode([
+    // Post cancellation advisory if requested
+    $advisoryResult = null;
+    if ($postAdvisory) {
+        $advisoryResult = postCancellationAdvisory($entityType, $entityId, $tmiConn, $adlConn, $advisoryChannel, $reason);
+    }
+
+    $response = [
         'success' => true,
         'message' => "{$entityType} #{$entityId} cancelled successfully",
         'entityType' => $entityType,
         'entityId' => $entityId
-    ]);
+    ];
+
+    if ($advisoryResult !== null) {
+        $response['advisory'] = $advisoryResult;
+    }
+
+    echo json_encode($response);
 
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Cancel failed: ' . $e->getMessage()]);
+}
+
+/**
+ * Get next advisory number from database sequence
+ */
+function getNextAdvisoryNumber($conn) {
+    try {
+        // Try using the stored procedure via PDO
+        $sql = "DECLARE @num NVARCHAR(16);
+                EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT;
+                SELECT @num AS adv_num;";
+
+        $stmt = $conn->query($sql);
+        if ($stmt && ($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
+            return $row['adv_num'];
+        }
+    } catch (Exception $e) {
+        error_log("Failed to get next advisory number via SP: " . $e->getMessage());
+    }
+
+    // Fallback: query max advisory number + 1 for today
+    try {
+        $todayPrefix = gmdate('md');
+        $sql = "SELECT MAX(CAST(SUBSTRING(adv_number, 5, 10) AS INT)) AS max_num
+                FROM dbo.tmi_advisories
+                WHERE adv_number LIKE '{$todayPrefix}%'";
+        $stmt = $conn->query($sql);
+        if ($stmt && ($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
+            $nextNum = ($row['max_num'] ?? 0) + 1;
+            return $todayPrefix . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+        }
+    } catch (Exception $e) {
+        error_log("Failed to get next advisory number via query: " . $e->getMessage());
+    }
+
+    // Ultimate fallback: date-based number
+    return gmdate('dHi');
+}
+
+/**
+ * Post cancellation advisory to Discord
+ * Returns array with advisory info or null on failure
+ */
+function postCancellationAdvisory($entityType, $entityId, $tmiConn, $adlConn, $channel, $reason) {
+    try {
+        // Load TMIDiscord class
+        require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
+
+        if (!class_exists('TMIDiscord')) {
+            error_log("TMIDiscord class not found");
+            return ['success' => false, 'error' => 'TMIDiscord not available'];
+        }
+
+        $tmiDiscord = new TMIDiscord();
+        $advisoryData = null;
+        $result = null;
+
+        // Get next advisory number for cancellation advisories
+        $advisoryNumber = getNextAdvisoryNumber($tmiConn);
+
+        if ($entityType === 'PROGRAM') {
+            // Fetch program details
+            $stmt = $tmiConn->prepare("
+                SELECT p.*, a.RESP_ARTCC_ID as artcc
+                FROM dbo.tmi_programs p
+                LEFT JOIN dbo.apts a ON p.ctl_element = a.ICAO_ID
+                WHERE p.program_id = :id
+            ");
+            $stmt->execute([':id' => $entityId]);
+            $program = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$program) {
+                return ['success' => false, 'error' => 'Program not found'];
+            }
+
+            $programType = $program['program_type'] ?? 'GS';
+            $airport = $program['ctl_element'] ?? 'XXX';
+            $artcc = $program['artcc'] ?? 'ZXX';
+
+            $advisoryData = [
+                'advisory_number' => $advisoryNumber,
+                'ctl_element' => $airport,
+                'airport' => $airport,
+                'artcc' => $artcc,
+                'adl_time' => gmdate('H:i'),
+                'issue_date' => gmdate('Y-m-d H:i:s'),
+                'start_utc' => $program['start_utc'] instanceof DateTime
+                    ? $program['start_utc']->format('c')
+                    : $program['start_utc'],
+                'end_utc' => $program['end_utc'] instanceof DateTime
+                    ? $program['end_utc']->format('c')
+                    : $program['end_utc'],
+                'comments' => $reason,
+                'active_afp' => ''
+            ];
+
+            if ($programType === 'GS') {
+                $result = $tmiDiscord->postGSCancellation($advisoryData, $channel);
+            } else {
+                // GDP cancellation
+                $result = $tmiDiscord->postGDPCancellation($advisoryData, $channel);
+            }
+
+        } elseif ($entityType === 'REROUTE') {
+            // Fetch reroute details (from TMI database)
+            $conn = $tmiConn;
+            $stmt = $conn->prepare("
+                SELECT * FROM dbo.tmi_reroutes WHERE reroute_id = :id
+            ");
+            $stmt->execute([':id' => $entityId]);
+            $reroute = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$reroute) {
+                return ['success' => false, 'error' => 'Reroute not found'];
+            }
+
+            $advisoryData = [
+                'advisory_number' => $advisoryNumber,
+                'name' => $reroute['name'] ?? 'REROUTE',
+                'route_name' => $reroute['name'] ?? 'REROUTE',
+                'facility' => 'DCC',
+                'issue_date' => gmdate('Y-m-d H:i:s'),
+                'start_utc' => $reroute['start_utc'] instanceof DateTime
+                    ? $reroute['start_utc']->format('c')
+                    : $reroute['start_utc'],
+                'end_utc' => $reroute['end_utc'] instanceof DateTime
+                    ? $reroute['end_utc']->format('c')
+                    : $reroute['end_utc'],
+                'cancel_text' => strtoupper($reroute['name'] ?? 'REROUTE') . ' HAS BEEN CANCELLED. ' . strtoupper($reason)
+            ];
+
+            $result = $tmiDiscord->postRerouteCancellation($advisoryData, $channel);
+
+        } elseif ($entityType === 'ADVISORY') {
+            // Fetch advisory details
+            $stmt = $tmiConn->prepare("
+                SELECT * FROM dbo.tmi_advisories WHERE advisory_id = :id
+            ");
+            $stmt->execute([':id' => $entityId]);
+            $advisory = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$advisory) {
+                return ['success' => false, 'error' => 'Advisory not found'];
+            }
+
+            $advType = strtoupper($advisory['advisory_type'] ?? '');
+
+            // Check if it's a hotline advisory
+            if (strpos($advType, 'HOTLINE') !== false) {
+                $advisoryData = [
+                    'advisory_number' => $advisoryNumber,
+                    'hotline_name' => $advisory['name'] ?? 'HOTLINE',
+                    'name' => $advisory['name'] ?? 'HOTLINE',
+                    'facility' => $advisory['facility'] ?? 'DCC',
+                    'issue_date' => gmdate('Y-m-d H:i:s'),
+                    'start_utc' => $advisory['start_utc'] instanceof DateTime
+                        ? $advisory['start_utc']->format('c')
+                        : $advisory['start_utc'],
+                    'end_utc' => gmdate('c'), // Terminated now
+                    'constrained_facilities' => $advisory['constrained_facilities'] ?? '',
+                    'terminated' => true,
+                    'deactivated' => true
+                ];
+
+                $result = $tmiDiscord->postHotlineAdvisory($advisoryData, $channel);
+            }
+            // Other advisory types can be added here
+        }
+
+        if ($result !== null) {
+            return [
+                'success' => true,
+                'channel' => $channel,
+                'message_id' => $result['id'] ?? null
+            ];
+        }
+
+        return ['success' => false, 'error' => 'No advisory posted'];
+
+    } catch (Exception $e) {
+        error_log("Failed to post cancellation advisory: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 }
 
 /**
