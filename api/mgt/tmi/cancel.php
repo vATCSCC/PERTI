@@ -58,11 +58,14 @@ $userName = $payload['userName'] ?? 'Unknown';
 $postAdvisory = isset($payload['postAdvisory']) ? (bool)$payload['postAdvisory'] : false;
 $advisoryChannel = $payload['advisoryChannel'] ?? 'advzy_staging';
 
-if (empty($entityType) || !in_array($entityType, ['ENTRY', 'ADVISORY', 'PROGRAM', 'REROUTE'])) {
+if (empty($entityType) || !in_array($entityType, ['ENTRY', 'ADVISORY', 'PROGRAM', 'REROUTE', 'PUBLICROUTE'])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid entityType. Must be ENTRY, ADVISORY, PROGRAM, or REROUTE']);
+    echo json_encode(['success' => false, 'error' => 'Invalid entityType. Must be ENTRY, ADVISORY, PROGRAM, REROUTE, or PUBLICROUTE']);
     exit;
 }
+
+// Get the subtype for REROUTE to distinguish between tmi_reroutes and tmi_public_routes
+$entitySubtype = $payload['type'] ?? $payload['subtype'] ?? null;
 
 if ($entityId <= 0) {
     http_response_code(400);
@@ -203,39 +206,90 @@ try {
         // Log event
         logCancelEvent($tmiConn, 'PROGRAM', $entityId, $reason, $userCid, $userName);
 
-    } elseif ($entityType === 'REROUTE') {
-        // Cancel reroute (status 5 = cancelled, ADL uses id and updated_utc)
-        if (!$adlConn) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'ADL database not configured for reroute operations'
+    } elseif ($entityType === 'REROUTE' || $entityType === 'PUBLICROUTE') {
+        // Check if this is a public route (tmi_public_routes in TMI database)
+        // vs a reroute (tmi_reroutes)
+        $isPublicRoute = ($entityType === 'PUBLICROUTE') ||
+                         ($entitySubtype === 'publicroute') ||
+                         ($entitySubtype === 'public_route');
+
+        if ($isPublicRoute) {
+            // Cancel public route (tmi_public_routes in TMI database)
+            // status: 1=active, 2=expired, 3=cancelled
+            $sql = "UPDATE dbo.tmi_public_routes
+                    SET status = 3,
+                        updated_at = SYSUTCDATETIME()
+                    WHERE route_id = :id
+                      AND status NOT IN (2, 3)";
+
+            $stmt = $tmiConn->prepare($sql);
+            $stmt->execute([
+                ':id' => $entityId
             ]);
-            exit;
-        }
 
-        $sql = "UPDATE dbo.tmi_reroutes
-                SET status = 5,
-                    updated_utc = GETUTCDATE()
-                WHERE id = :id
-                  AND status NOT IN (4, 5)";
+            $rowsAffected = $stmt->rowCount();
 
-        $stmt = $adlConn->prepare($sql);
-        $stmt->execute([
-            ':id' => $entityId
-        ]);
+            if ($rowsAffected === 0) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Reroute not found or already cancelled/expired'
+                ]);
+                exit;
+            }
 
-        $rowsAffected = $stmt->rowCount();
+            // Log event
+            logCancelEvent($tmiConn, 'PUBLICROUTE', $entityId, $reason, $userCid, $userName);
 
-        if ($rowsAffected === 0) {
-            echo json_encode([
-                'success' => false,
-                'error' => 'Reroute not found or already cancelled/expired'
+        } else {
+            // Cancel reroute (tmi_reroutes - try TMI first, then ADL)
+            // status: 4=expired, 5=cancelled
+            $rerouteConn = $tmiConn;
+
+            // Check if tmi_reroutes exists in TMI database
+            $tableExists = false;
+            try {
+                $checkStmt = $tmiConn->query("SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_reroutes'");
+                $tableExists = $checkStmt->fetch() !== false;
+            } catch (Exception $e) {
+                $tableExists = false;
+            }
+
+            if (!$tableExists && $adlConn) {
+                $rerouteConn = $adlConn;
+            }
+
+            if (!$rerouteConn) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Database not configured for reroute operations'
+                ]);
+                exit;
+            }
+
+            $sql = "UPDATE dbo.tmi_reroutes
+                    SET status = 5,
+                        updated_at = GETUTCDATE()
+                    WHERE id = :id
+                      AND status NOT IN (4, 5)";
+
+            $stmt = $rerouteConn->prepare($sql);
+            $stmt->execute([
+                ':id' => $entityId
             ]);
-            exit;
-        }
 
-        // Log event (to TMI events table)
-        logCancelEvent($tmiConn, 'REROUTE', $entityId, $reason, $userCid, $userName);
+            $rowsAffected = $stmt->rowCount();
+
+            if ($rowsAffected === 0) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Reroute not found or already cancelled/expired'
+                ]);
+                exit;
+            }
+
+            // Log event (to TMI events table)
+            logCancelEvent($tmiConn, 'REROUTE', $entityId, $reason, $userCid, $userName);
+        }
     }
 
     // Post cancellation advisory if requested
@@ -363,33 +417,69 @@ function postCancellationAdvisory($entityType, $entityId, $tmiConn, $adlConn, $c
                 $result = $tmiDiscord->postGDPCancellation($advisoryData, $channel);
             }
 
-        } elseif ($entityType === 'REROUTE') {
-            // Fetch reroute details (from TMI database)
-            $conn = $tmiConn;
-            $stmt = $conn->prepare("
-                SELECT * FROM dbo.tmi_reroutes WHERE reroute_id = :id
-            ");
-            $stmt->execute([':id' => $entityId]);
-            $reroute = $stmt->fetch(PDO::FETCH_ASSOC);
+        } elseif ($entityType === 'REROUTE' || $entityType === 'PUBLICROUTE') {
+            // Determine which table to query based on entity type
+            $isPublicRoute = ($entityType === 'PUBLICROUTE');
 
-            if (!$reroute) {
-                return ['success' => false, 'error' => 'Reroute not found'];
+            if ($isPublicRoute) {
+                // Fetch from tmi_public_routes
+                $stmt = $tmiConn->prepare("
+                    SELECT route_id, name, route_string, advisory_text, reason,
+                           valid_start_utc, valid_end_utc, facilities
+                    FROM dbo.tmi_public_routes WHERE route_id = :id
+                ");
+                $stmt->execute([':id' => $entityId]);
+                $route = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$route) {
+                    return ['success' => false, 'error' => 'Public route not found'];
+                }
+
+                $routeName = $route['name'] ?? 'ROUTE';
+                $advisoryData = [
+                    'advisory_number' => $advisoryNumber,
+                    'name' => $routeName,
+                    'route_name' => $routeName,
+                    'facility' => 'DCC',
+                    'issue_date' => gmdate('Y-m-d H:i:s'),
+                    'start_utc' => $route['valid_start_utc'] instanceof DateTime
+                        ? $route['valid_start_utc']->format('c')
+                        : $route['valid_start_utc'],
+                    'end_utc' => $route['valid_end_utc'] instanceof DateTime
+                        ? $route['valid_end_utc']->format('c')
+                        : $route['valid_end_utc'],
+                    'cancel_text' => strtoupper($routeName) . ' HAS BEEN CANCELLED.',
+                    'reason' => $reason
+                ];
+            } else {
+                // Fetch from tmi_reroutes (column is 'id' not 'reroute_id')
+                $stmt = $tmiConn->prepare("
+                    SELECT * FROM dbo.tmi_reroutes WHERE id = :id
+                ");
+                $stmt->execute([':id' => $entityId]);
+                $reroute = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$reroute) {
+                    return ['success' => false, 'error' => 'Reroute not found'];
+                }
+
+                $routeName = $reroute['name'] ?? 'REROUTE';
+                $advisoryData = [
+                    'advisory_number' => $advisoryNumber,
+                    'name' => $routeName,
+                    'route_name' => $routeName,
+                    'facility' => 'DCC',
+                    'issue_date' => gmdate('Y-m-d H:i:s'),
+                    'start_utc' => $reroute['start_utc'] instanceof DateTime
+                        ? $reroute['start_utc']->format('c')
+                        : $reroute['start_utc'],
+                    'end_utc' => $reroute['end_utc'] instanceof DateTime
+                        ? $reroute['end_utc']->format('c')
+                        : $reroute['end_utc'],
+                    'cancel_text' => strtoupper($routeName) . ' HAS BEEN CANCELLED.',
+                    'reason' => $reason
+                ];
             }
-
-            $advisoryData = [
-                'advisory_number' => $advisoryNumber,
-                'name' => $reroute['name'] ?? 'REROUTE',
-                'route_name' => $reroute['name'] ?? 'REROUTE',
-                'facility' => 'DCC',
-                'issue_date' => gmdate('Y-m-d H:i:s'),
-                'start_utc' => $reroute['start_utc'] instanceof DateTime
-                    ? $reroute['start_utc']->format('c')
-                    : $reroute['start_utc'],
-                'end_utc' => $reroute['end_utc'] instanceof DateTime
-                    ? $reroute['end_utc']->format('c')
-                    : $reroute['end_utc'],
-                'cancel_text' => strtoupper($reroute['name'] ?? 'REROUTE') . ' HAS BEEN CANCELLED. ' . strtoupper($reason)
-            ];
 
             $result = $tmiDiscord->postRerouteCancellation($advisoryData, $channel);
 

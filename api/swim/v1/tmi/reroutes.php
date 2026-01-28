@@ -216,7 +216,7 @@ function formatReroute($row, $conn = null, $includeAdvisory = false) {
             'start' => formatDT($row['start_utc'] ?? null),
             'end' => formatDT($row['end_utc'] ?? null),
             'time_basis' => $row['time_basis'] ?? 'ETD',
-            'activated' => formatDT($row['activated_utc'] ?? null)
+            'activated' => formatDT($row['activated_at'] ?? null)
         ],
 
         'route' => [
@@ -455,13 +455,25 @@ function formatDT($dt) {
 
 /**
  * Get individual routes from tmi_reroute_routes table
+ * NOTE: tmi_reroute_routes table may not exist in all deployments.
+ * Caller should fall back to expandRoutesFromScope() if this returns empty.
  */
 function getRerouteRoutes($conn, $rerouteId) {
+    // Check if table exists before querying
+    $checkSql = "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_reroute_routes'";
+    $checkStmt = sqlsrv_query($conn, $checkSql);
+    if ($checkStmt === false) return [];
+
+    $tableExists = sqlsrv_fetch_array($checkStmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($checkStmt);
+
+    if (!$tableExists) return [];
+
     $sql = "
         SELECT origin, destination, route_string, sort_order
         FROM dbo.tmi_reroute_routes
         WHERE reroute_id = ?
-        ORDER BY sort_order, route_id
+        ORDER BY sort_order
     ";
 
     $stmt = sqlsrv_query($conn, $sql, [$rerouteId]);

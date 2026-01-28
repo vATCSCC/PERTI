@@ -424,7 +424,7 @@ echo json_encode($response);
 function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $userName) {
     $data = $entry['data'] ?? [];
     $entryType = $entry['entryType'] ?? 'UNKNOWN';
-    
+
     // Map entry type to determinant code
     $determinantCodes = [
         'MIT' => 'MIT',
@@ -437,12 +437,44 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
         'CONFIG' => 'CONFIG',
         'CANCEL' => 'CANCEL'
     ];
-    
+
     $determinantCode = $determinantCodes[strtoupper($entryType)] ?? strtoupper($entryType);
-    
+
     // Parse valid times
     $validFrom = parseValidTime($data['valid_from'] ?? null);
     $validUntil = parseValidTime($data['valid_until'] ?? null);
+
+    // AUTO-EXPIRE DEFAULTS:
+    // - If no valid_from, set to current UTC time (publication time)
+    // - If no valid_until, set to COB UTC (0600 UTC next day)
+    // This applies to entries like D/D (departure delay)
+    // NOTE: CONFIG entries require explicit start/end times - no auto-expire
+
+    $entryTypeUpper = strtoupper($entryType);
+    $autoExpireEnabled = ($entryTypeUpper !== 'CONFIG');
+
+    if ($autoExpireEnabled && empty($validFrom)) {
+        // Default start time = now (publication time)
+        $validFrom = gmdate('Y-m-d H:i:s');
+        tmi_debug_log('Auto-set valid_from to publication time', ['valid_from' => $validFrom, 'entryType' => $entryType]);
+    }
+
+    if ($autoExpireEnabled && empty($validUntil)) {
+        // Default end time = COB UTC (0600 UTC)
+        // If current time is before 0600 UTC, COB is today at 0600
+        // If current time is after 0600 UTC, COB is tomorrow at 0600
+        $nowUtc = time();
+        $todayCob = strtotime(gmdate('Y-m-d') . ' 06:00:00 UTC');
+
+        if ($nowUtc >= $todayCob) {
+            // We're past today's COB, use tomorrow's 0600 UTC
+            $validUntil = gmdate('Y-m-d', strtotime('+1 day')) . ' 06:00:00';
+        } else {
+            // We're before today's COB, use today's 0600 UTC
+            $validUntil = gmdate('Y-m-d') . ' 06:00:00';
+        }
+        tmi_debug_log('Auto-set valid_until to COB UTC', ['valid_until' => $validUntil, 'entryType' => $entryType]);
+    }
     
     $sql = "INSERT INTO dbo.tmi_entries (
                 determinant_code, protocol_type, entry_type,

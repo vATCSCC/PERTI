@@ -470,7 +470,8 @@
         $('.batch-select-checkbox:checked').each(function() {
             selected.push({
                 entityId: $(this).data('id'),
-                entityType: $(this).data('type')
+                entityType: $(this).data('type'),
+                type: $(this).data('subtype') || null  // For distinguishing publicroute vs reroute
             });
         });
 
@@ -560,7 +561,8 @@
                     userCid: userCid,
                     userName: userName,
                     postAdvisory: canPostAdvisory,
-                    advisoryChannel: advisoryChannel
+                    advisoryChannel: advisoryChannel,
+                    type: item.type || null  // Pass subtype to distinguish publicroute vs reroute
                 }),
                 success: function(response) {
                     if (response.success) {
@@ -625,7 +627,8 @@
         $('.batch-select-advisory:checked').each(function() {
             selected.push({
                 entityId: $(this).data('id'),
-                entityType: $(this).data('type')
+                entityType: $(this).data('type'),
+                type: $(this).data('subtype') || null  // For distinguishing publicroute vs reroute
             });
         });
 
@@ -818,7 +821,8 @@
             e.stopPropagation();
             const id = $(this).data('id');
             const type = $(this).data('type');
-            cancelTmi(id, type);
+            const subtype = $(this).data('subtype');
+            cancelTmi(id, type, subtype);
         });
 
         // Bind edit button events
@@ -874,9 +878,9 @@
         const canSelect = !['CANCELLED', 'PURGED', 'EXPIRED'].includes(status);
 
         return `
-            <tr class="restriction-row ${statusClass}" data-id="${item.entityId}" data-type="${item.entityType}" style="cursor: pointer;">
+            <tr class="restriction-row ${statusClass}" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" style="cursor: pointer;">
                 <td class="text-center" style="width: 30px;">
-                    ${canSelect ? `<input type="checkbox" class="batch-select-checkbox" data-id="${item.entityId}" data-type="${item.entityType}" onclick="event.stopPropagation();">` : ''}
+                    ${canSelect ? `<input type="checkbox" class="batch-select-checkbox" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" onclick="event.stopPropagation();">` : ''}
                 </td>
                 <td class="font-weight-bold">${escapeHtml(reqFac)}</td>
                 <td class="font-weight-bold">${escapeHtml(provFac)}</td>
@@ -886,10 +890,10 @@
                 <td class="text-center">
                     ${canSelect ? `
                     <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-xs btn-outline-primary btn-edit-tmi" data-id="${item.entityId}" data-type="${item.entityType}" title="Edit">
+                        <button class="btn btn-xs btn-outline-primary btn-edit-tmi" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" title="Edit">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-xs btn-outline-danger btn-cancel-tmi" data-id="${item.entityId}" data-type="${item.entityType}" title="Cancel">
+                        <button class="btn btn-xs btn-outline-danger btn-cancel-tmi" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" title="Cancel">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -1091,7 +1095,8 @@
             e.stopPropagation();
             const id = $(this).data('id');
             const type = $(this).data('type') || 'ADVISORY';
-            cancelAdvisory(id, type);
+            const subtype = $(this).data('subtype');
+            cancelAdvisory(id, type, subtype);
         });
 
         // Bind edit buttons
@@ -1146,11 +1151,11 @@
         const canSelect = !['CANCELLED', 'PURGED', 'EXPIRED'].includes(status);
 
         return `
-            <div class="card advisory-card mb-2 ${status === 'CANCELLED' ? 'border-secondary' : ''}" data-id="${item.entityId}" data-type="${entityType}">
+            <div class="card advisory-card mb-2 ${status === 'CANCELLED' ? 'border-secondary' : ''}" data-id="${item.entityId}" data-type="${entityType}" data-subtype="${item.type || ''}">
                 <div class="card-header ${headerColor} py-2 advisory-header" style="cursor: pointer;">
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="d-flex align-items-center">
-                            ${canSelect ? `<input type="checkbox" class="batch-select-advisory mr-2" data-id="${item.entityId}" data-type="${entityType}" onclick="event.stopPropagation();">` : ''}
+                            ${canSelect ? `<input type="checkbox" class="batch-select-advisory mr-2" data-id="${item.entityId}" data-type="${entityType}" data-subtype="${item.type || ''}" onclick="event.stopPropagation();">` : ''}
                             <span class="font-weight-bold">${headerLabel}</span>
                             <span class="mx-2">|</span>
                             <span>${escapeHtml(subject)}</span>
@@ -1172,10 +1177,10 @@
                         </small>
                         ${status !== 'CANCELLED' ? `
                         <div class="btn-group btn-group-sm" role="group">
-                            <button class="btn btn-sm btn-outline-primary btn-edit-advisory" data-id="${item.entityId}" data-type="${entityType}">
+                            <button class="btn btn-sm btn-outline-primary btn-edit-advisory" data-id="${item.entityId}" data-type="${entityType}" data-subtype="${item.type || ''}">
                                 <i class="fas fa-edit mr-1"></i> Edit
                             </button>
-                            <button class="btn btn-sm btn-outline-danger btn-cancel-advisory" data-id="${item.entityId}" data-type="${entityType}">
+                            <button class="btn btn-sm btn-outline-danger btn-cancel-advisory" data-id="${item.entityId}" data-type="${entityType}" data-subtype="${item.type || ''}">
                                 <i class="fas fa-times mr-1"></i> Cancel
                             </button>
                         </div>
@@ -1497,7 +1502,7 @@
         });
     }
 
-    function cancelTmi(id, type) {
+    function cancelTmi(id, type, subtype) {
         Swal.fire({
             title: 'Cancel TMI?',
             html: `<p>Are you sure you want to cancel this TMI?</p>
@@ -1514,12 +1519,12 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                performCancel(id, type, result.value);
+                performCancel(id, type, result.value, subtype);
             }
         });
     }
 
-    function performCancel(id, type, reason) {
+    function performCancel(id, type, reason, subtype) {
         Swal.fire({
             title: 'Cancelling...',
             allowOutsideClick: false,
@@ -1542,7 +1547,8 @@
                 entityId: id,
                 reason: reason,
                 userCid: userCid,
-                userName: userName
+                userName: userName,
+                type: subtype || null  // Pass subtype to distinguish publicroute vs reroute
             }),
             success: function(response) {
                 Swal.close();
@@ -1577,9 +1583,9 @@
         });
     }
 
-    function cancelAdvisory(id, type) {
+    function cancelAdvisory(id, type, subtype) {
         // For reroutes, use REROUTE type; otherwise use ADVISORY
-        cancelTmi(id, type || 'ADVISORY');
+        cancelTmi(id, type || 'ADVISORY', subtype);
     }
 
     // ===========================================
