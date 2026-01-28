@@ -547,7 +547,7 @@ function logCancelEvent($conn, $entityType, $entityId, $reason, $actorId, $actor
                     :entity_type, :entity_id, 'CANCELLED', :reason,
                     'WEB', :actor_id, :actor_name, :actor_ip
                 )";
-        
+
         $stmt = $conn->prepare($sql);
         $stmt->execute([
             ':entity_type' => $entityType,
@@ -556,6 +556,17 @@ function logCancelEvent($conn, $entityType, $entityId, $reason, $actorId, $actor
             ':actor_id' => $actorId,
             ':actor_name' => $actorName,
             ':actor_ip' => $_SERVER['REMOTE_ADDR'] ?? null
+        ]);
+
+        // Also post to Discord coordination log
+        require_once __DIR__ . '/../../../load/coordination_log.php';
+        $action = strtoupper($entityType) . '_CANCELLED';
+        logToCoordinationChannel($conn, null, $action, [
+            'entry_type' => $entityType,
+            'entry_id' => $entityId,
+            'reason' => $reason,
+            'user_cid' => $actorId,
+            'user_name' => $actorName
         ]);
     } catch (Exception $e) {
         // Log failure but don't fail the cancel

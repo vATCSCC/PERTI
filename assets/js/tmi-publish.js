@@ -2574,23 +2574,25 @@
             }
             
         } else if (action === 'TERMINATION') {
-            // Termination format - simple
-            lines.push(`THE ${hotlineName} IS BEING TERMINATED EFFECTIVE ${startFormatted}Z.`);
-            
+            // Termination format - matches activation structure
+            lines.push(`EVENT TIME: ${startFormatted}Z - ${endFormatted}Z`);
+
             if (constrainedFacilities) {
-                lines.push(``);
-                lines.push(`FACILITIES AFFECTED: ${constrainedFacilities}`);
+                lines.push(`CONSTRAINED FACILITIES: ${constrainedFacilities}`);
             }
+
+            // Termination message uses END time (when hotline is being terminated)
+            lines.push(`THE ${hotlineName} IS BEING TERMINATED EFFECTIVE ${endFormatted}Z.`);
         }
-        
-        // Notes only (removed restrictions)
-        if (notes) {
-            lines.push(``);
-            lines.push(wrapWithLabel('REMARKS: ', notes));
-        }
-        
+
         lines.push(``);
-        lines.push(buildAdvisoryFooter(num, 'DCC'));
+
+        // For termination, use end time for both footer times
+        if (action === 'TERMINATION') {
+            lines.push(buildTerminationFooter(endDateTime));
+        } else {
+            lines.push(buildAdvisoryFooter(num, 'DCC'));
+        }
         
         return lines.join('\n');
     }
@@ -2748,7 +2750,38 @@
 
         return lines.join('\n');
     }
-    
+
+    // Build footer for termination advisories (both times = termination time)
+    function buildTerminationFooter(terminationDateTime) {
+        const oi = getUserOI();
+        const now = new Date();
+
+        // If terminationDateTime provided, use it; otherwise use current time
+        let termTime;
+        if (terminationDateTime) {
+            termTime = new Date(terminationDateTime);
+        } else {
+            termTime = now;
+        }
+
+        // Termination timestamp (DDHHMM format)
+        const day = String(termTime.getUTCDate()).padStart(2, '0');
+        const hour = String(termTime.getUTCHours()).padStart(2, '0');
+        const min = String(termTime.getUTCMinutes()).padStart(2, '0');
+        const timestamp = `${day}${hour}${min}`;
+
+        // Signature uses current time (when advisory was issued)
+        const sigDay = String(now.getUTCDate()).padStart(2, '0');
+        const sigHour = String(now.getUTCHours()).padStart(2, '0');
+        const sigMin = String(now.getUTCMinutes()).padStart(2, '0');
+        const year = String(now.getUTCFullYear()).substr(2, 2);
+        const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const signature = `${year}/${month}/${sigDay} ${sigHour}:${sigMin} ${oi}`;
+
+        // Both times are the termination time
+        return `${timestamp}-${timestamp}\n${signature}`;
+    }
+
     function getUtcDateMmDdYyyy() {
         const now = new Date();
         return `${String(now.getUTCMonth() + 1).padStart(2, '0')}/${String(now.getUTCDate()).padStart(2, '0')}/${now.getUTCFullYear()}`;
@@ -4338,7 +4371,16 @@
         div.textContent = str;
         return div.innerHTML;
     }
-    
+
+    /**
+     * Check if user is logged in (has valid VATSIM CID)
+     * Required for DCC override actions
+     */
+    function isUserLoggedIn() {
+        const cid = CONFIG.userCid;
+        return cid && !isNaN(cid) && parseInt(cid, 10) > 0;
+    }
+
     // ===========================================
     // Text Formatting Utilities (FAA 68-char standard)
     // ===========================================
@@ -4778,6 +4820,12 @@
             const proposalId = $(this).data('proposal-id');
             handleReopenProposal(proposalId);
         });
+
+        // Edit proposal button
+        $(document).on('click', '.edit-proposal-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            handleEditProposal(proposalId);
+        });
     }
 
     function handleReopenProposal(proposalId) {
@@ -4837,6 +4885,186 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+            }
+        });
+    }
+
+    // =========================================
+    // Edit Proposal
+    // =========================================
+
+    function handleEditProposal(proposalId) {
+        // First, fetch the full proposal data
+        Swal.fire({
+            title: 'Loading...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: `api/mgt/tmi/coordinate.php?proposal_id=${proposalId}`,
+            method: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                Swal.close();
+                if (response.success && response.proposal) {
+                    showEditProposalDialog(response.proposal, response.facilities || []);
+                } else {
+                    Swal.fire('Error', response.error || 'Failed to load proposal', 'error');
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                Swal.fire('Error', 'Failed to load proposal data', 'error');
+            }
+        });
+    }
+
+    function showEditProposalDialog(proposal, facilities) {
+        const entryData = proposal.entry_data || {};
+        const formatForInput = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toISOString().slice(0, 16);
+        };
+
+        Swal.fire({
+            title: `<i class="fas fa-edit text-info"></i> Edit Proposal #${proposal.proposal_id}`,
+            html: `
+                <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
+                    <div class="alert alert-warning small py-2">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        <strong>Warning:</strong> Editing will clear all facility approvals and restart coordination.
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Type</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(proposal.entry_type || 'TMI')}" readonly>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Control Element</label>
+                            <input type="text" id="editPropCtlElement" class="form-control form-control-sm text-uppercase"
+                                   value="${escapeHtml(proposal.ctl_element || entryData.ctl_element || '')}">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Requesting Facility</label>
+                            <input type="text" id="editPropReqFac" class="form-control form-control-sm text-uppercase"
+                                   value="${escapeHtml(proposal.requesting_facility || entryData.requesting_facility || '')}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Providing Facility</label>
+                            <input type="text" id="editPropProvFac" class="form-control form-control-sm text-uppercase"
+                                   value="${escapeHtml(proposal.providing_facility || entryData.providing_facility || '')}">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Valid From (UTC)</label>
+                            <input type="datetime-local" id="editPropValidFrom" class="form-control form-control-sm"
+                                   value="${formatForInput(proposal.valid_from || entryData.valid_from)}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Valid Until (UTC)</label>
+                            <input type="datetime-local" id="editPropValidUntil" class="form-control form-control-sm"
+                                   value="${formatForInput(proposal.valid_until || entryData.valid_until)}">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Restriction Value</label>
+                            <input type="number" id="editPropValue" class="form-control form-control-sm"
+                                   value="${entryData.restriction_value || entryData.value || ''}" placeholder="e.g., 20">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Unit</label>
+                            <select id="editPropUnit" class="form-control form-control-sm">
+                                <option value="MIT" ${(entryData.restriction_unit || entryData.unit) === 'MIT' ? 'selected' : ''}>MIT (miles)</option>
+                                <option value="MINIT" ${(entryData.restriction_unit || entryData.unit) === 'MINIT' ? 'selected' : ''}>MINIT (minutes)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Restriction Text</label>
+                        <textarea id="editPropRawText" class="form-control form-control-sm" rows="4"
+                                  style="font-family: monospace; font-size: 11px;">${escapeHtml(proposal.raw_text || '')}</textarea>
+                        <small class="text-muted">This is the NTML text that facilities will see</small>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Edit Reason</label>
+                        <input type="text" id="editPropReason" class="form-control form-control-sm"
+                               placeholder="Why is this proposal being edited?" required>
+                    </div>
+                </div>
+            `,
+            width: 650,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-save"></i> Save & Restart Coordination',
+            confirmButtonColor: '#17a2b8',
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                const reason = document.getElementById('editPropReason').value.trim();
+                if (!reason) {
+                    Swal.showValidationMessage('Please provide a reason for the edit');
+                    return false;
+                }
+                return {
+                    ctl_element: document.getElementById('editPropCtlElement').value.trim().toUpperCase(),
+                    requesting_facility: document.getElementById('editPropReqFac').value.trim().toUpperCase(),
+                    providing_facility: document.getElementById('editPropProvFac').value.trim().toUpperCase(),
+                    valid_from: document.getElementById('editPropValidFrom').value,
+                    valid_until: document.getElementById('editPropValidUntil').value,
+                    restriction_value: document.getElementById('editPropValue').value,
+                    restriction_unit: document.getElementById('editPropUnit').value,
+                    raw_text: document.getElementById('editPropRawText').value,
+                    edit_reason: reason
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitProposalEdit(proposal.proposal_id, result.value);
+            }
+        });
+    }
+
+    function submitProposalEdit(proposalId, updates) {
+        Swal.fire({
+            title: 'Saving...',
+            html: 'Updating proposal and restarting coordination',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'PATCH',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                action: 'EDIT_PROPOSAL',
+                proposal_id: proposalId,
+                updates: updates,
+                user_cid: CONFIG.userCid,
+                user_name: CONFIG.userName || 'Unknown'
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Proposal Updated',
+                        html: `<p>Proposal #${proposalId} has been updated.</p>
+                               <p class="small text-muted">All facility approvals have been cleared and coordination has restarted.</p>`,
+                        timer: 3000
+                    });
+                    loadProposals();
+                } else {
+                    Swal.fire('Error', response.error || 'Failed to update proposal', 'error');
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                Swal.fire('Error', xhr.responseJSON?.error || 'Failed to update proposal', 'error');
             }
         });
     }
@@ -4929,6 +5157,12 @@
                         <td><span class="badge badge-info">${approvalProgress}</span></td>
                         <td>${statusBadge}</td>
                         <td class="text-nowrap">
+                            ${isUserLoggedIn() ? `
+                            <button class="btn btn-sm btn-outline-info edit-proposal-btn mr-1"
+                                    data-proposal-id="${p.proposal_id}"
+                                    title="Edit proposal (clears approvals)">
+                                <i class="fas fa-edit"></i>
+                            </button>
                             <button class="btn btn-sm btn-outline-success approve-proposal-btn mr-1"
                                     data-proposal-id="${p.proposal_id}"
                                     title="Approve (DCC Override)">
@@ -4939,6 +5173,20 @@
                                     title="Deny (DCC Override)">
                                 <i class="fas fa-times"></i>
                             </button>
+                            ` : `
+                            <button class="btn btn-sm btn-outline-secondary mr-1" disabled
+                                    title="Login required">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary mr-1" disabled
+                                    title="Login required for DCC override">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary mr-1" disabled
+                                    title="Login required for DCC override">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            `}
                             <button class="btn btn-sm btn-outline-primary extend-deadline-btn"
                                     data-proposal-id="${p.proposal_id}"
                                     data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"

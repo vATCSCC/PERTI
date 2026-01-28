@@ -885,26 +885,33 @@ class TMIDiscord {
         $constrainedFacilities = strtoupper($data['constrained_facilities'] ?? '');
         $isTerminated = !empty($data['terminated']) || !empty($data['deactivated']);
 
-        // Format event time as MM/DD/YYYY HHMM - MM/DD/YYYY HHMM
-        $eventTimeRange = $this->formatEventTimeRange(
-            $data['start_utc'] ?? $data['valid_from'] ?? null,
-            $data['end_utc'] ?? $data['valid_until'] ?? null
-        );
-        // Allow explicit event_time override
-        $eventTime = $data['event_time'] ?? $eventTimeRange;
-
-        $lines = ["vATCSCC ADVZY {$advNum} {$facility} {$headerDate} {$hotlineName} HOTLINE_FYI"];
-        $lines[] = "EVENT TIME: " . strtoupper($eventTime);
-        if ($constrainedFacilities) $lines[] = "CONSTRAINED FACILITIES: {$constrainedFacilities}";
+        // Format event time as DD/HHMMZ - DD/HHMMZ
+        $startTimeFormatted = $this->formatTimeDDHHMMZ($data['start_utc'] ?? $data['valid_from'] ?? null);
+        $endTimeFormatted = $this->formatTimeDDHHMMZ($data['end_utc'] ?? $data['valid_until'] ?? null);
+        $eventTimeStr = "{$startTimeFormatted} - {$endTimeFormatted}";
 
         if ($isTerminated) {
-            $lines[] = "THE {$hotlineName} HOTLINE IS NOW TERMINATED.";
+            // HOTLINE TERMINATION format
+            $lines = ["vATCSCC ADVZY {$advNum} {$facility} {$headerDate} HOTLINE TERMINATION"];
+            $lines[] = "EVENT TIME: {$eventTimeStr}";
+            if ($constrainedFacilities) $lines[] = "CONSTRAINED FACILITIES: {$constrainedFacilities}";
+            $lines[] = "THE {$hotlineName} IS BEING TERMINATED EFFECTIVE {$endTimeFormatted}.";
+            $lines[] = "";
+            // Footer uses termination (end) time for both
+            $endTimestamp = $this->formatTimeDDHHMM($data['end_utc'] ?? $data['valid_until'] ?? null);
+            $lines[] = "{$endTimestamp}-{$endTimestamp}";
+            $lines[] = $this->formatSignature();
         } else {
+            // HOTLINE ACTIVATION format
+            $lines = ["vATCSCC ADVZY {$advNum} {$facility} {$headerDate} HOTLINE ACTIVATION"];
+            $lines[] = "EVENT TIME: {$eventTimeStr}";
+            if ($constrainedFacilities) $lines[] = "CONSTRAINED FACILITIES: {$constrainedFacilities}";
+
             $location = strtoupper($data['location'] ?? 'THE VATUSA TEAMSPEAK, HOTLINE CHANNEL');
             $password = $data['password'] ?? '';
             $contact = strtoupper($data['contact'] ?? '');
 
-            $activationText = "THE {$hotlineName} HOTLINE IS BEING ACTIVATED";
+            $activationText = "THE {$hotlineName} IS BEING ACTIVATED";
             if (!empty($data['reason'])) $activationText .= " TO ADDRESS " . strtoupper($data['reason']);
             if ($constrainedFacilities) $activationText .= " IN {$constrainedFacilities}";
             $activationText .= ".";
@@ -915,11 +922,11 @@ class TMIDiscord {
             $lines[] = "AFFECTED MAJOR UNDERLYING FACILITIES ARE STRONGLY ENCOURAGED TO";
             $lines[] = "ATTEND. ALL OTHER PARTICIPANTS ARE WELCOME TO JOIN.";
             if ($contact) $lines[] = "PLEASE MESSAGE {$contact} IF YOU HAVE ISSUES OR QUESTIONS.";
-        }
 
-        $lines[] = "";
-        $lines[] = $eventTimeRange;
-        $lines[] = $this->formatSignature();
+            $lines[] = "";
+            $lines[] = $this->formatValidTimeRange($data['start_utc'] ?? $data['valid_from'] ?? null, $data['end_utc'] ?? $data['valid_until'] ?? null);
+            $lines[] = $this->formatSignature();
+        }
 
         return implode("\n", $lines);
     }
@@ -1131,6 +1138,7 @@ class TMIDiscord {
     private function formatDateMMDDYYYY(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('m/d/Y', $ts) : gmdate('m/d/Y'); }
     private function formatTimeHHMM(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('Hi', $ts) : gmdate('Hi'); }
     private function formatTimeDDHHMM(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('dHi', $ts) : gmdate('dHi'); }
+    private function formatTimeDDHHMMZ(?string $datetime): string { return $datetime && ($ts = strtotime($datetime)) ? gmdate('d/Hi', $ts) . 'Z' : gmdate('d/Hi') . 'Z'; }
     private function formatProgramTime(?string $datetime): string { return ($datetime && ($ts = strtotime($datetime)) ? gmdate('d/Hi', $ts) : gmdate('d/Hi')) . 'Z'; }
     private function formatValidTimeRange(?string $start, ?string $end): string { return $this->formatTimeDDHHMM($start) . '-' . $this->formatTimeDDHHMM($end); }
     private function formatValidTimeRangeWithSpaces(?string $start, ?string $end): string { return $this->formatTimeDDHHMM($start) . ' - ' . $this->formatTimeDDHHMM($end); }

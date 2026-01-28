@@ -672,8 +672,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                     </div>
                     <div class="col-md-2 col-6 mb-2">
                         <label class="small text-muted mb-0">Type</label>
-                        <select class="form-control form-control-sm" id="filterType">
-                            <option value="ALL">All Types</option>
+                        <select class="form-control form-control-sm" id="filterType" multiple="multiple" data-placeholder="All Types">
                             <option value="MIT">MIT</option>
                             <option value="MINIT">MINIT</option>
                             <option value="STOP">STOP</option>
@@ -683,15 +682,15 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                             <option value="DELAY">Delay</option>
                             <option value="GDP">GDP</option>
                             <option value="GS">Ground Stop</option>
+                            <option value="REROUTE">Reroute</option>
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
                         <label class="small text-muted mb-0">Status</label>
-                        <select class="form-control form-control-sm" id="filterStatus">
-                            <option value="ACTIVE">Active</option>
-                            <option value="SCHEDULED">Scheduled</option>
-                            <option value="CANCELLED">Recently Cancelled</option>
-                            <option value="ALL">All</option>
+                        <select class="form-control form-control-sm" id="filterStatus" multiple="multiple" data-placeholder="All Status">
+                            <option value="ACTIVE" selected>Active</option>
+                            <option value="SCHEDULED" selected>Scheduled</option>
+                            <option value="CANCELLED">Cancelled</option>
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">

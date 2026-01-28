@@ -353,7 +353,13 @@ switch ($method) {
         handleProcessReaction();
         break;
     case 'PATCH':
-        handleExtendDeadline();
+        // Check action type: EDIT_PROPOSAL or extend deadline
+        $patchInput = json_decode(file_get_contents('php://input'), true);
+        if (($patchInput['action'] ?? '') === 'EDIT_PROPOSAL') {
+            handleEditProposal($patchInput);
+        } else {
+            handleExtendDeadline();
+        }
         break;
     case 'DELETE':
         handleRescindProposal();
@@ -699,6 +705,16 @@ function handleProcessReaction() {
     // Allow web-based DCC override (reaction_type=DCC_OVERRIDE with dcc_action)
     $isWebDccOverride = ($webReactionType === 'DCC_OVERRIDE' && in_array($webDccAction, ['APPROVE', 'DENY']));
 
+    // SECURITY: Web-based DCC override requires login (valid VATSIM CID)
+    if ($isWebDccOverride) {
+        // Check for valid CID - must be numeric and positive
+        if (!$discordUserId || !is_numeric($discordUserId) || intval($discordUserId) <= 0) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Authentication required: You must be logged in to perform DCC override actions']);
+            return;
+        }
+    }
+
     // Validation: need proposal/message ID and either emoji (Discord) or web DCC override
     if ((!$proposalId && !$messageId) || (!$emoji && !$isWebDccOverride) || !$discordUserId) {
         http_response_code(400);
@@ -883,6 +899,14 @@ function handleProcessReaction() {
                 ':user_id' => $discordUserId,
                 ':prop_id' => $proposalId
             ]);
+
+            // Log DCC override action
+            logCoordinationActivity($conn, $proposalId, 'DCC_' . $dccAction, [
+                'user_cid' => $discordUserId,
+                'user_name' => $discordUsername,
+                'emoji' => $emoji,
+                'via' => $isWebDccOverride ? 'web' : 'discord'
+            ]);
         } elseif ($facilityCode && $reactionType === 'FACILITY_APPROVE') {
             // Update facility approval status
             $updateFacSql = "UPDATE dbo.tmi_proposal_facilities SET
@@ -897,6 +921,37 @@ function handleProcessReaction() {
                 ':username' => $discordUsername,
                 ':prop_id' => $proposalId,
                 ':fac_code' => $facilityCode
+            ]);
+
+            // Log facility approval
+            logCoordinationActivity($conn, $proposalId, 'FACILITY_APPROVE', [
+                'facility' => $facilityCode,
+                'user_cid' => $discordUserId,
+                'user_name' => $discordUsername,
+                'emoji' => $emoji
+            ]);
+        } elseif ($facilityCode && $reactionType === 'FACILITY_DENY') {
+            // Update facility denial status
+            $updateFacSql = "UPDATE dbo.tmi_proposal_facilities SET
+                                 approval_status = 'DENIED',
+                                 reacted_at = SYSUTCDATETIME(),
+                                 reacted_by_user_id = :user_id,
+                                 reacted_by_username = :username
+                             WHERE proposal_id = :prop_id AND facility_code = :fac_code";
+            $updateFacStmt = $conn->prepare($updateFacSql);
+            $updateFacStmt->execute([
+                ':user_id' => $discordUserId,
+                ':username' => $discordUsername,
+                ':prop_id' => $proposalId,
+                ':fac_code' => $facilityCode
+            ]);
+
+            // Log facility denial
+            logCoordinationActivity($conn, $proposalId, 'FACILITY_DENY', [
+                'facility' => $facilityCode,
+                'user_cid' => $discordUserId,
+                'user_name' => $discordUsername,
+                'emoji' => $emoji
             ]);
         }
 
@@ -1005,6 +1060,14 @@ function handleExtendDeadline() {
             // This would require retrieving the original message content and updating it
         }
 
+        // Log the deadline extension
+        logCoordinationActivity($conn, $proposalId, 'DEADLINE_EXTENDED', [
+            'old_deadline' => $oldDeadline,
+            'new_deadline' => $newDeadline->format('Y-m-d H:i:s'),
+            'user_cid' => $userCid,
+            'user_name' => $userName
+        ]);
+
         echo json_encode([
             'success' => true,
             'proposal_id' => $proposalId,
@@ -1016,6 +1079,292 @@ function handleExtendDeadline() {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+// =============================================================================
+// PATCH: Edit Proposal (clears approvals, restarts coordination)
+// =============================================================================
+
+function handleEditProposal($input) {
+    $proposalId = $input['proposal_id'] ?? null;
+    $updates = $input['updates'] ?? [];
+    $userCid = $input['user_cid'] ?? null;
+    $userName = $input['user_name'] ?? 'Unknown';
+
+    if (!$proposalId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'proposal_id is required']);
+        return;
+    }
+
+    if (empty($updates)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'No updates provided']);
+        return;
+    }
+
+    // Security: Require login for editing
+    if (!$userCid || !is_numeric($userCid) || intval($userCid) <= 0) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Authentication required: You must be logged in to edit proposals']);
+        return;
+    }
+
+    $conn = getTmiConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Get current proposal
+        $sql = "SELECT * FROM dbo.tmi_proposals WHERE proposal_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':id' => $proposalId]);
+        $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$proposal) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Proposal not found']);
+            return;
+        }
+
+        // Only allow editing PENDING proposals
+        if ($proposal['status'] !== 'PENDING') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Can only edit PENDING proposals']);
+            return;
+        }
+
+        // Store old values for diff display
+        $oldData = [
+            'ctl_element' => $proposal['ctl_element'],
+            'requesting_facility' => $proposal['requesting_facility'],
+            'providing_facility' => $proposal['providing_facility'],
+            'valid_from' => $proposal['valid_from'],
+            'valid_until' => $proposal['valid_until'],
+            'raw_text' => $proposal['raw_text']
+        ];
+
+        // Build update query
+        $setClauses = ['updated_at = SYSUTCDATETIME()'];
+        $params = [':prop_id' => $proposalId];
+
+        if (isset($updates['ctl_element'])) {
+            $setClauses[] = 'ctl_element = :ctl_element';
+            $params[':ctl_element'] = $updates['ctl_element'];
+        }
+
+        if (isset($updates['requesting_facility'])) {
+            $setClauses[] = 'requesting_facility = :req_fac';
+            $params[':req_fac'] = $updates['requesting_facility'];
+        }
+
+        if (isset($updates['providing_facility'])) {
+            $setClauses[] = 'providing_facility = :prov_fac';
+            $params[':prov_fac'] = $updates['providing_facility'];
+        }
+
+        if (isset($updates['valid_from']) && $updates['valid_from']) {
+            $setClauses[] = 'valid_from = :valid_from';
+            $params[':valid_from'] = $updates['valid_from'];
+        }
+
+        if (isset($updates['valid_until']) && $updates['valid_until']) {
+            $setClauses[] = 'valid_until = :valid_until';
+            $params[':valid_until'] = $updates['valid_until'];
+        }
+
+        if (isset($updates['raw_text'])) {
+            $setClauses[] = 'raw_text = :raw_text';
+            $params[':raw_text'] = $updates['raw_text'];
+        }
+
+        // Update entry_data_json with new values
+        $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
+        if (isset($updates['restriction_value'])) {
+            $entryData['restriction_value'] = $updates['restriction_value'];
+            $entryData['value'] = $updates['restriction_value'];
+        }
+        if (isset($updates['restriction_unit'])) {
+            $entryData['restriction_unit'] = $updates['restriction_unit'];
+            $entryData['unit'] = $updates['restriction_unit'];
+        }
+        $setClauses[] = 'entry_data_json = :entry_data';
+        $params[':entry_data'] = json_encode($entryData);
+
+        // Store edit metadata (only if column exists)
+        try {
+            $colCheck = $conn->query("SELECT TOP 1 edit_history FROM dbo.tmi_proposals WHERE 1=0");
+            // Column exists, add edit history
+            $editHistory = json_decode($proposal['edit_history'] ?? '[]', true) ?: [];
+            $editHistory[] = [
+                'edited_at' => gmdate('Y-m-d H:i:s') . 'Z',
+                'edited_by_cid' => $userCid,
+                'edited_by_name' => $userName,
+                'reason' => $updates['edit_reason'] ?? 'No reason provided',
+                'old_values' => $oldData
+            ];
+            $setClauses[] = 'edit_history = :edit_history';
+            $params[':edit_history'] = json_encode($editHistory);
+        } catch (Exception $e) {
+            // Column doesn't exist, that's fine - skip it
+        }
+
+        // Update proposal
+        $updateSql = "UPDATE dbo.tmi_proposals SET " . implode(', ', $setClauses) . " WHERE proposal_id = :prop_id";
+        $updateStmt = $conn->prepare($updateSql);
+        $updateStmt->execute($params);
+
+        // Clear all facility approvals (restart coordination)
+        $resetSql = "UPDATE dbo.tmi_proposal_facilities SET
+                         approval_status = 'PENDING',
+                         reacted_at = NULL,
+                         reacted_by_user_id = NULL,
+                         reacted_by_username = NULL
+                     WHERE proposal_id = :prop_id";
+        $conn->prepare($resetSql)->execute([':prop_id' => $proposalId]);
+
+        // Log the edit action
+        logCoordinationActivity($conn, $proposalId, 'PROPOSAL_EDITED', [
+            'user_cid' => $userCid,
+            'user_name' => $userName,
+            'reason' => $updates['edit_reason'] ?? 'No reason provided',
+            'old_values' => $oldData,
+            'new_values' => $updates
+        ]);
+
+        // Update Discord message if exists (to show EDITED status with diff)
+        if (!empty($proposal['discord_message_id'])) {
+            updateProposalDiscordMessage(
+                $proposalId,
+                $conn,
+                $oldData,
+                $updates,
+                $updates['edit_reason'] ?? 'No reason provided',
+                $userName
+            );
+        }
+
+        echo json_encode([
+            'success' => true,
+            'proposal_id' => $proposalId,
+            'message' => 'Proposal updated and coordination restarted',
+            'approvals_cleared' => true
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Update Discord message to show proposal was edited
+ */
+function updateProposalDiscordMessage($proposalId, $conn, $oldValues = null, $newValues = null, $editReason = null, $editedBy = null) {
+    try {
+        // Get proposal and facilities
+        $sql = "SELECT * FROM dbo.tmi_proposals WHERE proposal_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':id' => $proposalId]);
+        $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$proposal || empty($proposal['discord_message_id'])) {
+            return;
+        }
+
+        $facSql = "SELECT * FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
+        $facStmt = $conn->prepare($facSql);
+        $facStmt->execute([':id' => $proposalId]);
+        $facilities = $facStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Build updated message
+        $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
+        $deadline = new DateTime($proposal['approval_deadline_utc'], new DateTimeZone('UTC'));
+        $facilityList = array_map(function($f) { return ['code' => $f['facility_code']]; }, $facilities);
+
+        // Format with EDITED marker
+        $message = formatProposalMessage(
+            $proposalId,
+            $entryData,
+            $deadline,
+            $facilityList,
+            $proposal['created_by_name'] ?? 'Unknown'
+        );
+
+        // Build edit summary section
+        $editSummary = [];
+        $editSummary[] = "```diff";
+        $editSummary[] = "- ⚠️ THIS PROPOSAL HAS BEEN EDITED";
+        $editSummary[] = "- All previous approvals cleared - please re-review";
+        $editSummary[] = "```";
+
+        // Show what changed if we have the values
+        if ($oldValues && $newValues) {
+            $changes = [];
+
+            // Compare key fields
+            $fieldLabels = [
+                'ctl_element' => 'Control Element',
+                'requesting_facility' => 'Requesting Facility',
+                'providing_facility' => 'Providing Facility',
+                'valid_from' => 'Valid From',
+                'valid_until' => 'Valid Until',
+                'restriction_value' => 'Restriction Value',
+                'raw_text' => 'Restriction Text'
+            ];
+
+            foreach ($fieldLabels as $field => $label) {
+                $oldVal = $oldValues[$field] ?? '';
+                $newVal = $newValues[$field] ?? '';
+
+                // Normalize for comparison
+                $oldNorm = is_string($oldVal) ? trim($oldVal) : $oldVal;
+                $newNorm = is_string($newVal) ? trim($newVal) : $newVal;
+
+                if ($oldNorm !== $newNorm && ($oldNorm || $newNorm)) {
+                    // Truncate long values for display
+                    $oldDisplay = strlen($oldNorm) > 50 ? substr($oldNorm, 0, 47) . '...' : $oldNorm;
+                    $newDisplay = strlen($newNorm) > 50 ? substr($newNorm, 0, 47) . '...' : $newNorm;
+
+                    $changes[] = "**{$label}:** `{$oldDisplay}` → `{$newDisplay}`";
+                }
+            }
+
+            if (!empty($changes)) {
+                $editSummary[] = "";
+                $editSummary[] = "**📝 Changes Made:**";
+                foreach ($changes as $change) {
+                    $editSummary[] = "› " . $change;
+                }
+            }
+        }
+
+        // Add edit metadata
+        if ($editedBy || $editReason) {
+            $editSummary[] = "";
+            if ($editedBy) $editSummary[] = "**Edited by:** {$editedBy}";
+            if ($editReason) $editSummary[] = "**Reason:** {$editReason}";
+        }
+
+        $editSummary[] = "";
+        $editSummary[] = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+
+        // Prepend edit summary to message
+        $message = implode("\n", $editSummary) . "\n" . $message;
+
+        // Update Discord message
+        $discord = new DiscordAPI();
+        if ($discord->isConfigured()) {
+            $discord->editMessage(DISCORD_COORDINATION_CHANNEL, $proposal['discord_message_id'], [
+                'content' => $message
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Failed to update Discord message for edited proposal: " . $e->getMessage());
     }
 }
 
@@ -1646,6 +1995,13 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "⏰ **DEADLINE EXTENDED** Proposal #{$proposalId}";
             $parts[] = "| new: {$details['new_deadline']}";
             $parts[] = "| by {$userName}";
+            break;
+
+        case 'PROPOSAL_EDITED':
+            $parts[] = "✏️ **PROPOSAL EDITED** Proposal #{$proposalId}";
+            $parts[] = "| by {$userName}";
+            $parts[] = "| reason: " . ($details['reason'] ?? 'No reason');
+            $parts[] = "| ⚠️ Approvals cleared, coordination restarted";
             break;
 
         default:
