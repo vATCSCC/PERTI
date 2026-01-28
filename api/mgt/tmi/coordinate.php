@@ -1049,6 +1049,9 @@ function handleProcessReaction() {
                 'facilities' => array_column($proposal['facilities'] ?? [], 'facility_code')
             ]);
             $result['ready_for_publication'] = true;
+
+            // Edit the Discord coordination message to indicate approval
+            updateCoordinationMessageOnApproval($conn, $proposalId, $proposal);
         }
 
         echo json_encode([
@@ -1766,7 +1769,57 @@ function buildNtmlText($entry) {
 }
 
 /**
- * Post proposal to Discord coordination channel
+ * Update Discord coordination message when proposal is approved
+ * Adds approval banner with timestamp
+ */
+function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
+    try {
+        // Get the original Discord message ID
+        $discordMessageId = $proposal['discord_message_id'] ?? null;
+        if (!$discordMessageId) {
+            return; // No Discord message to update
+        }
+
+        // Build approval banner with timestamps
+        $utcTime = gmdate('Y-m-d H:i:s') . 'Z';
+        $unixTime = time();
+        $discordLong = "<t:{$unixTime}:f>";
+        $discordRelative = "<t:{$unixTime}:R>";
+
+        $approvalBanner = [
+            "╔════════════════════════════════════════════════════════════════════╗",
+            "║  ✅  **PROPOSAL APPROVED** - All facilities have approved          ║",
+            "║      Approved: `{$utcTime}` {$discordLong} ({$discordRelative})    ║",
+            "║      Ready for publication in TMI Publisher queue                  ║",
+            "╚════════════════════════════════════════════════════════════════════╝",
+            ""
+        ];
+
+        // Get the original message content
+        $originalContent = $proposal['raw_text'] ?? '';
+        if (empty($originalContent)) {
+            // Try to get from entry_data_json
+            $entryData = json_decode($proposal['entry_data_json'] ?? '{}', true);
+            $originalContent = formatEntryForDiscord($entryData);
+        }
+
+        // Combine approval banner with original content
+        $newContent = implode("\n", $approvalBanner) . "\n" . $originalContent;
+
+        // Update Discord message
+        $discord = new DiscordAPI();
+        if ($discord->isConfigured()) {
+            $discord->editMessage(DISCORD_COORDINATION_CHANNEL, $discordMessageId, [
+                'content' => $newContent
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Failed to update Discord message on approval: " . $e->getMessage());
+    }
+}
+
+/**
+ * Post proposal to Discord coordination channel and create a thread
  */
 function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName) {
     $logFile = __DIR__ . '/coordination_debug.log';
@@ -1803,6 +1856,24 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
 
         if ($result && isset($result['id'])) {
             $log("SUCCESS - Message posted with ID: " . $result['id']);
+
+            // Create thread from the message
+            $threadTitle = buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities);
+            $log("Creating thread with title: " . $threadTitle);
+
+            $threadResult = $discord->createThreadFromMessage(
+                DISCORD_COORDINATION_CHANNEL,
+                $result['id'],
+                $threadTitle,
+                1440 // Auto-archive after 24 hours of inactivity
+            );
+
+            if ($threadResult && isset($threadResult['id'])) {
+                $log("Thread created with ID: " . $threadResult['id']);
+                $result['thread_id'] = $threadResult['id'];
+            } else {
+                $log("Thread creation failed: " . ($discord->getLastError() ?? 'unknown error'));
+            }
 
             // Track used emojis to ensure uniqueness
             $usedEmojis = [];
@@ -1845,6 +1916,65 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         error_log("Discord post failed: " . $e->getMessage());
         return null;
     }
+}
+
+/**
+ * Build thread title for coordination
+ * Format: "TMI Coordination | FROM {requestors} | TO {providers} | FOR {entry type} | PERIOD {valid period} | DUE {due date/time} | #{TMI ID}"
+ */
+function buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities) {
+    $data = $entry['data'] ?? [];
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+
+    // Get requestor (requesting facility)
+    $requestor = strtoupper($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC');
+
+    // Get providers (facilities that need to approve)
+    $providerCodes = [];
+    foreach ($facilities as $fac) {
+        $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $providerCodes[] = strtoupper(trim($facCode));
+    }
+    $providers = implode(',', $providerCodes);
+
+    // Get valid period
+    $validFrom = $data['valid_from'] ?? $data['validFrom'] ?? null;
+    $validUntil = $data['valid_until'] ?? $data['validUntil'] ?? null;
+
+    $period = '';
+    if ($validFrom) {
+        try {
+            $fromDt = new DateTime($validFrom);
+            $period = $fromDt->format('Hi') . 'Z';
+            if ($validUntil) {
+                $untilDt = new DateTime($validUntil);
+                $period .= '-' . $untilDt->format('Hi') . 'Z';
+            }
+        } catch (Exception $e) {
+            $period = 'TBD';
+        }
+    } else {
+        $period = 'TBD';
+    }
+
+    // Get due date/time
+    $dueStr = $deadline->format('Hi') . 'Z';
+
+    // Build title (max 100 characters for Discord thread names)
+    // Format: "TMI Coord | FROM {req} | TO {prov} | {type} | {period} | DUE {due} | #{id}"
+    $title = "TMI Coord | FROM {$requestor} | TO {$providers} | {$entryType} | {$period} | DUE {$dueStr} | #{$proposalId}";
+
+    // Truncate if needed (Discord limit is 100 chars)
+    if (strlen($title) > 100) {
+        // Shorten version: "TMI | {req}→{prov} | {type} | DUE {due} | #{id}"
+        $title = "TMI | {$requestor}→{$providers} | {$entryType} | DUE {$dueStr} | #{$proposalId}";
+    }
+    if (strlen($title) > 100) {
+        // Even shorter: "TMI | {type} | #{id}"
+        $title = "TMI Coordination | {$entryType} | #{$proposalId}";
+    }
+
+    return substr($title, 0, 100);
 }
 
 /**
@@ -2037,14 +2167,14 @@ function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
     $entryType = $entryData['entryType'] ?? 'UNKNOWN';
 
     $sql = "INSERT INTO dbo.tmi_entries (
-                entry_type, determinant_code, ctl_element, element_type,
+                entry_type, determinant_code, protocol_type, ctl_element, element_type,
                 raw_input, parsed_data,
                 valid_from, valid_until,
-                status, source,
+                status, source_type,
                 created_by, created_by_name
             ) OUTPUT INSERTED.entry_id
             VALUES (
-                :entry_type, :determinant, :ctl_element, :element_type,
+                :entry_type, :determinant, 1, :ctl_element, :element_type,
                 :raw_input, :parsed_data,
                 :valid_from, :valid_until,
                 'ACTIVE', 'COORDINATION',

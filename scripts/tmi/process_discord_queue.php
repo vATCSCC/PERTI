@@ -215,6 +215,50 @@ function getEntityDiscordMessageId($conn, $entityType, $entityId) {
 }
 
 /**
+ * Check if a CONFIG for the same airport has been posted to Discord recently
+ * This prevents duplicate CONFIG posts when the SP creates multiple entries for same airport
+ * Returns array with existing entry info if found, null otherwise
+ */
+function checkExistingConfigDiscordPost($conn, $entityId) {
+    // Get the ctl_element (airport) for this entry
+    $sql = "SELECT ctl_element, entry_type FROM dbo.tmi_entries WHERE entry_id = :entity_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([':entity_id' => $entityId]);
+    $entry = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$entry || strtoupper($entry['entry_type']) !== 'CONFIG' || empty($entry['ctl_element'])) {
+        return null; // Not a CONFIG or no airport
+    }
+
+    $ctlElement = $entry['ctl_element'];
+
+    // Check if any CONFIG for this airport has been posted to Discord in the last 24 hours
+    $sql = "SELECT TOP 1 entry_id, discord_message_id, discord_posted_at
+            FROM dbo.tmi_entries
+            WHERE entry_type = 'CONFIG'
+              AND ctl_element = :ctl_element
+              AND discord_message_id IS NOT NULL
+              AND discord_posted_at IS NOT NULL
+              AND discord_posted_at > DATEADD(HOUR, -24, SYSUTCDATETIME())
+            ORDER BY discord_posted_at DESC";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([':ctl_element' => $ctlElement]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing) {
+        return [
+            'ctl_element' => $ctlElement,
+            'existing_entry_id' => $existing['entry_id'],
+            'discord_message_id' => $existing['discord_message_id'],
+            'posted_at' => $existing['discord_posted_at']
+        ];
+    }
+
+    return null;
+}
+
+/**
  * Update the parent entry/advisory with Discord info
  */
 function updateEntityDiscordInfo($conn, $entityType, $entityId, $messageId, $channelId) {
@@ -285,6 +329,21 @@ function processBatch($conn, $discord, $multiDiscord, $config) {
             updateQueueStatus($conn, $post['post_id'], 'POSTED', $existingMessageId, null, null, 'Already posted - marked on restart');
             $stats['skipped']++;
             continue;
+        }
+
+        // CONFIG deduplication: Check if same airport was posted recently
+        // This prevents duplicate CONFIG posts when SP creates multiple entries for same airport
+        if ($post['entity_type'] === 'ENTRY') {
+            $existingConfig = checkExistingConfigDiscordPost($conn, $post['entity_id']);
+            if ($existingConfig) {
+                echo "  [{$post['post_id']}] SKIP - CONFIG for {$existingConfig['ctl_element']} already posted in last 24h (entry #{$existingConfig['existing_entry_id']}, msg: {$existingConfig['discord_message_id']})\n";
+                // Mark as POSTED using the existing message ID since airport already has a post
+                updateQueueStatus($conn, $post['post_id'], 'POSTED', $existingConfig['discord_message_id'], null, null, "CONFIG duplicate - {$existingConfig['ctl_element']} posted by entry #{$existingConfig['existing_entry_id']}");
+                // Also update this entry's discord_message_id to prevent future attempts
+                updateEntityDiscordInfo($conn, $post['entity_type'], $post['entity_id'], $existingConfig['discord_message_id'], null);
+                $stats['skipped']++;
+                continue;
+            }
         }
 
         // Determine if staging based on channel purpose
