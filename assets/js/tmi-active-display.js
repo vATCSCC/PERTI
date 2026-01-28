@@ -517,32 +517,62 @@
     }
 
     function executeBatchCancel(items, postAdvisory = false) {
-        Swal.fire({
-            title: 'Cancelling...',
-            html: `<div id="batchProgress">Processing 0 of ${items.length}...</div>`,
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
+        // Create floating progress indicator (non-blocking)
+        const progressId = 'batchCancelProgress_' + Date.now();
+        const progressHtml = `
+            <div id="${progressId}" class="batch-cancel-progress" style="
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #fff;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 15px 20px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 9999;
+                min-width: 280px;
+                font-family: inherit;
+            ">
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <i class="fas fa-spinner fa-spin text-primary mr-2"></i>
+                    <strong>Batch Cancel</strong>
+                    <small class="ml-auto text-muted" id="${progressId}_count">0 / ${items.length}</small>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div id="${progressId}_bar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                </div>
+                <small class="text-muted d-block mt-2" id="${progressId}_status">Starting...</small>
+            </div>
+        `;
+        $('body').append(progressHtml);
 
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
         const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
         const advisoryChannel = window.TMI_PUBLISHER_CONFIG?.advisoryChannel || 'advzy_staging';
 
-        let completed = 0;
         let successes = 0;
         let failures = [];
         let advisoriesPosted = 0;
 
+        const updateProgress = (index) => {
+            const pct = Math.round(((index + 1) / items.length) * 100);
+            $(`#${progressId}_count`).text(`${index + 1} / ${items.length}`);
+            $(`#${progressId}_bar`).css('width', pct + '%');
+            $(`#${progressId}_status`).text(`Cancelling item ${index + 1}...`);
+        };
+
         const processNext = (index) => {
             if (index >= items.length) {
-                Swal.close();
+                // Remove progress indicator
+                $(`#${progressId}`).fadeOut(300, function() { $(this).remove(); });
+                // Show result
                 showBatchResult(successes, failures, advisoriesPosted);
                 loadActiveTmis();
                 return;
             }
 
             const item = items[index];
-            $('#batchProgress').text(`Processing ${index + 1} of ${items.length}...`);
+            updateProgress(index);
 
             // Determine if this item supports advisory posting
             const canPostAdvisory = postAdvisory && (
@@ -588,18 +618,22 @@
 
     function showBatchResult(successes, failures, advisoriesPosted = 0) {
         if (failures.length === 0) {
-            let message = `Successfully cancelled ${successes} TMI${successes > 1 ? 's' : ''}.`;
+            let message = `Cancelled ${successes} TMI${successes > 1 ? 's' : ''}.`;
             if (advisoriesPosted > 0) {
-                message += ` Posted ${advisoriesPosted} cancellation advisor${advisoriesPosted > 1 ? 'ies' : 'y'}.`;
+                message += ` Posted ${advisoriesPosted} advisor${advisoriesPosted > 1 ? 'ies' : 'y'}.`;
             }
+            // Use toast for success (non-blocking)
             Swal.fire({
+                toast: true,
+                position: 'bottom-end',
                 icon: 'success',
-                title: 'Batch Cancel Complete',
-                text: message,
-                timer: 3500,
-                showConfirmButton: false
+                title: message,
+                timer: 4000,
+                showConfirmButton: false,
+                timerProgressBar: true
             });
         } else {
+            // Show modal only if there were failures (user needs to see errors)
             let failureHtml = failures.map(f => `<li>#${f.id}: ${f.error}</li>`).join('');
             Swal.fire({
                 icon: 'warning',
