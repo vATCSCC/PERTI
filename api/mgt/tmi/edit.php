@@ -519,6 +519,16 @@ function logEditEvent($conn, $entityType, $entityId, $updates, $actorId, $actorN
             ':actor_name' => $actorName,
             ':actor_ip' => $_SERVER['REMOTE_ADDR'] ?? null
         ]);
+
+        // Also post to Discord coordination log
+        require_once __DIR__ . '/../../../load/coordination_log.php';
+        $action = strtoupper($entityType) . '_EDITED';
+        logToCoordinationChannel($conn, null, $action, [
+            'entry_type' => $entityType,
+            'entry_id' => $entityId,
+            'user_cid' => $actorId,
+            'user_name' => $actorName
+        ]);
     } catch (Exception $e) {
         // Log failure but don't fail the edit
         error_log("Failed to log edit event: " . $e->getMessage());

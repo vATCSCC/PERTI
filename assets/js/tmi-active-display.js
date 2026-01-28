@@ -232,7 +232,20 @@
             $reqFac.on('select2:select', handleGroupSelection);
             $provFac.on('select2:select', handleGroupSelection);
 
-            console.log('[TMI-Active] Select2 initialized for facility filters');
+            // Initialize Type and Status filters with Select2 (simpler config)
+            const simpleSelect2Config = {
+                placeholder: 'All',
+                allowClear: true,
+                width: '100%',
+                closeOnSelect: false
+            };
+            $('#filterType').select2({...simpleSelect2Config, placeholder: 'All Types'});
+            $('#filterStatus').select2({...simpleSelect2Config, placeholder: 'All Status'});
+
+            // Set default status selection
+            $('#filterStatus').val(['ACTIVE', 'SCHEDULED']).trigger('change.select2');
+
+            console.log('[TMI-Active] Select2 initialized for all filters');
         } else {
             console.warn('[TMI-Active] Select2 not available');
         }
@@ -399,26 +412,39 @@
             if (saved) {
                 const savedFilters = JSON.parse(saved);
                 // Merge with defaults to ensure all keys exist
-                // Handle migration from old single-value format
+                // Handle migration from old single-value format to multi-select
                 state.filters = {
                     source: savedFilters.source || 'PRODUCTION',
                     reqFacilities: Array.isArray(savedFilters.reqFacilities) ? savedFilters.reqFacilities :
                                    (savedFilters.reqFacility && savedFilters.reqFacility !== 'ALL' ? [savedFilters.reqFacility] : []),
                     provFacilities: Array.isArray(savedFilters.provFacilities) ? savedFilters.provFacilities :
                                     (savedFilters.provFacility && savedFilters.provFacility !== 'ALL' ? [savedFilters.provFacility] : []),
-                    type: savedFilters.type || 'ALL',
-                    status: savedFilters.status || 'ACTIVE'
+                    // Migrate type from single to multi-select
+                    types: Array.isArray(savedFilters.types) ? savedFilters.types :
+                           (savedFilters.type && savedFilters.type !== 'ALL' ? [savedFilters.type] : []),
+                    // Migrate status from single to multi-select, default to ACTIVE+SCHEDULED
+                    statuses: Array.isArray(savedFilters.statuses) ? savedFilters.statuses :
+                              (savedFilters.status && savedFilters.status !== 'ACTIVE' ? [savedFilters.status] : ['ACTIVE', 'SCHEDULED'])
                 };
-                // Update UI to reflect saved state
-                $('#filterSource').val(state.filters.source);
-                if ($.fn.select2) {
-                    $('#filterReqFac').val(state.filters.reqFacilities).trigger('change.select2');
-                    $('#filterProvFac').val(state.filters.provFacilities).trigger('change.select2');
-                }
-                $('#filterType').val(state.filters.type);
-                $('#filterStatus').val(state.filters.status);
-                console.log('[TMI-Active] Filters restored from localStorage:', state.filters);
+            } else {
+                // Default filters for first-time users
+                state.filters = {
+                    source: 'PRODUCTION',
+                    reqFacilities: [],
+                    provFacilities: [],
+                    types: [],
+                    statuses: ['ACTIVE', 'SCHEDULED']
+                };
             }
+            // Update UI to reflect saved state
+            $('#filterSource').val(state.filters.source);
+            if ($.fn.select2) {
+                $('#filterReqFac').val(state.filters.reqFacilities).trigger('change.select2');
+                $('#filterProvFac').val(state.filters.provFacilities).trigger('change.select2');
+                $('#filterType').val(state.filters.types).trigger('change.select2');
+                $('#filterStatus').val(state.filters.statuses).trigger('change.select2');
+            }
+            console.log('[TMI-Active] Filters restored:', state.filters);
         } catch (e) {
             console.warn('[TMI-Active] Failed to load saved filters:', e);
         }
@@ -1233,8 +1259,8 @@
         state.filters.source = $('#filterSource').val() || 'PRODUCTION';
         state.filters.reqFacilities = $('#filterReqFac').val() || [];
         state.filters.provFacilities = $('#filterProvFac').val() || [];
-        state.filters.type = $('#filterType').val() || 'ALL';
-        state.filters.status = $('#filterStatus').val() || 'ACTIVE';
+        state.filters.types = $('#filterType').val() || [];
+        state.filters.statuses = $('#filterStatus').val() || ['ACTIVE', 'SCHEDULED'];
 
         console.log('[TMI-Active] Applying filters:', state.filters);
 
@@ -1250,17 +1276,17 @@
             source: 'PRODUCTION',
             reqFacilities: [],
             provFacilities: [],
-            type: 'ALL',
-            status: 'ACTIVE'
+            types: [],
+            statuses: ['ACTIVE', 'SCHEDULED']
         };
 
         $('#filterSource').val('PRODUCTION');
         if ($.fn.select2) {
             $('#filterReqFac').val([]).trigger('change.select2');
             $('#filterProvFac').val([]).trigger('change.select2');
+            $('#filterType').val([]).trigger('change.select2');
+            $('#filterStatus').val(['ACTIVE', 'SCHEDULED']).trigger('change.select2');
         }
-        $('#filterType').val('ALL');
-        $('#filterStatus').val('ACTIVE');
 
         // Save reset filters to localStorage
         saveFilters();
@@ -1270,17 +1296,19 @@
 
     function getFilteredRestrictions() {
         let items = [];
+        const statuses = state.filters.statuses || ['ACTIVE', 'SCHEDULED'];
+        const showAll = statuses.length === 0;
 
         // Add based on status filter - includes ENTRY, PROGRAM (NOT REROUTE - shown in advisories)
-        if (state.filters.status === 'ALL' || state.filters.status === 'ACTIVE') {
+        if (showAll || statuses.includes('ACTIVE')) {
             items = items.concat(state.restrictions);
             items = items.concat(state.programs);
             // Reroutes now show in advisories section, not here
         }
-        if (state.filters.status === 'ALL' || state.filters.status === 'SCHEDULED') {
+        if (showAll || statuses.includes('SCHEDULED')) {
             items = items.concat(state.scheduled.filter(i => i.entityType !== 'ADVISORY' && i.entityType !== 'REROUTE'));
         }
-        if (state.filters.status === 'ALL' || state.filters.status === 'CANCELLED') {
+        if (showAll || statuses.includes('CANCELLED')) {
             items = items.concat(state.cancelled.filter(i => i.entityType !== 'ADVISORY' && i.entityType !== 'REROUTE'));
         }
 
@@ -1330,18 +1358,22 @@
             });
         }
 
-        // Apply type filter
-        if (state.filters.type !== 'ALL') {
+        // Apply type filter (multi-select)
+        const types = state.filters.types || [];
+        if (types.length > 0) {
+            const filterTypes = types.map(t => t.toUpperCase());
             items = items.filter(i => {
                 const entryType = (i.entryType || '').toUpperCase();
-                const filterType = state.filters.type.toUpperCase();
 
-                // Map type filters to entity types
-                if (filterType === 'GDP' && i.entityType === 'PROGRAM' && entryType.includes('GDP')) return true;
-                if (filterType === 'STOP' && i.entityType === 'PROGRAM' && entryType === 'GS') return true;
-                if (filterType === 'REROUTE' && i.entityType === 'REROUTE') return true;
-
-                return entryType === filterType;
+                // Check each selected type
+                for (const filterType of filterTypes) {
+                    if (filterType === 'GDP' && i.entityType === 'PROGRAM' && entryType.includes('GDP')) return true;
+                    if (filterType === 'STOP' && i.entityType === 'PROGRAM' && entryType === 'GS') return true;
+                    if (filterType === 'GS' && i.entityType === 'PROGRAM' && entryType === 'GS') return true;
+                    if (filterType === 'REROUTE' && i.entityType === 'REROUTE') return true;
+                    if (entryType === filterType) return true;
+                }
+                return false;
             });
         }
 
@@ -1350,15 +1382,17 @@
 
     function getFilteredAdvisories() {
         let items = [];
+        const statuses = state.filters.statuses || ['ACTIVE', 'SCHEDULED'];
+        const showAll = statuses.length === 0;
 
-        if (state.filters.status === 'ALL' || state.filters.status === 'ACTIVE') {
+        if (showAll || statuses.includes('ACTIVE')) {
             items = items.concat(state.advisories);  // Already includes REROUTE items
         }
-        if (state.filters.status === 'ALL' || state.filters.status === 'SCHEDULED') {
+        if (showAll || statuses.includes('SCHEDULED')) {
             // Include both ADVISORY and REROUTE scheduled items
             items = items.concat(state.scheduled.filter(i => i.entityType === 'ADVISORY' || i.entityType === 'REROUTE'));
         }
-        if (state.filters.status === 'ALL' || state.filters.status === 'CANCELLED') {
+        if (showAll || statuses.includes('CANCELLED')) {
             // Include both ADVISORY and REROUTE cancelled items
             items = items.concat(state.cancelled.filter(i => i.entityType === 'ADVISORY' || i.entityType === 'REROUTE'));
         }
@@ -1792,10 +1826,35 @@
         };
 
         const advType = item.entryType || 'FREEFORM';
-        const showProgramFields = ['GDP', 'GS', 'STOP'].includes(advType);
+
+        // Build type-specific form HTML
+        let typeSpecificHtml = '';
+        let preConfirmFn = null;
+
+        switch (advType) {
+            case 'HOTLINE':
+                typeSpecificHtml = buildHotlineEditForm(item, formatForInput);
+                preConfirmFn = getHotlinePreConfirm;
+                break;
+            case 'OPS_PLAN':
+            case 'OPSPLAN':
+                typeSpecificHtml = buildOpsPlanEditForm(item, formatForInput);
+                preConfirmFn = getOpsPlanPreConfirm;
+                break;
+            case 'GDP':
+            case 'GS':
+            case 'STOP':
+                typeSpecificHtml = buildProgramEditForm(item, formatForInput, advType);
+                preConfirmFn = getProgramPreConfirm;
+                break;
+            default:
+                // FREEFORM or other
+                typeSpecificHtml = buildFreeformEditForm(item, formatForInput);
+                preConfirmFn = getFreeformPreConfirm;
+        }
 
         Swal.fire({
-            title: '<i class="fas fa-edit text-primary"></i> Edit Advisory',
+            title: `<i class="fas fa-edit text-primary"></i> Edit ${advType === 'HOTLINE' ? 'Hotline' : advType === 'OPS_PLAN' || advType === 'OPSPLAN' ? 'Ops Plan' : 'Advisory'}`,
             html: `
                 <div class="text-left" style="max-height: 65vh; overflow-y: auto;">
                     <div class="row mb-2">
@@ -1808,64 +1867,7 @@
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(advType)}" readonly>
                         </div>
                     </div>
-                    <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Subject</label>
-                        <input type="text" id="editSubject" class="form-control form-control-sm" value="${escapeHtml(item.subject || '')}">
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Control Element</label>
-                            <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}" placeholder="e.g., KJFK">
-                        </div>
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Scope Facilities</label>
-                            <input type="text" id="editScopeFac" class="form-control form-control-sm" value="${escapeHtml(item.scopeFacilities || '')}" placeholder="e.g., ZNY,ZBW">
-                        </div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Effective From (UTC)</label>
-                            <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
-                        </div>
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Effective Until (UTC)</label>
-                            <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
-                        </div>
-                    </div>
-                    ${showProgramFields ? `
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Program Rate</label>
-                            <input type="number" id="editProgramRate" class="form-control form-control-sm" value="${item.programRate || ''}" placeholder="Flights/hr">
-                        </div>
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Delay Cap (min)</label>
-                            <input type="number" id="editDelayCap" class="form-control form-control-sm" value="${item.delayCap || ''}" placeholder="Minutes">
-                        </div>
-                    </div>
-                    ` : ''}
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Reason Code</label>
-                            <select id="editReasonCode" class="form-control form-control-sm">
-                                <option value="">-- Select --</option>
-                                <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
-                                <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
-                                <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
-                                <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
-                                <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
-                                <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="small font-weight-bold">Reason Detail</label>
-                            <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
-                        </div>
-                    </div>
-                    <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Body Text</label>
-                        <textarea id="editBodyText" class="form-control form-control-sm" rows="6" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.bodyText || item.rawText || '')}</textarea>
-                    </div>
+                    ${typeSpecificHtml}
                 </div>
             `,
             width: 650,
@@ -1873,25 +1875,325 @@
             confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
             confirmButtonColor: '#28a745',
             cancelButtonText: 'Cancel',
-            preConfirm: () => {
-                return {
-                    validFrom: document.getElementById('editValidFrom').value,
-                    validUntil: document.getElementById('editValidUntil').value,
-                    subject: document.getElementById('editSubject').value,
-                    ctlElement: document.getElementById('editCtlElement').value,
-                    scopeFacilities: document.getElementById('editScopeFac').value,
-                    reasonCode: document.getElementById('editReasonCode').value,
-                    reasonDetail: document.getElementById('editReasonDetail').value,
-                    bodyText: document.getElementById('editBodyText').value,
-                    programRate: document.getElementById('editProgramRate')?.value || null,
-                    delayCap: document.getElementById('editDelayCap')?.value || null
-                };
-            }
+            preConfirm: preConfirmFn
         }).then((result) => {
             if (result.isConfirmed) {
                 performEdit(id, 'ADVISORY', result.value);
             }
         });
+    }
+
+    // =========================================
+    // Type-specific edit form builders
+    // =========================================
+
+    function buildHotlineEditForm(item, formatForInput) {
+        const hotlineNames = ['NY Metro', 'DC Metro', 'Chicago', 'Atlanta', 'Florida', 'Texas',
+                            'East Coast', 'West Coast', 'Canada East', 'Canada West', 'Mexico', 'Caribbean'];
+        const participationOptions = ['MANDATORY', 'EXPECTED', 'STRONGLY ENCOURAGED', 'STRONGLY RECOMMENDED',
+                                     'ENCOURAGED', 'RECOMMENDED', 'OPTIONAL'];
+        const hotlineActions = ['ACTIVATION', 'UPDATE', 'TERMINATION'];
+
+        const hotlineNameOpts = hotlineNames.map(n =>
+            `<option value="${n}" ${item.hotlineName === n ? 'selected' : ''}>${n}</option>`
+        ).join('');
+
+        const participationOpts = participationOptions.map(p =>
+            `<option value="${p}" ${item.participation === p ? 'selected' : ''}>${p}</option>`
+        ).join('');
+
+        const actionOpts = hotlineActions.map(a =>
+            `<option value="${a}" ${item.hotlineAction === a ? 'selected' : ''}>${a}</option>`
+        ).join('');
+
+        return `
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Action</label>
+                    <select id="editHotlineAction" class="form-control form-control-sm">
+                        ${actionOpts}
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Hotline Name</label>
+                    <select id="editHotlineName" class="form-control form-control-sm">
+                        ${hotlineNameOpts}
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Start Date/Time (UTC)</label>
+                    <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">End Date/Time (UTC)</label>
+                    <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Constrained Facilities</label>
+                    <input type="text" id="editConstrainedFacilities" class="form-control form-control-sm text-uppercase"
+                           value="${escapeHtml(item.constrainedFacilities || item.scopeFacilities || '')}" placeholder="e.g., ZNY, ZBW, ZDC">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Attending Facilities</label>
+                    <input type="text" id="editAttendingFacilities" class="form-control form-control-sm text-uppercase"
+                           value="${escapeHtml(item.attendingFacilities || '')}" placeholder="e.g., ZNY, ZBW, ZDC, ZOB">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Participation</label>
+                    <select id="editParticipation" class="form-control form-control-sm">
+                        ${participationOpts}
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Impacting Condition</label>
+                    <select id="editReasonCode" class="form-control form-control-sm">
+                        <option value="">-- Select --</option>
+                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>Weather</option>
+                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>Volume</option>
+                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>Equipment</option>
+                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>Staffing</option>
+                        <option value="RUNWAY CONSTRUCTION" ${item.reasonCode === 'RUNWAY CONSTRUCTION' ? 'selected' : ''}>Runway Construction</option>
+                        <option value="SPECIAL EVENT" ${item.reasonCode === 'SPECIAL EVENT' ? 'selected' : ''}>Special Event</option>
+                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Location of Impact</label>
+                    <input type="text" id="editImpactedArea" class="form-control form-control-sm"
+                           value="${escapeHtml(item.impactedArea || item.reasonDetail || '')}" placeholder="e.g., NY Metro, EWR/JFK/LGA arrivals">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Hotline Address</label>
+                    <select id="editHotlineAddress" class="form-control form-control-sm">
+                        <option value="ts.vatusa.net" ${item.hotlineAddress === 'ts.vatusa.net' ? 'selected' : ''}>VATUSA TeamSpeak (ts.vatusa.net)</option>
+                        <option value="ts.vatcan.ca" ${item.hotlineAddress === 'ts.vatcan.ca' ? 'selected' : ''}>VATCAN TeamSpeak (ts.vatcan.ca)</option>
+                        <option value="discord" ${item.hotlineAddress === 'discord' ? 'selected' : ''}>vATCSCC Discord, Hotline Backup</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Additional Remarks</label>
+                <textarea id="editNotes" class="form-control form-control-sm" rows="2">${escapeHtml(item.notes || item.bodyText || '')}</textarea>
+            </div>
+        `;
+    }
+
+    function getHotlinePreConfirm() {
+        return {
+            validFrom: document.getElementById('editValidFrom').value,
+            validUntil: document.getElementById('editValidUntil').value,
+            hotlineAction: document.getElementById('editHotlineAction').value,
+            hotlineName: document.getElementById('editHotlineName').value,
+            constrainedFacilities: document.getElementById('editConstrainedFacilities').value,
+            attendingFacilities: document.getElementById('editAttendingFacilities').value,
+            participation: document.getElementById('editParticipation').value,
+            reasonCode: document.getElementById('editReasonCode').value,
+            impactedArea: document.getElementById('editImpactedArea').value,
+            hotlineAddress: document.getElementById('editHotlineAddress').value,
+            notes: document.getElementById('editNotes').value
+        };
+    }
+
+    function buildOpsPlanEditForm(item, formatForInput) {
+        return `
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Facility</label>
+                    <input type="text" id="editFacility" class="form-control form-control-sm text-uppercase"
+                           value="${escapeHtml(item.facility || 'DCC')}">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Subject</label>
+                    <input type="text" id="editSubject" class="form-control form-control-sm"
+                           value="${escapeHtml(item.subject || '')}">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Valid From (UTC)</label>
+                    <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Valid Until (UTC)</label>
+                    <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                </div>
+            </div>
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Key Initiatives</label>
+                <textarea id="editInitiatives" class="form-control form-control-sm" rows="4"
+                          placeholder="List key TMIs and initiatives...">${escapeHtml(item.initiatives || item.bodyText || '')}</textarea>
+            </div>
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Terminal/Enroute Constraints</label>
+                <textarea id="editConstraints" class="form-control form-control-sm" rows="2"
+                          placeholder="Weather impacts and constraints...">${escapeHtml(item.constraints || item.weatherImpacts || '')}</textarea>
+            </div>
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Special Events</label>
+                <textarea id="editEvents" class="form-control form-control-sm" rows="2"
+                          placeholder="Special events affecting traffic...">${escapeHtml(item.specialEvents || '')}</textarea>
+            </div>
+        `;
+    }
+
+    function getOpsPlanPreConfirm() {
+        return {
+            validFrom: document.getElementById('editValidFrom').value,
+            validUntil: document.getElementById('editValidUntil').value,
+            facility: document.getElementById('editFacility').value,
+            subject: document.getElementById('editSubject').value,
+            initiatives: document.getElementById('editInitiatives').value,
+            constraints: document.getElementById('editConstraints').value,
+            specialEvents: document.getElementById('editEvents').value
+        };
+    }
+
+    function buildProgramEditForm(item, formatForInput, advType) {
+        return `
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Subject</label>
+                <input type="text" id="editSubject" class="form-control form-control-sm" value="${escapeHtml(item.subject || '')}">
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Control Element</label>
+                    <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}" placeholder="e.g., KJFK">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Scope Facilities</label>
+                    <input type="text" id="editScopeFac" class="form-control form-control-sm" value="${escapeHtml(item.scopeFacilities || '')}" placeholder="e.g., ZNY,ZBW">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Effective From (UTC)</label>
+                    <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Effective Until (UTC)</label>
+                    <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Program Rate</label>
+                    <input type="number" id="editProgramRate" class="form-control form-control-sm" value="${item.programRate || ''}" placeholder="Flights/hr">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Delay Cap (min)</label>
+                    <input type="number" id="editDelayCap" class="form-control form-control-sm" value="${item.delayCap || ''}" placeholder="Minutes">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Reason Code</label>
+                    <select id="editReasonCode" class="form-control form-control-sm">
+                        <option value="">-- Select --</option>
+                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
+                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
+                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
+                        <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
+                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
+                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Reason Detail</label>
+                    <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
+                </div>
+            </div>
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Body Text</label>
+                <textarea id="editBodyText" class="form-control form-control-sm" rows="4" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.bodyText || item.rawText || '')}</textarea>
+            </div>
+        `;
+    }
+
+    function getProgramPreConfirm() {
+        return {
+            validFrom: document.getElementById('editValidFrom').value,
+            validUntil: document.getElementById('editValidUntil').value,
+            subject: document.getElementById('editSubject').value,
+            ctlElement: document.getElementById('editCtlElement').value,
+            scopeFacilities: document.getElementById('editScopeFac').value,
+            reasonCode: document.getElementById('editReasonCode').value,
+            reasonDetail: document.getElementById('editReasonDetail').value,
+            bodyText: document.getElementById('editBodyText').value,
+            programRate: document.getElementById('editProgramRate')?.value || null,
+            delayCap: document.getElementById('editDelayCap')?.value || null
+        };
+    }
+
+    function buildFreeformEditForm(item, formatForInput) {
+        return `
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Subject</label>
+                <input type="text" id="editSubject" class="form-control form-control-sm" value="${escapeHtml(item.subject || '')}">
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Control Element</label>
+                    <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}" placeholder="e.g., KJFK">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Scope Facilities</label>
+                    <input type="text" id="editScopeFac" class="form-control form-control-sm" value="${escapeHtml(item.scopeFacilities || '')}" placeholder="e.g., ZNY,ZBW">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Effective From (UTC)</label>
+                    <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Effective Until (UTC)</label>
+                    <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-6">
+                    <label class="small font-weight-bold">Reason Code</label>
+                    <select id="editReasonCode" class="form-control form-control-sm">
+                        <option value="">-- Select --</option>
+                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
+                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
+                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
+                        <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
+                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
+                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="small font-weight-bold">Reason Detail</label>
+                    <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
+                </div>
+            </div>
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold">Body Text</label>
+                <textarea id="editBodyText" class="form-control form-control-sm" rows="6" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.bodyText || item.rawText || '')}</textarea>
+            </div>
+        `;
+    }
+
+    function getFreeformPreConfirm() {
+        return {
+            validFrom: document.getElementById('editValidFrom').value,
+            validUntil: document.getElementById('editValidUntil').value,
+            subject: document.getElementById('editSubject').value,
+            ctlElement: document.getElementById('editCtlElement').value,
+            scopeFacilities: document.getElementById('editScopeFac').value,
+            reasonCode: document.getElementById('editReasonCode').value,
+            reasonDetail: document.getElementById('editReasonDetail').value,
+            bodyText: document.getElementById('editBodyText').value
+        };
     }
 
     function editProgram(id) {
