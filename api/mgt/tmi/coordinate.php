@@ -416,9 +416,17 @@ function handleProcessReaction() {
     $discordUsername = $input['discord_username'] ?? null;
     $userRoles = $input['user_roles'] ?? [];
 
-    if ((!$proposalId && !$messageId) || !$emoji || !$discordUserId) {
+    // Web-based DCC override fields
+    $webReactionType = $input['reaction_type'] ?? null;
+    $webDccAction = $input['dcc_action'] ?? null;
+
+    // Allow web-based DCC override (reaction_type=DCC_OVERRIDE with dcc_action)
+    $isWebDccOverride = ($webReactionType === 'DCC_OVERRIDE' && in_array($webDccAction, ['APPROVE', 'DENY']));
+
+    // Validation: need proposal/message ID and either emoji (Discord) or web DCC override
+    if ((!$proposalId && !$messageId) || (!$emoji && !$isWebDccOverride) || !$discordUserId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+        echo json_encode(['success' => false, 'error' => 'Missing required fields: need proposal_id, discord_user_id, and either emoji or DCC_OVERRIDE action']);
         return;
     }
 
@@ -463,19 +471,27 @@ function handleProcessReaction() {
         $isDccOverride = false;
         $dccAction = null;
 
-        // Check for DCC override
-        $isDccUser = in_array($discordUserId, DCC_OVERRIDE_USERS);
-        $hasDccRole = !empty(array_intersect($userRoles, DCC_OVERRIDE_ROLES));
+        // Check for web-based DCC override first (from TMI Publisher UI)
+        if ($isWebDccOverride) {
+            $isDccOverride = true;
+            $dccAction = $webDccAction;
+            $reactionType = ($webDccAction === 'APPROVE') ? 'DCC_APPROVE' : 'DCC_DENY';
+            $emoji = ($webDccAction === 'APPROVE') ? 'WEB_APPROVE' : 'WEB_DENY'; // Placeholder for logging
+        } else {
+            // Check for Discord emoji-based DCC override
+            $isDccUser = in_array($discordUserId, DCC_OVERRIDE_USERS);
+            $hasDccRole = !empty(array_intersect($userRoles, DCC_OVERRIDE_ROLES));
 
-        if ($isDccUser || $hasDccRole) {
-            if (strtoupper($emoji) === DCC_APPROVE_EMOJI || $emoji === ':DCC:') {
-                $reactionType = 'DCC_APPROVE';
-                $isDccOverride = true;
-                $dccAction = 'APPROVE';
-            } elseif ($emoji === DENY_EMOJI || $emoji === '❌') {
-                $reactionType = 'DCC_DENY';
-                $isDccOverride = true;
-                $dccAction = 'DENY';
+            if ($isDccUser || $hasDccRole) {
+                if (strtoupper($emoji) === DCC_APPROVE_EMOJI || $emoji === ':DCC:') {
+                    $reactionType = 'DCC_APPROVE';
+                    $isDccOverride = true;
+                    $dccAction = 'APPROVE';
+                } elseif ($emoji === DENY_EMOJI || $emoji === '❌') {
+                    $reactionType = 'DCC_DENY';
+                    $isDccOverride = true;
+                    $dccAction = 'DENY';
+                }
             }
         }
 

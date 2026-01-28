@@ -198,9 +198,9 @@ class DiscordAPI {
             return null;
         }
 
-        // Truncate content if too long
-        if (isset($data['content']) && strlen($data['content']) > 2000) {
-            $data['content'] = substr($data['content'], 0, 1997) . '...';
+        // Truncate content if too long (use mb_* for UTF-8 safety)
+        if (isset($data['content']) && mb_strlen($data['content'], 'UTF-8') > 2000) {
+            $data['content'] = mb_substr($data['content'], 0, 1997, 'UTF-8') . '...';
         }
 
         return $this->request('POST', "/channels/{$channelId}/messages", $data);
@@ -221,9 +221,9 @@ class DiscordAPI {
             return null;
         }
 
-        // Truncate content if too long
-        if (isset($data['content']) && strlen($data['content']) > 2000) {
-            $data['content'] = substr($data['content'], 0, 1997) . '...';
+        // Truncate content if too long (use mb_* for UTF-8 safety)
+        if (isset($data['content']) && mb_strlen($data['content'], 'UTF-8') > 2000) {
+            $data['content'] = mb_substr($data['content'], 0, 1997, 'UTF-8') . '...';
         }
 
         return $this->request('PATCH', "/channels/{$channelId}/messages/{$messageId}", $data);
@@ -729,7 +729,14 @@ class DiscordAPI {
         ]);
 
         if ($data !== null && in_array($method, ['POST', 'PUT', 'PATCH'])) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            // Encode with proper Unicode handling and error checking
+            $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            if ($jsonData === false) {
+                $this->lastError = 'JSON encode failed: ' . json_last_error_msg();
+                curl_close($ch);
+                return null;
+            }
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
         }
 
         $response = curl_exec($ch);
