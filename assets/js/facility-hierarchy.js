@@ -143,6 +143,53 @@
     };
 
     // ===========================================
+    // Facility Emoji Mapping (for Discord reactions)
+    // Used by non-Nitro users for TMI coordination
+    // Regional indicators for US, number emojis for Canada
+    // ===========================================
+
+    const FACILITY_EMOJI_MAP = {
+        // US ARTCCs - Regional indicator letters
+        'ZAB': '🇦',  // A - Albuquerque
+        'ZAN': '🇬',  // G - anchoraGe (A taken, N reserved for NY)
+        'ZAU': '🇺',  // U - chicaGo (zaU)
+        'ZBW': '🇧',  // B - Boston
+        'ZDC': '🇩',  // D - Washington DC
+        'ZDV': '🇻',  // V - DenVer (D taken)
+        'ZFW': '🇫',  // F - Fort Worth
+        'ZHN': '🇭',  // H - Honolulu
+        'ZHU': '🇼',  // W - Houston (H taken)
+        'ZID': '🇮',  // I - Indianapolis
+        'ZJX': '🇯',  // J - Jacksonville
+        'ZKC': '🇰',  // K - Kansas City
+        'ZLA': '🇱',  // L - Los Angeles
+        'ZLC': '🇨',  // C - Salt Lake City (L taken)
+        'ZMA': '🇲',  // M - Miami
+        'ZME': '🇪',  // E - mEmphis (M taken)
+        'ZMP': '🇵',  // P - minneaPolis (M taken)
+        'ZNY': '🇳',  // N - New York
+        'ZOA': '🇴',  // O - Oakland
+        'ZOB': '🇷',  // R - cleveland (O taken)
+        'ZSE': '🇸',  // S - Seattle
+        'ZTL': '🇹',  // T - aTlanta
+        // Canadian FIRs - Number emojis
+        'CZEG': '1️⃣',  // 1 - Edmonton
+        'CZVR': '2️⃣',  // 2 - Vancouver
+        'CZWG': '3️⃣',  // 3 - Winnipeg
+        'CZYZ': '4️⃣',  // 4 - Toronto
+        'CZQM': '5️⃣',  // 5 - Moncton
+        'CZQX': '6️⃣',  // 6 - Gander Domestic
+        'CZQO': '7️⃣',  // 7 - Gander Oceanic
+        'CZUL': '8️⃣'   // 8 - Montreal
+    };
+
+    // Reverse mapping: emoji to facility code
+    const EMOJI_TO_FACILITY = {};
+    Object.entries(FACILITY_EMOJI_MAP).forEach(([facility, emoji]) => {
+        EMOJI_TO_FACILITY[emoji] = facility;
+    });
+
+    // ===========================================
     // Named Tier Groups (from topology seed)
     // These are fixed regional groupings
     // ===========================================
@@ -523,6 +570,8 @@
         NAMED_TIER_GROUPS: NAMED_TIER_GROUPS,
         FACILITY_ALIASES: FACILITY_ALIASES,
         ARTCC_TO_REGION: ARTCC_TO_REGION,
+        FACILITY_EMOJI_MAP: FACILITY_EMOJI_MAP,
+        EMOJI_TO_FACILITY: EMOJI_TO_FACILITY,
 
         // Dynamic data (getters)
         get FACILITY_HIERARCHY() { return FACILITY_HIERARCHY; },
