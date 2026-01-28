@@ -68,7 +68,7 @@ if ($entityId <= 0) {
     exit;
 }
 
-// Connect to TMI database
+// Connect to TMI database (for entries, advisories, programs)
 $tmiConn = null;
 try {
     if (defined('TMI_SQL_HOST') && TMI_SQL_HOST) {
@@ -89,6 +89,22 @@ if (!$tmiConn) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database not configured']);
     exit;
+}
+
+// Connect to ADL database (for reroutes)
+$adlConn = null;
+try {
+    if (defined('ADL_SQL_HOST') && ADL_SQL_HOST) {
+        $adlConn = new PDO(
+            "sqlsrv:Server=" . ADL_SQL_HOST . ";Database=" . ADL_SQL_DATABASE,
+            ADL_SQL_USERNAME,
+            ADL_SQL_PASSWORD
+        );
+        $adlConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
+} catch (Exception $e) {
+    // ADL connection failure is non-fatal for non-reroute operations
+    $adlConn = null;
 }
 
 try {
@@ -186,16 +202,24 @@ try {
         logCancelEvent($tmiConn, 'PROGRAM', $entityId, $reason, $userCid, $userName);
 
     } elseif ($entityType === 'REROUTE') {
-        // Cancel reroute (status 5 = cancelled, TMI uses reroute_id and updated_at)
+        // Cancel reroute (status 5 = cancelled, ADL uses id and updated_utc)
+        if (!$adlConn) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'ADL database not configured for reroute operations'
+            ]);
+            exit;
+        }
+
         $sql = "UPDATE dbo.tmi_reroutes
                 SET status = 5,
-                    updated_at = SYSUTCDATETIME()
-                WHERE reroute_id = :reroute_id
+                    updated_utc = GETUTCDATE()
+                WHERE id = :id
                   AND status NOT IN (4, 5)";
 
-        $stmt = $tmiConn->prepare($sql);
+        $stmt = $adlConn->prepare($sql);
         $stmt->execute([
-            ':reroute_id' => $entityId
+            ':id' => $entityId
         ]);
 
         $rowsAffected = $stmt->rowCount();
@@ -208,7 +232,7 @@ try {
             exit;
         }
 
-        // Log event
+        // Log event (to TMI events table)
         logCancelEvent($tmiConn, 'REROUTE', $entityId, $reason, $userCid, $userName);
     }
 
