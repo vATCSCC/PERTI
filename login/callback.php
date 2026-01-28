@@ -102,9 +102,24 @@ if (isset($_GET['code'])) {
                 $first_name = $check_array['first_name'];
                 $last_name = $check_array['last_name'];
 
+                // Get return URL before session regeneration clears it
+                $return_url = $_SESSION['LOGIN_RETURN_URL'] ?? null;
+                unset($_SESSION['LOGIN_RETURN_URL']);
+
                 // Start the session and redirect
                 sessionstart($cid, $first_name, $last_name);
-                header('Location: ../index');
+
+                // Redirect to return URL or default to index
+                $redirect_to = '../index';
+                if ($return_url) {
+                    // Validate again to prevent open redirect
+                    $parsed = parse_url($return_url);
+                    $current_host = $_SERVER['HTTP_HOST'] ?? '';
+                    if (!isset($parsed['host']) || $parsed['host'] === $current_host) {
+                        $redirect_to = $return_url;
+                    }
+                }
+                header('Location: ' . $redirect_to);
                 exit;
 
             } else {

@@ -779,6 +779,7 @@ let DEMAND_STATE = {
     starBreakdown: null, // Store STAR breakdown data
     lastDemandData: null, // Store last demand response for view switching
     rateData: null, // Store rate suggestion data from API
+    tmiConfig: null, // Store active TMI CONFIG entry if any
     showRateLines: true, // Toggle for rate line visibility
     atisData: null, // Store ATIS data from API
     // Cache management
@@ -848,6 +849,90 @@ const TIME_RANGE_OPTIONS = [
 
 // ARTCC tier data (loaded from JSON)
 let ARTCC_TIERS = null;
+
+// ============================================================================
+// TMI Config Integration Functions
+// ============================================================================
+
+/**
+ * Merge TMI CONFIG data into existing rate data
+ * TMI CONFIG takes precedence for AAR/ADR and runways
+ * @param {Object} rateData - Existing rate data from rates API
+ * @param {Object} tmiConfig - Active TMI CONFIG entry
+ * @returns {Object} Merged rate data
+ */
+function mergeWithTmiConfig(rateData, tmiConfig) {
+    // Clone the rate data to avoid mutation
+    const merged = JSON.parse(JSON.stringify(rateData));
+
+    // Override with TMI CONFIG values
+    if (tmiConfig.aar !== null && tmiConfig.aar !== undefined) {
+        if (!merged.rates) merged.rates = {};
+        merged.rates.vatsim_aar = tmiConfig.aar;
+    }
+
+    if (tmiConfig.adr !== null && tmiConfig.adr !== undefined) {
+        if (!merged.rates) merged.rates = {};
+        merged.rates.vatsim_adr = tmiConfig.adr;
+    }
+
+    // Override runways if provided
+    if (tmiConfig.arr_runways) {
+        merged.arr_runways = tmiConfig.arr_runways;
+    }
+
+    if (tmiConfig.dep_runways) {
+        merged.dep_runways = tmiConfig.dep_runways;
+    }
+
+    // Override weather category if provided
+    if (tmiConfig.weather_category) {
+        merged.weather_category = tmiConfig.weather_category;
+    }
+
+    // Override config name if provided
+    if (tmiConfig.config_name) {
+        merged.config_name = tmiConfig.config_name;
+    }
+
+    // Mark as TMI source for display
+    merged.tmi_source = true;
+    merged.tmi_config = tmiConfig;
+    merged.rate_source = 'TMI';
+    merged.match_type = 'TMI';
+
+    // Note: Don't set has_override=true since this is a TMI publication, not a manual override
+    // The override badge should only show for manual rate overrides
+
+    return merged;
+}
+
+/**
+ * Build rate data object from TMI CONFIG when rates API is unavailable
+ * @param {Object} tmiConfig - Active TMI CONFIG entry
+ * @returns {Object} Rate data object compatible with updateRateInfoDisplay
+ */
+function buildRateDataFromTmiConfig(tmiConfig) {
+    return {
+        success: true,
+        airport_icao: tmiConfig.airport,
+        config_name: tmiConfig.config_name || `TMI Config`,
+        config_matched: true,
+        arr_runways: tmiConfig.arr_runways || null,
+        dep_runways: tmiConfig.dep_runways || null,
+        weather_category: tmiConfig.weather_category || 'VMC',
+        rates: {
+            vatsim_aar: tmiConfig.aar,
+            vatsim_adr: tmiConfig.adr
+        },
+        is_suggested: false,
+        has_override: false,
+        rate_source: 'TMI',
+        match_type: 'TMI',
+        tmi_source: true,
+        tmi_config: tmiConfig
+    };
+}
 
 /**
  * Initialize the demand visualization page
@@ -1202,15 +1287,16 @@ function loadDemandData() {
     DEMAND_STATE.currentStart = start.toISOString();
     DEMAND_STATE.currentEnd = end.toISOString();
 
-    // Fetch demand data, rate suggestions, and ATIS in parallel
+    // Fetch demand data, rate suggestions, ATIS, and active TMI config in parallel
     // Use Promise.allSettled so optional API failures don't block demand data
     const demandPromise = $.getJSON(`api/demand/airport.php?${params.toString()}`);
     const ratesPromise = $.getJSON(`api/demand/rates.php?airport=${encodeURIComponent(airport)}`);
     const atisPromise = $.getJSON(`api/demand/atis.php?airport=${encodeURIComponent(airport)}`);
+    const tmiConfigPromise = $.getJSON(`api/demand/active_config.php?airport=${encodeURIComponent(airport)}`);
 
-    Promise.allSettled([demandPromise, ratesPromise, atisPromise])
+    Promise.allSettled([demandPromise, ratesPromise, atisPromise, tmiConfigPromise])
         .then(function(results) {
-            const [demandResult, ratesResult, atisResult] = results;
+            const [demandResult, ratesResult, atisResult, tmiConfigResult] = results;
 
             // Handle demand data (required)
             if (demandResult.status === 'rejected') {
@@ -1232,13 +1318,37 @@ function loadDemandData() {
             DEMAND_STATE.summaryLoaded = false; // Summary needs to be reloaded
 
             // Handle rate data (optional - don't fail if unavailable)
-            if (ratesResult.status === 'fulfilled' && ratesResult.value && ratesResult.value.success) {
-                DEMAND_STATE.rateData = ratesResult.value;
-                updateRateInfoDisplay(ratesResult.value);
+            // Check for active TMI CONFIG first - it takes precedence
+            let tmiConfig = null;
+            if (tmiConfigResult.status === 'fulfilled' && tmiConfigResult.value &&
+                tmiConfigResult.value.success && tmiConfigResult.value.has_active_config) {
+                tmiConfig = tmiConfigResult.value.config;
+                DEMAND_STATE.tmiConfig = tmiConfig;
             } else {
-                // Rates API failed or returned error - just clear rate display
-                DEMAND_STATE.rateData = null;
-                updateRateInfoDisplay(null);
+                DEMAND_STATE.tmiConfig = null;
+            }
+
+            if (ratesResult.status === 'fulfilled' && ratesResult.value && ratesResult.value.success) {
+                let rateData = ratesResult.value;
+
+                // If there's an active TMI CONFIG, merge its rates into rateData
+                if (tmiConfig) {
+                    rateData = mergeWithTmiConfig(rateData, tmiConfig);
+                }
+
+                DEMAND_STATE.rateData = rateData;
+                updateRateInfoDisplay(rateData);
+            } else {
+                // Rates API failed - try to use TMI config alone if available
+                if (tmiConfig) {
+                    const tmiOnlyData = buildRateDataFromTmiConfig(tmiConfig);
+                    DEMAND_STATE.rateData = tmiOnlyData;
+                    updateRateInfoDisplay(tmiOnlyData);
+                } else {
+                    // No rate data available
+                    DEMAND_STATE.rateData = null;
+                    updateRateInfoDisplay(null);
+                }
                 if (ratesResult.status === 'rejected') {
                     console.warn('Rates API unavailable:', ratesResult.reason);
                 }
@@ -1311,6 +1421,21 @@ function updateRateInfoDisplay(rateData) {
     if (rateData.has_override && rateData.override_reason) {
         tooltip += `\n\nOverride: ${rateData.override_reason}`;
     }
+    // Add TMI config info to tooltip
+    if (rateData.tmi_source && rateData.tmi_config) {
+        const tmi = rateData.tmi_config;
+        tooltip += '\n\n--- TMI Published Config ---';
+        if (tmi.aar_type) tooltip += `\nAAR Type: ${tmi.aar_type}`;
+        if (tmi.created_by_name) tooltip += `\nPublished by: ${tmi.created_by_name}`;
+        if (tmi.valid_from) {
+            const validFrom = new Date(tmi.valid_from);
+            tooltip += `\nValid from: ${validFrom.toUTCString().replace('GMT', 'Z')}`;
+        }
+        if (tmi.valid_until) {
+            const validUntil = new Date(tmi.valid_until);
+            tooltip += `\nValid until: ${validUntil.toUTCString().replace('GMT', 'Z')}`;
+        }
+    }
     $configEl.attr('title', tooltip.trim());
 
     // Weather category with color
@@ -1359,13 +1484,22 @@ function updateRateInfoDisplay(rateData) {
             'CAPACITY_DEFAULT': 'Default',
             'VMC_FALLBACK': 'Fallback',
             'DETECTED_TRACKS': 'Detected',
-            'MANUAL': 'Manual'
+            'MANUAL': 'Manual',
+            'TMI': 'TMI' // Active TMI CONFIG entry
         };
         sourceText = matchTypeMap[rateData.match_type] || rateData.match_type;
 
         // Add match score if available and not 100%
-        if (rateData.match_score && rateData.match_score < 100 && rateData.match_type !== 'MANUAL') {
+        if (rateData.match_score && rateData.match_score < 100 && rateData.match_type !== 'MANUAL' && rateData.match_type !== 'TMI') {
             sourceText += ` ${rateData.match_score}%`;
+        }
+
+        // Add publisher info for TMI configs
+        if (rateData.match_type === 'TMI' && rateData.tmi_config) {
+            const tmi = rateData.tmi_config;
+            if (tmi.created_by_name) {
+                sourceText = `TMI (${tmi.created_by_name})`;
+            }
         }
     } else if (rateData.rate_source) {
         sourceText = rateData.rate_source;
