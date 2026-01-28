@@ -36,6 +36,9 @@ require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
 // Coordination channel ID
 define('DISCORD_COORDINATION_CHANNEL', '1466013550450577491');
 
+// Coordination log channel ID (for audit trail)
+define('DISCORD_COORDINATION_LOG_CHANNEL', '1466038410962796672');
+
 // DCC override users (Discord user IDs)
 define('DCC_OVERRIDE_USERS', [
     '396865467840593930'  // jpeterson24
@@ -52,6 +55,59 @@ define('DENY_EMOJI', '❌');
 
 // DCC approval emoji (custom)
 define('DCC_APPROVE_EMOJI', 'DCC');
+
+// Known facility role patterns (Discord role names that indicate facility affiliation)
+// Matches assets/js/facility-hierarchy.js ARTCCS constant
+define('FACILITY_ROLE_PATTERNS', [
+    // US ARTCCs (CONUS)
+    'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
+    'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
+    // US Alaska/Hawaii/Oceanic
+    'ZAN', 'ZHN', 'ZAK', 'ZAP', 'ZWY', 'ZHO', 'ZMO', 'ZUA',
+    // Canadian FIRs (from facility-hierarchy.js)
+    'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'
+]);
+
+// Regional indicator emoji mapping for non-Nitro users (unique per facility)
+// Uses :regional_indicator_{letter}: format - standard Unicode, no Nitro required
+// Letters chosen to be intuitive where possible, alphabetical fallback for conflicts
+define('FACILITY_REGIONAL_EMOJI_MAP', [
+    // US ARTCCs
+    'ZAB' => '🇦',  // A - Albuquerque
+    'ZAN' => '🇬',  // G - anchoraGe (A taken, N reserved for NY)
+    'ZAU' => '🇺',  // U - Chicago (zaU)
+    'ZBW' => '🇧',  // B - Boston
+    'ZDC' => '🇩',  // D - Washington DC
+    'ZDV' => '🇻',  // V - DenVer (D taken)
+    'ZFW' => '🇫',  // F - Fort Worth
+    'ZHN' => '🇭',  // H - Honolulu
+    'ZHU' => '🇼',  // W - Houston (H taken)
+    'ZID' => '🇮',  // I - Indianapolis
+    'ZJX' => '🇯',  // J - Jacksonville
+    'ZKC' => '🇰',  // K - Kansas City
+    'ZLA' => '🇱',  // L - Los Angeles
+    'ZLC' => '🇨',  // C - Salt Lake City (L taken)
+    'ZMA' => '🇲',  // M - Miami
+    'ZME' => '🇪',  // E - mEmphis (M taken)
+    'ZMP' => '🇵',  // P - minneaPolis (M taken)
+    'ZNY' => '🇳',  // N - New York
+    'ZOA' => '🇴',  // O - Oakland
+    'ZOB' => '🇷',  // R - cleveland (O taken)
+    'ZSE' => '🇸',  // S - Seattle
+    'ZTL' => '🇹',  // T - aTlanta
+    // Canadian FIRs (using number emojis)
+    'CZEG' => '1️⃣',  // 1 - Edmonton
+    'CZVR' => '2️⃣',  // 2 - Vancouver
+    'CZWG' => '3️⃣',  // 3 - Winnipeg
+    'CZYZ' => '4️⃣',  // 4 - Toronto
+    'CZQM' => '5️⃣',  // 5 - Moncton
+    'CZQX' => '6️⃣',  // 6 - Gander Domestic
+    'CZQO' => '7️⃣',  // 7 - Gander Oceanic
+    'CZUL' => '8️⃣',  // 8 - Montreal
+]);
+
+// Reverse mapping: emoji to facility code
+define('REGIONAL_EMOJI_TO_FACILITY', array_flip(FACILITY_REGIONAL_EMOJI_MAP));
 
 // =============================================================================
 // DATABASE CONNECTION
@@ -74,6 +130,27 @@ function getTmiConnection() {
     }
 }
 
+/**
+ * Extract facility code from user's Discord roles
+ * Checks for role names that match known facility patterns (ZDC, ZNY, etc.)
+ */
+function getFacilityFromRoles($roles) {
+    if (empty($roles) || !is_array($roles)) {
+        return null;
+    }
+
+    foreach ($roles as $role) {
+        $roleUpper = strtoupper(trim($role));
+        // Check if role matches a known facility pattern
+        foreach (FACILITY_ROLE_PATTERNS as $pattern) {
+            if ($roleUpper === $pattern || strpos($roleUpper, $pattern . ' ') === 0 || strpos($roleUpper, $pattern . '-') === 0) {
+                return $pattern;
+            }
+        }
+    }
+    return null;
+}
+
 // =============================================================================
 // ROUTE HANDLING
 // =============================================================================
@@ -92,6 +169,9 @@ switch ($method) {
         break;
     case 'PATCH':
         handleExtendDeadline();
+        break;
+    case 'DELETE':
+        handleRescindProposal();
         break;
     default:
         http_response_code(405);
@@ -234,6 +314,17 @@ function handleSubmitForCoordination() {
         }
 
         $conn->commit();
+
+        // Log the submission to coordination log
+        logCoordinationActivity($conn, $proposalId, 'SUBMITTED', [
+            'entry_type' => $entryType,
+            'ctl_element' => $ctlElement,
+            'created_by' => $userCid,
+            'created_by_name' => $userName,
+            'deadline' => $deadline->format('Y-m-d H:i') . 'Z',
+            'facilities' => array_map(fn($f) => is_array($f) ? $f['code'] : $f, $facilities),
+            'discord_posted' => isset($discordResult['id'])
+        ]);
 
         echo json_encode([
             'success' => true,
@@ -502,8 +593,9 @@ function handleProcessReaction() {
             $facStmt = $conn->prepare($facSql);
             $facStmt->execute([':id' => $proposalId]);
             $facilities = $facStmt->fetchAll(PDO::FETCH_ASSOC);
+            $proposalFacilityCodes = array_column($facilities, 'facility_code');
 
-            // Check if emoji matches a facility
+            // Check if emoji matches a facility (custom emoji method - requires Nitro)
             foreach ($facilities as $fac) {
                 if ($fac['approval_emoji'] && strpos($emoji, $fac['facility_code']) !== false) {
                     $reactionType = 'FACILITY_APPROVE';
@@ -512,10 +604,24 @@ function handleProcessReaction() {
                 }
             }
 
+            // Check for regional indicator emoji (non-Nitro fallback)
+            // Maps unique letters to facilities (e.g., 🇨 = ZDC, 🇾 = ZNY)
+            if ($reactionType === 'OTHER') {
+                $regionalFacility = REGIONAL_EMOJI_TO_FACILITY[$emoji] ?? null;
+                if ($regionalFacility && in_array($regionalFacility, $proposalFacilityCodes)) {
+                    $reactionType = 'FACILITY_APPROVE';
+                    $facilityCode = $regionalFacility;
+                }
+            }
+
             // Check for deny emoji
             if ($emoji === DENY_EMOJI || $emoji === '❌') {
                 $reactionType = 'FACILITY_DENY';
-                // Try to determine which facility based on user roles or other context
+                // Determine which facility from user roles
+                $userFacility = getFacilityFromRoles($userRoles);
+                if ($userFacility && in_array($userFacility, $proposalFacilityCodes)) {
+                    $facilityCode = $userFacility;
+                }
             }
         }
 
@@ -692,17 +798,136 @@ function handleExtendDeadline() {
 }
 
 // =============================================================================
+// DELETE: Rescind/Reopen Proposal (DCC Only)
+// =============================================================================
+
+function handleRescindProposal() {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $proposalId = $input['proposal_id'] ?? null;
+    $action = $input['action'] ?? 'REOPEN'; // REOPEN, CANCEL, CHANGE_TO_APPROVED, CHANGE_TO_DENIED
+    $userCid = $input['user_cid'] ?? null;
+    $userName = $input['user_name'] ?? 'DCC';
+    $reason = $input['reason'] ?? null;
+
+    if (!$proposalId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'proposal_id is required']);
+        return;
+    }
+
+    $conn = getTmiConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Get current proposal
+        $sql = "SELECT * FROM dbo.tmi_proposals WHERE proposal_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':id' => $proposalId]);
+        $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$proposal) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Proposal not found']);
+            return;
+        }
+
+        $oldStatus = $proposal['status'];
+        $newStatus = null;
+
+        switch ($action) {
+            case 'REOPEN':
+                // Reopen for coordination (back to PENDING)
+                $newStatus = 'PENDING';
+                // Reset facility approvals
+                $resetSql = "UPDATE dbo.tmi_proposal_facilities SET
+                                 approval_status = 'PENDING',
+                                 reacted_at = NULL,
+                                 reacted_by_user_id = NULL,
+                                 reacted_by_username = NULL
+                             WHERE proposal_id = :prop_id";
+                $conn->prepare($resetSql)->execute([':prop_id' => $proposalId]);
+                break;
+
+            case 'CANCEL':
+                $newStatus = 'CANCELLED';
+                break;
+
+            case 'CHANGE_TO_APPROVED':
+                $newStatus = 'APPROVED';
+                break;
+
+            case 'CHANGE_TO_DENIED':
+                $newStatus = 'DENIED';
+                break;
+
+            default:
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid action: ' . $action]);
+                return;
+        }
+
+        // Update proposal
+        $updateSql = "UPDATE dbo.tmi_proposals SET
+                          status = :status,
+                          dcc_override = 1,
+                          dcc_override_action = :action,
+                          updated_at = SYSUTCDATETIME()
+                      WHERE proposal_id = :prop_id";
+        $updateStmt = $conn->prepare($updateSql);
+        $updateStmt->execute([
+            ':status' => $newStatus,
+            ':action' => $action,
+            ':prop_id' => $proposalId
+        ]);
+
+        // Log the action
+        logCoordinationActivity($conn, $proposalId, 'DCC_' . $action, [
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'user_cid' => $userCid,
+            'user_name' => $userName,
+            'reason' => $reason
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'proposal_id' => $proposalId,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'action' => $action
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+// =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 
 /**
  * Build NTML text from entry data
+ * Uses the 'preview' field if available (already formatted by JS), otherwise rebuilds
  */
 function buildNtmlText($entry) {
+    // Prefer the preview field which is already correctly formatted by the JS side
+    if (!empty($entry['preview'])) {
+        return $entry['preview'];
+    }
+
+    // Fallback: try to rebuild via TMIDiscord
     try {
         $tmiDiscord = new TMIDiscord();
         return $tmiDiscord->buildNTMLMessageFromEntry($entry);
     } catch (Exception $e) {
+        // Last resort: return JSON representation
         return json_encode($entry);
     }
 }
@@ -751,9 +976,17 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
                 $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
                 $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
 
+                // Add custom emoji (for Nitro users)
                 if ($facEmoji) {
-                    $log("Adding reaction emoji: {$facEmoji} for facility {$facCode}");
+                    $log("Adding custom emoji: {$facEmoji} for facility {$facCode}");
                     $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $facEmoji);
+                }
+
+                // Add regional indicator emoji (for non-Nitro users)
+                $regionalEmoji = FACILITY_REGIONAL_EMOJI_MAP[$facCode] ?? null;
+                if ($regionalEmoji) {
+                    $log("Adding regional indicator emoji: {$regionalEmoji} for facility {$facCode}");
+                    $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $regionalEmoji);
                 }
             }
 
@@ -791,14 +1024,22 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
     $deadlineDiscordLong = "<t:{$deadlineUnix}:F>";      // Full date/time
     $deadlineDiscordRelative = "<t:{$deadlineUnix}:R>"; // Relative (in X hours)
 
-    // Build facility list
+    // Build facility list and emoji legend
     $facilityList = [];
+    $emojiLegend = [];
     foreach ($facilities as $fac) {
         $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
         $facEmoji = is_array($fac) ? ($fac['emoji'] ?? ":$facCode:") : ":$facCode:";
         $facilityList[] = "{$facEmoji} {$facCode}";
+
+        // Build emoji legend for non-Nitro users
+        $regionalEmoji = FACILITY_REGIONAL_EMOJI_MAP[$facCode] ?? null;
+        if ($regionalEmoji) {
+            $emojiLegend[] = "{$regionalEmoji} = {$facCode}";
+        }
     }
     $facilityStr = implode(' | ', $facilityList);
+    $emojiLegendStr = implode(' | ', $emojiLegend);
 
     // Build message
     $lines = [
@@ -829,7 +1070,8 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "",
         "**How to Respond:**",
-        "› **Approve:** React with your facility's emoji",
+        "› **Approve:** React with your facility's emoji (e.g., :ZDC:)",
+        "› **Approve (no Nitro):** Use letter emoji: {$emojiLegendStr}",
         "› **Deny:** React with ❌",
         "",
         "**DCC has final authority to approve or deny any proposed TMI.**",
@@ -847,10 +1089,17 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
 }
 
 /**
- * Activate an approved proposal
+ * Activate an approved proposal - creates TMI entry and posts to Discord
  */
 function activateProposal($conn, $proposalId) {
+    $logFile = __DIR__ . '/coordination_debug.log';
+    $log = function($msg) use ($logFile) {
+        file_put_contents($logFile, date('[Y-m-d H:i:s] ') . "[ACTIVATE] " . $msg . "\n", FILE_APPEND);
+    };
+
     try {
+        $log("Activating proposal #{$proposalId}");
+
         // Get proposal data
         $sql = "SELECT * FROM dbo.tmi_proposals WHERE proposal_id = :id";
         $stmt = $conn->prepare($sql);
@@ -864,36 +1113,318 @@ function activateProposal($conn, $proposalId) {
         $entryData = json_decode($proposal['entry_data_json'], true);
         $validFrom = $proposal['valid_from'];
         $validUntil = $proposal['valid_until'];
+        $rawText = $proposal['raw_text'];
 
         // Determine if should be scheduled or activated immediately
         $now = new DateTime('now', new DateTimeZone('UTC'));
         $startTime = $validFrom ? new DateTime($validFrom) : null;
-
         $shouldSchedule = $startTime && $startTime > $now;
         $newStatus = $shouldSchedule ? 'SCHEDULED' : 'ACTIVATED';
 
-        // Create the actual TMI entry via publish.php logic
-        // For now, mark proposal as approved/scheduled
+        $log("Status will be: {$newStatus}");
+
+        // ===================================================
+        // STEP 1: Create TMI entry in tmi_entries table
+        // ===================================================
+        $tmiEntryId = createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText);
+        $log("Created TMI entry: " . ($tmiEntryId ?: 'FAILED'));
+
+        // ===================================================
+        // STEP 2: Post to Discord production channels
+        // ===================================================
+        $discordResult = null;
+        if ($tmiEntryId && !$shouldSchedule) {
+            $discordResult = publishTmiToDiscord($proposal, $rawText, $tmiEntryId);
+            $log("Discord publish result: " . json_encode($discordResult));
+
+            // Update TMI entry with Discord info
+            if ($discordResult && !empty($discordResult['message_id'])) {
+                updateTmiDiscordInfo($conn, $tmiEntryId, $discordResult['message_id'], $discordResult['channel_id'] ?? null);
+            }
+        }
+
+        // ===================================================
+        // STEP 3: Update proposal status
+        // ===================================================
         $updateSql = "UPDATE dbo.tmi_proposals SET
                           status = :status,
                           activated_at = SYSUTCDATETIME(),
+                          tmi_entry_id = :entry_id,
                           updated_at = SYSUTCDATETIME()
                       WHERE proposal_id = :prop_id";
         $updateStmt = $conn->prepare($updateSql);
         $updateStmt->execute([
             ':status' => $newStatus,
+            ':entry_id' => $tmiEntryId,
             ':prop_id' => $proposalId
         ]);
 
-        // TODO: Call actual publish logic to create the TMI entry
-        // For now, return success with status
+        // ===================================================
+        // STEP 4: Log coordination activity
+        // ===================================================
+        logCoordinationActivity($conn, $proposalId, 'ACTIVATED', [
+            'status' => $newStatus,
+            'tmi_entry_id' => $tmiEntryId,
+            'discord_posted' => !empty($discordResult['success'])
+        ]);
+
         return [
             'success' => true,
             'status' => $newStatus,
-            'scheduled' => $shouldSchedule
+            'scheduled' => $shouldSchedule,
+            'tmi_entry_id' => $tmiEntryId,
+            'discord' => $discordResult
         ];
 
     } catch (Exception $e) {
+        $log("ERROR: " . $e->getMessage());
         return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Create TMI entry from approved proposal
+ */
+function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
+    $data = $entryData['data'] ?? [];
+    $entryType = $entryData['entryType'] ?? 'UNKNOWN';
+
+    $sql = "INSERT INTO dbo.tmi_entries (
+                entry_type, determinant_code, ctl_element, element_type,
+                raw_input, parsed_data,
+                valid_from, valid_until,
+                status, source,
+                created_by, created_by_name
+            ) OUTPUT INSERTED.entry_id
+            VALUES (
+                :entry_type, :determinant, :ctl_element, :element_type,
+                :raw_input, :parsed_data,
+                :valid_from, :valid_until,
+                'ACTIVE', 'COORDINATION',
+                :created_by, :created_by_name
+            )";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':entry_type' => strtoupper($entryType),
+        ':determinant' => strtoupper($entryType),
+        ':ctl_element' => strtoupper($data['ctl_element'] ?? ''),
+        ':element_type' => detectElementType($data['ctl_element'] ?? ''),
+        ':raw_input' => $rawText,
+        ':parsed_data' => json_encode($data),
+        ':valid_from' => $proposal['valid_from'],
+        ':valid_until' => $proposal['valid_until'],
+        ':created_by' => $proposal['created_by'],
+        ':created_by_name' => $proposal['created_by_name']
+    ]);
+
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $result ? $result['entry_id'] : null;
+}
+
+/**
+ * Detect element type (airport/fix/airway)
+ */
+function detectElementType($element) {
+    if (empty($element)) return null;
+    $element = strtoupper($element);
+
+    // Check for comma-separated list (multiple elements)
+    if (strpos($element, ',') !== false) {
+        return 'MULTI';
+    }
+    // Airport patterns: K***, P***, TJSJ, CYYZ
+    if (preg_match('/^[KPCTY][A-Z]{2,3}$/', $element)) {
+        return 'AIRPORT';
+    }
+    // 5-letter fix
+    if (preg_match('/^[A-Z]{5}$/', $element)) {
+        return 'FIX';
+    }
+    // Airway pattern (J*, V*, Q*, T*)
+    if (preg_match('/^[JVQT]\d+$/', $element)) {
+        return 'AIRWAY';
+    }
+    return 'OTHER';
+}
+
+/**
+ * Publish approved TMI to Discord production channels
+ */
+function publishTmiToDiscord($proposal, $rawText, $tmiEntryId) {
+    try {
+        require_once __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
+
+        $multiDiscord = new MultiDiscordAPI();
+        if (!$multiDiscord->isConfigured()) {
+            return ['success' => false, 'error' => 'Discord not configured'];
+        }
+
+        // Format message for production
+        $message = "```\n{$rawText}\n```";
+
+        // Post to production NTML channel(s)
+        $result = $multiDiscord->postToChannel('vatcscc', 'ntml', ['content' => $message]);
+
+        return $result;
+
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Update TMI entry with Discord message info
+ */
+function updateTmiDiscordInfo($conn, $entryId, $messageId, $channelId) {
+    $sql = "UPDATE dbo.tmi_entries SET
+                discord_message_id = :message_id,
+                discord_channel_id = :channel_id,
+                discord_posted_at = SYSUTCDATETIME()
+            WHERE entry_id = :entry_id";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':message_id' => $messageId,
+        ':channel_id' => $channelId,
+        ':entry_id' => $entryId
+    ]);
+}
+
+/**
+ * Log coordination activity to database and Discord #coordination-log channel
+ */
+function logCoordinationActivity($conn, $proposalId, $action, $details = []) {
+    $timestamp = gmdate('Y-m-d H:i:s') . 'Z';
+
+    try {
+        // ===================================================
+        // 1. Save to database
+        // ===================================================
+        $sql = "IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'tmi_coordination_log')
+                CREATE TABLE dbo.tmi_coordination_log (
+                    log_id INT IDENTITY(1,1) PRIMARY KEY,
+                    proposal_id INT NOT NULL,
+                    action VARCHAR(50) NOT NULL,
+                    details NVARCHAR(MAX),
+                    created_at DATETIME2 DEFAULT SYSUTCDATETIME()
+                )";
+        $conn->exec($sql);
+
+        $insertSql = "INSERT INTO dbo.tmi_coordination_log (proposal_id, action, details)
+                      VALUES (:prop_id, :action, :details)";
+        $stmt = $conn->prepare($insertSql);
+        $stmt->execute([
+            ':prop_id' => $proposalId,
+            ':action' => $action,
+            ':details' => json_encode($details)
+        ]);
+
+        // ===================================================
+        // 2. Post to Discord #coordination-log channel
+        // ===================================================
+        $logMessage = formatCoordinationLogMessage($proposalId, $action, $details, $timestamp);
+        postToCoordinationLog($logMessage);
+
+    } catch (Exception $e) {
+        // Log error but don't fail the main operation
+        error_log("Failed to log coordination activity: " . $e->getMessage());
+    }
+}
+
+/**
+ * Format a concise coordination log message for Discord
+ */
+function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp) {
+    $userName = $details['user_name'] ?? $details['created_by_name'] ?? 'System';
+    $userCid = $details['user_cid'] ?? $details['created_by'] ?? '';
+
+    // Build concise log entry
+    $parts = ["`[{$timestamp}]`"];
+
+    switch ($action) {
+        case 'SUBMITTED':
+            $entryType = $details['entry_type'] ?? 'TMI';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "📝 **SUBMITTED** Proposal #{$proposalId}";
+            $parts[] = "| {$entryType} {$element}";
+            $parts[] = "| by {$userName}";
+            if (!empty($details['deadline'])) {
+                $parts[] = "| deadline: {$details['deadline']}";
+            }
+            break;
+
+        case 'DCC_APPROVE':
+        case 'DCC_APPROVED':
+            $parts[] = "✅ **DCC APPROVED** Proposal #{$proposalId}";
+            $parts[] = "| by {$userName}";
+            break;
+
+        case 'DCC_DENY':
+        case 'DCC_DENIED':
+            $parts[] = "❌ **DCC DENIED** Proposal #{$proposalId}";
+            $parts[] = "| by {$userName}";
+            break;
+
+        case 'FACILITY_APPROVE':
+            $facility = $details['facility'] ?? 'Unknown';
+            $parts[] = "✅ **{$facility} APPROVED** Proposal #{$proposalId}";
+            $parts[] = "| by {$userName}";
+            break;
+
+        case 'FACILITY_DENY':
+            $facility = $details['facility'] ?? 'Unknown';
+            $parts[] = "❌ **{$facility} DENIED** Proposal #{$proposalId}";
+            $parts[] = "| by {$userName}";
+            break;
+
+        case 'ACTIVATED':
+            $status = $details['status'] ?? 'ACTIVATED';
+            $tmiId = $details['tmi_entry_id'] ?? '';
+            $parts[] = "🚀 **{$status}** Proposal #{$proposalId}";
+            if ($tmiId) $parts[] = "| TMI Entry #{$tmiId}";
+            $parts[] = "| Discord: " . ($details['discord_posted'] ? '✅' : '❌');
+            break;
+
+        case 'DCC_REOPEN':
+            $parts[] = "🔄 **REOPENED** Proposal #{$proposalId}";
+            $parts[] = "| by {$userName}";
+            if (!empty($details['reason'])) $parts[] = "| reason: {$details['reason']}";
+            break;
+
+        case 'DCC_CANCEL':
+            $parts[] = "🗑️ **CANCELLED** Proposal #{$proposalId}";
+            $parts[] = "| by {$userName}";
+            break;
+
+        case 'DEADLINE_EXTENDED':
+            $parts[] = "⏰ **DEADLINE EXTENDED** Proposal #{$proposalId}";
+            $parts[] = "| new: {$details['new_deadline']}";
+            $parts[] = "| by {$userName}";
+            break;
+
+        default:
+            $parts[] = "📋 **{$action}** Proposal #{$proposalId}";
+            if ($userName) $parts[] = "| by {$userName}";
+    }
+
+    return implode(' ', $parts);
+}
+
+/**
+ * Post message to Discord #coordination-log channel
+ */
+function postToCoordinationLog($message) {
+    try {
+        $discord = new DiscordAPI();
+        if (!$discord->isConfigured()) {
+            return;
+        }
+
+        $discord->createMessage(DISCORD_COORDINATION_LOG_CHANNEL, [
+            'content' => $message
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to post to coordination log: " . $e->getMessage());
     }
 }

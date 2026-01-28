@@ -33,35 +33,36 @@ if (session_status() == PHP_SESSION_NONE) {
 include("load/config.php");
 include("load/connect.php");
 
-// Check Permissions
-$perm = false;
+// Check Permissions - TMI Publisher is open to all, but profile must be set
+// Profile info (Operating Initials, Home Facility) is stored in browser localStorage
+$perm = true; // Always allow access - JS will check if profile is set before posting
 $userCid = null;
 $userName = null;
 $userPrivileged = false;
 $userHomeOrg = 'vatcscc';
 
-if (!defined('DEV')) {
-    if (isset($_SESSION['VATSIM_CID'])) {
-        $userCid = session_get('VATSIM_CID', '');
-        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$userCid'");
-        if ($p_check) {
-            $perm = true;
-            $userName = session_get('VATSIM_FIRST_NAME', '') . ' ' . session_get('VATSIM_LAST_NAME', '');
-            
-            $row = $p_check->fetch_assoc();
-            $privilegedRoles = ['Admin', 'NAS Ops', 'NTMO', 'NTMS'];
-            if ($row && isset($row['role']) && in_array($row['role'], $privilegedRoles)) {
-                $userPrivileged = true;
-            }
+// If logged in via VATSIM, use that info
+if (isset($_SESSION['VATSIM_CID'])) {
+    $userCid = session_get('VATSIM_CID', '');
+    $userName = session_get('VATSIM_FIRST_NAME', '') . ' ' . session_get('VATSIM_LAST_NAME', '');
+
+    // Check for privileged role
+    $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$userCid'");
+    if ($p_check) {
+        $row = $p_check->fetch_assoc();
+        $privilegedRoles = ['Admin', 'NAS Ops', 'NTMO', 'NTMS'];
+        if ($row && isset($row['role']) && in_array($row['role'], $privilegedRoles)) {
+            $userPrivileged = true;
         }
     }
-} else {
-    $perm = true;
+} elseif (defined('DEV')) {
+    // Dev mode defaults
     $userPrivileged = true;
     $userCid = $_SESSION['VATSIM_CID'] = 0;
     $userName = $_SESSION['VATSIM_FIRST_NAME'] = 'Dev';
     $_SESSION['VATSIM_LAST_NAME'] = 'User';
 }
+// If not logged in and not dev mode, name/cid will be null - JS profile will be used
 
 // Load Discord organization config
 $discordOrgs = [];
@@ -176,10 +177,14 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                 <div class="card shadow-sm perti-info-card h-100" style="cursor: pointer;" onclick="TMIPublisher.showProfileModal()" data-toggle="tooltip" title="Click to edit profile">
                     <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
                         <div>
-                            <div class="perti-info-label">Logged In As</div>
-                            <div class="font-weight-bold">
+                            <div class="perti-info-label" id="userInfoLabel"><?= $userName ? 'Logged In As' : 'User Profile' ?></div>
+                            <div class="font-weight-bold" id="userInfoDisplay">
                                 <i class="fas fa-user-edit mr-1 small text-muted"></i>
-                                <?= htmlspecialchars($userName) ?>
+                                <?php if ($userName): ?>
+                                    <?= htmlspecialchars($userName) ?>
+                                <?php else: ?>
+                                    <span class="text-warning">Set Up Profile</span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <?php if ($userPrivileged): ?>
@@ -627,7 +632,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                     </div>
                 </div>
                 <div class="col-md-3 col-6 mb-2">
-                    <div class="card bg-secondary text-white h-100">
+                    <div class="card bg-danger text-white h-100">
                         <div class="card-body py-2 text-center">
                             <div class="tmi-status-count" id="cancelledCount">0</div>
                             <div class="tmi-status-label">Cancelled (4h)</div>
@@ -812,7 +817,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 
             <!-- Recent Proposals (approved/denied/expired) -->
             <div class="card shadow-sm mb-3">
-                <div class="card-header py-2 bg-secondary text-white">
+                <div class="card-header py-2 bg-dark text-white">
                     <span class="font-weight-bold">
                         <i class="fas fa-history mr-1"></i> Recent Proposals (Last 24h)
                         <span class="badge badge-light ml-2" id="recentCount">0</span>
@@ -830,11 +835,12 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                                     <th style="width: 120px;">PROPOSED BY</th>
                                     <th style="width: 100px;">RESULT</th>
                                     <th style="width: 140px;">RESOLVED AT</th>
+                                    <th style="width: 80px;">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="recentProposalsTableBody">
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-3">
+                                    <td colspan="8" class="text-center text-muted py-3">
                                         <em>No recent proposals</em>
                                     </td>
                                 </tr>
@@ -924,13 +930,19 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
+                <?php if (!$userName): ?>
+                <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Set your profile to use TMI Publisher. All fields are required.
+                </div>
+                <?php endif; ?>
                 <div class="mb-3">
-                    <label class="form-label small text-muted">Name</label>
-                    <input type="text" class="form-control bg-secondary text-white" id="profileName" value="<?= htmlspecialchars($userName ?? '') ?>" readonly>
+                    <label class="form-label small text-muted">Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control <?= $userName ? 'bg-secondary text-white' : '' ?>" id="profileName" value="<?= htmlspecialchars($userName ?? '') ?>" <?= $userName ? 'readonly' : 'placeholder="Your Name"' ?>>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small text-muted">CID</label>
-                    <input type="text" class="form-control bg-secondary text-white" id="profileCid" value="<?= htmlspecialchars($userCid ?? '') ?>" readonly>
+                    <label class="form-label small text-muted">CID <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control <?= $userCid ? 'bg-secondary text-white' : '' ?>" id="profileCid" value="<?= htmlspecialchars($userCid ?? '') ?>" <?= $userCid ? 'readonly' : 'placeholder="VATSIM CID"' ?>>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-muted">Operating Initials</label>
