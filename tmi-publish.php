@@ -651,54 +651,12 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                     </div>
                     <div class="col-md-2 col-6 mb-2">
                         <label class="small text-muted mb-0">Requesting</label>
-                        <select class="form-control form-control-sm" id="filterReqFac">
-                            <option value="ALL">ALL</option>
-                            <option value="ZAB">ZAB</option>
-                            <option value="ZAU">ZAU</option>
-                            <option value="ZBW">ZBW</option>
-                            <option value="ZDC">ZDC</option>
-                            <option value="ZDV">ZDV</option>
-                            <option value="ZFW">ZFW</option>
-                            <option value="ZHU">ZHU</option>
-                            <option value="ZID">ZID</option>
-                            <option value="ZJX">ZJX</option>
-                            <option value="ZKC">ZKC</option>
-                            <option value="ZLA">ZLA</option>
-                            <option value="ZLC">ZLC</option>
-                            <option value="ZMA">ZMA</option>
-                            <option value="ZME">ZME</option>
-                            <option value="ZMP">ZMP</option>
-                            <option value="ZNY">ZNY</option>
-                            <option value="ZOA">ZOA</option>
-                            <option value="ZOB">ZOB</option>
-                            <option value="ZSE">ZSE</option>
-                            <option value="ZTL">ZTL</option>
+                        <select class="form-control form-control-sm facility-filter-select" id="filterReqFac" multiple="multiple" data-placeholder="All Facilities">
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
                         <label class="small text-muted mb-0">Providing</label>
-                        <select class="form-control form-control-sm" id="filterProvFac">
-                            <option value="ALL">ALL</option>
-                            <option value="ZAB">ZAB</option>
-                            <option value="ZAU">ZAU</option>
-                            <option value="ZBW">ZBW</option>
-                            <option value="ZDC">ZDC</option>
-                            <option value="ZDV">ZDV</option>
-                            <option value="ZFW">ZFW</option>
-                            <option value="ZHU">ZHU</option>
-                            <option value="ZID">ZID</option>
-                            <option value="ZJX">ZJX</option>
-                            <option value="ZKC">ZKC</option>
-                            <option value="ZLA">ZLA</option>
-                            <option value="ZLC">ZLC</option>
-                            <option value="ZMA">ZMA</option>
-                            <option value="ZME">ZME</option>
-                            <option value="ZMP">ZMP</option>
-                            <option value="ZNY">ZNY</option>
-                            <option value="ZOA">ZOA</option>
-                            <option value="ZOB">ZOB</option>
-                            <option value="ZSE">ZSE</option>
-                            <option value="ZTL">ZTL</option>
+                        <select class="form-control form-control-sm facility-filter-select" id="filterProvFac" multiple="multiple" data-placeholder="All Facilities">
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
