@@ -465,7 +465,7 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $advisoryNumber = $row['num'] ?? null;
     } catch (Exception $e) {
-        publish_debug_log('Failed to get advisory number from database', ['error' => $e->getMessage()]);
+        tmi_debug_log('Failed to get advisory number from database', ['error' => $e->getMessage()]);
     }
 
     // Fallback if stored procedure failed
@@ -477,7 +477,7 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
     if (!empty($clientNumber) && $clientNumber !== $advisoryNumber) {
         // Match patterns like "ADVZY 001" or "ADVZY 021" in the text
         $rawText = preg_replace('/ADVZY\s*\d{3}/', $advisoryNumber, $rawText, 1);
-        publish_debug_log('Replaced advisory number in body', ['old' => $clientNumber, 'new' => $advisoryNumber]);
+        tmi_debug_log('Replaced advisory number in body', ['old' => $clientNumber, 'new' => $advisoryNumber]);
     }
     
     // Parse valid times
