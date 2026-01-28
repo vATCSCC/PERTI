@@ -50,8 +50,9 @@ define('DCC_OVERRIDE_ROLES', [
     'NTMO'
 ]);
 
-// Deny emoji
+// Deny emoji (primary and alternate)
 define('DENY_EMOJI', '❌');
+define('DENY_EMOJI_ALT', '🚫');  // :no_entry: - alternate for non-Nitro
 
 // DCC approval emoji (custom)
 define('DCC_APPROVE_EMOJI', 'DCC');
@@ -68,8 +69,8 @@ define('FACILITY_ROLE_PATTERNS', [
     'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'
 ]);
 
-// Regional indicator emoji mapping for non-Nitro users (unique per facility)
-// Uses :regional_indicator_{letter}: format - standard Unicode, no Nitro required
+// Regional indicator emoji mapping for alternate approval method (unique per facility)
+// Uses :regional_indicator_{letter}: format - standard Unicode emojis
 // Letters chosen to be intuitive where possible, alphabetical fallback for conflicts
 define('FACILITY_REGIONAL_EMOJI_MAP', [
     // US ARTCCs
@@ -108,6 +109,64 @@ define('FACILITY_REGIONAL_EMOJI_MAP', [
 
 // Reverse mapping: emoji to facility code
 define('REGIONAL_EMOJI_TO_FACILITY', array_flip(FACILITY_REGIONAL_EMOJI_MAP));
+
+// Fallback emojis for facilities without standard mappings
+// Used when: (1) facility isn't an ARTCC/FIR, (2) parent ARTCC can't be determined
+// Order matters - assigns sequentially for uniqueness within a proposal
+define('FALLBACK_EMOJIS', [
+    // Colored squares
+    '🟥',  // red_square
+    '🟧',  // orange_square
+    '🟨',  // yellow_square
+    '🟩',  // green_square
+    '🟦',  // blue_square
+    '🟪',  // purple_square
+    '🟫',  // brown_square
+    '⬛',  // black_large_square
+    '⬜',  // white_large_square
+    // Colored circles
+    '🔴',  // red_circle
+    '🟠',  // orange_circle
+    '🟡',  // yellow_circle
+    '🟢',  // green_circle
+    '🔵',  // blue_circle
+    '🟣',  // purple_circle
+    '🟤',  // brown_circle
+    '⚫',  // black_circle
+    '⚪',  // white_circle
+]);
+
+// TRACON/Terminal → Parent ARTCC mapping
+// When a provider isn't an ARTCC/FIR, their parent ARTCC is responsible for approval
+define('TRACON_TO_ARTCC', [
+    // Northeast
+    'N90' => 'ZNY',   // New York TRACON
+    'PCT' => 'ZDC',   // Potomac TRACON (DC area)
+    'PHL' => 'ZNY',   // Philadelphia TRACON
+    'A90' => 'ZBW',   // Boston TRACON
+    // Southeast
+    'A80' => 'ZTL',   // Atlanta TRACON
+    'MIA' => 'ZMA',   // Miami TRACON
+    'JAX' => 'ZJX',   // Jacksonville TRACON
+    // Central
+    'C90' => 'ZAU',   // Chicago TRACON
+    'D10' => 'ZFW',   // Dallas/Fort Worth TRACON
+    'I90' => 'ZHU',   // Houston TRACON
+    'M98' => 'ZME',   // Memphis TRACON
+    'D01' => 'ZDV',   // Denver TRACON
+    'MCI' => 'ZKC',   // Kansas City TRACON
+    'IND' => 'ZID',   // Indianapolis TRACON
+    'MSP' => 'ZMP',   // Minneapolis TRACON
+    // West
+    'SCT' => 'ZLA',   // Southern California TRACON
+    'NCT' => 'ZOA',   // Northern California TRACON
+    'S46' => 'ZSE',   // Seattle TRACON
+    'P50' => 'ZLA',   // Phoenix TRACON (under ZAB, but close to ZLA)
+    'ABQ' => 'ZAB',   // Albuquerque TRACON
+    'SLC' => 'ZLC',   // Salt Lake City TRACON
+    // Honolulu
+    'HCF' => 'ZHN',   // Honolulu Control Facility
+]);
 
 // =============================================================================
 // DATABASE CONNECTION
@@ -149,6 +208,132 @@ function getFacilityFromRoles($roles) {
         }
     }
     return null;
+}
+
+/**
+ * Get the parent ARTCC for a facility code
+ * - If already an ARTCC/FIR, returns itself
+ * - If TRACON, returns mapped ARTCC
+ * - If airport (K***, P***, etc.), attempts to determine from known mappings
+ * @param string $facilityCode Facility code (ARTCC, TRACON, or airport)
+ * @return string|null Parent ARTCC code or null if unknown
+ */
+function getParentArtcc($facilityCode) {
+    if (empty($facilityCode)) return null;
+
+    $facilityCode = strtoupper(trim($facilityCode));
+
+    // If it's already an ARTCC/FIR, return itself
+    if (in_array($facilityCode, FACILITY_ROLE_PATTERNS)) {
+        return $facilityCode;
+    }
+
+    // Check TRACON mapping
+    if (isset(TRACON_TO_ARTCC[$facilityCode])) {
+        return TRACON_TO_ARTCC[$facilityCode];
+    }
+
+    // Common airport to ARTCC mappings
+    $airportToArtcc = [
+        // Major Northeast
+        'KJFK' => 'ZNY', 'KLGA' => 'ZNY', 'KEWR' => 'ZNY', 'KTEB' => 'ZNY',
+        'KPHL' => 'ZNY', 'KBOS' => 'ZBW', 'KBDL' => 'ZBW',
+        'KDCA' => 'ZDC', 'KIAD' => 'ZDC', 'KBWI' => 'ZDC',
+        // Major Southeast
+        'KATL' => 'ZTL', 'KCLT' => 'ZTL', 'KMCO' => 'ZJX', 'KTPA' => 'ZJX',
+        'KMIA' => 'ZMA', 'KFLL' => 'ZMA', 'KPBI' => 'ZMA',
+        // Major Central
+        'KORD' => 'ZAU', 'KMDW' => 'ZAU', 'KDFW' => 'ZFW', 'KDAL' => 'ZFW',
+        'KIAH' => 'ZHU', 'KHOU' => 'ZHU', 'KMEM' => 'ZME', 'KBNA' => 'ZME',
+        'KDEN' => 'ZDV', 'KCOS' => 'ZDV', 'KMCI' => 'ZKC', 'KSTL' => 'ZKC',
+        'KIND' => 'ZID', 'KCVG' => 'ZID', 'KMSP' => 'ZMP', 'KDTW' => 'ZOB',
+        'KCLE' => 'ZOB', 'KPIT' => 'ZOB',
+        // Major West
+        'KLAX' => 'ZLA', 'KSAN' => 'ZLA', 'KLAS' => 'ZLA', 'KPHX' => 'ZAB',
+        'KSFO' => 'ZOA', 'KOAK' => 'ZOA', 'KSJC' => 'ZOA',
+        'KSEA' => 'ZSE', 'KPDX' => 'ZSE', 'KSLC' => 'ZLC',
+        'KABQ' => 'ZAB', 'KHNL' => 'ZHN', 'PANC' => 'ZAN',
+        // Canada
+        'CYYZ' => 'CZYZ', 'CYUL' => 'CZUL', 'CYVR' => 'CZVR', 'CYYC' => 'CZEG',
+        'CYEG' => 'CZEG', 'CYWG' => 'CZWG', 'CYOW' => 'CZUL', 'CYQB' => 'CZUL',
+    ];
+
+    if (isset($airportToArtcc[$facilityCode])) {
+        return $airportToArtcc[$facilityCode];
+    }
+
+    // Try without K/C/P prefix for US/Canada airports
+    $withK = 'K' . $facilityCode;
+    $withC = 'C' . $facilityCode;
+    if (isset($airportToArtcc[$withK])) return $airportToArtcc[$withK];
+    if (isset($airportToArtcc[$withC])) return $airportToArtcc[$withC];
+
+    return null;
+}
+
+/**
+ * Check if an ARTCC is the parent of a given facility
+ * @param string $artcc ARTCC code
+ * @param string $facility Facility code (may be TRACON, airport, or ARTCC)
+ * @return bool True if ARTCC is the parent of the facility
+ */
+function isArtccParentOf($artcc, $facility) {
+    if (empty($artcc) || empty($facility)) return false;
+
+    $artcc = strtoupper(trim($artcc));
+    $facility = strtoupper(trim($facility));
+
+    // Direct match
+    if ($artcc === $facility) return true;
+
+    // Check if facility's parent is this ARTCC
+    $parentArtcc = getParentArtcc($facility);
+    return $parentArtcc === $artcc;
+}
+
+/**
+ * Get the appropriate emoji for a facility
+ * Priority:
+ *   1. If facility is an ARTCC/FIR with a mapped emoji, use it
+ *   2. If facility has a parent ARTCC with a mapped emoji, use that
+ *   3. Use a fallback emoji (colored square/circle)
+ *
+ * @param string $facilityCode Facility code
+ * @param array &$usedEmojis Array of already-used emojis (passed by reference to track uniqueness)
+ * @return array ['emoji' => string, 'type' => 'artcc'|'parent'|'fallback', 'parent' => string|null]
+ */
+function getEmojiForFacility($facilityCode, &$usedEmojis = []) {
+    $facilityCode = strtoupper(trim($facilityCode));
+
+    // 1. Check if facility itself has an emoji mapping (ARTCC/FIR)
+    if (isset(FACILITY_REGIONAL_EMOJI_MAP[$facilityCode])) {
+        $emoji = FACILITY_REGIONAL_EMOJI_MAP[$facilityCode];
+        if (!in_array($emoji, $usedEmojis)) {
+            $usedEmojis[] = $emoji;
+            return ['emoji' => $emoji, 'type' => 'artcc', 'parent' => null];
+        }
+    }
+
+    // 2. Check if facility has a parent ARTCC with an emoji
+    $parentArtcc = getParentArtcc($facilityCode);
+    if ($parentArtcc && isset(FACILITY_REGIONAL_EMOJI_MAP[$parentArtcc])) {
+        $emoji = FACILITY_REGIONAL_EMOJI_MAP[$parentArtcc];
+        if (!in_array($emoji, $usedEmojis)) {
+            $usedEmojis[] = $emoji;
+            return ['emoji' => $emoji, 'type' => 'parent', 'parent' => $parentArtcc];
+        }
+    }
+
+    // 3. Use a fallback emoji
+    foreach (FALLBACK_EMOJIS as $fallbackEmoji) {
+        if (!in_array($fallbackEmoji, $usedEmojis)) {
+            $usedEmojis[] = $fallbackEmoji;
+            return ['emoji' => $fallbackEmoji, 'type' => 'fallback', 'parent' => $parentArtcc];
+        }
+    }
+
+    // No emoji available (should never happen with enough fallbacks)
+    return ['emoji' => '❓', 'type' => 'none', 'parent' => null];
 }
 
 // =============================================================================
@@ -578,7 +763,7 @@ function handleProcessReaction() {
                     $reactionType = 'DCC_APPROVE';
                     $isDccOverride = true;
                     $dccAction = 'APPROVE';
-                } elseif ($emoji === DENY_EMOJI || $emoji === '❌') {
+                } elseif ($emoji === DENY_EMOJI || $emoji === DENY_EMOJI_ALT || $emoji === '❌' || $emoji === '🚫') {
                     $reactionType = 'DCC_DENY';
                     $isDccOverride = true;
                     $dccAction = 'DENY';
@@ -604,23 +789,60 @@ function handleProcessReaction() {
                 }
             }
 
-            // Check for regional indicator emoji (non-Nitro fallback)
-            // Maps unique letters to facilities (e.g., 🇨 = ZDC, 🇾 = ZNY)
+            // Check for alternate emoji (regional indicator, number, or fallback)
+            // Re-calculate emoji mapping for this proposal to match what was posted
             if ($reactionType === 'OTHER') {
-                $regionalFacility = REGIONAL_EMOJI_TO_FACILITY[$emoji] ?? null;
-                if ($regionalFacility && in_array($regionalFacility, $proposalFacilityCodes)) {
+                // Build the emoji -> facility mapping for this proposal
+                $usedEmojis = [];
+                $proposalEmojiMap = [];
+                foreach ($proposalFacilityCodes as $facCode) {
+                    $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+                    $proposalEmojiMap[$emojiInfo['emoji']] = [
+                        'facility' => $facCode,
+                        'type' => $emojiInfo['type'],
+                        'parent' => $emojiInfo['parent']
+                    ];
+                }
+
+                // Check if the reaction emoji matches any facility's alternate emoji
+                if (isset($proposalEmojiMap[$emoji])) {
+                    $matchedFacility = $proposalEmojiMap[$emoji]['facility'];
                     $reactionType = 'FACILITY_APPROVE';
-                    $facilityCode = $regionalFacility;
+                    $facilityCode = $matchedFacility;
+                } else {
+                    // Also check global ARTCC emoji -> child facility approval
+                    // (e.g., ZDC reacting can approve for PCT even if PCT has a different emoji)
+                    $regionalFacility = REGIONAL_EMOJI_TO_FACILITY[$emoji] ?? null;
+                    if ($regionalFacility) {
+                        foreach ($proposalFacilityCodes as $reqFacility) {
+                            if (isArtccParentOf($regionalFacility, $reqFacility)) {
+                                $reactionType = 'FACILITY_APPROVE';
+                                $facilityCode = $reqFacility;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
-            // Check for deny emoji
-            if ($emoji === DENY_EMOJI || $emoji === '❌') {
+            // Check for deny emoji (primary ❌ or alternate 🚫)
+            if ($emoji === DENY_EMOJI || $emoji === DENY_EMOJI_ALT || $emoji === '❌' || $emoji === '🚫') {
                 $reactionType = 'FACILITY_DENY';
                 // Determine which facility from user roles
                 $userFacility = getFacilityFromRoles($userRoles);
-                if ($userFacility && in_array($userFacility, $proposalFacilityCodes)) {
-                    $facilityCode = $userFacility;
+                if ($userFacility) {
+                    // Direct match
+                    if (in_array($userFacility, $proposalFacilityCodes)) {
+                        $facilityCode = $userFacility;
+                    } else {
+                        // ARTCC denying for child facility
+                        foreach ($proposalFacilityCodes as $reqFacility) {
+                            if (isArtccParentOf($userFacility, $reqFacility)) {
+                                $facilityCode = $reqFacility;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -971,9 +1193,13 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         if ($result && isset($result['id'])) {
             $log("SUCCESS - Message posted with ID: " . $result['id']);
 
+            // Track used emojis to ensure uniqueness
+            $usedEmojis = [];
+
             // Add initial reactions for each facility
             foreach ($facilities as $facility) {
                 $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
+                $facCode = strtoupper(trim($facCode));
                 $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
 
                 // Add custom emoji (for Nitro users)
@@ -982,17 +1208,19 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
                     $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $facEmoji);
                 }
 
-                // Add regional indicator emoji (for non-Nitro users)
-                $regionalEmoji = FACILITY_REGIONAL_EMOJI_MAP[$facCode] ?? null;
-                if ($regionalEmoji) {
-                    $log("Adding regional indicator emoji: {$regionalEmoji} for facility {$facCode}");
-                    $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $regionalEmoji);
-                }
+                // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
+                $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+                $altEmoji = $emojiInfo['emoji'];
+                $emojiType = $emojiInfo['type'];
+
+                $log("Adding alternate emoji: {$altEmoji} for facility {$facCode} (type: {$emojiType})");
+                $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $altEmoji);
             }
 
-            // Add deny reaction
-            $log("Adding deny reaction");
+            // Add deny reactions (primary and alternate)
+            $log("Adding deny reactions");
             $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], DENY_EMOJI);
+            $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], DENY_EMOJI_ALT);
         } else {
             $log("FAILED - No message ID returned");
             $log("Full result: " . print_r($result, true));
@@ -1025,18 +1253,35 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
     $deadlineDiscordRelative = "<t:{$deadlineUnix}:R>"; // Relative (in X hours)
 
     // Build facility list and emoji legend
+    // Track used emojis to ensure uniqueness across facilities in this proposal
+    $usedEmojis = [];
     $facilityList = [];
     $emojiLegend = [];
+    $facilityEmojiMap = []; // Track emoji -> facility for this proposal
+
     foreach ($facilities as $fac) {
         $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $facCode = strtoupper(trim($facCode));
         $facEmoji = is_array($fac) ? ($fac['emoji'] ?? ":$facCode:") : ":$facCode:";
         $facilityList[] = "{$facEmoji} {$facCode}";
 
-        // Build emoji legend for non-Nitro users
-        $regionalEmoji = FACILITY_REGIONAL_EMOJI_MAP[$facCode] ?? null;
-        if ($regionalEmoji) {
-            $emojiLegend[] = "{$regionalEmoji} = {$facCode}";
+        // Get appropriate alternate emoji (ARTCC, parent ARTCC, or fallback)
+        $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+        $altEmoji = $emojiInfo['emoji'];
+
+        // Build legend entry with context
+        if ($emojiInfo['type'] === 'artcc') {
+            $emojiLegend[] = "{$altEmoji} = {$facCode}";
+        } elseif ($emojiInfo['type'] === 'parent' && $emojiInfo['parent']) {
+            // Show that parent ARTCC can approve for this facility
+            $emojiLegend[] = "{$altEmoji} = {$facCode} ({$emojiInfo['parent']})";
+        } else {
+            // Fallback emoji
+            $emojiLegend[] = "{$altEmoji} = {$facCode}";
         }
+
+        // Track this mapping for reaction processing
+        $facilityEmojiMap[$altEmoji] = $facCode;
     }
     $facilityStr = implode(' | ', $facilityList);
     $emojiLegendStr = implode(' | ', $emojiLegend);
@@ -1071,12 +1316,12 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
         "",
         "**How to Respond:**",
         "› **Approve:** React with your facility's emoji (e.g., :ZDC:)",
-        "› **Approve (no Nitro):** Use letter emoji: {$emojiLegendStr}",
-        "› **Deny:** React with ❌",
+        "› **Approve (Alternate):** Use letter emoji: {$emojiLegendStr}",
+        "› **Deny:** React with ❌ or 🚫",
         "",
         "**DCC has final authority to approve or deny any proposed TMI.**",
         "› DCC Approve: React with :DCC:",
-        "› DCC Deny: React with ❌",
+        "› DCC Deny: React with ❌ or 🚫",
         "",
         "```",
         "╔═══════════════════════════════════════════════════════════════════╗",
