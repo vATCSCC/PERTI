@@ -1994,7 +1994,7 @@ function activateProposal($conn, $proposalId) {
         $updateSql = "UPDATE dbo.tmi_proposals SET
                           status = :status,
                           activated_at = SYSUTCDATETIME(),
-                          tmi_entry_id = :entry_id,
+                          activated_entry_id = :entry_id,
                           updated_at = SYSUTCDATETIME()
                       WHERE proposal_id = :prop_id";
         $updateStmt = $conn->prepare($updateSql);
