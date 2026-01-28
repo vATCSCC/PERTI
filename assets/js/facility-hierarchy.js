@@ -144,7 +144,7 @@
 
     // ===========================================
     // Facility Emoji Mapping (for Discord reactions)
-    // Used by non-Nitro users for TMI coordination
+    // Alternate method for TMI coordination approvals
     // Regional indicators for US, number emojis for Canada
     // ===========================================
 
