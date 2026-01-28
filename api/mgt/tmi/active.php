@@ -93,31 +93,63 @@ try {
     if ($type === 'all' || $type === 'ntml') {
         $activeNtml = getActiveNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
         $results['active'] = array_merge($results['active'], $activeNtml);
-        
+
         if ($includeScheduled) {
             $scheduledNtml = getScheduledNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
             $results['scheduled'] = array_merge($results['scheduled'], $scheduledNtml);
         }
-        
+
         if ($includeCancelled) {
             $cancelledNtml = getCancelledNtmlEntries($tmiConn, $cancelledHours, $limit);
             $results['cancelled'] = array_merge($results['cancelled'], $cancelledNtml);
         }
     }
-    
+
     // Get active advisories
-    if ($type === 'all' || $type === 'advisory') {
+    if ($type === 'all' || $type === 'advisory' || $type === 'advisories') {
         $activeAdv = getActiveAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
         $results['active'] = array_merge($results['active'], $activeAdv);
-        
+
         if ($includeScheduled) {
             $scheduledAdv = getScheduledAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
             $results['scheduled'] = array_merge($results['scheduled'], $scheduledAdv);
         }
-        
+
         if ($includeCancelled) {
             $cancelledAdv = getCancelledAdvisories($tmiConn, $cancelledHours, $limit);
             $results['cancelled'] = array_merge($results['cancelled'], $cancelledAdv);
+        }
+    }
+
+    // Get active GDT programs (Ground Stops, GDPs)
+    if ($type === 'all' || $type === 'program' || $type === 'programs' || $type === 'gdt') {
+        $activePrograms = getActivePrograms($tmiConn, $limit);
+        $results['active'] = array_merge($results['active'], $activePrograms);
+
+        if ($includeScheduled) {
+            $scheduledPrograms = getScheduledPrograms($tmiConn, $limit);
+            $results['scheduled'] = array_merge($results['scheduled'], $scheduledPrograms);
+        }
+
+        if ($includeCancelled) {
+            $cancelledPrograms = getCancelledPrograms($tmiConn, $cancelledHours, $limit);
+            $results['cancelled'] = array_merge($results['cancelled'], $cancelledPrograms);
+        }
+    }
+
+    // Get active reroutes
+    if ($type === 'all' || $type === 'reroute' || $type === 'reroutes') {
+        $activeReroutes = getActiveReroutes($tmiConn, $limit);
+        $results['active'] = array_merge($results['active'], $activeReroutes);
+
+        if ($includeScheduled) {
+            $scheduledReroutes = getScheduledReroutes($tmiConn, $limit);
+            $results['scheduled'] = array_merge($results['scheduled'], $scheduledReroutes);
+        }
+
+        if ($includeCancelled) {
+            $cancelledReroutes = getCancelledReroutes($tmiConn, $cancelledHours, $limit);
+            $results['cancelled'] = array_merge($results['cancelled'], $cancelledReroutes);
         }
     }
     
@@ -641,26 +673,483 @@ function buildNtmlSummary($row) {
  */
 function buildAdvisorySummary($row) {
     $parts = [];
-    
+
     $advType = $row['advisory_type'] ?? '';
     if (!empty($advType)) {
         $parts[] = $advType;
     }
-    
+
     $advNum = $row['advisory_number'] ?? '';
     if (!empty($advNum)) {
         $parts[] = '#' . $advNum;
     }
-    
+
     $subject = $row['subject'] ?? '';
     if (!empty($subject) && strlen($subject) <= 40) {
         $parts[] = $subject;
     }
-    
+
     $element = $row['ctl_element'] ?? '';
     if (!empty($element)) {
         $parts[] = $element;
     }
-    
+
     return implode(' ', $parts) ?: 'Advisory';
+}
+
+// ===========================================
+// GDT Programs (Ground Stops, GDPs)
+// ===========================================
+
+/**
+ * Get currently active GDT programs
+ */
+function getActivePrograms($conn, $limit) {
+    if (!tableExists($conn, 'tmi_programs')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                program_id,
+                program_guid,
+                ctl_element,
+                element_type,
+                program_type,
+                program_name,
+                adv_number,
+                start_utc,
+                end_utc,
+                status,
+                program_rate,
+                scope_type,
+                scope_centers_json,
+                impacting_condition,
+                cause_text,
+                comments,
+                total_flights,
+                controlled_flights,
+                exempt_flights,
+                created_by,
+                created_utc,
+                modified_utc,
+                activated_utc
+            FROM dbo.tmi_programs
+            WHERE status IN ('ACTIVE', 'MODELING')
+              AND (end_utc IS NULL OR end_utc > SYSUTCDATETIME())
+              AND (start_utc IS NULL OR start_utc <= SYSUTCDATETIME())
+            ORDER BY start_utc DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatProgram($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get scheduled (future) GDT programs
+ */
+function getScheduledPrograms($conn, $limit) {
+    if (!tableExists($conn, 'tmi_programs')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                program_id,
+                program_guid,
+                ctl_element,
+                element_type,
+                program_type,
+                program_name,
+                adv_number,
+                start_utc,
+                end_utc,
+                status,
+                program_rate,
+                scope_type,
+                scope_centers_json,
+                impacting_condition,
+                cause_text,
+                comments,
+                total_flights,
+                controlled_flights,
+                exempt_flights,
+                created_by,
+                created_utc,
+                modified_utc
+            FROM dbo.tmi_programs
+            WHERE status IN ('PROPOSED', 'SCHEDULED')
+              AND start_utc > SYSUTCDATETIME()
+            ORDER BY start_utc ASC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatProgram($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get recently cancelled/completed GDT programs
+ */
+function getCancelledPrograms($conn, $hours, $limit) {
+    if (!tableExists($conn, 'tmi_programs')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                program_id,
+                program_guid,
+                ctl_element,
+                element_type,
+                program_type,
+                program_name,
+                adv_number,
+                start_utc,
+                end_utc,
+                status,
+                program_rate,
+                scope_type,
+                scope_centers_json,
+                impacting_condition,
+                cause_text,
+                comments,
+                total_flights,
+                controlled_flights,
+                exempt_flights,
+                created_by,
+                created_utc,
+                modified_utc,
+                completed_utc,
+                purged_utc
+            FROM dbo.tmi_programs
+            WHERE status IN ('COMPLETED', 'PURGED', 'SUPERSEDED')
+              AND modified_utc > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
+            ORDER BY modified_utc DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatProgram($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Format GDT program for API response
+ */
+function formatProgram($row) {
+    $programType = $row['program_type'] ?? 'UNKNOWN';
+
+    return [
+        'entityType' => 'PROGRAM',
+        'entityId' => intval($row['program_id'] ?? 0),
+        'guid' => $row['program_guid'] ?? null,
+        'type' => 'program',
+        'entryType' => $programType,
+        'summary' => buildProgramSummary($row),
+        'ctlElement' => $row['ctl_element'] ?? null,
+        'elementType' => $row['element_type'] ?? null,
+        'programName' => $row['program_name'] ?? null,
+        'advisoryNumber' => $row['adv_number'] ?? null,
+        'programRate' => $row['program_rate'] ?? null,
+        'scopeType' => $row['scope_type'] ?? null,
+        'scopeCenters' => $row['scope_centers_json'] ?? null,
+        'impactingCondition' => $row['impacting_condition'] ?? null,
+        'causeText' => $row['cause_text'] ?? null,
+        'comments' => $row['comments'] ?? null,
+        'totalFlights' => $row['total_flights'] ?? null,
+        'controlledFlights' => $row['controlled_flights'] ?? null,
+        'exemptFlights' => $row['exempt_flights'] ?? null,
+        'validFrom' => formatDatetime($row['start_utc'] ?? null),
+        'validUntil' => formatDatetime($row['end_utc'] ?? null),
+        'status' => $row['status'] ?? 'UNKNOWN',
+        'createdAt' => formatDatetime($row['created_utc'] ?? null),
+        'updatedAt' => formatDatetime($row['modified_utc'] ?? null),
+        'activatedAt' => formatDatetime($row['activated_utc'] ?? null),
+        'cancelledAt' => formatDatetime($row['completed_utc'] ?? $row['purged_utc'] ?? null),
+        'createdBy' => $row['created_by'] ?? null
+    ];
+}
+
+/**
+ * Build program summary line
+ */
+function buildProgramSummary($row) {
+    $parts = [];
+
+    $programType = $row['program_type'] ?? '';
+    if (!empty($programType)) {
+        // Simplify type display
+        $typeMap = [
+            'GS' => 'GS',
+            'GDP-DAS' => 'GDP',
+            'GDP-GAAP' => 'GDP',
+            'GDP-UDP' => 'GDP',
+            'AFP' => 'AFP'
+        ];
+        $parts[] = $typeMap[$programType] ?? $programType;
+    }
+
+    $element = $row['ctl_element'] ?? '';
+    if (!empty($element)) {
+        $parts[] = $element;
+    }
+
+    $rate = $row['program_rate'] ?? '';
+    if (!empty($rate)) {
+        $parts[] = "({$rate}/hr)";
+    }
+
+    $cause = $row['impacting_condition'] ?? '';
+    if (!empty($cause)) {
+        $parts[] = $cause;
+    }
+
+    return implode(' ', $parts) ?: 'Program';
+}
+
+// ===========================================
+// Reroutes
+// ===========================================
+
+/**
+ * Get currently active reroutes
+ * Note: TMI database uses reroute_id, created_at, updated_at, activated_at
+ */
+function getActiveReroutes($conn, $limit) {
+    if (!tableExists($conn, 'tmi_reroutes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                reroute_id,
+                name,
+                adv_number,
+                status,
+                start_utc,
+                end_utc,
+                protected_segment,
+                protected_fixes,
+                avoid_fixes,
+                route_type,
+                origin_airports,
+                origin_centers,
+                dest_airports,
+                dest_centers,
+                impacting_condition,
+                comments,
+                advisory_text,
+                created_by,
+                created_at,
+                updated_at,
+                activated_at
+            FROM dbo.tmi_reroutes
+            WHERE status IN (2, 3)  -- active, monitoring
+              AND (end_utc IS NULL OR end_utc > SYSUTCDATETIME())
+              AND (start_utc IS NULL OR start_utc <= SYSUTCDATETIME())
+            ORDER BY start_utc DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatReroute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get scheduled (future) reroutes
+ */
+function getScheduledReroutes($conn, $limit) {
+    if (!tableExists($conn, 'tmi_reroutes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                reroute_id,
+                name,
+                adv_number,
+                status,
+                start_utc,
+                end_utc,
+                protected_segment,
+                protected_fixes,
+                avoid_fixes,
+                route_type,
+                origin_airports,
+                origin_centers,
+                dest_airports,
+                dest_centers,
+                impacting_condition,
+                comments,
+                advisory_text,
+                created_by,
+                created_at,
+                updated_at
+            FROM dbo.tmi_reroutes
+            WHERE status IN (0, 1)  -- draft, proposed
+              AND start_utc > SYSUTCDATETIME()
+            ORDER BY start_utc ASC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatReroute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get recently cancelled/expired reroutes
+ */
+function getCancelledReroutes($conn, $hours, $limit) {
+    if (!tableExists($conn, 'tmi_reroutes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                reroute_id,
+                name,
+                adv_number,
+                status,
+                start_utc,
+                end_utc,
+                protected_segment,
+                protected_fixes,
+                avoid_fixes,
+                route_type,
+                origin_airports,
+                origin_centers,
+                dest_airports,
+                dest_centers,
+                impacting_condition,
+                comments,
+                advisory_text,
+                created_by,
+                created_at,
+                updated_at
+            FROM dbo.tmi_reroutes
+            WHERE status IN (4, 5)  -- expired, cancelled
+              AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
+            ORDER BY updated_at DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatReroute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Format reroute for API response
+ * Note: TMI database uses reroute_id, created_at, updated_at, activated_at
+ */
+function formatReroute($row) {
+    // Map numeric status to string
+    $statusMap = [
+        0 => 'DRAFT',
+        1 => 'PROPOSED',
+        2 => 'ACTIVE',
+        3 => 'MONITORING',
+        4 => 'EXPIRED',
+        5 => 'CANCELLED'
+    ];
+    $status = $statusMap[intval($row['status'] ?? 0)] ?? 'UNKNOWN';
+
+    return [
+        'entityType' => 'REROUTE',
+        'entityId' => intval($row['reroute_id'] ?? 0),
+        'type' => 'reroute',
+        'entryType' => 'REROUTE',
+        'summary' => buildRerouteSummary($row),
+        'name' => $row['name'] ?? null,
+        'advisoryNumber' => $row['adv_number'] ?? null,
+        'protectedSegment' => $row['protected_segment'] ?? null,
+        'protectedFixes' => $row['protected_fixes'] ?? null,
+        'avoidFixes' => $row['avoid_fixes'] ?? null,
+        'routeType' => $row['route_type'] ?? null,
+        'originAirports' => $row['origin_airports'] ?? null,
+        'originCenters' => $row['origin_centers'] ?? null,
+        'destAirports' => $row['dest_airports'] ?? null,
+        'destCenters' => $row['dest_centers'] ?? null,
+        'impactingCondition' => $row['impacting_condition'] ?? null,
+        'comments' => $row['comments'] ?? null,
+        'advisoryText' => $row['advisory_text'] ?? null,
+        'validFrom' => formatDatetime($row['start_utc'] ?? null),
+        'validUntil' => formatDatetime($row['end_utc'] ?? null),
+        'status' => $status,
+        'createdAt' => formatDatetime($row['created_at'] ?? null),
+        'updatedAt' => formatDatetime($row['updated_at'] ?? null),
+        'activatedAt' => formatDatetime($row['activated_at'] ?? null),
+        'createdBy' => $row['created_by'] ?? null
+    ];
+}
+
+/**
+ * Build reroute summary line
+ */
+function buildRerouteSummary($row) {
+    $parts = [];
+
+    $name = $row['name'] ?? '';
+    if (!empty($name)) {
+        $parts[] = $name;
+    }
+
+    $origin = $row['origin_centers'] ?? $row['origin_airports'] ?? '';
+    $dest = $row['dest_centers'] ?? $row['dest_airports'] ?? '';
+    if (!empty($origin) && !empty($dest)) {
+        $parts[] = "{$origin}→{$dest}";
+    } elseif (!empty($origin)) {
+        $parts[] = "from {$origin}";
+    } elseif (!empty($dest)) {
+        $parts[] = "to {$dest}";
+    }
+
+    $cause = $row['impacting_condition'] ?? '';
+    if (!empty($cause)) {
+        $parts[] = "({$cause})";
+    }
+
+    return implode(' ', $parts) ?: 'Reroute';
 }

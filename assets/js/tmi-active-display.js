@@ -43,6 +43,8 @@
     let state = {
         restrictions: [],
         advisories: [],
+        programs: [],       // GDT programs (Ground Stops, GDPs)
+        reroutes: [],       // Reroutes
         scheduled: [],
         cancelled: [],
         lastRefresh: null,
@@ -352,38 +354,46 @@
     }
 
     function processData(data) {
-        // Separate restrictions (NTML entries) from advisories
+        // Separate by entity type: ENTRY, ADVISORY, PROGRAM, REROUTE
         const allActive = data.active || [];
         const allScheduled = data.scheduled || [];
         const allCancelled = data.cancelled || [];
-        
+
         state.restrictions = [];
         state.advisories = [];
+        state.programs = [];
+        state.reroutes = [];
         state.scheduled = [];
         state.cancelled = [];
-        
+
         // Process active items
         allActive.forEach(item => {
             if (item.entityType === 'ADVISORY') {
                 state.advisories.push(item);
+            } else if (item.entityType === 'PROGRAM') {
+                state.programs.push(item);
+            } else if (item.entityType === 'REROUTE') {
+                state.reroutes.push(item);
             } else {
                 state.restrictions.push(item);
             }
         });
-        
+
         // Process scheduled
         allScheduled.forEach(item => {
             state.scheduled.push(item);
         });
-        
+
         // Process cancelled
         allCancelled.forEach(item => {
             state.cancelled.push(item);
         });
-        
+
         console.log('[TMI-Active] Processed:', {
             restrictions: state.restrictions.length,
             advisories: state.advisories.length,
+            programs: state.programs.length,
+            reroutes: state.reroutes.length,
             scheduled: state.scheduled.length,
             cancelled: state.cancelled.length
         });
@@ -394,7 +404,7 @@
     // ===========================================
     
     function renderDisplay() {
-        renderRestrictions();
+        renderRestrictions();  // Also includes programs and reroutes
         renderAdvisories();
         updateCounts();
     }
@@ -454,19 +464,47 @@
     }
 
     function buildRestrictionRow(item) {
-        const reqFac = item.requestingFacility || '-';
-        const provFac = item.providingFacility || '-';
-        const restriction = buildRestrictionText(item);
+        let reqFac, provFac, restriction;
+
+        // Handle different entity types
+        if (item.entityType === 'PROGRAM') {
+            // GDT Programs (GS, GDP)
+            reqFac = item.scopeCenters ? JSON.parse(item.scopeCenters || '[]').join(',') : 'ALL';
+            provFac = item.ctlElement || '-';
+            restriction = buildProgramText(item);
+        } else if (item.entityType === 'REROUTE') {
+            // Reroutes
+            reqFac = item.originCenters || item.originAirports || '-';
+            provFac = item.destCenters || item.destAirports || '-';
+            restriction = buildRerouteText(item);
+        } else {
+            // NTML entries
+            reqFac = item.requestingFacility || '-';
+            provFac = item.providingFacility || '-';
+            restriction = buildRestrictionText(item);
+        }
+
         const startTime = formatFaaDateTime(item.validFrom);
         const stopTime = formatFaaDateTime(item.validUntil);
         const status = item.status || 'ACTIVE';
 
-        const statusClass = status === 'CANCELLED' ? 'table-secondary' :
-                           status === 'SCHEDULED' ? 'table-info' : '';
-        const statusBadge = status === 'CANCELLED' ? '<span class="badge badge-secondary ml-1">CXLD</span>' :
-                           status === 'SCHEDULED' ? '<span class="badge badge-info ml-1">SCHED</span>' : '';
+        const statusClass = status === 'CANCELLED' || status === 'PURGED' ? 'table-secondary' :
+                           status === 'SCHEDULED' || status === 'PROPOSED' ? 'table-info' : '';
+        const statusBadge = (status === 'CANCELLED' || status === 'PURGED') ? '<span class="badge badge-secondary ml-1">CXLD</span>' :
+                           (status === 'SCHEDULED' || status === 'PROPOSED') ? '<span class="badge badge-info ml-1">SCHED</span>' : '';
 
-        const canSelect = status !== 'CANCELLED';
+        // Type badge for programs and reroutes
+        let typeBadge = '';
+        if (item.entityType === 'PROGRAM') {
+            const pType = item.entryType || 'PROGRAM';
+            typeBadge = pType === 'GS' ? '<span class="badge badge-danger mr-1">GS</span>' :
+                       pType.includes('GDP') ? '<span class="badge badge-warning text-dark mr-1">GDP</span>' :
+                       '<span class="badge badge-primary mr-1">' + pType + '</span>';
+        } else if (item.entityType === 'REROUTE') {
+            typeBadge = '<span class="badge badge-info mr-1">REROUTE</span>';
+        }
+
+        const canSelect = !['CANCELLED', 'PURGED', 'EXPIRED'].includes(status);
 
         return `
             <tr class="restriction-row ${statusClass}" data-id="${item.entityId}" data-type="${item.entityType}" style="cursor: pointer;">
@@ -475,11 +513,11 @@
                 </td>
                 <td class="font-weight-bold">${escapeHtml(reqFac)}</td>
                 <td class="font-weight-bold">${escapeHtml(provFac)}</td>
-                <td class="restriction-text">${escapeHtml(restriction)}${statusBadge}</td>
+                <td class="restriction-text">${typeBadge}${escapeHtml(restriction)}${statusBadge}</td>
                 <td class="text-monospace small">${startTime}</td>
                 <td class="text-monospace small">${stopTime}</td>
                 <td class="text-center">
-                    ${status !== 'CANCELLED' ? `
+                    ${canSelect ? `
                     <div class="btn-group btn-group-sm" role="group">
                         <button class="btn btn-xs btn-outline-primary btn-edit-tmi" data-id="${item.entityId}" data-type="${item.entityType}" title="Edit">
                             <i class="fas fa-edit"></i>
@@ -492,6 +530,56 @@
                 </td>
             </tr>
         `;
+    }
+
+    function buildProgramText(item) {
+        const parts = [];
+        const programType = item.entryType || 'PROGRAM';
+
+        // Airport
+        if (item.ctlElement) {
+            parts.push(item.ctlElement);
+        }
+
+        // Rate
+        if (item.programRate) {
+            parts.push(`${item.programRate}/hr`);
+        }
+
+        // Cause
+        if (item.impactingCondition) {
+            parts.push(item.impactingCondition);
+        }
+
+        // Flights info
+        if (item.controlledFlights) {
+            parts.push(`(${item.controlledFlights} flt)`);
+        }
+
+        return parts.join(' ') || item.summary || programType;
+    }
+
+    function buildRerouteText(item) {
+        const parts = [];
+
+        // Name
+        if (item.name) {
+            parts.push(item.name);
+        }
+
+        // Protected segment
+        if (item.protectedSegment) {
+            parts.push(`via ${item.protectedSegment}`);
+        } else if (item.protectedFixes) {
+            parts.push(`via ${item.protectedFixes}`);
+        }
+
+        // Cause
+        if (item.impactingCondition) {
+            parts.push(`(${item.impactingCondition})`);
+        }
+
+        return parts.join(' ') || item.summary || 'Reroute';
     }
 
     function buildRestrictionText(item) {
@@ -706,10 +794,12 @@
 
     function getFilteredRestrictions() {
         let items = [];
-        
-        // Add based on status filter
+
+        // Add based on status filter - includes ENTRY, PROGRAM, REROUTE
         if (state.filters.status === 'ALL' || state.filters.status === 'ACTIVE') {
             items = items.concat(state.restrictions);
+            items = items.concat(state.programs);
+            items = items.concat(state.reroutes);
         }
         if (state.filters.status === 'ALL' || state.filters.status === 'SCHEDULED') {
             items = items.concat(state.scheduled.filter(i => i.entityType !== 'ADVISORY'));
@@ -717,27 +807,52 @@
         if (state.filters.status === 'ALL' || state.filters.status === 'CANCELLED') {
             items = items.concat(state.cancelled.filter(i => i.entityType !== 'ADVISORY'));
         }
-        
-        // Apply facility filters
+
+        // Apply facility filters (for NTML entries)
         if (state.filters.reqFacility !== 'ALL') {
-            items = items.filter(i => 
-                (i.requestingFacility || '').toUpperCase() === state.filters.reqFacility
-            );
+            items = items.filter(i => {
+                // For PROGRAM/REROUTE, check ctlElement or scopeCenters
+                if (i.entityType === 'PROGRAM') {
+                    const centers = i.scopeCenters || '';
+                    return centers.includes(state.filters.reqFacility) ||
+                           (i.ctlElement || '').toUpperCase() === state.filters.reqFacility;
+                }
+                if (i.entityType === 'REROUTE') {
+                    const origins = (i.originCenters || '').toUpperCase();
+                    return origins.includes(state.filters.reqFacility);
+                }
+                return (i.requestingFacility || '').toUpperCase() === state.filters.reqFacility;
+            });
         }
-        
+
         if (state.filters.provFacility !== 'ALL') {
-            items = items.filter(i => 
-                (i.providingFacility || '').toUpperCase() === state.filters.provFacility
-            );
+            items = items.filter(i => {
+                if (i.entityType === 'PROGRAM') {
+                    return (i.ctlElement || '').toUpperCase() === state.filters.provFacility;
+                }
+                if (i.entityType === 'REROUTE') {
+                    const dests = (i.destCenters || '').toUpperCase();
+                    return dests.includes(state.filters.provFacility);
+                }
+                return (i.providingFacility || '').toUpperCase() === state.filters.provFacility;
+            });
         }
-        
+
         // Apply type filter
         if (state.filters.type !== 'ALL') {
-            items = items.filter(i => 
-                (i.entryType || '').toUpperCase() === state.filters.type
-            );
+            items = items.filter(i => {
+                const entryType = (i.entryType || '').toUpperCase();
+                const filterType = state.filters.type.toUpperCase();
+
+                // Map type filters to entity types
+                if (filterType === 'GDP' && i.entityType === 'PROGRAM' && entryType.includes('GDP')) return true;
+                if (filterType === 'STOP' && i.entityType === 'PROGRAM' && entryType === 'GS') return true;
+                if (filterType === 'REROUTE' && i.entityType === 'REROUTE') return true;
+
+                return entryType === filterType;
+            });
         }
-        
+
         return items;
     }
 
@@ -845,12 +960,15 @@
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
         const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
 
+        // Map entity type to API type
+        const entityType = ['ADVISORY', 'PROGRAM', 'REROUTE'].includes(type) ? type : 'ENTRY';
+
         $.ajax({
             url: CONFIG.cancelEndpoint,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
-                entityType: type === 'ADVISORY' ? 'ADVISORY' : 'ENTRY',
+                entityType: entityType,
                 entityId: id,
                 reason: reason,
                 userCid: userCid,
@@ -898,9 +1016,19 @@
     // ===========================================
 
     function editTmi(id, type) {
-        // Find the item in state
+        // Route to appropriate edit function based on type
+        if (type === 'PROGRAM') {
+            editProgram(id);
+            return;
+        }
+        if (type === 'REROUTE') {
+            editReroute(id);
+            return;
+        }
+
+        // Find the item in state (ENTRY type)
         const allItems = [...state.restrictions, ...state.scheduled];
-        const item = allItems.find(i => i.entityId === id);
+        const item = allItems.find(i => i.entityId === id && i.entityType === 'ENTRY');
 
         if (!item) {
             Swal.fire('Error', 'Could not find TMI entry data', 'error');
@@ -914,34 +1042,93 @@
             return d.toISOString().slice(0, 16);
         };
 
+        const entryType = item.entryType || '';
+        const showValueField = ['MIT', 'MINIT'].includes(entryType);
+
         Swal.fire({
             title: '<i class="fas fa-edit text-primary"></i> Edit TMI Entry',
             html: `
-                <div class="text-left">
-                    <div class="mb-2">
-                        <strong>Type:</strong> ${escapeHtml(item.entryType || '-')}
+                <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Type</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(entryType)}" readonly>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Control Element</label>
+                            <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}">
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <strong>Control Element:</strong> ${escapeHtml(item.ctlElement || '-')}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Requesting Facility</label>
+                            <input type="text" id="editReqFac" class="form-control form-control-sm" value="${escapeHtml(item.requestingFacility || '')}" placeholder="e.g., ZDC,ZNY">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Providing Facility</label>
+                            <input type="text" id="editProvFac" class="form-control form-control-sm" value="${escapeHtml(item.providingFacility || '')}" placeholder="e.g., ZOB">
+                        </div>
                     </div>
-                    <hr>
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Valid From (UTC)</label>
-                        <input type="datetime-local" id="editValidFrom" class="form-control" value="${formatForInput(item.validFrom)}">
-                    </div>
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Valid Until (UTC)</label>
-                        <input type="datetime-local" id="editValidUntil" class="form-control" value="${formatForInput(item.validUntil)}">
-                    </div>
-                    ${item.restrictionValue ? `
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Value</label>
-                        <input type="number" id="editValue" class="form-control" value="${item.restrictionValue}">
+                    ${showValueField ? `
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Value</label>
+                            <input type="number" id="editValue" class="form-control form-control-sm" value="${item.restrictionValue || ''}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Unit</label>
+                            <select id="editUnit" class="form-control form-control-sm">
+                                <option value="MIT" ${item.restrictionUnit === 'MIT' ? 'selected' : ''}>MIT (Miles)</option>
+                                <option value="MIN" ${item.restrictionUnit === 'MIN' ? 'selected' : ''}>MIN (Minutes)</option>
+                            </select>
+                        </div>
                     </div>
                     ` : ''}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Valid From (UTC)</label>
+                            <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Valid Until (UTC)</label>
+                            <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Via / Condition</label>
+                        <input type="text" id="editCondition" class="form-control form-control-sm" value="${escapeHtml(item.conditionText || '')}" placeholder="e.g., BRISS">
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Qualifiers</label>
+                            <input type="text" id="editQualifiers" class="form-control form-control-sm" value="${escapeHtml(item.qualifiers || '')}" placeholder="e.g., JETS">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Exclusions</label>
+                            <input type="text" id="editExclusions" class="form-control form-control-sm" value="${escapeHtml(item.exclusions || '')}" placeholder="e.g., PROPS">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Reason Code</label>
+                            <select id="editReasonCode" class="form-control form-control-sm">
+                                <option value="">-- Select --</option>
+                                <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
+                                <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
+                                <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
+                                <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
+                                <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
+                                <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Reason Detail</label>
+                            <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
+                        </div>
+                    </div>
                 </div>
             `,
-            width: 500,
+            width: 600,
             showCancelButton: true,
             confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
             confirmButtonColor: '#28a745',
@@ -950,7 +1137,16 @@
                 return {
                     validFrom: document.getElementById('editValidFrom').value,
                     validUntil: document.getElementById('editValidUntil').value,
-                    restrictionValue: document.getElementById('editValue')?.value || null
+                    restrictionValue: document.getElementById('editValue')?.value || null,
+                    restrictionUnit: document.getElementById('editUnit')?.value || null,
+                    ctlElement: document.getElementById('editCtlElement').value,
+                    requestingFacility: document.getElementById('editReqFac').value,
+                    providingFacility: document.getElementById('editProvFac').value,
+                    conditionText: document.getElementById('editCondition').value,
+                    qualifiers: document.getElementById('editQualifiers').value,
+                    exclusions: document.getElementById('editExclusions').value,
+                    reasonCode: document.getElementById('editReasonCode').value,
+                    reasonDetail: document.getElementById('editReasonDetail').value
                 };
             }
         }).then((result) => {
@@ -976,28 +1172,84 @@
             return d.toISOString().slice(0, 16);
         };
 
+        const advType = item.entryType || 'FREEFORM';
+        const showProgramFields = ['GDP', 'GS', 'STOP'].includes(advType);
+
         Swal.fire({
             title: '<i class="fas fa-edit text-primary"></i> Edit Advisory',
             html: `
-                <div class="text-left">
-                    <div class="mb-2">
-                        <strong>Advisory #:</strong> ${escapeHtml(item.advisoryNumber || '-')}
+                <div class="text-left" style="max-height: 65vh; overflow-y: auto;">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Advisory #</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(item.advisoryNumber || '-')}" readonly>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Type</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(advType)}" readonly>
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <strong>Type:</strong> ${escapeHtml(item.entryType || '-')}
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Subject</label>
+                        <input type="text" id="editSubject" class="form-control form-control-sm" value="${escapeHtml(item.subject || '')}">
                     </div>
-                    <hr>
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Effective From (UTC)</label>
-                        <input type="datetime-local" id="editValidFrom" class="form-control" value="${formatForInput(item.validFrom)}">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Control Element</label>
+                            <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}" placeholder="e.g., KJFK">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Scope Facilities</label>
+                            <input type="text" id="editScopeFac" class="form-control form-control-sm" value="${escapeHtml(item.scopeFacilities || '')}" placeholder="e.g., ZNY,ZBW">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Effective Until (UTC)</label>
-                        <input type="datetime-local" id="editValidUntil" class="form-control" value="${formatForInput(item.validUntil)}">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Effective From (UTC)</label>
+                            <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Effective Until (UTC)</label>
+                            <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                        </div>
+                    </div>
+                    ${showProgramFields ? `
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Program Rate</label>
+                            <input type="number" id="editProgramRate" class="form-control form-control-sm" value="${item.programRate || ''}" placeholder="Flights/hr">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Delay Cap (min)</label>
+                            <input type="number" id="editDelayCap" class="form-control form-control-sm" value="${item.delayCap || ''}" placeholder="Minutes">
+                        </div>
+                    </div>
+                    ` : ''}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Reason Code</label>
+                            <select id="editReasonCode" class="form-control form-control-sm">
+                                <option value="">-- Select --</option>
+                                <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
+                                <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
+                                <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
+                                <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
+                                <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
+                                <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Reason Detail</label>
+                            <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Body Text</label>
+                        <textarea id="editBodyText" class="form-control form-control-sm" rows="6" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.bodyText || item.rawText || '')}</textarea>
                     </div>
                 </div>
             `,
-            width: 500,
+            width: 650,
             showCancelButton: true,
             confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
             confirmButtonColor: '#28a745',
@@ -1005,12 +1257,232 @@
             preConfirm: () => {
                 return {
                     validFrom: document.getElementById('editValidFrom').value,
-                    validUntil: document.getElementById('editValidUntil').value
+                    validUntil: document.getElementById('editValidUntil').value,
+                    subject: document.getElementById('editSubject').value,
+                    ctlElement: document.getElementById('editCtlElement').value,
+                    scopeFacilities: document.getElementById('editScopeFac').value,
+                    reasonCode: document.getElementById('editReasonCode').value,
+                    reasonDetail: document.getElementById('editReasonDetail').value,
+                    bodyText: document.getElementById('editBodyText').value,
+                    programRate: document.getElementById('editProgramRate')?.value || null,
+                    delayCap: document.getElementById('editDelayCap')?.value || null
                 };
             }
         }).then((result) => {
             if (result.isConfirmed) {
                 performEdit(id, 'ADVISORY', result.value);
+            }
+        });
+    }
+
+    function editProgram(id) {
+        // Find the program in state
+        const allItems = [...state.programs, ...state.scheduled.filter(i => i.entityType === 'PROGRAM')];
+        const item = allItems.find(i => i.entityId === id);
+
+        if (!item) {
+            Swal.fire('Error', 'Could not find program data', 'error');
+            return;
+        }
+
+        const formatForInput = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toISOString().slice(0, 16);
+        };
+
+        const programType = item.entryType || 'GS';
+        const isGDP = programType.includes('GDP');
+
+        Swal.fire({
+            title: `<i class="fas fa-edit text-primary"></i> Edit ${programType === 'GS' ? 'Ground Stop' : 'GDP'}`,
+            html: `
+                <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Type</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(programType)}" readonly>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Airport</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(item.ctlElement || '')}" readonly>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Start Time (UTC)</label>
+                            <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">End Time (UTC)</label>
+                            <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                        </div>
+                    </div>
+                    ${isGDP ? `
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Program Rate (/hr)</label>
+                            <input type="number" id="editProgramRate" class="form-control form-control-sm" value="${item.programRate || ''}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Scope Type</label>
+                            <select id="editScopeType" class="form-control form-control-sm">
+                                <option value="">-- Select --</option>
+                                <option value="TIER" ${item.scopeType === 'TIER' ? 'selected' : ''}>Tier</option>
+                                <option value="DISTANCE" ${item.scopeType === 'DISTANCE' ? 'selected' : ''}>Distance</option>
+                                <option value="CENTER" ${item.scopeType === 'CENTER' ? 'selected' : ''}>Center</option>
+                                <option value="ALL" ${item.scopeType === 'ALL' ? 'selected' : ''}>All</option>
+                            </select>
+                        </div>
+                    </div>
+                    ` : ''}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Impacting Condition</label>
+                            <select id="editImpactingCondition" class="form-control form-control-sm">
+                                <option value="">-- Select --</option>
+                                <option value="WEATHER" ${item.impactingCondition === 'WEATHER' ? 'selected' : ''}>Weather</option>
+                                <option value="VOLUME" ${item.impactingCondition === 'VOLUME' ? 'selected' : ''}>Volume</option>
+                                <option value="RUNWAY" ${item.impactingCondition === 'RUNWAY' ? 'selected' : ''}>Runway</option>
+                                <option value="EQUIPMENT" ${item.impactingCondition === 'EQUIPMENT' ? 'selected' : ''}>Equipment</option>
+                                <option value="OTHER" ${item.impactingCondition === 'OTHER' ? 'selected' : ''}>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Cause Detail</label>
+                            <input type="text" id="editCauseText" class="form-control form-control-sm" value="${escapeHtml(item.causeText || '')}">
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Comments</label>
+                        <textarea id="editComments" class="form-control form-control-sm" rows="3">${escapeHtml(item.comments || '')}</textarea>
+                    </div>
+                </div>
+            `,
+            width: 600,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonColor: '#28a745',
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                return {
+                    validFrom: document.getElementById('editValidFrom').value,
+                    validUntil: document.getElementById('editValidUntil').value,
+                    programRate: document.getElementById('editProgramRate')?.value || null,
+                    scopeType: document.getElementById('editScopeType')?.value || null,
+                    impactingCondition: document.getElementById('editImpactingCondition').value,
+                    causeText: document.getElementById('editCauseText').value,
+                    comments: document.getElementById('editComments').value
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                performEdit(id, 'PROGRAM', result.value);
+            }
+        });
+    }
+
+    function editReroute(id) {
+        // Find the reroute in state
+        const allItems = [...state.reroutes, ...state.scheduled.filter(i => i.entityType === 'REROUTE')];
+        const item = allItems.find(i => i.entityId === id);
+
+        if (!item) {
+            Swal.fire('Error', 'Could not find reroute data', 'error');
+            return;
+        }
+
+        const formatForInput = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toISOString().slice(0, 16);
+        };
+
+        Swal.fire({
+            title: '<i class="fas fa-edit text-primary"></i> Edit Reroute',
+            html: `
+                <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <label class="small font-weight-bold">Name</label>
+                            <input type="text" id="editName" class="form-control form-control-sm" value="${escapeHtml(item.name || '')}">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Start Time (UTC)</label>
+                            <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">End Time (UTC)</label>
+                            <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Origin Centers</label>
+                            <input type="text" id="editOriginCenters" class="form-control form-control-sm" value="${escapeHtml(item.originCenters || '')}" placeholder="e.g., ZNY,ZBW">
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Dest Centers</label>
+                            <input type="text" id="editDestCenters" class="form-control form-control-sm" value="${escapeHtml(item.destCenters || '')}" placeholder="e.g., ZLA,ZOA">
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Protected Segment / Fixes</label>
+                        <input type="text" id="editProtectedSegment" class="form-control form-control-sm" value="${escapeHtml(item.protectedSegment || item.protectedFixes || '')}" placeholder="Route or fixes">
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Avoid Fixes</label>
+                        <input type="text" id="editAvoidFixes" class="form-control form-control-sm" value="${escapeHtml(item.avoidFixes || '')}" placeholder="Fixes to avoid">
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="small font-weight-bold">Impacting Condition</label>
+                            <select id="editImpactingCondition" class="form-control form-control-sm">
+                                <option value="">-- Select --</option>
+                                <option value="WEATHER" ${item.impactingCondition === 'WEATHER' ? 'selected' : ''}>Weather</option>
+                                <option value="VOLUME" ${item.impactingCondition === 'VOLUME' ? 'selected' : ''}>Volume</option>
+                                <option value="RUNWAY" ${item.impactingCondition === 'RUNWAY' ? 'selected' : ''}>Runway</option>
+                                <option value="OTHER" ${item.impactingCondition === 'OTHER' ? 'selected' : ''}>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="small font-weight-bold">&nbsp;</label>
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Comments</label>
+                        <textarea id="editComments" class="form-control form-control-sm" rows="2">${escapeHtml(item.comments || '')}</textarea>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold">Advisory Text</label>
+                        <textarea id="editAdvisoryText" class="form-control form-control-sm" rows="3" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.advisoryText || '')}</textarea>
+                    </div>
+                </div>
+            `,
+            width: 600,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonColor: '#28a745',
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                return {
+                    validFrom: document.getElementById('editValidFrom').value,
+                    validUntil: document.getElementById('editValidUntil').value,
+                    name: document.getElementById('editName').value,
+                    originCenters: document.getElementById('editOriginCenters').value,
+                    destCenters: document.getElementById('editDestCenters').value,
+                    protectedSegment: document.getElementById('editProtectedSegment').value,
+                    avoidFixes: document.getElementById('editAvoidFixes').value,
+                    impactingCondition: document.getElementById('editImpactingCondition').value,
+                    comments: document.getElementById('editComments').value,
+                    advisoryText: document.getElementById('editAdvisoryText').value
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                performEdit(id, 'REROUTE', result.value);
             }
         });
     }
@@ -1025,12 +1497,15 @@
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
         const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
 
+        // Map type to API entity type
+        const entityType = ['ADVISORY', 'PROGRAM', 'REROUTE'].includes(type) ? type : 'ENTRY';
+
         $.ajax({
             url: 'api/mgt/tmi/edit.php',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
-                entityType: type === 'ADVISORY' ? 'ADVISORY' : 'ENTRY',
+                entityType: entityType,
                 entityId: id,
                 updates: data,
                 userCid: userCid,
@@ -1109,15 +1584,16 @@
     }
 
     function updateCounts() {
-        const activeCount = state.restrictions.length + state.advisories.length;
+        const activeCount = state.restrictions.length + state.advisories.length +
+                           state.programs.length + state.reroutes.length;
         const schedCount = state.scheduled.length;
         const cxldCount = state.cancelled.length;
-        
+
         $('#activeCount').text(activeCount);
         $('#scheduledCount').text(schedCount);
         $('#cancelledCount').text(cxldCount);
-        
-        // Update restriction count
+
+        // Update restriction count (includes programs and reroutes)
         const filteredRestrictions = getFilteredRestrictions();
         const filteredAdvisories = getFilteredAdvisories();
         $('#restrictionCount').text(filteredRestrictions.length);
