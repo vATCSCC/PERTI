@@ -8,8 +8,15 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.9.1
+ * @version 1.9.2
  * @date 2026-01-29
+ *
+ * v1.9.2 Changes:
+ *   - Added individual submit button to each queue item (Coord/Pub)
+ *   - Per-entry facility verification when submitting for coordination
+ *   - Auto-detect facilities based on entry's ctl_element and prov_facility
+ *   - Stepped wizard dialog for batch coordination (verify each entry)
+ *   - Entries not requiring coordination can be published without blocking
  *
  * v1.9.1 Changes:
  *   - Qualifier buttons now support multi-select (multiple in same group)
@@ -3276,18 +3283,29 @@
             // Safe orgs extraction
             const orgs = Array.isArray(entry.orgs) ? entry.orgs : ['vatcscc'];
             
+            // Check if this entry requires coordination
+            const needsCoord = requiresCoordination(entrySubType);
+            const submitBtnClass = needsCoord ? 'btn-outline-warning' : 'btn-outline-success';
+            const submitBtnTitle = needsCoord ? 'Submit for Coordination' : 'Publish Directly';
+            const submitBtnIcon = needsCoord ? 'fa-paper-plane' : 'fa-check';
+            const submitBtnText = needsCoord ? 'Coord' : 'Pub';
+
             html += `
                 <div class="queue-item p-3 border-left-4 ${typeClass} mb-2 bg-light rounded">
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1">
                             <span class="badge ${typeBadge} mr-1">${escapeHtml(entryType.toUpperCase())}</span>
                             <span class="badge badge-secondary">${escapeHtml(entrySubType)}</span>
+                            ${needsCoord ? '<span class="badge badge-warning ml-1" title="Requires coordination">⚡</span>' : ''}
                             <div class="mt-2 font-monospace small text-dark" style="white-space: pre-wrap; max-height: 100px; overflow-y: auto;">${escapeHtml(displayText)}</div>
                             <div class="mt-1 small text-muted">
                                 <i class="fab fa-discord"></i> ${orgs.join(', ')}
                             </div>
                         </div>
-                        <div class="ml-2">
+                        <div class="ml-2 d-flex flex-column">
+                            <button class="btn btn-sm ${submitBtnClass} mb-1" onclick="TMIPublisher.submitSingleEntry(${index})" title="${submitBtnTitle}">
+                                <i class="fas ${submitBtnIcon}"></i><span class="ml-1 d-none d-sm-inline">${submitBtnText}</span>
+                            </button>
                             <button class="btn btn-sm btn-outline-primary mb-1" onclick="TMIPublisher.previewEntry(${index})" title="Preview">
                                 <i class="fas fa-eye"></i><span class="ml-1 d-none d-sm-inline">View</span>
                             </button>
@@ -3331,10 +3349,171 @@
     function previewEntry(index) {
         const entry = state.queue[index];
         if (!entry) return;
-        
+
         const previewText = entry.preview || 'No preview available';
         $('#previewModalContent').text(previewText);
         $('#previewModal').modal('show');
+    }
+
+    /**
+     * Submit a single entry from the queue
+     * If it requires coordination, show coordination dialog
+     * Otherwise, publish directly
+     */
+    function submitSingleEntry(index) {
+        const entry = state.queue[index];
+        if (!entry) return;
+
+        const entryType = entry.entryType || entry.data?.entry_type || 'TMI';
+        const needsCoord = requiresCoordination(entryType);
+
+        if (needsCoord) {
+            // Show single-entry coordination dialog
+            showSingleEntryCoordinationDialog(entry, []);
+        } else {
+            // Publish directly without coordination
+            const ctlElement = (entry.data?.ctl_element || '').toUpperCase();
+            Swal.fire({
+                title: 'Publish Entry',
+                html: `<p>Publish <strong>${entryType}</strong>${ctlElement ? ` | ${ctlElement}` : ''} directly to Discord?</p>
+                       <p class="small text-muted">This entry type does not require coordination.</p>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: 'Publish'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    publishSingleEntryDirect(entry, index);
+                }
+            });
+        }
+    }
+
+    /**
+     * Publish a single entry directly (no coordination)
+     */
+    async function publishSingleEntryDirect(entry, queueIndex) {
+        Swal.fire({
+            title: 'Publishing...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        try {
+            // Build the publish payload
+            const payload = {
+                production: true,
+                entries: [entry],
+                userCid: CONFIG.userCid,
+                userName: CONFIG.userName || 'Unknown'
+            };
+
+            const response = await $.ajax({
+                url: 'api/mgt/tmi/publish.php',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(payload)
+            });
+
+            console.log('[Direct Publish] Response:', response);
+
+            if (response.success || (response.results && response.results.some(r => r.success))) {
+                // Remove from queue on success
+                state.queue.splice(queueIndex, 1);
+                saveState();
+                updateUI();
+
+                Swal.fire({
+                    title: 'Published!',
+                    html: `<p>Entry published to Discord successfully.</p>`,
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                const errorMsg = response.error || response.results?.[0]?.error || 'Unknown error';
+                Swal.fire({
+                    title: 'Publish Failed',
+                    html: `<p>${errorMsg}</p>`,
+                    icon: 'error'
+                });
+            }
+        } catch (error) {
+            console.error('[Direct Publish] Error:', error);
+            Swal.fire({
+                title: 'Publish Failed',
+                html: `<p>${error.responseText || error.message || 'Connection error'}</p>`,
+                icon: 'error'
+            });
+        }
+    }
+
+    /**
+     * Async version of performSubmit for use in coordination flow
+     */
+    async function performSubmitAsync() {
+        return new Promise((resolve, reject) => {
+            performSubmit();
+            // performSubmit handles its own UI, just resolve after a delay
+            setTimeout(resolve, 1000);
+        });
+    }
+
+    /**
+     * Show coordination submission results
+     */
+    function showCoordinationResults(results, totalCoord, totalDirect) {
+        const successCount = results.success.length;
+        const discordFailedCount = results.discordFailed.length;
+        const failedCount = results.failed.length;
+        const directCount = results.directPublished.length;
+
+        let icon = 'success';
+        let title = 'Submitted!';
+
+        if (failedCount > 0 || discordFailedCount > 0) {
+            icon = 'warning';
+            title = 'Partially Submitted';
+        }
+        if (successCount === 0 && discordFailedCount === 0) {
+            icon = 'error';
+            title = 'Submission Failed';
+        }
+
+        let html = '';
+        if (successCount > 0) {
+            html += `<p class="text-success"><i class="fas fa-check"></i> ${successCount} proposal(s) posted to #coordination</p>`;
+        }
+        if (discordFailedCount > 0) {
+            html += `<p class="text-warning"><i class="fas fa-exclamation-triangle"></i> ${discordFailedCount} proposal(s) saved but Discord failed</p>`;
+        }
+        if (failedCount > 0) {
+            html += `<p class="text-danger"><i class="fas fa-times"></i> ${failedCount} proposal(s) failed</p>`;
+            results.failed.forEach(f => {
+                html += `<small class="text-muted d-block">${f.entry.data?.ctl_element || 'Entry'}: ${f.error}</small>`;
+            });
+        }
+        if (directCount > 0) {
+            html += `<p class="text-info"><i class="fas fa-paper-plane"></i> ${directCount} entry(ies) published directly</p>`;
+        }
+
+        // Clear successfully submitted entries from queue
+        if (successCount > 0 || discordFailedCount > 0) {
+            // Remove coordinated entries from queue
+            const coordEntries = [...results.success, ...results.discordFailed].map(r => r.entry);
+            state.queue = state.queue.filter(q => !coordEntries.includes(q));
+        }
+        if (directCount > 0) {
+            state.queue = state.queue.filter(q => !results.directPublished.includes(q));
+        }
+        saveState();
+        updateUI();
+
+        Swal.fire({
+            title: title,
+            html: html,
+            icon: icon
+        });
     }
 
     // ===========================================
@@ -3530,60 +3709,84 @@
             return;
         }
 
-        // Calculate default deadline: T(start) - 1 minute, or now + 2 hours if no start time
-        let defaultDeadline;
-        const queueEntry = state.queue[0];
-        const entryData = queueEntry?.data || {};
-        const validFrom = entryData.valid_from || entryData.validFrom;
-
-        if (validFrom) {
-            // Parse valid_from and subtract 1 minute for approval deadline
-            const startTime = new Date(validFrom.includes('Z') ? validFrom : validFrom + 'Z');
-            if (!isNaN(startTime.getTime()) && startTime > new Date()) {
-                defaultDeadline = new Date(startTime.getTime() - 60 * 1000); // T-1 minute
-            }
+        // If only one entry requiring coordination, use simplified flow
+        if (entriesRequiringCoord.length === 1) {
+            showSingleEntryCoordinationDialog(entriesRequiringCoord[0], entriesNotRequiringCoord);
+            return;
         }
 
-        // Fallback to now + 2 hours if no valid start time
-        if (!defaultDeadline || defaultDeadline <= new Date()) {
-            defaultDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
-        }
-
-        const deadlineStr = defaultDeadline.toISOString().slice(0, 16);
-
-        // Build info about entries requiring coordination
-        const coordTypesInQueue = [...new Set(entriesRequiringCoord.map(e =>
-            (e.entryType || e.data?.entry_type || 'TMI').toUpperCase()
-        ))];
-
-        // Build a message about what's being submitted
-        let coordMessage = `Post <strong>${entriesRequiringCoord.length}</strong> entry(ies) to <span class="text-danger font-weight-bold">PRODUCTION</span>`;
+        // Multiple entries - ask user how they want to proceed
+        let message = `<p><strong>${entriesRequiringCoord.length}</strong> entries require coordination.</p>`;
         if (entriesNotRequiringCoord.length > 0) {
-            coordMessage += `<br><small class="text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly without coordination)</small>`;
+            message += `<p class="small text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly)</p>`;
         }
-        coordMessage += `<br><small class="text-info">Types requiring coordination: ${coordTypesInQueue.join(', ')}</small>`;
+        message += `<p>How would you like to proceed?</p>`;
 
         Swal.fire({
-            title: 'Submit TMI',
+            title: 'Submit for Coordination',
+            html: message,
+            icon: 'question',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#007bff',
+            denyButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Verify Each Entry',
+            denyButtonText: 'Quick Submit (Same Facilities)',
+            cancelButtonText: 'Cancel',
+            width: '500px'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Step through each entry individually
+                showSteppedCoordinationDialog(entriesRequiringCoord, entriesNotRequiringCoord);
+            } else if (result.isDenied) {
+                // Quick submit - use same facilities for all (legacy behavior)
+                showBulkCoordinationDialog(entriesRequiringCoord, entriesNotRequiringCoord);
+            }
+        });
+    }
+
+    /**
+     * Show coordination dialog for a single entry
+     */
+    function showSingleEntryCoordinationDialog(entry, entriesToPublishDirect) {
+        const data = entry.data || {};
+        const entryType = (entry.entryType || data.entry_type || 'TMI').toUpperCase();
+        const ctlElement = (data.ctl_element || '').toUpperCase();
+
+        // Calculate default deadline for this entry
+        const deadline = calculateEntryDeadline(entry);
+        const deadlineStr = deadline.toISOString().slice(0, 16);
+
+        // Detect facilities for this entry
+        const suggestedFacilities = detectFacilitiesForEntry(entry);
+
+        let directMsg = '';
+        if (entriesToPublishDirect.length > 0) {
+            directMsg = `<p class="small text-muted mb-2">(${entriesToPublishDirect.length} other entries will publish directly)</p>`;
+        }
+
+        Swal.fire({
+            title: 'Submit for Coordination',
             html: `
                 <div class="text-left">
-                    <p class="mb-3">${coordMessage}</p>
-
-                    <hr class="my-3">
+                    <div class="alert alert-info py-2 mb-3">
+                        <strong>${entryType}</strong> ${ctlElement ? `| ${ctlElement}` : ''}
+                        ${data.restriction_value ? `| ${data.restriction_value}${data.restriction_unit || ''}` : ''}
+                    </div>
+                    ${directMsg}
 
                     <div class="form-group">
                         <div class="custom-control custom-radio mb-2">
                             <input type="radio" id="coordOption_coordinate" name="coordOption" class="custom-control-input" value="coordinate" checked>
                             <label class="custom-control-label" for="coordOption_coordinate">
                                 <strong>Submit for Coordination</strong>
-                                <small class="d-block text-muted">Post to #coordination for facility approval</small>
                             </label>
                         </div>
                         <div class="custom-control custom-radio mb-2">
                             <input type="radio" id="coordOption_precoordinated" name="coordOption" class="custom-control-input" value="precoordinated">
                             <label class="custom-control-label" for="coordOption_precoordinated">
                                 <strong>Already Coordinated</strong>
-                                <small class="d-block text-muted">Publish directly (coordination was done externally)</small>
                             </label>
                         </div>
                     </div>
@@ -3592,15 +3795,13 @@
                         <div class="form-group mb-3">
                             <label for="coordDeadline"><strong>Approval Deadline (UTC):</strong></label>
                             <input type="datetime-local" class="form-control" id="coordDeadline" value="${deadlineStr}">
-                            <small class="text-muted">Facilities must respond by this time</small>
                         </div>
 
                         <div class="form-group mb-0">
                             <label><strong>Facilities Required to Approve:</strong></label>
                             <div id="facilityCheckboxes" class="row">
-                                ${buildFacilityCheckboxes()}
+                                ${buildFacilityCheckboxesForEntry(entry, suggestedFacilities)}
                             </div>
-                            <small class="text-muted">Select facilities that must approve this TMI</small>
                         </div>
                     </div>
                 </div>
@@ -3609,64 +3810,381 @@
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
             confirmButtonText: 'Submit',
-            cancelButtonText: 'Cancel',
             width: '550px',
             didOpen: () => {
-                // Toggle coordination options visibility
                 document.querySelectorAll('input[name="coordOption"]').forEach(radio => {
                     radio.addEventListener('change', function() {
-                        const coordOptions = document.getElementById('coordinationOptions');
-                        if (this.value === 'coordinate') {
-                            coordOptions.style.display = 'block';
-                        } else {
-                            coordOptions.style.display = 'none';
-                        }
+                        document.getElementById('coordinationOptions').style.display =
+                            this.value === 'coordinate' ? 'block' : 'none';
                     });
                 });
             },
             preConfirm: () => {
-                const coordOption = document.querySelector('input[name="coordOption"]:checked').value;
-
-                if (coordOption === 'coordinate') {
+                const mode = document.querySelector('input[name="coordOption"]:checked').value;
+                if (mode === 'coordinate') {
                     const deadline = document.getElementById('coordDeadline').value;
                     if (!deadline) {
                         Swal.showValidationMessage('Please set an approval deadline');
                         return false;
                     }
-
-                    const selectedFacilities = [];
+                    const facilities = [];
                     document.querySelectorAll('.facility-checkbox:checked').forEach(cb => {
-                        selectedFacilities.push({
-                            code: cb.value,
-                            emoji: cb.dataset.emoji || null
-                        });
+                        facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
                     });
-
-                    if (selectedFacilities.length === 0) {
+                    if (facilities.length === 0) {
                         Swal.showValidationMessage('Please select at least one facility');
                         return false;
                     }
-
-                    return {
-                        mode: 'coordinate',
-                        deadline: deadline,
-                        facilities: selectedFacilities
-                    };
-                } else {
-                    return {
-                        mode: 'direct'
-                    };
+                    return { mode: 'coordinate', deadline, facilities };
                 }
+                return { mode: 'direct' };
             }
         }).then((result) => {
             if (result.isConfirmed) {
                 if (result.value.mode === 'coordinate') {
-                    submitForCoordination(result.value.deadline, result.value.facilities);
+                    // Submit this entry with its specific facilities
+                    submitEntriesForCoordination([{
+                        entry: entry,
+                        deadline: result.value.deadline,
+                        facilities: result.value.facilities
+                    }], entriesToPublishDirect);
                 } else {
                     performSubmit();
                 }
             }
         });
+    }
+
+    /**
+     * Step through each entry for individual facility verification
+     */
+    async function showSteppedCoordinationDialog(entries, entriesToPublishDirect) {
+        const confirmedEntries = [];
+        const totalEntries = entries.length;
+
+        for (let i = 0; i < totalEntries; i++) {
+            const entry = entries[i];
+            const data = entry.data || {};
+            const entryType = (entry.entryType || data.entry_type || 'TMI').toUpperCase();
+            const ctlElement = (data.ctl_element || '').toUpperCase();
+            const deadline = calculateEntryDeadline(entry);
+            const deadlineStr = deadline.toISOString().slice(0, 16);
+            const suggestedFacilities = detectFacilitiesForEntry(entry);
+
+            const result = await Swal.fire({
+                title: `Entry ${i + 1} of ${totalEntries}`,
+                html: `
+                    <div class="text-left">
+                        <div class="alert alert-info py-2 mb-3">
+                            <strong>${entryType}</strong> ${ctlElement ? `| ${ctlElement}` : ''}
+                            ${data.restriction_value ? `| ${data.restriction_value}${data.restriction_unit || ''}` : ''}
+                            ${data.via ? `via ${data.via}` : ''}
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="coordDeadline_${i}"><strong>Approval Deadline (UTC):</strong></label>
+                            <input type="datetime-local" class="form-control" id="coordDeadline_${i}" value="${deadlineStr}">
+                        </div>
+
+                        <div class="form-group mb-0">
+                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <div id="facilityCheckboxes_${i}" class="row">
+                                ${buildFacilityCheckboxesForEntry(entry, suggestedFacilities)}
+                            </div>
+                            <small class="text-muted">Auto-detected from entry. Modify as needed.</small>
+                        </div>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                showDenyButton: i > 0,
+                confirmButtonColor: i === totalEntries - 1 ? '#dc3545' : '#007bff',
+                denyButtonColor: '#6c757d',
+                confirmButtonText: i === totalEntries - 1 ? 'Submit All' : 'Next Entry →',
+                denyButtonText: '← Back',
+                cancelButtonText: 'Cancel All',
+                width: '550px',
+                allowOutsideClick: false,
+                preConfirm: () => {
+                    const deadline = document.getElementById(`coordDeadline_${i}`).value;
+                    if (!deadline) {
+                        Swal.showValidationMessage('Please set an approval deadline');
+                        return false;
+                    }
+                    const facilities = [];
+                    document.querySelectorAll('.facility-checkbox:checked').forEach(cb => {
+                        facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
+                    });
+                    if (facilities.length === 0) {
+                        Swal.showValidationMessage('Please select at least one facility');
+                        return false;
+                    }
+                    return { deadline, facilities };
+                }
+            });
+
+            if (result.isDenied && i > 0) {
+                // Go back - remove last confirmed entry and decrement counter
+                confirmedEntries.pop();
+                i -= 2; // Will increment to i-1 on next iteration
+                continue;
+            }
+
+            if (result.isDismissed) {
+                // User cancelled
+                return;
+            }
+
+            // Store confirmed entry with its facilities
+            confirmedEntries.push({
+                entry: entry,
+                deadline: result.value.deadline,
+                facilities: result.value.facilities
+            });
+        }
+
+        // All entries confirmed - submit them
+        if (confirmedEntries.length === totalEntries) {
+            submitEntriesForCoordination(confirmedEntries, entriesToPublishDirect);
+        }
+    }
+
+    /**
+     * Quick bulk submit with same facilities for all entries (legacy behavior)
+     */
+    function showBulkCoordinationDialog(entriesRequiringCoord, entriesNotRequiringCoord) {
+        // Use first entry's deadline as default for all
+        const deadline = calculateEntryDeadline(entriesRequiringCoord[0]);
+        const deadlineStr = deadline.toISOString().slice(0, 16);
+
+        let coordMessage = `Post <strong>${entriesRequiringCoord.length}</strong> entry(ies) to <span class="text-danger font-weight-bold">PRODUCTION</span>`;
+        if (entriesNotRequiringCoord.length > 0) {
+            coordMessage += `<br><small class="text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly)</small>`;
+        }
+
+        Swal.fire({
+            title: 'Quick Submit - Same Facilities',
+            html: `
+                <div class="text-left">
+                    <p class="mb-3">${coordMessage}</p>
+                    <p class="small text-warning"><strong>Note:</strong> All entries will use the same facilities and deadline.</p>
+
+                    <div class="p-3 bg-light rounded">
+                        <div class="form-group mb-3">
+                            <label for="coordDeadline"><strong>Approval Deadline (UTC):</strong></label>
+                            <input type="datetime-local" class="form-control" id="coordDeadline" value="${deadlineStr}">
+                        </div>
+
+                        <div class="form-group mb-0">
+                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <div id="facilityCheckboxes" class="row">
+                                ${buildFacilityCheckboxes()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Submit All',
+            width: '550px',
+            preConfirm: () => {
+                const deadline = document.getElementById('coordDeadline').value;
+                if (!deadline) {
+                    Swal.showValidationMessage('Please set an approval deadline');
+                    return false;
+                }
+                const facilities = [];
+                document.querySelectorAll('.facility-checkbox:checked').forEach(cb => {
+                    facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
+                });
+                if (facilities.length === 0) {
+                    Swal.showValidationMessage('Please select at least one facility');
+                    return false;
+                }
+                return { deadline, facilities };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Apply same facilities to all entries
+                const confirmedEntries = entriesRequiringCoord.map(entry => ({
+                    entry: entry,
+                    deadline: result.value.deadline,
+                    facilities: result.value.facilities
+                }));
+                submitEntriesForCoordination(confirmedEntries, entriesNotRequiringCoord);
+            }
+        });
+    }
+
+    /**
+     * Calculate deadline for an entry: T(start) - 1 minute, or now + 2 hours
+     */
+    function calculateEntryDeadline(entry) {
+        const data = entry?.data || {};
+        const validFrom = data.valid_from || data.validFrom;
+
+        if (validFrom) {
+            const startTime = new Date(validFrom.includes('Z') ? validFrom : validFrom + 'Z');
+            if (!isNaN(startTime.getTime()) && startTime > new Date()) {
+                return new Date(startTime.getTime() - 60 * 1000); // T-1 minute
+            }
+        }
+        return new Date(Date.now() + 2 * 60 * 60 * 1000); // Now + 2 hours
+    }
+
+    /**
+     * Detect facilities that should approve this entry based on its data
+     */
+    function detectFacilitiesForEntry(entry) {
+        const facilities = new Set();
+        const data = entry.data || {};
+
+        // Check explicitly specified providing facilities
+        if (data.prov_facility) {
+            data.prov_facility.toUpperCase().split(',').forEach(fac => {
+                const trimmed = fac.trim();
+                if (trimmed) facilities.add(trimmed);
+            });
+        }
+
+        // Check airport -> ARTCC mapping
+        if (data.ctl_element) {
+            const airport = data.ctl_element.toUpperCase();
+            const artcc = AIRPORT_TO_ARTCC[airport];
+            if (artcc) facilities.add(artcc);
+        }
+
+        // Check traffic flow field (may indicate additional ARTCCs)
+        if (data.traffic_flow) {
+            const flow = data.traffic_flow.toUpperCase();
+            // Look for ARTCC codes in traffic flow (e.g., "ZNY DEPS", "ZDC ARR")
+            Object.keys(AIRPORT_TO_ARTCC).forEach(key => {
+                if (flow.includes(key)) {
+                    const artcc = AIRPORT_TO_ARTCC[key];
+                    if (artcc) facilities.add(artcc);
+                }
+            });
+        }
+
+        return facilities;
+    }
+
+    /**
+     * Build facility checkboxes for a specific entry with suggested facilities pre-checked
+     */
+    function buildFacilityCheckboxesForEntry(entry, suggestedFacilities) {
+        const commonFacilities = ['ZNY', 'ZDC', 'ZBW', 'ZOB', 'ZAU', 'ZID', 'ZTL', 'ZJX', 'ZMA', 'ZHU', 'ZFW', 'ZKC', 'ZMP', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZME'];
+        const allFacilities = new Set(commonFacilities);
+        suggestedFacilities.forEach(f => allFacilities.add(f));
+
+        const sortedFacilities = Array.from(allFacilities).sort();
+
+        let html = '';
+        sortedFacilities.forEach(fac => {
+            const checked = suggestedFacilities.has(fac);
+            html += `
+                <div class="col-4 mb-1">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input facility-checkbox"
+                               id="fac_${fac}" value="${fac}" data-emoji=":${fac}:" ${checked ? 'checked' : ''}>
+                        <label class="custom-control-label ${checked ? 'font-weight-bold text-primary' : ''}" for="fac_${fac}">${fac}</label>
+                    </div>
+                </div>
+            `;
+        });
+        return html;
+    }
+
+    /**
+     * Submit confirmed entries for coordination (each with its own facilities)
+     */
+    async function submitEntriesForCoordination(confirmedEntries, entriesToPublishDirect) {
+        const totalCoord = confirmedEntries.length;
+        const totalDirect = entriesToPublishDirect.length;
+        const results = { success: [], failed: [], discordFailed: [], directPublished: [] };
+
+        Swal.fire({
+            title: 'Submitting...',
+            html: `<p>Processing <strong>0 / ${totalCoord}</strong> proposals</p>`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        // Submit each entry with its specific facilities
+        for (let i = 0; i < totalCoord; i++) {
+            const { entry, deadline, facilities } = confirmedEntries[i];
+            const deadlineUtc = deadline + ':00.000Z';
+
+            Swal.update({
+                html: `<p>Posting <strong>${i + 1} / ${totalCoord}</strong> proposals to #coordination</p>
+                       <p class="small text-muted">${entry.data?.ctl_element || 'Entry'} - ${entry.data?.entry_type || 'TMI'}</p>`
+            });
+
+            const payload = {
+                entry: entry,
+                deadlineUtc: deadlineUtc,
+                facilities: facilities,
+                userCid: CONFIG.userCid,
+                userName: CONFIG.userName || 'Unknown'
+            };
+
+            try {
+                const response = await $.ajax({
+                    url: 'api/mgt/tmi/coordinate.php',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(payload)
+                });
+
+                console.log(`[Coordination] Entry ${i + 1} Response:`, response);
+
+                if (response.success) {
+                    const discordOk = response.discord && response.discord.success;
+                    if (discordOk) {
+                        results.success.push({ entry, proposalId: response.proposal_id });
+                    } else {
+                        results.discordFailed.push({
+                            entry, proposalId: response.proposal_id,
+                            error: response.discord?.error || 'Discord posting failed'
+                        });
+                    }
+                } else {
+                    results.failed.push({ entry, error: response.error || 'Unknown error' });
+                }
+            } catch (error) {
+                console.error(`Coordination submit error for entry ${i + 1}:`, error);
+                results.failed.push({
+                    entry, error: error.responseText || error.message || 'Connection error'
+                });
+            }
+
+            if (i < totalCoord - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        // Publish direct entries
+        if (totalDirect > 0) {
+            Swal.update({
+                html: `<p>Publishing <strong>${totalDirect}</strong> entries directly...</p>`
+            });
+
+            try {
+                // Temporarily set queue to just direct entries
+                const originalQueue = state.queue;
+                state.queue = entriesToPublishDirect;
+                await performSubmitAsync();
+                state.queue = originalQueue;
+                results.directPublished = entriesToPublishDirect;
+            } catch (error) {
+                console.error('Direct publish error:', error);
+            }
+        }
+
+        // Show results
+        showCoordinationResults(results, totalCoord, totalDirect);
     }
 
     // Airport to ARTCC mapping for auto-selecting coordination facilities
@@ -3808,7 +4326,7 @@
 
             // Update progress
             Swal.update({
-                html: `<p>Posting <strong>${i + 1} / ${totalEntries}</strong> proposals to #coordination</p>
+                html: `<p>Posting <strong>${i + 1} / ${totalCoord}</strong> proposals to #coordination</p>
                        <p class="small text-muted">${entry.data?.ctl_element || 'Entry'} - ${entry.data?.entry_type || 'TMI'}</p>`
             });
 
@@ -4468,19 +4986,27 @@
     
     function formatValidTime(from, until) {
         // Handle datetime-local format (YYYY-MM-DDTHH:MM) or time format (HH:MM)
-        const extractTime = (val) => {
-            if (!val) return '0000';
-            // If datetime-local format, extract time part
-            if (val.includes('T')) {
-                const timePart = val.split('T')[1] || '00:00';
-                return timePart.replace(':', '');
+        // Returns dd/hhmm-dd/hhmm format (UTC) to reduce ambiguity
+        const extractDateTime = (val) => {
+            if (!val) {
+                const now = new Date();
+                return String(now.getUTCDate()).padStart(2, '0') + '/0000';
             }
-            // If time format, just remove colon
-            return val.replace(':', '') || '0000';
+            // If datetime-local format, extract date and time
+            if (val.includes('T')) {
+                const [datePart, timePart] = val.split('T');
+                const [year, month, day] = datePart.split('-');
+                const time = (timePart || '00:00').replace(':', '');
+                return `${day}/${time}`;
+            }
+            // If time format only, use current day
+            const now = new Date();
+            const day = String(now.getUTCDate()).padStart(2, '0');
+            return `${day}/${val.replace(':', '') || '0000'}`;
         };
-        
-        const fromStr = extractTime(from);
-        const untilStr = extractTime(until);
+
+        const fromStr = extractDateTime(from);
+        const untilStr = extractDateTime(until);
         return `${fromStr}-${untilStr}`;
     }
     
@@ -5897,6 +6423,7 @@
     window.TMIPublisher = {
         removeFromQueue: removeFromQueue,
         previewEntry: previewEntry,
+        submitSingleEntry: submitSingleEntry,
         clearQueue: clearQueue,
         addNtmlToQueue: addNtmlToQueue,
         resetNtmlForm: resetNtmlForm,
