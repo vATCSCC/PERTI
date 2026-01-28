@@ -235,6 +235,12 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                 <i class="fas fa-broadcast-tower mr-1"></i> Active TMIs
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link" id="coordination-tab" data-toggle="tab" href="#coordinationPanel" role="tab">
+                <i class="fas fa-handshake mr-1"></i> Coordination
+                <span class="badge badge-warning" id="pendingProposalsBadge" style="display: none;">0</span>
+            </a>
+        </li>
     </ul>
 
     <div class="tab-content" id="publisherTabContent">
@@ -752,9 +758,92 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
                     </div>
                 </div>
             </div>
-            
+
         </div>
-        
+
+        <!-- Coordination Panel -->
+        <div class="tab-pane fade" id="coordinationPanel" role="tabpanel">
+            <!-- Coordination Info -->
+            <div class="alert alert-info mb-3">
+                <i class="fas fa-info-circle mr-1"></i>
+                <strong>TMI Coordination</strong> - TMIs submitted for coordination require approval from all specified facilities before becoming active.
+                Facilities approve via Discord emoji reactions. DCC can override any proposal.
+            </div>
+
+            <!-- Pending Proposals -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header py-2 bg-warning">
+                    <span class="font-weight-bold">
+                        <i class="fas fa-clock mr-1"></i> Pending Proposals
+                        <span class="badge badge-dark ml-2" id="pendingCount">0</span>
+                    </span>
+                    <button class="btn btn-sm btn-outline-dark float-right" id="refreshProposals">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0" id="proposalsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">ID</th>
+                                    <th style="width: 80px;">TYPE</th>
+                                    <th style="width: 100px;">ELEMENT</th>
+                                    <th>RESTRICTION</th>
+                                    <th style="width: 120px;">PROPOSED BY</th>
+                                    <th style="width: 140px;">DEADLINE</th>
+                                    <th style="width: 100px;">APPROVALS</th>
+                                    <th style="width: 80px;">STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="proposalsTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
+                                        Loading proposals...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Proposals (approved/denied/expired) -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header py-2 bg-secondary text-white">
+                    <span class="font-weight-bold">
+                        <i class="fas fa-history mr-1"></i> Recent Proposals (Last 24h)
+                        <span class="badge badge-light ml-2" id="recentCount">0</span>
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0" id="recentProposalsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">ID</th>
+                                    <th style="width: 80px;">TYPE</th>
+                                    <th style="width: 100px;">ELEMENT</th>
+                                    <th>RESTRICTION</th>
+                                    <th style="width: 120px;">PROPOSED BY</th>
+                                    <th style="width: 100px;">RESULT</th>
+                                    <th style="width: 140px;">RESOLVED AT</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentProposalsTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-3">
+                                        <em>No recent proposals</em>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
     
     <!-- Facility Datalist -->

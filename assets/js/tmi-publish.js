@@ -2074,12 +2074,30 @@
      */
     function populateOpsPlanFromPerti(plan) {
         console.log('[TMI-Publish] Populating from plan:', plan);
+        console.log('[TMI-Publish] Debug info from API:', plan._debug);
+        console.log('[TMI-Publish] Available fields:', {
+            initiativesSummary: plan.initiativesSummary,
+            constraintsSummary: plan.constraintsSummary,
+            eventsSummary: plan.eventsSummary,
+            tmisCount: plan.tmis ? plan.tmis.length : 0,
+            eventsCount: plan.events ? plan.events.length : 0
+        });
+
+        // Check if form fields exist
+        const fieldsExist = {
+            initiatives: $('#adv_initiatives').length > 0,
+            weather: $('#adv_weather').length > 0,
+            events: $('#adv_events').length > 0
+        };
+        console.log('[TMI-Publish] Form fields exist:', fieldsExist);
 
         // Use pre-built initiative summary from API, or build from TMIs
         if (plan.initiativesSummary) {
+            console.log('[TMI-Publish] Setting initiatives from initiativesSummary');
             $('#adv_initiatives').val(plan.initiativesSummary);
         } else if (plan.tmis && plan.tmis.length > 0) {
             // Fallback: build from TMIs array
+            console.log('[TMI-Publish] Building initiatives from TMIs array');
             const initiatives = plan.tmis.map(tmi => {
                 if (tmi.type === 'terminal') {
                     return `${tmi.airport || ''}${tmi.context ? ' - ' + tmi.context : ''}`;
@@ -2088,22 +2106,30 @@
                 }
             }).filter(i => i.trim());
             $('#adv_initiatives').val(initiatives.join('\n'));
+        } else {
+            console.log('[TMI-Publish] No initiatives data available');
         }
 
         // Use pre-built constraints summary from API
         if (plan.constraintsSummary) {
+            console.log('[TMI-Publish] Setting constraints from constraintsSummary');
             $('#adv_weather').val(plan.constraintsSummary);
         } else if (plan.weather) {
             // Fallback: weather might be array or string
+            console.log('[TMI-Publish] Building constraints from weather data');
             const weatherStr = Array.isArray(plan.weather) ? plan.weather.join('\n') : plan.weather;
             $('#adv_weather').val(weatherStr);
+        } else {
+            console.log('[TMI-Publish] No constraints data available');
         }
 
         // Use pre-built events summary from API, or build from events array
         if (plan.eventsSummary) {
+            console.log('[TMI-Publish] Setting events from eventsSummary');
             $('#adv_events').val(plan.eventsSummary);
         } else if (plan.events && plan.events.length > 0) {
             // Fallback: build from events array
+            console.log('[TMI-Publish] Building events from events array');
             const events = plan.events.map(ev => {
                 let line = ev.title || '';
                 if (ev.description) line += ': ' + ev.description;
@@ -2111,6 +2137,8 @@
                 return line;
             }).filter(e => e.trim());
             $('#adv_events').val(events.join('\n'));
+        } else {
+            console.log('[TMI-Publish] No events data available');
         }
 
         // Update validity times if plan has them
@@ -2137,7 +2165,12 @@
         // Trigger preview update
         updateAdvisoryPreview();
 
-        console.log('[TMI-Publish] Form populated - initiatives:', $('#adv_initiatives').val());
+        // Log final field values
+        console.log('[TMI-Publish] Final field values:', {
+            initiatives: $('#adv_initiatives').val(),
+            weather: $('#adv_weather').val(),
+            events: $('#adv_events').val()
+        });
     }
 
     /**
@@ -4557,9 +4590,211 @@
     }
     
     // ===========================================
+    // Coordination Proposals
+    // ===========================================
+
+    let coordinationLoaded = false;
+
+    function initCoordinationTab() {
+        // Load proposals when tab is shown
+        $('a[data-toggle="tab"][href="#coordinationPanel"]').on('shown.bs.tab', function() {
+            if (!coordinationLoaded) {
+                loadProposals();
+                coordinationLoaded = true;
+            }
+        });
+
+        // Refresh button
+        $('#refreshProposals').on('click', function() {
+            loadProposals();
+        });
+    }
+
+    function loadProposals() {
+        // Show loading
+        $('#proposalsTableBody').html(`
+            <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
+                    Loading proposals...
+                </td>
+            </tr>
+        `);
+
+        // Fetch pending proposals
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php?list=pending',
+            method: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    displayProposals(response.proposals || [], 'proposalsTableBody', true);
+                    const pendingCount = (response.proposals || []).length;
+                    $('#pendingCount').text(pendingCount);
+                    if (pendingCount > 0) {
+                        $('#pendingProposalsBadge').text(pendingCount).show();
+                    } else {
+                        $('#pendingProposalsBadge').hide();
+                    }
+                } else {
+                    showProposalsError('proposalsTableBody', response.error || 'Failed to load proposals');
+                }
+            },
+            error: function(xhr, status, error) {
+                showProposalsError('proposalsTableBody', 'Failed to connect to server');
+            }
+        });
+
+        // Fetch recent proposals (all)
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php?list=all',
+            method: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    // Filter to show only resolved (not pending)
+                    const resolved = (response.proposals || []).filter(p => p.status !== 'PENDING');
+                    displayProposals(resolved, 'recentProposalsTableBody', false);
+                    $('#recentCount').text(resolved.length);
+                }
+            },
+            error: function() {
+                // Silent fail for recent
+            }
+        });
+    }
+
+    function displayProposals(proposals, containerId, isPending) {
+        const $tbody = $('#' + containerId);
+
+        if (!proposals || proposals.length === 0) {
+            const colSpan = isPending ? 8 : 7;
+            $tbody.html(`
+                <tr>
+                    <td colspan="${colSpan}" class="text-center text-muted py-3">
+                        <em>No ${isPending ? 'pending' : 'recent'} proposals</em>
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+
+        let html = '';
+        proposals.forEach(p => {
+            const statusBadge = getStatusBadge(p.status, p.dcc_override, p.dcc_override_action);
+            const approvalProgress = isPending ? `${p.approved_count || 0}/${p.facility_count || 0}` : '';
+            const deadline = p.approval_deadline_utc ? formatDeadline(p.approval_deadline_utc) : '--';
+            const resolvedAt = p.updated_at ? formatDateTime(p.updated_at) : '--';
+
+            if (isPending) {
+                html += `
+                    <tr>
+                        <td class="small font-weight-bold">#${p.proposal_id}</td>
+                        <td><span class="badge badge-primary">${escapeHtml(p.entry_type || 'TMI')}</span></td>
+                        <td class="small">${escapeHtml(p.ctl_element || p.requesting_facility || '--')}</td>
+                        <td class="small text-truncate" style="max-width: 250px;" title="${escapeHtml(p.raw_text || '')}">${escapeHtml(p.raw_text || '--')}</td>
+                        <td class="small">${escapeHtml(p.created_by_name || 'Unknown')}</td>
+                        <td class="small">${deadline}</td>
+                        <td><span class="badge badge-info">${approvalProgress}</span></td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            } else {
+                html += `
+                    <tr>
+                        <td class="small font-weight-bold">#${p.proposal_id}</td>
+                        <td><span class="badge badge-primary">${escapeHtml(p.entry_type || 'TMI')}</span></td>
+                        <td class="small">${escapeHtml(p.ctl_element || p.requesting_facility || '--')}</td>
+                        <td class="small text-truncate" style="max-width: 250px;" title="${escapeHtml(p.raw_text || '')}">${escapeHtml(p.raw_text || '--')}</td>
+                        <td class="small">${escapeHtml(p.created_by_name || 'Unknown')}</td>
+                        <td>${statusBadge}</td>
+                        <td class="small">${resolvedAt}</td>
+                    </tr>
+                `;
+            }
+        });
+
+        $tbody.html(html);
+    }
+
+    function getStatusBadge(status, dccOverride, dccAction) {
+        if (dccOverride) {
+            if (dccAction === 'APPROVE') {
+                return '<span class="badge badge-success"><i class="fas fa-gavel mr-1"></i>DCC Approved</span>';
+            } else if (dccAction === 'DENY') {
+                return '<span class="badge badge-danger"><i class="fas fa-gavel mr-1"></i>DCC Denied</span>';
+            }
+        }
+
+        switch (status) {
+            case 'PENDING':
+                return '<span class="badge badge-warning"><i class="fas fa-clock mr-1"></i>Pending</span>';
+            case 'APPROVED':
+                return '<span class="badge badge-success"><i class="fas fa-check mr-1"></i>Approved</span>';
+            case 'ACTIVATED':
+                return '<span class="badge badge-success"><i class="fas fa-broadcast-tower mr-1"></i>Activated</span>';
+            case 'SCHEDULED':
+                return '<span class="badge badge-info"><i class="fas fa-calendar mr-1"></i>Scheduled</span>';
+            case 'DENIED':
+                return '<span class="badge badge-danger"><i class="fas fa-times mr-1"></i>Denied</span>';
+            case 'EXPIRED':
+                return '<span class="badge badge-secondary"><i class="fas fa-hourglass-end mr-1"></i>Expired</span>';
+            default:
+                return `<span class="badge badge-secondary">${escapeHtml(status || 'Unknown')}</span>`;
+        }
+    }
+
+    function formatDeadline(dateStr) {
+        try {
+            const d = new Date(dateStr);
+            const now = new Date();
+            const diff = d - now;
+
+            // Format: "14:30Z (in 2h)"
+            const timeStr = d.toISOString().substr(11, 5) + 'Z';
+
+            if (diff < 0) {
+                return `<span class="text-danger">${timeStr} (expired)</span>`;
+            } else if (diff < 3600000) {
+                const mins = Math.round(diff / 60000);
+                return `<span class="text-warning">${timeStr} (${mins}m)</span>`;
+            } else {
+                const hours = Math.round(diff / 3600000);
+                return `${timeStr} (${hours}h)`;
+            }
+        } catch (e) {
+            return dateStr || '--';
+        }
+    }
+
+    function formatDateTime(dateStr) {
+        try {
+            const d = new Date(dateStr);
+            return d.toISOString().substr(0, 16).replace('T', ' ') + 'Z';
+        } catch (e) {
+            return dateStr || '--';
+        }
+    }
+
+    function showProposalsError(containerId, message) {
+        $('#' + containerId).html(`
+            <tr>
+                <td colspan="8" class="text-center text-danger py-3">
+                    <i class="fas fa-exclamation-triangle mr-1"></i> ${escapeHtml(message)}
+                </td>
+            </tr>
+        `);
+    }
+
+    // Initialize coordination tab events
+    $(document).ready(function() {
+        initCoordinationTab();
+    });
+
+    // ===========================================
     // Public API
     // ===========================================
-    
+
     window.TMIPublisher = {
         removeFromQueue: removeFromQueue,
         previewEntry: previewEntry,
@@ -4572,7 +4807,8 @@
         cancelTmi: cancelTmi,
         updateCauseOptions: updateCauseOptions,
         saveProfile: saveProfile,
-        showProfileModal: showProfileModal
+        showProfileModal: showProfileModal,
+        loadProposals: loadProposals
     };
-    
+
 })();

@@ -324,6 +324,80 @@ function handleGetProposalStatus() {
     }
 }
 
+/**
+ * List pending or all proposals
+ */
+function handleListProposals($includeAll = false) {
+    $conn = getTmiConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Build query based on filter
+        if ($includeAll) {
+            $sql = "SELECT p.*,
+                        (SELECT COUNT(*) FROM dbo.tmi_proposal_facilities f WHERE f.proposal_id = p.proposal_id) as facility_count,
+                        (SELECT COUNT(*) FROM dbo.tmi_proposal_facilities f WHERE f.proposal_id = p.proposal_id AND f.approval_status = 'APPROVED') as approved_count
+                    FROM dbo.tmi_proposals p
+                    ORDER BY p.created_at DESC";
+        } else {
+            $sql = "SELECT p.*,
+                        (SELECT COUNT(*) FROM dbo.tmi_proposal_facilities f WHERE f.proposal_id = p.proposal_id) as facility_count,
+                        (SELECT COUNT(*) FROM dbo.tmi_proposal_facilities f WHERE f.proposal_id = p.proposal_id AND f.approval_status = 'APPROVED') as approved_count
+                    FROM dbo.tmi_proposals p
+                    WHERE p.status = 'PENDING'
+                    ORDER BY p.approval_deadline_utc ASC";
+        }
+
+        $stmt = $conn->query($sql);
+        $proposals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Format proposals for response
+        $result = [];
+        foreach ($proposals as $prop) {
+            // Parse entry data for display
+            $entryData = json_decode($prop['entry_data_json'], true);
+
+            $result[] = [
+                'proposal_id' => (int)$prop['proposal_id'],
+                'proposal_guid' => $prop['proposal_guid'],
+                'status' => $prop['status'],
+                'entry_type' => $prop['entry_type'],
+                'requesting_facility' => $prop['requesting_facility'],
+                'providing_facility' => $prop['providing_facility'],
+                'ctl_element' => $prop['ctl_element'],
+                'raw_text' => $prop['raw_text'],
+                'approval_deadline_utc' => $prop['approval_deadline_utc'],
+                'valid_from' => $prop['valid_from'],
+                'valid_until' => $prop['valid_until'],
+                'facility_count' => (int)$prop['facility_count'],
+                'approved_count' => (int)$prop['approved_count'],
+                'dcc_override' => (bool)$prop['dcc_override'],
+                'dcc_override_action' => $prop['dcc_override_action'],
+                'discord_message_id' => $prop['discord_message_id'],
+                'created_by' => $prop['created_by'],
+                'created_by_name' => $prop['created_by_name'],
+                'created_at' => $prop['created_at'],
+                'entry_data' => $entryData
+            ];
+        }
+
+        echo json_encode([
+            'success' => true,
+            'proposals' => $result,
+            'count' => count($result),
+            'filter' => $includeAll ? 'all' : 'pending'
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Query error: ' . $e->getMessage()]);
+    }
+}
+
 // =============================================================================
 // PUT: Process Reaction (called by webhook or polling)
 // =============================================================================
@@ -523,38 +597,65 @@ function buildNtmlText($entry) {
  * Post proposal to Discord coordination channel
  */
 function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName) {
+    $logFile = __DIR__ . '/coordination_debug.log';
+    $log = function($msg) use ($logFile) {
+        file_put_contents($logFile, date('[Y-m-d H:i:s] ') . $msg . "\n", FILE_APPEND);
+    };
+
+    $log("=== Starting Discord post for proposal #{$proposalId} ===");
+    $log("Channel ID: " . DISCORD_COORDINATION_CHANNEL);
+
     try {
         $discord = new DiscordAPI();
+        $log("DiscordAPI instantiated");
+
         if (!$discord->isConfigured()) {
+            $log("ERROR: Discord is not configured (no bot token)");
             return null;
         }
+        $log("Discord is configured");
 
         // Build message content
         $content = formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName);
+        $log("Message content built, length: " . strlen($content));
 
         // Post to coordination channel
+        $log("Posting to channel: " . DISCORD_COORDINATION_CHANNEL);
         $result = $discord->createMessage(DISCORD_COORDINATION_CHANNEL, [
             'content' => $content
         ]);
 
+        $log("createMessage result: " . json_encode($result));
+        $log("Last HTTP code: " . $discord->getLastHttpCode());
+        $log("Last error: " . ($discord->getLastError() ?? 'none'));
+
         if ($result && isset($result['id'])) {
+            $log("SUCCESS - Message posted with ID: " . $result['id']);
+
             // Add initial reactions for each facility
             foreach ($facilities as $facility) {
                 $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
                 $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
 
                 if ($facEmoji) {
+                    $log("Adding reaction emoji: {$facEmoji} for facility {$facCode}");
                     $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], $facEmoji);
                 }
             }
 
             // Add deny reaction
+            $log("Adding deny reaction");
             $discord->createReaction(DISCORD_COORDINATION_CHANNEL, $result['id'], DENY_EMOJI);
+        } else {
+            $log("FAILED - No message ID returned");
+            $log("Full result: " . print_r($result, true));
         }
 
         return $result;
 
     } catch (Exception $e) {
+        $log("EXCEPTION: " . $e->getMessage());
+        $log("Stack trace: " . $e->getTraceAsString());
         error_log("Discord post failed: " . $e->getMessage());
         return null;
     }
