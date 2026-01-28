@@ -153,18 +153,20 @@ try {
         }
     }
 
-    // Get active reroutes (from ADL database)
-    if (($type === 'all' || $type === 'reroute' || $type === 'reroutes') && $adlConn) {
-        $activeReroutes = getActiveReroutes($adlConn, $limit);
+    // Get active reroutes (prefer TMI database, fallback to ADL)
+    // Note: Public routes have been migrated to VATSIM_TMI database
+    $rerouteConn = $tmiConn ?? $adlConn;
+    if (($type === 'all' || $type === 'reroute' || $type === 'reroutes') && $rerouteConn) {
+        $activeReroutes = getActiveReroutes($rerouteConn, $limit);
         $results['active'] = array_merge($results['active'], $activeReroutes);
 
         if ($includeScheduled) {
-            $scheduledReroutes = getScheduledReroutes($adlConn, $limit);
+            $scheduledReroutes = getScheduledReroutes($rerouteConn, $limit);
             $results['scheduled'] = array_merge($results['scheduled'], $scheduledReroutes);
         }
 
         if ($includeCancelled) {
-            $cancelledReroutes = getCancelledReroutes($adlConn, $cancelledHours, $limit);
+            $cancelledReroutes = getCancelledReroutes($rerouteConn, $cancelledHours, $limit);
             $results['cancelled'] = array_merge($results['cancelled'], $cancelledReroutes);
         }
     }
@@ -951,7 +953,8 @@ function buildProgramSummary($row) {
 
 /**
  * Get currently active reroutes
- * Note: ADL database uses id (not reroute_id), created_utc, updated_utc, activated_utc
+ * Note: TMI database uses reroute_id, created_at, updated_at
+ * Uses aliases to normalize column names for formatReroute()
  */
 function getActiveReroutes($conn, $limit) {
     if (!tableExists($conn, 'tmi_reroutes')) {
@@ -959,7 +962,7 @@ function getActiveReroutes($conn, $limit) {
     }
 
     $sql = "SELECT TOP {$limit}
-                id,
+                reroute_id AS id,
                 name,
                 adv_number,
                 status,
@@ -977,8 +980,8 @@ function getActiveReroutes($conn, $limit) {
                 comments,
                 advisory_text,
                 created_by,
-                created_utc,
-                updated_utc,
+                created_at AS created_utc,
+                updated_at AS updated_utc,
                 activated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (2, 3)  -- active, monitoring
@@ -1009,7 +1012,7 @@ function getScheduledReroutes($conn, $limit) {
     }
 
     $sql = "SELECT TOP {$limit}
-                id,
+                reroute_id AS id,
                 name,
                 adv_number,
                 status,
@@ -1027,8 +1030,8 @@ function getScheduledReroutes($conn, $limit) {
                 comments,
                 advisory_text,
                 created_by,
-                created_utc,
-                updated_utc
+                created_at AS created_utc,
+                updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (0, 1)  -- draft, proposed
               AND start_utc > GETUTCDATE()
@@ -1057,7 +1060,7 @@ function getCancelledReroutes($conn, $hours, $limit) {
     }
 
     $sql = "SELECT TOP {$limit}
-                id,
+                reroute_id AS id,
                 name,
                 adv_number,
                 status,
@@ -1075,12 +1078,12 @@ function getCancelledReroutes($conn, $hours, $limit) {
                 comments,
                 advisory_text,
                 created_by,
-                created_utc,
-                updated_utc
+                created_at AS created_utc,
+                updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (4, 5)  -- expired, cancelled
-              AND updated_utc > DATEADD(HOUR, -{$hours}, GETUTCDATE())
-            ORDER BY updated_utc DESC";
+              AND updated_at > DATEADD(HOUR, -{$hours}, GETUTCDATE())
+            ORDER BY updated_at DESC";
 
     try {
         $stmt = $conn->prepare($sql);

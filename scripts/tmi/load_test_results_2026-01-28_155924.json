@@ -1,0 +1,29 @@
+{
+    "config":  {
+                   "total_requests":  870,
+                   "duration_seconds":  300,
+                   "users":  30,
+                   "advisories_per_user":  4,
+                   "restrictions_per_user":  25
+               },
+    "timestamp":  "2026-01-28T15:59:24.2453749+09:00",
+    "metrics":  {
+                    "p99":  60220,
+                    "p95":  47068,
+                    "http_codes":  [
+                                       {
+                                           "code":  "200",
+                                           "count":  843
+                                       },
+                                       {
+                                           "code":  "0",
+                                           "count":  26
+                                       }
+                                   ],
+                    "total_duration":  795.33139669999991,
+                    "avg_response_time":  12057.1,
+                    "successful":  843,
+                    "p50":  6458,
+                    "failed":  26
+                }
+}

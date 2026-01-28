@@ -103,12 +103,21 @@ nohup php "${WWWROOT}/scripts/monitoring_daemon.php" --loop >> /home/LogFiles/mo
 MON_PID=$!
 echo "  monitoring_daemon.php started (PID: $MON_PID)"
 
+# Start the Discord queue processor (async TMI Discord posting)
+# Processes pending Discord posts from tmi_discord_posts table
+# Rate limited to 10 posts/sec to avoid Discord API limits
+echo "Starting Discord queue processor (TMI async posting)..."
+nohup php "${WWWROOT}/scripts/tmi/process_discord_queue.php" --batch=50 --delay=100 >> /home/LogFiles/discord_queue.log 2>&1 &
+DISCORD_Q_PID=$!
+echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
+
 echo "========================================"
 echo "All daemons started:"
 echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
 echo "  waypoint=$WAYPOINT_PID, ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
 echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
 echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
+echo "  discord_q=$DISCORD_Q_PID"
 echo "========================================"
 
 # Configure PHP-FPM for higher concurrency

@@ -25,6 +25,8 @@ $type = swim_get_param('type', 'all');
 $airport = swim_get_param('airport');
 $artcc = swim_get_param('artcc');
 $include_history = swim_get_param('include_history', 'false') === 'true';
+$include_flights = swim_get_param('flights', '0') === '1' || swim_get_param('include_flights', 'false') === 'true';
+$program_id = swim_get_int_param('id');
 
 $response = [
     'ground_stops' => [],
@@ -114,7 +116,7 @@ if ($type === 'all' || $type === 'gs') {
                     $scope_data = json_decode($row['scope_json'], true);
                 }
 
-                $response['ground_stops'][] = [
+                $gs_entry = [
                     'type' => 'ground_stop',
                     'program_id' => $row['program_id'],
                     'program_guid' => $row['program_guid'],
@@ -129,6 +131,7 @@ if ($type === 'all' || $type === 'gs') {
                     'scope' => [
                         'type' => $row['scope_type'],
                         'tier' => $row['scope_tier'],
+                        'name' => getScopeName($row['scope_type'], $row['scope_tier'], $row['scope_json']),
                         'dep_facilities' => $scope_data['dep_facilities'] ?? null,
                         'origin_centers' => $scope_data['origin_centers'] ?? null
                     ],
@@ -144,7 +147,7 @@ if ($type === 'all' || $type === 'gs') {
                         'average_minutes' => (int)($row['avg_delay_min'] ?? 0),
                         'maximum_minutes' => (int)($row['max_delay_min'] ?? 0)
                     ],
-                    'flights' => [
+                    'flight_counts' => [
                         'total' => (int)($row['total_flights'] ?? 0),
                         'controlled' => (int)($row['controlled_flights'] ?? 0),
                         'exempt' => (int)($row['exempt_flights'] ?? 0),
@@ -160,6 +163,13 @@ if ($type === 'all' || $type === 'gs') {
                     'status' => $row['status'],
                     'is_active' => (bool)$row['is_active']
                 ];
+
+                // Include flight list if requested
+                if ($include_flights) {
+                    $gs_entry['flights'] = getProgramFlights($conn_sql, $row['program_id']);
+                }
+
+                $response['ground_stops'][] = $gs_entry;
 
                 if ($row['status'] === 'ACTIVE') {
                     $response['summary']['active_ground_stops']++;
@@ -239,7 +249,13 @@ if ($type === 'all' || $type === 'gdp') {
 
         if ($gdp_ntml_stmt !== false) {
             while ($row = sqlsrv_fetch_array($gdp_ntml_stmt, SQLSRV_FETCH_ASSOC)) {
-                $response['gdp_programs'][] = [
+                // Parse scope JSON
+                $gdp_scope_data = null;
+                if (!empty($row['scope_json'])) {
+                    $gdp_scope_data = json_decode($row['scope_json'], true);
+                }
+
+                $gdp_entry = [
                     'type' => 'gdp',
                     'program_id' => $row['program_id'],
                     'program_guid' => $row['program_guid'],
@@ -250,6 +266,17 @@ if ($type === 'all' || $type === 'gdp') {
                     'name' => $row['program_name'],
                     'reason' => $row['impacting_condition'],
                     'probability_of_extension' => $row['prob_extension'],
+                    'scope' => [
+                        'type' => $gdp_scope_data['scope_type'] ?? null,
+                        'tier' => $gdp_scope_data['scope_tier'] ?? null,
+                        'name' => getScopeName(
+                            $gdp_scope_data['scope_type'] ?? 'MANUAL',
+                            $gdp_scope_data['scope_tier'] ?? null,
+                            $row['scope_json']
+                        ),
+                        'origin_centers' => $gdp_scope_data['origin_centers'] ?? null,
+                        'dep_facilities' => $gdp_scope_data['dep_facilities'] ?? null
+                    ],
                     'rates' => [
                         'program_rate' => (int)($row['program_rate'] ?? 0),
                         'reserve_rate' => (int)($row['reserve_rate'] ?? 0)
@@ -264,7 +291,7 @@ if ($type === 'all' || $type === 'gdp') {
                         'start' => formatDT($row['start_utc']),
                         'end' => formatDT($row['end_utc'])
                     ],
-                    'flights' => [
+                    'flight_counts' => [
                         'total' => (int)($row['total_flights'] ?? 0),
                         'controlled' => (int)($row['controlled_flights'] ?? 0)
                     ],
@@ -275,6 +302,13 @@ if ($type === 'all' || $type === 'gdp') {
                     'is_active' => (bool)$row['is_active'],
                     'source' => 'ntml'
                 ];
+
+                // Include flight list if requested
+                if ($include_flights) {
+                    $gdp_entry['flights'] = getProgramFlights($conn_sql, $row['program_id']);
+                }
+
+                $response['gdp_programs'][] = $gdp_entry;
 
                 if ($row['status'] === 'ACTIVE') {
                     $response['summary']['active_gdp_programs']++;
@@ -385,4 +419,93 @@ function getAirportInfo($icao) {
 function formatDT($dt) {
     if ($dt === null) return null;
     return ($dt instanceof DateTime) ? $dt->format('c') : $dt;
+}
+
+/**
+ * Get human-readable scope name from tier and optional custom name
+ */
+function getScopeName($scope_type, $scope_tier, $scope_json = null) {
+    // Check for custom name in scope_json
+    if ($scope_json) {
+        $scope_data = is_string($scope_json) ? json_decode($scope_json, true) : $scope_json;
+        if (is_array($scope_data) && !empty($scope_data['scope_name'])) {
+            return $scope_data['scope_name'];
+        }
+    }
+
+    // Standard tier names
+    $tier_names = [
+        1 => 'Tier 1 - 6 West (ZNY, ZDC, ZBW, ZOB, ZID, ZTL)',
+        2 => 'Tier 2 - 9 East (Tier1 + ZJX, ZMA, ZAU)',
+        3 => 'Tier 3 - 15 Central (Tier2 + ZMP, ZKC, ZME, ZHU, ZFW, ZDV)'
+    ];
+
+    if ($scope_type === 'TIER' && isset($tier_names[(int)$scope_tier])) {
+        return $tier_names[(int)$scope_tier];
+    }
+
+    if ($scope_type === 'DISTANCE') {
+        return "Distance-based scope";
+    }
+
+    return $scope_type ?: 'Manual';
+}
+
+/**
+ * Get flights for a program
+ */
+function getProgramFlights($conn, $program_id, $limit = 500) {
+    $sql = "
+        SELECT
+            control_id,
+            flight_uid,
+            callsign,
+            dep_airport,
+            arr_airport,
+            dep_center,
+            carrier,
+            orig_eta_utc,
+            orig_etd_utc,
+            cta_utc,
+            ctd_utc,
+            program_delay_min,
+            ctl_exempt,
+            ctl_exempt_reason,
+            gs_held,
+            gs_release_utc
+        FROM dbo.tmi_flight_control
+        WHERE program_id = ?
+        ORDER BY cta_utc ASC, orig_eta_utc ASC
+        OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY
+    ";
+
+    $stmt = sqlsrv_query($conn, $sql, [$program_id, $limit]);
+    if ($stmt === false) return [];
+
+    $flights = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $flights[] = [
+            'control_id' => $row['control_id'],
+            'flight_uid' => $row['flight_uid'],
+            'callsign' => $row['callsign'],
+            'departure' => $row['dep_airport'],
+            'destination' => $row['arr_airport'],
+            'dep_center' => $row['dep_center'],
+            'carrier' => $row['carrier'],
+            'times' => [
+                'original_eta' => formatDT($row['orig_eta_utc']),
+                'original_etd' => formatDT($row['orig_etd_utc']),
+                'controlled_arrival' => formatDT($row['cta_utc']),
+                'controlled_departure' => formatDT($row['ctd_utc'])
+            ],
+            'delay_minutes' => (int)($row['program_delay_min'] ?? 0),
+            'is_exempt' => (bool)$row['ctl_exempt'],
+            'exempt_reason' => $row['ctl_exempt_reason'],
+            'gs_held' => (bool)$row['gs_held'],
+            'gs_release' => formatDT($row['gs_release_utc'])
+        ];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    return $flights;
 }

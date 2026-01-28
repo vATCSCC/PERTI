@@ -73,7 +73,6 @@ $nav_config = [
         'items' => [
             ['label' => 'JATOC', 'path' => './jatoc'],
             ['label' => 'Event AAR', 'path' => './event-aar'],
-            ['label' => 'NTML', 'path' => './ntml', 'perm' => true],
             ['label' => 'TMI Publisher', 'path' => './tmi-publish', 'perm' => true],
             ['label' => 'Status', 'path' => './status'],
         ]

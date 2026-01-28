@@ -416,3 +416,41 @@ a {
   border-top-right-radius: 0;
   margin: 0;
 }
+
+/* ===========================================
+   Relative Time / text-muted Visibility Fix
+   Makes muted text readable on colored backgrounds
+   =========================================== */
+.bg-primary .text-muted,
+.bg-secondary .text-muted,
+.bg-success .text-muted,
+.bg-danger .text-muted,
+.bg-warning .text-muted,
+.bg-info .text-muted,
+.bg-dark .text-muted,
+.card-header.bg-primary .text-muted,
+.card-header.bg-secondary .text-muted,
+.card-header.bg-success .text-muted,
+.card-header.bg-danger .text-muted,
+.card-header.bg-warning .text-muted,
+.card-header.bg-info .text-muted,
+.card-header.bg-dark .text-muted,
+.list-group-item-primary .text-muted,
+.list-group-item-secondary .text-muted,
+.list-group-item-success .text-muted,
+.list-group-item-danger .text-muted,
+.list-group-item-warning .text-muted,
+.list-group-item-info .text-muted,
+.list-group-item-dark .text-muted,
+[class*="bg-gradient"] .text-muted,
+[style*="background-color"] .text-muted,
+.table-primary .text-muted,
+.table-secondary .text-muted,
+.table-success .text-muted,
+.table-danger .text-muted,
+.table-warning .text-muted,
+.table-info .text-muted,
+.table-dark .text-muted {
+  color: inherit !important;
+  opacity: 0.7;
+}
