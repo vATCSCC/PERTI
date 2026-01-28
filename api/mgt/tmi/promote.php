@@ -395,13 +395,13 @@ function deleteStagingMessages($conn, $multiDiscord, $entityType, $entityId, $ta
  */
 function updateEntityStatus($conn, $entityType, $entityId, $status, $userCid) {
     if ($entityType === 'ADVISORY') {
-        $sql = "UPDATE dbo.tmi_advisories SET status = ?, updated_at = SYSUTCDATETIME(), updated_by = ? WHERE advisory_id = ?";
+        $sql = "UPDATE dbo.tmi_advisories SET status = ?, updated_at = SYSUTCDATETIME() WHERE advisory_id = ?";
     } else {
-        $sql = "UPDATE dbo.tmi_entries SET status = ?, updated_at = SYSUTCDATETIME(), updated_by = ? WHERE entry_id = ?";
+        $sql = "UPDATE dbo.tmi_entries SET status = ?, updated_at = SYSUTCDATETIME() WHERE entry_id = ?";
     }
-    
+
     $stmt = $conn->prepare($sql);
-    $stmt->execute([$status, $userCid, $entityId]);
+    $stmt->execute([$status, $entityId]);
 }
 
 /**

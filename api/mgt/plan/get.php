@@ -194,9 +194,9 @@ function buildFullPlanData($conn, $row) {
 
     $plan = [
         'id' => $planId,
-        'eventName' => $row['event_name'],
-        'eventDate' => $row['event_date'],
-        'eventStart' => $row['event_start'],
+        'eventName' => $row['event_name'] ?? '',
+        'eventDate' => $row['event_date'] ?? date('Y-m-d'),
+        'eventStart' => $row['event_start'] ?? '0000',
         'eventEndDate' => $row['event_end_date'] ?? null,
         'eventEndTime' => $row['event_end_time'] ?? null,
         'hotline' => $row['hotline'] ?? null,
@@ -208,29 +208,33 @@ function buildFullPlanData($conn, $row) {
         'events' => []
     ];
 
-    // Get Terminal Initiatives
+    // Get Terminal Initiatives (with error handling)
     $termQuery = $conn->query("SELECT * FROM p_terminal_init WHERE p_id = $planId ORDER BY id");
-    while ($t = $termQuery->fetch_assoc()) {
-        $plan['tmis'][] = [
-            'type' => 'terminal',
-            'airport' => $t['title'],
-            'program' => $t['program'] ?? null,
-            'rate' => $t['rate'] ?? null,
-            'scope' => $t['scope'] ?? null,
-            'notes' => $t['notes'] ?? null
-        ];
+    if ($termQuery) {
+        while ($t = $termQuery->fetch_assoc()) {
+            $plan['tmis'][] = [
+                'type' => 'terminal',
+                'airport' => $t['title'] ?? '',
+                'program' => $t['program'] ?? null,
+                'rate' => $t['rate'] ?? null,
+                'scope' => $t['scope'] ?? null,
+                'notes' => $t['notes'] ?? null
+            ];
+        }
     }
 
-    // Get Enroute Initiatives
+    // Get Enroute Initiatives (with error handling)
     $enrouteQuery = $conn->query("SELECT * FROM p_enroute_init WHERE p_id = $planId ORDER BY id");
-    while ($e = $enrouteQuery->fetch_assoc()) {
-        $plan['tmis'][] = [
-            'type' => 'enroute',
-            'element' => $e['title'] ?? null,
-            'restriction' => $e['restriction'] ?? null,
-            'scope' => $e['scope'] ?? null,
-            'notes' => $e['notes'] ?? null
-        ];
+    if ($enrouteQuery) {
+        while ($e = $enrouteQuery->fetch_assoc()) {
+            $plan['tmis'][] = [
+                'type' => 'enroute',
+                'element' => $e['title'] ?? null,
+                'restriction' => $e['restriction'] ?? null,
+                'scope' => $e['scope'] ?? null,
+                'notes' => $e['notes'] ?? null
+            ];
+        }
     }
 
     // Get Weather constraints (from terminal init notes or separate table if exists)
@@ -258,19 +262,27 @@ function buildFullPlanData($conn, $row) {
     $plan['constraintsSummary'] = buildConstraintsSummary($plan);
     $plan['eventsSummary'] = buildEventsSummary($plan['events']);
 
-    // Calculate valid times
-    $startDateTime = $row['event_date'] . 'T' . normalizeTime($row['event_start']);
-    $endDateTime = null;
-    if (!empty($row['event_end_date']) && !empty($row['event_end_time'])) {
-        $endDateTime = $row['event_end_date'] . 'T' . normalizeTime($row['event_end_time']);
-    } else {
-        // Default to 4 hours after start
-        $start = new DateTime($startDateTime);
-        $start->modify('+4 hours');
-        $endDateTime = $start->format('Y-m-d\TH:i');
+    // Calculate valid times with error handling
+    try {
+        $eventStart = normalizeTime($row['event_start'] ?? '0000') ?: '00:00';
+        $startDateTime = ($row['event_date'] ?? date('Y-m-d')) . 'T' . $eventStart;
+        $endDateTime = null;
+
+        if (!empty($row['event_end_date']) && !empty($row['event_end_time'])) {
+            $endDateTime = $row['event_end_date'] . 'T' . normalizeTime($row['event_end_time']);
+        } else {
+            // Default to 4 hours after start
+            $start = new DateTime($startDateTime);
+            $start->modify('+4 hours');
+            $endDateTime = $start->format('Y-m-d\TH:i');
+        }
+        $plan['validFrom'] = $startDateTime;
+        $plan['validUntil'] = $endDateTime;
+    } catch (Exception $e) {
+        // Fallback to reasonable defaults
+        $plan['validFrom'] = date('Y-m-d') . 'T00:00';
+        $plan['validUntil'] = date('Y-m-d') . 'T04:00';
     }
-    $plan['validFrom'] = $startDateTime;
-    $plan['validUntil'] = $endDateTime;
 
     return $plan;
 }
@@ -338,8 +350,13 @@ function buildEventsSummary($events) {
  * Normalize time string to HH:MM format
  */
 function normalizeTime($time) {
+    if (empty($time)) return '00:00';
+    $time = trim($time);
     if (strlen($time) === 4 && strpos($time, ':') === false) {
         return substr($time, 0, 2) . ':' . substr($time, 2, 2);
     }
-    return $time;
+    if (strlen($time) === 5 && strpos($time, ':') === 2) {
+        return $time; // Already in HH:MM format
+    }
+    return $time ?: '00:00';
 }

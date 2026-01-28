@@ -1850,6 +1850,16 @@
         
         // Handle Hotline-specific logic
         if (type === 'HOTLINE') {
+            // Handle action change (ACTIVATION, UPDATE, TERMINATION)
+            $('#adv_hotline_action').on('change', function() {
+                const action = $(this).val();
+                if (action === 'UPDATE' || action === 'TERMINATION') {
+                    // Show picker for existing hotline advisories
+                    showHotlineAdvisoryPicker(action);
+                }
+                updateAdvisoryPreview();
+            });
+
             // Auto-map hotline address based on hotline name
             $('#adv_hotline_name').on('change', function() {
                 const name = $(this).val() || '';
@@ -1861,10 +1871,10 @@
                 }
                 updateAdvisoryPreview();
             });
-            
+
             // Trigger initial address mapping
             $('#adv_hotline_name').trigger('change');
-            
+
             // Facility selector sync (select → input)
             $('#adv_constrained_select, #adv_attend_select').on('change', function() {
                 const selectId = $(this).attr('id');
@@ -1873,7 +1883,7 @@
                 $('#' + inputId).val(selected.join(', '));
                 updateAdvisoryPreview();
             });
-            
+
             // Facility input → select sync (parse typed input)
             $('#adv_constrained_facilities, #adv_facilities').on('blur', function() {
                 const inputId = $(this).attr('id');
@@ -2084,7 +2094,188 @@
         // Trigger preview update
         updateAdvisoryPreview();
     }
-    
+
+    /**
+     * Show picker for active hotline advisories (for UPDATE/TERMINATION)
+     */
+    function showHotlineAdvisoryPicker(action) {
+        // Fetch active hotline advisories from the API
+        $.ajax({
+            url: 'api/mgt/tmi/active.php',
+            method: 'GET',
+            data: { type: 'advisories', source: 'ALL' },
+            dataType: 'json',
+            success: function(response) {
+                if (!response.success) {
+                    console.error('[TMI-Publish] Failed to fetch active advisories');
+                    return;
+                }
+
+                // Filter for active HOTLINE advisories with ACTIVATION action
+                const activeHotlines = (response.data?.active || []).filter(item =>
+                    item.entityType === 'ADVISORY' &&
+                    item.entryType === 'HOTLINE' &&
+                    item.status === 'ACTIVE'
+                );
+
+                if (activeHotlines.length === 0) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Active Hotlines',
+                        text: 'There are no active hotline advisories to ' + action.toLowerCase() + '.',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        // Reset to ACTIVATION
+                        $('#adv_hotline_action').val('ACTIVATION');
+                    });
+                    return;
+                }
+
+                // Build options for picker
+                let options = activeHotlines.map(h => {
+                    const hotlineName = h.subject || h.ctlElement || 'Unknown';
+                    const advNum = h.advisoryNumber || '???';
+                    return `<option value="${h.entityId}"
+                        data-name="${escapeAttr(h.subject || '')}"
+                        data-facilities="${escapeAttr(h.scopeFacilities || '')}"
+                        data-reason="${escapeAttr(h.reasonCode || '')}"
+                        data-impacted="${escapeAttr(h.reasonDetail || '')}"
+                        data-valid-from="${h.validFrom || ''}"
+                        data-valid-until="${h.validUntil || ''}"
+                        data-body="${escapeAttr(h.bodyText || h.rawText || '')}"
+                    >ADVZY ${advNum} - ${hotlineName}</option>`;
+                }).join('');
+
+                Swal.fire({
+                    title: `<i class="fas fa-phone-alt text-danger"></i> Select Hotline to ${action}`,
+                    html: `
+                        <div class="text-left">
+                            <p class="small text-muted mb-3">Select the active hotline advisory you want to ${action.toLowerCase()}:</p>
+                            <select id="hotlinePickerSelect" class="form-control">
+                                <option value="">-- Select a hotline --</option>
+                                ${options}
+                            </select>
+                        </div>
+                    `,
+                    width: 500,
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-check"></i> Select',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonText: 'Cancel',
+                    preConfirm: () => {
+                        const select = document.getElementById('hotlinePickerSelect');
+                        const selectedOption = select.options[select.selectedIndex];
+                        if (!select.value) {
+                            Swal.showValidationMessage('Please select a hotline');
+                            return false;
+                        }
+                        return {
+                            id: select.value,
+                            name: selectedOption.dataset.name,
+                            facilities: selectedOption.dataset.facilities,
+                            reason: selectedOption.dataset.reason,
+                            impacted: selectedOption.dataset.impacted,
+                            validFrom: selectedOption.dataset.validFrom,
+                            validUntil: selectedOption.dataset.validUntil,
+                            body: selectedOption.dataset.body
+                        };
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        populateHotlineFromExisting(result.value, action);
+                    } else {
+                        // Reset to ACTIVATION if cancelled
+                        $('#adv_hotline_action').val('ACTIVATION');
+                    }
+                });
+            },
+            error: function() {
+                Swal.fire('Error', 'Failed to fetch active advisories', 'error');
+                $('#adv_hotline_action').val('ACTIVATION');
+            }
+        });
+    }
+
+    /**
+     * Populate hotline form from existing advisory data
+     */
+    function populateHotlineFromExisting(data, action) {
+        console.log('[TMI-Publish] Populating hotline form from:', data);
+
+        // Store reference to original advisory
+        $('#advisoryFormContainer').data('reference-id', data.id);
+
+        // Set hotline name if it matches one of our options
+        const hotlineNameSelect = $('#adv_hotline_name');
+        const nameMatch = hotlineNameSelect.find('option').filter(function() {
+            return data.name && data.name.toLowerCase().includes($(this).val().toLowerCase());
+        }).first();
+        if (nameMatch.length) {
+            hotlineNameSelect.val(nameMatch.val());
+        }
+
+        // Parse facilities from comma-separated string
+        if (data.facilities) {
+            const facilities = data.facilities.split(',').map(f => f.trim());
+            $('#adv_facilities').val(facilities.join(', '));
+            // Also try to select in the multi-select
+            $('#adv_attend_select option').each(function() {
+                $(this).prop('selected', facilities.includes($(this).val()));
+            });
+        }
+
+        // Set reason
+        if (data.reason) {
+            $('#adv_reason').val(data.reason);
+        }
+
+        // Set impacted area from reason detail
+        if (data.impacted) {
+            $('#adv_impacted_area').val(data.impacted);
+        }
+
+        // For TERMINATION, set end time to now
+        if (action === 'TERMINATION') {
+            const now = new Date();
+            $('#adv_end_datetime').val(now.toISOString().slice(0, 16));
+            // Keep original start time
+            if (data.validFrom) {
+                $('#adv_start_datetime').val(data.validFrom.slice(0, 16));
+            }
+        } else if (action === 'UPDATE') {
+            // For UPDATE, keep original times but allow modification
+            if (data.validFrom) {
+                $('#adv_start_datetime').val(data.validFrom.slice(0, 16));
+            }
+            if (data.validUntil) {
+                $('#adv_end_datetime').val(data.validUntil.slice(0, 16));
+            }
+        }
+
+        // Add note referencing original advisory
+        const note = action === 'TERMINATION'
+            ? 'This advisory terminates the referenced hotline activation.'
+            : 'This advisory updates the referenced hotline activation.';
+        $('#adv_notes').val(note);
+
+        // Trigger address mapping and preview update
+        $('#adv_hotline_name').trigger('change');
+        updateAdvisoryPreview();
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Fields Auto-Filled',
+            text: `Form populated from the selected hotline. Adjust as needed and ${action === 'TERMINATION' ? 'confirm the termination time' : 'make your updates'}.`,
+            timer: 3000,
+            showConfirmButton: false
+        });
+    }
+
+    function escapeAttr(str) {
+        if (!str) return '';
+        return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     function updateAdvisoryPreview() {
         const type = state.selectedAdvisoryType;
         if (!type) {
@@ -3603,29 +3794,30 @@
     
     function getSmartDefaultTimes() {
         const now = new Date();
-        const minutes = now.getUTCMinutes();
-        
-        // Snap to next quarter hour boundary (:14, :29, :44, :59)
-        let snapMinutes;
-        if (minutes < 15) snapMinutes = 14;
-        else if (minutes < 30) snapMinutes = 29;
-        else if (minutes < 45) snapMinutes = 44;
-        else snapMinutes = 59;
-        
-        // Calculate start time (snapped)
+
+        // Start time = current UTC time (no snapping)
         let startDate = new Date(now);
-        if (minutes > snapMinutes) {
-            // Move to next hour
-            startDate.setUTCHours(startDate.getUTCHours() + 1);
-        }
-        startDate.setUTCMinutes(snapMinutes);
         startDate.setUTCSeconds(0);
         startDate.setUTCMilliseconds(0);
-        
-        // End time is 4 hours later
+
+        // End time = 4 hours later, snapped to next quarter hour boundary (:14, :29, :44, :59)
         let endDate = new Date(startDate);
         endDate.setUTCHours(endDate.getUTCHours() + 4);
-        
+
+        // Snap end time to next quarter hour boundary
+        const endMinutes = endDate.getUTCMinutes();
+        let snapMinutes;
+        if (endMinutes < 15) snapMinutes = 14;
+        else if (endMinutes < 30) snapMinutes = 29;
+        else if (endMinutes < 45) snapMinutes = 44;
+        else snapMinutes = 59;
+
+        if (endMinutes > snapMinutes) {
+            endDate.setUTCHours(endDate.getUTCHours() + 1);
+        }
+        endDate.setUTCMinutes(snapMinutes);
+        endDate.setUTCSeconds(0);
+
         // Format as datetime-local (YYYY-MM-DDTHH:MM)
         const formatDateTimeLocal = (d) => {
             const year = d.getUTCFullYear();
@@ -3635,7 +3827,7 @@
             const mins = String(d.getUTCMinutes()).padStart(2, '0');
             return `${year}-${month}-${day}T${hours}:${mins}`;
         };
-        
+
         return {
             start: formatDateTimeLocal(startDate),
             end: formatDateTimeLocal(endDate),
