@@ -453,18 +453,31 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
 function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $userName) {
     $data = $entry['data'] ?? [];
     $advisoryType = strtoupper($entry['entryType'] ?? 'FREEFORM');
-    
-    // Get advisory number or generate
-    $advisoryNumber = $data['number'] ?? null;
+
+    // ALWAYS get advisory number from database at publish time (ignore client-side number)
+    // This prevents race conditions when multiple users publish advisories simultaneously
+    $clientNumber = $data['number'] ?? null;
+    $advisoryNumber = null;
+
+    try {
+        $stmt = $conn->prepare("DECLARE @num NVARCHAR(16); EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS num;");
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $advisoryNumber = $row['num'] ?? null;
+    } catch (Exception $e) {
+        publish_debug_log('Failed to get advisory number from database', ['error' => $e->getMessage()]);
+    }
+
+    // Fallback if stored procedure failed
     if (empty($advisoryNumber)) {
-        try {
-            $stmt = $conn->prepare("DECLARE @num NVARCHAR(16); EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS num;");
-            $stmt->execute();
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $advisoryNumber = $row['num'] ?? ('ADVZY ' . date('His'));
-        } catch (Exception $e) {
-            $advisoryNumber = 'ADVZY ' . date('His');
-        }
+        $advisoryNumber = 'ADVZY ' . date('His');
+    }
+
+    // Replace the client-side advisory number in the body text with the server-assigned number
+    if (!empty($clientNumber) && $clientNumber !== $advisoryNumber) {
+        // Match patterns like "ADVZY 001" or "ADVZY 021" in the text
+        $rawText = preg_replace('/ADVZY\s*\d{3}/', $advisoryNumber, $rawText, 1);
+        publish_debug_log('Replaced advisory number in body', ['old' => $clientNumber, 'new' => $advisoryNumber]);
     }
     
     // Parse valid times

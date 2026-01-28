@@ -42,7 +42,14 @@ try {
     require_once __DIR__ . '/../../../load/connect.php';
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Config load error']);
+    echo json_encode(['success' => false, 'error' => 'Config load error: ' . $e->getMessage()]);
+    exit;
+}
+
+// Check MySQL connection
+if (!$conn_sqli) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'MySQL database connection not available']);
     exit;
 }
 
@@ -67,26 +74,40 @@ if (!$planDate && !$planId && !$eventSearch) {
 }
 
 // Build query based on parameters
-$query = null;
-$params = [];
+try {
+    if ($planId) {
+        // Get by specific ID
+        $stmt = $conn_sqli->prepare("SELECT * FROM p_plans WHERE id = ?");
+        if (!$stmt) {
+            throw new Exception('Prepare failed: ' . $conn_sqli->error);
+        }
+        $stmt->bind_param('i', $planId);
+    } elseif ($eventSearch) {
+        // Search by event name
+        $searchTerm = '%' . $eventSearch . '%';
+        $stmt = $conn_sqli->prepare("SELECT * FROM p_plans WHERE event_name LIKE ? ORDER BY event_date DESC LIMIT 10");
+        if (!$stmt) {
+            throw new Exception('Prepare failed: ' . $conn_sqli->error);
+        }
+        $stmt->bind_param('s', $searchTerm);
+    } else {
+        // Get by date
+        $stmt = $conn_sqli->prepare("SELECT * FROM p_plans WHERE event_date = ? ORDER BY id DESC");
+        if (!$stmt) {
+            throw new Exception('Prepare failed: ' . $conn_sqli->error);
+        }
+        $stmt->bind_param('s', $planDate);
+    }
 
-if ($planId) {
-    // Get by specific ID
-    $stmt = $conn_sqli->prepare("SELECT * FROM p_plans WHERE id = ?");
-    $stmt->bind_param('i', $planId);
-} elseif ($eventSearch) {
-    // Search by event name
-    $searchTerm = '%' . $eventSearch . '%';
-    $stmt = $conn_sqli->prepare("SELECT * FROM p_plans WHERE event_name LIKE ? ORDER BY event_date DESC LIMIT 10");
-    $stmt->bind_param('s', $searchTerm);
-} else {
-    // Get by date
-    $stmt = $conn_sqli->prepare("SELECT * FROM p_plans WHERE event_date = ? ORDER BY id DESC");
-    $stmt->bind_param('s', $planDate);
+    if (!$stmt->execute()) {
+        throw new Exception('Execute failed: ' . $stmt->error);
+    }
+    $result = $stmt->get_result();
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Database query failed: ' . $e->getMessage()]);
+    exit;
 }
-
-$stmt->execute();
-$result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
     echo json_encode([
@@ -128,18 +149,27 @@ echo json_encode([
  * Return list of available plans
  */
 function returnPlanList($conn) {
-    $query = $conn->query("SELECT id, event_name, event_date, event_start, hotline, oplevel FROM p_plans ORDER BY event_date DESC LIMIT 50");
+    try {
+        $query = $conn->query("SELECT id, event_name, event_date, event_start, hotline, oplevel FROM p_plans ORDER BY event_date DESC LIMIT 50");
 
-    $plans = [];
-    while ($row = $query->fetch_assoc()) {
-        $plans[] = formatPlanBasic($row);
+        if (!$query) {
+            throw new Exception('Query failed: ' . $conn->error);
+        }
+
+        $plans = [];
+        while ($row = $query->fetch_assoc()) {
+            $plans[] = formatPlanBasic($row);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'plans' => $plans,
+            'count' => count($plans)
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database query failed: ' . $e->getMessage()]);
     }
-
-    echo json_encode([
-        'success' => true,
-        'plans' => $plans,
-        'count' => count($plans)
-    ]);
 }
 
 /**
