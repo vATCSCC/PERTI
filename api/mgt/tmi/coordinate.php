@@ -44,7 +44,13 @@ define('DCC_OVERRIDE_USERS', [
     '396865467840593930'  // jpeterson24
 ]);
 
-// DCC override roles
+// DCC override roles (Discord role IDs)
+define('DCC_OVERRIDE_ROLE_IDS', [
+    '1268395552496816231',  // @DCC Staff
+    '1268395359714021396'   // @NTMO
+]);
+
+// DCC override role names (fallback for web UI)
 define('DCC_OVERRIDE_ROLES', [
     'DCC Staff',
     'NTMO'
@@ -429,8 +435,26 @@ function handleSubmitForCoordination() {
         // Extract entry info
         $entryType = $entry['entryType'] ?? 'UNKNOWN';
         $data = $entry['data'] ?? [];
-        $requestingFacility = $data['requesting_facility'] ?? $data['req_fac'] ?? 'DCC';
-        $providingFacility = $data['providing_facility'] ?? $data['prov_fac'] ?? null;
+        $requestingFacility = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? $data['req_fac'] ?? 'DCC'));
+        $providingFacility = strtoupper(trim($data['prov_facility'] ?? $data['providing_facility'] ?? $data['prov_fac'] ?? ''));
+
+        // Filter out the requesting facility from the approval list
+        // The requester implicitly approves by submitting - they shouldn't need to approve their own request
+        $facilities = array_filter($facilities, function($fac) use ($requestingFacility) {
+            $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+            return strtoupper(trim($facCode)) !== $requestingFacility;
+        });
+
+        if (empty($facilities)) {
+            // If the only facility was the requester, use the providing facility instead
+            if ($providingFacility && $providingFacility !== $requestingFacility) {
+                $facilities = [['code' => $providingFacility]];
+            } else {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'No approving facilities specified (requesting facility cannot approve their own request)']);
+                return;
+            }
+        }
         $ctlElement = $data['ctl_element'] ?? $data['airport'] ?? null;
         $validFrom = $data['valid_from'] ?? null;
         $validUntil = $data['valid_until'] ?? null;
@@ -849,7 +873,10 @@ function handleProcessReaction() {
         } else {
             // Check for Discord emoji-based DCC override
             $isDccUser = in_array($discordUserId, DCC_OVERRIDE_USERS);
-            $hasDccRole = !empty(array_intersect($userRoles, DCC_OVERRIDE_ROLES));
+            // Check role IDs (from bot) and role names (from web)
+            $hasDccRoleById = !empty(array_intersect($userRoles, DCC_OVERRIDE_ROLE_IDS));
+            $hasDccRoleByName = !empty(array_intersect($userRoles, DCC_OVERRIDE_ROLES));
+            $hasDccRole = $hasDccRoleById || $hasDccRoleByName;
 
             if ($isDccUser || $hasDccRole) {
                 if (strtoupper($emoji) === DCC_APPROVE_EMOJI || $emoji === ':DCC:') {
