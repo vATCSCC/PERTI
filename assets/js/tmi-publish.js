@@ -8,9 +8,14 @@
  * 
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.9.0
- * @date 2026-01-28
- * 
+ * @version 1.9.1
+ * @date 2026-01-29
+ *
+ * v1.9.1 Changes:
+ *   - Qualifier buttons now support multi-select (multiple in same group)
+ *   - Qualifier buttons can now be unselected by clicking again
+ *   - Removed single-select-per-group restriction
+ *
  * v1.8.4 Changes:
  *   - Qualifier button CSS improvements: white-space: nowrap, flex-shrink
  *   - Qualifier group layout: flexbox with wrap
@@ -1182,13 +1187,9 @@
             this.value = this.value.toUpperCase();
         });
         
-        // Qualifier toggle buttons - only one per group can be selected
+        // Qualifier toggle buttons - multi-select allowed within groups, click to toggle
         $('.qualifier-btn').on('click', function() {
-            const group = $(this).data('group');
-            if (group) {
-                // Deselect others in same group
-                $(`.qualifier-btn[data-group="${group}"]`).removeClass('btn-primary active').addClass('btn-outline-secondary');
-            }
+            // Toggle this button's selected state (no group exclusivity)
             $(this).toggleClass('btn-outline-secondary btn-primary active');
         });
         
@@ -3490,7 +3491,45 @@
         }
     }
 
+    // TMI types that require coordination (external approval process)
+    // All other types can be published directly without coordination
+    const COORDINATION_REQUIRED_TYPES = ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP'];
+
+    /**
+     * Check if an entry type requires external coordination
+     */
+    function requiresCoordination(entryType) {
+        return COORDINATION_REQUIRED_TYPES.includes((entryType || '').toUpperCase());
+    }
+
     function showCoordinationDialog() {
+        // Check if any entries require coordination
+        const entriesRequiringCoord = state.queue.filter(e =>
+            requiresCoordination(e.entryType || e.data?.entry_type)
+        );
+        const entriesNotRequiringCoord = state.queue.filter(e =>
+            !requiresCoordination(e.entryType || e.data?.entry_type)
+        );
+
+        // If no entries require coordination, skip the dialog and publish directly
+        if (entriesRequiringCoord.length === 0) {
+            console.log('[Coordination] No entries require coordination, publishing directly');
+            Swal.fire({
+                title: 'Publish to Production',
+                html: `<p>Post <strong>${state.queue.length}</strong> entry(ies) directly to Discord.</p>
+                       <p class="small text-muted">These entry types do not require facility coordination.</p>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: 'Publish'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    performSubmit();
+                }
+            });
+            return;
+        }
+
         // Calculate default deadline: T(start) - 1 minute, or now + 2 hours if no start time
         let defaultDeadline;
         const queueEntry = state.queue[0];
@@ -3512,11 +3551,23 @@
 
         const deadlineStr = defaultDeadline.toISOString().slice(0, 16);
 
+        // Build info about entries requiring coordination
+        const coordTypesInQueue = [...new Set(entriesRequiringCoord.map(e =>
+            (e.entryType || e.data?.entry_type || 'TMI').toUpperCase()
+        ))];
+
+        // Build a message about what's being submitted
+        let coordMessage = `Post <strong>${entriesRequiringCoord.length}</strong> entry(ies) to <span class="text-danger font-weight-bold">PRODUCTION</span>`;
+        if (entriesNotRequiringCoord.length > 0) {
+            coordMessage += `<br><small class="text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly without coordination)</small>`;
+        }
+        coordMessage += `<br><small class="text-info">Types requiring coordination: ${coordTypesInQueue.join(', ')}</small>`;
+
         Swal.fire({
             title: 'Submit TMI',
             html: `
                 <div class="text-left">
-                    <p class="mb-3">Post <strong>${state.queue.length}</strong> entry(ies) to <span class="text-danger font-weight-bold">PRODUCTION</span></p>
+                    <p class="mb-3">${coordMessage}</p>
 
                     <hr class="my-3">
 
@@ -3726,83 +3777,189 @@
         return html;
     }
 
-    function submitForCoordination(deadline, facilities) {
-        // Submit each entry for coordination
+    async function submitForCoordination(deadline, facilities) {
+        // Submit EACH entry separately for coordination - each gets its own proposal
         // NOTE: Form is labeled "UTC" so user enters UTC time directly
         // datetime-local returns value without timezone, append Z to mark as UTC
-        const payload = {
-            entry: state.queue[0], // For now, handle one entry at a time
-            deadlineUtc: deadline + ':00.000Z',
-            facilities: facilities,
-            userCid: CONFIG.userCid,
-            userName: CONFIG.userName || 'Unknown'
-        };
+        const deadlineUtc = deadline + ':00.000Z';
+
+        // Separate entries that require coordination from those that don't
+        const entriesToCoordinate = state.queue.filter(e =>
+            requiresCoordination(e.entryType || e.data?.entry_type)
+        );
+        const entriesToPublishDirect = state.queue.filter(e =>
+            !requiresCoordination(e.entryType || e.data?.entry_type)
+        );
+
+        const totalCoord = entriesToCoordinate.length;
+        const totalDirect = entriesToPublishDirect.length;
+        const results = { success: [], failed: [], discordFailed: [], directPublished: [] };
 
         Swal.fire({
-            title: 'Submitting for Coordination...',
-            text: 'Posting proposal to #coordination',
+            title: 'Submitting...',
+            html: `<p>Processing <strong>0 / ${totalCoord + totalDirect}</strong> entries</p>`,
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading()
         });
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(payload),
-            success: function(response) {
-                Swal.close();
-                console.log('[Coordination] Response:', response);
+        // First, submit entries requiring coordination
+        for (let i = 0; i < totalCoord; i++) {
+            const entry = entriesToCoordinate[i];
+
+            // Update progress
+            Swal.update({
+                html: `<p>Posting <strong>${i + 1} / ${totalEntries}</strong> proposals to #coordination</p>
+                       <p class="small text-muted">${entry.data?.ctl_element || 'Entry'} - ${entry.data?.entry_type || 'TMI'}</p>`
+            });
+
+            const payload = {
+                entry: entry,
+                deadlineUtc: deadlineUtc,
+                facilities: facilities,
+                userCid: CONFIG.userCid,
+                userName: CONFIG.userName || 'Unknown'
+            };
+
+            try {
+                const response = await $.ajax({
+                    url: 'api/mgt/tmi/coordinate.php',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(payload)
+                });
+
+                console.log(`[Coordination] Entry ${i + 1} Response:`, response);
 
                 if (response.success) {
-                    // Clear queue on success
-                    state.queue = [];
-                    saveState();
-                    updateUI();
-
-                    // Check if Discord posting succeeded
                     const discordOk = response.discord && response.discord.success;
-                    const discordError = response.discord && response.discord.error;
-
                     if (discordOk) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Submitted for Coordination',
-                            html: `<p>Proposal #${response.proposal_id} posted to #coordination.</p>
-                                   <p class="small text-muted">Awaiting facility approval.</p>`,
-                            timer: 4000,
-                            showConfirmButton: true
+                        results.success.push({
+                            entry: entry,
+                            proposalId: response.proposal_id
                         });
                     } else {
-                        // Database succeeded but Discord failed
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Proposal Created - Discord Failed',
-                            html: `<p>Proposal #${response.proposal_id} was saved to database.</p>
-                                   <p class="text-danger"><strong>Discord posting FAILED:</strong></p>
-                                   <p class="small">${discordError || 'Could not post to #coordination channel'}</p>
-                                   <p class="small text-muted">Check server logs: api/mgt/tmi/coordination_debug.log</p>`,
-                            showConfirmButton: true
+                        results.discordFailed.push({
+                            entry: entry,
+                            proposalId: response.proposal_id,
+                            error: response.discord?.error || 'Discord posting failed'
                         });
                     }
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Submission Failed',
-                        text: response.error || 'Unknown error occurred'
+                    results.failed.push({
+                        entry: entry,
+                        error: response.error || 'Unknown error'
                     });
                 }
-            },
-            error: function(xhr, status, error) {
-                Swal.close();
-                console.error('Coordination submit error:', xhr.responseText);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Connection Error',
-                    html: `<p>Failed to submit for coordination.</p><p class="small text-muted">${error}</p>`
+            } catch (error) {
+                console.error(`Coordination submit error for entry ${i + 1}:`, error);
+                results.failed.push({
+                    entry: entry,
+                    error: error.responseText || error.message || 'Connection error'
                 });
             }
-        });
+
+            // Small delay between submissions to avoid rate limiting
+            if (i < totalCoord - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        // Now publish entries that don't require coordination directly
+        if (totalDirect > 0) {
+            Swal.update({
+                html: `<p>Publishing <strong>${totalDirect}</strong> entries directly...</p>
+                       <p class="small text-muted">These types don't require coordination</p>`
+            });
+
+            try {
+                const directPayload = {
+                    entries: entriesToPublishDirect,
+                    production: state.productionMode,
+                    userCid: CONFIG.userCid
+                };
+
+                const directResponse = await $.ajax({
+                    url: 'api/mgt/tmi/publish.php',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(directPayload)
+                });
+
+                if (directResponse.success) {
+                    results.directPublished = entriesToPublishDirect;
+                    console.log('[Coordination] Direct publish succeeded:', directResponse);
+                } else {
+                    console.error('[Coordination] Direct publish failed:', directResponse.error);
+                }
+            } catch (error) {
+                console.error('[Coordination] Direct publish error:', error);
+            }
+        }
+
+        Swal.close();
+
+        // Clear queue and show results
+        state.queue = [];
+        saveState();
+        updateUI();
+
+        // Build result summary
+        const successCount = results.success.length;
+        const discordFailedCount = results.discordFailed.length;
+        const failedCount = results.failed.length;
+        const directCount = results.directPublished.length;
+
+        if (failedCount === 0 && discordFailedCount === 0) {
+            // All succeeded
+            let html = '';
+            if (successCount > 0) {
+                const proposalIds = results.success.map(r => `#${r.proposalId}`).join(', ');
+                html += `<p><strong>${successCount}</strong> proposal(s) posted to #coordination.</p>
+                         <p class="small">Proposal IDs: ${proposalIds}</p>
+                         <p class="small text-muted">Awaiting facility approval.</p>`;
+            }
+            if (directCount > 0) {
+                html += `<p><strong>${directCount}</strong> entry(ies) published directly.</p>`;
+            }
+            Swal.fire({
+                icon: 'success',
+                title: 'Submission Complete',
+                html: html,
+                timer: 5000,
+                showConfirmButton: true
+            });
+        } else if (successCount === 0 && discordFailedCount === 0 && directCount === 0) {
+            // All failed
+            Swal.fire({
+                icon: 'error',
+                title: 'All Submissions Failed',
+                html: `<p>Failed to submit <strong>${failedCount}</strong> proposal(s).</p>
+                       <p class="small text-danger">${results.failed[0]?.error || 'Unknown error'}</p>`
+            });
+        } else {
+            // Mixed results
+            let html = '';
+            if (successCount > 0) {
+                const proposalIds = results.success.map(r => `#${r.proposalId}`).join(', ');
+                html += `<p class="text-success"><strong>${successCount}</strong> submitted for coordination (${proposalIds})</p>`;
+            }
+            if (directCount > 0) {
+                html += `<p class="text-success"><strong>${directCount}</strong> published directly</p>`;
+            }
+            if (discordFailedCount > 0) {
+                const proposalIds = results.discordFailed.map(r => `#${r.proposalId}`).join(', ');
+                html += `<p class="text-warning"><strong>${discordFailedCount}</strong> saved but Discord failed (${proposalIds})</p>`;
+            }
+            if (failedCount > 0) {
+                html += `<p class="text-danger"><strong>${failedCount}</strong> failed to submit</p>`;
+            }
+
+            Swal.fire({
+                icon: discordFailedCount > 0 || failedCount > 0 ? 'warning' : 'success',
+                title: 'Submission Results',
+                html: html
+            });
+        }
     }
     
     function performSubmit() {

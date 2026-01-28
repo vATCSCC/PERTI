@@ -260,13 +260,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // DELETE: Clear queue entries
 // DELETE /api/mgt/tmi/queue.php                    - Clear all PENDING/FAILED entries
 // DELETE /api/mgt/tmi/queue.php?status=PENDING     - Clear only PENDING
-// DELETE /api/mgt/tmi/queue.php?entity_type=CONFIG - Clear only CONFIG entries
+// DELETE /api/mgt/tmi/queue.php?entity_type=ENTRY  - Clear only ENTRY type in queue (vs ADVISORY)
+// DELETE /api/mgt/tmi/queue.php?entry_type=CONFIG  - Clear only CONFIG entries (from tmi_entries)
 // DELETE /api/mgt/tmi/queue.php?element=JFK        - Clear entries for specific element
 // DELETE /api/mgt/tmi/queue.php?all=1              - Clear ALL entries (including POSTED)
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     try {
         $status = $_GET['status'] ?? null;
         $entityType = $_GET['entity_type'] ?? null;
+        $entryType = $_GET['entry_type'] ?? null;
         $element = $_GET['element'] ?? null;
         $clearAll = isset($_GET['all']) && $_GET['all'];
 
@@ -285,10 +287,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         }
 
         if ($entityType) {
-            // Need to join with entries to filter by entry_type
-            // For now, just filter by entity_type column if it exists
+            // Filter by entity_type column in queue (ENTRY vs ADVISORY)
             $conditions[] = "entity_type = :entity_type";
             $params[':entity_type'] = strtoupper($entityType);
+        }
+
+        if ($entryType) {
+            // Filter by entry_type from tmi_entries (CONFIG, MIT, MINIT, etc.)
+            $conditions[] = "entity_type = 'ENTRY' AND entity_id IN (SELECT entry_id FROM dbo.tmi_entries WHERE entry_type = :entry_type)";
+            $params[':entry_type'] = strtoupper($entryType);
         }
 
         if ($element) {
@@ -325,6 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             'filters' => [
                 'status' => $status,
                 'entity_type' => $entityType,
+                'entry_type' => $entryType,
                 'element' => $element,
                 'all' => $clearAll
             ]

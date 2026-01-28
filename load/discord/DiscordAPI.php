@@ -421,6 +421,98 @@ class DiscordAPI {
     }
 
     // =========================================
+    // THREAD OPERATIONS
+    // =========================================
+
+    /**
+     * Create a thread from an existing message
+     *
+     * Discord API: POST /channels/{channel_id}/messages/{message_id}/threads
+     *
+     * @param string $channelId Channel ID or purpose name
+     * @param string $messageId Message ID to start thread from
+     * @param string $name Thread name (1-100 characters)
+     * @param int $autoArchiveDuration Minutes of inactivity before archiving (60, 1440, 4320, 10080)
+     * @return array|null Thread channel object or null on error
+     */
+    public function createThreadFromMessage($channelId, $messageId, $name, $autoArchiveDuration = 1440) {
+        $channelId = $this->resolveChannelId($channelId);
+        if (!$channelId) {
+            $this->lastError = 'Invalid channel ID or purpose';
+            return null;
+        }
+
+        // Thread name must be 1-100 characters
+        $name = mb_substr(trim($name), 0, 100);
+        if (empty($name)) {
+            $this->lastError = 'Thread name is required';
+            return null;
+        }
+
+        $data = [
+            'name' => $name,
+            'auto_archive_duration' => $autoArchiveDuration
+        ];
+
+        return $this->request('POST', "/channels/{$channelId}/messages/{$messageId}/threads", $data);
+    }
+
+    /**
+     * Create a thread without a starter message (for forum channels or general text channels)
+     *
+     * Discord API: POST /channels/{channel_id}/threads
+     *
+     * @param string $channelId Channel ID or purpose name
+     * @param string $name Thread name (1-100 characters)
+     * @param string|null $message Initial message content for the thread
+     * @param int $autoArchiveDuration Minutes of inactivity before archiving (60, 1440, 4320, 10080)
+     * @param int|null $type Thread type (11 = PUBLIC_THREAD, 12 = PRIVATE_THREAD)
+     * @return array|null Thread channel object or null on error
+     */
+    public function createThread($channelId, $name, $message = null, $autoArchiveDuration = 1440, $type = 11) {
+        $channelId = $this->resolveChannelId($channelId);
+        if (!$channelId) {
+            $this->lastError = 'Invalid channel ID or purpose';
+            return null;
+        }
+
+        // Thread name must be 1-100 characters
+        $name = mb_substr(trim($name), 0, 100);
+        if (empty($name)) {
+            $this->lastError = 'Thread name is required';
+            return null;
+        }
+
+        $data = [
+            'name' => $name,
+            'auto_archive_duration' => $autoArchiveDuration,
+            'type' => $type
+        ];
+
+        // For forum channels, use message object
+        if ($message !== null) {
+            $data['message'] = ['content' => $message];
+        }
+
+        return $this->request('POST', "/channels/{$channelId}/threads", $data);
+    }
+
+    /**
+     * Send a message to a thread
+     *
+     * @param string $threadId Thread channel ID
+     * @param array|string $data Message data or content string
+     * @return array|null Message object or null on error
+     */
+    public function sendMessageToThread($threadId, $data) {
+        // Threads are channels, so we use the same endpoint
+        if (is_string($data)) {
+            $data = ['content' => $data];
+        }
+        return $this->request('POST', "/channels/{$threadId}/messages", $data);
+    }
+
+    // =========================================
     // CHANNEL OPERATIONS
     // =========================================
 
