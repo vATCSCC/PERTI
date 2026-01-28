@@ -141,6 +141,10 @@
 
         if (!$reqFac.length || !$provFac.length) return;
 
+        // Add class for CSS styling
+        $reqFac.addClass('facility-filter-select');
+        $provFac.addClass('facility-filter-select');
+
         // Get data from global FacilityHierarchy
         const ARTCCS = getARTCCS();
         const DCC_REGIONS = getDCC_REGIONS();
@@ -334,12 +338,27 @@
         const ARTCC_TO_REGION = getARTCC_TO_REGION();
         const TRACON_TO_ARTCC = getTRACON_TO_ARTCC();
 
-        // Get color for the tag
+        // Get color for the tag based on region
         const region = ARTCC_TO_REGION[fac] || ARTCC_TO_REGION[TRACON_TO_ARTCC[fac]];
+        let bgColor = '#6c757d'; // Default gray
+
         if (region && DCC_REGIONS[region]) {
-            return $(`<span style="color: ${DCC_REGIONS[region].color}">${fac}</span>`);
+            bgColor = DCC_REGIONS[region].color;
         }
-        return fac;
+
+        // Return styled span - Select2 will use this for the tag content
+        // We also set a data attribute that we can use to color the parent element
+        const $el = $(`<span class="fac-tag" data-region="${region || ''}" data-fac="${fac}">${fac}</span>`);
+
+        // Apply background color to parent choice element after render
+        setTimeout(function() {
+            $el.closest('.select2-selection__choice').css({
+                'background-color': bgColor,
+                'border-color': bgColor
+            });
+        }, 0);
+
+        return $el;
     }
 
     function getRegionForFacility(facility) {
@@ -590,10 +609,66 @@
         }
     }
 
+    // Advisory batch controls
+    function updateAdvisoryBatchControls() {
+        const selectedCount = $('.batch-select-advisory:checked').length;
+        $('#advisorySelectedCount').text(selectedCount);
+        if (selectedCount > 0) {
+            $('#advisoryBatchCancelControls').show();
+        } else {
+            $('#advisoryBatchCancelControls').hide();
+        }
+    }
+
+    function performAdvisoryBatchCancel() {
+        const selected = [];
+        $('.batch-select-advisory:checked').each(function() {
+            selected.push({
+                entityId: $(this).data('id'),
+                entityType: $(this).data('type')
+            });
+        });
+
+        if (selected.length === 0) {
+            return;
+        }
+
+        // All advisory types support cancellation advisories
+        const supportsAdvisory = true;
+
+        Swal.fire({
+            title: `Cancel ${selected.length} Advisory${selected.length > 1 ? 's' : ''}?`,
+            html: `<p>You are about to cancel <strong>${selected.length}</strong> advisor${selected.length > 1 ? 'ies' : 'y'}.</p>
+                   <p class="text-danger">This action cannot be undone.</p>
+                   <hr class="my-3">
+                   <div class="form-check text-left">
+                       <input type="checkbox" class="form-check-input" id="postCancelAdvisoryBatch" checked>
+                       <label class="form-check-label" for="postCancelAdvisoryBatch">
+                           <strong>Post Cancellation Advisories</strong><br>
+                           <small class="text-muted">Auto-generates cancellation advisories for reroutes and hotlines</small>
+                       </label>
+                   </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: '<i class="fas fa-times-circle"></i> Cancel All Selected',
+            cancelButtonText: 'Nevermind',
+            preConfirm: () => {
+                return {
+                    postAdvisory: document.getElementById('postCancelAdvisoryBatch')?.checked
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                executeBatchCancel(selected, result.value?.postAdvisory || false);
+            }
+        });
+    }
+
     // ===========================================
     // Data Loading
     // ===========================================
-    
+
     function loadActiveTmis() {
         console.log('[TMI-Active] Loading active TMIs...');
         
@@ -660,10 +735,12 @@
         allActive.forEach(item => {
             if (item.entityType === 'ADVISORY') {
                 state.advisories.push(item);
+            } else if (item.entityType === 'REROUTE') {
+                // Reroutes go to advisories section (they have advisory text to display)
+                state.advisories.push(item);
+                state.reroutes.push(item);  // Also keep in reroutes for filtering purposes
             } else if (item.entityType === 'PROGRAM') {
                 state.programs.push(item);
-            } else if (item.entityType === 'REROUTE') {
-                state.reroutes.push(item);
             } else {
                 state.restrictions.push(item);
             }
@@ -942,10 +1019,15 @@
 
     function renderAdvisories() {
         const $container = $('#advisoriesContainer');
-        
+
+        // Reset batch controls for advisories
+        $('#selectAllAdvisories').prop('checked', false);
+        $('#advisoryBatchCancelControls').hide();
+        $('#advisorySelectedCount').text('0');
+
         // Get filtered advisories
         let items = getFilteredAdvisories();
-        
+
         if (items.length === 0) {
             $container.html(`
                 <div class="text-center py-4 text-muted">
@@ -955,14 +1037,48 @@
             `);
             return;
         }
-        
+
+        // Build batch controls header
+        const hasSelectableItems = items.some(i => !['CANCELLED', 'PURGED', 'EXPIRED'].includes(i.status));
         let html = '';
+        if (hasSelectableItems) {
+            html += `
+                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="selectAllAdvisories">
+                        <label class="form-check-label small" for="selectAllAdvisories">Select All</label>
+                    </div>
+                    <div id="advisoryBatchCancelControls" style="display: none;">
+                        <span class="badge badge-secondary mr-2"><span id="advisorySelectedCount">0</span> selected</span>
+                        <button class="btn btn-sm btn-danger" id="advisoryBatchCancelBtn">
+                            <i class="fas fa-times-circle"></i> Cancel Selected
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
         items.forEach(item => {
             html += buildAdvisoryCard(item);
         });
-        
+
         $container.html(html);
-        
+
+        // Bind batch controls
+        $('#selectAllAdvisories').on('change', function() {
+            const isChecked = $(this).is(':checked');
+            $('.batch-select-advisory').prop('checked', isChecked);
+            updateAdvisoryBatchControls();
+        });
+
+        // Individual advisory checkbox changes
+        $container.on('change', '.batch-select-advisory', function() {
+            updateAdvisoryBatchControls();
+        });
+
+        // Advisory batch cancel button
+        $('#advisoryBatchCancelBtn').on('click', performAdvisoryBatchCancel);
+
         // Bind expand/collapse
         $container.find('.advisory-header').on('click', function() {
             const $card = $(this).closest('.advisory-card');
@@ -974,40 +1090,68 @@
         $container.find('.btn-cancel-advisory').on('click', function(e) {
             e.stopPropagation();
             const id = $(this).data('id');
-            cancelAdvisory(id);
+            const type = $(this).data('type') || 'ADVISORY';
+            cancelAdvisory(id, type);
         });
 
         // Bind edit buttons
         $container.find('.btn-edit-advisory').on('click', function(e) {
             e.stopPropagation();
             const id = $(this).data('id');
-            editAdvisory(id);
+            const type = $(this).data('type') || 'ADVISORY';
+            editAdvisory(id, type);
         });
     }
 
     function buildAdvisoryCard(item) {
+        const isReroute = item.entityType === 'REROUTE';
         const advNum = item.advisoryNumber || '???';
-        const advType = item.entryType || 'ADVISORY';
-        const subject = item.subject || advType;
+        const advType = isReroute ? 'REROUTE' : (item.entryType || 'ADVISORY');
+        const subject = isReroute ? (item.name || item.summary || 'Reroute') : (item.subject || advType);
         const effectiveTime = formatFaaDateTime(item.validFrom);
         const status = item.status || 'ACTIVE';
-        
-        const headerColor = advType === 'HOTLINE' ? 'bg-danger' :
+
+        const headerColor = isReroute ? 'bg-info' :
+                           advType === 'HOTLINE' ? 'bg-danger' :
                            advType === 'SWAP' ? 'bg-warning text-dark' :
                            advType === 'OPSPLAN' ? 'bg-primary' : 'bg-secondary';
-        
+
         const statusBadge = status === 'CANCELLED' ? '<span class="badge badge-secondary">CXLD</span>' :
                            status === 'SCHEDULED' ? '<span class="badge badge-info">SCHEDULED</span>' : '';
-        
-        // Parse body text for display
-        const bodyText = item.bodyText || item.rawText || 'No details available.';
-        
+
+        // For reroutes, use advisoryText; for advisories use bodyText/rawText
+        const bodyText = isReroute
+            ? (item.advisoryText || item.routeString || 'No route details available.')
+            : (item.bodyText || item.rawText || 'No details available.');
+
+        // Build the header label
+        const headerLabel = isReroute
+            ? `REROUTE ${advNum !== '???' ? advNum : ''}`
+            : `ADVZY ${escapeHtml(advNum)}`;
+
+        // Build entity type for data attributes
+        const entityType = isReroute ? 'REROUTE' : 'ADVISORY';
+
+        // Additional info for reroutes (origin/dest, validity time)
+        let validityInfo = '';
+        if (isReroute) {
+            const validUntil = formatFaaDateTime(item.validUntil);
+            if (item.constrainedArea || item.originCenters || item.destCenters) {
+                const scope = item.constrainedArea ||
+                    [item.originCenters, item.destCenters].filter(Boolean).join(' → ');
+                validityInfo = `<div class="small text-muted mb-2"><strong>Scope:</strong> ${escapeHtml(scope)} | <strong>Valid:</strong> ${effectiveTime} - ${validUntil}</div>`;
+            }
+        }
+
+        const canSelect = !['CANCELLED', 'PURGED', 'EXPIRED'].includes(status);
+
         return `
-            <div class="card advisory-card mb-2 ${status === 'CANCELLED' ? 'border-secondary' : ''}">
+            <div class="card advisory-card mb-2 ${status === 'CANCELLED' ? 'border-secondary' : ''}" data-id="${item.entityId}" data-type="${entityType}">
                 <div class="card-header ${headerColor} py-2 advisory-header" style="cursor: pointer;">
                     <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="font-weight-bold">ADVZY ${escapeHtml(advNum)}</span>
+                        <div class="d-flex align-items-center">
+                            ${canSelect ? `<input type="checkbox" class="batch-select-advisory mr-2" data-id="${item.entityId}" data-type="${entityType}" onclick="event.stopPropagation();">` : ''}
+                            <span class="font-weight-bold">${headerLabel}</span>
                             <span class="mx-2">|</span>
                             <span>${escapeHtml(subject)}</span>
                             ${statusBadge}
@@ -1019,18 +1163,19 @@
                     </div>
                 </div>
                 <div class="card-body advisory-body py-2" style="display: none;">
+                    ${validityInfo}
                     <pre class="advisory-text mb-2">${escapeHtml(bodyText)}</pre>
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="text-muted">
                             Created: ${formatFaaDateTime(item.createdAt)}
-                            ${item.createdByName ? ` by ${escapeHtml(item.createdByName)}` : ''}
+                            ${item.createdByName || item.createdBy ? ` by ${escapeHtml(item.createdByName || item.createdBy)}` : ''}
                         </small>
                         ${status !== 'CANCELLED' ? `
                         <div class="btn-group btn-group-sm" role="group">
-                            <button class="btn btn-sm btn-outline-primary btn-edit-advisory" data-id="${item.entityId}">
+                            <button class="btn btn-sm btn-outline-primary btn-edit-advisory" data-id="${item.entityId}" data-type="${entityType}">
                                 <i class="fas fa-edit mr-1"></i> Edit
                             </button>
-                            <button class="btn btn-sm btn-outline-danger btn-cancel-advisory" data-id="${item.entityId}">
+                            <button class="btn btn-sm btn-outline-danger btn-cancel-advisory" data-id="${item.entityId}" data-type="${entityType}">
                                 <i class="fas fa-times mr-1"></i> Cancel
                             </button>
                         </div>
@@ -1087,17 +1232,17 @@
     function getFilteredRestrictions() {
         let items = [];
 
-        // Add based on status filter - includes ENTRY, PROGRAM, REROUTE
+        // Add based on status filter - includes ENTRY, PROGRAM (NOT REROUTE - shown in advisories)
         if (state.filters.status === 'ALL' || state.filters.status === 'ACTIVE') {
             items = items.concat(state.restrictions);
             items = items.concat(state.programs);
-            items = items.concat(state.reroutes);
+            // Reroutes now show in advisories section, not here
         }
         if (state.filters.status === 'ALL' || state.filters.status === 'SCHEDULED') {
-            items = items.concat(state.scheduled.filter(i => i.entityType !== 'ADVISORY'));
+            items = items.concat(state.scheduled.filter(i => i.entityType !== 'ADVISORY' && i.entityType !== 'REROUTE'));
         }
         if (state.filters.status === 'ALL' || state.filters.status === 'CANCELLED') {
-            items = items.concat(state.cancelled.filter(i => i.entityType !== 'ADVISORY'));
+            items = items.concat(state.cancelled.filter(i => i.entityType !== 'ADVISORY' && i.entityType !== 'REROUTE'));
         }
 
         // Apply requesting facility filter with hierarchy expansion
@@ -1166,17 +1311,19 @@
 
     function getFilteredAdvisories() {
         let items = [];
-        
+
         if (state.filters.status === 'ALL' || state.filters.status === 'ACTIVE') {
-            items = items.concat(state.advisories);
+            items = items.concat(state.advisories);  // Already includes REROUTE items
         }
         if (state.filters.status === 'ALL' || state.filters.status === 'SCHEDULED') {
-            items = items.concat(state.scheduled.filter(i => i.entityType === 'ADVISORY'));
+            // Include both ADVISORY and REROUTE scheduled items
+            items = items.concat(state.scheduled.filter(i => i.entityType === 'ADVISORY' || i.entityType === 'REROUTE'));
         }
         if (state.filters.status === 'ALL' || state.filters.status === 'CANCELLED') {
-            items = items.concat(state.cancelled.filter(i => i.entityType === 'ADVISORY'));
+            // Include both ADVISORY and REROUTE cancelled items
+            items = items.concat(state.cancelled.filter(i => i.entityType === 'ADVISORY' || i.entityType === 'REROUTE'));
         }
-        
+
         return items;
     }
 
@@ -1186,11 +1333,29 @@
     
     function showRestrictionDetails(id, type) {
         // Find the item - also check programs and reroutes
-        const allItems = [...state.restrictions, ...state.programs, ...state.reroutes, ...state.scheduled, ...state.cancelled];
-        const item = allItems.find(i => i.entityId === id);
+        // Use type parameter to ensure we find the correct item (avoid ID collisions between entity types)
+        const allItems = [...state.restrictions, ...state.programs, ...state.reroutes, ...state.advisories, ...state.scheduled, ...state.cancelled];
+
+        // Map display type to entity type
+        const entityTypeMap = {
+            'PROGRAM': 'PROGRAM',
+            'REROUTE': 'REROUTE',
+            'publicroute': 'REROUTE',
+            'ENTRY': 'ENTRY',
+            'ADVISORY': 'ADVISORY'
+        };
+        const expectedEntityType = entityTypeMap[type] || type;
+
+        // First try to find by both ID and entity type for exact match
+        let item = allItems.find(i => i.entityId === id && i.entityType === expectedEntityType);
+
+        // Fallback to just ID match if type match fails
+        if (!item) {
+            item = allItems.find(i => i.entityId === id);
+        }
 
         if (!item) {
-            console.warn('[TMI-Active] Item not found:', id);
+            console.warn('[TMI-Active] Item not found:', id, type);
             return;
         }
 
@@ -1412,8 +1577,9 @@
         });
     }
 
-    function cancelAdvisory(id) {
-        cancelTmi(id, 'ADVISORY');
+    function cancelAdvisory(id, type) {
+        // For reroutes, use REROUTE type; otherwise use ADVISORY
+        cancelTmi(id, type || 'ADVISORY');
     }
 
     // ===========================================
@@ -1563,9 +1729,15 @@
         });
     }
 
-    function editAdvisory(id) {
+    function editAdvisory(id, type) {
+        // For reroutes, redirect to route page
+        if (type === 'REROUTE') {
+            window.location.href = 'route?edit=' + id;
+            return;
+        }
+
         // Find the advisory in state
-        const allItems = [...state.advisories, ...state.scheduled.filter(i => i.entityType === 'ADVISORY')];
+        const allItems = [...state.advisories.filter(i => i.entityType === 'ADVISORY'), ...state.scheduled.filter(i => i.entityType === 'ADVISORY')];
         const item = allItems.find(i => i.entityId === id);
 
         if (!item) {

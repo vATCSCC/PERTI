@@ -241,7 +241,7 @@ $where_sql = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
 
 // Query flights from ADL
 $flights_sql = "
-    SELECT 
+    SELECT
         flight_uid,
         flight_key,
         callsign,
@@ -252,9 +252,13 @@ $flights_sql = "
         fp_dest_artcc AS arr_center,
         etd_runway_utc AS etd_utc,
         eta_runway_utc AS eta_utc,
+        -- Include epoch values for JavaScript compatibility
+        DATEDIFF(SECOND, '1970-01-01', etd_runway_utc) AS etd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', eta_runway_utc) AS eta_epoch,
         ete_minutes,
         ac_cat AS aircraft_type,
-        phase
+        phase,
+        gs_flag
     FROM dbo.vw_adl_flights
     {$where_sql}
     ORDER BY eta_runway_utc ASC, flight_uid ASC

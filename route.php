@@ -1343,6 +1343,56 @@
 
     <!-- Info Bar Shared Styles -->
     <link rel="stylesheet" href="assets/css/info-bar.css">
+
+    <!-- Embed Mode Styles -->
+    <style>
+        body.embed-mode {
+            background: #1a1a2e;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden;
+        }
+        body.embed-mode nav,
+        body.embed-mode footer,
+        body.embed-mode .jarallax,
+        body.embed-mode .perti-info-bar,
+        body.embed-mode .route-controls-panel,
+        body.embed-mode #map_library_toggle,
+        body.embed-mode .copyright-section {
+            display: none !important;
+        }
+        body.embed-mode .container-fluid {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
+        body.embed-mode .route-main-container {
+            margin: 0 !important;
+        }
+        body.embed-mode .route-map-section {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+        body.embed-mode #map_wrapper {
+            height: 100vh !important;
+            min-height: 100vh !important;
+        }
+    </style>
+
+    <!-- Embed Mode Detection -->
+    <script>
+        (function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            window.PERTI_EMBED_MODE = (urlParams.get('embed') === '1');
+            if (window.PERTI_EMBED_MODE) {
+                document.documentElement.classList.add('embed-mode');
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.body.classList.add('embed-mode');
+                });
+            }
+        })();
+    </script>
 </head>
 
 <body>

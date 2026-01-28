@@ -233,15 +233,21 @@ window.PublicRoutes = (function() {
                 const savedRoute = data.data || data.route || {};
                 const advNum = savedRoute.adv_number || routeData.adv_number || '';
                 const routeName = savedRoute.name || routeData.name || 'Route';
+                const discordPublished = savedRoute.discord_published === true;
 
                 if (typeof Swal !== 'undefined') {
+                    // Build Discord status line based on actual result
+                    let discordLine = discordPublished
+                        ? '<i class="fab fa-discord text-info mr-1"></i> Published to Discord'
+                        : '<i class="fab fa-discord text-muted mr-1"></i> <span class="text-muted">Discord: Not published (no advisory text or Discord not configured)</span>';
+
                     Swal.fire({
                         icon: 'success',
                         title: 'Route Published!',
                         html: `
                             <p><strong>${escapeHtml(routeName)}</strong>${advNum ? ` (Advisory #${escapeHtml(advNum)})` : ''} has been published successfully.</p>
                             <p class="small text-muted mt-2">
-                                <i class="fab fa-discord text-info mr-1"></i> Published to Discord<br>
+                                ${discordLine}<br>
                                 <i class="fas fa-list-alt text-primary mr-1"></i> Visible on <a href="tmi" target="_blank">Active Restrictions & Advisories</a>
                             </p>
                         `,
@@ -1929,6 +1935,7 @@ window.PublicRoutes = (function() {
         const urlParams = new URLSearchParams(window.location.search);
         const viewRouteId = urlParams.get('view');
         const editRouteId = urlParams.get('edit');
+        const isEmbedMode = window.PERTI_EMBED_MODE || urlParams.get('embed') === '1';
 
         if (viewRouteId || editRouteId) {
             // Enable public routes layer and fetch routes
@@ -1943,19 +1950,21 @@ window.PublicRoutes = (function() {
                 if (targetRoute) {
                     console.log('[PublicRoutes] Found route from URL param:', targetRoute.name);
 
-                    if (editRouteId) {
-                        // Open route for editing
+                    if (editRouteId && !isEmbedMode) {
+                        // Open route for editing (skip in embed mode)
                         editRouteInBuilder(targetRoute);
-                    } else {
-                        // Show route details and zoom to it
+                    } else if (!isEmbedMode) {
+                        // Show route details and zoom to it (only in full mode)
                         showRouteDetails(targetRoute);
-                        if (typeof zoomToRoute === 'function') {
-                            zoomToRoute(targetRoute);
-                        }
+                    }
+
+                    // Always zoom to route in both modes
+                    if (typeof zoomToRoute === 'function') {
+                        zoomToRoute(targetRoute);
                     }
                 } else {
                     console.warn('[PublicRoutes] Route not found for ID:', targetId);
-                    if (typeof Swal !== 'undefined') {
+                    if (!isEmbedMode && typeof Swal !== 'undefined') {
                         Swal.fire('Not Found', 'The requested route could not be found.', 'warning');
                     }
                 }

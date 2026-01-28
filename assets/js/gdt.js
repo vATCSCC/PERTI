@@ -3473,8 +3473,65 @@ function renderFlightsFromAdlRowsForWorkflow(adlRows, sourceLabel) {
 
             r.source = sourceLabel || r.source || "";
             r._adl = { raw: raw, filtered: r };
+
+            // Add exemption reason for non-eligible flights
+            if (r.gsFlag === 1) {
+                r.exemptReason = null;
+            } else {
+                var phase = (r.flightStatus || "").toUpperCase();
+                switch (phase) {
+                    case "DEPARTED": r.exemptReason = "DEP"; break;
+                    case "ENROUTE": r.exemptReason = "ENR"; break;
+                    case "DESCENDING": r.exemptReason = "DESC"; break;
+                    case "ARRIVED": r.exemptReason = "ARR"; break;
+                    case "DISCONNECTED": r.exemptReason = "DISC"; break;
+                    default: r.exemptReason = "AIR";
+                }
+            }
             rows.push(r);
         });
+
+        // Filter based on display mode (GS_SHOW_ALL_FLIGHTS)
+        var allRows = rows.slice(); // Keep copy for counts
+        if (!GS_SHOW_ALL_FLIGHTS) {
+            rows = rows.filter(function(r) {
+                return r.gsFlag === 1;
+            });
+        }
+
+        // Update table header to show/hide exemption column
+        var thead = tbody.closest("table").querySelector("thead");
+        if (thead) {
+            var headerRow = thead.querySelector("tr");
+            var exemptHeader = headerRow.querySelector(".gs-exempt-header");
+            if (GS_SHOW_ALL_FLIGHTS) {
+                if (!exemptHeader) {
+                    var th = document.createElement("th");
+                    th.className = "gs-exempt-header";
+                    th.textContent = "EXEMPT";
+                    th.title = "Exemption reason: DEP=Departed, ENR=Enroute, DESC=Descending, ARR=Arrived, DISC=Disconnected";
+                    headerRow.appendChild(th);
+                }
+            } else {
+                if (exemptHeader) {
+                    exemptHeader.remove();
+                }
+            }
+        }
+
+        // Count eligible vs exempt for display
+        var eligibleCount = allRows.filter(function(r) { return r.gsFlag === 1; }).length;
+        var exemptCount = allRows.filter(function(r) { return r.gsFlag !== 1; }).length;
+
+        // Update flight count display
+        var countLabel = document.getElementById("gs_flight_count_label");
+        if (countLabel) {
+            if (GS_SHOW_ALL_FLIGHTS) {
+                countLabel.innerHTML = '<span class="text-success">' + eligibleCount + ' eligible</span> + <span class="text-muted">' + exemptCount + ' exempt</span>';
+            } else {
+                countLabel.textContent = eligibleCount + " eligible flights";
+            }
+        }
 
         // Apply current sort order
         var field = GS_MATCHING_SORT.field;
@@ -3529,7 +3586,8 @@ function renderFlightsFromAdlRowsForWorkflow(adlRows, sourceLabel) {
 
         GS_FLIGHT_ROW_INDEX = {};
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-3">No flights match the current filters.</td></tr>';
+            var colSpan = GS_SHOW_ALL_FLIGHTS ? 9 : 8;
+            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-muted text-center py-3">No flights match the current filters.</td></tr>';
             applyTimeFilterToTable();
             return;
         }
@@ -3554,6 +3612,26 @@ function renderFlightsFromAdlRowsForWorkflow(adlRows, sourceLabel) {
                 statusText = ctlType || delayStatus || flightStatus || "";
             }
 
+            // Row styling for exempt flights
+            var rowClass = "gs-flight-row";
+            var exemptCell = "";
+            if (GS_SHOW_ALL_FLIGHTS) {
+                if (r.gsFlag !== 1) {
+                    rowClass += " table-secondary text-muted";
+                    var reasonTitle = {
+                        "DEP": "Already departed",
+                        "ENR": "Enroute/airborne",
+                        "DESC": "Descending to destination",
+                        "ARR": "Already arrived",
+                        "DISC": "Pilot disconnected",
+                        "AIR": "Airborne/ineligible"
+                    };
+                    exemptCell = '<td><span class="badge badge-secondary" title="' + (reasonTitle[r.exemptReason] || "Exempt") + '">' + (r.exemptReason || "EX") + '</span></td>';
+                } else {
+                    exemptCell = '<td><span class="badge badge-success">OK</span></td>';
+                }
+            }
+
             html += '<tr id="' + escapeHtml(rowId) + '" ' +
                 'data-callsign="' + escapeHtml(cs) + '" ' +
                 'data-orig="' + escapeHtml(dep) + '" ' +
@@ -3567,7 +3645,7 @@ function renderFlightsFromAdlRowsForWorkflow(adlRows, sourceLabel) {
                 'data-mft-epoch="' + (r.mftEpoch != null ? String(r.mftEpoch) : "") + '" ' +
                 'data-vt-epoch="' + (r.vtEpoch != null ? String(r.vtEpoch) : "") + '" ' +
                 'data-ete-minutes="' + (r.eteMinutes != null ? String(r.eteMinutes) : "") + '" ' +
-                'class="gs-flight-row"' +
+                'class="' + rowClass + '"' +
                 ">" +
                 "<td><strong>" + escapeHtml(cs) + "</strong></td>" +
                 '<td class="gs_etd_cell">' + (r.etdEpoch ? (escapeHtml(r.etdPrefix || "") + " " + escapeHtml(formatZuluFromEpoch(r.etdEpoch))) : "") + "</td>" +
@@ -3578,6 +3656,7 @@ function renderFlightsFromAdlRowsForWorkflow(adlRows, sourceLabel) {
                 "<td>" + escapeHtml(dep) + "</td>" +
                 '<td style="color:' + escapeHtml(destColor) + ';">' + escapeHtml(arr) + "</td>" +
                 "<td>" + escapeHtml(statusText) + ' <a href="#" class="ecr-link text-info ml-1" title="EDCT Change Request" style="font-size:0.85em;"><i class="fas fa-clock"></i></a></td>' +
+                exemptCell +
                 "</tr>";
         });
 
@@ -5027,8 +5106,14 @@ function loadTierInfo() {
         if (showAllToggle) {
             showAllToggle.addEventListener("change", function() {
                 GS_SHOW_ALL_FLIGHTS = this.checked;
-                // Refresh the flight table
-                loadVatsimFlightsForCurrentGs();
+                // If we have workflow data (from Preview/Simulate), re-render from that
+                // Otherwise fall back to VATSIM/ADL loading
+                if (GS_MATCHING_FLIGHTS && GS_MATCHING_FLIGHTS.length > 0) {
+                    var sourceLabel = GS_CURRENT_PROGRAM_STATUS === "SIMULATED" ? "GS-SIM" : "GS-PREVIEW";
+                    renderFlightsFromAdlRowsForWorkflow(GS_MATCHING_FLIGHTS, sourceLabel);
+                } else {
+                    loadVatsimFlightsForCurrentGs();
+                }
             });
         }
 
