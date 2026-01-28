@@ -1927,63 +1927,25 @@
             title: '<i class="fas fa-file-import text-primary"></i> Import PERTI Plan',
             html: `
                 <div class="text-left">
-                    <p class="small text-muted mb-3">Import planned TMIs from a PERTI Plan to populate the Operations Plan advisory.</p>
-                    <ul class="nav nav-tabs nav-sm mb-3" role="tablist">
-                        <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#importByPlan">By Plan</a></li>
-                        <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#importByDate">By Date</a></li>
-                        <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#importBySearch">Search</a></li>
-                    </ul>
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="importByPlan">
-                            <div class="form-group">
-                                <label class="small font-weight-bold">Select Plan</label>
-                                <select id="importPlanId" class="form-control">${planOptions}</select>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="importByDate">
-                            <div class="form-group">
-                                <label class="small font-weight-bold">Plan Date</label>
-                                <input type="date" id="importPlanDate" class="form-control" value="${new Date().toISOString().slice(0, 10)}">
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="importBySearch">
-                            <div class="form-group">
-                                <label class="small font-weight-bold">Event Name Search</label>
-                                <input type="text" id="importPlanSearch" class="form-control" placeholder="Enter event name...">
-                            </div>
-                        </div>
+                    <p class="small text-muted mb-3">Select a PERTI Plan to import TMI data into the Operations Plan advisory.</p>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Select Plan</label>
+                        <select id="importPlanId" class="form-control">${planOptions}</select>
                     </div>
                 </div>
             `,
-            width: 500,
+            width: 450,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-download"></i> Fetch Plan',
+            confirmButtonText: '<i class="fas fa-download"></i> Import',
             confirmButtonColor: '#007bff',
             cancelButtonText: 'Cancel',
             preConfirm: () => {
-                const activeTab = document.querySelector('.tab-pane.show.active')?.id;
-                if (activeTab === 'importByPlan') {
-                    const planId = document.getElementById('importPlanId').value;
-                    if (!planId) {
-                        Swal.showValidationMessage('Please select a plan');
-                        return false;
-                    }
-                    return { type: 'id', value: planId };
-                } else if (activeTab === 'importByDate') {
-                    const planDate = document.getElementById('importPlanDate').value;
-                    if (!planDate) {
-                        Swal.showValidationMessage('Please select a date');
-                        return false;
-                    }
-                    return { type: 'date', value: planDate };
-                } else {
-                    const search = document.getElementById('importPlanSearch').value;
-                    if (!search) {
-                        Swal.showValidationMessage('Please enter a search term');
-                        return false;
-                    }
-                    return { type: 'event', value: search };
+                const planId = document.getElementById('importPlanId').value;
+                if (!planId) {
+                    Swal.showValidationMessage('Please select a plan');
+                    return false;
                 }
+                return { type: 'id', value: planId };
             }
         }).then((result) => {
             if (result.isConfirmed) {
