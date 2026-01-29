@@ -195,6 +195,36 @@ function handleCreate() {
         }
     }
 
+    // Generate advisory number from database (auto-increment with all advisories)
+    $clientAdvNumber = $body['adv_number'] ?? null;
+    $serverAdvNumber = null;
+
+    try {
+        $advSql = "DECLARE @num NVARCHAR(16); EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS adv_num;";
+        $advStmt = sqlsrv_query($conn_tmi, $advSql);
+        if ($advStmt && ($advRow = sqlsrv_fetch_array($advStmt, SQLSRV_FETCH_ASSOC))) {
+            $serverAdvNumber = $advRow['adv_num'];
+        }
+        if ($advStmt) sqlsrv_free_stmt($advStmt);
+    } catch (Exception $e) {
+        // Log error but continue - will use client number as fallback
+        error_log('Failed to get advisory number: ' . $e->getMessage());
+    }
+
+    // Use server-assigned number, fall back to client number if stored procedure failed
+    $advNumber = $serverAdvNumber ?? $clientAdvNumber ?? ('ADV' . date('His'));
+
+    // Replace client advisory number in advisory_text with server-assigned number
+    $advisoryText = $body['advisory_text'] ?? null;
+    if (!empty($advisoryText) && !empty($clientAdvNumber) && $serverAdvNumber && $clientAdvNumber !== $serverAdvNumber) {
+        // Replace patterns like "ADVZY 001" or "ADVZY 021" with the new number
+        // Extract just the 3-digit part from server number (e.g., "ADVZY 047" -> "047")
+        $serverDigits = preg_replace('/[^0-9]/', '', $serverAdvNumber);
+        $serverDigits = str_pad($serverDigits, 3, '0', STR_PAD_LEFT);
+        $advisoryText = preg_replace('/ADVZY\s*\d{3}/', 'ADVZY ' . $serverDigits, $advisoryText, 1);
+        $body['advisory_text'] = $advisoryText;
+    }
+
     // Build insert
     $sql = "INSERT INTO dbo.tmi_public_routes (
                 status, name, adv_number, route_string, advisory_text,
@@ -208,9 +238,9 @@ function handleCreate() {
     $params = [
         isset($body['status']) ? (int)$body['status'] : 1,
         $body['name'],
-        $body['adv_number'] ?? null,
+        $advNumber,  // Server-assigned advisory number
         $body['route_string'],
-        $body['advisory_text'] ?? null,
+        $advisoryText,  // Updated advisory text with server-assigned number
         $body['color'] ?? '#e74c3c',
         isset($body['line_weight']) ? (int)$body['line_weight'] : 3,
         $body['line_style'] ?? 'solid',
@@ -248,7 +278,6 @@ function handleCreate() {
 
     // Publish to Discord if advisory_text is provided
     $discordResult = null;
-    $advisoryText = $body['advisory_text'] ?? null;
     if (!empty($advisoryText)) {
         $discordResult = publishRouteToDiscord($conn_tmi, $newId, $advisoryText, $body['name'] ?? 'Route');
     }
@@ -579,12 +608,57 @@ function formatDT($dt) {
 // ============================================================================
 // Discord Publishing for Routes
 // ============================================================================
+/**
+ * Split a long message into chunks that fit Discord's 2000 char limit
+ */
+function splitRouteMessageForDiscord(string $message, int $maxLen = 1980): array {
+    if (strlen($message) <= $maxLen) {
+        return [$message];
+    }
+
+    $chunks = [];
+    $lines = explode("\n", $message);
+    $currentChunk = '';
+
+    foreach ($lines as $line) {
+        $tentative = $currentChunk . ($currentChunk ? "\n" : '') . $line;
+
+        if (strlen($tentative) <= $maxLen) {
+            $currentChunk = $tentative;
+        } else {
+            if ($currentChunk !== '') {
+                $chunks[] = $currentChunk;
+            }
+
+            if (strlen($line) > $maxLen) {
+                $lineChunks = str_split($line, $maxLen);
+                foreach ($lineChunks as $i => $lineChunk) {
+                    if ($i < count($lineChunks) - 1) {
+                        $chunks[] = $lineChunk;
+                    } else {
+                        $currentChunk = $lineChunk;
+                    }
+                }
+            } else {
+                $currentChunk = $line;
+            }
+        }
+    }
+
+    if ($currentChunk !== '') {
+        $chunks[] = $currentChunk;
+    }
+
+    return $chunks;
+}
+
 function publishRouteToDiscord($conn, $routeId, $advisoryText, $routeName) {
     $result = [
         'success' => false,
         'message_id' => null,
         'channel_id' => null,
-        'error' => null
+        'error' => null,
+        'chunks_posted' => 0
     ];
 
     try {
@@ -602,30 +676,55 @@ function publishRouteToDiscord($conn, $routeId, $advisoryText, $routeName) {
             require_once $multiDiscordPath;
         }
 
-        // Format the Discord message - wrap in code block like other advisories
-        $discordMessage = "```\n{$advisoryText}\n```";
+        // Split message if it exceeds Discord's 2000 char limit (accounting for code block markers)
+        $messageChunks = splitRouteMessageForDiscord($advisoryText, 1988);
+        $totalChunks = count($messageChunks);
 
         // Try MultiDiscordAPI first (posts to multiple orgs)
         if (class_exists('MultiDiscordAPI')) {
             $multiDiscord = new MultiDiscordAPI();
             if ($multiDiscord->isConfigured()) {
-                // Post to vatcscc advisories channel
-                $postResult = $multiDiscord->postToChannel('vatcscc', 'advisories', ['content' => $discordMessage]);
+                // Post each chunk to vatcscc advisories channel
+                $firstMessageId = null;
+                $allSuccess = true;
+                $lastError = null;
 
-                if ($postResult && $postResult['success']) {
+                foreach ($messageChunks as $chunkIndex => $chunk) {
+                    $partIndicator = ($totalChunks > 1) ? " (" . ($chunkIndex + 1) . "/{$totalChunks})" : '';
+                    $chunkMessage = "```\n{$chunk}\n```" . ($totalChunks > 1 ? $partIndicator : '');
+
+                    $postResult = $multiDiscord->postToChannel('vatcscc', 'advisories', ['content' => $chunkMessage]);
+
+                    if ($chunkIndex === 0 && $postResult && $postResult['success']) {
+                        $firstMessageId = $postResult['message_id'] ?? null;
+                        $result['channel_id'] = $postResult['channel_id'] ?? null;
+                    }
+
+                    if (!$postResult || !$postResult['success']) {
+                        $allSuccess = false;
+                        $lastError = $postResult['error'] ?? 'MultiDiscord post failed';
+                    }
+
+                    // Small delay between chunks to maintain order
+                    if ($chunkIndex < $totalChunks - 1) {
+                        usleep(100000); // 100ms
+                    }
+                }
+
+                if ($firstMessageId) {
                     $result['success'] = true;
-                    $result['message_id'] = $postResult['message_id'] ?? null;
-                    $result['channel_id'] = $postResult['channel_id'] ?? null;
+                    $result['message_id'] = $firstMessageId;
+                    $result['chunks_posted'] = $totalChunks;
 
                     // Update database with Discord message ID
-                    if ($result['message_id'] && $conn) {
+                    if ($conn) {
                         $updateSql = "UPDATE dbo.tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
-                        sqlsrv_query($conn, $updateSql, [$result['message_id'], $routeId]);
+                        sqlsrv_query($conn, $updateSql, [$firstMessageId, $routeId]);
                     }
 
                     return $result;
                 } else {
-                    $result['error'] = $postResult['error'] ?? 'MultiDiscord post failed';
+                    $result['error'] = $lastError ?? 'MultiDiscord post failed';
                 }
             }
         }
@@ -641,22 +740,46 @@ function publishRouteToDiscord($conn, $routeId, $advisoryText, $routeName) {
                 }
 
                 if ($channelId) {
-                    $response = $discord->createMessage($channelId, ['content' => $discordMessage]);
+                    $firstMessageId = null;
+                    $allSuccess = true;
+                    $lastError = null;
 
-                    if ($response && isset($response['id'])) {
+                    foreach ($messageChunks as $chunkIndex => $chunk) {
+                        $partIndicator = ($totalChunks > 1) ? " (" . ($chunkIndex + 1) . "/{$totalChunks})" : '';
+                        $chunkMessage = "```\n{$chunk}\n```" . ($totalChunks > 1 ? $partIndicator : '');
+
+                        $response = $discord->createMessage($channelId, ['content' => $chunkMessage]);
+
+                        if ($chunkIndex === 0 && $response && isset($response['id'])) {
+                            $firstMessageId = $response['id'];
+                        }
+
+                        if (!$response || !isset($response['id'])) {
+                            $allSuccess = false;
+                            $lastError = $discord->getLastError() ?? 'Discord post failed';
+                        }
+
+                        // Small delay between chunks to maintain order
+                        if ($chunkIndex < $totalChunks - 1) {
+                            usleep(100000); // 100ms
+                        }
+                    }
+
+                    if ($firstMessageId) {
                         $result['success'] = true;
-                        $result['message_id'] = $response['id'];
+                        $result['message_id'] = $firstMessageId;
                         $result['channel_id'] = $channelId;
+                        $result['chunks_posted'] = $totalChunks;
 
                         // Update database with Discord message ID
                         if ($conn) {
                             $updateSql = "UPDATE dbo.tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
-                            sqlsrv_query($conn, $updateSql, [$result['message_id'], $routeId]);
+                            sqlsrv_query($conn, $updateSql, [$firstMessageId, $routeId]);
                         }
 
                         return $result;
                     } else {
-                        $result['error'] = $discord->getLastError() ?? 'Discord post failed';
+                        $result['error'] = $lastError ?? 'Discord post failed';
                     }
                 } else {
                     $result['error'] = 'No advisories channel configured';

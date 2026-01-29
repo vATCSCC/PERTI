@@ -46,6 +46,54 @@ function tmi_debug_log($message, $data = null) {
     @file_put_contents($logFile, $entry . "\n", FILE_APPEND);
 }
 
+/**
+ * Split a long message into chunks that fit Discord's 2000 char limit
+ *
+ * @param string $message The full message content (without code block markers)
+ * @param int $maxLen Maximum length per chunk (default 1980 to leave room for code block markers + prefix)
+ * @return array Array of message chunks
+ */
+function splitMessageForDiscord(string $message, int $maxLen = 1980): array {
+    if (strlen($message) <= $maxLen) {
+        return [$message];
+    }
+
+    $chunks = [];
+    $lines = explode("\n", $message);
+    $currentChunk = '';
+
+    foreach ($lines as $line) {
+        $tentative = $currentChunk . ($currentChunk ? "\n" : '') . $line;
+
+        if (strlen($tentative) <= $maxLen) {
+            $currentChunk = $tentative;
+        } else {
+            if ($currentChunk !== '') {
+                $chunks[] = $currentChunk;
+            }
+
+            if (strlen($line) > $maxLen) {
+                $lineChunks = str_split($line, $maxLen);
+                foreach ($lineChunks as $i => $lineChunk) {
+                    if ($i < count($lineChunks) - 1) {
+                        $chunks[] = $lineChunk;
+                    } else {
+                        $currentChunk = $lineChunk;
+                    }
+                }
+            } else {
+                $currentChunk = $line;
+            }
+        }
+    }
+
+    if ($currentChunk !== '') {
+        $chunks[] = $currentChunk;
+    }
+
+    return $chunks;
+}
+
 tmi_debug_log('=== TMI Publish Request Started (v2.0) ===');
 
 // Load dependencies
@@ -259,7 +307,18 @@ foreach ($entries as $index => $entry) {
 
         // Add staging prefix if not production
         $prefix = $production ? '' : '🧪 **[STAGING]** ';
-        $fullMessage = $prefix . "```\n{$messageContent}\n```";
+
+        // Split message if it exceeds Discord's 2000 char limit
+        // Account for code block markers (```\n + \n```) = 8 chars + prefix length
+        $prefixLen = strlen($prefix);
+        $maxContentLen = 1988 - $prefixLen;
+        $messageChunks = splitMessageForDiscord($messageContent, $maxContentLen);
+        $totalChunks = count($messageChunks);
+
+        tmi_debug_log("Message splitting", [
+            'content_length' => strlen($messageContent),
+            'chunks' => $totalChunks
+        ]);
 
         // Get target orgs
         $targetOrgs = $entry['orgs'] ?? ['vatcscc'];
@@ -274,7 +333,7 @@ foreach ($entries as $index => $entry) {
             // ==================================================
             // ASYNC MODE: Queue Discord posts for background processing
             // ==================================================
-            tmi_debug_log("Queueing Discord posts for async processing");
+            tmi_debug_log("Queueing Discord posts for async processing", ['chunks' => $totalChunks]);
 
             foreach ($targetOrgs as $orgCode) {
                 $channelPurpose = $production
@@ -282,29 +341,40 @@ foreach ($entries as $index => $entry) {
                     : ($isAdvisory ? 'advzy_staging' : 'ntml_staging');
 
                 try {
-                    // Queue the Discord post
-                    $queueResult = queueDiscordPost(
-                        $tmiConn,
-                        $isAdvisory ? 'ADVISORY' : 'ENTRY',
-                        $databaseId,
-                        $orgCode,
-                        $channelPurpose,
-                        $fullMessage,
-                        $userCid,
-                        $userName
-                    );
+                    // Queue each chunk as a separate message
+                    $queueIds = [];
+                    foreach ($messageChunks as $chunkIndex => $chunk) {
+                        $partIndicator = ($totalChunks > 1) ? " (" . ($chunkIndex + 1) . "/{$totalChunks})" : '';
+                        $chunkMessage = $prefix . "```\n{$chunk}\n```" . ($chunkIndex === 0 && $totalChunks > 1 ? $partIndicator : '');
+                        if ($chunkIndex > 0) {
+                            $chunkMessage = "```\n{$chunk}\n```" . $partIndicator;
+                        }
+
+                        $queueResult = queueDiscordPost(
+                            $tmiConn,
+                            $isAdvisory ? 'ADVISORY' : 'ENTRY',
+                            $databaseId,
+                            $orgCode,
+                            $channelPurpose,
+                            $chunkMessage,
+                            $userCid,
+                            $userName
+                        );
+                        $queueIds[] = $queueResult;
+                    }
 
                     $discordResults[$orgCode] = [
                         'org_code' => $orgCode,
                         'channel_purpose' => $channelPurpose,
                         'success' => true,
                         'queued' => true,
-                        'queue_id' => $queueResult,
+                        'queue_ids' => $queueIds,
+                        'chunks_queued' => $totalChunks,
                         'message_id' => null, // Will be set by background processor
                         'error' => null
                     ];
 
-                    tmi_debug_log("Queued Discord post for {$orgCode}", ['queue_id' => $queueResult]);
+                    tmi_debug_log("Queued Discord post for {$orgCode}", ['queue_ids' => $queueIds]);
 
                 } catch (Exception $e) {
                     $discordResults[$orgCode] = [
@@ -329,12 +399,46 @@ foreach ($entries as $index => $entry) {
                         ? ($isAdvisory ? 'advisories' : 'ntml')
                         : ($isAdvisory ? 'advzy_staging' : 'ntml_staging');
 
-                    tmi_debug_log("Posting to {$orgCode}/{$channelPurpose}");
+                    tmi_debug_log("Posting to {$orgCode}/{$channelPurpose}", ['chunks' => $totalChunks]);
 
-                    $postResult = $multiDiscord->postToChannel($orgCode, $channelPurpose, ['content' => $fullMessage]);
-                    $discordResults[$orgCode] = $postResult;
+                    // Post each chunk as a separate message
+                    $firstMessageId = null;
+                    $allSuccess = true;
+                    $lastError = null;
 
-                    tmi_debug_log("Post result for {$orgCode}", $postResult);
+                    foreach ($messageChunks as $chunkIndex => $chunk) {
+                        // Add part indicator for multi-part messages
+                        $partIndicator = ($totalChunks > 1) ? " (" . ($chunkIndex + 1) . "/{$totalChunks})" : '';
+                        $chunkMessage = $prefix . "```\n{$chunk}\n```" . ($chunkIndex === 0 ? '' : $partIndicator);
+                        if ($chunkIndex === 0 && $totalChunks > 1) {
+                            $chunkMessage = $prefix . "```\n{$chunk}\n```" . $partIndicator;
+                        }
+
+                        $postResult = $multiDiscord->postToChannel($orgCode, $channelPurpose, ['content' => $chunkMessage]);
+
+                        if ($chunkIndex === 0) {
+                            $firstMessageId = $postResult['message_id'] ?? null;
+                        }
+
+                        if (!($postResult['success'] ?? false)) {
+                            $allSuccess = false;
+                            $lastError = $postResult['error'] ?? 'Unknown error';
+                        }
+
+                        // Small delay between chunks to maintain order
+                        if ($chunkIndex < $totalChunks - 1) {
+                            usleep(100000); // 100ms
+                        }
+                    }
+
+                    $discordResults[$orgCode] = [
+                        'success' => $allSuccess,
+                        'message_id' => $firstMessageId,
+                        'chunks_posted' => $totalChunks,
+                        'error' => $lastError
+                    ];
+
+                    tmi_debug_log("Post result for {$orgCode}", $discordResults[$orgCode]);
                 }
             } else {
                 // Fallback: Use single Discord API
@@ -350,16 +454,44 @@ foreach ($entries as $index => $entry) {
                     $channelId = $discord->getChannelByPurpose($fallbackPurpose);
                 }
 
-                tmi_debug_log("Single Discord posting to channel", ['purpose' => $channelPurpose, 'channelId' => $channelId]);
+                tmi_debug_log("Single Discord posting to channel", ['purpose' => $channelPurpose, 'channelId' => $channelId, 'chunks' => $totalChunks]);
 
                 if ($channelId) {
-                    $response = $discord->createMessage($channelId, ['content' => $fullMessage]);
+                    $firstMessageId = null;
+                    $allSuccess = true;
+                    $lastError = null;
+
+                    foreach ($messageChunks as $chunkIndex => $chunk) {
+                        // Add part indicator for multi-part messages
+                        $partIndicator = ($totalChunks > 1) ? " (" . ($chunkIndex + 1) . "/{$totalChunks})" : '';
+                        $chunkMessage = $prefix . "```\n{$chunk}\n```" . ($chunkIndex === 0 && $totalChunks > 1 ? $partIndicator : '');
+                        if ($chunkIndex > 0) {
+                            $chunkMessage = "```\n{$chunk}\n```" . $partIndicator;
+                        }
+
+                        $response = $discord->createMessage($channelId, ['content' => $chunkMessage]);
+
+                        if ($chunkIndex === 0) {
+                            $firstMessageId = $response['id'] ?? null;
+                        }
+
+                        if (!$response || !isset($response['id'])) {
+                            $allSuccess = false;
+                            $lastError = $discord->getLastError();
+                        }
+
+                        // Small delay between chunks to maintain order
+                        if ($chunkIndex < $totalChunks - 1) {
+                            usleep(100000); // 100ms
+                        }
+                    }
 
                     $discordResults['vatcscc'] = [
-                        'success' => ($response && isset($response['id'])),
-                        'message_id' => $response['id'] ?? null,
+                        'success' => $allSuccess,
+                        'message_id' => $firstMessageId,
                         'channel_id' => $channelId,
-                        'error' => $discord->getLastError()
+                        'chunks_posted' => $totalChunks,
+                        'error' => $lastError
                     ];
 
                     tmi_debug_log("Discord response", $discordResults['vatcscc']);

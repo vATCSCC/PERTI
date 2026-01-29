@@ -627,8 +627,24 @@ class TMIDiscord {
     // ADVISORY NOTIFICATIONS - Route/FCA
     // =========================================
     
+    /**
+     * Post a reroute advisory to Discord
+     * Automatically splits into multiple messages if content exceeds Discord's 2000 char limit
+     *
+     * @param array $data Advisory data
+     * @param string $channel Channel ID or purpose name
+     * @return array|null First message result, or array of all results if split
+     */
     public function postRerouteAdvisory(array $data, string $channel = 'advzy_staging'): ?array {
-        return $this->discord->createMessage($channel, ['content' => "```\n" . $this->formatRerouteAdvisory($data) . "\n```"]);
+        $message = $this->formatRerouteAdvisory($data);
+
+        // Check if message needs splitting (account for code block markers)
+        if (strlen($message) > 1988) {
+            $results = $this->postLongMessage($channel, $message, true);
+            return !empty($results) ? $results[0] : null;
+        }
+
+        return $this->discord->createMessage($channel, ['content' => "```\n{$message}\n```"]);
     }
     
     /**
@@ -731,8 +747,19 @@ class TMIDiscord {
         return implode("\n", $lines);
     }
     
+    /**
+     * Post an FCA advisory to Discord
+     * Automatically splits into multiple messages if content exceeds Discord's 2000 char limit
+     */
     public function postFCAAdvisory(array $data, string $channel = 'advzy_staging'): ?array {
-        return $this->discord->createMessage($channel, ['content' => "```\n" . $this->formatFCAAdvisory($data) . "\n```"]);
+        $message = $this->formatFCAAdvisory($data);
+
+        if (strlen($message) > 1988) {
+            $results = $this->postLongMessage($channel, $message, true);
+            return !empty($results) ? $results[0] : null;
+        }
+
+        return $this->discord->createMessage($channel, ['content' => "```\n{$message}\n```"]);
     }
     
     private function formatFCAAdvisory(array $data): string {
@@ -788,8 +815,19 @@ class TMIDiscord {
     // ADVISORY NOTIFICATIONS - Operations Plan
     // =========================================
     
+    /**
+     * Post an operations plan to Discord
+     * Automatically splits into multiple messages if content exceeds Discord's 2000 char limit
+     */
     public function postOperationsPlan(array $data, string $channel = 'advzy_staging'): ?array {
-        return $this->discord->createMessage($channel, ['content' => "```\n" . $this->formatOperationsPlan($data) . "\n```"]);
+        $message = $this->formatOperationsPlan($data);
+
+        if (strlen($message) > 1988) {
+            $results = $this->postLongMessage($channel, $message, true);
+            return !empty($results) ? $results[0] : null;
+        }
+
+        return $this->discord->createMessage($channel, ['content' => "```\n{$message}\n```"]);
     }
     
     private function formatOperationsPlan(array $data): string {
@@ -1165,8 +1203,117 @@ class TMIDiscord {
     public function updateMessage(string $channelId, string $messageId, string $content): ?array {
         return $this->discord->editMessage($channelId, $messageId, ['content' => $content]);
     }
-    
+
     public function deleteMessage(string $channelId, string $messageId): bool {
         return $this->discord->deleteMessage($channelId, $messageId);
+    }
+
+    // =========================================
+    // MESSAGE SPLITTING FOR DISCORD LIMIT
+    // =========================================
+
+    /**
+     * Split a long message into chunks that fit Discord's 2000 char limit
+     *
+     * @param string $message The full message content
+     * @param int $maxLen Maximum length per chunk (default 1990 to leave room for code block markers)
+     * @return array Array of message chunks
+     */
+    public function splitMessageForDiscord(string $message, int $maxLen = 1990): array {
+        // If message fits in one chunk, return as-is
+        if (strlen($message) <= $maxLen) {
+            return [$message];
+        }
+
+        $chunks = [];
+        $lines = explode("\n", $message);
+        $currentChunk = '';
+
+        foreach ($lines as $line) {
+            // Check if adding this line would exceed the limit
+            $tentative = $currentChunk . ($currentChunk ? "\n" : '') . $line;
+
+            if (strlen($tentative) <= $maxLen) {
+                $currentChunk = $tentative;
+            } else {
+                // Save current chunk if it has content
+                if ($currentChunk !== '') {
+                    $chunks[] = $currentChunk;
+                }
+
+                // Start new chunk with this line
+                // If single line exceeds limit, we need to split it
+                if (strlen($line) > $maxLen) {
+                    $lineChunks = str_split($line, $maxLen);
+                    foreach ($lineChunks as $i => $lineChunk) {
+                        if ($i < count($lineChunks) - 1) {
+                            $chunks[] = $lineChunk;
+                        } else {
+                            $currentChunk = $lineChunk;
+                        }
+                    }
+                } else {
+                    $currentChunk = $line;
+                }
+            }
+        }
+
+        // Add final chunk if it has content
+        if ($currentChunk !== '') {
+            $chunks[] = $currentChunk;
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * Post a potentially long message as multiple Discord messages
+     *
+     * @param string $channel Channel ID or purpose name
+     * @param string $message The full message content
+     * @param bool $useCodeBlock Whether to wrap each chunk in code blocks
+     * @return array Array of message results
+     */
+    public function postLongMessage(string $channel, string $message, bool $useCodeBlock = true): array {
+        // Account for code block markers (```\n and \n```) = 8 chars
+        $maxLen = $useCodeBlock ? 1988 : 1996;
+        $chunks = $this->splitMessageForDiscord($message, $maxLen);
+
+        $results = [];
+        $totalChunks = count($chunks);
+
+        foreach ($chunks as $i => $chunk) {
+            $content = $useCodeBlock ? "```\n{$chunk}\n```" : $chunk;
+
+            // Add continuation indicator for multi-part messages
+            if ($totalChunks > 1) {
+                $partIndicator = "(" . ($i + 1) . "/{$totalChunks})";
+                if ($i === 0) {
+                    // First message - add part indicator at end before closing code block
+                    if ($useCodeBlock) {
+                        $content = "```\n{$chunk}\n{$partIndicator}\n```";
+                    } else {
+                        $content = "{$chunk}\n{$partIndicator}";
+                    }
+                } else {
+                    // Continuation messages - add part indicator at start
+                    if ($useCodeBlock) {
+                        $content = "```\n{$partIndicator}\n{$chunk}\n```";
+                    } else {
+                        $content = "{$partIndicator}\n{$chunk}";
+                    }
+                }
+            }
+
+            $result = $this->discord->createMessage($channel, ['content' => $content]);
+            $results[] = $result;
+
+            // Small delay between messages to maintain order
+            if ($i < $totalChunks - 1) {
+                usleep(100000); // 100ms
+            }
+        }
+
+        return $results;
     }
 }
