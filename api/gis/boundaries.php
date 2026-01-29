@@ -359,7 +359,7 @@ try {
                 'success' => true,
                 'routes' => $results,
                 'count' => count($results),
-                'artccs_all' => array_unique(array_merge(...array_column($results, 'artccs')))
+                'artccs_all' => array_values(array_unique(array_merge(...array_column($results, 'artccs'))))
             ]);
             break;
 
