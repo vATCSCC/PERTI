@@ -29,6 +29,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../../load/connect.php';
 require_once __DIR__ . '/../../load/services/GISService.php';
 
+// Get action from query string (early for diagnostic)
+$action = $_GET['action'] ?? 'help';
+
+// Diagnostic action - runs BEFORE GIS check for debugging connection issues
+if ($action === 'diag' || $action === 'diagnostic') {
+    $diag = [
+        'php_version' => PHP_VERSION,
+        'pdo_drivers' => PDO::getAvailableDrivers(),
+        'pdo_pgsql_loaded' => extension_loaded('pdo_pgsql'),
+        'pgsql_loaded' => extension_loaded('pgsql'),
+        'gis_constants_defined' => [
+            'GIS_SQL_HOST' => defined('GIS_SQL_HOST'),
+            'GIS_SQL_PORT' => defined('GIS_SQL_PORT'),
+            'GIS_SQL_DATABASE' => defined('GIS_SQL_DATABASE'),
+            'GIS_SQL_USERNAME' => defined('GIS_SQL_USERNAME'),
+            'GIS_SQL_PASSWORD' => defined('GIS_SQL_PASSWORD')
+        ],
+        'gis_host' => defined('GIS_SQL_HOST') ? GIS_SQL_HOST : 'NOT_DEFINED',
+        'gis_database' => defined('GIS_SQL_DATABASE') ? GIS_SQL_DATABASE : 'NOT_DEFINED',
+        'error_log_path' => ini_get('error_log'),
+        'server_time' => date('Y-m-d H:i:s T')
+    ];
+
+    // Try a manual connection to provide detailed error
+    if (extension_loaded('pdo_pgsql') && defined('GIS_SQL_HOST')) {
+        try {
+            $port = defined('GIS_SQL_PORT') ? GIS_SQL_PORT : '5432';
+            $dsn = "pgsql:host=" . GIS_SQL_HOST . ";port=" . $port . ";dbname=" . GIS_SQL_DATABASE;
+            $testConn = new PDO($dsn, GIS_SQL_USERNAME, GIS_SQL_PASSWORD, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 5
+            ]);
+            $diag['direct_connection'] = 'SUCCESS';
+            $diag['server_version'] = $testConn->getAttribute(PDO::ATTR_SERVER_VERSION);
+            $testConn = null;
+        } catch (PDOException $e) {
+            $diag['direct_connection'] = 'FAILED';
+            $diag['connection_error'] = $e->getMessage();
+        }
+    } else {
+        $diag['direct_connection'] = 'SKIPPED';
+        $diag['skip_reason'] = !extension_loaded('pdo_pgsql') ? 'pdo_pgsql not loaded' : 'GIS_SQL_HOST not defined';
+    }
+
+    // Check GIS service status
+    $gis = GISService::getInstance();
+    $diag['gis_service_available'] = ($gis !== null);
+
+    echo json_encode(['success' => true, 'diagnostic' => $diag], JSON_PRETTY_PRINT);
+    exit;
+}
+
 // Get GIS service instance
 $gis = GISService::getInstance();
 
@@ -42,9 +94,6 @@ if (!$gis) {
     ]);
     exit;
 }
-
-// Get action from query string
-$action = $_GET['action'] ?? 'help';
 
 try {
     switch ($action) {
