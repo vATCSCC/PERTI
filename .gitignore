@@ -57,3 +57,6 @@ bin/
 obj/
 *.nupkg
 *.snupkg
+
+# Azure configuration
+load/azure_config.json

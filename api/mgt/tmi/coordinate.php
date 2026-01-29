@@ -1970,31 +1970,41 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
 
         // Step 4: Add reactions to the message INSIDE the thread (not main channel)
         $usedEmojis = [];
+        $log("Processing " . count($facilities) . " facilities for emoji reactions");
 
         foreach ($facilities as $facility) {
             $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
             $facCode = strtoupper(trim($facCode));
             $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
+            $log("Processing facility: {$facCode}");
 
             // Add custom emoji (for Nitro users)
             if ($facEmoji) {
                 $log("Adding custom emoji to thread: {$facEmoji} for facility {$facCode}");
-                $discord->createReaction($threadId, $threadMessageId, $facEmoji);
+                $success = $discord->createReaction($threadId, $threadMessageId, $facEmoji);
+                $log("Custom emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
             }
 
             // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
             $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
             $altEmoji = $emojiInfo['emoji'];
             $emojiType = $emojiInfo['type'];
+            $parentArtcc = $emojiInfo['parent'] ?? null;
 
-            $log("Adding alternate emoji to thread: {$altEmoji} for facility {$facCode} (type: {$emojiType})");
-            $discord->createReaction($threadId, $threadMessageId, $altEmoji);
+            $log("Adding alternate emoji to thread: {$altEmoji} for facility {$facCode} (type: {$emojiType}, parent: " . ($parentArtcc ?? 'none') . ")");
+            $success = $discord->createReaction($threadId, $threadMessageId, $altEmoji);
+            $log("Alternate emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+
+            usleep(250000); // 250ms delay between reactions to avoid rate limiting
         }
 
         // Add deny reactions to thread message
         $log("Adding deny reactions to thread message");
-        $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
-        $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
+        $success1 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
+        $log("Deny emoji 1 result: " . ($success1 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+        usleep(250000);
+        $success2 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
+        $log("Deny emoji 2 result: " . ($success2 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
 
         $log("=== Discord post complete for proposal #{$proposalId} ===");
         return $starterResult;

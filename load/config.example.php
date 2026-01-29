@@ -50,6 +50,13 @@ if (!defined("SQL_USERNAME")) {
     define("REF_SQL_USERNAME", "");
     define("REF_SQL_PASSWORD", "");
 
+    // VATSIM_GIS - PostGIS Spatial Database (Route/Boundary Intersection)
+    define("GIS_SQL_HOST", "your-postgres-server");
+    define("GIS_SQL_PORT", "5432");
+    define("GIS_SQL_DATABASE", "VATSIM_GIS");
+    define("GIS_SQL_USERNAME", "gis_api_user");
+    define("GIS_SQL_PASSWORD", "");
+
     // =====================================================================
     // SITE INFORMATION
     // =====================================================================

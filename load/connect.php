@@ -100,7 +100,8 @@ $_conn_cache = [
     'adl' => null,
     'swim' => null,
     'tmi' => null,
-    'ref' => null
+    'ref' => null,
+    'gis' => null
 ];
 
 if (!function_exists('get_conn_adl')) {
@@ -113,7 +114,7 @@ if (!function_exists('get_conn_adl')) {
 
         // Initialize cache if not set (CLI/daemon context)
         if (!is_array($_conn_cache)) {
-            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null, 'gis' => null];
         }
 
         // Return cached connection if already attempted
@@ -161,7 +162,7 @@ if (!function_exists('get_conn_swim')) {
 
         // Initialize cache if not set (CLI/daemon context)
         if (!is_array($_conn_cache)) {
-            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null, 'gis' => null];
         }
 
         if (isset($_conn_cache['swim']) && $_conn_cache['swim'] !== null) {
@@ -207,7 +208,7 @@ if (!function_exists('get_conn_tmi')) {
 
         // Initialize cache if not set (CLI/daemon context)
         if (!is_array($_conn_cache)) {
-            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null, 'gis' => null];
         }
 
         if (isset($_conn_cache['tmi']) && $_conn_cache['tmi'] !== null) {
@@ -253,7 +254,7 @@ if (!function_exists('get_conn_ref')) {
 
         // Initialize cache if not set (CLI/daemon context)
         if (!is_array($_conn_cache)) {
-            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null];
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null, 'gis' => null];
         }
 
         if (isset($_conn_cache['ref']) && $_conn_cache['ref'] !== null) {
@@ -289,6 +290,56 @@ if (!function_exists('get_conn_ref')) {
     }
 }
 
+if (!function_exists('get_conn_gis')) {
+    /**
+     * Get GIS database connection (lazy loaded)
+     * Uses PostgreSQL/PostGIS for spatial queries (route/boundary intersection)
+     * @return PDO|false|null PDO connection, false on failure, null if not configured
+     */
+    function get_conn_gis() {
+        global $_conn_cache;
+
+        // Initialize cache if not set (CLI/daemon context)
+        if (!is_array($_conn_cache)) {
+            $_conn_cache = ['adl' => null, 'swim' => null, 'tmi' => null, 'ref' => null, 'gis' => null];
+        }
+
+        if (isset($_conn_cache['gis']) && $_conn_cache['gis'] !== null) {
+            return $_conn_cache['gis'] ?: null;
+        }
+
+        if (!defined('GIS_SQL_HOST') || !defined('GIS_SQL_DATABASE') ||
+            !defined('GIS_SQL_USERNAME') || !defined('GIS_SQL_PASSWORD')) {
+            $_conn_cache['gis'] = false;
+            return null;
+        }
+
+        // Check for PDO pgsql extension
+        if (!extension_loaded('pdo_pgsql')) {
+            error_log("GIS SQL connection skipped: pdo_pgsql extension is not loaded.");
+            $_conn_cache['gis'] = false;
+            return null;
+        }
+
+        try {
+            $port = defined('GIS_SQL_PORT') ? GIS_SQL_PORT : '5432';
+            $dsn = "pgsql:host=" . GIS_SQL_HOST . ";port=" . $port . ";dbname=" . GIS_SQL_DATABASE;
+
+            $_conn_cache['gis'] = new PDO($dsn, GIS_SQL_USERNAME, GIS_SQL_PASSWORD, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]);
+        } catch (PDOException $e) {
+            error_log("GIS SQL connection failed: " . $e->getMessage());
+            $_conn_cache['gis'] = false;
+            return null;
+        }
+
+        return $_conn_cache['gis'];
+    }
+}
+
 // -------------------------------------------------------------------------
 // Backward Compatibility: Global connection variables
 // -------------------------------------------------------------------------
@@ -301,6 +352,7 @@ $conn_adl = null;
 $conn_swim = null;
 $conn_tmi = null;
 $conn_ref = null;
+$conn_gis = null;
 
 // For backward compatibility with code that checks $conn_adl directly,
 // we connect eagerly here. Remove these lines once all code migrates to getters.
@@ -309,6 +361,7 @@ $conn_adl = get_conn_adl();
 $conn_swim = get_conn_swim();
 $conn_tmi = get_conn_tmi();
 $conn_ref = get_conn_ref();
+$conn_gis = get_conn_gis();
 
 // -------------------------------------------------------------------------
 // Helper: Trigger SWIM sync after ADL refresh
