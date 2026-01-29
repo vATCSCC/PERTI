@@ -2033,8 +2033,8 @@ function renderChart(data) {
         },
         legend: direction === 'both' ? [
             {
-                // Arrivals row
-                bottom: 95,
+                // Arrivals row (circles)
+                bottom: 115,
                 left: 'center',
                 width: '85%',  // Allow wrapping
                 type: 'scroll',
@@ -2046,8 +2046,8 @@ function renderChart(data) {
                 formatter: function(name) { return name.replace(' (Arr)', ''); }
             },
             {
-                // Departures row
-                bottom: 70,
+                // Departures row (rectangles)
+                bottom: 90,
                 left: 'center',
                 width: '85%',  // Allow wrapping
                 type: 'scroll',
@@ -2060,7 +2060,7 @@ function renderChart(data) {
                 formatter: function(name) { return name.replace(' (Dep)', ''); }
             }
         ] : {
-            bottom: 70,
+            bottom: 70,  // Single row - no overlap issue
             left: 'center',
             width: '85%',  // Allow wrapping
             type: 'scroll',
@@ -2131,7 +2131,7 @@ function renderChart(data) {
         grid: {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
-            bottom: 140, // Room for slider + 2 legend rows
+            bottom: direction === 'both' ? 165 : 140, // Extra room for 2 legend rows
             top: 55,
             containLabel: false
         },
@@ -2139,7 +2139,7 @@ function renderChart(data) {
             type: 'time',
             name: getXAxisLabel(),
             nameLocation: 'middle',
-            nameGap: 30,
+            nameGap: direction === 'both' ? 45 : 30, // Extra gap for 2 legend rows
             nameTextStyle: {
                 fontSize: 11,
                 color: '#333',
@@ -2333,14 +2333,22 @@ function renderOriginChart() {
         };
     });
 
-    // Add current time marker to first series
+    // Add current time marker and rate lines to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
-    if (series.length > 0 && timeMarkLineData) {
-        series[0].markLine = {
-            silent: true,
-            symbol: ['none', 'none'],
-            data: [timeMarkLineData]
-        };
+    const rateMarkLines = buildRateMarkLinesForChart();
+
+    if (series.length > 0) {
+        const markLineData = [];
+        if (timeMarkLineData) markLineData.push(timeMarkLineData);
+        if (rateMarkLines && rateMarkLines.length > 0) markLineData.push(...rateMarkLines);
+
+        if (markLineData.length > 0) {
+            series[0].markLine = {
+                silent: true,
+                symbol: ['none', 'none'],
+                data: markLineData
+            };
+        }
     }
 
     // Build chart title - FSM/TBFM style: Airport (left) | Date (center) | Time (right)
@@ -2653,14 +2661,22 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         };
     });
 
-    // Add time marker
+    // Add time marker and rate lines
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
-    if (series.length > 0 && timeMarkLineData) {
-        series[0].markLine = {
-            silent: true,
-            symbol: ['none', 'none'],
-            data: [timeMarkLineData]
-        };
+    const rateMarkLines = buildRateMarkLinesForChart();
+
+    if (series.length > 0) {
+        const markLineData = [];
+        if (timeMarkLineData) markLineData.push(timeMarkLineData);
+        if (rateMarkLines && rateMarkLines.length > 0) markLineData.push(...rateMarkLines);
+
+        if (markLineData.length > 0) {
+            series[0].markLine = {
+                silent: true,
+                symbol: ['none', 'none'],
+                data: markLineData
+            };
+        }
     }
 
     // Build chart title
