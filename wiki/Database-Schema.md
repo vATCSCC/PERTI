@@ -451,6 +451,121 @@ FSM-format slot naming: `ccc[c].ddddddL` (e.g., KJFK.091530A)
 
 ---
 
+## PostgreSQL (VATSIM_GIS)
+
+Dedicated PostGIS-enabled database for spatial route analysis and boundary queries.
+
+**Server:** `vatcscc-gis.postgres.database.azure.com`
+**Database:** `VATSIM_GIS`
+**Engine:** PostgreSQL 16 with PostGIS 3.4+
+
+### Navigation Data Tables
+
+| Table | Purpose |
+|-------|---------|
+| `nav_fixes` | Navigation fixes/waypoints with coordinates |
+| `airways` | Airway definitions (J, Q, V, T routes) |
+| `airway_segments` | Airway segment waypoints with sequence |
+| `airports` | Airport data with ICAO/IATA codes |
+| `area_centers` | ARTCC/TRACON center reference points |
+| `playbook_routes` | CDR/Playbook route definitions |
+
+#### nav_fixes
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `fix_name` | VARCHAR(8) | Fix identifier (e.g., BNA, MERIT) |
+| `lat` | DECIMAL(10,7) | Latitude |
+| `lon` | DECIMAL(11,7) | Longitude |
+| `fix_type` | VARCHAR(16) | VOR, NDB, RNAV, INTERSECTION |
+
+#### airway_segments
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `airway_id` | INT | FK to airways |
+| `sequence_num` | INT | Segment order on airway |
+| `from_fix` | VARCHAR(8) | Starting fix |
+| `to_fix` | VARCHAR(8) | Ending fix |
+| `from_lat` / `from_lon` | DECIMAL | Start coordinates |
+| `to_lat` / `to_lon` | DECIMAL | End coordinates |
+
+### Boundary Tables (PostGIS Geometry)
+
+| Table | Purpose |
+|-------|---------|
+| `artcc_boundaries` | ARTCC/FIR geographic boundaries |
+| `sector_boundaries` | Sector boundaries (LOW, HIGH, SUPERHIGH) |
+| `tracon_boundaries` | TRACON approach control boundaries |
+
+#### artcc_boundaries
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `artcc_code` | VARCHAR(4) | ARTCC identifier (ZNY, ZLA) |
+| `fir_name` | VARCHAR(64) | Full FIR name |
+| `icao_code` | VARCHAR(4) | ICAO code |
+| `floor_altitude` | INT | Floor altitude (feet) |
+| `ceiling_altitude` | INT | Ceiling altitude (feet) |
+| `is_oceanic` | BOOLEAN | Oceanic airspace flag |
+| `geom` | GEOMETRY | PostGIS polygon geometry (SRID 4326) |
+
+#### sector_boundaries
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `sector_code` | VARCHAR(16) | Sector identifier (ZNY_42) |
+| `sector_name` | VARCHAR(64) | Sector display name |
+| `parent_artcc` | VARCHAR(4) | Parent ARTCC code |
+| `sector_type` | VARCHAR(16) | LOW, HIGH, or SUPERHIGH |
+| `floor_altitude` | INT | Floor altitude |
+| `ceiling_altitude` | INT | Ceiling altitude |
+| `geom` | GEOMETRY | PostGIS polygon geometry |
+
+#### tracon_boundaries
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `tracon_code` | VARCHAR(16) | TRACON identifier (N90, A80) |
+| `tracon_name` | VARCHAR(64) | TRACON name |
+| `parent_artcc` | VARCHAR(4) | Parent ARTCC |
+| `floor_altitude` | INT | Floor altitude |
+| `ceiling_altitude` | INT | Ceiling altitude |
+| `geom` | GEOMETRY | PostGIS polygon geometry |
+
+### PostGIS Functions
+
+Route expansion and spatial analysis functions.
+
+| Function | Purpose |
+|----------|---------|
+| `resolve_waypoint(fix)` | Resolve fix/airport to coordinates |
+| `expand_airway(airway, from, to)` | Expand airway segment to waypoints |
+| `expand_route(route_string)` | Parse and expand full route |
+| `expand_route_with_artccs(route)` | Expand route + get traversed ARTCCs |
+| `get_route_artccs(route)` | Lightweight ARTCC list from route |
+| `expand_route_with_boundaries(route, alt)` | Full boundary analysis |
+| `expand_playbook_route(pb_code)` | Expand playbook route (PB.PLAY.ORIG.DEST) |
+| `analyze_route_from_waypoints(waypoints)` | Analyze pre-expanded waypoints |
+| `expand_routes_batch(routes[])` | Batch expand multiple routes |
+| `expand_routes_with_geojson(routes[])` | Batch expand with GeoJSON output |
+| `expand_routes_full(routes[], alt)` | Full batch analysis with sectors |
+| `routes_to_geojson_collection(routes[])` | Convert routes to GeoJSON FeatureCollection |
+
+### PostGIS Indexes
+
+| Index | Table | Purpose |
+|-------|-------|---------|
+| `idx_nav_fixes_fix_name` | nav_fixes | Fix lookup |
+| `idx_airways_name` | airways | Airway name lookup |
+| `idx_airway_segments_lookup` | airway_segments | Segment lookup |
+| `idx_airports_icao_lookup` | airports | Airport ICAO lookup |
+| `idx_artcc_geom_gist` | artcc_boundaries | Spatial index (GIST) |
+| `idx_sector_geom_gist` | sector_boundaries | Spatial index (GIST) |
+| `idx_tracon_geom_gist` | tracon_boundaries | Spatial index (GIST) |
+
+---
+
 ## Key Relationships
 
 ### Flight → Route
