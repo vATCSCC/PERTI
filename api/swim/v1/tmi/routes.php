@@ -90,6 +90,12 @@ function handleGetList() {
             $where_clauses[] = "r.status = 1";
             $where_clauses[] = "(r.valid_start_utc IS NULL OR r.valid_start_utc <= GETUTCDATE())";
             $where_clauses[] = "(r.valid_end_utc IS NULL OR r.valid_end_utc > GETUTCDATE())";
+            // TMI authoritative: exclude routes pending coordination approval
+            $where_clauses[] = "(r.coordination_status IS NULL OR r.coordination_status = 'APPROVED')";
+            break;
+        case 'pending':
+            // Routes awaiting TMI coordination approval
+            $where_clauses[] = "r.coordination_status = 'PENDING'";
             break;
         case 'future':
             $where_clauses[] = "r.valid_start_utc > GETUTCDATE()";
@@ -122,7 +128,9 @@ function handleGetList() {
             r.color, r.line_weight, r.line_style,
             r.valid_start_utc, r.valid_end_utc,
             r.constrained_area, r.reason, r.origin_filter, r.dest_filter, r.facilities,
-            r.route_geojson, r.created_by, r.created_at, r.updated_at
+            r.route_geojson, r.created_by, r.created_at, r.updated_at,
+            r.coordination_status, r.coordination_proposal_id,
+            r.discord_message_id, r.discord_channel_id, r.discord_posted_at
         FROM dbo.tmi_public_routes r
         $where_sql
         ORDER BY r.status DESC, r.valid_start_utc DESC
@@ -235,14 +243,22 @@ function handleCreate() {
         $body['advisory_text'] = $advisoryText;
     }
 
+    // Extract facilities for coordination BEFORE insert (to determine initial coordination_status)
+    $facilitiesStr = $body['facilities'] ?? null;
+    $facilities = parseFacilityCodes($facilitiesStr, $advisoryText);
+
+    // Determine initial coordination_status based on facility count
+    // Multi-facility = PENDING (requires coordination), single/none = NULL (no coordination needed)
+    $initialCoordinationStatus = (count($facilities) > 1) ? 'PENDING' : null;
+
     // Build insert
     $sql = "INSERT INTO dbo.tmi_public_routes (
                 status, name, adv_number, route_string, advisory_text,
                 color, line_weight, line_style,
                 valid_start_utc, valid_end_utc,
                 constrained_area, reason, origin_filter, dest_filter, facilities,
-                route_geojson, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                route_geojson, created_by, coordination_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             SELECT SCOPE_IDENTITY() AS route_id;";
 
     $params = [
@@ -262,7 +278,8 @@ function handleCreate() {
         isset($body['dest_filter']) ? (is_array($body['dest_filter']) ? json_encode($body['dest_filter']) : $body['dest_filter']) : null,
         $body['facilities'] ?? null,
         isset($body['route_geojson']) ? (is_array($body['route_geojson']) ? json_encode($body['route_geojson']) : $body['route_geojson']) : null,
-        $body['created_by'] ?? $auth->getKeyInfo()['owner_name'] ?? 'API'
+        $body['created_by'] ?? $auth->getKeyInfo()['owner_name'] ?? 'API',
+        $initialCoordinationStatus  // coordination_status: PENDING for multi-facility, NULL otherwise
     ];
 
     $stmt = sqlsrv_query($conn_tmi, $sql, $params);
@@ -286,10 +303,7 @@ function handleCreate() {
     $created = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
 
-    // Extract facilities for coordination
-    $facilitiesStr = $body['facilities'] ?? null;
-    $facilities = parseFacilityCodes($facilitiesStr, $advisoryText);
-
+    // facilities already extracted above before INSERT
     // Determine if coordination is needed (multiple facilities = requires coordination)
     $coordinationResult = null;
     $directPublish = false;
@@ -316,6 +330,17 @@ function handleCreate() {
             $facilities,
             $body['created_by'] ?? $auth->getKeyInfo()['owner_name'] ?? 'API'
         );
+
+        // Link the proposal back to the route
+        if ($coordinationResult && $coordinationResult['proposal_id']) {
+            $updateSql = "UPDATE dbo.tmi_public_routes SET coordination_proposal_id = ? WHERE route_id = ?";
+            sqlsrv_query($conn_tmi, $updateSql, [$coordinationResult['proposal_id'], $newId]);
+
+            // Re-fetch the route to get updated coordination fields
+            $stmt = sqlsrv_query($conn_tmi, "SELECT * FROM dbo.tmi_public_routes WHERE route_id = ?", [$newId]);
+            $created = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+        }
     } elseif (count($facilities) === 1) {
         // Single-facility route: Auto-approve and publish directly
         // (DCC internal or only affects one facility)
@@ -579,6 +604,20 @@ function formatRoute($row) {
             'created_by' => $row['created_by'],
             'created_at' => formatDT($row['created_at']),
             'updated_at' => formatDT($row['updated_at'])
+        ],
+
+        // TMI coordination status - authoritative source for route activation
+        'coordination' => [
+            'status' => $row['coordination_status'] ?? null,  // NULL = no coordination needed, PENDING, APPROVED, DENIED
+            'proposal_id' => $row['coordination_proposal_id'] ?? null,
+            'requires_approval' => !empty($row['coordination_status']) && $row['coordination_status'] !== 'APPROVED'
+        ],
+
+        // Discord publishing info
+        'discord' => [
+            'message_id' => $row['discord_message_id'] ?? null,
+            'channel_id' => $row['discord_channel_id'] ?? null,
+            'posted_at' => formatDT($row['discord_posted_at'] ?? null)
         ],
 
         // Legacy compatibility fields (for public-routes.js)
