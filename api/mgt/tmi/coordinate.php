@@ -2143,22 +2143,44 @@ function activateProposal($conn, $proposalId) {
         $log("Status will be: {$newStatus}");
 
         // ===================================================
-        // STEP 1: Create TMI entry in tmi_entries table
+        // Handle ROUTE entries specially - they live in tmi_public_routes
         // ===================================================
-        $tmiEntryId = createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText);
-        $log("Created TMI entry: " . ($tmiEntryId ?: 'FAILED'));
-
-        // ===================================================
-        // STEP 2: Post to Discord production channels
-        // ===================================================
+        $entryType = $proposal['entry_type'] ?? '';
+        $tmiEntryId = null;
         $discordResult = null;
-        if ($tmiEntryId && !$shouldSchedule) {
-            $discordResult = publishTmiToDiscord($proposal, $rawText, $tmiEntryId);
-            $log("Discord publish result: " . json_encode($discordResult));
 
-            // Update TMI entry with Discord info
-            if ($discordResult && !empty($discordResult['message_id'])) {
-                updateTmiDiscordInfo($conn, $tmiEntryId, $discordResult['message_id'], $discordResult['channel_id'] ?? null);
+        if (strtoupper($entryType) === 'ROUTE') {
+            // ROUTE: Publish to advisories channel and update tmi_public_routes
+            // Get route_id from proposal record (preferred) or entry_data_json (fallback)
+            $routeId = $proposal['route_id'] ?? $entryData['route_id'] ?? null;
+            $log("Processing ROUTE proposal, route_id: " . ($routeId ?: 'UNKNOWN'));
+
+            if ($routeId && !$shouldSchedule) {
+                $discordResult = publishRouteToAdvisories($conn, $routeId, $rawText, $entryData);
+                $log("Route Discord publish result: " . json_encode($discordResult));
+            }
+
+            // Use route_id as the "entry" reference
+            $tmiEntryId = $routeId;
+
+        } else {
+            // ===================================================
+            // STEP 1: Create TMI entry in tmi_entries table
+            // ===================================================
+            $tmiEntryId = createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText);
+            $log("Created TMI entry: " . ($tmiEntryId ?: 'FAILED'));
+
+            // ===================================================
+            // STEP 2: Post to Discord production channels
+            // ===================================================
+            if ($tmiEntryId && !$shouldSchedule) {
+                $discordResult = publishTmiToDiscord($proposal, $rawText, $tmiEntryId);
+                $log("Discord publish result: " . json_encode($discordResult));
+
+                // Update TMI entry with Discord info
+                if ($discordResult && !empty($discordResult['message_id'])) {
+                    updateTmiDiscordInfo($conn, $tmiEntryId, $discordResult['message_id'], $discordResult['channel_id'] ?? null);
+                }
             }
         }
 
@@ -2288,6 +2310,99 @@ function publishTmiToDiscord($proposal, $rawText, $tmiEntryId) {
         $result = $multiDiscord->postToChannel('vatcscc', 'ntml', ['content' => $message]);
 
         return $result;
+
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Publish approved route advisory to Discord advisories channel
+ * Routes are stored in tmi_public_routes and published to 'advisories' channel
+ *
+ * @param PDO $conn Database connection
+ * @param int $routeId Route ID from tmi_public_routes
+ * @param string $rawText Advisory text
+ * @param array $entryData Entry data from proposal
+ * @return array Result with success, message_id, etc.
+ */
+function publishRouteToAdvisories($conn, $routeId, $rawText, $entryData) {
+    try {
+        require_once __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
+
+        $multiDiscord = new MultiDiscordAPI();
+        if (!$multiDiscord->isConfigured()) {
+            return ['success' => false, 'error' => 'Discord not configured'];
+        }
+
+        // Split message if needed (Discord 2000 char limit)
+        $maxLen = 1988; // Account for code block markers
+        $messageChunks = [];
+
+        if (strlen($rawText) <= $maxLen) {
+            $messageChunks[] = $rawText;
+        } else {
+            // Split by lines
+            $lines = explode("\n", $rawText);
+            $currentChunk = '';
+            foreach ($lines as $line) {
+                $tentative = $currentChunk . ($currentChunk ? "\n" : '') . $line;
+                if (strlen($tentative) <= $maxLen) {
+                    $currentChunk = $tentative;
+                } else {
+                    if ($currentChunk !== '') {
+                        $messageChunks[] = $currentChunk;
+                    }
+                    $currentChunk = $line;
+                }
+            }
+            if ($currentChunk !== '') {
+                $messageChunks[] = $currentChunk;
+            }
+        }
+
+        $totalChunks = count($messageChunks);
+        $firstMessageId = null;
+        $channelId = null;
+
+        foreach ($messageChunks as $i => $chunk) {
+            $partIndicator = ($totalChunks > 1) ? " (" . ($i + 1) . "/{$totalChunks})" : '';
+            $content = "```\n{$chunk}\n```" . $partIndicator;
+
+            $result = $multiDiscord->postToChannel('vatcscc', 'advisories', ['content' => $content]);
+
+            if ($i === 0 && $result && $result['success']) {
+                $firstMessageId = $result['message_id'] ?? null;
+                $channelId = $result['channel_id'] ?? null;
+            }
+
+            // Small delay between chunks
+            if ($i < $totalChunks - 1) {
+                usleep(100000); // 100ms
+            }
+        }
+
+        // Update route record with Discord message info
+        if ($firstMessageId && $routeId) {
+            $updateSql = "UPDATE dbo.tmi_public_routes SET
+                              discord_message_id = :message_id,
+                              discord_channel_id = :channel_id,
+                              discord_posted_at = SYSUTCDATETIME()
+                          WHERE route_id = :route_id";
+            $updateStmt = $conn->prepare($updateSql);
+            $updateStmt->execute([
+                ':message_id' => $firstMessageId,
+                ':channel_id' => $channelId,
+                ':route_id' => $routeId
+            ]);
+        }
+
+        return [
+            'success' => (bool)$firstMessageId,
+            'message_id' => $firstMessageId,
+            'channel_id' => $channelId,
+            'chunks_posted' => $totalChunks
+        ];
 
     } catch (Exception $e) {
         return ['success' => false, 'error' => $e->getMessage()];

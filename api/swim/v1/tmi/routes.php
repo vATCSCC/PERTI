@@ -17,6 +17,9 @@
 
 require_once __DIR__ . '/../auth.php';
 
+// Discord coordination
+define('DISCORD_COORDINATION_CHANNEL', '1466013550450577491');
+
 // TMI database connection
 global $conn_tmi;
 
@@ -283,17 +286,66 @@ function handleCreate() {
     $created = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
 
-    // Publish to Discord if advisory_text is provided
+    // Extract facilities for coordination
+    $facilitiesStr = $body['facilities'] ?? null;
+    $facilities = parseFacilityCodes($facilitiesStr, $advisoryText);
+
+    // Determine if coordination is needed (multiple facilities = requires coordination)
+    $coordinationResult = null;
+    $directPublish = false;
+
+    if (count($facilities) > 1) {
+        // Multi-facility route: Submit to coordination queue
+        // Route will be published to advisories channel only after approval
+        $routeData = [
+            'name' => $body['name'],
+            'adv_number' => $advNumber,
+            'route_string' => $body['route_string'],
+            'advisory_text' => $advisoryText,
+            'constrained_area' => $body['constrained_area'] ?? null,
+            'reason' => $body['reason'] ?? null,
+            'valid_start_utc' => $body['valid_start_utc'],
+            'valid_end_utc' => $body['valid_end_utc'],
+            'facilities' => $facilitiesStr
+        ];
+
+        $coordinationResult = createRouteCoordinationProposal(
+            $conn_tmi,
+            $newId,
+            $routeData,
+            $facilities,
+            $body['created_by'] ?? $auth->getKeyInfo()['owner_name'] ?? 'API'
+        );
+    } elseif (count($facilities) === 1) {
+        // Single-facility route: Auto-approve and publish directly
+        // (DCC internal or only affects one facility)
+        $directPublish = true;
+    } else {
+        // No facilities specified: Publish directly (legacy behavior)
+        $directPublish = true;
+    }
+
+    // Only publish directly to Discord if not going through coordination
     $discordResult = null;
-    if (!empty($advisoryText)) {
+    if ($directPublish && !empty($advisoryText)) {
         $discordResult = publishRouteToDiscord($conn_tmi, $newId, $advisoryText, $body['name'] ?? 'Route');
     }
 
     http_response_code(201);
     $response = formatRoute($created);
-    $response['discord_published'] = ($discordResult && $discordResult['success']) ? true : false;
-    $response['discord_result'] = $discordResult;
-    SwimResponse::success($response, 'Route created');
+
+    if ($coordinationResult) {
+        $response['requires_coordination'] = true;
+        $response['coordination'] = $coordinationResult;
+        $response['discord_published'] = false;
+        $response['message'] = 'Route submitted for multi-facility coordination. Will be published upon approval.';
+    } else {
+        $response['requires_coordination'] = false;
+        $response['discord_published'] = ($discordResult && $discordResult['success']) ? true : false;
+        $response['discord_result'] = $discordResult;
+    }
+
+    SwimResponse::success($response, $coordinationResult ? 'Route created - pending coordination approval' : 'Route created');
 }
 
 // ============================================================================
@@ -611,6 +663,359 @@ function formatDT($dt) {
     return ($dt instanceof DateTime) ? $dt->format('c') : $dt;
 }
 
+
+// ============================================================================
+// Facility Extraction for Coordination
+// ============================================================================
+
+/**
+ * Parse facility codes from a facilities string or advisory text
+ * Handles formats like: "ZAU/ZBW/ZDV/ZLC/ZMP/ZNY/ZOA/ZSE/CZYZ"
+ * Or from advisory text: "FACILITIES INCLUDED: ZAU/ZBW/ZDV/ZLC..."
+ *
+ * @param string|null $facilitiesStr Direct facilities string (e.g., "ZAU/ZBW/ZDV")
+ * @param string|null $advisoryText Fallback: full advisory text to parse
+ * @return array Array of facility codes (e.g., ['ZAU', 'ZBW', 'ZDV'])
+ */
+function parseFacilityCodes(?string $facilitiesStr, ?string $advisoryText = null): array {
+    $parseString = null;
+
+    // Use facilities string directly if provided
+    if (!empty($facilitiesStr)) {
+        $parseString = $facilitiesStr;
+    }
+    // Fall back to parsing from advisory text
+    elseif (!empty($advisoryText)) {
+        if (preg_match('/FACILITIES\s+INCLUDED[:\s]+([A-Z0-9\/,\s]+)/i', $advisoryText, $matches)) {
+            $parseString = trim($matches[1]);
+        }
+    }
+
+    if (empty($parseString)) {
+        return [];
+    }
+
+    // Split by / or , and clean up
+    $facilities = preg_split('/[\/,]+/', $parseString);
+    $facilities = array_map('trim', $facilities);
+    $facilities = array_filter($facilities, function($f) {
+        return !empty($f) && preg_match('/^C?Z[A-Z]{1,3}$/i', $f); // Matches ZAU, CZYZ, etc.
+    });
+    return array_map('strtoupper', array_values($facilities));
+}
+
+// ============================================================================
+// Coordination Proposal Creation
+// ============================================================================
+
+/**
+ * Create a coordination proposal for a route advisory
+ * Routes use DCC as the requester and extracted facilities as providers
+ *
+ * @param resource $conn SQL Server connection
+ * @param int $routeId The route ID to link to
+ * @param array $routeData The route data
+ * @param array $facilities Array of facility codes requiring approval
+ * @param string $createdBy User who created the route
+ * @return array Result with proposal_id, proposal_guid, etc.
+ */
+function createRouteCoordinationProposal($conn, int $routeId, array $routeData, array $facilities, string $createdBy): array {
+    $result = [
+        'success' => false,
+        'proposal_id' => null,
+        'proposal_guid' => null,
+        'auto_approved' => false,
+        'discord_posted' => false,
+        'error' => null
+    ];
+
+    if (empty($facilities)) {
+        $result['error'] = 'No facilities to coordinate with';
+        return $result;
+    }
+
+    try {
+        // Build entry data JSON for the proposal
+        $entryData = [
+            'type' => 'ROUTE',
+            'route_id' => $routeId,
+            'name' => $routeData['name'] ?? null,
+            'adv_number' => $routeData['adv_number'] ?? null,
+            'route_string' => $routeData['route_string'] ?? null,
+            'constrained_area' => $routeData['constrained_area'] ?? null,
+            'reason' => $routeData['reason'] ?? null,
+            'valid_start' => $routeData['valid_start_utc'] ?? null,
+            'valid_end' => $routeData['valid_end_utc'] ?? null,
+            'facilities' => $facilities
+        ];
+
+        // Calculate approval deadline (valid_start minus 1 minute)
+        $validStart = $routeData['valid_start_utc'] ?? null;
+        if ($validStart) {
+            $deadline = new DateTime($validStart, new DateTimeZone('UTC'));
+            $deadline->modify('-1 minute');
+        } else {
+            // Default to 1 hour from now if no start time
+            $deadline = new DateTime('now', new DateTimeZone('UTC'));
+            $deadline->modify('+1 hour');
+        }
+
+        // Raw text for the proposal (the advisory text)
+        $rawText = $routeData['advisory_text'] ?? '';
+
+        // Insert proposal - DCC is always the requester for route advisories
+        $sql = "INSERT INTO dbo.tmi_proposals (
+                    entry_type, requesting_facility, providing_facility, ctl_element,
+                    entry_data_json, raw_text,
+                    approval_deadline_utc, valid_from, valid_until,
+                    facilities_required,
+                    created_by, created_by_name, route_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                SELECT SCOPE_IDENTITY() AS proposal_id;";
+
+        // providing_facility = first facility in the list (or null for multi)
+        $providingFacility = count($facilities) === 1 ? $facilities[0] : null;
+
+        $params = [
+            'ROUTE',                           // entry_type
+            'DCC',                             // requesting_facility - always DCC for routes
+            $providingFacility,                // providing_facility
+            $routeData['constrained_area'] ?? null, // ctl_element
+            json_encode($entryData),           // entry_data_json (includes route_id)
+            $rawText,                          // raw_text
+            $deadline->format('Y-m-d H:i:s'),  // approval_deadline_utc
+            $validStart,                       // valid_from
+            $routeData['valid_end_utc'] ?? null, // valid_until
+            count($facilities),                // facilities_required
+            $createdBy,                        // created_by
+            $createdBy,                        // created_by_name
+            $routeId                           // route_id (direct column link)
+        ];
+
+        $stmt = sqlsrv_query($conn, $sql, $params);
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            $result['error'] = 'Failed to create proposal: ' . ($errors[0]['message'] ?? 'Unknown');
+            return $result;
+        }
+
+        // Get the proposal ID
+        sqlsrv_next_result($stmt);
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $proposalId = $row['proposal_id'] ?? null;
+        sqlsrv_free_stmt($stmt);
+
+        if (!$proposalId) {
+            $result['error'] = 'Failed to get proposal ID';
+            return $result;
+        }
+
+        // Get the proposal_guid
+        $guidSql = "SELECT proposal_guid FROM dbo.tmi_proposals WHERE proposal_id = ?";
+        $guidStmt = sqlsrv_query($conn, $guidSql, [$proposalId]);
+        $guidRow = sqlsrv_fetch_array($guidStmt, SQLSRV_FETCH_ASSOC);
+        $proposalGuid = $guidRow['proposal_guid'] ?? null;
+        sqlsrv_free_stmt($guidStmt);
+
+        $result['proposal_id'] = $proposalId;
+        $result['proposal_guid'] = $proposalGuid;
+
+        // Insert required facilities
+        foreach ($facilities as $facilityCode) {
+            $facSql = "INSERT INTO dbo.tmi_proposal_facilities (
+                           proposal_id, facility_code, facility_name, approval_emoji
+                       ) VALUES (?, ?, ?, ?)";
+            sqlsrv_query($conn, $facSql, [
+                $proposalId,
+                strtoupper($facilityCode),
+                null, // facility_name - we don't have this
+                null  // approval_emoji - let the coordination system assign
+            ]);
+        }
+
+        // Post to Discord coordination channel
+        $discordResult = postRouteCoordinationToDiscord($proposalId, $routeData, $deadline, $facilities, $createdBy);
+
+        if ($discordResult && isset($discordResult['id'])) {
+            // Update proposal with Discord IDs
+            $channelId = $discordResult['thread_id'] ?? DISCORD_COORDINATION_CHANNEL;
+            $messageId = $discordResult['thread_message_id'] ?? $discordResult['id'];
+
+            $updateSql = "UPDATE dbo.tmi_proposals SET
+                              discord_channel_id = ?,
+                              discord_message_id = ?,
+                              discord_posted_at = GETUTCDATE()
+                          WHERE proposal_id = ?";
+            sqlsrv_query($conn, $updateSql, [$channelId, $messageId, $proposalId]);
+
+            $result['discord_posted'] = true;
+            $result['discord_channel_id'] = $channelId;
+            $result['discord_message_id'] = $messageId;
+            $result['discord_thread_id'] = $discordResult['thread_id'] ?? null;
+        }
+
+        $result['success'] = true;
+
+    } catch (Exception $e) {
+        $result['error'] = 'Exception: ' . $e->getMessage();
+    }
+
+    return $result;
+}
+
+/**
+ * Post route coordination proposal to Discord
+ *
+ * @param int $proposalId The proposal ID
+ * @param array $routeData The route data
+ * @param DateTime $deadline Approval deadline
+ * @param array $facilities Facility codes requiring approval
+ * @param string $userName User who created the proposal
+ * @return array|null Discord API response
+ */
+function postRouteCoordinationToDiscord(int $proposalId, array $routeData, DateTime $deadline, array $facilities, string $userName): ?array {
+    try {
+        $discordApiPath = __DIR__ . '/../../../../load/discord/DiscordAPI.php';
+        if (!file_exists($discordApiPath)) {
+            error_log('Discord API not available for route coordination');
+            return null;
+        }
+
+        require_once $discordApiPath;
+        $discord = new DiscordAPI();
+
+        if (!$discord->isConfigured()) {
+            error_log('Discord not configured for route coordination');
+            return null;
+        }
+
+        // Build thread title
+        $advNum = $routeData['adv_number'] ?? 'RTE';
+        $constrainedArea = $routeData['constrained_area'] ?? '';
+        $facilitiesList = implode('/', $facilities);
+        $threadTitle = "ROUTE #{$proposalId} | {$advNum} | {$constrainedArea} | {$facilitiesList}";
+        $threadTitle = substr($threadTitle, 0, 100); // Discord thread title limit
+
+        // Step 1: Post starter message to coordination channel
+        $starterMessage = "**{$threadTitle}**\n_Click thread to view details and react to approve/deny_";
+        $starterResult = $discord->createMessage(DISCORD_COORDINATION_CHANNEL, [
+            'content' => $starterMessage
+        ]);
+
+        if (!$starterResult || !isset($starterResult['id'])) {
+            error_log('Failed to post starter message for route coordination');
+            return null;
+        }
+
+        // Step 2: Create thread from the starter message
+        $threadResult = $discord->createThreadFromMessage(
+            DISCORD_COORDINATION_CHANNEL,
+            $starterResult['id'],
+            $threadTitle,
+            1440 // Auto-archive after 24 hours
+        );
+
+        if ($threadResult && isset($threadResult['id'])) {
+            $threadId = $threadResult['id'];
+            $starterResult['thread_id'] = $threadId;
+
+            // Step 3: Post full coordination details inside the thread
+            $content = formatRouteCoordinationMessage($proposalId, $routeData, $deadline, $facilities, $userName);
+            $threadMessage = $discord->sendMessageToThread($threadId, [
+                'content' => $content
+            ]);
+
+            if ($threadMessage && isset($threadMessage['id'])) {
+                $starterResult['thread_message_id'] = $threadMessage['id'];
+
+                // Step 4: Add facility approval emoji reactions
+                addFacilityReactionsToThread($discord, $threadId, $threadMessage['id'], $facilities);
+            }
+        }
+
+        return $starterResult;
+
+    } catch (Exception $e) {
+        error_log('Route coordination Discord error: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Format route coordination message for Discord thread
+ */
+function formatRouteCoordinationMessage(int $proposalId, array $routeData, DateTime $deadline, array $facilities, string $userName): string {
+    $lines = [];
+    $lines[] = "```";
+    $lines[] = "═══════════════════════════════════════════════════════";
+    $lines[] = "ROUTE COORDINATION REQUEST #{$proposalId}";
+    $lines[] = "═══════════════════════════════════════════════════════";
+    $lines[] = "";
+    $lines[] = "REQUESTER: DCC";
+    $lines[] = "SUBMITTED BY: {$userName}";
+    $lines[] = "";
+    $lines[] = "ADVISORY: " . ($routeData['adv_number'] ?? 'N/A');
+    $lines[] = "NAME: " . ($routeData['name'] ?? 'N/A');
+    $lines[] = "CONSTRAINED AREA: " . ($routeData['constrained_area'] ?? 'N/A');
+    $lines[] = "";
+    $lines[] = "ROUTE: " . ($routeData['route_string'] ?? 'N/A');
+    $lines[] = "";
+    $lines[] = "REASON: " . ($routeData['reason'] ?? 'N/A');
+    $lines[] = "";
+    $lines[] = "VALID: " . ($routeData['valid_start_utc'] ?? 'N/A') . " - " . ($routeData['valid_end_utc'] ?? 'N/A');
+    $lines[] = "";
+    $lines[] = "───────────────────────────────────────────────────────";
+    $lines[] = "FACILITIES REQUIRING APPROVAL:";
+    foreach ($facilities as $fac) {
+        $lines[] = "  • {$fac} - ⏳ PENDING";
+    }
+    $lines[] = "";
+    $lines[] = "APPROVAL DEADLINE: " . $deadline->format('Y-m-d H:i:s') . " UTC";
+    $lines[] = "───────────────────────────────────────────────────────";
+    $lines[] = "";
+    $lines[] = "React with your facility emoji to APPROVE";
+    $lines[] = "React with ❌ to DENY";
+    $lines[] = "```";
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Add facility emoji reactions to Discord message
+ */
+function addFacilityReactionsToThread(DiscordAPI $discord, string $threadId, string $messageId, array $facilities): void {
+    // Regional indicator emoji mapping (same as coordinate.php)
+    $facilityEmojiMap = [
+        'ZAB' => '🇦', 'ZAN' => '🇬', 'ZAU' => '🇺', 'ZBW' => '🇧', 'ZDC' => '🇩',
+        'ZDV' => '🇻', 'ZFW' => '🇫', 'ZHN' => '🇭', 'ZHU' => '🇼', 'ZID' => '🇮',
+        'ZJX' => '🇯', 'ZKC' => '🇰', 'ZLA' => '🇱', 'ZLC' => '🇨', 'ZMA' => '🇲',
+        'ZME' => '🇪', 'ZMP' => '🇵', 'ZNY' => '🇳', 'ZOA' => '🇴', 'ZOB' => '🇷',
+        'ZSE' => '🇸', 'ZTL' => '🇹', 'CZEG' => '🇽', 'CZVR' => '🇾', 'CZWG' => '🇿',
+        'CZYZ' => '🇶', 'CZQM' => '🇿', 'CZQX' => '🇽', 'CZQO' => '🇶', 'CZUL' => '🇾'
+    ];
+
+    foreach ($facilities as $facCode) {
+        // Try custom emoji first (guild-specific)
+        $customEmoji = strtoupper($facCode);
+
+        // Add reaction - try custom emoji, fall back to regional indicator
+        try {
+            // Try custom facility emoji first
+            $discord->addReaction($threadId, $messageId, $customEmoji);
+        } catch (Exception $e) {
+            // Fall back to regional indicator
+            $emoji = $facilityEmojiMap[$facCode] ?? null;
+            if ($emoji) {
+                $discord->addReaction($threadId, $messageId, $emoji);
+            }
+        }
+
+        usleep(50000); // 50ms delay between reactions
+    }
+
+    // Add deny reaction
+    $discord->addReaction($threadId, $messageId, '❌');
+}
 
 // ============================================================================
 // Discord Publishing for Routes
