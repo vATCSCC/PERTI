@@ -640,9 +640,11 @@ window.DemandChartCore = (function() {
                             // Arrivals row
                             bottom: 30,
                             left: 'center',
+                            width: '85%',  // Allow wrapping
                             type: 'scroll',
                             itemWidth: 12,
                             itemHeight: 8,
+                            itemGap: 10,   // Space between items
                             textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                             data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
                             formatter: function(name) { return name.replace(' (Arr)', ''); }
@@ -651,9 +653,11 @@ window.DemandChartCore = (function() {
                             // Departures row
                             bottom: 5,
                             left: 'center',
+                            width: '85%',  // Allow wrapping
                             type: 'scroll',
                             itemWidth: 12,
                             itemHeight: 8,
+                            itemGap: 10,   // Space between items
                             textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                             icon: 'rect',
                             data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
@@ -662,12 +666,14 @@ window.DemandChartCore = (function() {
                     ] : {
                         bottom: 5,
                         left: 'center',
+                        width: '85%',  // Allow wrapping
                         type: 'scroll',
                         itemWidth: 12,
                         itemHeight: 8,
+                        itemGap: 10,   // Space between items
                         textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' }
                     },
-                    grid: { left: 50, right: 70, bottom: 95, top: 45, containLabel: false },
+                    grid: { left: 50, right: 70, bottom: 100, top: 45, containLabel: false },  // Extra room for wrapped legend
                     xAxis: {
                         type: 'time',
                         name: getXAxisLabel(state.granularity),
@@ -2030,9 +2036,11 @@ function renderChart(data) {
                 // Arrivals row
                 bottom: 95,
                 left: 'center',
+                width: '85%',  // Allow wrapping
                 type: 'scroll',
                 itemWidth: 14,
                 itemHeight: 10,
+                itemGap: 12,   // Space between items
                 textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
                 data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
                 formatter: function(name) { return name.replace(' (Arr)', ''); }
@@ -2041,9 +2049,11 @@ function renderChart(data) {
                 // Departures row
                 bottom: 70,
                 left: 'center',
+                width: '85%',  // Allow wrapping
                 type: 'scroll',
                 itemWidth: 14,
                 itemHeight: 10,
+                itemGap: 12,   // Space between items
                 textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
                 icon: 'rect',
                 data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
@@ -2052,9 +2062,11 @@ function renderChart(data) {
         ] : {
             bottom: 70,
             left: 'center',
+            width: '85%',  // Allow wrapping
             type: 'scroll',
             itemWidth: 14,
             itemHeight: 10,
+            itemGap: 12,   // Space between items
             textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' }
         },
         // DataZoom sliders for customizable time/demand ranges
@@ -2399,11 +2411,13 @@ function renderOriginChart() {
             }
         },
         legend: {
-            bottom: 75,  // Move up to make room for sliders
+            bottom: 75,  // Above sliders
             left: 'center',
+            width: '85%',  // Allow wrapping
             type: 'scroll',
             itemWidth: 14,
             itemHeight: 10,
+            itemGap: 12,   // Space between items
             textStyle: {
                 fontSize: 11,
                 fontFamily: '"Segoe UI", sans-serif'
@@ -2414,7 +2428,7 @@ function renderOriginChart() {
         grid: {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
-            bottom: 140, // Room for slider + 2 legend rows
+            bottom: 145, // Room for slider + legend (with wrapping)
             top: 55,
             containLabel: false
         },
@@ -2422,7 +2436,7 @@ function renderOriginChart() {
             type: 'time',
             name: getXAxisLabel(),
             nameLocation: 'middle',
-            nameGap: 30,
+            nameGap: 35,  // More space to avoid legend overlap
             nameTextStyle: {
                 fontSize: 11,
                 color: '#333',
@@ -2741,11 +2755,13 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             }
         },
         legend: {
-            bottom: 75,  // Move up to make room for sliders
+            bottom: 75,  // Above sliders
             left: 'center',
+            width: '85%',  // Allow wrapping
             type: 'scroll',
             itemWidth: 14,
             itemHeight: 10,
+            itemGap: 12,   // Space between items
             textStyle: {
                 fontSize: 11,
                 fontFamily: '"Segoe UI", sans-serif'
@@ -2756,7 +2772,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         grid: {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
-            bottom: 140, // Room for slider + 2 legend rows
+            bottom: 145, // Room for slider + legend (with wrapping)
             top: 55,
             containLabel: false
         },
@@ -2764,7 +2780,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             type: 'time',
             name: getXAxisLabel(),
             nameLocation: 'middle',
-            nameGap: 30,
+            nameGap: 35,  // More space to avoid legend overlap
             nameTextStyle: { fontSize: 11, color: '#333', fontWeight: 500 },
             maxInterval: 3600 * 1000,
             axisLine: { lineStyle: { color: '#333', width: 1 } },
