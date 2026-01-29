@@ -4,7 +4,7 @@ Real-time Discord Gateway bot for processing TMI coordination reactions instantl
 
 ## Overview
 
-This bot connects to Discord via WebSocket (Gateway) and listens for reaction events on TMI coordination threads. When a reaction is added, it immediately calls the PHP API to process the approval/denial.
+This bot connects to Discord via WebSocket (Gateway) and listens for reaction events on TMI coordination threads. When a facility representative adds a reaction to approve or deny a TMI proposal, the bot immediately calls the PHP API to process the vote.
 
 **Benefits over polling:**
 - Instant reaction processing (vs 15-60 second polling delay)
@@ -15,7 +15,23 @@ This bot connects to Discord via WebSocket (Gateway) and listens for reaction ev
 
 - Node.js 18+
 - npm
-- Discord Bot Token (same one used by PHP app)
+- Discord Bot Token (from main VATUSA Discord server)
+
+## Discord Server Requirements
+
+The bot must be deployed to the **main VATUSA Discord server** (not the backup server) to access:
+
+- The `#coordination` channel where TMI coordination threads are created
+- Facility-specific emoji for approval reactions (e.g., :ZNY:, :ZDC:)
+- DCC Staff and NTMO role verification for override permissions
+
+### Required Credentials
+
+Contact VATUSA/DCC staff to obtain:
+
+1. **Bot Token** - From Discord Developer Portal (bot must be invited to main server)
+2. **Guild ID** - The main VATUSA Discord server ID
+3. **Coordination Channel ID** - The `#coordination` channel ID
 
 ## DigitalOcean Droplet Setup
 
@@ -82,22 +98,34 @@ nano .env
 Edit `.env` with your values:
 
 ```env
-# Discord Bot Token (from Discord Developer Portal - same as PHP app uses)
+# Discord Bot Token (from Discord Developer Portal)
+# Bot must be invited to the main VATUSA Discord server
 DISCORD_BOT_TOKEN=your_actual_bot_token_here
 
-# Discord Guild (Server) ID where coordination happens
-DISCORD_GUILD_ID=1039586513689780224
+# Discord Guild (Server) ID - Main VATUSA Discord server
+# Contact DCC staff for the production server ID
+DISCORD_GUILD_ID=YOUR_GUILD_ID_HERE
 
 # Coordination Channel ID (parent channel where threads are created)
-COORDINATION_CHANNEL_ID=1466013550450577491
+# This is the #coordination channel in the main VATUSA Discord
+COORDINATION_CHANNEL_ID=YOUR_COORDINATION_CHANNEL_ID_HERE
 
 # PHP API Configuration
 API_BASE_URL=https://perti.vatcscc.org
 API_KEY=
 
-# Logging level
+# Logging level: debug, info, warn, error
 LOG_LEVEL=info
 ```
+
+### Development vs Production
+
+| Environment             | Discord Server       | Notes                                               |
+|-------------------------|----------------------|-----------------------------------------------------|
+| **Development/Testing** | Backup Server        | [Join here](https://discord.gg/P5ZtKNzd)            |
+| **Production**          | Main VATUSA Discord  | Requires DCC approval and credentials               |
+
+The `.env.example` file contains backup server IDs for testing. For production deployment, you must obtain the main VATUSA Discord server credentials from DCC staff.
 
 ### 5. Test the Bot
 

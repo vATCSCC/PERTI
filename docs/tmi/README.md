@@ -1,9 +1,41 @@
 # TMI Unified System Documentation
 
-**Status:** ✅ **DEPLOYED & LIVE**  
-**Date:** January 17, 2026
+**Status:** DEPLOYED & LIVE
+**Version:** 2.0.0
+**Last Updated:** January 29, 2026
 
 This directory contains documentation for the unified Traffic Management Initiative (TMI) system, which consolidates NTML entries, Advisories, GDT Programs (GS/GDP), Reroutes, and Public Routes across multiple input sources into a single authoritative database.
+
+---
+
+## Multi-Facility Coordination (v2.0)
+
+TMI entries that affect multiple ARTCCs now support a Discord-based coordination approval workflow:
+
+1. User submits TMI via the TMI Publisher
+2. If cross-facility coordination is required, a proposal is created
+3. Discord thread is posted to `#coordination` channel with deadline
+4. Affected facilities react with their facility emoji to approve
+5. Upon unanimous approval, proposal appears in queue for final publication
+6. User reviews and clicks "Publish" to activate the TMI
+
+### Coordination Components
+
+| Component             | Location                       | Description                        |
+|-----------------------|--------------------------------|------------------------------------|
+| Coordination API      | `api/mgt/tmi/coordinate.php`   | Proposal CRUD, reaction processing |
+| Discord Bot           | `discord-bot/`                 | Real-time reaction listener        |
+| Database Tables       | `tmi_proposals`, etc.          | Proposal storage                   |
+| Scheduler Integration | `api/scheduler.php`            | Deadline expiration processing     |
+
+### Testing Environment
+
+TMI coordination is currently being tested on the backup Discord server:
+[Join the Backup Server](https://discord.gg/P5ZtKNzd)
+
+Production deployment will use the main VATUSA Discord server (requires DCC credentials).
+
+See [TMI_Coordination_Session_20260128.md](TMI_Coordination_Session_20260128.md) for detailed workflow documentation.
 
 ---
 
