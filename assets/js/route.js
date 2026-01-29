@@ -5174,7 +5174,7 @@ function advInitFacilitiesDropdown() {
 
         if (!$field.length) return;
 
-        // Get routes from textarea
+        // Check for routes in textarea
         const rawInput = $('#routeSearch').val() || '';
         if (!rawInput.trim()) {
             alert('No routes in the Plot Routes box to analyze.');
@@ -5187,27 +5187,43 @@ function advInitFacilitiesDropdown() {
         $field.attr('placeholder', 'Calculating...');
 
         try {
-            // Parse route strings the same way the advisory builder does
-            const routeStrings = collectRouteStringsForAdvisory(rawInput);
+            // PREFER already-expanded routes from MapLibre (playbooks & CDRs already resolved)
+            let uniqueRoutes = [];
 
-            if (!routeStrings.length) {
-                $field.attr('placeholder', 'ZBW/ZNY/ZDC');
-                $btn.html(originalText).prop('disabled', false);
-                alert('No valid routes found to analyze.');
-                return;
+            if (window.MapLibreRoute && typeof window.MapLibreRoute.getLastExpandedRoutes === 'function') {
+                const expandedRoutes = window.MapLibreRoute.getLastExpandedRoutes() || [];
+                if (expandedRoutes.length > 0) {
+                    // Use MapLibre's expanded routes (already resolved playbooks, CDRs, etc.)
+                    uniqueRoutes = expandedRoutes.map(function(rte) {
+                        if (!rte) return '';
+                        // Remove mandatory markers <> if present
+                        return rte.replace(/[<>]/g, '').trim();
+                    }).filter(Boolean);
+                    console.log('[ADV] Using', uniqueRoutes.length, 'routes from MapLibre expansion');
+                }
             }
 
-            // Extract just the route part (remove color annotations)
-            const cleanRoutes = routeStrings.map(function(rte) {
-                if (!rte) return '';
-                const semiIdx = rte.indexOf(';');
-                const routeText = semiIdx !== -1 ? rte.slice(0, semiIdx).trim() : rte.trim();
-                // Remove mandatory markers
-                return routeText.replace(/[<>]/g, '').trim();
-            }).filter(Boolean);
+            // Fallback: parse from textarea if MapLibre routes unavailable
+            if (!uniqueRoutes.length) {
+                const routeStrings = collectRouteStringsForAdvisory(rawInput);
+                if (!routeStrings.length) {
+                    $field.attr('placeholder', 'ZBW/ZNY/ZDC');
+                    $btn.html(originalText).prop('disabled', false);
+                    alert('No valid routes found. Try clicking "Plot" first.');
+                    return;
+                }
 
-            // Deduplicate routes
-            const uniqueRoutes = [...new Set(cleanRoutes)];
+                uniqueRoutes = routeStrings.map(function(rte) {
+                    if (!rte) return '';
+                    const semiIdx = rte.indexOf(';');
+                    const routeText = semiIdx !== -1 ? rte.slice(0, semiIdx).trim() : rte.trim();
+                    return routeText.replace(/[<>]/g, '').trim();
+                }).filter(Boolean);
+                console.log('[ADV] Fallback: parsed', uniqueRoutes.length, 'routes from textarea');
+            }
+
+            // Deduplicate
+            uniqueRoutes = [...new Set(uniqueRoutes)];
 
             // Call GIS API for batch expansion
             const allArtccs = new Set();
