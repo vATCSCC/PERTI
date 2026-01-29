@@ -39,6 +39,9 @@ if ($action === 'diag' || $action === 'diagnostic') {
         'pdo_drivers' => PDO::getAvailableDrivers(),
         'pdo_pgsql_loaded' => extension_loaded('pdo_pgsql'),
         'pgsql_loaded' => extension_loaded('pgsql'),
+        'connect_loaded' => defined('CONNECT_PHP_LOADED'),
+        'sql_username_defined' => defined('SQL_USERNAME'),
+        'adl_sql_host_defined' => defined('ADL_SQL_HOST'),
         'gis_constants_defined' => [
             'GIS_SQL_HOST' => defined('GIS_SQL_HOST'),
             'GIS_SQL_PORT' => defined('GIS_SQL_PORT'),
@@ -48,6 +51,7 @@ if ($action === 'diag' || $action === 'diagnostic') {
         ],
         'gis_host' => defined('GIS_SQL_HOST') ? GIS_SQL_HOST : 'NOT_DEFINED',
         'gis_database' => defined('GIS_SQL_DATABASE') ? GIS_SQL_DATABASE : 'NOT_DEFINED',
+        'config_path_check' => file_exists(__DIR__ . '/../../load/config.php') ? 'EXISTS' : 'MISSING',
         'error_log_path' => ini_get('error_log'),
         'server_time' => date('Y-m-d H:i:s T')
     ];
