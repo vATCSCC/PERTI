@@ -241,6 +241,70 @@ See [[TMI API]] for full request/response documentation.
 
 ---
 
+## GIS Boundaries API
+
+PostGIS-powered spatial queries for route analysis and boundary detection.
+
+**Base Path:** `/api/gis/`
+
+### Route Expansion
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `boundaries.php?action=expand_route` | GET | Expand route string to waypoints + ARTCCs |
+| `boundaries.php?action=expand_routes` | GET/POST | Batch expand multiple routes |
+| `boundaries.php?action=expand_playbook` | GET | Expand playbook code (PB.PLAY.ORIG.DEST) |
+| `boundaries.php?action=analyze_route` | GET/POST | Full route analysis with sectors |
+| `boundaries.php?action=resolve_waypoint` | GET | Resolve fix/airport to coordinates |
+| `boundaries.php?action=routes_geojson` | GET/POST | Convert routes to GeoJSON FeatureCollection |
+
+### Boundary Queries (from waypoints)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `boundaries.php?action=at_point` | GET | Point-in-polygon boundary lookup |
+| `boundaries.php?action=route_artccs` | GET | Get ARTCCs traversed by waypoints |
+| `boundaries.php?action=route_tracons` | GET | Get TRACONs traversed by waypoints |
+| `boundaries.php?action=route_full` | GET | Full boundary analysis from waypoints |
+| `boundaries.php?action=analyze_tmi_route` | POST | TMI route analysis for coordination |
+
+### Airport Queries
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `boundaries.php?action=airport_artcc` | GET | Get ARTCC containing an airport |
+| `boundaries.php?action=artcc_airports` | GET | Get airports within an ARTCC |
+
+### Example: Expand Route
+
+**Request:**
+
+```http
+GET /api/gis/boundaries.php?action=expand_route&route=KDFW BNA KMCO
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "route": "KDFW BNA KMCO",
+  "artccs": ["ZFW", "ZME", "ZJX"],
+  "artccs_display": "ZFW -> ZME -> ZJX",
+  "waypoints": [
+    {"seq": 1, "id": "KDFW", "lat": 32.897, "lon": -97.038},
+    {"seq": 2, "id": "BNA", "lat": 36.124, "lon": -86.678},
+    {"seq": 3, "id": "KMCO", "lat": 28.429, "lon": -81.309}
+  ],
+  "distance_nm": 812.5,
+  "geojson": {"type": "LineString", "coordinates": [...]}
+}
+```
+
+See [[GIS API]] for full request/response documentation.
+
+---
+
 ## JATOC APIs
 
 Joint Air Traffic Operations Command incident tracking.

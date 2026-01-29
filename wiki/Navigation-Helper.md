@@ -78,6 +78,15 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 
 ## By Database
 
+### VATSIM_GIS (PostgreSQL/PostGIS) - Spatial Analysis
+
+| Table Group | Tables | Documentation |
+|-------------|--------|---------------|
+| **Navigation** | `nav_fixes`, `airways`, `airway_segments` | [[Database Schema]] - Waypoints and airways |
+| **Boundaries** | `artcc_boundaries`, `sector_boundaries`, `tracon_boundaries` | [[Database Schema]] - PostGIS geometries |
+| **Airports** | `airports`, `area_centers` | [[Database Schema]] - Airport data |
+| **Routes** | `playbook_routes` | [[Database Schema]] - CDR/Playbook routes |
+
 ### VATSIM_TMI (Azure SQL) - Unified TMI Database
 
 | Table Group | Tables | Documentation |
@@ -126,6 +135,7 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 | **Stats** | `/api/stats/` | `realtime.php`, `daily.php`, `airport.php`, `artcc.php` | [[API Reference]] |
 | **SWIM v1** | `/api/swim/v1/` | `flights.php`, `positions.php`, `auth.php`, `tmi/*` | `docs/swim/` |
 | **GDT** | `/api/gdt/` | `programs/*`, `flights/*`, `slots/*`, `demand/*` | [[GDT Ground Delay Tool]] - Uses VATSIM_TMI |
+| **GIS** | `/api/gis/` | `boundaries.php` | [[GIS API]] - Route expansion, boundaries |
 | **Simulator** | `/api/simulator/` | `engine.php`, `traffic.php`, `navdata.php` | [[ATFM Training Simulator]] |
 | **Data** | `/api/data/` | `weather.php`, `sua.php`, `tfr.php`, `routes.php` | [[API Reference]] |
 | **Routes** | `/api/routes/` | `public.php`, `public_post.php` | [[API Reference]] |
@@ -187,7 +197,7 @@ See [[Daemons and Scripts]] for full documentation.
 
 ## Documentation Index
 
-### Wiki Pages (38 total)
+### Wiki Pages (39 total)
 
 **Getting Started**
 - [[Home]] - Main wiki landing page
@@ -212,6 +222,7 @@ See [[Daemons and Scripts]] for full documentation.
 - [[API Reference]] - Complete API reference
 - [[ADL API]] - Flight data API details
 - [[TMI API]] - Traffic management API
+- [[GIS API]] - GIS boundaries and route expansion API
 - [[JATOC API]] - Incident API
 
 **Features**
