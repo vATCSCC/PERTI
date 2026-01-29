@@ -63,7 +63,8 @@ DEPARTURE_KEYWORDS = r'(?:DEP(?:ART(?:ING|URE)?)?|DEPTG|DEPG|DPTG|TKOF|TAKE\s*OF
 COMBINED_KEYWORDS = r'(?:LDG\s*(?:AND|/|&)\s*(?:DEP(?:TG)?|DPTG)|(?:DEP(?:TG)?|DPTG)\s*(?:AND|/|&)\s*LDG|ALL\s*(?:OPERATIONS?|OPS))'
 
 # Approach type keywords
-APPROACH_TYPES = r'(?:ILS|RNAV|GPS|RNP|VISUAL|VOR|NDB|LOC|LDA|SDF|TACAN|PAR|ASR|CIRCLING|CAT\s*(?:I{1,3}|II?I?(?:\s*B)?)|AUTOLAND)'
+# Note: ILS/GLS can have category suffixes like X, Y, Z for parallel runways (e.g., ILS Y RWY 07L)
+APPROACH_TYPES = r'(?:ILS(?:\s*[XYZW])?|GLS(?:\s*[XYZW])?|RNAV|GPS|RNP|VISUAL|VOR|NDB|LOC|LDA|SDF|TACAN|PAR|ASR|GCA|CIRCLING|CAT\s*(?:I{1,3}|II?I?(?:\s*B)?)|AUTOLAND|RADAR\s*VECTOR(?:ING|S)?|DEPENDENT\s*PARALLEL)'
 
 # =============================================================================
 # METAR ELEMENT PATTERNS (from python-metar-taf-parser)
@@ -311,12 +312,42 @@ def filter_atis_text(atis_text: str) -> str:
     return text
 
 
-def parse_runway_assignments(atis_text: str) -> tuple[set[str], set[str]]:
+def _detect_atis_type_from_text(atis_text: str) -> str | None:
+    """
+    Detect ATIS type (ARR, DEP, or COMB) from the ATIS text header.
+
+    European airports often have separate ARRIVAL and DEPARTURE ATIS broadcasts
+    that begin with "AIRPORT ARRIVAL INFORMATION" or "AIRPORT DEPARTURE INFORMATION".
+
+    Args:
+        atis_text: Full ATIS text
+
+    Returns:
+        'ARR' for arrival ATIS, 'DEP' for departure ATIS, None for combined/unknown
+    """
+    if not atis_text:
+        return None
+
+    # Check first 100 characters for ARRIVAL/DEPARTURE INFORMATION header
+    header = atis_text[:100].upper()
+
+    # Match patterns like "FRANKFURT ARRIVAL INFORMATION" or "EDDF ARR ATIS"
+    if re.search(r'\b(?:ARRIVAL|ARR)\s+(?:INFORMATION|INFO|ATIS)\b', header):
+        return 'ARR'
+    if re.search(r'\b(?:DEPARTURE|DEP)\s+(?:INFORMATION|INFO|ATIS)\b', header):
+        return 'DEP'
+
+    return None
+
+
+def parse_runway_assignments(atis_text: str, atis_type: str = None) -> tuple[set[str], set[str]]:
     """
     Parse ATIS text to extract landing and departing runway assignments.
 
     Args:
         atis_text: Full ATIS text
+        atis_type: Optional ATIS type ('ARR', 'DEP', 'COMB'). If not provided,
+                   will attempt to detect from text header.
 
     Returns:
         Tuple of (landing_runways, departing_runways) as sets of runway designators
@@ -326,6 +357,9 @@ def parse_runway_assignments(atis_text: str) -> tuple[set[str], set[str]]:
 
     if not atis_text:
         return landing_runways, departing_runways
+
+    # Detect ATIS type from text if not provided
+    detected_atis_type = atis_type or _detect_atis_type_from_text(atis_text)
 
     text = filter_atis_text(atis_text).upper()
 
@@ -387,9 +421,8 @@ def parse_runway_assignments(atis_text: str) -> tuple[set[str], set[str]]:
 
     # Pattern 6: European "RUNWAY(S) IN USE" format
     # e.g., "RUNWAY IN USE 22", "RUNWAYS IN USE 25R AND 25L"
-    # Note: "RUNWAYS IN USE" typically means BOTH arr/dep unless explicitly qualified
-    # The ATIS type (ARRIVAL/DEPARTURE INFORMATION) indicates the broadcast type,
-    # NOT that runways are exclusive to that operation type.
+    # For separate ARR/DEP ATIS broadcasts, runways apply only to that operation type.
+    # For combined ATIS or unknown, default to both unless context suggests otherwise.
     in_use_pattern = r'(?:RUNWAY?S?|RWY)\s+(?:IN\s+USE|ACTIVE)\s+([0-3]?\d[LRC]?(?:\s*(?:AND|,|/)\s*[0-3]?\d?[LRC]?)*)'
     for match in re.finditer(in_use_pattern, text, re.IGNORECASE):
         runways = _extract_runway_numbers(match.group(1))
@@ -397,13 +430,20 @@ def parse_runway_assignments(atis_text: str) -> tuple[set[str], set[str]]:
         context_start = max(0, match.start() - 50)
         context = text[context_start:match.start()].upper()
 
-        # Only restrict if there's explicit "FOR ARR" or "FOR DEP" context
+        # First check explicit context qualifiers
         if ' FOR ARR' in context or 'ARRIVAL ' in context[-20:]:
             landing_runways.update(runways)
         elif ' FOR DEP' in context or 'DEPARTURE ' in context[-20:]:
             departing_runways.update(runways)
+        # Then use detected ATIS type if available
+        elif detected_atis_type == 'ARR':
+            # Arrival ATIS - runways in use are for arrivals
+            landing_runways.update(runways)
+        elif detected_atis_type == 'DEP':
+            # Departure ATIS - runways in use are for departures
+            departing_runways.update(runways)
         else:
-            # Default to both - "RUNWAYS IN USE" means all operations
+            # Combined ATIS or unknown - default to both
             landing_runways.update(runways)
             departing_runways.update(runways)
 
@@ -421,6 +461,11 @@ def parse_runway_assignments(atis_text: str) -> tuple[set[str], set[str]]:
             landing_runways.update(runways)
         elif is_departure_context and not is_arrival_context:
             departing_runways.update(runways)
+        # Use detected ATIS type if no context clues
+        elif detected_atis_type == 'ARR':
+            landing_runways.update(runways)
+        elif detected_atis_type == 'DEP':
+            departing_runways.update(runways)
         else:
             landing_runways.update(runways)
             departing_runways.update(runways)
@@ -435,6 +480,11 @@ def parse_runway_assignments(atis_text: str) -> tuple[set[str], set[str]]:
         if 'ARR' in context or 'APCH' in context or 'APPROACH' in context:
             landing_runways.update(runways)
         elif 'DEP' in context or 'TKOF' in context:
+            departing_runways.update(runways)
+        # Use detected ATIS type if no context clues
+        elif detected_atis_type == 'ARR':
+            landing_runways.update(runways)
+        elif detected_atis_type == 'DEP':
             departing_runways.update(runways)
         else:
             # Default to both if no context
@@ -538,18 +588,45 @@ def parse_approach_info(atis_text: str) -> dict[str, list[str]]:
 
     text = filter_atis_text(atis_text).upper()
 
-    # Pattern: "ILS RWY 27L" or "EXPECT ILS APPROACH RWY 35L"
-    approach_pattern = rf'(?:EXPECT\s+)?({APPROACH_TYPES})\s+(?:APPROACH(?:ES)?\s+)?(?:RWY?S?\s+)?([0-3]?\d[LRC]?)'
+    # Pattern 1: "ILS RWY 27L", "ILS Y APCH RWY 07L", "EXPECT ILS APPROACH RWY 35L"
+    # Handles European format with APCH abbreviation and ILS category (X/Y/Z)
+    approach_pattern = rf'(?:EXPECT\s+)?({APPROACH_TYPES})\s+(?:APCH|APPROACH(?:ES)?)?\s*(?:RWY?S?\s+)?([0-3]?\d[LRC]?)'
 
     for match in re.finditer(approach_pattern, text, re.IGNORECASE):
         approach_type = match.group(1).upper().strip()
+        runway_match = re.match(r'(\d+)', match.group(2))
+        if not runway_match:
+            continue
+
         runway = _normalize_runway_designator(
-            re.match(r'(\d+)', match.group(2)).group(1),
+            runway_match.group(1),
             re.search(r'([LRC])', match.group(2)).group(1) if re.search(r'([LRC])', match.group(2)) else ''
         )
 
-        # Normalize approach type
+        # Normalize approach type (clean up multiple spaces)
         approach_type = re.sub(r'\s+', ' ', approach_type)
+
+        if runway not in approaches:
+            approaches[runway] = []
+        if approach_type not in approaches[runway]:
+            approaches[runway].append(approach_type)
+
+    # Pattern 2: European format "ILS Y APCH RWY 07L OR ILS APCH RWY 07R"
+    # Match "ILS [X/Y/Z] APCH RWY XX" explicitly
+    euro_approach_pattern = r'(ILS|GLS)\s*([XYZW])?\s*APCH\s+(?:RWY\s+)?([0-3]?\d[LRC]?)'
+    for match in re.finditer(euro_approach_pattern, text, re.IGNORECASE):
+        approach_base = match.group(1).upper()
+        category = match.group(2).upper() if match.group(2) else ''
+        approach_type = f"{approach_base} {category}".strip() if category else approach_base
+
+        runway_match = re.match(r'(\d+)', match.group(3))
+        if not runway_match:
+            continue
+
+        runway = _normalize_runway_designator(
+            runway_match.group(1),
+            re.search(r'([LRC])', match.group(3)).group(1) if re.search(r'([LRC])', match.group(3)) else ''
+        )
 
         if runway not in approaches:
             approaches[runway] = []
@@ -559,7 +636,7 @@ def parse_approach_info(atis_text: str) -> dict[str, list[str]]:
     return approaches
 
 
-def parse_full_runway_info(atis_text: str) -> list[RunwayAssignment]:
+def parse_full_runway_info(atis_text: str, atis_type: str = None) -> list[RunwayAssignment]:
     """
     Parse ATIS text to extract complete runway assignment information.
 
@@ -567,11 +644,12 @@ def parse_full_runway_info(atis_text: str) -> list[RunwayAssignment]:
 
     Args:
         atis_text: Full ATIS text
+        atis_type: Optional ATIS type ('ARR', 'DEP', 'COMB')
 
     Returns:
         List of RunwayAssignment objects
     """
-    landing, departing = parse_runway_assignments(atis_text)
+    landing, departing = parse_runway_assignments(atis_text, atis_type)
     approaches = parse_approach_info(atis_text)
 
     assignments: list[RunwayAssignment] = []
@@ -605,7 +683,8 @@ def parse_full_runway_info(atis_text: str) -> list[RunwayAssignment]:
 
 
 def parse_runway_assignments_v2(atis_text: str, airport_icao: str = None,
-                                  known_runways: set[str] = None) -> ParseResult:
+                                  known_runways: set[str] = None,
+                                  atis_type: str = None) -> ParseResult:
     """
     Enhanced ATIS parsing with confidence scoring and optional airport validation.
 
@@ -620,6 +699,7 @@ def parse_runway_assignments_v2(atis_text: str, airport_icao: str = None,
         airport_icao: Optional ICAO code for context (e.g., "KJFK")
         known_runways: Optional set of valid runways for this airport
                        (e.g., {"04L", "04R", "13L", "13R", "22L", "22R", "31L", "31R"})
+        atis_type: Optional ATIS type ('ARR', 'DEP', 'COMB')
 
     Returns:
         ParseResult with landing/departing runways, confidence, and diagnostics
@@ -631,7 +711,7 @@ def parse_runway_assignments_v2(atis_text: str, airport_icao: str = None,
         return result
 
     # Get basic parsed runways
-    landing, departing = parse_runway_assignments(atis_text)
+    landing, departing = parse_runway_assignments(atis_text, atis_type)
 
     # Start with base confidence
     base_confidence = 50
