@@ -582,8 +582,12 @@ include("load/config.php");
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="tmi-label mb-0" for="reroute_facilities">Facilities Included</label>
-                        <input type="text" class="form-control form-control-sm" id="reroute_facilities" placeholder="ZNY ZDC ZTL">
+                        <label class="tmi-label mb-0" for="reroute_facilities">
+                            Facilities Included
+                            <span id="facilities_auto_badge" class="badge badge-info ml-1" style="font-size: 0.6rem; display: none;">AUTO</span>
+                        </label>
+                        <input type="text" class="form-control form-control-sm" id="reroute_facilities" placeholder="ZNY ZDC ZTL" data-auto-calculated="false">
+                        <small class="form-text text-muted">ARTCCs traversed by route (auto-calculated from route string)</small>
                     </div>
                 </div>
             </div>

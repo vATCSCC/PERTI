@@ -223,6 +223,262 @@ try {
             break;
 
         // =====================================================================
+        // Expand route string - parse and get ARTCCs (NEW)
+        // =====================================================================
+        case 'expand_route':
+        case 'expand':
+            $routeString = $_GET['route'] ?? $_GET['route_string'] ?? null;
+
+            // Also support POST
+            if (!$routeString && $_SERVER['REQUEST_METHOD'] === 'POST') {
+                $body = json_decode(file_get_contents('php://input'), true);
+                $routeString = $body['route'] ?? $body['route_string'] ?? null;
+            }
+
+            if (!$routeString) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing route parameter',
+                    'error_code' => 'MISSING_ROUTE',
+                    'hint' => 'Provide route as query param: ?action=expand_route&route=KDFW BNA KMCO'
+                ]);
+                exit;
+            }
+
+            $result = $gis->expandRoute($routeString);
+
+            if (!$result) {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Route expansion failed',
+                    'error_code' => 'EXPANSION_FAILED',
+                    'message' => $gis->getLastError()
+                ]);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'route' => $result['route'],
+                'artccs' => $result['artccs'],
+                'artccs_display' => $result['artccs_display'],
+                'waypoints' => $result['waypoints'],
+                'waypoint_count' => count($result['waypoints']),
+                'distance_nm' => $result['distance_nm'],
+                'geojson' => $result['geojson']
+            ]);
+            break;
+
+        // =====================================================================
+        // Batch expand multiple routes (NEW)
+        // =====================================================================
+        case 'expand_routes':
+        case 'expand_batch':
+            $routes = null;
+
+            // Check query param first
+            if (isset($_GET['routes'])) {
+                $routes = json_decode($_GET['routes'], true);
+            }
+
+            // Also support POST
+            if (!$routes && $_SERVER['REQUEST_METHOD'] === 'POST') {
+                $body = json_decode(file_get_contents('php://input'), true);
+                $routes = $body['routes'] ?? null;
+            }
+
+            if (!$routes || !is_array($routes)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing routes parameter',
+                    'error_code' => 'MISSING_ROUTES',
+                    'hint' => 'Provide routes as JSON array: ["KDFW BNA KMCO", "KJFK KMIA"]'
+                ]);
+                exit;
+            }
+
+            $results = $gis->expandRoutesBatch($routes);
+
+            echo json_encode([
+                'success' => true,
+                'routes' => $results,
+                'count' => count($results),
+                'artccs_all' => array_unique(array_merge(...array_column($results, 'artccs')))
+            ]);
+            break;
+
+        // =====================================================================
+        // Expand playbook route (NEW)
+        // =====================================================================
+        case 'expand_playbook':
+        case 'playbook':
+            $pbCode = $_GET['code'] ?? $_GET['pb_code'] ?? null;
+
+            if (!$pbCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing playbook code',
+                    'error_code' => 'MISSING_CODE',
+                    'hint' => 'Provide code as: ?action=expand_playbook&code=PB.ROD.KSAN.KJFK'
+                ]);
+                exit;
+            }
+
+            $result = $gis->expandPlaybookRoute($pbCode);
+
+            if (!$result) {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Playbook route not found',
+                    'error_code' => 'NOT_FOUND',
+                    'code' => $pbCode
+                ]);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'pb_code' => $result['pb_code'],
+                'route_string' => $result['route_string'],
+                'artccs' => $result['artccs'],
+                'artccs_display' => $result['artccs_display'],
+                'waypoints' => $result['waypoints'],
+                'waypoint_count' => count($result['waypoints']),
+                'geojson' => $result['geojson']
+            ]);
+            break;
+
+        // =====================================================================
+        // Full route analysis with sectors (NEW)
+        // =====================================================================
+        case 'analyze_route':
+        case 'route_analysis':
+            $routeString = $_GET['route'] ?? $_GET['route_string'] ?? null;
+            $altitude = isset($_GET['altitude']) ? (int)$_GET['altitude'] : 35000;
+
+            // Also support POST
+            if (!$routeString && $_SERVER['REQUEST_METHOD'] === 'POST') {
+                $body = json_decode(file_get_contents('php://input'), true);
+                $routeString = $body['route'] ?? $body['route_string'] ?? null;
+                $altitude = isset($body['altitude']) ? (int)$body['altitude'] : $altitude;
+            }
+
+            if (!$routeString) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing route parameter',
+                    'error_code' => 'MISSING_ROUTE'
+                ]);
+                exit;
+            }
+
+            $result = $gis->analyzeRouteFull($routeString, $altitude);
+
+            if (!$result) {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Route analysis failed',
+                    'error_code' => 'ANALYSIS_FAILED',
+                    'message' => $gis->getLastError()
+                ]);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'route' => $result['route'],
+                'artccs' => $result['artccs'],
+                'sectors_low' => $result['sectors_low'],
+                'sectors_high' => $result['sectors_high'],
+                'sectors_superhi' => $result['sectors_superhi'],
+                'tracons' => $result['tracons'],
+                'waypoint_count' => count($result['waypoints']),
+                'distance_nm' => $result['distance_nm'],
+                'geojson' => $result['geojson'],
+                'altitude' => $altitude
+            ]);
+            break;
+
+        // =====================================================================
+        // Routes to GeoJSON FeatureCollection (NEW)
+        // =====================================================================
+        case 'routes_geojson':
+        case 'geojson':
+            $routes = null;
+
+            if (isset($_GET['routes'])) {
+                $routes = json_decode($_GET['routes'], true);
+            }
+
+            if (!$routes && $_SERVER['REQUEST_METHOD'] === 'POST') {
+                $body = json_decode(file_get_contents('php://input'), true);
+                $routes = $body['routes'] ?? null;
+            }
+
+            if (!$routes || !is_array($routes)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing routes parameter',
+                    'error_code' => 'MISSING_ROUTES'
+                ]);
+                exit;
+            }
+
+            $featureCollection = $gis->routesToGeoJSON($routes);
+
+            echo json_encode($featureCollection);
+            break;
+
+        // =====================================================================
+        // Resolve waypoint/fix to coordinates (NEW)
+        // =====================================================================
+        case 'resolve_waypoint':
+        case 'resolve_fix':
+        case 'waypoint':
+            $fix = strtoupper($_GET['fix'] ?? $_GET['waypoint'] ?? '');
+
+            if (!$fix) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing fix parameter',
+                    'error_code' => 'MISSING_FIX',
+                    'hint' => 'Provide fix name: ?action=resolve_waypoint&fix=BNA'
+                ]);
+                exit;
+            }
+
+            $result = $gis->resolveWaypoint($fix);
+
+            if (!$result) {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Waypoint not found',
+                    'error_code' => 'NOT_FOUND',
+                    'fix' => $fix
+                ]);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'fix' => $result['fix_id'],
+                'lat' => $result['lat'],
+                'lon' => $result['lon'],
+                'source' => $result['source']
+            ]);
+            break;
+
+        // =====================================================================
         // Get ARTCC for airport
         // =====================================================================
         case 'airport_artcc':
@@ -296,8 +552,41 @@ try {
             echo json_encode([
                 'success' => true,
                 'service' => 'PERTI GIS Boundaries API',
-                'version' => '1.0.0',
+                'version' => '1.1.0',
                 'endpoints' => [
+                    // Route String Expansion (NEW)
+                    'expand_route' => [
+                        'method' => 'GET',
+                        'params' => ['route' => 'string (required)'],
+                        'description' => 'Expand route string to waypoints and get ARTCCs traversed',
+                        'example' => '?action=expand_route&route=KDFW BNA KMCO'
+                    ],
+                    'expand_routes' => [
+                        'method' => 'GET/POST',
+                        'params' => ['routes' => 'JSON array of route strings'],
+                        'description' => 'Batch expand multiple route strings'
+                    ],
+                    'expand_playbook' => [
+                        'method' => 'GET',
+                        'params' => ['code' => 'string (e.g., PB.ROD.KSAN.KJFK)'],
+                        'description' => 'Expand playbook route code to full route'
+                    ],
+                    'analyze_route' => [
+                        'method' => 'GET/POST',
+                        'params' => ['route' => 'string', 'altitude' => 'int (default 35000)'],
+                        'description' => 'Full route analysis with ARTCCs, sectors, and TRACONs'
+                    ],
+                    'resolve_waypoint' => [
+                        'method' => 'GET',
+                        'params' => ['fix' => 'string (e.g., BNA, KDFW, ZFW)'],
+                        'description' => 'Resolve fix/airport/ARTCC to coordinates'
+                    ],
+                    'routes_geojson' => [
+                        'method' => 'GET/POST',
+                        'params' => ['routes' => 'JSON array of route strings'],
+                        'description' => 'Convert routes to GeoJSON FeatureCollection'
+                    ],
+                    // Waypoint-based queries
                     'at_point' => [
                         'method' => 'GET',
                         'params' => ['lat' => 'float (required)', 'lon' => 'float (required)', 'alt' => 'int (optional)'],
@@ -306,39 +595,50 @@ try {
                     'route_artccs' => [
                         'method' => 'GET',
                         'params' => ['waypoints' => 'JSON array (required)'],
-                        'description' => 'Get ARTCCs traversed by a route'
+                        'description' => 'Get ARTCCs traversed by waypoints'
                     ],
                     'route_tracons' => [
                         'method' => 'GET',
                         'params' => ['waypoints' => 'JSON array (required)'],
-                        'description' => 'Get TRACONs traversed by a route'
+                        'description' => 'Get TRACONs traversed by waypoints'
                     ],
                     'route_full' => [
                         'method' => 'GET',
                         'params' => ['waypoints' => 'JSON array', 'altitude' => 'int (default 35000)', 'sectors' => '0|1'],
-                        'description' => 'Get all boundaries (ARTCCs, TRACONs, sectors) traversed'
+                        'description' => 'Get all boundaries (ARTCCs, TRACONs, sectors) from waypoints'
                     ],
+                    // TMI Analysis
                     'analyze_tmi_route' => [
                         'method' => 'POST',
                         'body' => ['route_geojson' => 'GeoJSON', 'origin' => 'ICAO', 'destination' => 'ICAO', 'altitude' => 'int'],
                         'description' => 'Analyze TMI route proposal for facility coordination'
                     ],
+                    // Airport queries
                     'airport_artcc' => [
                         'method' => 'GET',
                         'params' => ['icao' => 'string (required)'],
                         'description' => 'Get ARTCC containing an airport'
+                    ],
+                    'artcc_airports' => [
+                        'method' => 'GET',
+                        'params' => ['artcc' => 'string (required)'],
+                        'description' => 'Get airports within an ARTCC'
                     ],
                     'health' => [
                         'method' => 'GET',
                         'description' => 'Service health check'
                     ]
                 ],
-                'waypoints_format' => [
-                    'option1' => '[{"lat": 40.64, "lon": -73.78}, ...]',
-                    'option2' => '[[-73.78, 40.64], ...]  (GeoJSON style: [lon, lat])',
-                    'option3' => '[{"latitude": 40.64, "longitude": -73.78}, ...]'
+                'route_string_format' => [
+                    'direct' => 'KDFW BNA KMCO (space-separated fixes)',
+                    'airway' => 'KDFW J4 ABI KABQ (includes J/Q airways)',
+                    'playbook' => 'PB.PLAY.ORIGIN.DEST (e.g., PB.ROD.KSAN.KJFK)'
                 ],
-                'example' => '/api/gis/boundaries?action=route_artccs&waypoints=[{"lat":32.897,"lon":-97.038},{"lat":28.429,"lon":-81.309}]'
+                'examples' => [
+                    'expand' => '/api/gis/boundaries?action=expand_route&route=KDFW BNA KMCO',
+                    'playbook' => '/api/gis/boundaries?action=expand_playbook&code=PB.ROD.KSAN.KJFK',
+                    'waypoints' => '/api/gis/boundaries?action=route_artccs&waypoints=[{"lat":32.897,"lon":-97.038},{"lat":28.429,"lon":-81.309}]'
+                ]
             ]);
             break;
     }
