@@ -6520,8 +6520,12 @@ $(document).ready(function() {
             const artccs = data.artccs_all || [];
             console.log('[ADV-ML] ARTCCs from all routes:', artccs);
 
-            // Filter to only US CONUS ARTCCs (3-letter Z codes)
-            const usArtccs = artccs.filter(a => /^Z[A-Z]{2}$/.test(a)).sort();
+            // Normalize ARTCCs: KZLA → ZLA, filter to US CONUS only (Z** codes)
+            const usArtccs = artccs
+                .map(a => a.replace(/^K/, ''))  // Strip K prefix (KZLA → ZLA)
+                .filter(a => /^Z[A-Z]{2}$/.test(a))  // Keep only Z** codes (excludes CZYZ, etc.)
+                .filter((v, i, arr) => arr.indexOf(v) === i)  // Dedupe after normalization
+                .sort();
             console.log('[ADV-ML] Filtered US ARTCCs:', usArtccs);
 
             // Set the facilities field

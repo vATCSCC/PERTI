@@ -2519,7 +2519,7 @@ include('load/footer.php');
 <script>
     // Load appropriate map library based on feature flag
     if (window.PERTI_USE_MAPLIBRE) {
-        document.write('<script src="assets/js/route-maplibre.js?v=20260130a"><\/script>');
+        document.write('<script src="assets/js/route-maplibre.js?v=20260130b"><\/script>');
     } else {
         document.write('<script src="assets/js/route.js?v=20260130a"><\/script>');
     }
