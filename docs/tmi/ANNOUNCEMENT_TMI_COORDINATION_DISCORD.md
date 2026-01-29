@@ -70,10 +70,10 @@ Production deployment to the main VATUSA Discord will require DCC staff coordina
 - Discord Bot: Node.js Gateway bot for real-time reaction processing
 
 **Documentation:**
-Full documentation available on PERTI: https://perti.vatcscc.org/docs/tmi/
+https://github.com/vATCSCC/PERTI/blob/main/docs/tmi/README.md
 
 **Support:**
-For questions or issues, contact DCC staff or submit feedback via the PERTI issue tracker.
+For questions or issues, contact DCC staff.
 ```
 
 ---
