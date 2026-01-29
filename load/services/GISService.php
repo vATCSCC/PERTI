@@ -397,6 +397,266 @@ class GISService
     }
 
     // =========================================================================
+    // ROUTE STRING EXPANSION METHODS
+    // =========================================================================
+
+    /**
+     * Expand a route string (parses airways, fixes, airports)
+     *
+     * @param string $routeString Route string (e.g., "KDFW BNA KMCO" or "KDFW Q40 BFOLO J4 ABQ")
+     * @return array|null {waypoints, artccs, artccs_display, geojson, distance_nm}
+     */
+    public function expandRoute(string $routeString): ?array
+    {
+        if (!$this->conn) return null;
+
+        try {
+            $sql = "
+                SELECT
+                    waypoints,
+                    artccs_traversed,
+                    ST_AsGeoJSON(route_geometry) as geojson,
+                    ST_Length(route_geometry::geography) / 1852.0 as distance_nm
+                FROM expand_route_with_artccs(:route)
+            ";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':route' => $routeString]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row) return null;
+
+            $artccs = $this->pgArrayToPhp($row['artccs_traversed']);
+            $artccsClean = $this->cleanArtccCodes($artccs);
+
+            return [
+                'route' => $routeString,
+                'waypoints' => json_decode($row['waypoints'], true) ?? [],
+                'artccs' => $artccsClean,
+                'artccs_raw' => $artccs,
+                'artccs_display' => implode(' -> ', $artccsClean),
+                'geojson' => $row['geojson'] ? json_decode($row['geojson'], true) : null,
+                'distance_nm' => round((float)$row['distance_nm'], 1)
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::expandRoute error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Expand multiple routes at once (batch)
+     *
+     * @param array $routes Array of route strings
+     * @return array Array of results with index
+     */
+    public function expandRoutesBatch(array $routes): array
+    {
+        if (!$this->conn || empty($routes)) return [];
+
+        try {
+            $routesArray = $this->formatPostgresTextArray($routes);
+
+            $sql = "
+                SELECT
+                    route_index,
+                    route_input,
+                    waypoint_count,
+                    artccs,
+                    artccs_display,
+                    distance_nm,
+                    geojson,
+                    error_message
+                FROM expand_routes_with_geojson(:routes)
+            ";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':routes' => $routesArray]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'index' => (int)$row['route_index'],
+                    'route' => $row['route_input'],
+                    'waypoint_count' => (int)$row['waypoint_count'],
+                    'artccs' => $this->pgArrayToPhp($row['artccs']),
+                    'artccs_display' => $row['artccs_display'],
+                    'distance_nm' => round((float)$row['distance_nm'], 1),
+                    'geojson' => $row['geojson'] ? json_decode($row['geojson'], true) : null,
+                    'error' => $row['error_message']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::expandRoutesBatch error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Full route analysis with sectors and TRACONs
+     *
+     * @param string $routeString Route string
+     * @param int $altitude Cruise altitude in feet (default FL350)
+     * @return array|null Complete boundary analysis
+     */
+    public function analyzeRouteFull(string $routeString, int $altitude = 35000): ?array
+    {
+        if (!$this->conn) return null;
+
+        try {
+            $routesArray = $this->formatPostgresTextArray([$routeString]);
+
+            $sql = "SELECT * FROM expand_routes_full(:routes, :altitude)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':routes' => $routesArray,
+                ':altitude' => $altitude
+            ]);
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) return null;
+
+            return [
+                'route' => $routeString,
+                'waypoints' => json_decode($row['waypoints'], true) ?? [],
+                'artccs' => $this->cleanArtccCodes($this->pgArrayToPhp($row['artccs'])),
+                'sectors_low' => $this->pgArrayToPhp($row['sectors_low']),
+                'sectors_high' => $this->pgArrayToPhp($row['sectors_high']),
+                'sectors_superhi' => $this->pgArrayToPhp($row['sectors_superhi']),
+                'tracons' => $this->pgArrayToPhp($row['tracons']),
+                'distance_nm' => round((float)$row['distance_nm'], 1),
+                'geojson' => $row['geojson'] ? json_decode($row['geojson'], true) : null,
+                'error' => $row['error_message']
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::analyzeRouteFull error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get ARTCCs from a route string (simple)
+     *
+     * @param string $routeString Route string
+     * @return array Array of ARTCC codes (ZFW, ZME, etc.)
+     */
+    public function getRouteARTCCsFromString(string $routeString): array
+    {
+        $result = $this->expandRoute($routeString);
+        return $result ? $result['artccs'] : [];
+    }
+
+    /**
+     * Expand a playbook route
+     *
+     * @param string $pbCode Playbook code (e.g., "PB.ROD.KSAN.KJFK")
+     * @return array|null {route_string, waypoints, artccs, geojson}
+     */
+    public function expandPlaybookRoute(string $pbCode): ?array
+    {
+        if (!$this->conn) return null;
+
+        try {
+            $sql = "
+                SELECT
+                    waypoints,
+                    artccs_traversed,
+                    route_string,
+                    ST_AsGeoJSON(route_geometry) as geojson
+                FROM expand_playbook_route(:pb_code)
+            ";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':pb_code' => $pbCode]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row) return null;
+
+            $artccs = $this->pgArrayToPhp($row['artccs_traversed']);
+
+            return [
+                'pb_code' => $pbCode,
+                'route_string' => $row['route_string'],
+                'waypoints' => json_decode($row['waypoints'], true) ?? [],
+                'artccs' => $this->cleanArtccCodes($artccs),
+                'artccs_display' => implode(' -> ', $this->cleanArtccCodes($artccs)),
+                'geojson' => $row['geojson'] ? json_decode($row['geojson'], true) : null
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::expandPlaybookRoute error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get GeoJSON FeatureCollection for multiple routes
+     *
+     * @param array $routes Array of route strings
+     * @return array GeoJSON FeatureCollection
+     */
+    public function routesToGeoJSON(array $routes): array
+    {
+        if (!$this->conn || empty($routes)) {
+            return ['type' => 'FeatureCollection', 'features' => []];
+        }
+
+        try {
+            $routesArray = $this->formatPostgresTextArray($routes);
+
+            $sql = "SELECT routes_to_geojson_collection(:routes) as collection";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':routes' => $routesArray]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return $row ? json_decode($row['collection'], true) : ['type' => 'FeatureCollection', 'features' => []];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::routesToGeoJSON error: ' . $e->getMessage());
+            return ['type' => 'FeatureCollection', 'features' => []];
+        }
+    }
+
+    /**
+     * Resolve a waypoint/fix to coordinates
+     *
+     * @param string $fixName Fix identifier (e.g., "BNA", "KDFW", "ZBW")
+     * @return array|null {fix_id, lat, lon, source}
+     */
+    public function resolveWaypoint(string $fixName): ?array
+    {
+        if (!$this->conn) return null;
+
+        try {
+            $sql = "SELECT fix_id, lat, lon, source FROM resolve_waypoint(:fix)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':fix' => $fixName]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row) return null;
+
+            return [
+                'fix_id' => $row['fix_id'],
+                'lat' => (float)$row['lat'],
+                'lon' => (float)$row['lon'],
+                'source' => $row['source']
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::resolveWaypoint error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // =========================================================================
     // AIRPORT METHODS
     // =========================================================================
 
@@ -529,6 +789,41 @@ class GISService
         // Split by comma, handling quoted values
         $values = str_getcsv($pgArray);
         return array_filter($values, fn($v) => $v !== '' && $v !== null);
+    }
+
+    /**
+     * Format PHP array as PostgreSQL TEXT[] array literal
+     *
+     * @param array $arr PHP array of strings
+     * @return string PostgreSQL array literal
+     */
+    private function formatPostgresTextArray(array $arr): string
+    {
+        $escaped = array_map(function($s) {
+            // Escape special characters and wrap in quotes
+            $s = str_replace('\\', '\\\\', $s);
+            $s = str_replace('"', '\\"', $s);
+            return '"' . $s . '"';
+        }, $arr);
+
+        return '{' . implode(',', $escaped) . '}';
+    }
+
+    /**
+     * Clean ARTCC codes - remove K prefix from ICAO-style codes
+     *
+     * @param array $artccs Array of ARTCC codes
+     * @return array Cleaned codes (KZFW -> ZFW)
+     */
+    private function cleanArtccCodes(array $artccs): array
+    {
+        return array_map(function($a) {
+            // KZFW -> ZFW
+            if (strlen($a) === 4 && substr($a, 0, 1) === 'K') {
+                return substr($a, 1);
+            }
+            return $a;
+        }, $artccs);
     }
 
     /**
