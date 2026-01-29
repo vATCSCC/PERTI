@@ -387,7 +387,9 @@ class AtisDaemon:
             # Pre-parse all ATIS in memory first (fast)
             batch_data = []
             for record in pending:
-                runways = parse_full_runway_info(record['atis_text'])
+                # Pass atis_type to parser for correct runway assignment inference
+                # (e.g., ARR ATIS "runways in use" = arrival runways only)
+                runways = parse_full_runway_info(record['atis_text'], record.get('atis_type'))
                 batch_data.append({
                     'atis_id': record['atis_id'],
                     'runways': [r.to_dict() for r in runways] if runways else []
