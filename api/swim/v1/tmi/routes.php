@@ -995,26 +995,23 @@ function addFacilityReactionsToThread(DiscordAPI $discord, string $threadId, str
     ];
 
     foreach ($facilities as $facCode) {
-        // Try custom emoji first (guild-specific)
+        // Try custom guild emoji first, fall back to regional indicator
         $customEmoji = strtoupper($facCode);
+        $success = $discord->createReaction($threadId, $messageId, $customEmoji);
 
-        // Add reaction - try custom emoji, fall back to regional indicator
-        try {
-            // Try custom facility emoji first
-            $discord->addReaction($threadId, $messageId, $customEmoji);
-        } catch (Exception $e) {
-            // Fall back to regional indicator
+        // If custom emoji failed, try regional indicator
+        if (!$success) {
             $emoji = $facilityEmojiMap[$facCode] ?? null;
             if ($emoji) {
-                $discord->addReaction($threadId, $messageId, $emoji);
+                $discord->createReaction($threadId, $messageId, $emoji);
             }
         }
 
-        usleep(50000); // 50ms delay between reactions
+        usleep(100000); // 100ms delay between reactions for rate limiting
     }
 
     // Add deny reaction
-    $discord->addReaction($threadId, $messageId, '❌');
+    $discord->createReaction($threadId, $messageId, '❌');
 }
 
 // ============================================================================
