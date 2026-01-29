@@ -3,6 +3,7 @@
 // assets/js/route.js
 
 $(document).ready(function() {
+    console.log('[ROUTE.JS] v2026.01.30a - Document ready starting');
 
     let cached_geojson_linestring = [];
     let cached_geojson_multipoint = [];

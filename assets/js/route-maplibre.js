@@ -6461,6 +6461,84 @@ $(document).ready(function() {
                 $('#advFacilitiesDropdown').hide();
             }
         });
+
+        // Auto-calculate facilities from GIS (magic wand button)
+        $('#advFacilitiesAuto').on('click', function(e) {
+            console.log('[ADV-ML] Magic wand button clicked!');
+            e.stopPropagation();
+            advCalculateFacilitiesFromGIS();
+        });
+    }
+
+    /**
+     * Calculate facilities from routes using the GIS API
+     * Uses the already-expanded routes from MapLibre
+     */
+    async function advCalculateFacilitiesFromGIS() {
+        console.log('[ADV-ML] advCalculateFacilitiesFromGIS() called');
+
+        const $btn = $('#advFacilitiesAuto');
+        const $field = $('#advFacilities');
+
+        // Get expanded routes from MapLibre
+        const routes = lastExpandedRoutes;
+        console.log('[ADV-ML] Expanded routes:', routes);
+
+        if (!routes || routes.length === 0) {
+            alert('No routes plotted. Plot routes first, then click the magic wand.');
+            return;
+        }
+
+        // Show loading state
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+
+        try {
+            // Strip marker symbols (>, <) from route strings for API
+            const cleanRoutes = routes.map(r => r.replace(/[><]/g, '').trim());
+
+            console.log('[ADV-ML] Calling GIS API with routes:', cleanRoutes);
+
+            const response = await fetch('/api/gis/boundaries?action=expand_routes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ routes: cleanRoutes })
+            });
+
+            if (!response.ok) {
+                throw new Error('GIS API returned ' + response.status);
+            }
+
+            const data = await response.json();
+            console.log('[ADV-ML] GIS API response:', data);
+
+            if (!data.success) {
+                throw new Error(data.error || 'GIS API error');
+            }
+
+            // Get unique ARTCCs from all routes
+            const artccs = data.artccs_all || [];
+            console.log('[ADV-ML] ARTCCs from all routes:', artccs);
+
+            // Filter to only US CONUS ARTCCs (3-letter Z codes)
+            const usArtccs = artccs.filter(a => /^Z[A-Z]{2}$/.test(a)).sort();
+            console.log('[ADV-ML] Filtered US ARTCCs:', usArtccs);
+
+            // Set the facilities field
+            $field.val(usArtccs.join('/'));
+
+            // Also update the checkboxes to match
+            $('#advFacilitiesGrid input[type="checkbox"]').each(function() {
+                const code = ($(this).attr('data-code') || '').toUpperCase();
+                $(this).prop('checked', usArtccs.includes(code));
+            });
+
+        } catch (err) {
+            console.error('[ADV-ML] Error calculating facilities:', err);
+            alert('Error calculating facilities: ' + err.message);
+        } finally {
+            $btn.html(originalHtml).prop('disabled', false);
+        }
     }
 
     /**
