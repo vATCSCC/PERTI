@@ -280,7 +280,7 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 Dedicated database for unified TMI (Traffic Management Initiative) operations.
 
 **Server:** `vatsim.database.windows.net`
-**Credentials:** TMI_admin / ***REMOVED***
+**Credentials:** Contact PERTI administrator
 
 ### TMI Program Tables
 
