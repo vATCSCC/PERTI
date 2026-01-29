@@ -16,6 +16,7 @@
  */
 
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../../../../load/services/GISService.php';
 
 // Discord coordination
 define('DISCORD_COORDINATION_CHANNEL', '1466013550450577491');
@@ -245,7 +246,34 @@ function handleCreate() {
 
     // Extract facilities for coordination BEFORE insert (to determine initial coordination_status)
     $facilitiesStr = $body['facilities'] ?? null;
-    $facilities = parseFacilityCodes($facilitiesStr, $advisoryText);
+    $facilities = [];
+    $gisCalculated = false;
+
+    // Try PostGIS-based facility detection first (if route geometry provided)
+    if (!empty($body['route_geojson'])) {
+        $gis = GISService::getInstance();
+        if ($gis) {
+            $routeGeojson = is_array($body['route_geojson']) ? $body['route_geojson'] : json_decode($body['route_geojson'], true);
+            $analysis = $gis->analyzeTMIRoute(
+                $routeGeojson,
+                $body['origin'] ?? $body['constrained_area'] ?? null,
+                $body['destination'] ?? null,
+                (int)($body['altitude'] ?? 35000)
+            );
+            $facilities = $analysis['artccs_traversed'] ?? [];
+            if (!empty($facilities)) {
+                $gisCalculated = true;
+                // Update the facilities field with GIS-calculated values
+                $body['facilities'] = implode('/', $facilities);
+                $facilitiesStr = $body['facilities'];
+            }
+        }
+    }
+
+    // Fallback to text parsing if PostGIS unavailable or returned no results
+    if (empty($facilities)) {
+        $facilities = parseFacilityCodes($facilitiesStr, $advisoryText);
+    }
 
     // Determine initial coordination_status based on facility count
     // Multi-facility = PENDING (requires coordination), single/none = NULL (no coordination needed)

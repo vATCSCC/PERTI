@@ -1989,6 +1989,7 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         $log("Message ID for reactions: {$threadMessageId}");
 
         try {
+            $reactionResults = [];
             foreach ($facilities as $facility) {
                 $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
                 $facCode = strtoupper(trim($facCode));
@@ -1998,8 +1999,14 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
                 // Add custom emoji (for Nitro users)
                 if ($facEmoji) {
                     $log("Adding custom emoji to thread: {$facEmoji} for facility {$facCode}");
-                    $success = $discord->createReaction($threadId, $threadMessageId, $facEmoji);
-                    $log("Custom emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                    try {
+                        $success = $discord->createReaction($threadId, $threadMessageId, $facEmoji);
+                        $log("Custom emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                        $reactionResults["{$facCode}_custom"] = $success;
+                    } catch (Throwable $e) {
+                        $log("Custom emoji error for {$facCode}: " . $e->getMessage());
+                        $reactionResults["{$facCode}_custom"] = false;
+                    }
                 }
 
                 // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
@@ -2009,23 +2016,44 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
                 $parentArtcc = $emojiInfo['parent'] ?? null;
 
                 $log("Adding alternate emoji to thread: {$altEmoji} for facility {$facCode} (type: {$emojiType}, parent: " . ($parentArtcc ?? 'none') . ")");
-                $success = $discord->createReaction($threadId, $threadMessageId, $altEmoji);
-                $log("Alternate emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                try {
+                    $success = $discord->createReaction($threadId, $threadMessageId, $altEmoji);
+                    $log("Alternate emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                    $reactionResults["{$facCode}_alt"] = $success;
+                } catch (Throwable $e) {
+                    $log("Alternate emoji error for {$facCode}: " . $e->getMessage());
+                    $reactionResults["{$facCode}_alt"] = false;
+                }
 
-                usleep(250000); // 250ms delay between reactions to avoid rate limiting
+                usleep(350000); // 350ms delay between reactions to avoid rate limiting
             }
 
             // Add deny reactions to thread message
             $log("Adding deny reactions to thread message");
-            $success1 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
-            $log("Deny emoji 1 result: " . ($success1 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-            usleep(250000);
-            $success2 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
-            $log("Deny emoji 2 result: " . ($success2 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+            try {
+                $success1 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
+                $log("Deny emoji 1 result: " . ($success1 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                $reactionResults['deny1'] = $success1;
+            } catch (Throwable $e) {
+                $log("Deny emoji 1 error: " . $e->getMessage());
+                $reactionResults['deny1'] = false;
+            }
+            usleep(350000);
+            try {
+                $success2 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
+                $log("Deny emoji 2 result: " . ($success2 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                $reactionResults['deny2'] = $success2;
+            } catch (Throwable $e) {
+                $log("Deny emoji 2 error: " . $e->getMessage());
+                $reactionResults['deny2'] = false;
+            }
+
             // Store reaction results for debugging
-            $starterResult['reactions_added'] = true;
-            $starterResult['deny_reactions'] = ['emoji1' => $success1, 'emoji2' => $success2];
-        } catch (Exception $emojiEx) {
+            $anySuccess = in_array(true, $reactionResults, true);
+            $starterResult['reactions_added'] = $anySuccess;
+            $starterResult['reaction_results'] = $reactionResults;
+            $log("Reaction results: " . json_encode($reactionResults));
+        } catch (Throwable $emojiEx) {
             $log("EMOJI EXCEPTION: " . $emojiEx->getMessage());
             $log("Emoji exception trace: " . $emojiEx->getTraceAsString());
             $starterResult['reactions_added'] = false;

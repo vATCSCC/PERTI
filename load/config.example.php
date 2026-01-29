@@ -54,8 +54,8 @@ if (!defined("SQL_USERNAME")) {
     define("GIS_SQL_HOST", "your-postgres-server");
     define("GIS_SQL_PORT", "5432");
     define("GIS_SQL_DATABASE", "VATSIM_GIS");
-    define("GIS_SQL_USERNAME", "gis_api_user");
-    define("GIS_SQL_PASSWORD", "");
+    define("GIS_SQL_USERNAME", "GIS_admin");
+    define("GIS_SQL_PASSWORD", "");  // Default: ***REMOVED***
 
     // =====================================================================
     // SITE INFORMATION

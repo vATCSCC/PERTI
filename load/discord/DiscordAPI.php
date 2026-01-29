@@ -784,9 +784,10 @@ class DiscordAPI {
      * @param string $method HTTP method (GET, POST, PUT, PATCH, DELETE)
      * @param string $endpoint API endpoint (e.g., /channels/123/messages)
      * @param array|null $data Request body data (for POST/PUT/PATCH)
+     * @param int $retryCount Current retry attempt (internal use)
      * @return array|null Response data or null on error
      */
-    private function request($method, $endpoint, $data = null) {
+    private function request($method, $endpoint, $data = null, $retryCount = 0) {
         // Reset state
         $this->lastError = null;
         $this->lastResponse = null;
@@ -863,9 +864,16 @@ class DiscordAPI {
                 $retryAfter = $responseData['retry_after'] ?? 1;
                 $this->lastError = "Rate limited. Retry after {$retryAfter} seconds";
 
-                // Sleep and retry once
-                usleep((int)($retryAfter * 1000000) + 100000);
-                return $this->request($method, $endpoint, $data);
+                // Only retry up to 2 times to avoid infinite recursion/timeout
+                if ($retryCount < 2) {
+                    // Cap wait time at 5 seconds to avoid long delays
+                    $waitTime = min((int)($retryAfter * 1000000) + 100000, 5000000);
+                    usleep($waitTime);
+                    return $this->request($method, $endpoint, $data, $retryCount + 1);
+                }
+                // Max retries exceeded - return null with error
+                $this->lastError = "Rate limited after {$retryCount} retries";
+                return null;
             }
 
             $this->lastError = $responseData['message'] ?? "HTTP error {$httpCode}";
