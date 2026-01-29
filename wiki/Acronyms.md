@@ -272,6 +272,19 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 
 ---
 
+## GIS & Spatial
+
+| Acronym | Definition |
+|---------|------------|
+| **GIS** | Geographic Information System - spatial data management and analysis |
+| **PostGIS** | PostgreSQL extension for spatial/geographic data types and functions |
+| **WGS84** | World Geodetic System 1984 - GPS coordinate reference system |
+| **SRID** | Spatial Reference System Identifier (4326 = WGS84) |
+| **GeoJSON** | JSON format for encoding geographic data structures |
+| **GIST** | Generalized Search Tree - PostgreSQL index type for spatial queries |
+
+---
+
 ## Systems & Data
 
 | Acronym | Definition |
