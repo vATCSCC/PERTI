@@ -43,6 +43,22 @@ window.formatConfigName = function(configName, arrRunways, depRunways) {
     return configName;
 };
 
+/**
+ * Calculate contrasting text color for a given background color
+ * Returns white for dark backgrounds, black for light backgrounds
+ * @param {string} hexColor - Background color in hex format (e.g., '#FF0000' or 'FF0000')
+ * @returns {string} '#000000' or '#ffffff'
+ */
+window.getContrastTextColor = function(hexColor) {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16) / 255;
+    const g = parseInt(hex.substr(2, 2), 16) / 255;
+    const b = parseInt(hex.substr(4, 2), 16) / 255;
+    // Relative luminance formula (ITU-R BT.601)
+    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+    return luminance > 0.5 ? '#000000' : '#ffffff';
+};
+
 // ============================================================================
 // DemandChartCore - Reusable chart rendering functions
 // Used by both demand.php and gdt.php
@@ -300,6 +316,9 @@ window.DemandChartCore = (function() {
         const isCustom = rateData.has_override;
         const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
 
+        // Track label index for vertical stacking
+        let labelIndex = 0;
+
         const addLine = function(value, source, rateType, label) {
             if (!value) return;
 
@@ -308,8 +327,13 @@ window.DemandChartCore = (function() {
             const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
             const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
 
-            // Position AAR labels on top, ADR labels on bottom to prevent overlap
-            const labelPosition = rateType === 'aar' ? 'insideEndTop' : 'insideEndBottom';
+            // Use line color as background, contrasting text for readability
+            const bgColor = sourceStyle.color;
+            const textColor = getContrastTextColor(bgColor);
+
+            // Stack labels vertically at the right edge
+            const verticalOffset = labelIndex * 20;
+            labelIndex++;
 
             lines.push({
                 yAxis: value,
@@ -321,14 +345,18 @@ window.DemandChartCore = (function() {
                 label: {
                     show: true,
                     formatter: `${label} ${value}`,
-                    position: labelPosition,
-                    color: sourceStyle.color,
+                    position: 'end',
+                    distance: 5,
+                    offset: [0, verticalOffset],
+                    color: textColor,
                     fontSize: cfg.label.fontSize || 10,
                     fontWeight: cfg.label.fontWeight || 'bold',
                     fontFamily: '"Roboto Mono", monospace',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    backgroundColor: bgColor,
                     padding: [2, 6],
-                    borderRadius: 2
+                    borderRadius: 3,
+                    borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
+                    borderWidth: 1
                 }
             });
         };
@@ -615,7 +643,7 @@ window.DemandChartCore = (function() {
                         itemHeight: 8,
                         textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' }
                     },
-                    grid: { left: 50, right: 20, bottom: 70, top: 45, containLabel: false },
+                    grid: { left: 50, right: 70, bottom: 70, top: 45, containLabel: false },
                     xAxis: {
                         type: 'time',
                         name: getXAxisLabel(state.granularity),
@@ -2045,7 +2073,7 @@ function renderChart(data) {
         ],
         grid: {
             left: 55,
-            right: 45,   // Increased for vertical slider
+            right: 70,   // Room for AAR/ADR labels
             bottom: 115, // Increased for horizontal slider
             top: 55,
             containLabel: false
@@ -2340,7 +2368,7 @@ function renderOriginChart() {
         dataZoom: getDataZoomConfig(),
         grid: {
             left: 55,
-            right: 45,   // Increased for vertical slider
+            right: 70,   // Room for AAR/ADR labels
             bottom: 115, // Increased for horizontal slider
             top: 55,
             containLabel: false
@@ -2682,7 +2710,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         dataZoom: getDataZoomConfig(),
         grid: {
             left: 55,
-            right: 45,   // Increased for vertical slider
+            right: 70,   // Room for AAR/ADR labels
             bottom: 115, // Increased for horizontal slider
             top: 55,
             containLabel: false
@@ -3318,6 +3346,9 @@ function buildRateMarkLinesForChart() {
     const isCustom = rateData.has_override;
     const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
 
+    // Track label index for vertical stacking
+    let labelIndex = 0;
+
     // Helper to create a rate line
     const addLine = (value, source, rateType, label) => {
         if (!value) return;
@@ -3331,13 +3362,19 @@ function buildRateMarkLinesForChart() {
         const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
         const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
 
-        // Position AAR labels on top, ADR labels on bottom to prevent overlap
-        const labelPosition = rateType === 'aar' ? 'insideEndTop' : 'insideEndBottom';
-
         // Show pro-rated label (e.g., "AAR 15" for 15-min at 60/hr, or "AAR 60/hr" for hourly)
         const labelText = proRateFactor < 1
             ? `${label} ${displayValue}`
             : `${label} ${value}`;
+
+        // Use line color as background, contrasting text for readability
+        const bgColor = sourceStyle.color;
+        const textColor = getContrastTextColor(bgColor);
+
+        // Stack labels vertically at the right edge
+        // Each label is ~18px tall, offset by index
+        const verticalOffset = labelIndex * 20;
+        labelIndex++;
 
         lines.push({
             yAxis: proRatedValue,
@@ -3349,14 +3386,18 @@ function buildRateMarkLinesForChart() {
             label: {
                 show: true,
                 formatter: labelText,
-                position: labelPosition,
-                color: sourceStyle.color,
+                position: 'end',
+                distance: 5,
+                offset: [0, verticalOffset],
+                color: textColor,
                 fontSize: cfg.label.fontSize || 10,
                 fontWeight: cfg.label.fontWeight || 'bold',
                 fontFamily: '"Roboto Mono", monospace',
-                backgroundColor: 'rgba(0,0,0,0.7)',
+                backgroundColor: bgColor,
                 padding: [2, 6],
-                borderRadius: 2
+                borderRadius: 3,
+                borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
+                borderWidth: 1
             }
         });
     };
