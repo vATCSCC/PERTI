@@ -319,6 +319,40 @@ include("load/config.php");
                 min-height: 300px;
             }
         }
+
+        /* Multi-ATIS badge styling */
+        .atis-badge-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            margin-left: 4px;
+        }
+
+        .atis-badge-group .badge-atis-type {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #6b7280;
+            margin-right: 1px;
+        }
+
+        .atis-badge-group .badge-atis {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+        }
+
+        .atis-badge-group .badge-age {
+            font-size: 0.65rem;
+            padding: 2px 5px;
+            color: #fff;
+            border-radius: 3px;
+        }
+
+        /* ATIS modal section styling */
+        .atis-section:last-child {
+            border-bottom: none !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
     </style>
 
 </head>
@@ -421,8 +455,9 @@ include("load/config.php");
                     <div class="card-body py-2">
                         <div class="perti-info-label">
                             <i class="fas fa-broadcast-tower"></i> ATIS
-                            <span id="atis_code_badge" class="badge badge-atis ml-1">--</span>
-                            <span id="atis_age_badge" class="badge badge-age ml-1">--</span>
+                            <span id="atis_badges_container" class="d-inline-flex" style="gap: 4px;">
+                                <!-- ATIS badges will be populated dynamically -->
+                            </span>
                             <button type="button" class="btn btn-link btn-sm btn-icon ml-auto p-0" id="atis_details_btn" title="View full ATIS" style="color: var(--info-atis-color);">
                                 <i class="fas fa-expand-alt"></i>
                             </button>

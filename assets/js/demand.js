@@ -1517,10 +1517,48 @@ function updateRateInfoDisplay(rateData) {
 }
 
 /**
+ * Get age badge color based on minutes
+ */
+function getAgeBadgeColor(ageMins) {
+    if (ageMins < 15) return '#10b981'; // green - fresh
+    if (ageMins < 30) return '#f59e0b'; // amber - getting stale
+    return '#ef4444'; // red - stale
+}
+
+/**
+ * Format age text for display
+ */
+function formatAgeText(ageMins) {
+    if (ageMins === null || ageMins === undefined) return '--';
+    if (ageMins < 1) return '<1m';
+    if (ageMins < 60) return ageMins + 'm';
+    return Math.floor(ageMins / 60) + 'h';
+}
+
+/**
+ * Build HTML for a single ATIS badge
+ */
+function buildAtisBadge(atis, type, labelPrefix) {
+    if (!atis) return '';
+
+    const code = atis.atis_code || '?';
+    const ageMins = atis.age_mins || 0;
+    const ageColor = getAgeBadgeColor(ageMins);
+    const ageText = formatAgeText(ageMins);
+    const typeLabel = labelPrefix ? `<span class="badge-atis-type">${labelPrefix}</span>` : '';
+
+    return `<span class="atis-badge-group" data-atis-type="${type}" title="${type.toUpperCase()} ATIS - Info ${code} (${ageText} ago)">
+        ${typeLabel}<span class="badge badge-atis">${code}</span><span class="badge badge-age" style="background-color: ${ageColor};">${ageText}</span>
+    </span>`;
+}
+
+/**
  * Update ATIS display in the info bar
+ * Handles combined, arrival-only, departure-only, and ARR+DEP ATIS combinations
  */
 function updateAtisDisplay(atisData) {
     const $container = $('#atis_card_container');
+    const $badgesContainer = $('#atis_badges_container');
 
     if (!atisData || !atisData.has_atis) {
         // No ATIS available - hide the card
@@ -1531,39 +1569,44 @@ function updateAtisDisplay(atisData) {
     // Show the card
     $container.show();
 
-    const atis = atisData.atis;
+    const effectiveSource = atisData.effective_source;
+    const atisArr = atisData.atis_arr;
+    const atisDep = atisData.atis_dep;
+    const atisComb = atisData.atis_comb;
     const runways = atisData.runways;
 
-    // ATIS code badge (e.g., "A" for Information Alpha)
-    const atisCode = atis.atis_code || '--';
-    const $codeBadge = $('#atis_code_badge');
-    $codeBadge.text(atisCode);
+    // Build badges based on what ATIS types are available
+    let badgesHtml = '';
 
-    // Age badge with color coding
-    const ageMins = atis.age_mins || 0;
-    const $ageBadge = $('#atis_age_badge');
-    let ageText = '';
-    let ageBgColor = '#6b7280'; // gray
-
-    if (ageMins < 1) {
-        ageText = '<1m';
-        ageBgColor = '#10b981'; // green - fresh
-    } else if (ageMins < 15) {
-        ageText = ageMins + 'm';
-        ageBgColor = '#10b981'; // green - fresh
-    } else if (ageMins < 30) {
-        ageText = ageMins + 'm';
-        ageBgColor = '#f59e0b'; // amber - getting stale
-    } else if (ageMins < 60) {
-        ageText = ageMins + 'm';
-        ageBgColor = '#ef4444'; // red - stale
+    if (effectiveSource === 'COMB' && atisComb) {
+        // Combined ATIS - show single badge
+        badgesHtml = buildAtisBadge(atisComb, 'comb', '');
+    } else if (effectiveSource === 'ARR_DEP') {
+        // Both ARR and DEP ATIS available - show both
+        if (atisArr) {
+            badgesHtml += buildAtisBadge(atisArr, 'arr', 'A');
+        }
+        if (atisDep) {
+            badgesHtml += buildAtisBadge(atisDep, 'dep', 'D');
+        }
+    } else if (effectiveSource === 'ARR_ONLY' && atisArr) {
+        // Only arrival ATIS
+        badgesHtml = buildAtisBadge(atisArr, 'arr', 'A');
+    } else if (effectiveSource === 'DEP_ONLY' && atisDep) {
+        // Only departure ATIS
+        badgesHtml = buildAtisBadge(atisDep, 'dep', 'D');
     } else {
-        ageText = Math.floor(ageMins / 60) + 'h';
-        ageBgColor = '#ef4444'; // red - very stale
+        // Fallback to primary atis object for backwards compatibility
+        const atis = atisData.atis;
+        if (atis) {
+            const typePrefix = atis.atis_type === 'ARR' ? 'A' : (atis.atis_type === 'DEP' ? 'D' : '');
+            badgesHtml = buildAtisBadge(atis, atis.atis_type?.toLowerCase() || 'comb', typePrefix);
+        }
     }
-    $ageBadge.text(ageText).css('background-color', ageBgColor);
 
-    // Runway configuration
+    $badgesContainer.html(badgesHtml);
+
+    // Runway configuration (from the effective/combined runway view)
     const arrRunways = runways?.arr_runways || '--';
     const depRunways = runways?.dep_runways || '--';
     const approachInfo = runways?.approach_info || '--';
@@ -1578,7 +1621,39 @@ function updateAtisDisplay(atisData) {
 }
 
 /**
+ * Build HTML for a single ATIS section in the modal
+ */
+function buildAtisSection(atis, typeLabel, typeBadgeColor) {
+    if (!atis) return '';
+
+    let fetchedTime = '--';
+    if (atis.fetched_utc) {
+        const d = new Date(atis.fetched_utc);
+        fetchedTime = d.getUTCHours().toString().padStart(2, '0') + ':' +
+                      d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+    }
+
+    const ageColor = getAgeBadgeColor(atis.age_mins || 0);
+
+    return `
+        <div class="atis-section mb-3 pb-3 border-bottom">
+            <div class="mb-2">
+                <span class="badge" style="background-color: ${typeBadgeColor}; color: #fff;">${typeLabel}</span>
+                <span class="badge badge-secondary ml-1">${atis.callsign || 'Unknown'}</span>
+                <span class="badge badge-atis ml-1">${atis.atis_code || '?'}</span>
+                <span class="badge badge-dark ml-1">${fetchedTime}</span>
+                <span class="badge ml-1" style="background-color: ${ageColor}; color: #fff;">${formatAgeText(atis.age_mins)}</span>
+            </div>
+            <div class="border rounded p-2" style="background: #f8f9fa; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
+${atis.atis_text || 'No ATIS text available'}
+            </div>
+        </div>
+    `;
+}
+
+/**
  * Show ATIS details modal with full ATIS text
+ * Displays all available ATIS types (ARR, DEP, COMB)
  */
 function showAtisModal() {
     const atisData = DEMAND_STATE.atisData;
@@ -1594,16 +1669,11 @@ function showAtisModal() {
         return;
     }
 
-    const atis = atisData.atis;
+    const effectiveSource = atisData.effective_source;
+    const atisArr = atisData.atis_arr;
+    const atisDep = atisData.atis_dep;
+    const atisComb = atisData.atis_comb;
     const runways = atisData.runways;
-
-    // Format fetched time
-    let fetchedTime = '--';
-    if (atis.fetched_utc) {
-        const d = new Date(atis.fetched_utc);
-        fetchedTime = d.getUTCHours().toString().padStart(2, '0') + ':' +
-                      d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
-    }
 
     // Build runway details HTML
     let runwayDetailsHtml = '';
@@ -1617,15 +1687,59 @@ function showAtisModal() {
         runwayDetailsHtml += '</ul></div>';
     }
 
+    // Build ATIS sections based on what's available
+    let atisSectionsHtml = '';
+    let titleSuffix = '';
+
+    if (effectiveSource === 'COMB' && atisComb) {
+        // Combined ATIS only
+        atisSectionsHtml = buildAtisSection(atisComb, 'COMBINED', '#6366f1');
+        titleSuffix = atisComb.atis_code || '';
+    } else if (effectiveSource === 'ARR_DEP') {
+        // Both ARR and DEP available
+        if (atisArr) {
+            atisSectionsHtml += buildAtisSection(atisArr, 'ARRIVAL', '#22c55e');
+        }
+        if (atisDep) {
+            atisSectionsHtml += buildAtisSection(atisDep, 'DEPARTURE', '#f97316');
+        }
+        const codes = [];
+        if (atisArr?.atis_code) codes.push('A:' + atisArr.atis_code);
+        if (atisDep?.atis_code) codes.push('D:' + atisDep.atis_code);
+        titleSuffix = codes.join(' / ');
+    } else if (effectiveSource === 'ARR_ONLY' && atisArr) {
+        // Arrival only
+        atisSectionsHtml = buildAtisSection(atisArr, 'ARRIVAL', '#22c55e');
+        titleSuffix = atisArr.atis_code || '';
+    } else if (effectiveSource === 'DEP_ONLY' && atisDep) {
+        // Departure only
+        atisSectionsHtml = buildAtisSection(atisDep, 'DEPARTURE', '#f97316');
+        titleSuffix = atisDep.atis_code || '';
+    } else {
+        // Fallback to primary atis object
+        const atis = atisData.atis;
+        if (atis) {
+            const typeLabel = atis.atis_type === 'ARR' ? 'ARRIVAL' : (atis.atis_type === 'DEP' ? 'DEPARTURE' : 'COMBINED');
+            const typeColor = atis.atis_type === 'ARR' ? '#22c55e' : (atis.atis_type === 'DEP' ? '#f97316' : '#6366f1');
+            atisSectionsHtml = buildAtisSection(atis, typeLabel, typeColor);
+            titleSuffix = atis.atis_code || '';
+        }
+    }
+
+    // Source indicator
+    const sourceLabel = {
+        'COMB': 'Combined ATIS',
+        'ARR_DEP': 'Separate ARR/DEP ATIS',
+        'ARR_ONLY': 'Arrival ATIS Only',
+        'DEP_ONLY': 'Departure ATIS Only'
+    }[effectiveSource] || 'Unknown';
+
     Swal.fire({
-        title: `<i class="fas fa-broadcast-tower mr-2"></i> ${atisData.airport_icao} ATIS ${atis.atis_code || ''}`,
+        title: `<i class="fas fa-broadcast-tower mr-2"></i> ${atisData.airport_icao} ATIS ${titleSuffix}`,
         html: `
             <div class="text-left">
-                <div class="mb-2">
-                    <span class="badge badge-secondary">${atis.callsign || 'Unknown'}</span>
-                    <span class="badge badge-info ml-1">${atis.atis_type || 'COMB'}</span>
-                    <span class="badge badge-dark ml-1">${fetchedTime}</span>
-                    <span class="text-muted small ml-1">(${atis.age_mins || 0}m ago)</span>
+                <div class="mb-3 text-center">
+                    <span class="badge badge-secondary">${sourceLabel}</span>
                 </div>
                 <div class="mb-3">
                     <strong>Arrival Runways:</strong> ${runways?.arr_runways || 'N/A'}<br>
@@ -1634,15 +1748,15 @@ function showAtisModal() {
                 </div>
                 ${runwayDetailsHtml}
                 <hr>
+                <div class="mt-3">
+                    <strong>ATIS Information:</strong>
+                </div>
                 <div class="mt-2">
-                    <strong>Full ATIS Text:</strong>
-                    <div class="border rounded p-2 mt-1" style="background: #f8f9fa; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; max-height: 200px; overflow-y: auto;">
-${atis.atis_text || 'No ATIS text available'}
-                    </div>
+                    ${atisSectionsHtml}
                 </div>
             </div>
         `,
-        width: 600,
+        width: 650,
         showCloseButton: true,
         showConfirmButton: false,
         customClass: {
