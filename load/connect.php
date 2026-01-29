@@ -10,7 +10,7 @@ if (defined('CONNECT_PHP_LOADED')) {
 }
 define('CONNECT_PHP_LOADED', true);
 
-include_once("config.php");
+include_once(__DIR__ . "/config.php");
 
 // Include safe input handling functions for PHP 8.2+
 require_once(__DIR__ . '/input.php');
