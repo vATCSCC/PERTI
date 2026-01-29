@@ -75,8 +75,113 @@
     const state = {
         selectedType: null,
         previewText: '',
-        isDirty: false
+        isDirty: false,
+        routeExpansionPending: false,
+        lastExpandedRoute: null
     };
+
+    // ===========================================
+    // Route String Expansion (GIS Integration)
+    // ===========================================
+
+    /**
+     * Expand a route string via the GIS API and return ARTCCs traversed
+     * @param {string} routeString - Route string (e.g., "KDFW BNA KMCO")
+     * @returns {Promise<{artccs: string[], distance_nm: number, waypoint_count: number}>}
+     */
+    async function expandRouteString(routeString) {
+        if (!routeString || routeString.trim().length < 4) {
+            return null;
+        }
+
+        try {
+            const encoded = encodeURIComponent(routeString.trim());
+            const response = await fetch(`api/gis/boundaries?action=expand_route&route=${encoded}`);
+            const data = await response.json();
+
+            if (data.success) {
+                return {
+                    artccs: data.artccs || [],
+                    artccs_display: data.artccs_display || '',
+                    distance_nm: data.distance_nm || 0,
+                    waypoint_count: data.waypoint_count || 0,
+                    geojson: data.geojson
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('Route expansion error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Debounce helper function
+     */
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    /**
+     * Handle route string change - expand and populate facilities
+     */
+    async function handleRouteStringChange() {
+        const routeInput = document.getElementById('reroute_string');
+        const facilitiesInput = document.getElementById('reroute_facilities');
+
+        if (!routeInput || !facilitiesInput) return;
+
+        const routeString = routeInput.value.trim();
+
+        // Skip if empty or same as last
+        if (!routeString || routeString === state.lastExpandedRoute) {
+            return;
+        }
+
+        // Show loading indicator
+        facilitiesInput.placeholder = 'Calculating...';
+        state.routeExpansionPending = true;
+
+        try {
+            const result = await expandRouteString(routeString);
+
+            if (result && result.artccs && result.artccs.length > 0) {
+                // Only update if user hasn't manually changed it or it's empty
+                if (!facilitiesInput.value || facilitiesInput.dataset.autoCalculated === 'true') {
+                    facilitiesInput.value = result.artccs.join(' ');
+                    facilitiesInput.dataset.autoCalculated = 'true';
+                    facilitiesInput.title = `Auto-calculated: ${result.artccs_display} (${result.waypoint_count} waypoints, ${result.distance_nm} nm)`;
+
+                    // Show AUTO badge
+                    const autoBadge = document.getElementById('facilities_auto_badge');
+                    if (autoBadge) {
+                        autoBadge.style.display = 'inline';
+                        autoBadge.title = `${result.waypoint_count} waypoints, ${result.distance_nm} nm`;
+                    }
+                }
+                state.lastExpandedRoute = routeString;
+            }
+        } catch (error) {
+            console.error('Failed to expand route:', error);
+        } finally {
+            state.routeExpansionPending = false;
+            facilitiesInput.placeholder = 'ZNY ZDC ZTL';
+        }
+
+        // Trigger preview update
+        updatePreview();
+    }
+
+    // Create debounced handler (500ms delay)
+    const debouncedRouteChange = debounce(handleRouteStringChange, 500);
 
     // ===========================================
     // Utility Functions
@@ -1101,6 +1206,11 @@
             el.addEventListener('input', () => {
                 state.isDirty = true;
                 updatePreview();
+
+                // Special handling for route string - auto-calculate facilities
+                if (el.id === 'reroute_string') {
+                    debouncedRouteChange();
+                }
             });
             el.addEventListener('change', () => {
                 state.isDirty = true;
@@ -1110,6 +1220,17 @@
                 }
             });
         });
+
+        // Clear auto-calculated flag when user manually edits facilities
+        const facilitiesInput = document.getElementById('reroute_facilities');
+        if (facilitiesInput) {
+            facilitiesInput.addEventListener('input', () => {
+                facilitiesInput.dataset.autoCalculated = 'false';
+                // Hide AUTO badge
+                const autoBadge = document.getElementById('facilities_auto_badge');
+                if (autoBadge) autoBadge.style.display = 'none';
+            });
+        }
 
         // Action buttons
         document.getElementById('btn_copy')?.addEventListener('click', copyToClipboard);
@@ -1156,7 +1277,9 @@
         updatePreview,
         postToDiscord,
         splitForDiscord,
-        wrapText
+        wrapText,
+        expandRouteString,
+        handleRouteStringChange
     };
 
 })();

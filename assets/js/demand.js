@@ -635,7 +635,31 @@ window.DemandChartCore = (function() {
                             return tooltip;
                         }
                     },
-                    legend: {
+                    legend: direction === 'both' ? [
+                        {
+                            // Arrivals row
+                            bottom: 30,
+                            left: 'center',
+                            type: 'scroll',
+                            itemWidth: 12,
+                            itemHeight: 8,
+                            textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
+                            data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
+                            formatter: function(name) { return name.replace(' (Arr)', ''); }
+                        },
+                        {
+                            // Departures row
+                            bottom: 5,
+                            left: 'center',
+                            type: 'scroll',
+                            itemWidth: 12,
+                            itemHeight: 8,
+                            textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
+                            icon: 'rect',
+                            data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
+                            formatter: function(name) { return name.replace(' (Dep)', ''); }
+                        }
+                    ] : {
                         bottom: 5,
                         left: 'center',
                         type: 'scroll',
@@ -643,7 +667,7 @@ window.DemandChartCore = (function() {
                         itemHeight: 8,
                         textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' }
                     },
-                    grid: { left: 50, right: 70, bottom: 70, top: 45, containLabel: false },
+                    grid: { left: 50, right: 70, bottom: 95, top: 45, containLabel: false },
                     xAxis: {
                         type: 'time',
                         name: getXAxisLabel(state.granularity),
@@ -2001,16 +2025,37 @@ function renderChart(data) {
                 return tooltip;
             }
         },
-        legend: {
-            bottom: 75,  // Move up to make room for sliders
+        legend: direction === 'both' ? [
+            {
+                // Arrivals row
+                bottom: 95,
+                left: 'center',
+                type: 'scroll',
+                itemWidth: 14,
+                itemHeight: 10,
+                textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
+                data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
+                formatter: function(name) { return name.replace(' (Arr)', ''); }
+            },
+            {
+                // Departures row
+                bottom: 70,
+                left: 'center',
+                type: 'scroll',
+                itemWidth: 14,
+                itemHeight: 10,
+                textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
+                icon: 'rect',
+                data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
+                formatter: function(name) { return name.replace(' (Dep)', ''); }
+            }
+        ] : {
+            bottom: 70,
             left: 'center',
             type: 'scroll',
             itemWidth: 14,
             itemHeight: 10,
-            textStyle: {
-                fontSize: 11,
-                fontFamily: '"Segoe UI", sans-serif'
-            }
+            textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' }
         },
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: [
@@ -2074,7 +2119,7 @@ function renderChart(data) {
         grid: {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
-            bottom: 115, // Increased for horizontal slider
+            bottom: 140, // Room for slider + 2 legend rows
             top: 55,
             containLabel: false
         },
@@ -2369,7 +2414,7 @@ function renderOriginChart() {
         grid: {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
-            bottom: 115, // Increased for horizontal slider
+            bottom: 140, // Room for slider + 2 legend rows
             top: 55,
             containLabel: false
         },
@@ -2711,7 +2756,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         grid: {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
-            bottom: 115, // Increased for horizontal slider
+            bottom: 140, // Room for slider + 2 legend rows
             top: 55,
             containLabel: false
         },
