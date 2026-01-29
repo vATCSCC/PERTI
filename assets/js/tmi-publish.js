@@ -5110,27 +5110,20 @@
     
     function formatValidTime(from, until) {
         // Handle datetime-local format (YYYY-MM-DDTHH:MM) or time format (HH:MM)
-        // Returns dd/hhmm-dd/hhmm format (UTC) to reduce ambiguity
-        const extractDateTime = (val) => {
-            if (!val) {
-                const now = new Date();
-                return String(now.getUTCDate()).padStart(2, '0') + '/0000';
-            }
-            // If datetime-local format, extract date and time
+        // Returns hhmm-hhmm format (time only, no date)
+        const extractTime = (val) => {
+            if (!val) return '0000';
+            // If datetime-local format, extract time only
             if (val.includes('T')) {
-                const [datePart, timePart] = val.split('T');
-                const [year, month, day] = datePart.split('-');
-                const time = (timePart || '00:00').replace(':', '');
-                return `${day}/${time}`;
+                const timePart = val.split('T')[1] || '00:00';
+                return timePart.replace(':', '');
             }
-            // If time format only, use current day
-            const now = new Date();
-            const day = String(now.getUTCDate()).padStart(2, '0');
-            return `${day}/${val.replace(':', '') || '0000'}`;
+            // If time format only
+            return val.replace(':', '') || '0000';
         };
 
-        const fromStr = extractDateTime(from);
-        const untilStr = extractDateTime(until);
+        const fromStr = extractTime(from);
+        const untilStr = extractTime(until);
         return `${fromStr}-${untilStr}`;
     }
     
