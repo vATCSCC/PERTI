@@ -214,14 +214,21 @@ function handleCreate() {
     // Use server-assigned number, fall back to client number if stored procedure failed
     $advNumber = $serverAdvNumber ?? $clientAdvNumber ?? ('ADV' . date('His'));
 
+    // Extract the 3-digit number from the server-assigned advisory number
+    // Format may be "ADVZY 047" or just "047" or "47"
+    $serverDigits = preg_replace('/[^0-9]/', '', $advNumber);
+    $serverDigits = str_pad($serverDigits, 3, '0', STR_PAD_LEFT);
+
     // Replace client advisory number in advisory_text with server-assigned number
     $advisoryText = $body['advisory_text'] ?? null;
-    if (!empty($advisoryText) && !empty($clientAdvNumber) && $serverAdvNumber && $clientAdvNumber !== $serverAdvNumber) {
-        // Replace patterns like "ADVZY 001" or "ADVZY 021" with the new number
-        // Extract just the 3-digit part from server number (e.g., "ADVZY 047" -> "047")
-        $serverDigits = preg_replace('/[^0-9]/', '', $serverAdvNumber);
-        $serverDigits = str_pad($serverDigits, 3, '0', STR_PAD_LEFT);
-        $advisoryText = preg_replace('/ADVZY\s*\d{3}/', 'ADVZY ' . $serverDigits, $advisoryText, 1);
+    if (!empty($advisoryText) && $serverAdvNumber) {
+        // 1. Replace ADVZY header pattern: "ADVZY 001" or "ADVZY 021" -> "ADVZY 047"
+        $advisoryText = preg_replace('/ADVZY\s+\d{3}/', 'ADVZY ' . $serverDigits, $advisoryText, 1);
+
+        // 2. Replace TMI ID pattern: "RRDCC001" or "TMI ID: RRDCC001" -> "RRDCC047"
+        // TMI ID format for routes is RR + facility (3 chars) + 3-digit number
+        $advisoryText = preg_replace('/(RR[A-Z]{2,3})\d{3}/', '$1' . $serverDigits, $advisoryText, 1);
+
         $body['advisory_text'] = $advisoryText;
     }
 
