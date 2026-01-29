@@ -1004,6 +1004,23 @@ function handleProcessReaction() {
                 ':prop_id' => $proposalId
             ]);
 
+            // TMI AUTHORITATIVE: Update linked route's coordination_status on DCC override
+            if (strtoupper($proposal['entry_type'] ?? '') === 'ROUTE') {
+                $routeId = $proposal['route_id'] ?? null;
+                if ($routeId) {
+                    $newRouteStatus = ($dccAction === 'APPROVE') ? 'APPROVED' : 'DENIED';
+                    $updateRouteSql = "UPDATE dbo.tmi_public_routes SET
+                                           coordination_status = :status,
+                                           updated_at = SYSUTCDATETIME()
+                                       WHERE route_id = :route_id";
+                    $updateRouteStmt = $conn->prepare($updateRouteSql);
+                    $updateRouteStmt->execute([
+                        ':status' => $newRouteStatus,
+                        ':route_id' => $routeId
+                    ]);
+                }
+            }
+
             // Log DCC override action
             logCoordinationActivity($conn, $proposalId, 'DCC_' . $dccAction, [
                 'user_cid' => $discordUserId,
@@ -1074,6 +1091,19 @@ function handleProcessReaction() {
         // If approved, log it and notify - do NOT auto-activate
         // User must manually publish from the queue
         if ($result && $result['status'] === 'APPROVED') {
+            // TMI AUTHORITATIVE: Update linked route's coordination_status when all facilities approve
+            if (strtoupper($proposal['entry_type'] ?? '') === 'ROUTE') {
+                $routeId = $proposal['route_id'] ?? null;
+                if ($routeId) {
+                    $updateRouteSql = "UPDATE dbo.tmi_public_routes SET
+                                           coordination_status = 'APPROVED',
+                                           updated_at = SYSUTCDATETIME()
+                                       WHERE route_id = :route_id";
+                    $updateRouteStmt = $conn->prepare($updateRouteSql);
+                    $updateRouteStmt->execute([':route_id' => $routeId]);
+                }
+            }
+
             // Log the approval
             logCoordinationActivity($conn, $proposalId, 'PROPOSAL_APPROVED', [
                 'entry_type' => $proposal['entry_type'] ?? '',
@@ -2155,9 +2185,22 @@ function activateProposal($conn, $proposalId) {
             $routeId = $proposal['route_id'] ?? $entryData['route_id'] ?? null;
             $log("Processing ROUTE proposal, route_id: " . ($routeId ?: 'UNKNOWN'));
 
-            if ($routeId && !$shouldSchedule) {
-                $discordResult = publishRouteToAdvisories($conn, $routeId, $rawText, $entryData);
-                $log("Route Discord publish result: " . json_encode($discordResult));
+            if ($routeId) {
+                // TMI AUTHORITATIVE: Update route coordination_status to APPROVED
+                // This makes the route visible to API consumers (filter=active now includes it)
+                $updateRouteSql = "UPDATE dbo.tmi_public_routes SET
+                                       coordination_status = 'APPROVED',
+                                       updated_at = SYSUTCDATETIME()
+                                   WHERE route_id = :route_id";
+                $updateRouteStmt = $conn->prepare($updateRouteSql);
+                $updateRouteStmt->execute([':route_id' => $routeId]);
+                $log("Route coordination_status set to APPROVED for route_id: $routeId");
+
+                // Publish to Discord only if not scheduled for later
+                if (!$shouldSchedule) {
+                    $discordResult = publishRouteToAdvisories($conn, $routeId, $rawText, $entryData);
+                    $log("Route Discord publish result: " . json_encode($discordResult));
+                }
             }
 
             // Use route_id as the "entry" reference
