@@ -302,15 +302,31 @@ class DiscordAPI {
      * @return bool True on success, false on error
      */
     public function createReaction($channelId, $messageId, $emoji) {
+        $originalChannelId = $channelId;
         $channelId = $this->resolveChannelId($channelId);
         if (!$channelId) {
             $this->lastError = 'Invalid channel ID or purpose';
+            error_log("[DiscordAPI] createReaction FAILED: Could not resolve channel ID '{$originalChannelId}'");
             return false;
         }
 
+        $originalEmoji = $emoji;
         $emoji = $this->encodeEmoji($emoji);
-        $result = $this->request('PUT', "/channels/{$channelId}/messages/{$messageId}/reactions/{$emoji}/@me");
-        return $this->lastHttpCode === 204;
+        $endpoint = "/channels/{$channelId}/messages/{$messageId}/reactions/{$emoji}/@me";
+        $fullUrl = $this->baseUrl . $endpoint;
+
+        // Debug logging for reaction issues
+        error_log("[DiscordAPI] createReaction: channel={$channelId}, message={$messageId}, emoji_original={$originalEmoji}, emoji_encoded={$emoji}");
+        error_log("[DiscordAPI] createReaction URL: {$fullUrl}");
+
+        $result = $this->request('PUT', $endpoint);
+
+        // Log result for debugging - include response body if any
+        $success = $this->lastHttpCode === 204;
+        $responseInfo = is_array($this->lastResponse) ? json_encode($this->lastResponse) : 'null';
+        error_log("[DiscordAPI] createReaction result: http_code={$this->lastHttpCode}, success=" . ($success ? 'true' : 'false') . ", error=" . ($this->lastError ?? 'none') . ", response={$responseInfo}");
+
+        return $success;
     }
 
     /**

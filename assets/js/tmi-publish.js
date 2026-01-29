@@ -4102,8 +4102,27 @@
         const formatTime = (timeStr) => {
             if (!timeStr) return '--';
             try {
-                const dt = new Date(timeStr.includes('Z') || timeStr.includes('T') ? timeStr : timeStr + 'Z');
-                return dt.toISOString().slice(11, 16) + 'Z';
+                // Handle HHMM format (4 digits like "0959" or "1359")
+                if (/^\d{4}$/.test(timeStr)) {
+                    const hours = timeStr.slice(0, 2);
+                    const mins = timeStr.slice(2, 4);
+                    return `${hours}:${mins}Z`;
+                }
+                // Handle DDHHMM format (6 digits like "290959")
+                if (/^\d{6}$/.test(timeStr)) {
+                    const hours = timeStr.slice(2, 4);
+                    const mins = timeStr.slice(4, 6);
+                    return `${hours}:${mins}Z`;
+                }
+                // Handle datetime-local format (2026-01-29T10:05)
+                if (timeStr.includes('T') || timeStr.includes('Z')) {
+                    const dt = new Date(timeStr.includes('Z') ? timeStr : timeStr + 'Z');
+                    if (!isNaN(dt.getTime())) {
+                        return dt.toISOString().slice(11, 16) + 'Z';
+                    }
+                }
+                // Fallback: return first 5 chars or the input
+                return timeStr.slice(0, 5) || timeStr || '--';
             } catch {
                 return timeStr.slice(0, 5) || '--';
             }
