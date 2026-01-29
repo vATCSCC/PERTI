@@ -352,8 +352,11 @@ switch ($method) {
     case 'POST':
         // Check for publish action
         $postInput = json_decode(file_get_contents('php://input'), true);
-        if (($postInput['action'] ?? '') === 'PUBLISH') {
+        $action = $postInput['action'] ?? '';
+        if ($action === 'PUBLISH') {
             handlePublishApprovedProposal($postInput);
+        } elseif ($action === 'BATCH_PUBLISH') {
+            handleBatchPublish($postInput);
         } else {
             handleSubmitForCoordination();
         }
@@ -1324,6 +1327,114 @@ function handlePublishApprovedProposal($input) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
     }
+}
+
+// =============================================================================
+// POST: Batch Publish Multiple Approved Proposals
+// =============================================================================
+
+function handleBatchPublish($input) {
+    $proposalIds = $input['proposal_ids'] ?? [];
+    $userCid = $input['user_cid'] ?? null;
+    $userName = $input['user_name'] ?? 'Unknown';
+
+    if (empty($proposalIds) || !is_array($proposalIds)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'proposal_ids array is required']);
+        return;
+    }
+
+    // Security: Require login for batch publishing
+    if (!$userCid || !is_numeric($userCid) || intval($userCid) <= 0) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Authentication required: You must be logged in to publish']);
+        return;
+    }
+
+    $conn = getTmiConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Database connection failed']);
+        return;
+    }
+
+    $results = [];
+    $successCount = 0;
+    $failCount = 0;
+
+    foreach ($proposalIds as $proposalId) {
+        $proposalId = intval($proposalId);
+        if ($proposalId <= 0) {
+            $results[$proposalId] = ['success' => false, 'error' => 'Invalid proposal ID'];
+            $failCount++;
+            continue;
+        }
+
+        try {
+            // Verify proposal exists and is APPROVED
+            $sql = "SELECT * FROM dbo.tmi_proposals WHERE proposal_id = :id";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([':id' => $proposalId]);
+            $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$proposal) {
+                $results[$proposalId] = ['success' => false, 'error' => 'Proposal not found'];
+                $failCount++;
+                continue;
+            }
+
+            if ($proposal['status'] !== 'APPROVED') {
+                $results[$proposalId] = [
+                    'success' => false,
+                    'error' => 'Only APPROVED proposals can be published',
+                    'current_status' => $proposal['status']
+                ];
+                $failCount++;
+                continue;
+            }
+
+            // Call the activation function
+            $activationResult = activateProposal($conn, $proposalId);
+
+            if ($activationResult['success'] ?? false) {
+                // Log the batch publication
+                logCoordinationActivity($conn, $proposalId, 'BATCH_PUBLISHED', [
+                    'entry_type' => $proposal['entry_type'] ?? '',
+                    'ctl_element' => $proposal['ctl_element'] ?? '',
+                    'tmi_entry_id' => $activationResult['tmi_entry_id'] ?? null,
+                    'user_cid' => $userCid,
+                    'user_name' => $userName,
+                    'batch_size' => count($proposalIds)
+                ]);
+
+                $results[$proposalId] = [
+                    'success' => true,
+                    'tmi_entry_id' => $activationResult['tmi_entry_id'] ?? null,
+                    'entry_type' => $proposal['entry_type'] ?? ''
+                ];
+                $successCount++;
+            } else {
+                $results[$proposalId] = [
+                    'success' => false,
+                    'error' => $activationResult['error'] ?? 'Activation failed'
+                ];
+                $failCount++;
+            }
+
+        } catch (Exception $e) {
+            $results[$proposalId] = ['success' => false, 'error' => $e->getMessage()];
+            $failCount++;
+        }
+    }
+
+    echo json_encode([
+        'success' => $failCount === 0,
+        'total' => count($proposalIds),
+        'published' => $successCount,
+        'failed' => $failCount,
+        'results' => $results,
+        'published_by' => $userName
+    ]);
 }
 
 // =============================================================================
@@ -2368,8 +2479,30 @@ function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
     $data = $entryData['data'] ?? [];
     $entryType = $entryData['entryType'] ?? 'UNKNOWN';
 
+    // Extract all fields from the entry data
+    $ctlElement = strtoupper($data['ctl_element'] ?? '');
+    $reqFacility = strtoupper($data['req_facility'] ?? $data['requesting_facility'] ?? '');
+    $provFacility = strtoupper($data['prov_facility'] ?? $data['providing_facility'] ?? '');
+
+    // Restriction value - ensure it's an integer or null
+    $restrictionValue = $data['restriction_value'] ?? $data['value'] ?? null;
+    if ($restrictionValue !== null) {
+        $restrictionValue = intval($restrictionValue);
+        if ($restrictionValue <= 0) $restrictionValue = null;
+    }
+
+    $restrictionUnit = strtoupper($data['restriction_unit'] ?? $data['unit'] ?? '');
+    $conditionText = $data['via'] ?? $data['condition_text'] ?? '';
+    $qualifiers = $data['qualifiers'] ?? '';
+    $exclusions = $data['exclusions'] ?? '';
+    $reasonCode = strtoupper($data['reason_code'] ?? '');
+    $reasonDetail = $data['reason_detail'] ?? '';
+
     $sql = "INSERT INTO dbo.tmi_entries (
                 entry_type, determinant_code, protocol_type, ctl_element, element_type,
+                requesting_facility, providing_facility,
+                restriction_value, restriction_unit, condition_text,
+                qualifiers, exclusions, reason_code, reason_detail,
                 raw_input, parsed_data,
                 valid_from, valid_until,
                 status, source_type,
@@ -2377,6 +2510,9 @@ function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
             ) OUTPUT INSERTED.entry_id
             VALUES (
                 :entry_type, :determinant, 1, :ctl_element, :element_type,
+                :req_facility, :prov_facility,
+                :restriction_value, :restriction_unit, :condition_text,
+                :qualifiers, :exclusions, :reason_code, :reason_detail,
                 :raw_input, :parsed_data,
                 :valid_from, :valid_until,
                 'ACTIVE', 'COORDINATION',
@@ -2387,8 +2523,17 @@ function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
     $stmt->execute([
         ':entry_type' => strtoupper($entryType),
         ':determinant' => strtoupper($entryType),
-        ':ctl_element' => strtoupper($data['ctl_element'] ?? ''),
-        ':element_type' => detectElementType($data['ctl_element'] ?? ''),
+        ':ctl_element' => $ctlElement ?: null,
+        ':element_type' => detectElementType($ctlElement),
+        ':req_facility' => $reqFacility ?: null,
+        ':prov_facility' => $provFacility ?: null,
+        ':restriction_value' => $restrictionValue,
+        ':restriction_unit' => $restrictionUnit ?: null,
+        ':condition_text' => $conditionText ?: null,
+        ':qualifiers' => $qualifiers ?: null,
+        ':exclusions' => $exclusions ?: null,
+        ':reason_code' => $reasonCode ?: null,
+        ':reason_detail' => $reasonDetail ?: null,
         ':raw_input' => $rawText,
         ':parsed_data' => json_encode($data),
         ':valid_from' => $proposal['valid_from'],

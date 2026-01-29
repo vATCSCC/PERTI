@@ -5683,6 +5683,15 @@
             const ctlElement = $(this).data('ctl-element') || '';
             handleCancelProposal(proposalId, entryType, ctlElement);
         });
+
+        // Batch publish all approved proposals
+        $('#batchPublishApproved').on('click', function() {
+            if (!isUserLoggedIn()) {
+                Swal.fire('Login Required', 'You must be logged in to publish proposals.', 'warning');
+                return;
+            }
+            handleBatchPublish();
+        });
     }
 
     function handleReopenProposal(proposalId) {
@@ -5814,6 +5823,110 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+            }
+        });
+    }
+
+    // =========================================
+    // Batch Publish All Approved Proposals
+    // =========================================
+
+    function handleBatchPublish() {
+        // Get all approved proposal IDs from the table
+        const approvedIds = [];
+        $('#proposalsTableBody tr.table-success').each(function() {
+            const $publishBtn = $(this).find('.publish-proposal-btn');
+            if ($publishBtn.length) {
+                const id = $publishBtn.data('proposal-id');
+                if (id) approvedIds.push(id);
+            }
+        });
+
+        if (approvedIds.length === 0) {
+            Swal.fire('No Approved Proposals', 'There are no approved proposals to publish.', 'info');
+            return;
+        }
+
+        Swal.fire({
+            title: '<i class="fas fa-broadcast-tower text-success"></i> Batch Publish?',
+            html: `
+                <div class="text-left">
+                    <p>Publish <strong>${approvedIds.length}</strong> approved proposal(s) to Discord?</p>
+                    <div class="alert alert-info small py-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        All TMIs will be created and posted to production channels.
+                    </div>
+                    <div class="small text-muted">
+                        Proposal IDs: ${approvedIds.join(', ')}
+                    </div>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            confirmButtonText: `<i class="fas fa-broadcast-tower mr-1"></i> Publish All (${approvedIds.length})`,
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitBatchPublish(approvedIds);
+            }
+        });
+    }
+
+    function submitBatchPublish(proposalIds) {
+        Swal.fire({
+            title: 'Publishing...',
+            html: `<p>Publishing ${proposalIds.length} proposal(s)...</p><p class="small text-muted" id="batchPublishProgress">Starting...</p>`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                action: 'BATCH_PUBLISH',
+                proposal_ids: proposalIds,
+                user_cid: CONFIG.userCid,
+                user_name: CONFIG.userName || 'DCC'
+            }),
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Batch Publish Complete!',
+                        html: `
+                            <p><strong>${response.published || 0}</strong> of <strong>${response.total || 0}</strong> proposals published.</p>
+                            ${response.failed > 0 ? `<p class="text-warning small">${response.failed} failed</p>` : ''}
+                        `,
+                        timer: 4000,
+                        showConfirmButton: true
+                    });
+                    loadProposals(); // Refresh the list
+                } else {
+                    // Partial success
+                    const successCount = response.published || 0;
+                    const failCount = response.failed || 0;
+                    Swal.fire({
+                        icon: successCount > 0 ? 'warning' : 'error',
+                        title: successCount > 0 ? 'Partial Success' : 'Batch Publish Failed',
+                        html: `
+                            <p><strong>${successCount}</strong> published, <strong>${failCount}</strong> failed</p>
+                            ${Object.entries(response.results || {}).map(([id, r]) =>
+                                `<div class="small ${r.success ? 'text-success' : 'text-danger'}">
+                                    #${id}: ${r.success ? 'OK' : r.error}
+                                </div>`
+                            ).join('')}
+                        `
+                    });
+                    loadProposals();
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                Swal.fire('Error', xhr.responseJSON?.error || 'Batch publish request failed', 'error');
             }
         });
     }
@@ -6174,6 +6287,10 @@
                     </td>
                 </tr>
             `);
+            // Hide batch publish button when no proposals
+            if (isPending) {
+                $('#batchPublishApproved').hide();
+            }
             return;
         }
 
@@ -6310,6 +6427,17 @@
         });
 
         $tbody.html(html);
+
+        // Show/hide batch publish button based on approved count (only for pending table)
+        if (isPending) {
+            const approvedCount = proposals.filter(p => p.status === 'APPROVED').length;
+            const $batchBtn = $('#batchPublishApproved');
+            if (approvedCount > 0 && isUserLoggedIn()) {
+                $batchBtn.text(`Publish All Approved (${approvedCount})`).prepend('<i class="fas fa-broadcast-tower mr-1"></i>').show();
+            } else {
+                $batchBtn.hide();
+            }
+        }
     }
 
     function getStatusBadge(status, dccOverride, dccAction) {
