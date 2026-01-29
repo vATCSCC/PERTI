@@ -642,55 +642,50 @@ function postCancellationNtmlEntry($conn, $entryData, $userName) {
         }
 
         // Build CANCEL NTML entry text
-        // Format: {post time}    CANCEL {TMI details} {original start}-{cancel time} {req}:{prov}
-        $postTime = $now->format('Hi'); // HHmm
+        // Format: {dd/hhmm}    CANCEL {ctl_element} {flow} via {fix} {value}{type} {start}-{cancel} {req}:{prov}
+        $postTime = $now->format('d/Hi'); // dd/HHmm format for publish time
+        $cancelTime = $now->format('Hi'); // HHmm format for end time
 
-        // Build the TMI details (entry type + specifics)
+        // Get fields for building the cancel line
         $ctlElement = strtoupper($entryData['ctl_element'] ?? '');
-        $via = strtoupper($entryData['via'] ?? '');
+        $flowType = strtolower($entryData['flow_type'] ?? '');
+        $via = strtoupper($entryData['via'] ?? $entryData['condition_text'] ?? '');
         $restrictionValue = $entryData['restriction_value'] ?? '';
-        $restrictionUnit = strtoupper($entryData['restriction_unit'] ?? '');
+        $reqFac = strtoupper($entryData['req_fac'] ?? $entryData['requesting_facility'] ?? 'DCC');
+        $provFac = strtoupper($entryData['prov_fac'] ?? $entryData['providing_facility'] ?? '');
 
-        // Build TMI portion: e.g., "MIT KJFK via MERIT 10"
-        $tmiDetails = $entryType;
-        if ($ctlElement) {
-            $tmiDetails .= " {$ctlElement}";
-        }
-        if ($via) {
-            $tmiDetails .= " via {$via}";
-        }
-        if ($restrictionValue) {
-            $tmiDetails .= " {$restrictionValue}";
-            if ($restrictionUnit) {
-                $tmiDetails .= $restrictionUnit;
-            }
-        }
-
-        // Get original start time in dd/hhmm format
+        // Get original start time
         $validFrom = $entryData['valid_from'] ?? null;
-        $originalStart = $now->format('d') . '/0000'; // Default to today if unknown
+        $originalStart = '0000';
         if ($validFrom) {
             $validFromDt = $validFrom instanceof DateTime
                 ? $validFrom
                 : new DateTime($validFrom, new DateTimeZone('UTC'));
-            $originalStart = $validFromDt->format('d/Hi'); // dd/hhmm format
+            $originalStart = $validFromDt->format('Hi');
         }
 
-        // Cancel time in dd/hhmm format
-        $cancelTime = $now->format('d/Hi');
+        // Build restriction: {ctl_element} {flow} via {fix} {value}{type}
+        $restriction = $ctlElement;
+        if ($flowType) {
+            $restriction .= " {$flowType}";
+        }
+        if ($via) {
+            $restriction .= " via {$via}";
+        }
+        if ($restrictionValue) {
+            $restriction .= " {$restrictionValue}{$entryType}";
+        } else {
+            $restriction .= " {$entryType}";
+        }
 
-        // Get requesting and providing facilities
-        $reqFac = strtoupper($entryData['req_fac'] ?? $entryData['requesting_facility'] ?? 'DCC');
-        $provFac = strtoupper($entryData['prov_fac'] ?? $entryData['providing_facility'] ?? '');
+        // Build facilities
+        $facilities = $reqFac;
+        if ($provFac) {
+            $facilities = "{$reqFac}:{$provFac}";
+        }
 
         // Build the CANCEL line
-        // Format: {post time (UTC)}    CANCEL {TMI} {dd/hhmm start}-{dd/hhmm now} {req}:{prov}
-        $cancelLine = "{$postTime}    CANCEL {$tmiDetails} {$originalStart}-{$cancelTime}";
-        if ($provFac) {
-            $cancelLine .= " {$reqFac}:{$provFac}";
-        } else {
-            $cancelLine .= " {$reqFac}";
-        }
+        $cancelLine = "{$postTime}    CANCEL {$restriction} {$originalStart}-{$cancelTime} {$facilities}";
 
         // Post to Discord NTML channel
         require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
