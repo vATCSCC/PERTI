@@ -6539,7 +6539,7 @@ $(document).ready(function() {
         processAndDisplayRoutes();
     });
     $(document).on('click', '#plot_c', function() {
-        // Copy functionality - leave for now
+        navigator.clipboard.writeText($('#routeSearch').val());
     });
     $(document).on('keyup change', '#filter', updateFilteredAirways);
     $(document).on('click', '#filter_c', function() { $('#filter').val(''); updateFilteredAirways(); });
