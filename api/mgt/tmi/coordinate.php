@@ -627,6 +627,8 @@ function handleSubmitForCoordination() {
                 'thread_id' => $discordResult['thread_id'] ?? null,
                 'thread_message_id' => $discordResult['thread_message_id'] ?? null,
                 'reactions_added' => $discordResult['reactions_added'] ?? false,
+                'reaction_results' => $discordResult['reaction_results'] ?? null,
+                'reaction_debug' => $discordResult['reaction_debug'] ?? null,
                 'reactions_error' => $discordResult['reactions_error'] ?? null,
                 'last_discord_error' => $discordResult['last_discord_error'] ?? null
             ] : ['success' => false, 'error' => 'Failed to post to Discord']
@@ -2052,6 +2054,32 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
             $anySuccess = in_array(true, $reactionResults, true);
             $starterResult['reactions_added'] = $anySuccess;
             $starterResult['reaction_results'] = $reactionResults;
+
+            // VERIFICATION: Fetch the message to check if reactions are actually present
+            usleep(500000); // 500ms delay before verification
+            $log("Verifying reactions on message...");
+            $verifyResult = $discord->getMessage($threadId, $threadMessageId);
+            $actualReactions = [];
+            if ($verifyResult && isset($verifyResult['reactions'])) {
+                foreach ($verifyResult['reactions'] as $r) {
+                    $emojiName = $r['emoji']['name'] ?? 'unknown';
+                    $actualReactions[] = $emojiName;
+                }
+                $log("Actual reactions found on message: " . json_encode($actualReactions));
+            } else {
+                $log("Could not verify reactions - getMessage returned: " . json_encode($verifyResult));
+            }
+
+            // Include target IDs in debug info
+            $starterResult['reaction_debug'] = [
+                'target_channel_id' => $threadId,
+                'target_message_id' => $threadMessageId,
+                'facilities_processed' => count($facilities),
+                'any_success' => $anySuccess,
+                'results_count' => count($reactionResults),
+                'verified_reactions' => $actualReactions,
+                'last_http_code' => $discord->getLastHttpCode()
+            ];
             $log("Reaction results: " . json_encode($reactionResults));
         } catch (Throwable $emojiEx) {
             $log("EMOJI EXCEPTION: " . $emojiEx->getMessage());
