@@ -5069,7 +5069,7 @@ function advEnsureDefaultIncludedTraffic(parsedRoutes) {
     }
 
 
-function advInitFacilitiesDropdown() {
+    function advInitFacilitiesDropdown() {
         const $grid = $('#advFacilitiesGrid');
         if (!$grid.length) return;
 
@@ -5168,14 +5168,22 @@ function advInitFacilitiesDropdown() {
      * Calls the PostGIS route expansion endpoint for each route and aggregates ARTCCs
      */
     async function advCalculateFacilitiesFromGIS() {
+        console.log('[ADV] advCalculateFacilitiesFromGIS() called');
+
         const $btn = $('#advFacilitiesAuto');
         const $field = $('#advFacilities');
         const $badge = $('#advFacilitiesAutoBadge');
 
-        if (!$field.length) return;
+        console.log('[ADV] Button found:', $btn.length > 0, 'Field found:', $field.length > 0);
+
+        if (!$field.length) {
+            console.log('[ADV] Field not found, returning');
+            return;
+        }
 
         // Check for routes in textarea
         const rawInput = $('#routeSearch').val() || '';
+        console.log('[ADV] Raw input length:', rawInput.length);
         if (!rawInput.trim()) {
             alert('No routes in the Plot Routes box to analyze.');
             return;
@@ -5224,6 +5232,7 @@ function advInitFacilitiesDropdown() {
 
             // Deduplicate
             uniqueRoutes = [...new Set(uniqueRoutes)];
+            console.log('[ADV] Unique routes to send to GIS:', uniqueRoutes.length, uniqueRoutes);
 
             // Call GIS API for batch expansion
             const allArtccs = new Set();
@@ -5232,14 +5241,18 @@ function advInitFacilitiesDropdown() {
             let successCount = 0;
 
             // Use batch endpoint if available, otherwise call one-by-one
+            console.log('[ADV] Calling GIS API...');
             const response = await fetch('/api/gis/boundaries?action=expand_routes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ routes: uniqueRoutes })
             });
 
+            console.log('[ADV] API response status:', response.status, response.ok);
+
             if (response.ok) {
                 const data = await response.json();
+                console.log('[ADV] API response data:', data);
                 if (data.success && data.routes) {
                     data.routes.forEach(function(result) {
                         if (result.artccs && result.artccs.length) {
@@ -5301,7 +5314,8 @@ function advInitFacilitiesDropdown() {
             }
 
         } catch (error) {
-            console.error('GIS facilities calculation error:', error);
+            console.error('[ADV] GIS facilities calculation error:', error);
+            console.error('[ADV] Error stack:', error.stack);
             alert('Error calculating facilities: ' + error.message);
         } finally {
             $field.attr('placeholder', 'ZBW/ZNY/ZDC');
