@@ -5155,6 +5155,142 @@ function advInitFacilitiesDropdown() {
                 $('#advFacilitiesDropdown').hide();
             }
         });
+
+        // Auto-calculate facilities from GIS
+        $('#advFacilitiesAuto').on('click', function(e) {
+            e.stopPropagation();
+            advCalculateFacilitiesFromGIS();
+        });
+    }
+
+    /**
+     * Calculate facilities from routes using the GIS API
+     * Calls the PostGIS route expansion endpoint for each route and aggregates ARTCCs
+     */
+    async function advCalculateFacilitiesFromGIS() {
+        const $btn = $('#advFacilitiesAuto');
+        const $field = $('#advFacilities');
+        const $badge = $('#advFacilitiesAutoBadge');
+
+        if (!$field.length) return;
+
+        // Get routes from textarea
+        const rawInput = $('#routeSearch').val() || '';
+        if (!rawInput.trim()) {
+            alert('No routes in the Plot Routes box to analyze.');
+            return;
+        }
+
+        // Show loading state
+        const originalText = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+        $field.attr('placeholder', 'Calculating...');
+
+        try {
+            // Parse route strings the same way the advisory builder does
+            const routeStrings = collectRouteStringsForAdvisory(rawInput);
+
+            if (!routeStrings.length) {
+                $field.attr('placeholder', 'ZBW/ZNY/ZDC');
+                $btn.html(originalText).prop('disabled', false);
+                alert('No valid routes found to analyze.');
+                return;
+            }
+
+            // Extract just the route part (remove color annotations)
+            const cleanRoutes = routeStrings.map(function(rte) {
+                if (!rte) return '';
+                const semiIdx = rte.indexOf(';');
+                const routeText = semiIdx !== -1 ? rte.slice(0, semiIdx).trim() : rte.trim();
+                // Remove mandatory markers
+                return routeText.replace(/[<>]/g, '').trim();
+            }).filter(Boolean);
+
+            // Deduplicate routes
+            const uniqueRoutes = [...new Set(cleanRoutes)];
+
+            // Call GIS API for batch expansion
+            const allArtccs = new Set();
+            let totalDistance = 0;
+            let totalWaypoints = 0;
+            let successCount = 0;
+
+            // Use batch endpoint if available, otherwise call one-by-one
+            const response = await fetch('/api/gis/boundaries?action=expand_routes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ routes: uniqueRoutes })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.routes) {
+                    data.routes.forEach(function(result) {
+                        if (result.artccs && result.artccs.length) {
+                            result.artccs.forEach(function(artcc) {
+                                allArtccs.add(artcc);
+                            });
+                            successCount++;
+                            totalDistance += result.distance_nm || 0;
+                            totalWaypoints += result.waypoint_count || 0;
+                        }
+                    });
+                }
+            } else {
+                // Fallback to single-route calls
+                for (const route of uniqueRoutes) {
+                    try {
+                        const encoded = encodeURIComponent(route);
+                        const singleResponse = await fetch('/api/gis/boundaries?action=expand_route&route=' + encoded);
+                        if (singleResponse.ok) {
+                            const singleData = await singleResponse.json();
+                            if (singleData.success && singleData.artccs) {
+                                singleData.artccs.forEach(function(artcc) {
+                                    allArtccs.add(artcc);
+                                });
+                                successCount++;
+                                totalDistance += singleData.distance_nm || 0;
+                                totalWaypoints += singleData.waypoint_count || 0;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Failed to expand route:', route, e);
+                    }
+                }
+            }
+
+            if (allArtccs.size > 0) {
+                // Sort ARTCCs alphabetically and join with /
+                const sortedArtccs = Array.from(allArtccs).sort();
+                $field.val(sortedArtccs.join('/'));
+                $field.data('autoCalculated', true);
+
+                // Update checkboxes in dropdown
+                const artccSet = new Set(sortedArtccs);
+                $('#advFacilitiesGrid input[type="checkbox"]').each(function() {
+                    const code = ($(this).attr('data-code') || '').toString().toUpperCase();
+                    $(this).prop('checked', artccSet.has(code));
+                });
+
+                // Show badge with info
+                if ($badge.length) {
+                    $badge.show()
+                        .attr('title', successCount + ' routes analyzed, ' + totalWaypoints + ' waypoints, ' + Math.round(totalDistance) + ' nm total');
+                }
+
+                console.log('GIS auto-calculated facilities:', sortedArtccs.join('/'),
+                    '(' + successCount + '/' + uniqueRoutes.length + ' routes, ' + totalWaypoints + ' waypoints, ' + Math.round(totalDistance) + ' nm)');
+            } else {
+                alert('Could not determine facilities from routes. The GIS service may be unavailable or the routes contain unrecognized fixes.');
+            }
+
+        } catch (error) {
+            console.error('GIS facilities calculation error:', error);
+            alert('Error calculating facilities: ' + error.message);
+        } finally {
+            $field.attr('placeholder', 'ZBW/ZNY/ZDC');
+            $btn.html(originalText).prop('disabled', false);
+        }
     }
 
     // Check if token is an ARTCC (Z + 2 chars)
@@ -6038,6 +6174,24 @@ advAddLabeledField(lines, 'NAME', advName);
         const isVisible = body.is(':visible');
         body.slideToggle(150);
         $(this).text(isVisible ? 'Show' : 'Hide');
+
+        // Auto-calculate facilities when panel is shown (if routes exist and field is empty)
+        if (!isVisible) {
+            const hasRoutes = ($('#routeSearch').val() || '').trim().length > 0;
+            const facilitiesEmpty = ($('#advFacilities').val() || '').trim().length === 0;
+            if (hasRoutes && facilitiesEmpty) {
+                // Small delay to let panel animate open
+                setTimeout(function() {
+                    advCalculateFacilitiesFromGIS();
+                }, 200);
+            }
+        }
+    });
+
+    // Clear auto badge when user manually edits facilities field
+    $('#advFacilities').on('input', function() {
+        $(this).data('autoCalculated', false);
+        $('#advFacilitiesAutoBadge').hide();
     });
 
     // Set default advisory date/time values in UTC
