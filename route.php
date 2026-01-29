@@ -2383,10 +2383,16 @@ ROUTE2</pre>
                         <input type="text" class="form-control form-control-sm" id="advTmiId" placeholder="">
                     </div>
                     <div class="form-group col-md-3 col-sm-8 adv-facilities-wrapper">
-                        <label class="small mb-0" for="advFacilities">Facilities Included</label>
+                        <label class="small mb-0" for="advFacilities">
+                            Facilities Included
+                            <span id="advFacilitiesAutoBadge" class="badge badge-info ml-1" style="display: none; font-size: 0.65rem;" title="Auto-calculated from routes">AUTO</span>
+                        </label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control form-control-sm" id="advFacilities" placeholder="ZBW/ZNY/ZDC">
                             <div class="input-group-append">
+                                <button class="btn btn-outline-info" type="button" id="advFacilitiesAuto" title="Auto-calculate from routes using GIS">
+                                    <i class="fas fa-magic"></i>
+                                </button>
                                 <button class="btn btn-outline-secondary" type="button" id="advFacilitiesToggle">
                                     <i class="fas fa-caret-down"></i>
                                 </button>
