@@ -788,9 +788,14 @@ $perm = true;
                         <i class="fas fa-clock mr-1"></i> Pending Proposals
                         <span class="badge badge-dark ml-2" id="pendingCount">0</span>
                     </span>
-                    <button class="btn btn-sm btn-outline-dark float-right" id="refreshProposals">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
+                    <div class="float-right">
+                        <button class="btn btn-sm btn-success mr-2" id="batchPublishApproved" style="display: none;" title="Publish all approved proposals">
+                            <i class="fas fa-broadcast-tower"></i> Publish All Approved
+                        </button>
+                        <button class="btn btn-sm btn-outline-dark" id="refreshProposals">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
