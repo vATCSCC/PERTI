@@ -579,7 +579,9 @@ function handleSubmitForCoordination() {
         // EXTERNAL TMI - Requires coordination
         // Post to Discord coordination channel
         // ===================================================
+        error_log("[TMI_COORD] About to call postProposalToDiscord with facilities: " . json_encode($facilities));
         $discordResult = postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName);
+        error_log("[TMI_COORD] postProposalToDiscord returned: " . json_encode($discordResult));
 
         if ($discordResult && isset($discordResult['id'])) {
             // Update proposal with Discord IDs
@@ -621,7 +623,12 @@ function handleSubmitForCoordination() {
             'discord' => $discordResult ? [
                 'success' => true,
                 'message_id' => $discordResult['id'] ?? null,
-                'channel_id' => DISCORD_COORDINATION_CHANNEL
+                'channel_id' => DISCORD_COORDINATION_CHANNEL,
+                'thread_id' => $discordResult['thread_id'] ?? null,
+                'thread_message_id' => $discordResult['thread_message_id'] ?? null,
+                'reactions_added' => $discordResult['reactions_added'] ?? false,
+                'reactions_error' => $discordResult['reactions_error'] ?? null,
+                'last_discord_error' => $discordResult['last_discord_error'] ?? null
             ] : ['success' => false, 'error' => 'Failed to post to Discord']
         ]);
 
@@ -1892,11 +1899,15 @@ function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
 function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName) {
     $logFile = __DIR__ . '/coordination_debug.log';
     $log = function($msg) use ($logFile) {
-        file_put_contents($logFile, date('[Y-m-d H:i:s] ') . $msg . "\n", FILE_APPEND);
+        $line = date('[Y-m-d H:i:s] ') . $msg;
+        @file_put_contents($logFile, $line . "\n", FILE_APPEND);
+        error_log("[TMI_COORD] " . $msg); // Also log to PHP error log
     };
 
     $log("=== Starting Discord post for proposal #{$proposalId} ===");
     $log("Channel ID: " . DISCORD_COORDINATION_CHANNEL);
+    $log("Facilities passed: " . json_encode($facilities));
+    $log("Facilities count: " . count($facilities));
 
     try {
         $discord = new DiscordAPI();
@@ -1968,45 +1979,61 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         $log("Thread message posted with ID: " . $threadMessageId);
         $starterResult['thread_message_id'] = $threadMessageId;
 
+        // Brief delay to let Discord process the message before adding reactions
+        usleep(500000); // 500ms
+
         // Step 4: Add reactions to the message INSIDE the thread (not main channel)
         $usedEmojis = [];
         $log("Processing " . count($facilities) . " facilities for emoji reactions");
+        $log("Thread ID for reactions: {$threadId}");
+        $log("Message ID for reactions: {$threadMessageId}");
 
-        foreach ($facilities as $facility) {
-            $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
-            $facCode = strtoupper(trim($facCode));
-            $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
-            $log("Processing facility: {$facCode}");
+        try {
+            foreach ($facilities as $facility) {
+                $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
+                $facCode = strtoupper(trim($facCode));
+                $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
+                $log("Processing facility: {$facCode}");
 
-            // Add custom emoji (for Nitro users)
-            if ($facEmoji) {
-                $log("Adding custom emoji to thread: {$facEmoji} for facility {$facCode}");
-                $success = $discord->createReaction($threadId, $threadMessageId, $facEmoji);
-                $log("Custom emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                // Add custom emoji (for Nitro users)
+                if ($facEmoji) {
+                    $log("Adding custom emoji to thread: {$facEmoji} for facility {$facCode}");
+                    $success = $discord->createReaction($threadId, $threadMessageId, $facEmoji);
+                    $log("Custom emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+                }
+
+                // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
+                $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+                $altEmoji = $emojiInfo['emoji'];
+                $emojiType = $emojiInfo['type'];
+                $parentArtcc = $emojiInfo['parent'] ?? null;
+
+                $log("Adding alternate emoji to thread: {$altEmoji} for facility {$facCode} (type: {$emojiType}, parent: " . ($parentArtcc ?? 'none') . ")");
+                $success = $discord->createReaction($threadId, $threadMessageId, $altEmoji);
+                $log("Alternate emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+
+                usleep(250000); // 250ms delay between reactions to avoid rate limiting
             }
 
-            // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
-            $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
-            $altEmoji = $emojiInfo['emoji'];
-            $emojiType = $emojiInfo['type'];
-            $parentArtcc = $emojiInfo['parent'] ?? null;
-
-            $log("Adding alternate emoji to thread: {$altEmoji} for facility {$facCode} (type: {$emojiType}, parent: " . ($parentArtcc ?? 'none') . ")");
-            $success = $discord->createReaction($threadId, $threadMessageId, $altEmoji);
-            $log("Alternate emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-
-            usleep(250000); // 250ms delay between reactions to avoid rate limiting
+            // Add deny reactions to thread message
+            $log("Adding deny reactions to thread message");
+            $success1 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
+            $log("Deny emoji 1 result: " . ($success1 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+            usleep(250000);
+            $success2 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
+            $log("Deny emoji 2 result: " . ($success2 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
+            // Store reaction results for debugging
+            $starterResult['reactions_added'] = true;
+            $starterResult['deny_reactions'] = ['emoji1' => $success1, 'emoji2' => $success2];
+        } catch (Exception $emojiEx) {
+            $log("EMOJI EXCEPTION: " . $emojiEx->getMessage());
+            $log("Emoji exception trace: " . $emojiEx->getTraceAsString());
+            $starterResult['reactions_added'] = false;
+            $starterResult['reactions_error'] = $emojiEx->getMessage();
         }
 
-        // Add deny reactions to thread message
-        $log("Adding deny reactions to thread message");
-        $success1 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
-        $log("Deny emoji 1 result: " . ($success1 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-        usleep(250000);
-        $success2 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
-        $log("Deny emoji 2 result: " . ($success2 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-
         $log("=== Discord post complete for proposal #{$proposalId} ===");
+        $starterResult['last_discord_error'] = $discord->getLastError();
         return $starterResult;
 
     } catch (Exception $e) {
