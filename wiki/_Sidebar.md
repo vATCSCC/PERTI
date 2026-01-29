@@ -56,6 +56,7 @@
 
 **Operations**
 - [[Daemons and Scripts]]
+- [[AIRAC Update|AIRAC-Update]]
 - [[Maintenance]]
 - [[Troubleshooting]]
 
