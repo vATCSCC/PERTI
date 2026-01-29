@@ -38,13 +38,31 @@ Monitor and rotate daemon logs:
 
 ## Data Updates
 
-### Navigation Data
+### AIRAC Navigation Data (28-Day Cycle)
 
-Update FAA NASR data on the 28-day cycle:
+AIRAC updates are required every 28 days when the FAA releases new navigation data. Use the master script:
 
 ```bash
-python scripts/nasr_navdata_updater.py
+python airac_full_update.py
 ```
+
+This downloads FAA NASR data, scrapes playbook routes, imports to VATSIM_REF, and syncs to VATSIM_ADL.
+
+**Quick options:**
+
+```bash
+python airac_full_update.py --dry-run      # Preview without changes
+python airac_full_update.py --skip-playbook # Faster if playbook unchanged
+python airac_full_update.py --step 1       # NASR download only
+python airac_full_update.py --step 3       # Database import only
+```
+
+See **[[AIRAC-Update]]** for complete documentation including:
+
+- Database schema and table details
+- Verification queries
+- Troubleshooting guide
+- AIRAC cycle calendar
 
 ### Boundary Data
 
