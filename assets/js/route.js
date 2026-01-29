@@ -5070,8 +5070,12 @@ function advEnsureDefaultIncludedTraffic(parsedRoutes) {
 
 
     function advInitFacilitiesDropdown() {
+        console.log('[ADV] advInitFacilitiesDropdown() initializing...');
         const $grid = $('#advFacilitiesGrid');
-        if (!$grid.length) return;
+        if (!$grid.length) {
+            console.log('[ADV] Grid not found, skipping facilities dropdown init');
+            return;
+        }
 
         // Build checkbox grid
         $grid.empty();
@@ -5157,10 +5161,14 @@ function advEnsureDefaultIncludedTraffic(parsedRoutes) {
         });
 
         // Auto-calculate facilities from GIS
-        $('#advFacilitiesAuto').on('click', function(e) {
+        const $autoBtn = $('#advFacilitiesAuto');
+        console.log('[ADV] Auto button found:', $autoBtn.length > 0);
+        $autoBtn.on('click', function(e) {
+            console.log('[ADV] Magic wand button clicked!');
             e.stopPropagation();
             advCalculateFacilitiesFromGIS();
         });
+        console.log('[ADV] advInitFacilitiesDropdown() complete');
     }
 
     /**
@@ -6311,6 +6319,17 @@ advAddLabeledField(lines, 'NAME', advName);
     // Initialize default advisory times on load
     advSetDefaultTimesUtc();
     advInitFacilitiesDropdown();
+
+    // Backup event handler using delegation (works even if element added later)
+    $(document).on('click', '#advFacilitiesAuto', function(e) {
+        console.log('[ADV-BACKUP] Magic wand clicked via delegation');
+        e.stopPropagation();
+        if (typeof advCalculateFacilitiesFromGIS === 'function') {
+            advCalculateFacilitiesFromGIS();
+        } else {
+            console.error('[ADV-BACKUP] advCalculateFacilitiesFromGIS not found');
+        }
+    });
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADL LIVE FLIGHTS MODULE - TSD Symbology Display
@@ -8961,4 +8980,5 @@ advAddLabeledField(lines, 'NAME', advName);
         }
     })();
 
+    console.log('[ROUTE.JS] Document ready complete - all handlers attached');
 });
