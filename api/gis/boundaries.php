@@ -1050,6 +1050,99 @@ try {
             ]);
             break;
 
+        // Validate GIS tiers against ADL manual tier mappings
+        case 'validate_tiers':
+            // ADL expected 1st tier neighbors (from 002_artcc_topology_seed.sql)
+            $adlTier1Expected = [
+                'ZAB' => ['ZLA', 'ZDV', 'ZKC', 'ZFW', 'ZHU'],
+                'ZAU' => ['ZMP', 'ZKC', 'ZID', 'ZOB'],
+                'ZBW' => ['ZDC', 'ZNY', 'ZOB'],
+                'ZDC' => ['ZBW', 'ZNY', 'ZOB', 'ZID', 'ZTL', 'ZJX'],
+                'ZDV' => ['ZLC', 'ZLA', 'ZAB', 'ZMP', 'ZKC'],
+                'ZFW' => ['ZME', 'ZKC', 'ZAB', 'ZHU'],
+                'ZHU' => ['ZAB', 'ZFW', 'ZME', 'ZTL', 'ZJX', 'ZMA'],
+                'ZID' => ['ZAU', 'ZOB', 'ZDC', 'ZME', 'ZTL', 'ZKC'],
+                'ZJX' => ['ZMA', 'ZHU', 'ZTL', 'ZDC'],
+                'ZKC' => ['ZMP', 'ZAU', 'ZID', 'ZME', 'ZFW', 'ZAB', 'ZDV'],
+                'ZLA' => ['ZLC', 'ZOA', 'ZDV', 'ZAB'],
+                'ZLC' => ['ZDV', 'ZLA', 'ZMP', 'ZOA', 'ZSE'],
+                'ZMA' => ['ZJX', 'ZHU'],
+                'ZME' => ['ZTL', 'ZID', 'ZKC', 'ZFW', 'ZHU'],
+                'ZMP' => ['ZAU', 'ZOB', 'ZKC', 'ZDV', 'ZLC'],
+                'ZNY' => ['ZBW', 'ZDC', 'ZOB'],
+                'ZOA' => ['ZLA', 'ZSE', 'ZLC'],
+                'ZOB' => ['ZAU', 'ZMP', 'ZID', 'ZDC', 'ZNY', 'ZBW'],
+                'ZSE' => ['ZOA', 'ZLC'],
+                'ZTL' => ['ZID', 'ZDC', 'ZJX', 'ZME', 'ZHU']
+            ];
+
+            $results = [];
+            $exactMatches = 0;
+            $mismatches = 0;
+
+            foreach ($adlTier1Expected as $artcc => $expectedNeighbors) {
+                // Get GIS-computed Tier 1 neighbors (using ICAO code KZXX)
+                $icaoCode = 'K' . $artcc;
+                $tiers = $gis->getProximityTiers('ARTCC', $icaoCode, 1.0, true);
+
+                // Extract GIS Tier 1 neighbors (strip K prefix)
+                $gisNeighbors = [];
+                foreach ($tiers as $t) {
+                    if ($t['tier'] == 1.0 && $t['boundary_type'] === 'ARTCC') {
+                        $code = $t['boundary_code'];
+                        // Strip K prefix if present
+                        if (str_starts_with($code, 'K')) {
+                            $code = substr($code, 1);
+                        }
+                        $gisNeighbors[] = $code;
+                    }
+                }
+
+                // Sort for comparison
+                sort($expectedNeighbors);
+                sort($gisNeighbors);
+
+                // Determine match/mismatch
+                $match = $expectedNeighbors === $gisNeighbors;
+                if ($match) {
+                    $exactMatches++;
+                } else {
+                    $mismatches++;
+                }
+
+                // Find differences
+                $adlOnly = array_diff($expectedNeighbors, $gisNeighbors);
+                $gisOnly = array_diff($gisNeighbors, $expectedNeighbors);
+
+                $results[$artcc] = [
+                    'status' => $match ? 'MATCH' : 'MISMATCH',
+                    'adl_count' => count($expectedNeighbors),
+                    'gis_count' => count($gisNeighbors),
+                    'adl_neighbors' => $expectedNeighbors,
+                    'gis_neighbors' => $gisNeighbors,
+                    'adl_only' => array_values($adlOnly),
+                    'gis_only' => array_values($gisOnly)
+                ];
+            }
+
+            echo json_encode([
+                'success' => true,
+                'validation' => 'GIS Proximity Tier 1 vs ADL Manual 1st Tier',
+                'summary' => [
+                    'total_artccs' => count($adlTier1Expected),
+                    'exact_matches' => $exactMatches,
+                    'mismatches' => $mismatches,
+                    'match_percentage' => round(100.0 * $exactMatches / count($adlTier1Expected), 1)
+                ],
+                'results' => $results,
+                'notes' => [
+                    'GIS uses ICAO codes (KZFW), ADL uses FAA codes (ZFW)',
+                    'GIS may find additional international adjacencies (Mexican FIRs)',
+                    'LINE adjacency = shared border (full tier), POINT = corner touch (half tier)'
+                ]
+            ]);
+            break;
+
         // Get proximity summary (count per tier)
         case 'proximity_summary':
             $boundaryType = strtoupper($_GET['type'] ?? '');
