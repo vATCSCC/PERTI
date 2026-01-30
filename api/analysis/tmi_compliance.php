@@ -55,9 +55,9 @@ try {
             $response['message'] = 'Analysis triggered (use cached results for now)';
         }
 
-        // Try to load results from temp storage
-        // In production, these would come from database
-        $json_path = 'C:\\temp\\tmi_compliance_results.json';
+        // Load results from data folder (relative to project root)
+        $base_path = realpath(__DIR__ . '/../../data/tmi_compliance');
+        $json_path = $base_path . '/tmi_compliance_results.json';
 
         if (file_exists($json_path)) {
             $json_content = file_get_contents($json_path);
