@@ -3,11 +3,18 @@
  * PERTI System Status Dashboard
  *
  * Live operational status including:
- * - Database metrics (queue counts, flight counts, refresh times)
+ * - Database metrics (VATSIM_ADL, VATSIM_TMI, VATSIM_GIS, PERTI)
  * - External API health checks (VATSIM, Aviation Weather, NOAA)
- * - Recent activity counts (parse/ETA/zone detection)
- * - Resource tree visualization
- * - Stored procedures and migration status
+ * - Recent activity counts (parse/ETA/zone detection/boundary)
+ * - Resource tree visualization with all daemons
+ * - Stored procedures (Azure SQL + PostGIS functions)
+ * - Migration status across all databases
+ *
+ * Databases:
+ *   - Azure SQL (VATSIM_ADL): Flight data, trajectories, boundaries
+ *   - Azure SQL (VATSIM_TMI): TMI programs, slots, flight control
+ *   - PostgreSQL (VATSIM_GIS): PostGIS spatial data, route expansion
+ *   - MySQL (VATSIM_PERTI): Application config, plans, users
  */
 
 include("sessions/handler.php");
@@ -46,6 +53,8 @@ $current_time = gmdate('d M Y H:i');
 $liveData = [
     'adl_connected' => false,
     'mysql_connected' => false,
+    'tmi_connected' => false,
+    'gis_connected' => false,
     'active_flights' => 0,
     'total_flights_today' => 0,
     'queue_pending' => 0,
@@ -87,6 +96,20 @@ $liveData = [
     'atis_airports_active' => 0,
     'waypoints_total' => 0,
     'boundaries_total' => 0,
+    // GIS Database Metrics (PostGIS)
+    'gis_nav_fixes' => 0,
+    'gis_airways' => 0,
+    'gis_airway_segments' => 0,
+    'gis_artcc_boundaries' => 0,
+    'gis_sector_boundaries' => 0,
+    'gis_tracon_boundaries' => 0,
+    'gis_playbook_routes' => 0,
+    'gis_airports' => 0,
+    'gis_postgis_version' => null,
+    // TMI Database Metrics
+    'tmi_active_programs' => 0,
+    'tmi_active_slots' => 0,
+    'tmi_controlled_flights' => 0,
 ];
 
 // Runtime tracking
@@ -114,6 +137,120 @@ if (isset($conn_sqli) && $conn_sqli) {
 } else {
     $statusIssues[] = 'MySQL connection failed';
     $overallStatus = 'degraded';
+}
+
+// -----------------------------------------------------------------------------
+// TMI (Azure SQL) Connection Check
+// -----------------------------------------------------------------------------
+if (isset($conn_tmi) && $conn_tmi !== null && $conn_tmi !== false) {
+    $liveData['tmi_connected'] = true;
+
+    // Active TMI programs
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.tmi_programs WHERE status = 'ACTIVE'";
+    $stmt = @sqlsrv_query($conn_tmi, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['tmi_active_programs'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Active slots count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.tmi_slots s
+            JOIN dbo.tmi_programs p ON p.program_id = s.program_id
+            WHERE p.status = 'ACTIVE'";
+    $stmt = @sqlsrv_query($conn_tmi, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['tmi_active_slots'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Controlled flights
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.tmi_flight_control fc
+            JOIN dbo.tmi_programs p ON p.program_id = fc.program_id
+            WHERE p.status = 'ACTIVE' AND fc.control_status = 'CONTROLLED'";
+    $stmt = @sqlsrv_query($conn_tmi, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['tmi_controlled_flights'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// GIS (PostgreSQL/PostGIS) Connection Check
+// -----------------------------------------------------------------------------
+if (isset($conn_gis) && $conn_gis !== null && $conn_gis !== false) {
+    $liveData['gis_connected'] = true;
+
+    try {
+        // PostGIS version
+        $stmt = $conn_gis->query("SELECT PostGIS_Version() AS version");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_postgis_version'] = $row['version'] ?? 'Unknown';
+        }
+
+        // Navigation fixes count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM nav_fixes");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_nav_fixes'] = (int)($row['cnt'] ?? 0);
+        }
+
+        // Airways count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM airways");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_airways'] = (int)($row['cnt'] ?? 0);
+        }
+
+        // Airway segments count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM airway_segments");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_airway_segments'] = (int)($row['cnt'] ?? 0);
+        }
+
+        // ARTCC boundaries count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM artcc_boundaries");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_artcc_boundaries'] = (int)($row['cnt'] ?? 0);
+        }
+
+        // Sector boundaries count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM sector_boundaries");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_sector_boundaries'] = (int)($row['cnt'] ?? 0);
+        }
+
+        // TRACON boundaries count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM tracon_boundaries");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_tracon_boundaries'] = (int)($row['cnt'] ?? 0);
+        }
+
+        // Airports count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM airports");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_airports'] = (int)($row['cnt'] ?? 0);
+        }
+
+        // Playbook routes count
+        $stmt = $conn_gis->query("SELECT COUNT(*) AS cnt FROM playbook_routes");
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $liveData['gis_playbook_routes'] = (int)($row['cnt'] ?? 0);
+        }
+
+    } catch (PDOException $e) {
+        // GIS queries failed but connection exists
+        error_log("Status page GIS query error: " . $e->getMessage());
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -2367,6 +2504,34 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td class="comment-text on-time">ON-TIME</td>
                             </tr>
+                            <tr>
+                                <td>
+                                    <div class="component-name">Azure SQL (TMI)</div>
+                                    <div class="component-desc">VATSIM_TMI programs/slots</div>
+                                </td>
+                                <td>
+                                    <?php if ($liveData['tmi_connected']): ?>
+                                        <span class="status-badge up">Connected</span>
+                                    <?php else: ?>
+                                        <span class="status-badge warning">Offline</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="timing-info"><?= $liveData['tmi_active_programs'] ?> programs</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="component-name">PostgreSQL (GIS)</div>
+                                    <div class="component-desc">VATSIM_GIS PostGIS spatial</div>
+                                </td>
+                                <td>
+                                    <?php if ($liveData['gis_connected']): ?>
+                                        <span class="status-badge up">Connected</span>
+                                    <?php else: ?>
+                                        <span class="status-badge warning">Offline</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="timing-info"><?= $liveData['gis_postgis_version'] ? 'v' . explode(' ', $liveData['gis_postgis_version'])[0] : 'N/A' ?></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -2557,6 +2722,56 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </div>
                             <div class="tree-node">
                                 <div class="tree-item">
+                                    <span class="tree-icon database"><i class="fas fa-database"></i></span>
+                                    <span class="tree-label">Azure SQL (VATSIM_TMI)</span>
+                                    <span class="status-badge <?= $liveData['tmi_connected'] ? 'up' : 'warning' ?> tree-status"><?= $liveData['tmi_connected'] ? 'UP' : 'N/A' ?></span>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-table"></i></span>
+                                        <span class="tree-label">tmi_programs (<?= $liveData['tmi_active_programs'] ?> active)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-table"></i></span>
+                                        <span class="tree-label">tmi_slots (<?= number_format($liveData['tmi_active_slots']) ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-table"></i></span>
+                                        <span class="tree-label">tmi_flight_control (<?= $liveData['tmi_controlled_flights'] ?>)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tree-node">
+                                <div class="tree-item">
+                                    <span class="tree-icon database" style="color: #3b82f6;"><i class="fas fa-globe"></i></span>
+                                    <span class="tree-label">PostgreSQL (VATSIM_GIS)</span>
+                                    <span class="status-badge <?= $liveData['gis_connected'] ? 'up' : 'warning' ?> tree-status"><?= $liveData['gis_connected'] ? 'UP' : 'N/A' ?></span>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-map-marker-alt"></i></span>
+                                        <span class="tree-label">nav_fixes (<?= number_format($liveData['gis_nav_fixes']) ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-route"></i></span>
+                                        <span class="tree-label">airways/segments (<?= number_format($liveData['gis_airway_segments']) ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-vector-square"></i></span>
+                                        <span class="tree-label">artcc_boundaries (<?= $liveData['gis_artcc_boundaries'] ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-th"></i></span>
+                                        <span class="tree-label">sector_boundaries (<?= $liveData['gis_sector_boundaries'] ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-bullseye"></i></span>
+                                        <span class="tree-label">tracon_boundaries (<?= $liveData['gis_tracon_boundaries'] ?>)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tree-node">
+                                <div class="tree-item">
                                     <span class="tree-icon daemon"><i class="fas fa-cogs"></i></span>
                                     <span class="tree-label">Daemons</span>
                                 </div>
@@ -2578,13 +2793,38 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label">waypoint_eta_daemon.php</span>
+                                        <span class="status-badge running tree-status">15s</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">boundary_daemon.php</span>
                                         <span class="status-badge running tree-status">30s</span>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label">zone_daemon.php</span>
+                                        <span class="status-badge running tree-status">15s</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">import_weather_alerts.php</span>
                                         <span class="status-badge scheduled tree-status">5m</span>
+                                    </div>
+                                    <div class="tree-item" style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #333;">
+                                        <span class="tree-icon file" style="color: #3b82f6;"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label" style="color: #3b82f6;">parse_queue_gis_daemon.php</span>
+                                        <span class="status-badge running tree-status">5s</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #3b82f6;"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label" style="color: #3b82f6;">boundary_gis_daemon.php</span>
+                                        <span class="status-badge running tree-status">15s</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #3b82f6;"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label" style="color: #3b82f6;">crossing_gis_daemon.php</span>
+                                        <span class="status-badge running tree-status">30s</span>
                                     </div>
                                 </div>
                             </div>
@@ -2614,7 +2854,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <div class="tree-node">
                                 <div class="tree-item">
                                     <span class="tree-icon folder"><i class="fas fa-code"></i></span>
-                                    <span class="tree-label">Stored Procedures (22)</span>
+                                    <span class="tree-label">Azure SQL Procedures (22)</span>
                                 </div>
                                 <div class="tree-node">
                                     <div class="tree-item">
@@ -2632,6 +2872,30 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fas fa-file-code"></i></span>
                                         <span class="tree-label">fn_* (8)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tree-node">
+                                <div class="tree-item">
+                                    <span class="tree-icon folder" style="color: #3b82f6;"><i class="fas fa-code"></i></span>
+                                    <span class="tree-label" style="color: #3b82f6;">PostGIS Functions (20+)</span>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #3b82f6;"><i class="fas fa-file-code"></i></span>
+                                        <span class="tree-label">expand_route* (8)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #3b82f6;"><i class="fas fa-file-code"></i></span>
+                                        <span class="tree-label">detect_boundaries* (4)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #3b82f6;"><i class="fas fa-file-code"></i></span>
+                                        <span class="tree-label">get_trajectory* (5)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #3b82f6;"><i class="fas fa-file-code"></i></span>
+                                        <span class="tree-label">resolve_waypoint (1)</span>
                                     </div>
                                 </div>
                             </div>
@@ -2733,6 +2997,49 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <td class="timing-info"><?= $liveData['last_crossing_calc'] ?? 'N/A' ?></td>
                                 <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : ($liveData['crossings_pending'] > 0 ? 'warning' : 'scheduled') ?>">
                                     <?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : ($liveData['crossings_pending'] > 0 ? 'Pending' : 'Idle') ?>
+                                </span></td>
+                            </tr>
+                            <!-- GIS-based Processing (PostGIS) -->
+                            <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
+                                <td>
+                                    <div class="component-name" style="color: #3b82f6;">GIS Route Parsing <span style="font-size: 9px;">(parse_queue_gis_daemon.php)</span></div>
+                                    <div class="component-desc">
+                                        PostGIS route expansion &bull;
+                                        <?= number_format($liveData['gis_nav_fixes']) ?> nav fixes &bull;
+                                        <?= number_format($liveData['gis_airway_segments']) ?> segments
+                                    </div>
+                                </td>
+                                <td class="timing-info">5s</td>
+                                <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
+                                    <?= $liveData['gis_connected'] ? 'Running' : 'Offline' ?>
+                                </span></td>
+                            </tr>
+                            <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
+                                <td>
+                                    <div class="component-name" style="color: #3b82f6;">GIS Boundary Detection <span style="font-size: 9px;">(boundary_gis_daemon.php)</span></div>
+                                    <div class="component-desc">
+                                        PostGIS spatial containment &bull;
+                                        <?= $liveData['gis_artcc_boundaries'] ?> ARTCCs &bull;
+                                        <?= $liveData['gis_tracon_boundaries'] ?> TRACONs &bull;
+                                        <?= $liveData['gis_sector_boundaries'] ?> Sectors
+                                    </div>
+                                </td>
+                                <td class="timing-info">15s</td>
+                                <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
+                                    <?= $liveData['gis_connected'] ? 'Running' : 'Offline' ?>
+                                </span></td>
+                            </tr>
+                            <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
+                                <td>
+                                    <div class="component-name" style="color: #3b82f6;">GIS Trajectory Crossings <span style="font-size: 9px;">(crossing_gis_daemon.php)</span></div>
+                                    <div class="component-desc">
+                                        PostGIS line-polygon intersection &bull;
+                                        ARTCC/sector crossing ETAs
+                                    </div>
+                                </td>
+                                <td class="timing-info">30s</td>
+                                <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
+                                    <?= $liveData['gis_connected'] ? 'Running' : 'Offline' ?>
                                 </span></td>
                             </tr>
                         </tbody>
@@ -3441,7 +3748,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <div class="status-section">
                     <div class="status-section-header">
                         <span><i class="fas fa-code mr-2"></i>Stored Procedures</span>
-                        <span class="cycle-badge">22 Total</span>
+                        <span class="cycle-badge">22 ADL + 20+ GIS</span>
                     </div>
                     <table class="status-table">
                         <thead>
@@ -3453,23 +3760,38 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="component-name">Route Parsing</td>
+                                <td class="component-name">Route Parsing (ADL)</td>
                                 <td class="timing-info">5</td>
                                 <td><span class="status-badge complete">Deployed</span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">ETA & Trajectory</td>
+                                <td class="component-name">ETA & Trajectory (ADL)</td>
                                 <td class="timing-info">8</td>
                                 <td><span class="status-badge complete">Deployed</span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Zone Detection</td>
+                                <td class="component-name">Zone Detection (ADL)</td>
                                 <td class="timing-info">5</td>
                                 <td><span class="status-badge complete">Deployed</span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Data Sync</td>
+                                <td class="component-name">Data Sync (ADL)</td>
                                 <td class="timing-info">3</td>
+                                <td><span class="status-badge complete">Deployed</span></td>
+                            </tr>
+                            <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
+                                <td class="component-name" style="color: #3b82f6;">Route Expansion (GIS)</td>
+                                <td class="timing-info">8</td>
+                                <td><span class="status-badge complete">Deployed</span></td>
+                            </tr>
+                            <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
+                                <td class="component-name" style="color: #3b82f6;">Boundary Detection (GIS)</td>
+                                <td class="timing-info">4</td>
+                                <td><span class="status-badge complete">Deployed</span></td>
+                            </tr>
+                            <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
+                                <td class="component-name" style="color: #3b82f6;">Trajectory Crossings (GIS)</td>
+                                <td class="timing-info">5</td>
                                 <td><span class="status-badge complete">Deployed</span></td>
                             </tr>
                         </tbody>
@@ -3480,7 +3802,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <div class="status-section">
                     <div class="status-section-header">
                         <span><i class="fas fa-layer-group mr-2"></i>Migrations</span>
-                        <span class="cycle-badge">75 ADL + 26 PERTI</span>
+                        <span class="cycle-badge">75 ADL + 26 PERTI + 8 GIS</span>
                     </div>
                     <table class="status-table">
                         <thead>
@@ -3497,9 +3819,19 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <td><span class="status-badge complete">75 Deployed</span></td>
                             </tr>
                             <tr>
+                                <td class="component-name">TMI (Azure SQL)</td>
+                                <td class="timing-info">5 categories</td>
+                                <td><span class="status-badge complete">12 Deployed</span></td>
+                            </tr>
+                            <tr>
                                 <td class="component-name">PERTI (MySQL)</td>
                                 <td class="timing-info">8 categories</td>
                                 <td><span class="status-badge complete">26 Deployed</span></td>
+                            </tr>
+                            <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
+                                <td class="component-name" style="color: #3b82f6;">GIS (PostgreSQL)</td>
+                                <td class="timing-info">3 categories</td>
+                                <td><span class="status-badge complete">8 Deployed</span></td>
                             </tr>
                         </tbody>
                     </table>

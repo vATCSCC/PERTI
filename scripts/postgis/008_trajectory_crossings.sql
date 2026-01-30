@@ -127,7 +127,7 @@ BEGIN
         -- Determine if entry or exit based on containment before/after crossing
         CASE
             WHEN ST_Contains(
-                (SELECT geom FROM artcc_boundaries WHERE artcc_code = cd.artcc_code LIMIT 1),
+                (SELECT ab2.geom FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.artcc_code LIMIT 1),
                 ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
             ) THEN 'ENTRY'::VARCHAR(5)
             ELSE 'EXIT'::VARCHAR(5)
@@ -207,7 +207,7 @@ BEGIN
         (cd.crossing_fraction * total_length_m / 1852.0)::FLOAT AS distance_nm,
         CASE
             WHEN ST_Contains(
-                (SELECT geom FROM sector_boundaries WHERE sector_code = cd.sector_code LIMIT 1),
+                (SELECT sb2.geom FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.sector_code LIMIT 1),
                 ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
             ) THEN 'ENTRY'::VARCHAR(5)
             ELSE 'EXIT'::VARCHAR(5)
@@ -303,12 +303,12 @@ BEGIN
         CASE
             WHEN cd.boundary_type = 'ARTCC' THEN
                 CASE WHEN ST_Contains(
-                    (SELECT geom FROM artcc_boundaries WHERE artcc_code = cd.boundary_code::VARCHAR(4) LIMIT 1),
+                    (SELECT ab2.geom FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.boundary_code::VARCHAR(4) LIMIT 1),
                     ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
                 ) THEN 'ENTRY'::VARCHAR(5) ELSE 'EXIT'::VARCHAR(5) END
             ELSE
                 CASE WHEN ST_Contains(
-                    (SELECT geom FROM sector_boundaries WHERE sector_code = cd.boundary_code LIMIT 1),
+                    (SELECT sb2.geom FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.boundary_code LIMIT 1),
                     ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
                 ) THEN 'ENTRY'::VARCHAR(5) ELSE 'EXIT'::VARCHAR(5) END
         END AS crossing_type
@@ -449,8 +449,8 @@ BEGIN
         RETURN ARRAY[]::TEXT[];
     END IF;
 
-    -- Get unique ARTCCs in crossing order
-    SELECT array_agg(DISTINCT artcc_code ORDER BY min_fraction)
+    -- Get unique ARTCCs in crossing order (GROUP BY ensures uniqueness)
+    SELECT array_agg(sub.artcc_code ORDER BY sub.min_fraction)
     INTO artccs
     FROM (
         SELECT
