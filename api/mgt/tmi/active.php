@@ -318,19 +318,28 @@ function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOn
 
 /**
  * Get scheduled (future) NTML entries
+ * Includes entries with explicit SCHEDULED status AND entries with ACTIVE/PUBLISHED
+ * status but future valid_from (e.g., CONFIG entries published for a future time)
  */
 function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagingOnly = false) {
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
-    
-    // Status filter based on source selection
+
+    // Build WHERE clause based on source selection
+    // Include: SCHEDULED status OR (ACTIVE/PUBLISHED with future valid_from)
     if ($stagingOnly) {
-        $statusIn = "('STAGED')";
+        $whereClause = "(status = 'STAGED' AND valid_from > SYSUTCDATETIME())";
     } elseif ($includeStaging) {
-        $statusIn = "('SCHEDULED', 'STAGED')";
+        $whereClause = "(
+            (status IN ('SCHEDULED', 'STAGED') AND valid_from > SYSUTCDATETIME())
+            OR (status IN ('ACTIVE', 'PUBLISHED') AND valid_from > SYSUTCDATETIME())
+        )";
     } else {
-        $statusIn = "('SCHEDULED')";
+        $whereClause = "(
+            (status = 'SCHEDULED' AND valid_from > SYSUTCDATETIME())
+            OR (status IN ('ACTIVE', 'PUBLISHED') AND valid_from > SYSUTCDATETIME())
+        )";
     }
     $sql = "SELECT TOP {$limit}
                 entry_id,
@@ -357,8 +366,7 @@ function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagin
                 created_by,
                 created_by_name
             FROM dbo.tmi_entries
-            WHERE status IN {$statusIn}
-              AND valid_from > SYSUTCDATETIME()
+            WHERE {$whereClause}
             ORDER BY valid_from ASC";
     
     try {
