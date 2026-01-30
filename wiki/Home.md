@@ -58,7 +58,7 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 | Frontend | JavaScript (ES6+), jQuery, Bootstrap 4.5 |
 | Mapping | MapLibre GL JS, Leaflet |
 | Charts | Chart.js |
-| Databases | MySQL, Azure SQL |
+| Databases | MySQL, Azure SQL, PostgreSQL/PostGIS |
 | Hosting | Azure App Service |
 | Auth | VATSIM Connect (OAuth) |
 | Weather | IEM NEXRAD/MRMS tiles |
@@ -86,4 +86,4 @@ See [[Changelog]] for full version history.
 
 ---
 
-*Last updated: 2026-01-26*
+*Last updated: 2026-01-30*

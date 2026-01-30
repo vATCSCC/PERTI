@@ -275,6 +275,38 @@ PostGIS-powered spatial queries for route analysis and boundary detection.
 | `boundaries.php?action=airport_artcc` | GET | Get ARTCC containing an airport |
 | `boundaries.php?action=artcc_airports` | GET | Get airports within an ARTCC |
 
+### Trajectory Crossings
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `boundaries.php?action=trajectory_crossings` | GET | ARTCC boundary crossings along trajectory |
+| `boundaries.php?action=sector_crossings` | GET | Sector boundary crossings along trajectory |
+| `boundaries.php?action=all_crossings` | GET | All boundary crossings (ARTCC + sectors) |
+| `boundaries.php?action=artccs_traversed` | GET | Simple list of ARTCCs crossed |
+| `boundaries.php?action=crossing_etas` | GET | ETAs for upcoming boundary crossings |
+
+### Boundary Adjacency Network
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `boundaries.php?action=compute_adjacencies` | GET | Compute all boundary adjacencies |
+| `boundaries.php?action=boundary_neighbors` | GET | Get neighbors of a boundary |
+| `boundaries.php?action=adjacency_stats` | GET | Adjacency network statistics |
+| `boundaries.php?action=adjacency_edges` | GET | Export adjacency as edge list |
+| `boundaries.php?action=boundary_path` | GET | Find path between boundaries |
+| `boundaries.php?action=artcc_adjacency_map` | GET | ARTCC-to-ARTCC adjacency map |
+| `boundaries.php?action=sector_adjacency` | GET | Sector adjacency within ARTCC |
+
+### Proximity Tiers
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `boundaries.php?action=proximity_tiers` | GET | Boundaries within N tiers |
+| `boundaries.php?action=proximity_distance` | GET | Tier distance between boundaries |
+| `boundaries.php?action=boundaries_at_tier` | GET | Boundaries at specific tier |
+| `boundaries.php?action=proximity_summary` | GET | Count summary per tier |
+| `boundaries.php?action=validate_tiers` | GET | Validate GIS vs ADL tier mappings |
+
 ### Service/Diagnostics
 
 | Endpoint | Method | Description |

@@ -33,6 +33,7 @@
 - [[API Reference]]
 - [[ADL API]]
 - [[TMI API]]
+- [[GIS API]]
 - [[JATOC API]]
 
 ---
