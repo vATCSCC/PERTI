@@ -12,6 +12,16 @@
  *   GET /api/stats/network_analysis.php?section=seasonality
  *   GET /api/stats/network_analysis.php?section=regional
  *   GET /api/stats/network_analysis.php?section=events
+ *
+ * Drill-down endpoints:
+ *   GET ?section=heatmap                          - Hour×Day heatmap matrix
+ *   GET ?section=timeseries&year=2025             - Daily data for year
+ *   GET ?section=timeseries&year=2025&month=1     - Hourly data for month
+ *   GET ?section=drilldown&level=year             - Yearly aggregates (clickable)
+ *   GET ?section=drilldown&level=month&year=2025  - Monthly for specific year
+ *   GET ?section=drilldown&level=day&year=2025&month=1  - Daily for specific month
+ *   GET ?section=compare&year1=2024&year2=2025    - Year-over-year comparison
+ *   GET ?section=anomalies                        - Unusual traffic days
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -42,6 +52,14 @@ if ($conn === false) {
 }
 
 $section = isset($_GET['section']) ? $_GET['section'] : 'all';
+
+// Drill-down parameters
+$year = isset($_GET['year']) ? (int)$_GET['year'] : null;
+$month = isset($_GET['month']) ? (int)$_GET['month'] : null;
+$day = isset($_GET['day']) ? (int)$_GET['day'] : null;
+$level = isset($_GET['level']) ? $_GET['level'] : 'year';
+$year1 = isset($_GET['year1']) ? (int)$_GET['year1'] : null;
+$year2 = isset($_GET['year2']) ? (int)$_GET['year2'] : null;
 
 $response = [
     'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
@@ -342,6 +360,264 @@ if ($section === 'all' || $section === 'distribution') {
     $distData = executeQuery($conn, $distSql);
 
     $response['distribution'] = $distData;
+}
+
+// Heatmap Section - Hour × Day-of-Week matrix for pattern visualization
+if ($section === 'heatmap') {
+    $heatmapSql = "
+        SELECT
+            day_of_week,
+            hour_of_day,
+            AVG(pilots) as avg_pilots,
+            COUNT(*) as samples
+        FROM historical_network_stats
+        WHERE year_num >= 2023
+        GROUP BY day_of_week, hour_of_day
+        ORDER BY day_of_week, hour_of_day
+    ";
+    $heatmapData = executeQuery($conn, $heatmapSql);
+
+    // Transform to matrix format for ECharts heatmap
+    $matrix = [];
+    foreach ($heatmapData as $row) {
+        $matrix[] = [
+            (int)$row['hour_of_day'],      // x: hour
+            (int)$row['day_of_week'] - 1,  // y: day (0-indexed for ECharts)
+            round($row['avg_pilots'])       // value
+        ];
+    }
+    $response['heatmap'] = [
+        'matrix' => $matrix,
+        'raw' => $heatmapData
+    ];
+}
+
+// Drill-down Section - Hierarchical data for click-through navigation
+if ($section === 'drilldown') {
+    if ($level === 'year') {
+        // Top level: yearly data
+        $sql = "
+            SELECT
+                year_num as period,
+                CONCAT(year_num, '') as label,
+                AVG(pilots) as avg_pilots,
+                MAX(pilots) as peak_pilots,
+                AVG(controllers) as avg_controllers,
+                COUNT(*) as samples
+            FROM historical_network_stats
+            WHERE year_num >= 2021
+            GROUP BY year_num
+            ORDER BY year_num
+        ";
+        $response['drilldown'] = [
+            'level' => 'year',
+            'data' => executeQuery($conn, $sql),
+            'next_level' => 'month'
+        ];
+    } elseif ($level === 'month' && $year) {
+        // Monthly data for a specific year
+        $sql = "
+            SELECT
+                month_num as period,
+                CONCAT(DATENAME(month, DATEFROMPARTS($year, month_num, 1)), ' ', $year) as label,
+                AVG(pilots) as avg_pilots,
+                MAX(pilots) as peak_pilots,
+                AVG(controllers) as avg_controllers,
+                COUNT(*) as samples
+            FROM historical_network_stats
+            WHERE year_num = $year
+            GROUP BY month_num
+            ORDER BY month_num
+        ";
+        $response['drilldown'] = [
+            'level' => 'month',
+            'year' => $year,
+            'data' => executeQuery($conn, $sql),
+            'next_level' => 'day'
+        ];
+    } elseif ($level === 'day' && $year && $month) {
+        // Daily data for a specific month
+        $sql = "
+            SELECT
+                DAY(file_time) as period,
+                CONVERT(VARCHAR, MIN(file_time), 23) as label,
+                AVG(pilots) as avg_pilots,
+                MAX(pilots) as peak_pilots,
+                AVG(controllers) as avg_controllers,
+                COUNT(*) as samples
+            FROM historical_network_stats
+            WHERE year_num = $year AND month_num = $month
+            GROUP BY DAY(file_time)
+            ORDER BY DAY(file_time)
+        ";
+        $response['drilldown'] = [
+            'level' => 'day',
+            'year' => $year,
+            'month' => $month,
+            'data' => executeQuery($conn, $sql),
+            'next_level' => 'hour'
+        ];
+    } elseif ($level === 'hour' && $year && $month && $day) {
+        // Hourly data for a specific day
+        $sql = "
+            SELECT
+                hour_of_day as period,
+                CONCAT(hour_of_day, ':00') as label,
+                AVG(pilots) as avg_pilots,
+                MAX(pilots) as peak_pilots,
+                AVG(controllers) as avg_controllers,
+                COUNT(*) as samples
+            FROM historical_network_stats
+            WHERE year_num = $year AND month_num = $month AND DAY(file_time) = $day
+            GROUP BY hour_of_day
+            ORDER BY hour_of_day
+        ";
+        $response['drilldown'] = [
+            'level' => 'hour',
+            'year' => $year,
+            'month' => $month,
+            'day' => $day,
+            'data' => executeQuery($conn, $sql),
+            'next_level' => null
+        ];
+    }
+}
+
+// Time Series Section - Raw time series for charting
+if ($section === 'timeseries') {
+    if ($year && $month && $day) {
+        // Hourly for specific day
+        $sql = "
+            SELECT
+                file_time as timestamp,
+                pilots,
+                controllers
+            FROM historical_network_stats
+            WHERE year_num = $year AND month_num = $month AND DAY(file_time) = $day
+            ORDER BY file_time
+        ";
+    } elseif ($year && $month) {
+        // Daily aggregates for specific month
+        $sql = "
+            SELECT
+                CONVERT(VARCHAR, MIN(file_time), 23) as date,
+                AVG(pilots) as avg_pilots,
+                MAX(pilots) as peak_pilots,
+                AVG(controllers) as avg_controllers
+            FROM historical_network_stats
+            WHERE year_num = $year AND month_num = $month
+            GROUP BY CAST(file_time AS DATE)
+            ORDER BY MIN(file_time)
+        ";
+    } elseif ($year) {
+        // Daily aggregates for specific year
+        $sql = "
+            SELECT
+                CONVERT(VARCHAR, MIN(file_time), 23) as date,
+                AVG(pilots) as avg_pilots,
+                MAX(pilots) as peak_pilots
+            FROM historical_network_stats
+            WHERE year_num = $year
+            GROUP BY CAST(file_time AS DATE)
+            ORDER BY MIN(file_time)
+        ";
+    } else {
+        // Weekly aggregates for all time
+        $sql = "
+            SELECT
+                year_num,
+                DATEPART(week, file_time) as week_num,
+                MIN(CONVERT(VARCHAR, file_time, 23)) as week_start,
+                AVG(pilots) as avg_pilots,
+                MAX(pilots) as peak_pilots
+            FROM historical_network_stats
+            WHERE year_num >= 2021
+            GROUP BY year_num, DATEPART(week, file_time)
+            ORDER BY year_num, week_num
+        ";
+    }
+    $response['timeseries'] = [
+        'year' => $year,
+        'month' => $month,
+        'day' => $day,
+        'data' => executeQuery($conn, $sql)
+    ];
+}
+
+// Compare Section - Year-over-year comparison
+if ($section === 'compare') {
+    $y1 = $year1 ?: (int)date('Y') - 1;
+    $y2 = $year2 ?: (int)date('Y');
+
+    $sql = "
+        SELECT
+            month_num,
+            AVG(CASE WHEN year_num = $y1 THEN pilots END) as year1_avg,
+            MAX(CASE WHEN year_num = $y1 THEN pilots END) as year1_peak,
+            AVG(CASE WHEN year_num = $y2 THEN pilots END) as year2_avg,
+            MAX(CASE WHEN year_num = $y2 THEN pilots END) as year2_peak
+        FROM historical_network_stats
+        WHERE year_num IN ($y1, $y2)
+        GROUP BY month_num
+        ORDER BY month_num
+    ";
+
+    $response['compare'] = [
+        'year1' => $y1,
+        'year2' => $y2,
+        'monthly' => executeQuery($conn, $sql)
+    ];
+
+    // Also get day-of-week comparison
+    $dowSql = "
+        SELECT
+            day_of_week,
+            AVG(CASE WHEN year_num = $y1 THEN pilots END) as year1_avg,
+            AVG(CASE WHEN year_num = $y2 THEN pilots END) as year2_avg
+        FROM historical_network_stats
+        WHERE year_num IN ($y1, $y2)
+        GROUP BY day_of_week
+        ORDER BY day_of_week
+    ";
+    $response['compare']['day_of_week'] = executeQuery($conn, $dowSql);
+}
+
+// Anomalies Section - Unusual traffic days (>2 std dev from mean)
+if ($section === 'anomalies') {
+    $sql = "
+        WITH daily_stats AS (
+            SELECT
+                CAST(file_time AS DATE) as date,
+                MAX(pilots) as peak_pilots,
+                AVG(pilots) as avg_pilots
+            FROM historical_network_stats
+            WHERE year_num >= 2022
+            GROUP BY CAST(file_time AS DATE)
+        ),
+        stats AS (
+            SELECT
+                AVG(peak_pilots) as mean_peak,
+                STDEV(peak_pilots) as std_peak
+            FROM daily_stats
+        )
+        SELECT TOP 50
+            CONVERT(VARCHAR, d.date, 23) as date,
+            DATENAME(weekday, d.date) as day_name,
+            d.peak_pilots,
+            d.avg_pilots,
+            CAST((d.peak_pilots - s.mean_peak) / NULLIF(s.std_peak, 0) AS DECIMAL(4,2)) as z_score,
+            CASE
+                WHEN (d.peak_pilots - s.mean_peak) / NULLIF(s.std_peak, 0) > 2 THEN 'high'
+                WHEN (d.peak_pilots - s.mean_peak) / NULLIF(s.std_peak, 0) < -2 THEN 'low'
+                ELSE 'normal'
+            END as anomaly_type
+        FROM daily_stats d
+        CROSS JOIN stats s
+        WHERE ABS((d.peak_pilots - s.mean_peak) / NULLIF(s.std_peak, 0)) > 1.5
+        ORDER BY ABS((d.peak_pilots - s.mean_peak) / NULLIF(s.std_peak, 0)) DESC
+    ";
+
+    $response['anomalies'] = executeQuery($conn, $sql);
 }
 
 sqlsrv_close($conn);
