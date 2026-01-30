@@ -120,6 +120,13 @@ $testCases = [
         ['04L', '04R'],
         ['04L']
     ],
+
+    // Approach type RWY XX APCH format (converging runways)
+    'Converging APCH Format' => [
+        'APCHS ARE BEING CONDUCTED TO CONVERGING RWYS. ILS RWY 27 APCH AND RNAV RWY 32 APCH IN USE, DEPTG RWY 33L',
+        ['27', '32'],
+        ['33L']
+    ],
 ];
 
 echo "=== ATIS Parser Test Suite ===\n\n";
