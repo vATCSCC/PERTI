@@ -157,8 +157,8 @@ class CrossingGISDaemon
             0 => "AND pos.dist_to_next_waypoint_nm <= 30",
             1 => "AND pos.dist_to_next_waypoint_nm > 30 AND pos.dist_to_next_waypoint_nm <= 100",
             2 => "AND pos.dist_to_next_waypoint_nm > 100",
-            3 => "AND core.flight_phase IN ('CLIMBING', 'DESCENDING')",
-            4 => "AND core.flight_phase IN ('PREFILED', 'TAXIING', 'PUSHBACK')",
+            3 => "AND core.phase IN ('climbing', 'descending', 'departed')",
+            4 => "AND core.phase IN ('prefile', 'taxiing')",
             default => ""
         };
 

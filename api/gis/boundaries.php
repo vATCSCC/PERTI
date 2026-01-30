@@ -583,6 +583,201 @@ try {
             break;
 
         // =====================================================================
+        // Trajectory ARTCC crossings (NEW)
+        // =====================================================================
+        case 'trajectory_crossings':
+        case 'artcc_crossings':
+            $waypoints = getWaypointsParam();
+
+            if (count($waypoints) < 2) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Need at least 2 waypoints for trajectory',
+                    'error_code' => 'INSUFFICIENT_WAYPOINTS'
+                ]);
+                exit;
+            }
+
+            // Add sequence numbers if not present
+            foreach ($waypoints as $i => &$wp) {
+                if (!isset($wp['sequence_num'])) {
+                    $wp['sequence_num'] = $i;
+                }
+            }
+            unset($wp);
+
+            $crossings = $gis->getTrajectoryArtccCrossings($waypoints);
+
+            echo json_encode([
+                'success' => true,
+                'crossings' => $crossings,
+                'count' => count($crossings),
+                'waypoint_count' => count($waypoints)
+            ]);
+            break;
+
+        // =====================================================================
+        // Trajectory sector crossings (NEW)
+        // =====================================================================
+        case 'sector_crossings':
+            $waypoints = getWaypointsParam();
+            $sectorType = strtoupper($_GET['type'] ?? 'HIGH');
+
+            if (count($waypoints) < 2) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Need at least 2 waypoints for trajectory',
+                    'error_code' => 'INSUFFICIENT_WAYPOINTS'
+                ]);
+                exit;
+            }
+
+            foreach ($waypoints as $i => &$wp) {
+                if (!isset($wp['sequence_num'])) {
+                    $wp['sequence_num'] = $i;
+                }
+            }
+            unset($wp);
+
+            $crossings = $gis->getTrajectorySectorCrossings($waypoints, $sectorType);
+
+            echo json_encode([
+                'success' => true,
+                'crossings' => $crossings,
+                'sector_type' => $sectorType,
+                'count' => count($crossings),
+                'waypoint_count' => count($waypoints)
+            ]);
+            break;
+
+        // =====================================================================
+        // All trajectory crossings (ARTCC + sectors) (NEW)
+        // =====================================================================
+        case 'all_crossings':
+            $waypoints = getWaypointsParam();
+
+            if (count($waypoints) < 2) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Need at least 2 waypoints for trajectory',
+                    'error_code' => 'INSUFFICIENT_WAYPOINTS'
+                ]);
+                exit;
+            }
+
+            foreach ($waypoints as $i => &$wp) {
+                if (!isset($wp['sequence_num'])) {
+                    $wp['sequence_num'] = $i;
+                }
+            }
+            unset($wp);
+
+            $crossings = $gis->getTrajectoryAllCrossings($waypoints);
+
+            echo json_encode([
+                'success' => true,
+                'crossings' => $crossings,
+                'count' => count($crossings),
+                'waypoint_count' => count($waypoints)
+            ]);
+            break;
+
+        // =====================================================================
+        // ARTCCs traversed (simple list) (NEW)
+        // =====================================================================
+        case 'artccs_traversed':
+            $waypoints = getWaypointsParam();
+
+            if (count($waypoints) < 2) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Need at least 2 waypoints',
+                    'error_code' => 'INSUFFICIENT_WAYPOINTS'
+                ]);
+                exit;
+            }
+
+            foreach ($waypoints as $i => &$wp) {
+                if (!isset($wp['sequence_num'])) {
+                    $wp['sequence_num'] = $i;
+                }
+            }
+            unset($wp);
+
+            $artccs = $gis->getArtccsTraversed($waypoints);
+
+            echo json_encode([
+                'success' => true,
+                'artccs' => $artccs,
+                'artccs_display' => implode('/', $artccs),
+                'count' => count($artccs),
+                'waypoint_count' => count($waypoints)
+            ]);
+            break;
+
+        // =====================================================================
+        // Crossing ETAs (NEW)
+        // =====================================================================
+        case 'crossing_etas':
+            $waypoints = getWaypointsParam();
+            $currentLat = isset($_GET['lat']) ? (float)$_GET['lat'] : null;
+            $currentLon = isset($_GET['lon']) ? (float)$_GET['lon'] : null;
+            $distFlown = isset($_GET['dist_flown']) ? (float)$_GET['dist_flown'] : 0;
+            $groundspeed = isset($_GET['groundspeed']) ? (int)$_GET['groundspeed'] : 450;
+
+            if (count($waypoints) < 2) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Need at least 2 waypoints',
+                    'error_code' => 'INSUFFICIENT_WAYPOINTS'
+                ]);
+                exit;
+            }
+
+            if ($currentLat === null || $currentLon === null) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing current position: lat, lon required',
+                    'error_code' => 'MISSING_POSITION'
+                ]);
+                exit;
+            }
+
+            foreach ($waypoints as $i => &$wp) {
+                if (!isset($wp['sequence_num'])) {
+                    $wp['sequence_num'] = $i;
+                }
+            }
+            unset($wp);
+
+            $etas = $gis->calculateCrossingEtas(
+                $waypoints,
+                $currentLat,
+                $currentLon,
+                $distFlown,
+                $groundspeed
+            );
+
+            echo json_encode([
+                'success' => true,
+                'crossing_etas' => $etas,
+                'count' => count($etas),
+                'query' => [
+                    'current_position' => ['lat' => $currentLat, 'lon' => $currentLon],
+                    'dist_flown_nm' => $distFlown,
+                    'groundspeed_kts' => $groundspeed,
+                    'waypoint_count' => count($waypoints)
+                ]
+            ]);
+            break;
+
+        // =====================================================================
         // Health check
         // =====================================================================
         case 'health':
@@ -680,6 +875,32 @@ try {
                     'health' => [
                         'method' => 'GET',
                         'description' => 'Service health check'
+                    ],
+                    // Trajectory crossings (NEW)
+                    'trajectory_crossings' => [
+                        'method' => 'GET',
+                        'params' => ['waypoints' => 'JSON array (required)'],
+                        'description' => 'Get precise ARTCC boundary crossings along trajectory'
+                    ],
+                    'sector_crossings' => [
+                        'method' => 'GET',
+                        'params' => ['waypoints' => 'JSON array', 'type' => 'LOW|HIGH|SUPERHIGH (default HIGH)'],
+                        'description' => 'Get sector boundary crossings along trajectory'
+                    ],
+                    'all_crossings' => [
+                        'method' => 'GET',
+                        'params' => ['waypoints' => 'JSON array (required)'],
+                        'description' => 'Get all boundary crossings (ARTCC + sectors) along trajectory'
+                    ],
+                    'artccs_traversed' => [
+                        'method' => 'GET',
+                        'params' => ['waypoints' => 'JSON array (required)'],
+                        'description' => 'Get simple list of ARTCCs crossed by trajectory'
+                    ],
+                    'crossing_etas' => [
+                        'method' => 'GET',
+                        'params' => ['waypoints' => 'JSON array', 'lat' => 'float (current)', 'lon' => 'float (current)', 'dist_flown' => 'nm', 'groundspeed' => 'kts'],
+                        'description' => 'Calculate ETAs for upcoming boundary crossings'
                     ]
                 ],
                 'route_string_format' => [
