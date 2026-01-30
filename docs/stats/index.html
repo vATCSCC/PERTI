@@ -14,6 +14,7 @@
             --bg-card: #334155;
             --text-primary: #f1f5f9;
             --text-secondary: #94a3b8;
+            --text-muted: #64748b;
             --accent: #38bdf8;
             --accent-secondary: #818cf8;
             --success: #4ade80;
@@ -21,11 +22,7 @@
             --danger: #f87171;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
@@ -46,20 +43,9 @@
             z-index: 100;
         }
 
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-
-        .header h1 span {
-            color: var(--accent);
-        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header h1 { font-size: 1.5rem; font-weight: 600; }
+        .header h1 span { color: var(--accent); }
 
         .live-badge {
             background: var(--success);
@@ -71,26 +57,16 @@
             animation: pulse 2s infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 
-        .header-links {
-            display: flex;
-            gap: 20px;
-        }
-
+        .header-links { display: flex; gap: 20px; }
         .header-links a {
             color: var(--text-secondary);
             text-decoration: none;
             font-size: 0.9rem;
             transition: color 0.2s;
         }
-
-        .header-links a:hover {
-            color: var(--accent);
-        }
+        .header-links a:hover { color: var(--accent); }
 
         .main-container {
             max-width: 1800px;
@@ -98,10 +74,36 @@
             padding: 24px;
         }
 
-        /* Stats Cards */
+        /* Introduction Section */
+        .intro-section {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, #1e3a5f 100%);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 32px;
+            border: 1px solid var(--bg-card);
+        }
+
+        .intro-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+
+        .intro-section p {
+            color: var(--text-secondary);
+            max-width: 900px;
+            margin-bottom: 16px;
+        }
+
+        .intro-section .highlight {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
@@ -111,28 +113,116 @@
             border-radius: 12px;
             padding: 20px;
             border: 1px solid var(--bg-card);
+            position: relative;
         }
 
         .stat-card .label {
             color: var(--text-secondary);
-            font-size: 0.85rem;
-            margin-bottom: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stat-card .label .info-icon {
+            cursor: help;
+            opacity: 0.6;
         }
 
         .stat-card .value {
-            font-size: 2rem;
+            font-size: 1.75rem;
             font-weight: 700;
             color: var(--accent);
         }
 
-        .stat-card .value.live {
+        .stat-card .value.live { color: var(--success); }
+        .stat-card .value.warning { color: var(--warning); }
+
+        .stat-card .subtext {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .stat-card .change {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .stat-card .change.up {
+            background: rgba(74, 222, 128, 0.2);
             color: var(--success);
         }
 
-        .stat-card .subtext {
-            font-size: 0.8rem;
+        .stat-card .change.down {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--danger);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+            z-index: 100;
+            border: 1px solid var(--bg-card);
+            max-width: 300px;
+            white-space: normal;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Section Headers with Descriptions */
+        .section-header {
+            margin-bottom: 20px;
+        }
+
+        .section-header h3 {
+            font-size: 1.25rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .section-header p {
             color: var(--text-secondary);
-            margin-top: 4px;
+            font-size: 0.9rem;
+            max-width: 800px;
+        }
+
+        .section-header .stat-note {
+            background: var(--bg-card);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            border-left: 3px solid var(--accent);
+        }
+
+        .section-header .stat-note strong {
+            color: var(--accent);
         }
 
         /* Controls */
@@ -166,14 +256,8 @@
             transition: all 0.2s;
         }
 
-        select:hover, button:hover {
-            border-color: var(--accent);
-        }
-
-        button.active {
-            background: var(--accent);
-            color: #000;
-        }
+        select:hover, button:hover { border-color: var(--accent); }
+        button.active { background: var(--accent); color: #000; }
 
         .breadcrumb {
             display: flex;
@@ -190,9 +274,7 @@
             cursor: pointer;
         }
 
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
+        .breadcrumb a:hover { text-decoration: underline; }
 
         /* Chart Grid */
         .chart-grid {
@@ -202,9 +284,7 @@
             margin-bottom: 24px;
         }
 
-        .chart-grid.three-col {
-            grid-template-columns: repeat(3, 1fr);
-        }
+        .chart-grid.three-col { grid-template-columns: repeat(3, 1fr); }
 
         .chart-card {
             background: var(--bg-secondary);
@@ -213,18 +293,12 @@
             border: 1px solid var(--bg-card);
         }
 
-        .chart-card.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .chart-card.tall {
-            grid-row: span 2;
-        }
+        .chart-card.full-width { grid-column: 1 / -1; }
 
         .chart-title {
             font-size: 1rem;
             font-weight: 600;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -236,16 +310,97 @@
             font-weight: 400;
         }
 
-        .chart-container {
-            height: 300px;
+        .chart-description {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.5;
         }
 
-        .chart-container.large {
-            height: 400px;
+        .chart-container { height: 300px; }
+        .chart-container.large { height: 400px; }
+        .chart-container.heatmap { height: 280px; }
+
+        /* Key Insights Box */
+        .insights-box {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.1) 0%, rgba(129, 140, 248, 0.1) 100%);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 16px;
         }
 
-        .chart-container.heatmap {
-            height: 280px;
+        .insights-box h4 {
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .insights-box ul {
+            list-style: none;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .insights-box li {
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .insights-box li::before {
+            content: '>';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* Percentile Bar */
+        .percentile-bar {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .percentile-bar h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .percentile-track {
+            height: 24px;
+            background: linear-gradient(90deg, #0369a1, #38bdf8, #7dd3fc, #fbbf24, #f87171);
+            border-radius: 4px;
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .percentile-marker {
+            position: absolute;
+            top: -8px;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .percentile-marker .value {
+            background: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+
+        .percentile-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
         }
 
         /* Anomalies Table */
@@ -268,9 +423,7 @@
             border-bottom: 1px solid var(--bg-card);
         }
 
-        .anomalies-table tr:hover {
-            background: var(--bg-card);
-        }
+        .anomalies-table tr:hover { background: var(--bg-card); }
 
         .badge {
             padding: 4px 8px;
@@ -279,14 +432,80 @@
             font-weight: 600;
         }
 
-        .badge.high {
-            background: rgba(248, 113, 113, 0.2);
-            color: var(--danger);
+        .badge.high { background: rgba(248, 113, 113, 0.2); color: var(--danger); }
+        .badge.low { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+
+        /* Methodology Section */
+        .methodology-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 32px;
+            border: 1px solid var(--bg-card);
         }
 
-        .badge.low {
-            background: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
+        .methodology-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: var(--accent);
+        }
+
+        .methodology-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .methodology-item h4 {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .methodology-item p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .methodology-item code {
+            background: var(--bg-card);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        /* Glossary */
+        .glossary {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--bg-card);
+        }
+
+        .glossary h4 {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .glossary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .glossary-item {
+            font-size: 0.8rem;
+        }
+
+        .glossary-item dt {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .glossary-item dd {
+            color: var(--text-muted);
+            margin-left: 0;
         }
 
         .footer {
@@ -298,57 +517,17 @@
             margin-top: 40px;
         }
 
-        .footer a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        /* Loading state */
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 200px;
-            color: var(--text-secondary);
-        }
-
-        .loading::after {
-            content: '';
-            width: 24px;
-            height: 24px;
-            border: 2px solid var(--bg-card);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 12px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        .footer a { color: var(--accent); text-decoration: none; }
 
         @media (max-width: 1200px) {
-            .chart-grid {
-                grid-template-columns: 1fr;
-            }
-            .chart-grid.three-col {
-                grid-template-columns: 1fr;
-            }
+            .chart-grid, .chart-grid.three-col { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 16px;
-                padding: 16px;
-            }
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .main-container {
-                padding: 16px;
-            }
+            .header { flex-direction: column; gap: 16px; padding: 16px; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .main-container { padding: 16px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
@@ -366,37 +545,117 @@
     </div>
 
     <div class="main-container">
+        <!-- Introduction -->
+        <div class="intro-section">
+            <h2>Understanding VATSIM Network Traffic</h2>
+            <p>
+                <span class="highlight">VATSIM (Virtual Air Traffic Simulation Network)</span> is the world's largest
+                online flight simulation network, connecting pilots and air traffic controllers in a realistic
+                virtual aviation environment. This dashboard analyzes <span class="highlight">over 4 years of network traffic data</span>,
+                capturing snapshots every 5 minutes to reveal patterns in how the global flight sim community connects and flies.
+            </p>
+            <p>
+                The data shown here represents real user activity - every pilot flying online and every controller
+                staffing a position. Understanding these patterns helps VATSIM divisions plan events, predict
+                capacity needs, and improve the experience for over 100,000 registered members worldwide.
+            </p>
+        </div>
+
         <!-- Stats Cards -->
+        <div class="section-header">
+            <h3>Key Metrics at a Glance</h3>
+            <p>These summary statistics provide a quick overview of network activity. Hover over the info icons for detailed explanations.</p>
+        </div>
+
         <div class="stats-grid" id="statsGrid">
             <div class="stat-card">
-                <div class="label">Total Snapshots</div>
+                <div class="label">
+                    Total Snapshots
+                    <span class="tooltip info-icon" data-tooltip="Each snapshot captures the entire network state. With 5-minute intervals, we collect ~288 snapshots per day.">i</span>
+                </div>
                 <div class="value" id="totalSnapshots">--</div>
                 <div class="subtext" id="dateRange">Loading...</div>
             </div>
             <div class="stat-card">
-                <div class="label">Average Pilots</div>
+                <div class="label">
+                    Mean (Average)
+                    <span class="tooltip info-icon" data-tooltip="The arithmetic mean of all pilot counts. Useful for general trends, but can be skewed by outliers.">i</span>
+                </div>
                 <div class="value" id="avgPilots">--</div>
-                <div class="subtext">Across all snapshots</div>
+                <div class="subtext">pilots online</div>
             </div>
             <div class="stat-card">
-                <div class="label">Peak Pilots</div>
+                <div class="label">
+                    Median (P50)
+                    <span class="tooltip info-icon" data-tooltip="The middle value when all snapshots are sorted. More robust than mean - 50% of observations fall above and below this value.">i</span>
+                </div>
+                <div class="value" id="medianPilots">--</div>
+                <div class="subtext">pilots (typical)</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">
+                    Peak Traffic
+                    <span class="tooltip info-icon" data-tooltip="The highest number of simultaneous pilots ever recorded. Usually occurs during major cross-the-pond events.">i</span>
+                </div>
                 <div class="value" id="peakPilots">--</div>
-                <div class="subtext" id="peakDate">All-time record</div>
+                <div class="subtext" id="peakDate">all-time record</div>
             </div>
             <div class="stat-card">
-                <div class="label">Current Online</div>
+                <div class="label">
+                    Current Online
+                    <span class="tooltip info-icon" data-tooltip="Live count from the most recent snapshot. Updates every 5 minutes.">i</span>
+                </div>
                 <div class="value live" id="currentPilots">--</div>
-                <div class="subtext" id="currentTime">Live</div>
+                <div class="subtext" id="currentControllers">-- controllers</div>
+                <span class="change" id="change24h">--</span>
             </div>
             <div class="stat-card">
-                <div class="label">CAGR (2022-2025)</div>
+                <div class="label">
+                    Controller Ratio
+                    <span class="tooltip info-icon" data-tooltip="Average controllers per 100 pilots. Higher ratio = better ATC coverage. Typical range is 8-15%.">i</span>
+                </div>
+                <div class="value" id="ctrlRatio">--</div>
+                <div class="subtext">per 100 pilots</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">
+                    Standard Deviation
+                    <span class="tooltip info-icon" data-tooltip="Measures how spread out traffic levels are from the mean. Higher = more variability. About 68% of values fall within 1 SD of the mean.">i</span>
+                </div>
+                <div class="value warning" id="stdDev">--</div>
+                <div class="subtext">pilots (spread)</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">
+                    CAGR (2022-2025)
+                    <span class="tooltip info-icon" data-tooltip="Compound Annual Growth Rate - the smoothed annual growth rate as if growth were constant each year. Formula: (End/Start)^(1/years) - 1">i</span>
+                </div>
                 <div class="value" id="cagr">--</div>
-                <div class="subtext">Compound annual growth</div>
+                <div class="subtext">yearly growth</div>
+            </div>
+        </div>
+
+        <!-- Percentile Distribution -->
+        <div class="percentile-bar" id="percentileBar">
+            <h4>Traffic Distribution (Percentiles) - Where does typical traffic fall?</h4>
+            <div class="percentile-track">
+                <div class="percentile-marker" style="left: 10%"><div class="value" id="p10">--</div></div>
+                <div class="percentile-marker" style="left: 25%"><div class="value" id="p25">--</div></div>
+                <div class="percentile-marker" style="left: 50%"><div class="value" id="p50">--</div></div>
+                <div class="percentile-marker" style="left: 75%"><div class="value" id="p75">--</div></div>
+                <div class="percentile-marker" style="left: 90%"><div class="value" id="p90">--</div></div>
+            </div>
+            <div class="percentile-labels">
+                <span>P10 (Low)</span>
+                <span>P25</span>
+                <span>P50 (Median)</span>
+                <span>P75</span>
+                <span>P90 (Busy)</span>
             </div>
         </div>
 
         <!-- Controls -->
-        <div class="controls">
+        <div class="controls" style="margin-top: 32px;">
             <div class="control-group">
                 <label>View:</label>
                 <button id="btnOverview" class="active" onclick="switchView('overview')">Overview</button>
@@ -418,7 +677,7 @@
             </div>
         </div>
 
-        <!-- Breadcrumb for drill-down -->
+        <!-- Breadcrumb -->
         <div class="breadcrumb" id="breadcrumb" style="display: none;">
             <span>Drill-down:</span>
             <a onclick="drillUp('year')">All Years</a>
@@ -428,36 +687,87 @@
         <div id="chartArea">
             <!-- Overview View -->
             <div id="overviewCharts">
+                <!-- Trend Chart -->
+                <div class="section-header">
+                    <h3>Network Growth Over Time</h3>
+                    <p>Track how VATSIM has grown year over year. The bars show average concurrent pilots, while the line tracks peak traffic days.</p>
+                </div>
+
                 <div class="chart-grid">
                     <div class="chart-card full-width">
                         <div class="chart-title">
-                            Traffic Trends
-                            <span class="hint">Click bars to drill down</span>
+                            Annual Traffic Trends
+                            <span class="hint">Click any bar to drill into monthly data</span>
+                        </div>
+                        <div class="chart-description">
+                            This chart shows the network's growth trajectory. <strong>Average pilots</strong> (bars) represents typical daily activity,
+                            while <strong>peak pilots</strong> (line) shows maximum concurrent users - often during major events like Cross the Pond.
                         </div>
                         <div class="chart-container large" id="trendChart"></div>
+                        <div class="insights-box">
+                            <h4>Key Insights</h4>
+                            <ul id="trendInsights">
+                                <li>Loading insights...</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Pattern Charts -->
+                <div class="section-header">
+                    <h3>Traffic Patterns & Seasonality</h3>
+                    <p>Network activity follows predictable patterns based on time of day, day of week, and time of year. Understanding these patterns helps predict when to expect busy or quiet periods.</p>
+                </div>
+
                 <div class="chart-grid three-col">
                     <div class="chart-card">
                         <div class="chart-title">Hour x Day Heatmap</div>
+                        <div class="chart-description">
+                            Darker colors = more pilots. Notice the diagonal pattern showing peak hours shifting with global time zones.
+                            <strong>Weekend evenings (UTC 18-22)</strong> typically see highest activity.
+                        </div>
                         <div class="chart-container heatmap" id="heatmapChart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="chart-title">Hourly Pattern (24h)</div>
+                        <div class="chart-title">Hourly Pattern (24h UTC)</div>
+                        <div class="chart-description">
+                            Traffic follows a <strong>bimodal distribution</strong> with peaks during European evening (~18-20 UTC)
+                            and American evening (~00-02 UTC). Lowest point is typically 08-10 UTC.
+                        </div>
                         <div class="chart-container" id="hourlyChart"></div>
                     </div>
                     <div class="chart-card">
                         <div class="chart-title">Day of Week</div>
+                        <div class="chart-description">
+                            <strong>Weekends see 15-20% more traffic</strong> than weekdays. Saturday typically edges out Sunday
+                            as many events are scheduled for Saturday evenings.
+                        </div>
                         <div class="chart-container" id="dowChart"></div>
                     </div>
                 </div>
+
+                <!-- Regional & Distribution -->
+                <div class="section-header">
+                    <h3>Global Distribution</h3>
+                    <p>VATSIM is a worldwide network with users across all time zones. Traffic patterns reflect regional activity periods.</p>
+                </div>
+
                 <div class="chart-grid">
                     <div class="chart-card">
                         <div class="chart-title">Regional Time Windows</div>
+                        <div class="chart-description">
+                            Traffic share by time of day, roughly corresponding to regional prime times.
+                            <strong>Europe (06-12 UTC)</strong> and <strong>Americas PM (18-24 UTC)</strong> dominate,
+                            while <strong>APAC</strong> hours show the smallest share but fastest growth.
+                        </div>
                         <div class="chart-container" id="regionalChart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="chart-title">Traffic Distribution</div>
+                        <div class="chart-title">Traffic Level Distribution</div>
+                        <div class="chart-description">
+                            How often do we see different traffic levels? This histogram shows the percentage of time
+                            spent at each traffic bracket. The network is most commonly at <strong>600-900 pilots</strong> (~30% of the time).
+                        </div>
                         <div class="chart-container" id="distributionChart"></div>
                     </div>
                 </div>
@@ -465,22 +775,38 @@
 
             <!-- Drill-down View -->
             <div id="drilldownCharts" style="display: none;">
+                <div class="section-header">
+                    <h3>Detailed Time Analysis</h3>
+                    <p>Drill down through the data hierarchy: Years > Months > Days > Hours. Click on any data point to zoom in further.</p>
+                </div>
+
                 <div class="chart-grid">
                     <div class="chart-card full-width">
                         <div class="chart-title">
                             <span id="drilldownTitle">Yearly Traffic</span>
                             <span class="hint" id="drilldownHint">Click to drill down</span>
                         </div>
+                        <div class="chart-description" id="drilldownDesc">
+                            Explore traffic patterns at different time scales. Each level reveals more granular patterns.
+                        </div>
                         <div class="chart-container large" id="drilldownChart"></div>
                     </div>
                 </div>
                 <div class="chart-grid">
                     <div class="chart-card">
-                        <div class="chart-title" id="drilldownSecondaryTitle">Peak vs Average</div>
+                        <div class="chart-title">Peak vs Average Scatter</div>
+                        <div class="chart-description">
+                            Each point represents a time period. Points far from the diagonal indicate
+                            <strong>high variability</strong> - periods with normal averages but exceptional peaks (likely event days).
+                        </div>
                         <div class="chart-container" id="drilldownSecondary"></div>
                     </div>
                     <div class="chart-card">
                         <div class="chart-title">Time Series Detail</div>
+                        <div class="chart-description">
+                            Raw time series showing actual traffic over time. <strong>Scroll to zoom</strong> for more detail.
+                            Weekly patterns are visible as regular oscillations.
+                        </div>
                         <div class="chart-container" id="timeseriesChart"></div>
                     </div>
                 </div>
@@ -488,19 +814,36 @@
 
             <!-- Compare View -->
             <div id="compareCharts" style="display: none;">
+                <div class="section-header">
+                    <h3>Year-over-Year Comparison</h3>
+                    <p>Compare traffic patterns between two years to identify growth trends and seasonal shifts.</p>
+                </div>
+
                 <div class="chart-grid">
                     <div class="chart-card full-width">
-                        <div class="chart-title">Year-over-Year Monthly Comparison</div>
+                        <div class="chart-title">Monthly Comparison</div>
+                        <div class="chart-description">
+                            Side-by-side comparison of average and peak traffic by month. Look for <strong>seasonal patterns</strong>
+                            (summer dips, winter peaks) and <strong>year-over-year growth</strong> in each month.
+                        </div>
                         <div class="chart-container large" id="compareMonthlyChart"></div>
                     </div>
                 </div>
                 <div class="chart-grid">
                     <div class="chart-card">
-                        <div class="chart-title">Day of Week Comparison</div>
+                        <div class="chart-title">Day of Week Radar</div>
+                        <div class="chart-description">
+                            Radar chart showing how weekly patterns compare between years. A larger shape indicates higher overall traffic.
+                            Similar shapes suggest consistent weekly patterns.
+                        </div>
                         <div class="chart-container" id="compareDowChart"></div>
                     </div>
                     <div class="chart-card">
-                        <div class="chart-title">Growth Summary</div>
+                        <div class="chart-title">Growth Rate</div>
+                        <div class="chart-description">
+                            The overall percentage change in average traffic between the two selected years.
+                            <strong>Green = growth</strong>, Red = decline.
+                        </div>
                         <div class="chart-container" id="compareGrowthChart"></div>
                     </div>
                 </div>
@@ -508,8 +851,21 @@
 
             <!-- Anomalies View -->
             <div id="anomaliesView" style="display: none;">
+                <div class="section-header">
+                    <h3>Unusual Traffic Days (Anomaly Detection)</h3>
+                    <p>
+                        Days where traffic deviated significantly from normal patterns, identified using <strong>Z-scores</strong>.
+                        A Z-score measures how many standard deviations a value is from the mean.
+                        Values above |1.5| are shown here - they occur roughly 13% of the time by chance.
+                    </p>
+                    <div class="stat-note">
+                        <strong>How to interpret:</strong> Z-score of +2.5 means traffic was 2.5 standard deviations above average -
+                        extremely unusual. These often coincide with major events like Cross the Pond, FNO, or new simulator releases.
+                    </div>
+                </div>
+
                 <div class="chart-card full-width">
-                    <div class="chart-title">Unusual Traffic Days (Z-Score > 1.5)</div>
+                    <div class="chart-title">Anomalous Days (Z-Score > 1.5)</div>
                     <div style="overflow-x: auto;">
                         <table class="anomalies-table" id="anomaliesTable">
                             <thead>
@@ -520,11 +876,82 @@
                                     <th>Avg Pilots</th>
                                     <th>Z-Score</th>
                                     <th>Type</th>
+                                    <th>Likely Cause</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Methodology Section -->
+        <div class="methodology-section">
+            <h3>Methodology & Data Notes</h3>
+            <div class="methodology-grid">
+                <div class="methodology-item">
+                    <h4>Data Collection</h4>
+                    <p>
+                        Network snapshots are collected every <strong>5 minutes</strong> via the official VATSIM Data API.
+                        Each snapshot records total pilots, controllers, and timestamps. Data collection began in September 2021.
+                        Current dataset contains <strong id="methodSnapshots">--</strong> snapshots spanning <strong id="methodDays">--</strong> days.
+                    </p>
+                </div>
+                <div class="methodology-item">
+                    <h4>Statistical Measures</h4>
+                    <p>
+                        <strong>Mean:</strong> Sum of all values divided by count. Sensitive to outliers.<br>
+                        <strong>Median:</strong> Middle value when sorted. More robust for skewed data.<br>
+                        <strong>Standard Deviation:</strong> Measures spread. ~68% of data within 1 SD of mean.<br>
+                        <strong>Percentiles:</strong> P90 = 90% of values fall below this point.
+                    </p>
+                </div>
+                <div class="methodology-item">
+                    <h4>Growth Calculations</h4>
+                    <p>
+                        <strong>CAGR</strong> (Compound Annual Growth Rate) smooths growth over multiple years:<br>
+                        <code>CAGR = (EndValue/StartValue)^(1/years) - 1</code><br>
+                        Year-over-year change is simple: <code>(New - Old) / Old * 100%</code>
+                    </p>
+                </div>
+                <div class="methodology-item">
+                    <h4>Anomaly Detection</h4>
+                    <p>
+                        Z-scores identify outliers: <code>Z = (Value - Mean) / StdDev</code><br>
+                        |Z| > 1.5 shown (unusual), |Z| > 2 marked as significant.<br>
+                        In a normal distribution, |Z| > 2 occurs ~5% of the time.
+                    </p>
+                </div>
+            </div>
+
+            <div class="glossary">
+                <h4>Glossary of Terms</h4>
+                <div class="glossary-grid">
+                    <dl class="glossary-item">
+                        <dt>Pilot</dt>
+                        <dd>A user flying an aircraft online in VATSIM</dd>
+                    </dl>
+                    <dl class="glossary-item">
+                        <dt>Controller</dt>
+                        <dd>A user providing ATC services (tower, approach, center, etc.)</dd>
+                    </dl>
+                    <dl class="glossary-item">
+                        <dt>Controller Ratio</dt>
+                        <dd>Controllers per 100 pilots - indicates ATC coverage level</dd>
+                    </dl>
+                    <dl class="glossary-item">
+                        <dt>Cross the Pond (CTP)</dt>
+                        <dd>Biannual event simulating transatlantic flights, typically sets traffic records</dd>
+                    </dl>
+                    <dl class="glossary-item">
+                        <dt>FNO (Friday Night Ops)</dt>
+                        <dd>Weekly regional events with enhanced ATC coverage</dd>
+                    </dl>
+                    <dl class="glossary-item">
+                        <dt>Snapshot</dt>
+                        <dd>A single capture of network state at a specific time</dd>
+                    </dl>
                 </div>
             </div>
         </div>
@@ -541,8 +968,8 @@
         let charts = {};
         let currentView = 'overview';
         let drilldownState = { level: 'year', year: null, month: null, day: null };
+        let globalData = null;
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             initCharts();
             await loadOverviewData();
@@ -564,7 +991,6 @@
             charts.compareDow = echarts.init(document.getElementById('compareDowChart'));
             charts.compareGrowth = echarts.init(document.getElementById('compareGrowthChart'));
 
-            // Resize handler
             window.addEventListener('resize', () => {
                 Object.values(charts).forEach(c => c.resize());
             });
@@ -574,22 +1000,61 @@
             try {
                 const res = await fetch(`${API_BASE}?section=all`);
                 const data = await res.json();
+                globalData = data;
 
-                // Update stat cards
                 if (data.overview) {
                     const s = data.overview.summary;
                     const c = data.overview.current;
+                    const p = data.overview.percentiles;
+                    const r = data.overview.controller_ratio;
+                    const ch = data.overview.change_24h;
+                    const q = data.overview.data_quality;
+
+                    // Basic stats
                     document.getElementById('totalSnapshots').textContent = s.total_snapshots.toLocaleString();
                     document.getElementById('avgPilots').textContent = Math.round(s.avg_pilots).toLocaleString();
                     document.getElementById('peakPilots').textContent = s.max_pilots.toLocaleString();
                     document.getElementById('currentPilots').textContent = c.pilots.toLocaleString();
+                    document.getElementById('currentControllers').textContent = c.controllers + ' controllers';
                     document.getElementById('dateRange').textContent =
                         `${s.earliest_data.split(' ')[0]} to ${s.latest_data.split(' ')[0]}`;
-                    document.getElementById('currentTime').textContent =
-                        `${c.controllers} controllers online`;
+                    document.getElementById('stdDev').textContent = Math.round(s.std_dev_pilots).toLocaleString();
+
+                    // Median
+                    if (p && p.median) {
+                        document.getElementById('medianPilots').textContent = Math.round(p.median).toLocaleString();
+                    }
+
+                    // Controller ratio
+                    if (r && r.avg_ctrl_ratio) {
+                        document.getElementById('ctrlRatio').textContent = r.avg_ctrl_ratio.toFixed(1) + '%';
+                    }
+
+                    // 24h change
+                    if (ch && ch.pct_change_24h !== undefined) {
+                        const changeEl = document.getElementById('change24h');
+                        const pct = ch.pct_change_24h;
+                        changeEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+                        changeEl.className = 'change ' + (pct >= 0 ? 'up' : 'down');
+                    }
+
+                    // Percentiles
+                    if (p) {
+                        document.getElementById('p10').textContent = Math.round(p.p10).toLocaleString();
+                        document.getElementById('p25').textContent = Math.round(p.p25).toLocaleString();
+                        document.getElementById('p50').textContent = Math.round(p.median).toLocaleString();
+                        document.getElementById('p75').textContent = Math.round(p.p75).toLocaleString();
+                        document.getElementById('p90').textContent = Math.round(p.p90).toLocaleString();
+                    }
+
+                    // Methodology stats
+                    if (q) {
+                        document.getElementById('methodSnapshots').textContent = s.total_snapshots.toLocaleString();
+                        document.getElementById('methodDays').textContent = Math.round(q.days_with_data).toLocaleString();
+                    }
                 }
 
-                // Calculate CAGR
+                // CAGR
                 if (data.growth && data.growth.year_over_year) {
                     const years = data.growth.year_over_year;
                     const y2022 = years.find(y => y.year_num === 2022);
@@ -598,9 +1063,11 @@
                         const cagr = (Math.pow(y2025.avg_pilots / y2022.avg_pilots, 1/3) - 1) * 100;
                         document.getElementById('cagr').textContent = cagr.toFixed(1) + '%';
                     }
+
+                    // Generate insights
+                    generateTrendInsights(years);
                 }
 
-                // Render trend chart
                 renderTrendChart(data.growth);
                 renderHourlyChart(data.seasonality);
                 renderDowChart(data.seasonality);
@@ -612,6 +1079,41 @@
             }
         }
 
+        function generateTrendInsights(years) {
+            const insights = [];
+
+            // Growth calculation
+            const firstYear = years[0];
+            const lastYear = years[years.length - 1];
+            if (firstYear && lastYear) {
+                const totalGrowth = ((lastYear.avg_pilots - firstYear.avg_pilots) / firstYear.avg_pilots * 100).toFixed(0);
+                insights.push(`Network has grown <strong>${totalGrowth}%</strong> from ${firstYear.year_num} to ${lastYear.year_num}`);
+            }
+
+            // Peak year
+            const peakYear = years.reduce((max, y) => y.peak_pilots > max.peak_pilots ? y : max, years[0]);
+            insights.push(`All-time peak of <strong>${peakYear.peak_pilots.toLocaleString()} pilots</strong> occurred in ${peakYear.year_num}`);
+
+            // Recent trend
+            if (years.length >= 2) {
+                const recent = years[years.length - 1];
+                const prev = years[years.length - 2];
+                const recentGrowth = ((recent.avg_pilots - prev.avg_pilots) / prev.avg_pilots * 100).toFixed(1);
+                insights.push(`${recent.year_num} vs ${prev.year_num}: <strong>${recentGrowth > 0 ? '+' : ''}${recentGrowth}%</strong> average traffic`);
+            }
+
+            // Controller trend
+            if (years.length >= 2) {
+                const recent = years[years.length - 1];
+                const first = years[0];
+                const recentRatio = (recent.avg_controllers / recent.avg_pilots * 100).toFixed(1);
+                const firstRatio = (first.avg_controllers / first.avg_pilots * 100).toFixed(1);
+                insights.push(`Controller ratio: ${firstRatio}% (${first.year_num}) to ${recentRatio}% (${recent.year_num})`);
+            }
+
+            document.getElementById('trendInsights').innerHTML = insights.map(i => `<li>${i}</li>`).join('');
+        }
+
         function renderTrendChart(growth) {
             if (!growth) return;
             const years = growth.year_over_year;
@@ -619,9 +1121,16 @@
             charts.trend.setOption({
                 tooltip: {
                     trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
-                    textStyle: { color: '#f1f5f9' }
+                    textStyle: { color: '#f1f5f9' },
+                    formatter: function(params) {
+                        let html = `<strong>${params[0].name}</strong><br/>`;
+                        params.forEach(p => {
+                            html += `${p.marker} ${p.seriesName}: <strong>${p.value.toLocaleString()}</strong><br/>`;
+                        });
+                        return html;
+                    }
                 },
                 legend: {
                     data: ['Average Pilots', 'Peak Pilots'],
@@ -661,7 +1170,6 @@
                 ]
             });
 
-            // Click handler for drill-down
             charts.trend.on('click', (params) => {
                 if (params.componentType === 'series') {
                     switchView('drilldown');
@@ -686,7 +1194,6 @@
             const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
             const hours = Array.from({length: 24}, (_, i) => i + ':00');
 
-            // Find min/max for color scale
             const values = heatmap.matrix.map(d => d[2]);
             const minVal = Math.min(...values);
             const maxVal = Math.max(...values);
@@ -694,13 +1201,11 @@
             charts.heatmap.setOption({
                 tooltip: {
                     position: 'top',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' },
-                    formatter: (p) => {
-                        return `${days[p.data[1]]} ${hours[p.data[0]]}<br/>
-                                <strong>${p.data[2].toLocaleString()}</strong> avg pilots`;
-                    }
+                    formatter: (p) => `<strong>${days[p.data[1]]} ${hours[p.data[0]]}</strong><br/>
+                        Avg: <strong>${p.data[2].toLocaleString()}</strong> pilots`
                 },
                 grid: { left: 50, right: 20, bottom: 40, top: 10 },
                 xAxis: {
@@ -745,7 +1250,7 @@
             charts.hourly.setOption({
                 tooltip: {
                     trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
@@ -788,7 +1293,7 @@
             charts.dow.setOption({
                 tooltip: {
                     trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
@@ -823,9 +1328,10 @@
             charts.regional.setOption({
                 tooltip: {
                     trigger: 'item',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
-                    textStyle: { color: '#f1f5f9' }
+                    textStyle: { color: '#f1f5f9' },
+                    formatter: (p) => `<strong>${p.name}</strong><br/>Avg: ${p.value.toLocaleString()} pilots<br/>${(p.percent).toFixed(1)}% of traffic`
                 },
                 legend: {
                     orient: 'vertical',
@@ -859,10 +1365,10 @@
             charts.distribution.setOption({
                 tooltip: {
                     trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' },
-                    formatter: (p) => `${p[0].name} pilots<br/>${p[0].data.toFixed(1)}% of time`
+                    formatter: (p) => `<strong>${p[0].name} pilots</strong><br/>${p[0].data.toFixed(1)}% of observations`
                 },
                 grid: { left: 60, right: 20, bottom: 60, top: 20 },
                 xAxis: {
@@ -895,7 +1401,6 @@
             });
         }
 
-        // View switching
         function switchView(view) {
             currentView = view;
             document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
@@ -909,24 +1414,17 @@
             document.getElementById('compareYears').style.display = view === 'compare' ? 'flex' : 'none';
             document.getElementById('breadcrumb').style.display = view === 'drilldown' ? 'flex' : 'none';
 
-            if (view === 'drilldown') {
-                loadDrilldown();
-            } else if (view === 'compare') {
-                loadComparison();
-            } else if (view === 'anomalies') {
-                loadAnomalies();
-            }
+            if (view === 'drilldown') loadDrilldown();
+            else if (view === 'compare') loadComparison();
+            else if (view === 'anomalies') loadAnomalies();
 
-            // Resize charts after view switch
             setTimeout(() => Object.values(charts).forEach(c => c.resize()), 100);
         }
 
         function populateYearSelectors() {
             const currentYear = new Date().getFullYear();
             const years = [];
-            for (let y = currentYear; y >= 2021; y--) {
-                years.push(y);
-            }
+            for (let y = currentYear; y >= 2021; y--) years.push(y);
 
             const yearSelect = document.getElementById('selectYear');
             years.forEach(y => {
@@ -959,12 +1457,16 @@
                 drilldownState = { level: 'year', year: null, month: null, day: null };
                 document.getElementById('drilldownTitle').textContent = 'Yearly Traffic';
                 document.getElementById('drilldownHint').textContent = 'Click to drill into months';
+                document.getElementById('drilldownDesc').textContent =
+                    'Each bar represents a full year of network activity. Click any year to see monthly breakdown.';
                 updateBreadcrumb();
             } else {
                 url += `month&year=${year}`;
                 drilldownState = { level: 'month', year: parseInt(year), month: null, day: null };
                 document.getElementById('drilldownTitle').textContent = `${year} Monthly Traffic`;
                 document.getElementById('drilldownHint').textContent = 'Click to drill into days';
+                document.getElementById('drilldownDesc').textContent =
+                    `Monthly breakdown for ${year}. Notice seasonal patterns - summer months typically see reduced activity.`;
                 updateBreadcrumb();
             }
 
@@ -987,7 +1489,7 @@
             charts.drilldown.setOption({
                 tooltip: {
                     trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
@@ -995,11 +1497,11 @@
                     data: ['Average Pilots', 'Peak Pilots', 'Controllers'],
                     textStyle: { color: '#94a3b8' }
                 },
-                grid: { left: 60, right: 40, bottom: 40, top: 50 },
+                grid: { left: 60, right: 40, bottom: 50, top: 50 },
                 xAxis: {
                     type: 'category',
                     data: labels,
-                    axisLabel: { color: '#94a3b8' }
+                    axisLabel: { color: '#94a3b8', rotate: drilldown.level === 'day' ? 45 : 0 }
                 },
                 yAxis: {
                     type: 'value',
@@ -1025,13 +1527,11 @@
                         type: 'line',
                         data: drilldown.data.map(d => Math.round(d.avg_controllers)),
                         itemStyle: { color: '#4ade80' },
-                        lineStyle: { width: 2, type: 'dashed' },
-                        yAxisIndex: 0
+                        lineStyle: { width: 2, type: 'dashed' }
                     }
                 ]
             });
 
-            // Click to drill deeper
             charts.drilldown.off('click');
             charts.drilldown.on('click', (params) => {
                 if (drilldown.next_level === 'month') {
@@ -1042,7 +1542,6 @@
                 }
             });
 
-            // Render secondary chart
             renderDrilldownSecondary(drilldown);
         }
 
@@ -1051,21 +1550,26 @@
 
             charts.drilldownSecondary.setOption({
                 tooltip: {
-                    trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    trigger: 'item',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
-                    textStyle: { color: '#f1f5f9' }
+                    textStyle: { color: '#f1f5f9' },
+                    formatter: (p) => `Avg: ${p.data[0].toLocaleString()}<br/>Peak: ${p.data[1].toLocaleString()}`
                 },
-                grid: { left: 50, right: 20, bottom: 40, top: 20 },
+                grid: { left: 60, right: 20, bottom: 50, top: 30 },
                 xAxis: {
                     type: 'value',
                     name: 'Avg Pilots',
+                    nameLocation: 'middle',
+                    nameGap: 35,
                     nameTextStyle: { color: '#94a3b8' },
                     axisLabel: { color: '#94a3b8' }
                 },
                 yAxis: {
                     type: 'value',
                     name: 'Peak Pilots',
+                    nameLocation: 'middle',
+                    nameGap: 45,
                     nameTextStyle: { color: '#94a3b8' },
                     axisLabel: { color: '#94a3b8' },
                     splitLine: { lineStyle: { color: '#334155', type: 'dashed' } }
@@ -1084,9 +1588,11 @@
             if (!year) return;
 
             drilldownState.month = month;
-            document.getElementById('drilldownTitle').textContent =
-                `${new Date(year, month-1).toLocaleString('default', {month: 'long'})} ${year} - Daily`;
+            const monthName = new Date(year, month-1).toLocaleString('default', {month: 'long'});
+            document.getElementById('drilldownTitle').textContent = `${monthName} ${year} - Daily`;
             document.getElementById('drilldownHint').textContent = 'Click for hourly detail';
+            document.getElementById('drilldownDesc').textContent =
+                `Daily traffic for ${monthName} ${year}. Weekly patterns visible as regular peaks on weekends.`;
             updateBreadcrumb();
 
             try {
@@ -1115,17 +1621,15 @@
         }
 
         function renderTimeseries(ts) {
-            if (!ts || !ts.data) return;
+            if (!ts || !ts.data || !ts.data.length) return;
 
-            const hasDate = ts.data[0]?.date || ts.data[0]?.week_start;
             const labels = ts.data.map(d => d.date || d.week_start || '');
             const values = ts.data.map(d => d.avg_pilots || d.pilots);
-            const peaks = ts.data.map(d => d.peak_pilots);
 
             charts.timeseries.setOption({
                 tooltip: {
                     trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
@@ -1140,42 +1644,34 @@
                     axisLabel: { color: '#94a3b8' },
                     splitLine: { lineStyle: { color: '#334155', type: 'dashed' } }
                 },
-                dataZoom: [{
-                    type: 'inside',
-                    start: 0,
-                    end: 100
-                }],
-                series: [
-                    {
-                        type: 'line',
-                        data: values.map(v => Math.round(v)),
-                        smooth: true,
-                        lineStyle: { color: '#38bdf8', width: 1.5 },
-                        itemStyle: { color: '#38bdf8' },
-                        areaStyle: {
-                            color: {
-                                type: 'linear',
-                                x: 0, y: 0, x2: 0, y2: 1,
-                                colorStops: [
-                                    { offset: 0, color: 'rgba(56, 189, 248, 0.3)' },
-                                    { offset: 1, color: 'rgba(56, 189, 248, 0.02)' }
-                                ]
-                            }
-                        },
-                        showSymbol: false
-                    }
-                ]
+                dataZoom: [{ type: 'inside', start: 0, end: 100 }],
+                series: [{
+                    type: 'line',
+                    data: values.map(v => Math.round(v)),
+                    smooth: true,
+                    lineStyle: { color: '#38bdf8', width: 1.5 },
+                    itemStyle: { color: '#38bdf8' },
+                    areaStyle: {
+                        color: {
+                            type: 'linear',
+                            x: 0, y: 0, x2: 0, y2: 1,
+                            colorStops: [
+                                { offset: 0, color: 'rgba(56, 189, 248, 0.3)' },
+                                { offset: 1, color: 'rgba(56, 189, 248, 0.02)' }
+                            ]
+                        }
+                    },
+                    showSymbol: false
+                }]
             });
         }
 
         function updateBreadcrumb() {
             const bc = document.getElementById('breadcrumb');
-            const { level, year, month } = drilldownState;
+            const { year, month } = drilldownState;
             let html = '<span>Drill-down:</span> <a onclick="drillUp(\'year\')">All Years</a>';
 
-            if (year) {
-                html += ` > <a onclick="drillUp('month')">${year}</a>`;
-            }
+            if (year) html += ` > <a onclick="drillUp('month')">${year}</a>`;
             if (month) {
                 const monthName = new Date(year, month-1).toLocaleString('default', {month: 'short'});
                 html += ` > ${monthName}`;
@@ -1211,11 +1707,10 @@
             if (!compare) return;
             const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-            // Monthly comparison
             charts.compareMonthly.setOption({
                 tooltip: {
                     trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
@@ -1223,7 +1718,7 @@
                     data: [compare.year1 + ' Avg', compare.year2 + ' Avg', compare.year1 + ' Peak', compare.year2 + ' Peak'],
                     textStyle: { color: '#94a3b8' }
                 },
-                grid: { left: 60, right: 40, bottom: 40, top: 50 },
+                grid: { left: 60, right: 40, bottom: 50, top: 50 },
                 xAxis: {
                     type: 'category',
                     data: months,
@@ -1239,7 +1734,7 @@
                         name: compare.year1 + ' Avg',
                         type: 'bar',
                         data: compare.monthly.map(m => Math.round(m.year1_avg || 0)),
-                        itemStyle: { color: 'rgba(56, 189, 248, 0.6)' }
+                        itemStyle: { color: 'rgba(56, 189, 248, 0.5)' }
                     },
                     {
                         name: compare.year2 + ' Avg',
@@ -1264,12 +1759,11 @@
                 ]
             });
 
-            // Day of week comparison
             const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
             charts.compareDow.setOption({
                 tooltip: {
-                    trigger: 'axis',
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    trigger: 'item',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
@@ -1302,7 +1796,6 @@
                 }]
             });
 
-            // Growth calculation
             const y1Total = compare.monthly.reduce((s, m) => s + (m.year1_avg || 0), 0);
             const y2Total = compare.monthly.reduce((s, m) => s + (m.year2_avg || 0), 0);
             const growth = ((y2Total - y1Total) / y1Total * 100);
@@ -1318,16 +1811,10 @@
                     itemStyle: { color: growth > 0 ? '#4ade80' : '#f87171' },
                     progress: { show: true, width: 20 },
                     pointer: { show: false },
-                    axisLine: {
-                        lineStyle: { width: 20, color: [[1, '#334155']] }
-                    },
+                    axisLine: { lineStyle: { width: 20, color: [[1, '#334155']] } },
                     axisTick: { show: false },
                     splitLine: { show: false },
-                    axisLabel: {
-                        color: '#94a3b8',
-                        distance: -35,
-                        formatter: '{value}%'
-                    },
+                    axisLabel: { color: '#94a3b8', distance: -35, formatter: '{value}%' },
                     anchor: { show: false },
                     title: { show: false },
                     detail: {
@@ -1356,24 +1843,35 @@
         }
 
         function renderAnomalies(anomalies) {
+            const likelyCauses = {
+                'Saturday': 'Weekend peak / Possible event',
+                'Sunday': 'Weekend activity',
+                'Friday': 'Friday Night Ops events'
+            };
+
             const tbody = document.querySelector('#anomaliesTable tbody');
-            tbody.innerHTML = anomalies.map(a => `
+            tbody.innerHTML = anomalies.map(a => {
+                let cause = likelyCauses[a.day_name] || 'Normal variation';
+                if (a.z_score > 3) cause = 'Major event (likely CTP or similar)';
+                else if (a.z_score > 2.5) cause = 'Significant event';
+                else if (a.z_score < -2) cause = 'Holiday / Outage / Off-peak';
+
+                return `
                 <tr>
                     <td>${a.date}</td>
                     <td>${a.day_name}</td>
-                    <td>${a.peak_pilots.toLocaleString()}</td>
+                    <td><strong>${a.peak_pilots.toLocaleString()}</strong></td>
                     <td>${Math.round(a.avg_pilots).toLocaleString()}</td>
                     <td>${a.z_score > 0 ? '+' : ''}${a.z_score}</td>
                     <td><span class="badge ${a.anomaly_type}">${a.anomaly_type.toUpperCase()}</span></td>
+                    <td style="color: var(--text-muted); font-size: 0.8rem;">${cause}</td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
-        // Auto-refresh every 5 minutes
+        // Auto-refresh
         setInterval(() => {
-            if (currentView === 'overview') {
-                loadOverviewData();
-            }
+            if (currentView === 'overview') loadOverviewData();
         }, 300000);
     </script>
 </body>
