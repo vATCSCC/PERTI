@@ -210,6 +210,7 @@ function format_results($results) {
             $formatted['mit_results'][] = [
                 'fix' => $r['fix'] ?? $key,
                 'required' => $r['required'] ?? 0,
+                'unit' => $r['unit'] ?? 'nm',
                 'tmi_start' => $r['tmi_start'] ?? '',
                 'tmi_end' => $r['tmi_end'] ?? '',
                 'crossings' => $r['total_crossings'] ?? 0,
@@ -223,7 +224,9 @@ function format_results($results) {
                     'avg' => $r['spacing_stats']['avg'] ?? ($r['avg_spacing'] ?? 0),
                     'max' => $r['spacing_stats']['max'] ?? ($r['max_spacing'] ?? 0)
                 ],
-                'cancelled' => $r['cancelled'] ?? false
+                'cancelled' => $r['cancelled'] ?? false,
+                // Include detailed pair data for flight-level analysis
+                'all_pairs' => $r['all_pairs'] ?? []
             ];
         }
     }
@@ -238,11 +241,15 @@ function format_results($results) {
                 'gs_end' => $r['gs_end'] ?? '',
                 'gs_issued' => $r['gs_issued'] ?? '',
                 'total_flights' => $r['total_flights'] ?? 0,
-                'exempt' => is_array($r['exempt'] ?? null) ? count($r['exempt']) : ($r['exempt'] ?? 0),
-                'compliant' => is_array($r['compliant'] ?? null) ? count($r['compliant']) : ($r['compliant'] ?? 0),
-                'non_compliant' => is_array($r['non_compliant'] ?? null) ? count($r['non_compliant']) : ($r['non_compliant'] ?? 0),
+                'exempt_count' => is_array($r['exempt'] ?? null) ? count($r['exempt']) : ($r['exempt'] ?? 0),
+                'compliant_count' => is_array($r['compliant'] ?? null) ? count($r['compliant']) : ($r['compliant'] ?? 0),
+                'non_compliant_count' => is_array($r['non_compliant'] ?? null) ? count($r['non_compliant']) : ($r['non_compliant'] ?? 0),
                 'compliance_pct' => $r['compliance_pct'] ?? 0,
-                'violations_list' => $r['non_compliant'] ?? []
+                'violations' => $r['violations'] ?? [],
+                // Include full flight lists for detailed analysis
+                'exempt_flights' => is_array($r['exempt'] ?? null) ? $r['exempt'] : [],
+                'compliant_flights' => is_array($r['compliant'] ?? null) ? $r['compliant'] : [],
+                'non_compliant_flights' => is_array($r['non_compliant'] ?? null) ? $r['non_compliant'] : []
             ];
         }
     }

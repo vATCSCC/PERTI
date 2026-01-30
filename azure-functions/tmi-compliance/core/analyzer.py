@@ -189,6 +189,22 @@ class TMIComplianceAnalyzer:
         cursor.close()
         return flights
 
+    def _get_trajectory_table(self, event_time: datetime) -> str:
+        """
+        Determine which trajectory table to use based on event age.
+        - adl_flight_trajectory: hot tier (<24 hours old)
+        - adl_trajectory_archive: warm tier (>24 hours old)
+        """
+        now = datetime.utcnow()
+        hours_old = (now - event_time).total_seconds() / 3600
+
+        if hours_old < 24:
+            logger.info(f"Event is {hours_old:.1f}h old - using hot tier (adl_flight_trajectory)")
+            return "dbo.adl_flight_trajectory"
+        else:
+            logger.info(f"Event is {hours_old:.1f}h old - using archive tier (adl_trajectory_archive)")
+            return "dbo.adl_trajectory_archive"
+
     def _detect_crossings(self, fix_name: str, fix_lat: float, fix_lon: float,
                           callsigns: List[str], tmi: TMI) -> List[CrossingResult]:
         """Detect fix crossings using trajectory data"""
@@ -197,6 +213,9 @@ class TMIComplianceAnalyzer:
 
         tmi_start = tmi.start_utc
         tmi_end = tmi.get_effective_end()
+
+        # Determine which trajectory table to use based on event age
+        trajectory_table = self._get_trajectory_table(tmi_start)
 
         # Bounding box filter
         lat_margin = 0.18  # ~11nm
@@ -208,7 +227,7 @@ class TMIComplianceAnalyzer:
             SELECT t.callsign, t.flight_uid, t.timestamp_utc,
                    t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
                    p.fp_dept_icao, p.fp_dest_icao
-            FROM dbo.adl_trajectory_archive t
+            FROM {trajectory_table} t
             INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
             WHERE t.timestamp_utc >= ?
               AND t.timestamp_utc <= ?

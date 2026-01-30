@@ -298,12 +298,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         });
     },
 
+    detailIdCounter: 0,
+
     renderResults: function() {
         if (!this.results) {
             this.showNoData();
             return;
         }
 
+        this.detailIdCounter = 0;
         let html = '';
 
         // Summary card
@@ -336,7 +339,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 ${summary.mit ? `
                 <div class="mt-3 small">
                     <span class="text-muted">MIT Violations:</span> ${summary.mit.total_violations || 0}/${summary.mit.total_pairs || 0} pairs |
-                    <span class="text-muted">Avg Shortfall:</span> ${summary.mit.avg_shortfall_pct || 0}% |
                     <span class="text-muted">Max Shortfall:</span> ${summary.mit.max_shortfall_pct || 0}%
                 </div>
                 ` : ''}
@@ -348,46 +350,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT)</h6>';
 
             for (const r of this.results.mit_results) {
-                const compPct = r.compliance_pct || 0;
-                const compClass = this.getComplianceClass(compPct);
-
-                html += `
-                    <div class="tmi-card mit-card">
-                        <div class="tmi-header">
-                            <div>
-                                <span class="tmi-fix-name">${r.fix || 'Unknown'}</span>
-                                <span class="text-muted ml-2">${r.required || 0}nm MIT | ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
-                                ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
-                            </div>
-                            <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
-                        </div>
-                        <div class="tmi-stats">
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value">${r.crossings || 0}</div>
-                                <div class="tmi-stat-label">Crossings</div>
-                            </div>
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value">${r.pairs || 0}</div>
-                                <div class="tmi-stat-label">Pairs Analyzed</div>
-                            </div>
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value">${r.spacing_stats?.avg?.toFixed(1) || 0}</div>
-                                <div class="tmi-stat-label">Avg Spacing (nm)</div>
-                            </div>
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value">${r.spacing_stats?.min?.toFixed(1) || 0}</div>
-                                <div class="tmi-stat-label">Min Spacing (nm)</div>
-                            </div>
-                        </div>
-                        ${r.distribution ? this.renderDistribution(r.distribution) : ''}
-                        ${r.violations?.total > 0 ? `
-                        <div class="mt-2 small text-danger">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            ${r.violations.total} violations | Avg shortfall: ${r.violations.avg_shortfall_pct || 0}% | Max: ${r.violations.max_shortfall_pct || 0}%
-                        </div>
-                        ` : ''}
-                    </div>
-                `;
+                html += this.renderMitCard(r);
             }
         }
 
@@ -396,42 +359,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += '<h6 class="text-danger mb-3 mt-4"><i class="fas fa-ban"></i> Ground Stops</h6>';
 
             for (const r of this.results.gs_results) {
-                const compPct = r.compliance_pct || 0;
-                const compClass = this.getComplianceClass(compPct);
-
-                html += `
-                    <div class="tmi-card gs-card">
-                        <div class="tmi-header">
-                            <div>
-                                <span class="tmi-fix-name">Ground Stop</span>
-                                <span class="text-muted ml-2">
-                                    ${(r.destinations || []).join(', ')} |
-                                    ${r.gs_start || ''} - ${r.gs_end || ''} |
-                                    Issued: ${r.gs_issued || 'N/A'}
-                                </span>
-                            </div>
-                            <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
-                        </div>
-                        <div class="tmi-stats">
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value">${r.total_flights || 0}</div>
-                                <div class="tmi-stat-label">Total Flights</div>
-                            </div>
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value">${r.exempt || 0}</div>
-                                <div class="tmi-stat-label">Exempt</div>
-                            </div>
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value text-success">${r.compliant || 0}</div>
-                                <div class="tmi-stat-label">Compliant</div>
-                            </div>
-                            <div class="tmi-stat">
-                                <div class="tmi-stat-value text-danger">${r.non_compliant || 0}</div>
-                                <div class="tmi-stat-label">Violations</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
+                html += this.renderGsCard(r);
             }
         }
 
@@ -469,6 +397,287 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         $('#tmi_results_container').html(html);
+    },
+
+    renderMitCard: function(r) {
+        const compPct = r.compliance_pct || 0;
+        const compClass = this.getComplianceClass(compPct);
+        const detailId = `mit_detail_${++this.detailIdCounter}`;
+        const violationId = `mit_violations_${this.detailIdCounter}`;
+        const allPairs = r.all_pairs || [];
+        const violations = allPairs.filter(p => p.spacing_category === 'UNDER');
+        const unitLabel = r.unit === 'min' ? 'min' : 'nm';
+
+        let html = `
+            <div class="tmi-card mit-card">
+                <div class="tmi-header">
+                    <div>
+                        <span class="tmi-fix-name">${r.fix || 'Unknown'}</span>
+                        <span class="text-muted ml-2">${r.required || 0}${unitLabel} ${r.unit === 'min' ? 'MINIT' : 'MIT'} | ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
+                        ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
+                    </div>
+                    <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
+                </div>
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${r.crossings || 0}</div>
+                        <div class="tmi-stat-label">Crossings</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${r.pairs || 0}</div>
+                        <div class="tmi-stat-label">Pairs Analyzed</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${r.spacing_stats?.avg?.toFixed(1) || 0}</div>
+                        <div class="tmi-stat-label">Avg Spacing</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${r.spacing_stats?.min?.toFixed(1) || 0}</div>
+                        <div class="tmi-stat-label">Min Spacing</div>
+                    </div>
+                </div>
+                ${r.distribution ? this.renderDistribution(r.distribution) : ''}
+        `;
+
+        // Violations summary with expand button
+        if (violations.length > 0) {
+            html += `
+                <div class="mt-2 small text-danger d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-exclamation-triangle"></i>
+                        ${violations.length} violations | Max shortfall: ${r.violations?.max_shortfall_pct || 0}%
+                    </span>
+                    <button class="btn btn-sm btn-outline-danger" type="button" data-toggle="collapse" data-target="#${violationId}">
+                        <i class="fas fa-eye"></i> Show Violations
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${violationId}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped tmi-detail-table">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Lead Aircraft</th>
+                                    <th>Trail Aircraft</th>
+                                    <th>Time Gap</th>
+                                    <th>Spacing</th>
+                                    <th>Required</th>
+                                    <th>Shortfall</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${violations.map(v => `
+                                    <tr class="table-danger">
+                                        <td><code>${v.prev_callsign}</code> @ ${v.prev_time}</td>
+                                        <td><code>${v.curr_callsign}</code> @ ${v.curr_time}</td>
+                                        <td>${v.time_min} min</td>
+                                        <td><strong>${v.spacing}${unitLabel}</strong></td>
+                                        <td>${v.required}${unitLabel}</td>
+                                        <td class="text-danger"><strong>-${v.shortfall_pct}%</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // All pairs detail button
+        if (allPairs.length > 0) {
+            html += `
+                <div class="mt-2 d-flex justify-content-between align-items-center">
+                    <span class="small text-muted">${allPairs.length} consecutive pairs analyzed</span>
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-toggle="collapse" data-target="#${detailId}">
+                        <i class="fas fa-table"></i> All Pairs Detail
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${detailId}">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped tmi-detail-table">
+                            <thead class="thead-light sticky-top">
+                                <tr>
+                                    <th>Lead</th>
+                                    <th>Trail</th>
+                                    <th>Time</th>
+                                    <th>Spacing</th>
+                                    <th>Margin</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allPairs.map(p => {
+                                    const rowClass = p.spacing_category === 'UNDER' ? 'table-danger' :
+                                                     p.spacing_category === 'WITHIN' ? 'table-success' :
+                                                     p.spacing_category === 'GAP' ? 'table-warning' : '';
+                                    const statusBadge = p.spacing_category === 'UNDER' ? '<span class="badge badge-danger">UNDER</span>' :
+                                                        p.spacing_category === 'WITHIN' ? '<span class="badge badge-success">WITHIN</span>' :
+                                                        p.spacing_category === 'OVER' ? '<span class="badge badge-info">OVER</span>' :
+                                                        '<span class="badge badge-warning">GAP</span>';
+                                    return `
+                                        <tr class="${rowClass}">
+                                            <td><code>${p.prev_callsign}</code><br><small class="text-muted">${p.prev_time}</small></td>
+                                            <td><code>${p.curr_callsign}</code><br><small class="text-muted">${p.curr_time}</small></td>
+                                            <td>${p.time_min}m</td>
+                                            <td><strong>${p.spacing}${unitLabel}</strong></td>
+                                            <td class="${p.margin_pct < 0 ? 'text-danger' : 'text-success'}">${p.margin_pct > 0 ? '+' : ''}${p.margin_pct}%</td>
+                                            <td>${statusBadge}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    renderGsCard: function(r) {
+        const compPct = r.compliance_pct || 0;
+        const compClass = this.getComplianceClass(compPct);
+        const detailId = `gs_detail_${++this.detailIdCounter}`;
+
+        const exemptFlights = r.exempt_flights || [];
+        const compliantFlights = r.compliant_flights || [];
+        const nonCompliantFlights = r.non_compliant_flights || [];
+        const exemptCount = r.exempt_count || exemptFlights.length;
+        const compliantCount = r.compliant_count || compliantFlights.length;
+        const nonCompliantCount = r.non_compliant_count || nonCompliantFlights.length;
+
+        let html = `
+            <div class="tmi-card gs-card">
+                <div class="tmi-header">
+                    <div>
+                        <span class="tmi-fix-name">Ground Stop</span>
+                        <span class="text-muted ml-2">
+                            ${(r.destinations || []).join(', ')} |
+                            ${r.gs_start || ''} - ${r.gs_end || ''} |
+                            Issued: ${r.gs_issued || 'N/A'}
+                        </span>
+                    </div>
+                    <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
+                </div>
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${r.total_flights || 0}</div>
+                        <div class="tmi-stat-label">Total Flights</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-info">${exemptCount}</div>
+                        <div class="tmi-stat-label">Exempt</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-success">${compliantCount}</div>
+                        <div class="tmi-stat-label">Compliant</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-danger">${nonCompliantCount}</div>
+                        <div class="tmi-stat-label">Violations</div>
+                    </div>
+                </div>
+        `;
+
+        // Show flight details
+        const hasDetails = exemptFlights.length > 0 || compliantFlights.length > 0 || nonCompliantFlights.length > 0;
+
+        if (hasDetails) {
+            html += `
+                <div class="mt-2 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${detailId}">
+                        <i class="fas fa-plane"></i> Flight Details
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${detailId}">
+                    <div class="row">
+            `;
+
+            // Non-compliant flights (violations)
+            if (nonCompliantFlights.length > 0) {
+                html += `
+                    <div class="col-md-4">
+                        <h6 class="text-danger"><i class="fas fa-times-circle"></i> Violations (${nonCompliantFlights.length})</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-striped">
+                                <thead class="thead-dark sticky-top">
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${nonCompliantFlights.map(f => `
+                                        <tr class="table-danger">
+                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.dept || 'N/A'}</td>
+                                            <td>${f.dept_time || 'N/A'}</td>
+                                            <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Exempt flights
+            if (exemptFlights.length > 0) {
+                html += `
+                    <div class="col-md-4">
+                        <h6 class="text-info"><i class="fas fa-check-circle"></i> Exempt (${exemptFlights.length})</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-striped">
+                                <thead class="thead-light sticky-top">
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${exemptFlights.map(f => `
+                                        <tr>
+                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.dept || 'N/A'}</td>
+                                            <td>${f.dept_time || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Compliant flights
+            if (compliantFlights.length > 0) {
+                html += `
+                    <div class="col-md-4">
+                        <h6 class="text-success"><i class="fas fa-check"></i> Compliant (${compliantFlights.length})</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-striped">
+                                <thead class="thead-light sticky-top">
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${compliantFlights.map(f => `
+                                        <tr>
+                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.dept || 'N/A'}</td>
+                                            <td>${f.dept_time || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += '</div>';
+        return html;
     },
 
     renderDistribution: function(dist) {
