@@ -66,9 +66,8 @@ const GS_ADL_API_URL = "api/adl/current.php";
     // LIVE = dbo.adl_flights, GS = dbo.adl_flights_gs (local sandbox)
     let GS_TABLE_MODE = "LIVE";
 
-    // Track whether a simulation has been run (required before Send Actual)
+    // Track whether a simulation has been run (required before Submit to TMI)
     let GS_SIMULATION_READY = false;
-
 
     let GS_SIMTRAFFIC_CACHE = {};
     let GS_SIMTRAFFIC_QUEUE = [];
@@ -3115,23 +3114,28 @@ function setGsTableMode(mode) {
         updateDataSourceLabel();
     }
 
-    // Enable or disable the "Send Actual" button based on simulation state
-    function setSendActualEnabled(enabled, reason) {
+    // Enable or disable the "Submit to TMI" button based on simulation state
+    function setSubmitTmiEnabled(enabled, reason) {
         GS_SIMULATION_READY = !!enabled;
-        var btn = document.getElementById("gs_send_actual_btn");
+        var btn = document.getElementById("gs_submit_tmi_btn");
         if (!btn) return;
 
         if (enabled) {
             btn.disabled = false;
             btn.classList.remove("btn-outline-secondary");
             btn.classList.add("btn-outline-success");
-            btn.title = "Apply simulated GS to live ADL";
+            btn.title = "Submit GS to TMI Publishing for coordination";
         } else {
             btn.disabled = true;
             btn.classList.remove("btn-outline-success");
             btn.classList.add("btn-outline-secondary");
             btn.title = reason || "Run 'Simulate' first to enable";
         }
+    }
+
+    // Alias for backwards compatibility with existing code
+    function setSendActualEnabled(enabled, reason) {
+        setSubmitTmiEnabled(enabled, reason);
     }
 
 function getMultiSelectValues(selectEl) {
@@ -4072,6 +4076,97 @@ function handleGsSendActual() {
                     }
                 });
         });
+    }
+
+    /**
+     * Submit GS to TMI Publishing for coordination
+     * Collects the GS data and redirects to TMI Publishing page
+     */
+    function handleGsSubmitToTmi() {
+        var statusEl = document.getElementById("gs_adl_status");
+
+        // Require simulation to be run first
+        if (!GS_SIMULATION_READY) {
+            if (window.Swal) {
+                window.Swal.fire({
+                    icon: "warning",
+                    title: "Simulation Required",
+                    text: "You must run 'Simulate' before submitting to TMI Publishing. This ensures EDCTs are calculated correctly.",
+                    confirmButtonText: "OK"
+                });
+            } else {
+                alert("You must run 'Simulate' before submitting to TMI Publishing.");
+            }
+            if (statusEl) statusEl.textContent = "Run 'Simulate' first before submitting to TMI.";
+            return;
+        }
+
+        // Require a program to submit
+        if (!GS_CURRENT_PROGRAM_ID) {
+            if (statusEl) statusEl.textContent = "No GS program to submit. Run Preview/Simulate first.";
+            return;
+        }
+
+        var workflowPayload = collectGsWorkflowPayload();
+
+        // Build the TMI Publishing handoff data
+        var tmiHandoff = {
+            type: "GS",
+            program_type: "GS",
+            program_id: GS_CURRENT_PROGRAM_ID,
+            ctl_element: workflowPayload.gs_ctl_element || "",
+            element_type: workflowPayload.gs_element_type || "AIRPORT",
+            start_time: workflowPayload.gs_start,
+            end_time: workflowPayload.gs_end,
+            airports: workflowPayload.gs_airports || "",
+            origin_airports: workflowPayload.gs_origin_airports || "",
+            dep_facilities: workflowPayload.gs_dep_facilities || "",
+            scope_select: workflowPayload.gs_scope_select || [],
+            flt_incl_carrier: workflowPayload.gs_flt_incl_carrier || "",
+            flt_incl_type: workflowPayload.gs_flt_incl_type || "ALL",
+            impacting_condition: workflowPayload.gs_impacting_condition || "",
+            prob_extension: workflowPayload.gs_prob_ext || "",
+            comments: workflowPayload.gs_comments || "",
+            exemptions: workflowPayload.exemptions || {},
+
+            // Include simulation results from GS_LAST_SIMULATION_DATA
+            simulation_data: GS_LAST_SIMULATION_DATA || null,
+
+            // Include flight data (from GS_LAST_SIMULATION_DATA)
+            flights: (GS_LAST_SIMULATION_DATA && GS_LAST_SIMULATION_DATA.flights) || [],
+
+            // Advisory text if available
+            advisory_preview: document.getElementById("gs_advisory_preview")
+                ? document.getElementById("gs_advisory_preview").textContent
+                : "",
+
+            // Metadata
+            source: "GDT",
+            created_at: new Date().toISOString()
+        };
+
+        // Store in sessionStorage for TMI Publishing to pick up
+        try {
+            sessionStorage.setItem("tmi_gs_handoff", JSON.stringify(tmiHandoff));
+
+            if (statusEl) statusEl.textContent = "Redirecting to TMI Publishing...";
+
+            // Navigate to TMI Publishing page with GS/GDP tab active
+            window.location.href = "tmi-publish.php?tab=gdp&source=gdt&type=gs&program_id=" + GS_CURRENT_PROGRAM_ID;
+
+        } catch (err) {
+            console.error("Failed to store TMI handoff data:", err);
+            if (statusEl) statusEl.textContent = "Failed to prepare handoff: " + err.message;
+            if (window.Swal) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Handoff Failed",
+                    text: "Failed to prepare data for TMI Publishing: " + err.message
+                });
+            } else {
+                alert("Failed to prepare handoff data: " + err.message);
+            }
+        }
     }
 
     /**
@@ -5292,15 +5387,15 @@ function loadTierInfo() {
             });
         }
 
-        var sendActualBtn = document.getElementById("gs_send_actual_btn");
-        if (sendActualBtn) {
-            sendActualBtn.addEventListener("click", function(ev) {
+        var submitTmiBtn = document.getElementById("gs_submit_tmi_btn");
+        if (submitTmiBtn) {
+            submitTmiBtn.addEventListener("click", function(ev) {
                 ev.preventDefault();
                 buildAdvisory();
-                handleGsSendActual();
+                handleGsSubmitToTmi();
             });
             // Initialize as disabled - must run Simulate first
-            setSendActualEnabled(false, "Run 'Simulate' first to enable");
+            setSubmitTmiEnabled(false, "Run 'Simulate' first to enable");
         }
 
         var purgeLocalBtn = document.getElementById("gs_purge_local_btn");

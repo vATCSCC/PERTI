@@ -21,11 +21,8 @@
                         <button class="btn btn-outline-primary" id="gdp_model_btn" title="Model with current parameters">
                             <i class="fas fa-calculator"></i> Model
                         </button>
-                        <button class="btn btn-outline-success" id="gdp_run_proposed_btn" title="Run as proposed" disabled>
-                            <i class="fas fa-paper-plane"></i> Run Proposed
-                        </button>
-                        <button class="btn btn-success" id="gdp_run_actual_btn" title="Run actual program" disabled>
-                            <i class="fas fa-check-circle"></i> Run Actual
+                        <button class="btn btn-success" id="gdp_submit_tmi_btn" title="Run 'Model' first, then submit to TMI Publishing" disabled>
+                            <i class="fas fa-paper-plane"></i> Submit to TMI
                         </button>
                     </div>
                 </div>
