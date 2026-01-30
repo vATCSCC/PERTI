@@ -51,7 +51,7 @@ $sql_dbname = SQL_DATABASE;
 // Establish Connection (PDO)
 $conn_pdo = null;
 try {
-    $conn_pdo = new PDO("mysql:host={$sql_host};dbname={$sql_dbname}", $sql_user, $sql_passwd);
+    $conn_pdo = new PDO("mysql:host={$sql_host};dbname={$sql_dbname};charset=utf8mb4", $sql_user, $sql_passwd);
     $conn_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $ex) {
     error_log('PDO connection failed: ' . $ex->getMessage());
@@ -64,6 +64,8 @@ $conn_sqli = mysqli_connect($sql_host, $sql_user, $sql_passwd, $sql_dbname);
 if (!$conn_sqli) {
     error_log('MySQLi connection failed: ' . mysqli_connect_error());
     $conn_sqli = null;
+} else {
+    mysqli_set_charset($conn_sqli, 'utf8mb4');
 }
 
 // If both primary database connections failed, return 503 Service Unavailable
