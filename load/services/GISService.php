@@ -1072,6 +1072,380 @@ class GISService
         }, $artccs);
     }
 
+    // =========================================================================
+    // TRAJECTORY CROSSING METHODS
+    // =========================================================================
+
+    /**
+     * Get ARTCC boundary crossings along a trajectory
+     *
+     * Uses PostGIS line-polygon intersection for precise crossing points.
+     *
+     * @param array $waypoints Array of waypoints with lat, lon, sequence_num
+     * @return array Crossings with artcc_code, coordinates, distance_nm, crossing_type
+     */
+    public function getTrajectoryArtccCrossings(array $waypoints): array
+    {
+        if (!$this->conn || empty($waypoints)) {
+            return [];
+        }
+
+        try {
+            $waypointsJson = $this->formatWaypointsJsonWithSequence($waypoints);
+
+            $sql = "SELECT * FROM get_trajectory_artcc_crossings(:waypoints::jsonb)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':waypoints' => $waypointsJson]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'artcc_code' => $row['artcc_code'],
+                    'artcc_name' => $row['artcc_name'],
+                    'is_oceanic' => $row['is_oceanic'] === true || $row['is_oceanic'] === 't',
+                    'crossing_lat' => (float)$row['crossing_lat'],
+                    'crossing_lon' => (float)$row['crossing_lon'],
+                    'crossing_fraction' => (float)$row['crossing_fraction'],
+                    'distance_nm' => (float)$row['distance_nm'],
+                    'crossing_type' => $row['crossing_type']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getTrajectoryArtccCrossings error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get sector boundary crossings along a trajectory
+     *
+     * @param array $waypoints Array of waypoints with lat, lon, sequence_num
+     * @param string|null $sectorType Filter by sector type ('LOW', 'HIGH', 'SUPERHIGH')
+     * @return array Crossings with sector_code, coordinates, distance_nm, crossing_type
+     */
+    public function getTrajectorySectorCrossings(array $waypoints, ?string $sectorType = null): array
+    {
+        if (!$this->conn || empty($waypoints)) {
+            return [];
+        }
+
+        try {
+            $waypointsJson = $this->formatWaypointsJsonWithSequence($waypoints);
+
+            $sql = "SELECT * FROM get_trajectory_sector_crossings(:waypoints::jsonb, :sector_type)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':waypoints' => $waypointsJson,
+                ':sector_type' => $sectorType
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'sector_code' => $row['sector_code'],
+                    'sector_name' => $row['sector_name'],
+                    'sector_type' => $row['sector_type'],
+                    'parent_artcc' => $row['parent_artcc'],
+                    'crossing_lat' => (float)$row['crossing_lat'],
+                    'crossing_lon' => (float)$row['crossing_lon'],
+                    'crossing_fraction' => (float)$row['crossing_fraction'],
+                    'distance_nm' => (float)$row['distance_nm'],
+                    'crossing_type' => $row['crossing_type']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getTrajectorySectorCrossings error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get all boundary crossings (ARTCC + sectors) along a trajectory
+     *
+     * @param array $waypoints Array of waypoints with lat, lon, sequence_num
+     * @return array All crossings in route order
+     */
+    public function getTrajectoryAllCrossings(array $waypoints): array
+    {
+        if (!$this->conn || empty($waypoints)) {
+            return [];
+        }
+
+        try {
+            $waypointsJson = $this->formatWaypointsJsonWithSequence($waypoints);
+
+            $sql = "SELECT * FROM get_trajectory_all_crossings(:waypoints::jsonb)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':waypoints' => $waypointsJson]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'boundary_type' => $row['boundary_type'],
+                    'boundary_code' => $row['boundary_code'],
+                    'boundary_name' => $row['boundary_name'],
+                    'parent_artcc' => $row['parent_artcc'],
+                    'crossing_lat' => (float)$row['crossing_lat'],
+                    'crossing_lon' => (float)$row['crossing_lon'],
+                    'crossing_fraction' => (float)$row['crossing_fraction'],
+                    'distance_nm' => (float)$row['distance_nm'],
+                    'crossing_type' => $row['crossing_type']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getTrajectoryAllCrossings error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Calculate ETAs for boundary crossings along a trajectory
+     *
+     * This is the main method for trajectory-based ETA calculation.
+     * Returns all future boundary crossings with calculated ETAs.
+     *
+     * @param array $waypoints Array of waypoints with lat, lon, sequence_num
+     * @param float $currentLat Current aircraft latitude
+     * @param float $currentLon Current aircraft longitude
+     * @param float $distFlownNm Distance already flown from origin
+     * @param int $groundspeedKts Current groundspeed in knots
+     * @param string|null $currentTime Current UTC time (ISO format)
+     * @return array Future crossings with ETAs
+     */
+    public function calculateCrossingEtas(
+        array $waypoints,
+        float $currentLat,
+        float $currentLon,
+        float $distFlownNm,
+        int $groundspeedKts,
+        ?string $currentTime = null
+    ): array {
+        if (!$this->conn || empty($waypoints)) {
+            return [];
+        }
+
+        try {
+            $waypointsJson = $this->formatWaypointsJsonWithSequence($waypoints);
+
+            $sql = "SELECT * FROM calculate_crossing_etas(
+                :waypoints::jsonb,
+                :current_lat,
+                :current_lon,
+                :dist_flown,
+                :groundspeed,
+                :current_time::timestamptz
+            )";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':waypoints' => $waypointsJson,
+                ':current_lat' => $currentLat,
+                ':current_lon' => $currentLon,
+                ':dist_flown' => $distFlownNm,
+                ':groundspeed' => $groundspeedKts,
+                ':current_time' => $currentTime ?? gmdate('Y-m-d H:i:s')
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'boundary_type' => $row['boundary_type'],
+                    'boundary_code' => $row['boundary_code'],
+                    'boundary_name' => $row['boundary_name'],
+                    'parent_artcc' => $row['parent_artcc'],
+                    'crossing_lat' => (float)$row['crossing_lat'],
+                    'crossing_lon' => (float)$row['crossing_lon'],
+                    'distance_from_origin_nm' => (float)$row['distance_from_origin_nm'],
+                    'distance_remaining_nm' => (float)$row['distance_remaining_nm'],
+                    'eta_utc' => $row['eta_utc'],
+                    'crossing_type' => $row['crossing_type']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::calculateCrossingEtas error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Batch calculate crossing ETAs for multiple flights
+     *
+     * @param array $flights Array of flight objects with waypoints and current state
+     * @return array Crossings grouped by flight_uid
+     */
+    public function calculateCrossingsBatch(array $flights): array
+    {
+        if (!$this->conn || empty($flights)) {
+            return [];
+        }
+
+        try {
+            // Format flights with nested waypoints for JSONB
+            $flightsJson = json_encode(array_map(function($f) {
+                return [
+                    'flight_uid' => (int)($f['flight_uid'] ?? 0),
+                    'waypoints' => $this->formatWaypointsArray($f['waypoints'] ?? []),
+                    'current_lat' => (float)($f['current_lat'] ?? $f['lat'] ?? 0),
+                    'current_lon' => (float)($f['current_lon'] ?? $f['lon'] ?? 0),
+                    'dist_flown_nm' => (float)($f['dist_flown_nm'] ?? 0),
+                    'groundspeed_kts' => (int)($f['groundspeed_kts'] ?? $f['groundspeed'] ?? 450),
+                    'current_time' => $f['current_time'] ?? gmdate('Y-m-d H:i:s')
+                ];
+            }, $flights));
+
+            $sql = "SELECT * FROM calculate_crossings_batch(:flights::jsonb)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':flights' => $flightsJson]);
+
+            // Group results by flight_uid
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $flightUid = (int)$row['flight_uid'];
+                if (!isset($results[$flightUid])) {
+                    $results[$flightUid] = [];
+                }
+                $results[$flightUid][] = [
+                    'boundary_type' => $row['boundary_type'],
+                    'boundary_code' => $row['boundary_code'],
+                    'boundary_name' => $row['boundary_name'],
+                    'crossing_lat' => (float)$row['crossing_lat'],
+                    'crossing_lon' => (float)$row['crossing_lon'],
+                    'distance_from_origin_nm' => (float)$row['distance_from_origin_nm'],
+                    'distance_remaining_nm' => (float)$row['distance_remaining_nm'],
+                    'eta_utc' => $row['eta_utc'],
+                    'crossing_type' => $row['crossing_type']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::calculateCrossingsBatch error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get ARTCCs traversed by route (simple array of codes)
+     *
+     * @param array $waypoints Array of waypoints
+     * @return array ARTCC codes in traversal order
+     */
+    public function getArtccsTraversed(array $waypoints): array
+    {
+        if (!$this->conn || empty($waypoints)) {
+            return [];
+        }
+
+        try {
+            $waypointsJson = $this->formatWaypointsJsonWithSequence($waypoints);
+
+            $sql = "SELECT get_artccs_traversed(:waypoints::jsonb) AS artccs";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':waypoints' => $waypointsJson]);
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && $row['artccs']) {
+                return $this->pgArrayToPhp($row['artccs']);
+            }
+
+            return [];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getArtccsTraversed error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Format waypoints array with sequence numbers for trajectory functions
+     *
+     * @param array $waypoints Array of waypoints (various formats)
+     * @return string JSON string with sequence_num included
+     */
+    private function formatWaypointsJsonWithSequence(array $waypoints): string
+    {
+        $formatted = [];
+        $seq = 0;
+
+        foreach ($waypoints as $wp) {
+            $point = null;
+
+            // Support multiple input formats
+            if (isset($wp['lon']) && isset($wp['lat'])) {
+                $point = ['lon' => (float)$wp['lon'], 'lat' => (float)$wp['lat']];
+            } elseif (isset($wp['lng']) && isset($wp['lat'])) {
+                $point = ['lon' => (float)$wp['lng'], 'lat' => (float)$wp['lat']];
+            } elseif (isset($wp['longitude']) && isset($wp['latitude'])) {
+                $point = ['lon' => (float)$wp['longitude'], 'lat' => (float)$wp['latitude']];
+            } elseif (is_array($wp) && count($wp) >= 2 && is_numeric($wp[0])) {
+                // [lon, lat] GeoJSON convention
+                $point = ['lon' => (float)$wp[0], 'lat' => (float)$wp[1]];
+            }
+
+            if ($point) {
+                // Use existing sequence_num or assign one
+                $point['sequence_num'] = (int)($wp['sequence_num'] ?? $wp['seq'] ?? $seq);
+                $formatted[] = $point;
+                $seq++;
+            }
+        }
+
+        return json_encode($formatted);
+    }
+
+    /**
+     * Format waypoints array without JSON encoding (for nested JSONB)
+     *
+     * @param array $waypoints Raw waypoints
+     * @return array Formatted waypoints array
+     */
+    private function formatWaypointsArray(array $waypoints): array
+    {
+        $formatted = [];
+        $seq = 0;
+
+        foreach ($waypoints as $wp) {
+            $point = null;
+
+            if (isset($wp['lon']) && isset($wp['lat'])) {
+                $point = ['lon' => (float)$wp['lon'], 'lat' => (float)$wp['lat']];
+            } elseif (isset($wp['lng']) && isset($wp['lat'])) {
+                $point = ['lon' => (float)$wp['lng'], 'lat' => (float)$wp['lat']];
+            } elseif (isset($wp['longitude']) && isset($wp['latitude'])) {
+                $point = ['lon' => (float)$wp['longitude'], 'lat' => (float)$wp['latitude']];
+            } elseif (is_array($wp) && count($wp) >= 2 && is_numeric($wp[0])) {
+                $point = ['lon' => (float)$wp[0], 'lat' => (float)$wp[1]];
+            }
+
+            if ($point) {
+                $point['sequence_num'] = (int)($wp['sequence_num'] ?? $wp['seq'] ?? $seq);
+                $formatted[] = $point;
+                $seq++;
+            }
+        }
+
+        return $formatted;
+    }
+
     /**
      * Execute a raw PostGIS query (for advanced use cases)
      *

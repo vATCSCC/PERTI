@@ -7818,87 +7818,109 @@
                 destFilter: (r.destFilter || '').toUpperCase()
             }));
 
-            // Find common route segment with MAJORITY matching (70%+ of routes)
-            // Important: The boundaries of the common segment must be waypoints
-            const findCommonSegment = (routes) => {
-                if (routes.length < 2) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null, matchCount: 0 };
+            // Find MULTIPLE pivot waypoints - different route groups may have different pivots
+            // E.g., JFK routes converge at MCI, PHL routes converge at STL
+            const findPivotWaypoints = (routes) => {
+                if (routes.length < 2) return { pivotGroups: [], unmatchedRoutes: routes };
 
                 const allTokens = routes.map(r => r.tokens);
                 const nonEmptyTokens = allTokens.filter(t => t.length > 0);
-                if (nonEmptyTokens.length < 2) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null, matchCount: 0 };
+                if (nonEmptyTokens.length < 2) return { pivotGroups: [], unmatchedRoutes: routes };
 
-                // Minimum match threshold (70% of routes)
-                const minMatchCount = Math.ceil(nonEmptyTokens.length * 0.7);
+                // Minimum routes for a waypoint to be considered a pivot (at least 3 routes or 30%)
+                const minMatchCount = Math.max(3, Math.ceil(nonEmptyTokens.length * 0.3));
 
-                // Try to find the longest common contiguous segment present in majority of routes
-                // Use the route with fewest tokens as reference (more likely to be fully common)
-                const sortedByLength = [...nonEmptyTokens].sort((a, b) => a.length - b.length);
-                const refRoute = sortedByLength[0];
+                // Count waypoint occurrences across all routes
+                const waypointCounts = {};
+                const waypointPositions = {};
 
-                let bestCommon = [];
-                let bestEntryWpt = null;
-                let bestExitWpt = null;
-                let bestMatchCount = 0;
+                nonEmptyTokens.forEach(tokens => {
+                    const routeLength = tokens.length;
+                    const seenInThisRoute = new Set();
 
-                for (let start = 0; start < refRoute.length; start++) {
-                    for (let len = refRoute.length - start; len > 0; len--) {
-                        const candidate = refRoute.slice(start, start + len);
+                    tokens.forEach((token, idx) => {
+                        if (isWaypoint(token) && !seenInThisRoute.has(token)) {
+                            seenInThisRoute.add(token);
+                            waypointCounts[token] = (waypointCounts[token] || 0) + 1;
 
-                        // Skip if shorter than current best (unless it matches more routes)
-                        if (candidate.length < bestCommon.length) continue;
-
-                        // Count how many routes contain this segment
-                        const candidateStr = candidate.join(' ');
-                        let matchCount = 0;
-                        nonEmptyTokens.forEach(tokens => {
-                            const tokensStr = tokens.join(' ');
-                            if (tokensStr.includes(candidateStr)) matchCount++;
-                        });
-
-                        // Accept if majority match and (longer OR same length with more matches)
-                        if (matchCount >= minMatchCount) {
-                            const entryWpt = findFirstWaypoint(candidate, 0);
-                            const exitWpt = findLastWaypoint(candidate, candidate.length);
-
-                            if (entryWpt && exitWpt) {
-                                // Prefer longer segments, or more matches if same length
-                                if (candidate.length > bestCommon.length ||
-                                    (candidate.length === bestCommon.length && matchCount > bestMatchCount)) {
-                                    bestCommon = candidate;
-                                    bestEntryWpt = entryWpt.token;
-                                    bestExitWpt = exitWpt.token;
-                                    bestMatchCount = matchCount;
-                                }
-                            }
+                            const position = routeLength > 1 ? idx / (routeLength - 1) : 0.5;
+                            if (!waypointPositions[token]) waypointPositions[token] = [];
+                            waypointPositions[token].push(position);
                         }
-                    }
+                    });
+                });
+
+                // Find candidate pivot waypoints (appear in enough routes)
+                const candidatePivots = Object.entries(waypointCounts)
+                    .filter(([wpt, count]) => count >= minMatchCount)
+                    .map(([wpt, count]) => {
+                        const positions = waypointPositions[wpt];
+                        const avgPosition = positions.reduce((a, b) => a + b, 0) / positions.length;
+                        const centralityScore = 1 - Math.abs(avgPosition - 0.5) * 2;
+                        const matchScore = count / nonEmptyTokens.length;
+                        const score = centralityScore * 0.7 + matchScore * 0.3;
+                        return { wpt, count, avgPosition, centralityScore, matchScore, score };
+                    })
+                    .sort((a, b) => b.score - a.score);
+
+                if (candidatePivots.length === 0) {
+                    return { pivotGroups: [], unmatchedRoutes: routes };
                 }
 
-                if (!bestCommon.length || bestCommon.length < 2 || !bestEntryWpt || !bestExitWpt) {
-                    return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null, matchCount: 0 };
-                }
-
-                // Extract origin and destination segments for each route
-                const commonStr = bestCommon.join(' ');
-                const originSegs = [];
-                const destSegs = [];
+                // Assign each route to its best pivot (highest scoring pivot it contains)
+                const routeAssignments = new Map(); // route index -> pivot wpt
                 const unmatchedRoutes = [];
 
-                routes.forEach(r => {
-                    const fullRoute = r.tokens.join(' ');
-                    const commonIdx = fullRoute.indexOf(commonStr);
+                routes.forEach((r, idx) => {
+                    // Find the best pivot this route contains
+                    let bestPivot = null;
+                    let bestScore = -1;
+                    for (const pivot of candidatePivots) {
+                        if (r.tokens.includes(pivot.wpt) && pivot.score > bestScore) {
+                            bestPivot = pivot;
+                            bestScore = pivot.score;
+                        }
+                    }
+                    if (bestPivot) {
+                        routeAssignments.set(idx, bestPivot.wpt);
+                    } else {
+                        unmatchedRoutes.push(r);
+                    }
+                });
 
-                    if (commonIdx >= 0) {
-                        // Origin segment: everything before common
-                        const origPart = fullRoute.slice(0, commonIdx).trim();
-                        // Dest segment: everything after common
-                        const destStart = commonIdx + commonStr.length;
-                        const destPart = fullRoute.slice(destStart).trim();
+                // Group routes by their assigned pivot
+                const pivotGroups = [];
+                const usedPivots = new Set(routeAssignments.values());
 
-                        // Add entry waypoint marker (>) for origin segment
-                        const origSeg = origPart ? origPart + ' >' + bestEntryWpt : '>' + bestEntryWpt;
-                        // Add exit waypoint marker (<) for dest segment
-                        const destSeg = destPart ? bestExitWpt + '< ' + destPart : bestExitWpt + '<';
+                for (const pivotWpt of usedPivots) {
+                    const pivotInfo = candidatePivots.find(p => p.wpt === pivotWpt);
+                    const originSegs = [];
+                    const destSegs = [];
+
+                    routes.forEach((r, idx) => {
+                        if (routeAssignments.get(idx) !== pivotWpt) return;
+
+                        const pivotIdx = r.tokens.indexOf(pivotWpt);
+                        if (pivotIdx < 0) return;
+
+                        // Origin segment: everything up to pivot (excluding origin airport)
+                        let origTokens = r.tokens.slice(0, pivotIdx);
+                        if (origTokens.length > 0 && origTokens[0] === r.origDisplay) {
+                            origTokens = origTokens.slice(1);
+                        }
+
+                        // Dest segment: everything after pivot (excluding dest airport)
+                        let destTokens = r.tokens.slice(pivotIdx + 1);
+                        if (destTokens.length > 0 && destTokens[destTokens.length - 1] === r.destDisplay) {
+                            destTokens = destTokens.slice(0, -1);
+                        }
+
+                        const origSeg = origTokens.length > 0
+                            ? origTokens.join(' ') + ' >' + pivotWpt
+                            : '>' + pivotWpt;
+                        const destSeg = destTokens.length > 0
+                            ? pivotWpt + '< ' + destTokens.join(' ')
+                            : pivotWpt + '<';
 
                         originSegs.push({
                             origin: r.origDisplay,
@@ -7911,29 +7933,28 @@
                             destFilter: r.destFilter,
                             segment: destSeg
                         });
-                    } else {
-                        // Route doesn't contain common segment
-                        unmatchedRoutes.push(r);
-                    }
-                });
+                    });
 
-                return {
-                    common: bestCommon,
-                    originSegs,
-                    destSegs,
-                    entryWpt: bestEntryWpt,
-                    exitWpt: bestExitWpt,
-                    matchCount: bestMatchCount,
-                    totalRoutes: routes.length,
-                    unmatchedRoutes
-                };
+                    pivotGroups.push({
+                        pivotWpt,
+                        pivotInfo,
+                        originSegs,
+                        destSegs,
+                        routeCount: originSegs.length
+                    });
+                }
+
+                // Sort groups by route count (most routes first)
+                pivotGroups.sort((a, b) => b.routeCount - a.routeCount);
+
+                return { pivotGroups, unmatchedRoutes, candidatePivots };
             };
 
-            const result = findCommonSegment(tokenizedRoutes);
-            const { common, originSegs, destSegs, entryWpt, exitWpt, unmatchedRoutes } = result;
+            const result = findPivotWaypoints(tokenizedRoutes);
+            const { pivotGroups, unmatchedRoutes } = result;
 
-            // If no common segment found, fall back to showing routes by origin
-            if (!common.length) {
+            // If no pivot groups found, fall back to showing routes by origin
+            if (!pivotGroups || pivotGroups.length === 0) {
                 return this.formatSplitByOriginDest(tokenizedRoutes, MAX_LINE, LABEL_WIDTH);
             }
 
@@ -7976,81 +7997,87 @@
                 return lines.length ? lines : [''];
             };
 
+            // Helper to format a pivot group's segments
+            const formatPivotGroup = (group) => {
+                let groupOutput = '';
+
+                // FROM section for this pivot group
+                groupOutput += 'FROM:\n';
+                groupOutput += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE\n';
+                groupOutput += '----'.padEnd(LABEL_WIDTH) + '-----\n';
+
+                // Dedupe and group origin segments
+                const byOrigSeg = {};
+                group.originSegs.forEach(s => {
+                    const origKey = s.origin + (s.originFilter ? ' ' + s.originFilter : '');
+                    const fullKey = origKey + '|||' + s.segment;
+                    if (!byOrigSeg[fullKey]) {
+                        byOrigSeg[fullKey] = { origin: origKey, segment: s.segment };
+                    }
+                });
+
+                const byOrig = {};
+                Object.values(byOrigSeg).forEach(item => {
+                    if (!byOrig[item.origin]) byOrig[item.origin] = new Set();
+                    byOrig[item.origin].add(item.segment);
+                });
+
+                Object.keys(byOrig).sort().forEach(orig => {
+                    const segments = Array.from(byOrig[orig]).sort();
+                    segments.forEach(seg => {
+                        formatSplitRow(orig, seg).forEach(line => {
+                            groupOutput += line + '\n';
+                        });
+                    });
+                });
+
+                groupOutput += '\n';
+
+                // TO section for this pivot group
+                groupOutput += 'TO:\n';
+                groupOutput += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE\n';
+                groupOutput += '----'.padEnd(LABEL_WIDTH) + '-----\n';
+
+                // Dedupe and group dest segments
+                const byDestSeg = {};
+                group.destSegs.forEach(s => {
+                    const destKey = s.destination + (s.destFilter ? ' ' + s.destFilter : '');
+                    const fullKey = destKey + '|||' + s.segment;
+                    if (!byDestSeg[fullKey]) {
+                        byDestSeg[fullKey] = { destination: destKey, segment: s.segment };
+                    }
+                });
+
+                const byDest = {};
+                Object.values(byDestSeg).forEach(item => {
+                    if (!byDest[item.destination]) byDest[item.destination] = new Set();
+                    byDest[item.destination].add(item.segment);
+                });
+
+                Object.keys(byDest).sort().forEach(dest => {
+                    const segments = Array.from(byDest[dest]).sort();
+                    segments.forEach(seg => {
+                        formatSplitRow(dest, seg).forEach(line => {
+                            groupOutput += line + '\n';
+                        });
+                    });
+                });
+
+                return groupOutput;
+            };
+
             let output = '';
 
-            // Common segment header with entry/exit waypoints
-            output += 'COMMON ROUTE: ' + common.join(' ') + '\n';
-            output += '(Entry: ' + entryWpt + ', Exit: ' + exitWpt + ')\n';
-            output += '\n';
-
-            // FROM / ORIGIN SEGMENTS section
-            output += 'FROM:\n';
-            output += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE - ORIGIN SEGMENTS (to >' + entryWpt + ')\n';
-            output += '----'.padEnd(LABEL_WIDTH) + ''.padEnd(35, '-') + '\n';
-
-            // Group origin segments by origin AND segment (to dedupe)
-            const byOrigSeg = {};
-            originSegs.forEach(s => {
-                const origKey = s.origin + (s.originFilter ? ' ' + s.originFilter : '');
-                const fullKey = origKey + '|||' + s.segment;
-                if (!byOrigSeg[fullKey]) {
-                    byOrigSeg[fullKey] = { origin: origKey, segment: s.segment };
-                }
-            });
-
-            // Group by origin for display
-            const byOrig = {};
-            Object.values(byOrigSeg).forEach(item => {
-                if (!byOrig[item.origin]) byOrig[item.origin] = new Set();
-                byOrig[item.origin].add(item.segment);
-            });
-
-            Object.keys(byOrig).sort().forEach(orig => {
-                const segments = Array.from(byOrig[orig]).sort();
-                segments.forEach(seg => {
-                    formatSplitRow(orig, seg).forEach(line => {
-                        output += line + '\n';
-                    });
-                });
-            });
-
-            output += '\n';
-
-            // TO / DESTINATION SEGMENTS section
-            output += 'TO:\n';
-            output += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE - DESTINATION SEGMENTS (from ' + exitWpt + '<)\n';
-            output += '----'.padEnd(LABEL_WIDTH) + ''.padEnd(40, '-') + '\n';
-
-            // Group dest segments by dest AND segment (to dedupe)
-            const byDestSeg = {};
-            destSegs.forEach(s => {
-                const destKey = s.destination + (s.destFilter ? ' ' + s.destFilter : '');
-                const fullKey = destKey + '|||' + s.segment;
-                if (!byDestSeg[fullKey]) {
-                    byDestSeg[fullKey] = { destination: destKey, segment: s.segment };
-                }
-            });
-
-            // Group by destination for display
-            const byDest = {};
-            Object.values(byDestSeg).forEach(item => {
-                if (!byDest[item.destination]) byDest[item.destination] = new Set();
-                byDest[item.destination].add(item.segment);
-            });
-
-            Object.keys(byDest).sort().forEach(dest => {
-                const segments = Array.from(byDest[dest]).sort();
-                segments.forEach(seg => {
-                    formatSplitRow(dest, seg).forEach(line => {
-                        output += line + '\n';
-                    });
-                });
+            // Output each pivot group
+            pivotGroups.forEach((group, idx) => {
+                if (idx > 0) output += '\n';
+                output += formatPivotGroup(group);
             });
 
             // Show unmatched routes if any
             if (unmatchedRoutes && unmatchedRoutes.length > 0) {
                 output += '\n';
-                output += 'OTHER ROUTES (not matching common segment):\n';
+                output += 'OTHER ROUTES:\n';
                 output += 'ORIG'.padEnd(10) + 'DEST'.padEnd(10) + 'ROUTE\n';
                 output += '----'.padEnd(10) + '----'.padEnd(10) + '-----\n';
 
@@ -8236,97 +8263,92 @@
                 return /^[A-Z]{2,5}$/.test(token) || /^[A-Z]{3,4}[0-9]?$/.test(token);
             };
 
-            const findFirstWaypoint = (tokens, startIdx) => {
-                for (let i = startIdx; i < tokens.length; i++) {
-                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
-                }
-                return null;
-            };
-
-            const findLastWaypoint = (tokens, endIdx) => {
-                for (let i = endIdx - 1; i >= 0; i--) {
-                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
-                }
-                return null;
-            };
-
             // Tokenize routes
             const tokenizedRoutes = routes.map(r => ({
                 ...r,
                 tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean)
             }));
 
-            // Find longest common contiguous segment with majority matching (70%+)
+            // Find pivot waypoints - common waypoints that routes converge through
             const allTokens = tokenizedRoutes.map(r => r.tokens);
             const nonEmptyTokens = allTokens.filter(t => t.length > 0);
-            const minMatchCount = Math.ceil(nonEmptyTokens.length * 0.7);
+            // Lower threshold: 3+ routes or 30% (whichever is higher)
+            const minMatchCount = Math.max(3, Math.ceil(nonEmptyTokens.length * 0.3));
 
-            // Use shortest route as reference
-            const sortedByLength = [...nonEmptyTokens].sort((a, b) => a.length - b.length);
-            const refRoute = sortedByLength[0] || [];
+            // Count waypoint occurrences across all routes
+            const waypointCounts = {};
+            const waypointPositions = {};
 
-            let bestCommon = [];
-            let bestEntryWpt = null;
-            let bestExitWpt = null;
-            let bestMatchCount = 0;
+            nonEmptyTokens.forEach(tokens => {
+                const routeLength = tokens.length;
+                const seenInThisRoute = new Set();
 
-            for (let start = 0; start < refRoute.length; start++) {
-                for (let len = refRoute.length - start; len > 0; len--) {
-                    const candidate = refRoute.slice(start, start + len);
-                    if (candidate.length < bestCommon.length) continue;
+                tokens.forEach((token, idx) => {
+                    if (isWaypoint(token) && !seenInThisRoute.has(token)) {
+                        seenInThisRoute.add(token);
+                        waypointCounts[token] = (waypointCounts[token] || 0) + 1;
 
-                    // Count how many routes contain this segment
-                    const candidateStr = candidate.join(' ');
-                    let matchCount = 0;
-                    nonEmptyTokens.forEach(tokens => {
-                        if (tokens.join(' ').includes(candidateStr)) matchCount++;
-                    });
+                        const position = routeLength > 1 ? idx / (routeLength - 1) : 0.5;
+                        if (!waypointPositions[token]) waypointPositions[token] = [];
+                        waypointPositions[token].push(position);
+                    }
+                });
+            });
 
-                    if (matchCount >= minMatchCount) {
-                        const entryWpt = findFirstWaypoint(candidate, 0);
-                        const exitWpt = findLastWaypoint(candidate, candidate.length);
+            // Find candidate pivot waypoints
+            const candidatePivots = Object.entries(waypointCounts)
+                .filter(([wpt, count]) => count >= minMatchCount)
+                .map(([wpt, count]) => {
+                    const positions = waypointPositions[wpt];
+                    const avgPosition = positions.reduce((a, b) => a + b, 0) / positions.length;
+                    const centralityScore = 1 - Math.abs(avgPosition - 0.5) * 2;
+                    const matchScore = count / nonEmptyTokens.length;
+                    const score = centralityScore * 0.7 + matchScore * 0.3;
+                    return { wpt, count, avgPosition, centralityScore, matchScore, score };
+                })
+                .sort((a, b) => b.score - a.score);
 
-                        if (entryWpt && exitWpt) {
-                            if (candidate.length > bestCommon.length ||
-                                (candidate.length === bestCommon.length && matchCount > bestMatchCount)) {
-                                bestCommon = candidate;
-                                bestEntryWpt = entryWpt.token;
-                                bestExitWpt = exitWpt.token;
-                                bestMatchCount = matchCount;
-                            }
+            if (candidatePivots.length > 0) {
+                // Assign each route to its best pivot
+                const pivotRouteCounts = {};
+                let unmatchedCount = 0;
+
+                tokenizedRoutes.forEach(r => {
+                    let assigned = false;
+                    for (const pivot of candidatePivots) {
+                        if (r.tokens.includes(pivot.wpt)) {
+                            pivotRouteCounts[pivot.wpt] = (pivotRouteCounts[pivot.wpt] || 0) + 1;
+                            assigned = true;
+                            break;
                         }
                     }
-                }
-            }
+                    if (!assigned) unmatchedCount++;
+                });
 
-            if (bestCommon.length >= 2 && bestEntryWpt && bestExitWpt) {
-                // Classify tokens in the common segment
-                const classified = bestCommon.map(t => {
-                    if (isAirway(t)) return `<span class="text-primary">${t}</span>`;
-                    if (isProcedure(t)) return `<span class="text-warning">${t}</span>`;
-                    return `<b>${t}</b>`;
-                }).join(' ');
-
-                const matchPct = Math.round((bestMatchCount / routes.length) * 100);
-                const unmatchedCount = routes.length - bestMatchCount;
+                // Build table showing pivots that will be used
+                const usedPivots = candidatePivots.filter(p => pivotRouteCounts[p.wpt] > 0);
+                const candidatesHtml = usedPivots.slice(0, 8).map((c, i) => {
+                    const pos = Math.round(c.avgPosition * 100);
+                    const routesAssigned = pivotRouteCounts[c.wpt] || 0;
+                    return `<tr><td><b>${c.wpt}</b></td><td>${routesAssigned} routes</td><td>${pos}%</td></tr>`;
+                }).join('');
 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Common Segment Detected',
+                    title: `${usedPivots.length} Pivot Waypoint${usedPivots.length > 1 ? 's' : ''} Detected`,
                     html: `
-                        <p>Found common route segment in <strong>${bestMatchCount}/${routes.length}</strong> routes (${matchPct}%):</p>
-                        <pre class="text-left bg-light p-2" style="font-size: 0.85rem;">${classified}</pre>
-                        <p class="small"><strong>Entry waypoint:</strong> ${bestEntryWpt} &nbsp; <strong>Exit waypoint:</strong> ${bestExitWpt}</p>
-                        ${unmatchedCount > 0 ? `<p class="small text-warning">${unmatchedCount} routes don't contain this segment and will be shown separately.</p>` : ''}
-                        <p class="small text-muted mt-2">
-                            <b>Bold</b> = waypoints (split points),
-                            <span class="text-primary">Blue</span> = airways,
-                            <span class="text-warning">Yellow</span> = procedures
-                        </p>
+                        <p>Found ${usedPivots.length} pivot waypoint${usedPivots.length > 1 ? 's' : ''} across ${routes.length} routes.</p>
+                        ${unmatchedCount > 0 ? `<p class="small text-warning">${unmatchedCount} routes don't match any pivot.</p>` : ''}
+                        <table class="table table-sm mt-3" style="font-size: 0.85rem;">
+                            <thead><tr><th>Pivot</th><th>Routes</th><th>Avg Position</th></tr></thead>
+                            <tbody>${candidatesHtml}</tbody>
+                        </table>
+                        <p class="small text-muted mt-2">Each route is assigned to its best matching pivot based on centrality scoring.</p>
                     `,
                     confirmButtonText: 'Use Split Format',
                     showCancelButton: true,
-                    cancelButtonText: 'Close'
+                    cancelButtonText: 'Close',
+                    width: 500
                 }).then(result => {
                     if (result.isConfirmed) {
                         $('#rr_format_split').prop('checked', true);
@@ -8336,10 +8358,10 @@
             } else {
                 Swal.fire({
                     icon: 'info',
-                    title: 'No Common Segment',
+                    title: 'No Pivot Waypoints Found',
                     html: `
-                        <p>No significant common segment with waypoint boundaries found in at least 70% of the ${routes.length} routes.</p>
-                        <p class="small text-muted">Routes may still be displayed in split format grouped by origin and destination.</p>
+                        <p>No waypoint found in at least 3 routes (or 30% of ${routes.length} routes).</p>
+                        <p class="small text-muted">Routes will be displayed grouped by origin and destination.</p>
                     `,
                     timer: 3000,
                     showConfirmButton: false
