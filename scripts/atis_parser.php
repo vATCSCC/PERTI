@@ -291,6 +291,15 @@ function parseAtisRunways(string $atisText): array {
         }
     }
 
+    // Pattern 18: "[approach type] RWY XX APCH/APPROACH" format
+    // Handles ATIS formats where approach type precedes runway and is followed by APCH/APPROACH
+    // Examples: "ILS RWY 27 APCH", "RNAV RWY 32 APCH IN USE", "GPS RUNWAY 04L APPROACH"
+    if (preg_match_all('/(?:ILS|RNAV|GPS|RNP|VISUAL|VOR|NDB|LOC|LDA)\s+(?:RWY|RY|RUNWAY)\s*'.$rwyNum.'\s*(?:APCH|APPROACH)/i', $text, $m)) {
+        foreach ($m[1] as $rwy) {
+            $landing = array_merge($landing, extractRunwayNumbers($rwy));
+        }
+    }
+
     // Extract approach types - Standard format: "ILS RWY 24R", "RNAV APPROACH RWY 25L"
     if (preg_match_all('/(ILS|RNAV|GPS|RNP|VISUAL|VOR|NDB|LOC|LDA)\s+(?:APPROACH(?:ES)?\s+)?(?:RWY\s+)?'.$rwyNum.'/i', $text, $m)) {
         for ($i = 0; $i < count($m[0]); $i++) {
