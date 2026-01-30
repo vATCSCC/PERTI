@@ -2526,6 +2526,97 @@ function activateProposal($conn, $proposalId) {
             // Use route_id as the "entry" reference
             $tmiEntryId = $routeId;
 
+        // ===================================================
+        // Handle GS/GDP entries - they live in tmi_programs
+        // ===================================================
+        } elseif (in_array(strtoupper($entryType), ['GS', 'GDP'])) {
+            $programId = $proposal['program_id'] ?? $entryData['program_id'] ?? null;
+            $log("Processing {$entryType} proposal, program_id: " . ($programId ?: 'UNKNOWN'));
+
+            if ($programId) {
+                // Get next advisory number for ACTUAL advisory
+                $advNumber = null;
+                try {
+                    $advSql = "DECLARE @num NVARCHAR(16); EXEC dbo.sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS adv_num;";
+                    $advStmt = $conn->query($advSql);
+                    $advRow = $advStmt->fetch(PDO::FETCH_ASSOC);
+                    $advNumber = $advRow['adv_num'] ?? 'ADVZY 001';
+                } catch (Exception $e) {
+                    $advNumber = 'ADVZY 001';
+                    $log("Failed to get advisory number: " . $e->getMessage());
+                }
+
+                // Activate the program
+                try {
+                    $activateSql = "EXEC dbo.sp_TMI_ActivateProgram @program_id = :prog_id, @activated_by = :user";
+                    $activateStmt = $conn->prepare($activateSql);
+                    $activateStmt->execute([
+                        ':prog_id' => $programId,
+                        ':user' => $proposal['created_by'] ?? 'SYSTEM'
+                    ]);
+                    $log("Program activated via sp_TMI_ActivateProgram");
+                } catch (Exception $e) {
+                    $log("Failed to activate program: " . $e->getMessage());
+                }
+
+                // Update program with ACTUAL advisory number and coordination status
+                $updateProgramSql = "UPDATE dbo.tmi_programs SET
+                                         adv_number = :adv_num,
+                                         proposal_status = 'ACTIVATED',
+                                         updated_at = SYSUTCDATETIME()
+                                     WHERE program_id = :prog_id";
+                $updateProgramStmt = $conn->prepare($updateProgramSql);
+                $updateProgramStmt->execute([
+                    ':adv_num' => $advNumber,
+                    ':prog_id' => $programId
+                ]);
+                $log("Program adv_number set to {$advNumber}, proposal_status set to ACTIVATED");
+
+                // Log to program coordination log
+                try {
+                    $logSql = "INSERT INTO dbo.tmi_program_coordination_log (
+                                   program_id, proposal_id, action_type, action_data_json,
+                                   advisory_number, advisory_type, performed_by, performed_by_name
+                               ) VALUES (
+                                   :prog_id, :prop_id, 'PROGRAM_ACTIVATED', :data,
+                                   :adv_num, 'ACTUAL', :user_cid, :user_name
+                               )";
+                    $logStmt = $conn->prepare($logSql);
+                    $logStmt->execute([
+                        ':prog_id' => $programId,
+                        ':prop_id' => $proposalId,
+                        ':data' => json_encode(['approved_via' => 'coordination', 'advisory_number' => $advNumber]),
+                        ':adv_num' => $advNumber,
+                        ':user_cid' => $proposal['created_by'] ?? null,
+                        ':user_name' => $proposal['created_by_name'] ?? null
+                    ]);
+                } catch (Exception $e) {
+                    $log("Failed to log coordination action: " . $e->getMessage());
+                }
+
+                // Publish ACTUAL advisory to Discord (if not scheduled)
+                if (!$shouldSchedule) {
+                    // Build ACTUAL advisory text
+                    $program = null;
+                    try {
+                        $progSql = "SELECT * FROM dbo.tmi_programs WHERE program_id = :id";
+                        $progStmt = $conn->prepare($progSql);
+                        $progStmt->execute([':id' => $programId]);
+                        $program = $progStmt->fetch(PDO::FETCH_ASSOC);
+                    } catch (Exception $e) {
+                        $log("Failed to fetch program: " . $e->getMessage());
+                    }
+
+                    if ($program) {
+                        $discordResult = publishGdpToAdvisories($conn, $program, $advNumber, $rawText);
+                        $log("GDP Discord publish result: " . json_encode($discordResult));
+                    }
+                }
+            }
+
+            // Use program_id as the "entry" reference
+            $tmiEntryId = $programId;
+
         } else {
             // ===================================================
             // STEP 1: Create TMI entry in tmi_entries table
@@ -2928,6 +3019,161 @@ function publishRouteToAdvisories($conn, $routeId, $rawText, $entryData) {
     } catch (Exception $e) {
         return ['success' => false, 'error' => $e->getMessage()];
     }
+}
+
+/**
+ * Publish GS/GDP ACTUAL advisory to Discord advisories channel
+ */
+function publishGdpToAdvisories($conn, $program, $advNumber, $rawText = null) {
+    try {
+        require_once __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
+
+        $multiDiscord = new MultiDiscordAPI();
+        if (!$multiDiscord->isConfigured()) {
+            return ['success' => false, 'error' => 'Discord not configured'];
+        }
+
+        // Build ACTUAL advisory text if not provided
+        if (!$rawText) {
+            $rawText = buildGdpActualAdvisory($program, $advNumber);
+        }
+
+        // Split message if needed (Discord 2000 char limit)
+        $maxLen = 1988;
+        $messageChunks = [];
+
+        if (strlen($rawText) <= $maxLen) {
+            $messageChunks[] = $rawText;
+        } else {
+            $lines = explode("\n", $rawText);
+            $currentChunk = '';
+            foreach ($lines as $line) {
+                $tentative = $currentChunk . ($currentChunk ? "\n" : '') . $line;
+                if (strlen($tentative) <= $maxLen) {
+                    $currentChunk = $tentative;
+                } else {
+                    if ($currentChunk !== '') {
+                        $messageChunks[] = $currentChunk;
+                    }
+                    $currentChunk = $line;
+                }
+            }
+            if ($currentChunk !== '') {
+                $messageChunks[] = $currentChunk;
+            }
+        }
+
+        $totalChunks = count($messageChunks);
+        $firstMessageId = null;
+        $channelId = null;
+
+        foreach ($messageChunks as $i => $chunk) {
+            $partIndicator = ($totalChunks > 1) ? " (" . ($i + 1) . "/{$totalChunks})" : '';
+            $content = "```\n{$chunk}\n```" . $partIndicator;
+
+            $result = $multiDiscord->postToChannel('vatcscc', 'advisories', ['content' => $content]);
+
+            if ($i === 0 && $result && $result['success']) {
+                $firstMessageId = $result['message_id'] ?? null;
+                $channelId = $result['channel_id'] ?? null;
+            }
+
+            if ($i < $totalChunks - 1) {
+                usleep(100000);
+            }
+        }
+
+        // Update program record with Discord info
+        if ($firstMessageId && isset($program['program_id'])) {
+            $updateSql = "UPDATE dbo.tmi_programs SET
+                              discord_message_id = :message_id,
+                              discord_channel_id = :channel_id,
+                              updated_at = SYSUTCDATETIME()
+                          WHERE program_id = :prog_id";
+            $updateStmt = $conn->prepare($updateSql);
+            $updateStmt->execute([
+                ':message_id' => $firstMessageId,
+                ':channel_id' => $channelId,
+                ':prog_id' => $program['program_id']
+            ]);
+        }
+
+        return [
+            'success' => (bool)$firstMessageId,
+            'message_id' => $firstMessageId,
+            'channel_id' => $channelId,
+            'chunks_posted' => $totalChunks
+        ];
+
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Build ACTUAL GS/GDP advisory text
+ */
+function buildGdpActualAdvisory($program, $advNumber) {
+    $programType = $program['program_type'] ?? 'GS';
+    $isGdp = strpos($programType, 'GDP') !== false;
+    $ctlElement = $program['ctl_element'] ?? 'UNKN';
+
+    // Format dates
+    $startUtc = $program['start_utc'] ?? null;
+    $endUtc = $program['end_utc'] ?? null;
+
+    if ($startUtc instanceof DateTime) {
+        $startStr = $startUtc->format('d/Hi') . 'Z';
+    } elseif ($startUtc) {
+        $startStr = (new DateTime($startUtc))->format('d/Hi') . 'Z';
+    } else {
+        $startStr = 'TBD';
+    }
+
+    if ($endUtc instanceof DateTime) {
+        $endStr = $endUtc->format('d/Hi') . 'Z';
+    } elseif ($endUtc) {
+        $endStr = (new DateTime($endUtc))->format('d/Hi') . 'Z';
+    } else {
+        $endStr = 'TBD';
+    }
+
+    $lines = [];
+
+    if ($isGdp) {
+        $lines[] = "CDM GROUND DELAY PROGRAM {$advNumber}";
+        $lines[] = "";
+        $lines[] = "CTL ELEMENT.................. {$ctlElement}";
+        $lines[] = "REASON FOR PROGRAM........... " . ($program['impacting_condition'] ?? 'VOLUME') . "/" . ($program['cause_text'] ?? 'DEMAND');
+        $lines[] = "PROGRAM START................ {$startStr}";
+        $lines[] = "END TIME..................... {$endStr}";
+
+        if (!empty($program['avg_delay_min']) && $program['avg_delay_min'] > 0) {
+            $lines[] = "AVERAGE DELAY................ " . round($program['avg_delay_min']) . " MINUTES";
+        }
+        if (!empty($program['max_delay_min']) && $program['max_delay_min'] > 0) {
+            $lines[] = "MAXIMUM DELAY................ " . $program['max_delay_min'] . " MINUTES";
+        }
+
+        $lines[] = "DELAY ASSIGNMENT MODE........ UDP";
+
+        if (!empty($program['program_rate']) && $program['program_rate'] > 0) {
+            $lines[] = "PROGRAM RATE................. " . $program['program_rate'] . " PER HOUR";
+        }
+    } else {
+        // Ground Stop
+        $lines[] = "CDM GROUND STOP {$advNumber}";
+        $lines[] = "";
+        $lines[] = "CTL ELEMENT.................. {$ctlElement}";
+        $lines[] = "REASON FOR GROUND STOP....... " . ($program['impacting_condition'] ?? 'WEATHER') . "/" . ($program['cause_text'] ?? 'CONDITIONS');
+        $lines[] = "GROUND STOP.................. {$startStr}";
+        $lines[] = "END TIME..................... {$endStr}";
+    }
+
+    $lines[] = "";
+    $lines[] = "JO/DCC";
+
+    return implode("\n", $lines);
 }
 
 /**

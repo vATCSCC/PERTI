@@ -29,6 +29,7 @@ adl/php/nav_import/
 
 # Claude Code local settings
 .claude/settings.local.json
+.claude/credentials.md
 
 # Node.js dependencies (all locations)
 node_modules/
@@ -60,3 +61,4 @@ obj/
 
 # Azure configuration
 load/azure_config.json
+load/azure_perti_config.json
