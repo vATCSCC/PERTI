@@ -33,6 +33,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/config_stats.php';
 
 // Verify STATS constants are defined
 if (!defined('STATS_SQL_HOST') || !defined('STATS_SQL_DATABASE')) {
