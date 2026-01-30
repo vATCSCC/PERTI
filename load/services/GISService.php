@@ -1796,4 +1796,213 @@ class GISService
             return [];
         }
     }
+
+    // =========================================================================
+    // PROXIMITY TIER METHODS
+    // =========================================================================
+
+    /**
+     * Get all boundaries within N proximity tiers of a given boundary
+     *
+     * Tier 0 = self, Tier 1 = LINE adjacent, Tier 1.5 = POINT (corner) adjacent,
+     * Tier 2 = LINE adjacent to Tier 1, etc.
+     *
+     * @param string $boundaryType Type: 'ARTCC', 'TRACON', 'SECTOR_LOW', 'SECTOR_HIGH', 'SECTOR_SUPERHIGH'
+     * @param string $boundaryCode The boundary code (e.g., 'ZFW', 'A80')
+     * @param float $maxTier Maximum tier to search (default 5.0)
+     * @param bool $sameTypeOnly Only include boundaries of the same type
+     * @return array List of boundaries with their tier
+     */
+    public function getProximityTiers(
+        string $boundaryType,
+        string $boundaryCode,
+        float $maxTier = 5.0,
+        bool $sameTypeOnly = false
+    ): array {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM get_proximity_tiers(:type, :code, :max_tier, :same_type)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':type' => strtoupper($boundaryType),
+                ':code' => strtoupper($boundaryCode),
+                ':max_tier' => $maxTier,
+                ':same_type' => $sameTypeOnly ? 'true' : 'false'
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'tier' => (float)$row['tier'],
+                    'boundary_type' => $row['boundary_type'],
+                    'boundary_code' => $row['boundary_code'],
+                    'boundary_name' => $row['boundary_name'],
+                    'adjacency_from' => $row['adjacency_from'],
+                    'adjacency_class' => $row['adjacency_class']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getProximityTiers error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get the proximity tier distance between two boundaries
+     *
+     * @param string $sourceType Source boundary type
+     * @param string $sourceCode Source boundary code
+     * @param string $targetType Target boundary type
+     * @param string $targetCode Target boundary code
+     * @param float $maxTier Maximum tier to search
+     * @param bool $sameTypeOnly Only traverse same boundary type
+     * @return float|null The tier distance, or null if not reachable
+     */
+    public function getProximityDistance(
+        string $sourceType,
+        string $sourceCode,
+        string $targetType,
+        string $targetCode,
+        float $maxTier = 10.0,
+        bool $sameTypeOnly = false
+    ): ?float {
+        if (!$this->conn) {
+            return null;
+        }
+
+        try {
+            $sql = "SELECT get_proximity_distance(:src_type, :src_code, :tgt_type, :tgt_code, :max_tier, :same_type) AS tier";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':src_type' => strtoupper($sourceType),
+                ':src_code' => strtoupper($sourceCode),
+                ':tgt_type' => strtoupper($targetType),
+                ':tgt_code' => strtoupper($targetCode),
+                ':max_tier' => $maxTier,
+                ':same_type' => $sameTypeOnly ? 'true' : 'false'
+            ]);
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row['tier'] !== null ? (float)$row['tier'] : null;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getProximityDistance error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get boundaries at a specific tier (or tier range)
+     *
+     * @param string $boundaryType Origin boundary type
+     * @param string $boundaryCode Origin boundary code
+     * @param float $tierMin Minimum tier (inclusive)
+     * @param float|null $tierMax Maximum tier (inclusive), null = same as min
+     * @param bool $sameTypeOnly Only include same boundary type
+     * @return array Boundaries at the specified tier(s)
+     */
+    public function getBoundariesAtTier(
+        string $boundaryType,
+        string $boundaryCode,
+        float $tierMin,
+        ?float $tierMax = null,
+        bool $sameTypeOnly = false
+    ): array {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM get_boundaries_at_tier(:type, :code, :tier_min, :tier_max, :same_type)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':type' => strtoupper($boundaryType),
+                ':code' => strtoupper($boundaryCode),
+                ':tier_min' => $tierMin,
+                ':tier_max' => $tierMax,
+                ':same_type' => $sameTypeOnly ? 'true' : 'false'
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'tier' => (float)$row['tier'],
+                    'boundary_type' => $row['boundary_type'],
+                    'boundary_code' => $row['boundary_code'],
+                    'boundary_name' => $row['boundary_name'],
+                    'adjacency_class' => $row['adjacency_class']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getBoundariesAtTier error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get proximity summary (count per tier)
+     *
+     * @param string $boundaryType Origin boundary type
+     * @param string $boundaryCode Origin boundary code
+     * @param float $maxTier Maximum tier to include
+     * @param bool $sameTypeOnly Only include same boundary type
+     * @return array Summary with count and codes per tier
+     */
+    public function getProximitySummary(
+        string $boundaryType,
+        string $boundaryCode,
+        float $maxTier = 5.0,
+        bool $sameTypeOnly = false
+    ): array {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM get_proximity_summary(:type, :code, :max_tier, :same_type)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':type' => strtoupper($boundaryType),
+                ':code' => strtoupper($boundaryCode),
+                ':max_tier' => $maxTier,
+                ':same_type' => $sameTypeOnly ? 'true' : 'false'
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                // Parse PostgreSQL array format {a,b,c} to PHP array
+                $codes = $row['boundary_codes'];
+                if ($codes && preg_match('/^\{(.+)\}$/', $codes, $m)) {
+                    $codes = explode(',', $m[1]);
+                } else {
+                    $codes = [];
+                }
+
+                $results[] = [
+                    'tier' => (float)$row['tier'],
+                    'count' => (int)$row['boundary_count'],
+                    'boundary_codes' => $codes
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getProximitySummary error: ' . $e->getMessage());
+            return [];
+        }
+    }
 }

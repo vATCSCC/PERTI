@@ -945,6 +945,144 @@ try {
             break;
 
         // =====================================================================
+        // PROXIMITY TIER ENDPOINTS
+        // =====================================================================
+
+        // Get all boundaries within N tiers of a given boundary
+        case 'proximity_tiers':
+            $boundaryType = strtoupper($_GET['type'] ?? '');
+            $boundaryCode = strtoupper($_GET['code'] ?? '');
+            $maxTier = (float)($_GET['max_tier'] ?? 5.0);
+            $sameTypeOnly = ($_GET['same_type'] ?? '0') === '1';
+
+            if (!$boundaryType || !$boundaryCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required params: type, code',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $tiers = $gis->getProximityTiers($boundaryType, $boundaryCode, $maxTier, $sameTypeOnly);
+
+            // Group by tier for easier consumption
+            $grouped = [];
+            foreach ($tiers as $t) {
+                $tier = (string)$t['tier'];
+                if (!isset($grouped[$tier])) {
+                    $grouped[$tier] = [];
+                }
+                $grouped[$tier][] = $t;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'origin' => ['type' => $boundaryType, 'code' => $boundaryCode],
+                'max_tier' => $maxTier,
+                'same_type_only' => $sameTypeOnly,
+                'tiers' => $grouped,
+                'boundaries' => $tiers,
+                'total_count' => count($tiers)
+            ]);
+            break;
+
+        // Get proximity distance between two boundaries
+        case 'proximity_distance':
+            $srcType = strtoupper($_GET['src_type'] ?? '');
+            $srcCode = strtoupper($_GET['src_code'] ?? '');
+            $tgtType = strtoupper($_GET['tgt_type'] ?? '');
+            $tgtCode = strtoupper($_GET['tgt_code'] ?? '');
+            $maxTier = (float)($_GET['max_tier'] ?? 10.0);
+            $sameTypeOnly = ($_GET['same_type'] ?? '0') === '1';
+
+            if (!$srcType || !$srcCode || !$tgtType || !$tgtCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required params: src_type, src_code, tgt_type, tgt_code',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $distance = $gis->getProximityDistance($srcType, $srcCode, $tgtType, $tgtCode, $maxTier, $sameTypeOnly);
+
+            echo json_encode([
+                'success' => true,
+                'source' => ['type' => $srcType, 'code' => $srcCode],
+                'target' => ['type' => $tgtType, 'code' => $tgtCode],
+                'tier_distance' => $distance,
+                'reachable' => $distance !== null,
+                'is_neighbor' => $distance !== null && $distance <= 1.0,
+                'is_corner_neighbor' => $distance !== null && $distance == 0.5
+            ]);
+            break;
+
+        // Get boundaries at a specific tier
+        case 'boundaries_at_tier':
+            $boundaryType = strtoupper($_GET['type'] ?? '');
+            $boundaryCode = strtoupper($_GET['code'] ?? '');
+            $tierMin = (float)($_GET['tier'] ?? $_GET['tier_min'] ?? 1.0);
+            $tierMax = isset($_GET['tier_max']) ? (float)$_GET['tier_max'] : null;
+            $sameTypeOnly = ($_GET['same_type'] ?? '0') === '1';
+
+            if (!$boundaryType || !$boundaryCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required params: type, code',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $boundaries = $gis->getBoundariesAtTier($boundaryType, $boundaryCode, $tierMin, $tierMax, $sameTypeOnly);
+
+            echo json_encode([
+                'success' => true,
+                'origin' => ['type' => $boundaryType, 'code' => $boundaryCode],
+                'tier_min' => $tierMin,
+                'tier_max' => $tierMax ?? $tierMin,
+                'boundaries' => $boundaries,
+                'count' => count($boundaries)
+            ]);
+            break;
+
+        // Get proximity summary (count per tier)
+        case 'proximity_summary':
+            $boundaryType = strtoupper($_GET['type'] ?? '');
+            $boundaryCode = strtoupper($_GET['code'] ?? '');
+            $maxTier = (float)($_GET['max_tier'] ?? 5.0);
+            $sameTypeOnly = ($_GET['same_type'] ?? '0') === '1';
+
+            if (!$boundaryType || !$boundaryCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required params: type, code',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $summary = $gis->getProximitySummary($boundaryType, $boundaryCode, $maxTier, $sameTypeOnly);
+
+            // Calculate totals
+            $totalBoundaries = array_sum(array_column($summary, 'count'));
+
+            echo json_encode([
+                'success' => true,
+                'origin' => ['type' => $boundaryType, 'code' => $boundaryCode],
+                'max_tier' => $maxTier,
+                'same_type_only' => $sameTypeOnly,
+                'summary' => $summary,
+                'total_boundaries' => $totalBoundaries
+            ]);
+            break;
+
+        // =====================================================================
         // Health check
         // =====================================================================
         case 'health':
@@ -1102,6 +1240,27 @@ try {
                         'method' => 'GET',
                         'params' => ['artcc' => 'string (required)', 'sector_type' => 'LOW|HIGH|SUPERHIGH (default HIGH)'],
                         'description' => 'Get sector adjacency within an ARTCC'
+                    ],
+                    // Proximity Tiers (NEW)
+                    'proximity_tiers' => [
+                        'method' => 'GET',
+                        'params' => ['type' => 'ARTCC|TRACON|SECTOR_*', 'code' => 'string', 'max_tier' => 'float (default 5)', 'same_type' => '0|1'],
+                        'description' => 'Get all boundaries within N tiers. LINE=whole tier, POINT=half tier (e.g., 1.5)'
+                    ],
+                    'proximity_distance' => [
+                        'method' => 'GET',
+                        'params' => ['src_type' => 'string', 'src_code' => 'string', 'tgt_type' => 'string', 'tgt_code' => 'string', 'max_tier' => 'float', 'same_type' => '0|1'],
+                        'description' => 'Get proximity tier distance between two boundaries'
+                    ],
+                    'boundaries_at_tier' => [
+                        'method' => 'GET',
+                        'params' => ['type' => 'string', 'code' => 'string', 'tier' => 'float', 'tier_min' => 'float', 'tier_max' => 'float', 'same_type' => '0|1'],
+                        'description' => 'Get boundaries at a specific tier or tier range'
+                    ],
+                    'proximity_summary' => [
+                        'method' => 'GET',
+                        'params' => ['type' => 'string', 'code' => 'string', 'max_tier' => 'float (default 5)', 'same_type' => '0|1'],
+                        'description' => 'Get boundary count summary per tier'
                     ]
                 ],
                 'route_string_format' => [
