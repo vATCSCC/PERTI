@@ -61,12 +61,10 @@ try {
             $base_path = __DIR__ . '/../../data/tmi_compliance';
         }
 
-        // Try plan-specific file first, fall back to global file
+        // Only use plan-specific file - don't fall back to global (would show wrong data)
         $plan_json_path = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
-        $global_json_path = $base_path . '/tmi_compliance_results.json';
-
-        $json_path = file_exists($plan_json_path) ? $plan_json_path : $global_json_path;
-        $using_plan_specific = ($json_path === $plan_json_path);
+        $json_path = $plan_json_path;
+        $using_plan_specific = true;
 
         if (file_exists($json_path)) {
             $json_content = file_get_contents($json_path);
