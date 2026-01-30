@@ -2003,8 +2003,15 @@ function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
             $originalContent = formatEntryForDiscord($entryData);
         }
 
-        // Combine approval banner with original content
-        $newContent = implode("\n", $approvalBanner) . "\n" . $originalContent;
+        // Extract just the header (everything before "ROUTES:")
+        // This keeps the advisory info without the lengthy route tables
+        $headerContent = $originalContent;
+        if (preg_match('/^(.*?)(?=\nROUTES:)/s', $originalContent, $matches)) {
+            $headerContent = trim($matches[1]);
+        }
+
+        // Combine approval banner with header only (not full route tables)
+        $newContent = implode("\n", $approvalBanner) . "\n" . $headerContent;
 
         // Update Discord message
         $discord = new DiscordAPI();
