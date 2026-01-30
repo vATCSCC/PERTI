@@ -6962,36 +6962,37 @@
 
                 $tbody.append(`
                     <tr data-idx="${idx}">
-                        <td class="text-center align-middle">
+                        <td class="text-center align-middle" style="padding: 0.15rem;">
                             <input type="checkbox" class="rr-route-select" data-idx="${idx}">
                         </td>
-                        <td>
+                        <td style="padding: 0.15rem;">
                             <input type="text" class="form-control form-control-sm rr-route-origin"
                                    value="${self.escapeHtml(route.origin)}"
-                                   style="font-family: monospace; font-size: 0.75rem;">
+                                   style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem;">
                         </td>
-                        <td>
+                        <td style="padding: 0.15rem;">
                             <input type="text" class="form-control form-control-sm rr-route-orig-filter"
                                    value="${self.escapeHtml(route.originFilter || '')}"
-                                   style="font-family: monospace; font-size: 0.75rem;">
+                                   placeholder="-APT"
+                                   style="font-family: monospace; font-size: 0.65rem; padding: 0.15rem 0.25rem;">
                         </td>
-                        <td>
+                        <td style="padding: 0.15rem;">
                             <input type="text" class="form-control form-control-sm rr-route-dest"
                                    value="${self.escapeHtml(route.destination)}"
-                                   style="font-family: monospace; font-size: 0.75rem;">
+                                   style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem;">
                         </td>
-                        <td>
+                        <td style="padding: 0.15rem;">
                             <input type="text" class="form-control form-control-sm rr-route-dest-filter"
                                    value="${self.escapeHtml(route.destFilter || '')}"
-                                   style="font-family: monospace; font-size: 0.75rem;">
+                                   placeholder="-APT"
+                                   style="font-family: monospace; font-size: 0.65rem; padding: 0.15rem 0.25rem;">
                         </td>
-                        <td>
-                            <input type="text" class="form-control form-control-sm rr-route-string"
-                                   value="${self.escapeHtml(normalizedRoute)}"
-                                   style="font-family: monospace; font-size: 0.75rem;">
+                        <td style="padding: 0.15rem;">
+                            <textarea class="form-control form-control-sm rr-route-string" rows="1"
+                                   style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem; resize: vertical; min-height: 26px;">${self.escapeHtml(normalizedRoute)}</textarea>
                         </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-danger rr-remove-route"
+                        <td style="padding: 0.15rem;">
+                            <button class="btn btn-sm btn-outline-danger rr-remove-route py-0 px-1"
                                     data-idx="${idx}" title="Remove">
                                 <i class="fas fa-times"></i>
                             </button>
@@ -8864,21 +8865,33 @@
             const idx = $tbody.find('tr').length;
             $tbody.append(`
                 <tr data-idx="${idx}">
-                    <td class="text-center align-middle">
+                    <td class="text-center align-middle" style="padding: 0.15rem;">
                         <input type="checkbox" class="rr-route-select" data-idx="${idx}">
                     </td>
-                    <td><input type="text" class="form-control form-control-sm rr-route-origin"
-                               style="font-family: monospace;" placeholder="KABC"></td>
-                    <td><input type="text" class="form-control form-control-sm rr-route-dest"
-                               style="font-family: monospace;" placeholder="KXYZ"></td>
-                    <td><input type="text" class="form-control form-control-sm rr-route-string"
-                               style="font-family: monospace;" placeholder="DCT FIX1 J123 FIX2 DCT"></td>
-                    <td><input type="text" class="form-control form-control-sm rr-route-orig-filter"
-                               style="font-family: monospace; font-size: 0.75rem;" placeholder="-KJFK"></td>
-                    <td><input type="text" class="form-control form-control-sm rr-route-dest-filter"
-                               style="font-family: monospace; font-size: 0.75rem;" placeholder="-KATL"></td>
-                    <td><button class="btn btn-sm btn-outline-danger rr-remove-route"
-                                data-idx="${idx}"><i class="fas fa-times"></i></button></td>
+                    <td style="padding: 0.15rem;">
+                        <input type="text" class="form-control form-control-sm rr-route-origin"
+                               style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem;" placeholder="KABC">
+                    </td>
+                    <td style="padding: 0.15rem;">
+                        <input type="text" class="form-control form-control-sm rr-route-orig-filter"
+                               style="font-family: monospace; font-size: 0.65rem; padding: 0.15rem 0.25rem;" placeholder="-APT">
+                    </td>
+                    <td style="padding: 0.15rem;">
+                        <input type="text" class="form-control form-control-sm rr-route-dest"
+                               style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem;" placeholder="KXYZ">
+                    </td>
+                    <td style="padding: 0.15rem;">
+                        <input type="text" class="form-control form-control-sm rr-route-dest-filter"
+                               style="font-family: monospace; font-size: 0.65rem; padding: 0.15rem 0.25rem;" placeholder="-APT">
+                    </td>
+                    <td style="padding: 0.15rem;">
+                        <textarea class="form-control form-control-sm rr-route-string" rows="1"
+                               style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem; resize: vertical; min-height: 26px;" placeholder="DCT FIX1 J123 FIX2 DCT"></textarea>
+                    </td>
+                    <td style="padding: 0.15rem;">
+                        <button class="btn btn-sm btn-outline-danger rr-remove-route py-0 px-1"
+                                data-idx="${idx}"><i class="fas fa-times"></i></button>
+                    </td>
                 </tr>
             `);
         },

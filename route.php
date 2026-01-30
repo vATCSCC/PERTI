@@ -504,6 +504,7 @@
         .route-main-container {
             display: flex;
             flex-direction: column;
+            margin-bottom: 2rem;
         }
         
         @media (min-width: 992px) {
