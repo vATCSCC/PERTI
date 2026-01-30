@@ -675,11 +675,11 @@ $perm = true;
                                             <th style="width: 30px;">
                                                 <input type="checkbox" id="rr_select_all_routes" title="Select All">
                                             </th>
-                                            <th style="width: 10%;">ORIGIN</th>
-                                            <th style="width: 10%;">DEST</th>
+                                            <th style="width: 8%;">ORIGIN</th>
+                                            <th style="width: 8%;" title="Origin exclusions (e.g., -KJFK -KPHL)">ORIG FILTER</th>
+                                            <th style="width: 8%;">DEST</th>
+                                            <th style="width: 8%;" title="Destination exclusions (e.g., -KATL)">DEST FILTER</th>
                                             <th>ROUTE</th>
-                                            <th style="width: 12%;" title="Origin exclusions (e.g., -KJFK -KPHL)">ORIG FILTER</th>
-                                            <th style="width: 12%;" title="Destination exclusions (e.g., -KATL)">DEST FILTER</th>
                                             <th style="width: 40px;"></th>
                                         </tr>
                                     </thead>
@@ -719,8 +719,31 @@ $perm = true;
                                 </div>
                                 <?php endforeach; ?>
                             </div>
+                            <!-- International Organizations -->
+                            <hr class="my-2">
+                            <div class="d-flex flex-wrap" id="rr_intl_facilities_grid">
+                                <?php
+                                $intlOrgs = [
+                                    'VATCAN' => 'Canada',
+                                    'VATMEX' => 'Mexico',
+                                    'VATCAR' => 'Caribbean',
+                                    'ECFMP' => 'Europe/N. Africa'
+                                ];
+                                foreach ($intlOrgs as $code => $name):
+                                ?>
+                                <div class="custom-control custom-checkbox mr-3 mb-2">
+                                    <input type="checkbox" class="custom-control-input rr-facility-cb rr-intl-org"
+                                           id="rr_fac_<?= $code ?>" value="<?= $code ?>">
+                                    <label class="custom-control-label" for="rr_fac_<?= $code ?>"
+                                           title="<?= $name ?>">
+                                        <?= $code ?>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
                             <small class="text-muted mt-2 d-block">
                                 Select facilities that need to approve this reroute advisory.
+                                International orgs auto-checked based on route coverage.
                             </small>
                         </div>
                     </div>

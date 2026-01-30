@@ -26,7 +26,8 @@
 -- Output: flight_uid, sector_low, sector_high, sector_superhigh
 --
 -- Uses set-based operations for efficiency on large batches.
--- Returns the best-matching sector for each altitude tier.
+-- Returns all sectors containing each position (no altitude filtering).
+-- NOTE: All boundaries treated as SFC to UNL until airspace volumes available.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION detect_sectors_batch_optimized(
     p_flights JSONB
@@ -59,7 +60,7 @@ BEGIN
             ), 4326) AS point_geom
         FROM jsonb_array_elements(p_flights) AS f
     ),
-    -- Find LOW sectors for each flight (altitude < 24000)
+    -- Find LOW sectors (smallest area - no altitude filter)
     low_sectors AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -70,12 +71,9 @@ BEGIN
         LEFT JOIN sector_boundaries sb ON
             sb.sector_type = 'LOW'
             AND ST_Contains(sb.geom, f.point_geom)
-            AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= f.falt)
-            AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= f.falt)
-        WHERE f.falt < 24000
         ORDER BY f.fuid, ST_Area(sb.geom) NULLS LAST
     ),
-    -- Find HIGH sectors for each flight (24000 <= altitude < 45000)
+    -- Find HIGH sectors (smallest area - no altitude filter)
     high_sectors AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -86,12 +84,9 @@ BEGIN
         LEFT JOIN sector_boundaries sb ON
             sb.sector_type = 'HIGH'
             AND ST_Contains(sb.geom, f.point_geom)
-            AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= f.falt)
-            AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= f.falt)
-        WHERE f.falt >= 24000 AND f.falt < 45000
         ORDER BY f.fuid, ST_Area(sb.geom) NULLS LAST
     ),
-    -- Find SUPERHIGH sectors for each flight (altitude >= 45000)
+    -- Find SUPERHIGH sectors (smallest area - no altitude filter)
     superhigh_sectors AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -102,9 +97,6 @@ BEGIN
         LEFT JOIN sector_boundaries sb ON
             sb.sector_type = 'SUPERHIGH'
             AND ST_Contains(sb.geom, f.point_geom)
-            AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= f.falt)
-            AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= f.falt)
-        WHERE f.falt >= 45000
         ORDER BY f.fuid, ST_Area(sb.geom) NULLS LAST
     )
     SELECT
@@ -126,18 +118,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION detect_sectors_batch_optimized IS 'Batch sector detection - returns LOW/HIGH/SUPERHIGH sectors for each flight based on altitude';
+COMMENT ON FUNCTION detect_sectors_batch_optimized IS 'Batch sector detection - all boundaries SFC to UNL';
 
 -- -----------------------------------------------------------------------------
--- 2. detect_all_sectors_for_flight - Get all applicable sectors at a point
+-- 2. detect_all_sectors_for_flight - Get all sectors at a point
 -- -----------------------------------------------------------------------------
--- Returns all sectors (any tier) that contain the flight position and
--- match the altitude. Useful for detailed analysis.
+-- Returns all sectors (any tier) that contain the flight position.
+-- NOTE: All boundaries treated as SFC to UNL (no altitude filtering).
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION detect_all_sectors_for_flight(
     p_lat DECIMAL(10,6),
     p_lon DECIMAL(11,6),
-    p_altitude INT
+    p_altitude INT DEFAULT 0
 )
 RETURNS TABLE (
     sector_code VARCHAR(16),
@@ -145,23 +137,12 @@ RETURNS TABLE (
     parent_artcc VARCHAR(4),
     sector_type VARCHAR(16),
     floor_altitude INT,
-    ceiling_altitude INT,
-    is_active_for_altitude BOOLEAN
+    ceiling_altitude INT
 ) AS $$
 DECLARE
     point_geom GEOMETRY;
-    altitude_tier VARCHAR(16);
 BEGIN
     point_geom := ST_SetSRID(ST_MakePoint(p_lon, p_lat), 4326);
-
-    -- Determine which tier this altitude falls into
-    IF p_altitude < 24000 THEN
-        altitude_tier := 'LOW';
-    ELSIF p_altitude < 45000 THEN
-        altitude_tier := 'HIGH';
-    ELSE
-        altitude_tier := 'SUPERHIGH';
-    END IF;
 
     RETURN QUERY
     SELECT
@@ -170,26 +151,23 @@ BEGIN
         sb.parent_artcc,
         sb.sector_type,
         sb.floor_altitude,
-        sb.ceiling_altitude,
-        (sb.sector_type = altitude_tier) AS is_active_for_altitude
+        sb.ceiling_altitude
     FROM sector_boundaries sb
     WHERE ST_Contains(sb.geom, point_geom)
-      AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= p_altitude)
-      AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= p_altitude)
     ORDER BY
-        (sb.sector_type = altitude_tier) DESC,  -- Active tier first
         sb.sector_type,
         ST_Area(sb.geom);
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION detect_all_sectors_for_flight IS 'Returns all sectors containing a point that match the altitude filter';
+COMMENT ON FUNCTION detect_all_sectors_for_flight IS 'Returns all sectors containing a point - all boundaries SFC to UNL';
 
 -- -----------------------------------------------------------------------------
 -- 3. Combined boundary + sector batch detection
 -- -----------------------------------------------------------------------------
 -- This function combines ARTCC/TRACON and sector detection in one call
 -- for maximum efficiency. Returns all boundary information in one query.
+-- NOTE: All boundaries treated as SFC to UNL (no altitude filtering)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION detect_boundaries_and_sectors_batch(
     p_flights JSONB
@@ -223,7 +201,7 @@ BEGIN
             ), 4326) AS point_geom
         FROM jsonb_array_elements(p_flights) AS f
     ),
-    -- ARTCC detection
+    -- ARTCC detection (prefer non-oceanic, smallest area)
     artcc_matches AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -234,22 +212,17 @@ BEGIN
         LEFT JOIN artcc_boundaries ab ON ST_Contains(ab.geom, f.point_geom)
         ORDER BY f.fuid, COALESCE(ab.is_oceanic, FALSE), ST_Area(ab.geom) NULLS LAST
     ),
-    -- TRACON detection (only for low altitude)
+    -- TRACON detection (smallest area - no altitude filter)
     tracon_matches AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
             tb.tracon_code,
             tb.tracon_name
         FROM flights f
-        LEFT JOIN tracon_boundaries tb ON
-            f.falt < 18000
-            AND ST_Contains(tb.geom, f.point_geom)
-            AND (tb.floor_altitude IS NULL OR tb.floor_altitude <= f.falt)
-            AND (tb.ceiling_altitude IS NULL OR tb.ceiling_altitude >= f.falt)
-        WHERE f.falt < 18000
+        LEFT JOIN tracon_boundaries tb ON ST_Contains(tb.geom, f.point_geom)
         ORDER BY f.fuid, ST_Area(tb.geom) NULLS LAST
     ),
-    -- LOW sector detection
+    -- LOW sector detection (smallest area - no altitude filter)
     low_sectors AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -258,12 +231,9 @@ BEGIN
         LEFT JOIN sector_boundaries sb ON
             sb.sector_type = 'LOW'
             AND ST_Contains(sb.geom, f.point_geom)
-            AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= f.falt)
-            AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= f.falt)
-        WHERE f.falt < 24000
         ORDER BY f.fuid, ST_Area(sb.geom) NULLS LAST
     ),
-    -- HIGH sector detection
+    -- HIGH sector detection (smallest area - no altitude filter)
     high_sectors AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -272,12 +242,9 @@ BEGIN
         LEFT JOIN sector_boundaries sb ON
             sb.sector_type = 'HIGH'
             AND ST_Contains(sb.geom, f.point_geom)
-            AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= f.falt)
-            AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= f.falt)
-        WHERE f.falt >= 24000 AND f.falt < 45000
         ORDER BY f.fuid, ST_Area(sb.geom) NULLS LAST
     ),
-    -- SUPERHIGH sector detection
+    -- SUPERHIGH sector detection (smallest area - no altitude filter)
     superhigh_sectors AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -286,9 +253,6 @@ BEGIN
         LEFT JOIN sector_boundaries sb ON
             sb.sector_type = 'SUPERHIGH'
             AND ST_Contains(sb.geom, f.point_geom)
-            AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= f.falt)
-            AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= f.falt)
-        WHERE f.falt >= 45000
         ORDER BY f.fuid, ST_Area(sb.geom) NULLS LAST
     )
     SELECT
@@ -304,11 +268,11 @@ BEGIN
         l.sector_code AS sector_low,
         h.sector_code AS sector_high,
         s.sector_code AS sector_superhigh,
-        CASE
+        (CASE
             WHEN f.falt < 24000 THEN 'LOW'
             WHEN f.falt < 45000 THEN 'HIGH'
             ELSE 'SUPERHIGH'
-        END AS sector_strata
+        END)::VARCHAR(10) AS sector_strata
     FROM flights f
     LEFT JOIN artcc_matches a ON f.fuid = a.fuid
     LEFT JOIN tracon_matches t ON f.fuid = t.fuid
@@ -318,7 +282,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION detect_boundaries_and_sectors_batch IS 'Combined ARTCC/TRACON/Sector detection for maximum efficiency';
+COMMENT ON FUNCTION detect_boundaries_and_sectors_batch IS 'Combined ARTCC/TRACON/Sector detection - all boundaries SFC to UNL';
 
 -- =============================================================================
 -- GRANT PERMISSIONS (adjust as needed)

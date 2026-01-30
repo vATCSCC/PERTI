@@ -856,10 +856,8 @@ class GISService
     /**
      * Detect sectors for multiple flights at once (batch)
      *
-     * Returns LOW, HIGH, and SUPERHIGH sectors based on altitude:
-     *   LOW: altitude < 24000 ft
-     *   HIGH: 24000 <= altitude < 45000 ft
-     *   SUPERHIGH: altitude >= 45000 ft
+     * Returns LOW, HIGH, and SUPERHIGH sectors containing each position.
+     * All boundaries are treated as SFC to UNL (no altitude filtering).
      *
      * @param array $flights Array of [flight_uid, lat, lon, altitude]
      * @return array Results with sector info for each flight
