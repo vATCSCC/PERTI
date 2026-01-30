@@ -6769,15 +6769,17 @@ $(document).ready(function() {
 
         const data = await response.json();
 
-        // Normalize ARTCCs (strip K prefix, keep only Z** codes)
-        const usArtccs = (data.artccs_all || [])
-            .map(a => a.replace(/^K/, ''))
-            .filter(a => /^Z[A-Z]{2}$/.test(a))
-            .filter((v, i, arr) => arr.indexOf(v) === i)
+        // Normalize ARTCCs - keep all facility codes including international
+        // US ARTCCs: Z** (ZNY, ZDC, etc.)
+        // Canadian FIRs: CZ** (CZYZ, CZUL, etc.) or C** (CZY)
+        // Other international facilities included as-is
+        const allArtccs = (data.artccs_all || [])
+            .map(a => a.replace(/^K/, '').toUpperCase())  // Strip K prefix if present
+            .filter((v, i, arr) => arr.indexOf(v) === i)   // Dedupe
             .sort();
 
         return {
-            artccs: usArtccs,
+            artccs: allArtccs,
             raw: data
         };
     }
@@ -6788,10 +6790,11 @@ $(document).ready(function() {
     function extractFacilitiesFromRoutes(routes) {
         const artccs = new Set();
         routes.forEach(r => {
-            (r.origArtccs || []).forEach(a => artccs.add(a));
-            (r.destArtccs || []).forEach(a => artccs.add(a));
+            (r.origArtccs || []).forEach(a => artccs.add(a.toUpperCase()));
+            (r.destArtccs || []).forEach(a => artccs.add(a.toUpperCase()));
         });
-        return Array.from(artccs).filter(a => /^Z[A-Z]{2}$/.test(a)).sort();
+        // Keep all facility codes including international
+        return Array.from(artccs).sort();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
