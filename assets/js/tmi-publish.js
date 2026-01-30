@@ -7599,11 +7599,11 @@
             // Calculate column widths based on content (including filters)
             let maxOrigLen = 4, maxDestLen = 4;
             routes.forEach(r => {
-                // Include filter in origin/dest length calculation
+                // Include filter in origin/dest length calculation (filters in parentheses)
                 let origWithFilter = (r.origin || '');
-                if (r.originFilter) origWithFilter += ' ' + r.originFilter;
+                if (r.originFilter) origWithFilter += ' (' + r.originFilter + ')';
                 let destWithFilter = (r.destination || '');
-                if (r.destFilter) destWithFilter += ' ' + r.destFilter;
+                if (r.destFilter) destWithFilter += ' (' + r.destFilter + ')';
                 maxOrigLen = Math.max(maxOrigLen, origWithFilter.length);
                 maxDestLen = Math.max(maxDestLen, destWithFilter.length);
             });
@@ -7621,40 +7621,41 @@
                 destFilter = (destFilter || '').toUpperCase().trim();
                 routeText = (routeText || '').toUpperCase().trim();
 
-                // Append filters to origin/dest
-                if (origFilter) orig = orig + ' ' + origFilter;
-                if (destFilter) dest = dest + ' ' + destFilter;
+                // Append filters to origin/dest in parentheses
+                if (origFilter) orig = orig + ' (' + origFilter + ')';
+                if (destFilter) dest = dest + ' (' + destFilter + ')';
 
                 const rowLines = [];
                 const routeTokens = routeText.length ? routeText.split(/\s+/).filter(Boolean) : [];
 
-                // Handle multi-item origins (slash-separated)
-                const origItems = orig.trim() ? orig.trim().split('/').filter(Boolean) : [];
+                // Handle multi-item origins/dests (space-separated)
+                const origItems = orig.trim() ? orig.trim().split(/\s+/).filter(Boolean) : [];
+                const destItems = dest.trim() ? dest.trim().split(/\s+/).filter(Boolean) : [];
 
-                // Chunk origin items to fit in column
-                const chunkOriginsToFit = (items, maxLen) => {
+                // Chunk items to fit in column (space-delimited)
+                const chunkItemsToFit = (items, maxLen) => {
                     if (!items.length) return [''];
                     const chunks = [];
                     let current = [];
                     let currentLen = 0;
 
                     items.forEach(item => {
-                        const slashLen = current.length > 0 ? 1 : 0;
-                        if (currentLen + slashLen + item.length > maxLen && current.length > 0) {
-                            chunks.push(current.join('/'));
+                        const spaceLen = current.length > 0 ? 1 : 0;
+                        if (currentLen + spaceLen + item.length > maxLen && current.length > 0) {
+                            chunks.push(current.join(' '));
                             current = [item];
                             currentLen = item.length;
                         } else {
                             current.push(item);
-                            currentLen += slashLen + item.length;
+                            currentLen += spaceLen + item.length;
                         }
                     });
-                    if (current.length) chunks.push(current.join('/'));
+                    if (current.length) chunks.push(current.join(' '));
                     return chunks.length ? chunks : [''];
                 };
 
-                const origChunks = chunkOriginsToFit(origItems, origColWidth - 2);
-                const destChunks = [dest]; // Usually single dest
+                const origChunks = chunkItemsToFit(origItems, origColWidth - 2);
+                const destChunks = chunkItemsToFit(destItems, destColWidth - 2);
                 const maxColumnLines = Math.max(origChunks.length, destChunks.length, 1);
                 const words = routeTokens.slice();
                 let lineIndex = 0;
@@ -7903,24 +7904,20 @@
                         const pivotIdx = r.tokens.indexOf(pivotWpt);
                         if (pivotIdx < 0) return;
 
-                        // Origin segment: everything up to pivot (excluding origin airport)
-                        let origTokens = r.tokens.slice(0, pivotIdx);
+                        // Origin segment: everything up to and including pivot (excluding origin airport)
+                        let origTokens = r.tokens.slice(0, pivotIdx + 1);
                         if (origTokens.length > 0 && origTokens[0] === r.origDisplay) {
                             origTokens = origTokens.slice(1);
                         }
 
-                        // Dest segment: everything after pivot (excluding dest airport)
-                        let destTokens = r.tokens.slice(pivotIdx + 1);
+                        // Dest segment: everything from pivot onwards (excluding dest airport)
+                        let destTokens = r.tokens.slice(pivotIdx);
                         if (destTokens.length > 0 && destTokens[destTokens.length - 1] === r.destDisplay) {
                             destTokens = destTokens.slice(0, -1);
                         }
 
-                        const origSeg = origTokens.length > 0
-                            ? origTokens.join(' ') + ' >' + pivotWpt
-                            : '>' + pivotWpt;
-                        const destSeg = destTokens.length > 0
-                            ? pivotWpt + '< ' + destTokens.join(' ')
-                            : pivotWpt + '<';
+                        const origSeg = origTokens.join(' ');
+                        const destSeg = destTokens.join(' ');
 
                         originSegs.push({
                             origin: r.origDisplay,
@@ -7958,120 +7955,134 @@
                 return this.formatSplitByOriginDest(tokenizedRoutes, MAX_LINE, LABEL_WIDTH);
             }
 
-            // Format helper for split rows - proper column alignment
+            // Format helper for split rows - handles label AND route wrapping
+            // Labels (origin/dest + filters) wrap within their column if too long
+            // Routes wrap in the route column
             const formatSplitRow = (label, routeText, labelCol = LABEL_WIDTH) => {
                 label = (label || '').toUpperCase().trim();
                 routeText = (routeText || '').toUpperCase().trim();
 
+                // Split label into words (space-delimited airports/filters)
+                const labelWords = label.split(/\s+/).filter(Boolean);
+                const routeWords = routeText.split(/\s+/).filter(Boolean);
+
                 const lines = [];
-                const routeTokens = routeText.split(/\s+/).filter(Boolean);
-                const words = routeTokens.slice();
-                let lineIndex = 0;
+                let labelIdx = 0;
+                let routeIdx = 0;
 
-                while (lineIndex === 0 || words.length) {
-                    const lStr = lineIndex === 0 ? label : '';
-                    const labelPad = lStr.padEnd(labelCol);
-                    let current = labelPad;
-                    const baseLen = current.length;
-
-                    if (words.length) {
-                        while (words.length) {
-                            const word = words[0];
-                            const atStart = (current.length === baseLen);
-                            const addition = atStart ? word : ' ' + word;
-                            if (current.length + addition.length <= MAX_LINE) {
-                                current += addition;
-                                words.shift();
-                            } else {
-                                if (atStart && current.length + word.length > MAX_LINE) {
-                                    current += word;
-                                    words.shift();
-                                }
-                                break;
-                            }
+                // Continue until both label and route are exhausted
+                while (labelIdx < labelWords.length || routeIdx < routeWords.length) {
+                    // Build label portion for this line
+                    let labelPart = '';
+                    while (labelIdx < labelWords.length) {
+                        const word = labelWords[labelIdx];
+                        const addition = labelPart ? ' ' + word : word;
+                        if (labelPart.length + addition.length <= labelCol - 2) { // Leave 2 chars padding
+                            labelPart += addition;
+                            labelIdx++;
+                        } else if (!labelPart) {
+                            // Single word too long - take it anyway
+                            labelPart = word.substring(0, labelCol - 2);
+                            labelIdx++;
+                            break;
+                        } else {
+                            break;
                         }
                     }
-                    lines.push(current.trimEnd());
-                    lineIndex++;
+
+                    // Build route portion for this line
+                    let routePart = '';
+                    const routeColWidth = MAX_LINE - labelCol;
+                    while (routeIdx < routeWords.length) {
+                        const word = routeWords[routeIdx];
+                        const addition = routePart ? ' ' + word : word;
+                        if (routePart.length + addition.length <= routeColWidth) {
+                            routePart += addition;
+                            routeIdx++;
+                        } else if (!routePart) {
+                            // Single word too long - take it anyway
+                            routePart = word;
+                            routeIdx++;
+                            break;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    lines.push(labelPart.padEnd(labelCol) + routePart);
                 }
-                return lines.length ? lines : [''];
-            };
 
-            // Helper to format a pivot group's segments
-            const formatPivotGroup = (group) => {
-                let groupOutput = '';
-
-                // FROM section for this pivot group
-                groupOutput += 'FROM:\n';
-                groupOutput += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE\n';
-                groupOutput += '----'.padEnd(LABEL_WIDTH) + '-----\n';
-
-                // Dedupe and group origin segments
-                const byOrigSeg = {};
-                group.originSegs.forEach(s => {
-                    const origKey = s.origin + (s.originFilter ? ' ' + s.originFilter : '');
-                    const fullKey = origKey + '|||' + s.segment;
-                    if (!byOrigSeg[fullKey]) {
-                        byOrigSeg[fullKey] = { origin: origKey, segment: s.segment };
-                    }
-                });
-
-                const byOrig = {};
-                Object.values(byOrigSeg).forEach(item => {
-                    if (!byOrig[item.origin]) byOrig[item.origin] = new Set();
-                    byOrig[item.origin].add(item.segment);
-                });
-
-                Object.keys(byOrig).sort().forEach(orig => {
-                    const segments = Array.from(byOrig[orig]).sort();
-                    segments.forEach(seg => {
-                        formatSplitRow(orig, seg).forEach(line => {
-                            groupOutput += line + '\n';
-                        });
-                    });
-                });
-
-                groupOutput += '\n';
-
-                // TO section for this pivot group
-                groupOutput += 'TO:\n';
-                groupOutput += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE\n';
-                groupOutput += '----'.padEnd(LABEL_WIDTH) + '-----\n';
-
-                // Dedupe and group dest segments
-                const byDestSeg = {};
-                group.destSegs.forEach(s => {
-                    const destKey = s.destination + (s.destFilter ? ' ' + s.destFilter : '');
-                    const fullKey = destKey + '|||' + s.segment;
-                    if (!byDestSeg[fullKey]) {
-                        byDestSeg[fullKey] = { destination: destKey, segment: s.segment };
-                    }
-                });
-
-                const byDest = {};
-                Object.values(byDestSeg).forEach(item => {
-                    if (!byDest[item.destination]) byDest[item.destination] = new Set();
-                    byDest[item.destination].add(item.segment);
-                });
-
-                Object.keys(byDest).sort().forEach(dest => {
-                    const segments = Array.from(byDest[dest]).sort();
-                    segments.forEach(seg => {
-                        formatSplitRow(dest, seg).forEach(line => {
-                            groupOutput += line + '\n';
-                        });
-                    });
-                });
-
-                return groupOutput;
+                return lines.length ? lines.map(l => l.trimEnd()) : [''];
             };
 
             let output = '';
 
-            // Output each pivot group
-            pivotGroups.forEach((group, idx) => {
-                if (idx > 0) output += '\n';
-                output += formatPivotGroup(group);
+            // Combine all origin/dest segments from all pivot groups into single sections
+            const allOriginSegs = [];
+            const allDestSegs = [];
+            pivotGroups.forEach(group => {
+                allOriginSegs.push(...group.originSegs);
+                allDestSegs.push(...group.destSegs);
+            });
+
+            // FROM section - all origins combined
+            output += 'FROM:\n';
+            output += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE - ORIGIN SEGMENTS\n';
+            output += '----'.padEnd(LABEL_WIDTH) + '-----------------------\n';
+
+            const byOrigSeg = {};
+            allOriginSegs.forEach(s => {
+                const origKey = s.origin + (s.originFilter ? ' (' + s.originFilter + ')' : '');
+                const fullKey = origKey + '|||' + s.segment;
+                if (!byOrigSeg[fullKey]) {
+                    byOrigSeg[fullKey] = { origin: origKey, segment: s.segment };
+                }
+            });
+
+            const byOrig = {};
+            Object.values(byOrigSeg).forEach(item => {
+                if (!byOrig[item.origin]) byOrig[item.origin] = new Set();
+                byOrig[item.origin].add(item.segment);
+            });
+
+            Object.keys(byOrig).sort().forEach(orig => {
+                const segments = Array.from(byOrig[orig]).sort();
+                segments.forEach(seg => {
+                    formatSplitRow(orig, seg).forEach(line => {
+                        output += line + '\n';
+                    });
+                });
+            });
+
+            output += '\n';
+
+            // TO section - all destinations combined
+            output += 'TO:\n';
+            output += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE - DESTINATION SEGMENTS\n';
+            output += '----'.padEnd(LABEL_WIDTH) + '----------------------------\n';
+
+            const byDestSeg = {};
+            allDestSegs.forEach(s => {
+                const destKey = s.destination + (s.destFilter ? ' (' + s.destFilter + ')' : '');
+                const fullKey = destKey + '|||' + s.segment;
+                if (!byDestSeg[fullKey]) {
+                    byDestSeg[fullKey] = { destination: destKey, segment: s.segment };
+                }
+            });
+
+            const byDest = {};
+            Object.values(byDestSeg).forEach(item => {
+                if (!byDest[item.destination]) byDest[item.destination] = new Set();
+                byDest[item.destination].add(item.segment);
+            });
+
+            Object.keys(byDest).sort().forEach(dest => {
+                const segments = Array.from(byDest[dest]).sort();
+                segments.forEach(seg => {
+                    formatSplitRow(dest, seg).forEach(line => {
+                        output += line + '\n';
+                    });
+                });
             });
 
             // Show unmatched routes if any
@@ -8097,42 +8108,56 @@
          * Falls back to grouping by origin for FROM and by dest for TO
          */
         formatSplitByOriginDest: function(routes, maxLine, labelWidth) {
+            // Format helper - handles label AND route wrapping
             const formatSplitRow = (label, routeText) => {
                 label = (label || '').toUpperCase().trim();
                 routeText = (routeText || '').toUpperCase().trim();
 
+                const labelWords = label.split(/\s+/).filter(Boolean);
+                const routeWords = routeText.split(/\s+/).filter(Boolean);
+
                 const lines = [];
-                const routeTokens = routeText.split(/\s+/).filter(Boolean);
-                const words = routeTokens.slice();
-                let lineIndex = 0;
+                let labelIdx = 0;
+                let routeIdx = 0;
 
-                while (lineIndex === 0 || words.length) {
-                    const lStr = lineIndex === 0 ? label : '';
-                    const labelPad = lStr.padEnd(labelWidth);
-                    let current = labelPad;
-                    const baseLen = current.length;
-
-                    if (words.length) {
-                        while (words.length) {
-                            const word = words[0];
-                            const atStart = (current.length === baseLen);
-                            const addition = atStart ? word : ' ' + word;
-                            if (current.length + addition.length <= maxLine) {
-                                current += addition;
-                                words.shift();
-                            } else {
-                                if (atStart && current.length + word.length > maxLine) {
-                                    current += word;
-                                    words.shift();
-                                }
-                                break;
-                            }
+                while (labelIdx < labelWords.length || routeIdx < routeWords.length) {
+                    let labelPart = '';
+                    while (labelIdx < labelWords.length) {
+                        const word = labelWords[labelIdx];
+                        const addition = labelPart ? ' ' + word : word;
+                        if (labelPart.length + addition.length <= labelWidth - 2) {
+                            labelPart += addition;
+                            labelIdx++;
+                        } else if (!labelPart) {
+                            labelPart = word.substring(0, labelWidth - 2);
+                            labelIdx++;
+                            break;
+                        } else {
+                            break;
                         }
                     }
-                    lines.push(current.trimEnd());
-                    lineIndex++;
+
+                    let routePart = '';
+                    const routeColWidth = maxLine - labelWidth;
+                    while (routeIdx < routeWords.length) {
+                        const word = routeWords[routeIdx];
+                        const addition = routePart ? ' ' + word : word;
+                        if (routePart.length + addition.length <= routeColWidth) {
+                            routePart += addition;
+                            routeIdx++;
+                        } else if (!routePart) {
+                            routePart = word;
+                            routeIdx++;
+                            break;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    lines.push(labelPart.padEnd(labelWidth) + routePart);
                 }
-                return lines.length ? lines : [''];
+
+                return lines.length ? lines.map(l => l.trimEnd()) : [''];
             };
 
             let output = '';
@@ -8140,7 +8165,7 @@
             // Group by origin
             const byOrig = {};
             routes.forEach(r => {
-                const origKey = r.origDisplay + (r.origFilter ? ' ' + r.origFilter : '');
+                const origKey = r.origDisplay + (r.origFilter ? ' (' + r.origFilter + ')' : '');
                 if (!byOrig[origKey]) byOrig[origKey] = [];
                 byOrig[origKey].push(r);
             });
@@ -8152,13 +8177,12 @@
 
             Object.keys(byOrig).sort().forEach(orig => {
                 const origRoutes = byOrig[orig];
-                // Get unique route strings for this origin
                 const seenRoutes = new Set();
                 origRoutes.forEach(r => {
                     const routeStr = r.tokens.join(' ');
                     if (routeStr && !seenRoutes.has(routeStr)) {
                         seenRoutes.add(routeStr);
-                        formatSplitRow(orig, '>' + routeStr).forEach(line => {
+                        formatSplitRow(orig, routeStr).forEach(line => {
                             output += line + '\n';
                         });
                     }
@@ -8170,7 +8194,7 @@
             // Group by destination
             const byDest = {};
             routes.forEach(r => {
-                const destKey = r.destDisplay + (r.destFilter ? ' ' + r.destFilter : '');
+                const destKey = r.destDisplay + (r.destFilter ? ' (' + r.destFilter + ')' : '');
                 if (!byDest[destKey]) byDest[destKey] = [];
                 byDest[destKey].push(r);
             });
@@ -8187,7 +8211,7 @@
                     const routeStr = r.tokens.join(' ');
                     if (routeStr && !seenRoutes.has(routeStr)) {
                         seenRoutes.add(routeStr);
-                        formatSplitRow(dest, routeStr + '<').forEach(line => {
+                        formatSplitRow(dest, routeStr).forEach(line => {
                             output += line + '\n';
                         });
                     }
