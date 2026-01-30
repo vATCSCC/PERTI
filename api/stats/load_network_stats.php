@@ -154,6 +154,19 @@ try {
 
     sqlsrv_close($conn);
 
+    // Regenerate the analytics cache after successful data load
+    $cacheResult = null;
+    $cacheGeneratorPath = __DIR__ . '/generate_cache.php';
+    if (file_exists($cacheGeneratorPath)) {
+        // Include the cache generator (runs synchronously)
+        ob_start();
+        $_GET['internal'] = '1'; // Mark as internal call
+        include $cacheGeneratorPath;
+        $cacheOutput = ob_get_clean();
+        $cacheResult = json_decode($cacheOutput, true);
+        unset($_GET['internal']);
+    }
+
     $response = [
         'success' => true,
         'timestamp' => $snapshotTime,
@@ -163,7 +176,8 @@ try {
             'prefiles' => $totalPrefiles
         ],
         'inserted' => $lastRow,
-        'source' => 'vatsim_api_v3'
+        'source' => 'vatsim_api_v3',
+        'cache_regenerated' => $cacheResult ? ($cacheResult['success'] ?? false) : false
     ];
 
     echo json_encode($response, JSON_PRETTY_PRINT);

@@ -5,6 +5,11 @@
  * Provides comprehensive network statistics for the documentation dashboard.
  * Queries VATSIM_STATS database for historical trends, seasonality, and growth metrics.
  *
+ * CACHING: Static sections (all, overview, growth, seasonality, regional, events,
+ * distribution, heatmap) are served from a pre-computed cache file that's regenerated
+ * every 5 minutes by generate_cache.php. Dynamic sections (drilldown, timeseries,
+ * compare, anomalies) still query the database directly.
+ *
  * Usage:
  *   GET /api/stats/network_analysis.php
  *   GET /api/stats/network_analysis.php?section=overview
@@ -13,7 +18,7 @@
  *   GET /api/stats/network_analysis.php?section=regional
  *   GET /api/stats/network_analysis.php?section=events
  *
- * Drill-down endpoints:
+ * Drill-down endpoints (dynamic, not cached):
  *   GET ?section=heatmap                          - Hour×Day heatmap matrix
  *   GET ?section=timeseries&year=2025             - Daily data for year
  *   GET ?section=timeseries&year=2025&month=1     - Hourly data for month
@@ -30,7 +35,64 @@ header('Cache-Control: public, max-age=300'); // Cache for 5 minutes
 
 require_once __DIR__ . '/config_stats.php';
 
-// Connect to VATSIM_STATS
+// ============================================================================
+// CACHE CONFIGURATION
+// ============================================================================
+define('CACHE_DIR', sys_get_temp_dir() . '/vatsim_stats_cache');
+define('CACHE_TTL', 300); // 5 minutes
+
+// Sections that can be served from cache (no dynamic parameters)
+$cachedSections = ['all', 'overview', 'growth', 'seasonality', 'regional', 'events', 'distribution', 'heatmap'];
+
+$section = isset($_GET['section']) ? $_GET['section'] : 'all';
+
+// Check if this section can be served from cache
+if (in_array($section, $cachedSections)) {
+    $cacheFile = CACHE_DIR . '/network_analysis_all.json';
+
+    // Check if cache exists and is fresh
+    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < CACHE_TTL) {
+        $cachedData = json_decode(file_get_contents($cacheFile), true);
+
+        if ($cachedData) {
+            // For 'all' section, return everything
+            if ($section === 'all') {
+                $cachedData['served_from'] = 'cache';
+                $cachedData['cache_age_seconds'] = time() - filemtime($cacheFile);
+                echo json_encode($cachedData, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
+                exit;
+            }
+
+            // For specific sections, extract just that section
+            if ($section === 'heatmap' && isset($cachedData['heatmap'])) {
+                echo json_encode([
+                    'generated_at' => $cachedData['generated_at'],
+                    'data_source' => 'VATSIM_STATS',
+                    'served_from' => 'cache',
+                    'heatmap' => $cachedData['heatmap']
+                ], JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
+                exit;
+            }
+
+            if (isset($cachedData[$section])) {
+                echo json_encode([
+                    'generated_at' => $cachedData['generated_at'],
+                    'data_source' => 'VATSIM_STATS',
+                    'served_from' => 'cache',
+                    $section => $cachedData[$section]
+                ], JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
+                exit;
+            }
+        }
+    }
+
+    // Cache miss or stale - try to regenerate in background (non-blocking)
+    // Fall through to database queries below
+}
+
+// ============================================================================
+// DATABASE CONNECTION (only needed for cache miss or dynamic queries)
+// ============================================================================
 if (!function_exists('sqlsrv_connect')) {
     http_response_code(500);
     echo json_encode(['error' => 'sqlsrv extension not loaded']);
@@ -50,8 +112,6 @@ if ($conn === false) {
     echo json_encode(['error' => 'Database connection failed']);
     exit;
 }
-
-$section = isset($_GET['section']) ? $_GET['section'] : 'all';
 
 // Drill-down parameters
 $year = isset($_GET['year']) ? (int)$_GET['year'] : null;
@@ -688,5 +748,27 @@ if ($section === 'anomalies') {
 }
 
 sqlsrv_close($conn);
+
+// ============================================================================
+// CACHE WRITE (if we just computed full data and cache was stale)
+// ============================================================================
+if ($section === 'all' && isset($response['overview']) && isset($response['growth'])) {
+    // Ensure cache directory exists
+    if (!is_dir(CACHE_DIR)) {
+        @mkdir(CACHE_DIR, 0755, true);
+    }
+
+    // Write cache atomically
+    $cacheFile = CACHE_DIR . '/network_analysis_all.json';
+    $tempFile = $cacheFile . '.tmp';
+    $json = json_encode($response, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
+
+    if (@file_put_contents($tempFile, $json, LOCK_EX) !== false) {
+        @rename($tempFile, $cacheFile);
+    }
+}
+
+// Mark response as fresh from database
+$response['served_from'] = 'database';
 
 echo json_encode($response, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);

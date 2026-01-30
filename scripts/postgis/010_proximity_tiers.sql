@@ -172,7 +172,7 @@ BEGIN
     -- Cleanup
     DROP TABLE IF EXISTS _proximity_visited;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql;  -- Must be VOLATILE (default) because it creates temp tables
 
 COMMENT ON FUNCTION get_proximity_tiers IS 'Get all boundaries within N tiers of a given boundary. LINE adjacencies = whole tier, POINT adjacencies = half tier.';
 
@@ -223,11 +223,11 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     SELECT
-        pt.tier,
-        pt.boundary_type,
-        pt.boundary_code,
-        pt.boundary_name,
-        pt.adjacency_class
+        pt.tier::FLOAT AS tier,
+        pt.boundary_type::VARCHAR(20) AS boundary_type,
+        pt.boundary_code::VARCHAR(50) AS boundary_code,
+        pt.boundary_name::VARCHAR(64) AS boundary_name,
+        pt.adjacency_class::VARCHAR(10) AS adjacency_class
     FROM get_proximity_tiers(
         p_boundary_type,
         p_boundary_code,
@@ -258,14 +258,14 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     SELECT
-        pt.tier,
+        pt.tier::FLOAT AS tier,
         COUNT(*)::INT AS boundary_count,
-        array_agg(pt.boundary_code ORDER BY pt.boundary_code) AS boundary_codes
+        array_agg(pt.boundary_code ORDER BY pt.boundary_code)::TEXT[] AS boundary_codes
     FROM get_proximity_tiers(p_boundary_type, p_boundary_code, p_max_tier, p_same_type_only) pt
     GROUP BY pt.tier
     ORDER BY pt.tier;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql STABLE;
 
 COMMENT ON FUNCTION get_proximity_summary IS 'Get summary of boundary counts per tier';
 

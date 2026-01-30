@@ -2626,10 +2626,12 @@ function publishRerouteToAdvisories($conn, $rerouteId, $rawText, $entryData) {
             // Update reroute with Discord message ID
             $updateSql = "UPDATE dbo.tmi_reroutes SET
                               discord_message_id = :msg_id,
-                              discord_posted_at = SYSUTCDATETIME()
+                              discord_channel_id = :channel_id,
+                              updated_at = SYSUTCDATETIME()
                           WHERE reroute_id = :rr_id";
             $conn->prepare($updateSql)->execute([
                 ':msg_id' => $result['id'],
+                ':channel_id' => $result['channel_id'] ?? null,
                 ':rr_id' => $rerouteId
             ]);
 
@@ -2839,19 +2841,14 @@ function publishRouteToAdvisories($conn, $routeId, $rawText, $entryData) {
             }
         }
 
-        // Update route record with Discord message info
+        // Update route record timestamp after Discord post
+        // Note: tmi_public_routes doesn't have discord columns, just update timestamp
         if ($firstMessageId && $routeId) {
             $updateSql = "UPDATE dbo.tmi_public_routes SET
-                              discord_message_id = :message_id,
-                              discord_channel_id = :channel_id,
-                              discord_posted_at = SYSUTCDATETIME()
+                              updated_at = SYSUTCDATETIME()
                           WHERE route_id = :route_id";
             $updateStmt = $conn->prepare($updateSql);
-            $updateStmt->execute([
-                ':message_id' => $firstMessageId,
-                ':channel_id' => $channelId,
-                ':route_id' => $routeId
-            ]);
+            $updateStmt->execute([':route_id' => $routeId]);
         }
 
         return [
