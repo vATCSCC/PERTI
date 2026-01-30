@@ -237,6 +237,11 @@ $perm = true;
             </a>
         </li>
         <li class="nav-item">
+            <a class="nav-link" id="reroute-tab" data-toggle="tab" href="#reroutePanel" role="tab">
+                <i class="fas fa-route mr-1"></i> Reroute
+            </a>
+        </li>
+        <li class="nav-item">
             <a class="nav-link" id="queue-tab" data-toggle="tab" href="#queuePanel" role="tab">
                 <i class="fas fa-list mr-1"></i> Queue 
                 <span class="badge badge-secondary" id="queueBadge">0</span>
@@ -517,7 +522,254 @@ $perm = true;
                 </div>
             </div>
         </div>
-        
+
+        <!-- Reroute Panel -->
+        <div class="tab-pane fade" id="reroutePanel" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-8">
+                    <!-- Reroute Source Info -->
+                    <div class="alert alert-info mb-3" id="rerouteSourceInfo" style="display: none;">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        <strong>Routes loaded from Route Plotter</strong>
+                        <span id="rerouteRouteCount"></span>
+                    </div>
+
+                    <!-- Reroute Basic Info -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-warning text-dark">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-route mr-1"></i> Reroute Advisory Details
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-row">
+                                <div class="form-group col-md-3">
+                                    <label class="tmi-label mb-0">Advisory #</label>
+                                    <input type="text" class="form-control" id="rr_adv_number"
+                                           placeholder="Auto" readonly style="background: #f8f9fa;">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label class="tmi-label mb-0">Facility</label>
+                                    <input type="text" class="form-control" id="rr_facility" value="DCC">
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label class="tmi-label mb-0">Route Name</label>
+                                    <input type="text" class="form-control" id="rr_name"
+                                           placeholder="e.g., GOLDDR, ZNY_WEST_SWAP">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                    <label class="tmi-label mb-0">Constrained Area</label>
+                                    <input type="text" class="form-control" id="rr_constrained_area"
+                                           placeholder="e.g., ZNY">
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <label class="tmi-label mb-0">Reason</label>
+                                    <select class="form-control" id="rr_reason">
+                                        <option value="WEATHER">WEATHER</option>
+                                        <option value="VOLUME">VOLUME</option>
+                                        <option value="EQUIPMENT">EQUIPMENT</option>
+                                        <option value="RUNWAY">RUNWAY</option>
+                                        <option value="OTHER">OTHER</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <label class="tmi-label mb-0">Prob. Extension</label>
+                                    <select class="form-control" id="rr_prob_extension">
+                                        <option value="LOW">LOW</option>
+                                        <option value="MEDIUM" selected>MEDIUM</option>
+                                        <option value="HIGH">HIGH</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label class="tmi-label mb-0">Valid From (UTC)</label>
+                                    <input type="datetime-local" class="form-control" id="rr_valid_from"
+                                           value="<?= $defaultStartDatetime ?>">
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label class="tmi-label mb-0">Valid Until (UTC)</label>
+                                    <input type="datetime-local" class="form-control" id="rr_valid_until"
+                                           value="<?= $defaultEndDatetime ?>">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label class="tmi-label mb-0">Include Traffic</label>
+                                    <input type="text" class="form-control" id="rr_include_traffic"
+                                           placeholder="e.g., KJFK/KLGA DEPARTURES TO KCLT">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label class="tmi-label mb-0">Time Basis</label>
+                                    <select class="form-control" id="rr_time_basis">
+                                        <option value="ETD" selected>ETD</option>
+                                        <option value="ETA">ETA</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label class="tmi-label mb-0">Airborne Filter</label>
+                                    <select class="form-control" id="rr_airborne_filter">
+                                        <option value="NOT_AIRBORNE" selected>Not Airborne Only</option>
+                                        <option value="ALL">All Flights</option>
+                                        <option value="AIRBORNE_ONLY">Airborne Only</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="tmi-label mb-0">Remarks</label>
+                                <textarea class="form-control" id="rr_remarks" rows="2"
+                                          placeholder="Optional additional remarks"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Routes Table -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-list mr-1"></i> Routes
+                            </span>
+                            <button class="btn btn-sm btn-outline-secondary" id="rr_add_route">
+                                <i class="fas fa-plus"></i> Add Route
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0" id="rr_routes_table">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th style="width: 15%;">ORIGIN</th>
+                                            <th style="width: 15%;">DEST</th>
+                                            <th>ROUTE</th>
+                                            <th style="width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rr_routes_body">
+                                        <tr class="rr-empty-row">
+                                            <td colspan="4" class="text-center text-muted py-3">
+                                                No routes loaded. Use Route Plotter to create routes, or add manually.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Facilities for Coordination -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-building mr-1"></i> Facilities for Coordination
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div id="rr_facilities_grid" class="d-flex flex-wrap">
+                                <?php
+                                $artccs = ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU',
+                                           'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY',
+                                           'ZOA', 'ZOB', 'ZSE', 'ZTL'];
+                                foreach ($artccs as $artcc):
+                                ?>
+                                <div class="custom-control custom-checkbox mr-3 mb-2">
+                                    <input type="checkbox" class="custom-control-input rr-facility-cb"
+                                           id="rr_fac_<?= $artcc ?>" value="<?= $artcc ?>">
+                                    <label class="custom-control-label" for="rr_fac_<?= $artcc ?>">
+                                        <?= $artcc ?>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <small class="text-muted mt-2 d-block">
+                                Select facilities that need to approve this reroute advisory.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <button class="btn btn-outline-secondary mr-2" id="rr_reset" type="button">
+                                <i class="fas fa-undo mr-1"></i> Reset
+                            </button>
+                            <button class="btn btn-outline-primary" id="rr_save_draft" type="button">
+                                <i class="fas fa-save mr-1"></i> Save Draft
+                            </button>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary mr-2" id="rr_preview" type="button">
+                                <i class="fas fa-eye mr-1"></i> Preview
+                            </button>
+                            <button class="btn btn-warning" id="rr_submit_coordination" type="button">
+                                <i class="fas fa-handshake mr-1"></i> Submit for Coordination
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <!-- Advisory Preview -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-eye mr-1"></i> Advisory Preview
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <pre id="rr_preview_text" class="ntml-preview"
+                                 style="max-height: 400px; overflow-y: auto; font-size: 0.75rem;">Generate preview to see advisory text...</pre>
+                        </div>
+                    </div>
+
+                    <!-- Saved Drafts -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-folder-open mr-1"></i> Saved Drafts
+                            </span>
+                            <button class="btn btn-sm btn-outline-secondary" id="rr_refresh_drafts">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="rr_drafts_list" class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
+                                <div class="list-group-item text-center text-muted small">
+                                    <i class="fas fa-spinner fa-spin mr-1"></i> Loading drafts...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Discord Targets -->
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <span class="tmi-section-title">
+                                <i class="fab fa-discord mr-1"></i> Post To Organizations
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <?php foreach ($discordOrgs as $code => $org): ?>
+                            <div class="custom-control custom-checkbox mb-2">
+                                <input type="checkbox" class="custom-control-input discord-org-checkbox-rr"
+                                       id="rr_org_<?= $code ?>" value="<?= $code ?>"
+                                       <?= $org['default'] ? 'checked' : '' ?>>
+                                <label class="custom-control-label" for="rr_org_<?= $code ?>">
+                                    <?= htmlspecialchars($org['name']) ?>
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Queue Panel -->
         <div class="tab-pane fade" id="queuePanel" role="tabpanel">
             <div class="row">

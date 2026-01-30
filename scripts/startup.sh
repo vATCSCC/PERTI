@@ -37,17 +37,42 @@ nohup php "${WWWROOT}/scripts/vatsim_adl_daemon.php" >> /home/LogFiles/vatsim_ad
 ADL_PID=$!
 echo "  vatsim_adl_daemon.php started (PID: $ADL_PID)"
 
-# Start the parse queue daemon (processes routes every 5s)
-echo "Starting parse_queue_daemon.php..."
-nohup php "${WWWROOT}/adl/php/parse_queue_daemon.php" --loop --batch=50 --interval=5 >> /home/LogFiles/parse_queue.log 2>&1 &
-PARSE_PID=$!
-echo "  parse_queue_daemon.php started (PID: $PARSE_PID)"
+# =============================================================================
+# GIS Mode Switch
+# Set USE_GIS_DAEMONS=1 to use PostGIS for spatial operations (cost savings)
+# Set USE_GIS_DAEMONS=0 to use ADL-only mode (original behavior)
+# =============================================================================
+USE_GIS_DAEMONS=${USE_GIS_DAEMONS:-1}  # Default: use GIS daemons
 
-# Start the boundary detection daemon (ARTCC/TRACON detection every 30s)
-echo "Starting boundary_daemon.php..."
-nohup php "${WWWROOT}/adl/php/boundary_daemon.php" --loop --interval=30 >> /home/LogFiles/boundary.log 2>&1 &
-BOUNDARY_PID=$!
-echo "  boundary_daemon.php started (PID: $BOUNDARY_PID)"
+if [ "$USE_GIS_DAEMONS" = "1" ]; then
+    echo "GIS Mode: ENABLED (using PostGIS for spatial operations)"
+
+    # Start the GIS-based parse queue daemon (2-3x faster than ADL)
+    echo "Starting parse_queue_gis_daemon.php..."
+    nohup php "${WWWROOT}/adl/php/parse_queue_gis_daemon.php" --loop --batch=50 --interval=10 >> /home/LogFiles/parse_queue_gis.log 2>&1 &
+    PARSE_PID=$!
+    echo "  parse_queue_gis_daemon.php started (PID: $PARSE_PID)"
+
+    # Start the GIS-based boundary detection daemon (offloads spatial from ADL)
+    echo "Starting boundary_gis_daemon.php..."
+    nohup php "${WWWROOT}/adl/php/boundary_gis_daemon.php" --loop --interval=15 >> /home/LogFiles/boundary_gis.log 2>&1 &
+    BOUNDARY_PID=$!
+    echo "  boundary_gis_daemon.php started (PID: $BOUNDARY_PID)"
+else
+    echo "GIS Mode: DISABLED (using ADL-only for spatial operations)"
+
+    # Start the original ADL parse queue daemon
+    echo "Starting parse_queue_daemon.php..."
+    nohup php "${WWWROOT}/adl/php/parse_queue_daemon.php" --loop --batch=50 --interval=5 >> /home/LogFiles/parse_queue.log 2>&1 &
+    PARSE_PID=$!
+    echo "  parse_queue_daemon.php started (PID: $PARSE_PID)"
+
+    # Start the original ADL boundary detection daemon
+    echo "Starting boundary_daemon.php..."
+    nohup php "${WWWROOT}/adl/php/boundary_daemon.php" --loop --interval=30 >> /home/LogFiles/boundary.log 2>&1 &
+    BOUNDARY_PID=$!
+    echo "  boundary_daemon.php started (PID: $BOUNDARY_PID)"
+fi
 
 # Start the waypoint ETA daemon (tiered waypoint ETA calculation)
 # Tier 0 every 15s, Tier 1 every 30s, Tier 2 every 60s, etc.
