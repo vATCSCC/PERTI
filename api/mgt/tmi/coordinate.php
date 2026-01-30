@@ -2616,11 +2616,10 @@ function publishRerouteToAdvisories($conn, $rerouteId, $rawText, $entryData) {
         // Post to advisories channel using TMIDiscord
         $discord = new TMIDiscord();
 
-        // Build advisory message
-        $message = "```\n" . $rawText . "\n```";
-
-        // Post to advisories channel
-        $result = $discord->postToChannel('advzy_production', $message);
+        // Post to advisories channel using postLongMessage (handles splitting if needed)
+        // Third param = true means wrap in code block
+        $results = $discord->postLongMessage('advzy_production', $rawText, true);
+        $result = !empty($results) ? $results[0] : null;
 
         if ($result && isset($result['id'])) {
             // Update reroute with Discord message ID

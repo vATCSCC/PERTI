@@ -941,7 +941,6 @@
                                     <th>Avg Pilots</th>
                                     <th>Z-Score</th>
                                     <th>Type</th>
-                                    <th>Likely Cause</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -1920,20 +1919,8 @@
         }
 
         function renderAnomalies(anomalies) {
-            const likelyCauses = {
-                'Saturday': 'Weekend peak / Possible event',
-                'Sunday': 'Weekend activity',
-                'Friday': 'Friday Night Ops events'
-            };
-
             const tbody = document.querySelector('#anomaliesTable tbody');
-            tbody.innerHTML = anomalies.map(a => {
-                let cause = likelyCauses[a.day_name] || 'Normal variation';
-                if (a.z_score > 3) cause = 'Major event (likely CTP or similar)';
-                else if (a.z_score > 2.5) cause = 'Significant event';
-                else if (a.z_score < -2) cause = 'Holiday / Outage / Off-peak';
-
-                return `
+            tbody.innerHTML = anomalies.map(a => `
                 <tr>
                     <td>${a.date}</td>
                     <td>${a.day_name}</td>
@@ -1941,9 +1928,8 @@
                     <td>${Math.round(a.avg_pilots).toLocaleString()}</td>
                     <td>${a.z_score > 0 ? '+' : ''}${a.z_score}</td>
                     <td><span class="badge ${a.anomaly_type}">${a.anomaly_type.toUpperCase()}</span></td>
-                    <td style="color: var(--text-muted); font-size: 0.8rem;">${cause}</td>
                 </tr>
-            `}).join('');
+            `).join('');
         }
 
         // Auto-refresh
