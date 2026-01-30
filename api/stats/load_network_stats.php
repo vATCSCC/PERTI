@@ -35,9 +35,10 @@ function stats_sql_error_message()
     return implode(" | ", $msgs);
 }
 
-// Prevent duplicate runs within 4 minutes
+// Prevent duplicate runs within 4 minutes (bypass with ?force=1 for testing)
 $lockFile = sys_get_temp_dir() . '/vatsim_stats_loader.lock';
-if (file_exists($lockFile) && (time() - filemtime($lockFile)) < 240) {
+$forceRun = isset($_GET['force']) && $_GET['force'] === '1';
+if (!$forceRun && file_exists($lockFile) && (time() - filemtime($lockFile)) < 240) {
     echo json_encode([
         'success' => false,
         'error' => 'Another instance ran recently',
