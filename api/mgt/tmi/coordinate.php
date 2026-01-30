@@ -2412,7 +2412,7 @@ function activateProposal($conn, $proposalId) {
                 // Update reroute status to ACTIVE (2)
                 $updateRerouteSql = "UPDATE dbo.tmi_reroutes SET
                                          status = 2,
-                                         activated_utc = SYSUTCDATETIME(),
+                                         activated_at = SYSUTCDATETIME(),
                                          updated_at = SYSUTCDATETIME()
                                      WHERE reroute_id = :reroute_id";
                 $updateRerouteStmt = $conn->prepare($updateRerouteSql);

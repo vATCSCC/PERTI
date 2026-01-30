@@ -123,7 +123,8 @@ BEGIN
     WHERE ST_Intersects(a.geom, b.geom)
       AND NOT ST_IsEmpty(ST_Intersection(a.geom, b.geom))
       AND NOT COALESCE(a.is_oceanic, FALSE)
-      AND NOT COALESCE(b.is_oceanic, FALSE);
+      AND NOT COALESCE(b.is_oceanic, FALSE)
+    ON CONFLICT (source_type, source_code, target_type, target_code) DO NOTHING;
 
     GET DIAGNOSTICS cnt = ROW_COUNT;
 
@@ -185,7 +186,8 @@ BEGIN
     FROM tracon_boundaries a
     JOIN tracon_boundaries b ON a.tracon_code < b.tracon_code
     WHERE ST_Intersects(a.geom, b.geom)
-      AND NOT ST_IsEmpty(ST_Intersection(a.geom, b.geom));
+      AND NOT ST_IsEmpty(ST_Intersection(a.geom, b.geom))
+    ON CONFLICT (source_type, source_code, target_type, target_code) DO NOTHING;
 
     GET DIAGNOSTICS cnt = ROW_COUNT;
 
@@ -247,7 +249,8 @@ BEGIN
     FROM tracon_boundaries t
     JOIN artcc_boundaries a ON ST_Intersects(t.geom, a.geom)
     WHERE NOT ST_IsEmpty(ST_Intersection(t.geom, a.geom))
-      AND NOT COALESCE(a.is_oceanic, FALSE);
+      AND NOT COALESCE(a.is_oceanic, FALSE)
+    ON CONFLICT (source_type, source_code, target_type, target_code) DO NOTHING;
 
     GET DIAGNOSTICS cnt = ROW_COUNT;
 
@@ -314,7 +317,8 @@ BEGIN
     WHERE a.sector_type = UPPER(p_sector_type)
       AND b.sector_type = UPPER(p_sector_type)
       AND ST_Intersects(a.geom, b.geom)
-      AND NOT ST_IsEmpty(ST_Intersection(a.geom, b.geom));
+      AND NOT ST_IsEmpty(ST_Intersection(a.geom, b.geom))
+    ON CONFLICT (source_type, source_code, target_type, target_code) DO NOTHING;
 
     GET DIAGNOSTICS cnt = ROW_COUNT;
 
@@ -384,7 +388,7 @@ BEGIN
       AND NOT COALESCE(a.is_oceanic, FALSE)
       -- Only include if sector is NOT fully contained in ARTCC (would be POLY)
       -- or if we want to track containment relationships too
-    ;
+    ON CONFLICT (source_type, source_code, target_type, target_code) DO NOTHING;
 
     GET DIAGNOSTICS cnt = ROW_COUNT;
 
