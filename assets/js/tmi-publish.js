@@ -6809,6 +6809,11 @@
             if (!adv.name) {
                 this.autoFillRouteName();
             }
+
+            // Auto-populate remarks with route sources (playbooks/CDRs)
+            if (!adv.remarks) {
+                this.autoPopulateRemarksWithSources();
+            }
         },
 
         /**
@@ -6869,6 +6874,66 @@
 
             if (autoName) {
                 $('#rr_name').val(autoName);
+            }
+        },
+
+        /**
+         * Auto-populate remarks with route sources (playbooks/CDRs)
+         * Each source is on its own line - the formatter handles column alignment
+         */
+        autoPopulateRemarksWithSources: function() {
+            if (!this.rerouteData) return;
+
+            const procedures = this.rerouteData.procedures || [];
+            const routes = this.rerouteData.routes || [];
+
+            // Extract playbook names from procedures
+            const playbookNames = [...new Set(
+                procedures
+                    .filter(p => p.startsWith('PB: '))
+                    .map(p => p.slice(4).trim())
+            )];
+
+            // Extract CDR codes from procedures
+            const cdrCodes = [...new Set(
+                procedures
+                    .filter(p => p.startsWith('CDR: '))
+                    .map(p => p.slice(5).trim())
+            )];
+
+            // Also check individual routes for playbook/CDR info
+            routes.forEach(r => {
+                if (r.playbookName && !playbookNames.includes(r.playbookName)) {
+                    playbookNames.push(r.playbookName);
+                }
+                if (r.cdrCode && !cdrCodes.includes(r.cdrCode)) {
+                    cdrCodes.push(r.cdrCode);
+                }
+            });
+
+            if (playbookNames.length === 0 && cdrCodes.length === 0) {
+                return;
+            }
+
+            // Build remarks text with each source on its own line
+            // The formatter will handle column alignment with hanging indent
+            const lines = [];
+
+            // Add playbook sources
+            playbookNames.forEach(pb => {
+                lines.push(`BASED ON PLAYBOOK: ${pb}`);
+            });
+
+            // Add CDR sources
+            cdrCodes.forEach(cdr => {
+                lines.push(`BASED ON CDR: ${cdr}`);
+            });
+
+            // Join with newlines - formatter will add proper column alignment
+            const remarksText = lines.join('\n');
+
+            if (remarksText) {
+                $('#rr_remarks').val(remarksText);
             }
         },
 
@@ -7494,6 +7559,7 @@
             const tmiId = 'RR' + params.facility + params.advisory_number;
 
             // Helper: add labeled field with proper wrapping at 68 chars
+            // Preserves explicit newlines in the value, treating each line separately
             const addLabeledField = (lines, label, value) => {
                 const raw = (value == null ? '' : String(value)).trim().toUpperCase();
                 if (!raw.length) return;
@@ -7501,49 +7567,55 @@
                 const labelStr = label + ': ';
                 const hangIndent = ' '.repeat(labelStr.length);
 
-                // Tokenize value, breaking slash-lists for proper wrapping
-                const tokens = [];
-                raw.split(/\s+/).forEach(part => {
-                    if (part.indexOf('/') !== -1 && part.length > 8) {
-                        // Break up long slash-separated lists
-                        part.split('/').forEach((piece, idx, arr) => {
-                            if (piece) tokens.push(idx < arr.length - 1 ? piece + '/' : piece);
-                        });
-                    } else {
-                        tokens.push(part);
+                // Split by explicit newlines first, then wrap each segment
+                const segments = raw.split(/\r?\n/).map(s => s.trim()).filter(s => s);
+
+                segments.forEach((segment, segIdx) => {
+                    // Tokenize segment, breaking slash-lists for proper wrapping
+                    const tokens = [];
+                    segment.split(/\s+/).forEach(part => {
+                        if (part.indexOf('/') !== -1 && part.length > 8) {
+                            // Break up long slash-separated lists
+                            part.split('/').forEach((piece, idx, arr) => {
+                                if (piece) tokens.push(idx < arr.length - 1 ? piece + '/' : piece);
+                            });
+                        } else {
+                            tokens.push(part);
+                        }
+                    });
+
+                    if (!tokens.length) return;
+
+                    // First segment gets the label, subsequent segments get hanging indent
+                    let prefix = segIdx === 0 ? labelStr : hangIndent;
+                    let content = '';
+
+                    tokens.forEach(word => {
+                        if (!word) return;
+                        if (!content) {
+                            if (prefix.length + word.length <= MAX_LINE) {
+                                content = word;
+                            } else {
+                                lines.push(prefix + word);
+                                prefix = hangIndent;
+                                content = '';
+                            }
+                        } else {
+                            const lastChar = content[content.length - 1];
+                            const joiner = (lastChar === '/' ? '' : ' ');
+                            if (prefix.length + content.length + joiner.length + word.length <= MAX_LINE) {
+                                content += joiner + word;
+                            } else {
+                                lines.push((prefix + content).trimEnd());
+                                prefix = hangIndent;
+                                content = word;
+                            }
+                        }
+                    });
+                    if (content) {
+                        lines.push((prefix + content).trimEnd());
                     }
                 });
-
-                if (!tokens.length) return;
-
-                let prefix = labelStr;
-                let content = '';
-
-                tokens.forEach(word => {
-                    if (!word) return;
-                    if (!content) {
-                        if (prefix.length + word.length <= MAX_LINE) {
-                            content = word;
-                        } else {
-                            lines.push(prefix + word);
-                            prefix = hangIndent;
-                            content = '';
-                        }
-                    } else {
-                        const lastChar = content[content.length - 1];
-                        const joiner = (lastChar === '/' ? '' : ' ');
-                        if (prefix.length + content.length + joiner.length + word.length <= MAX_LINE) {
-                            content += joiner + word;
-                        } else {
-                            lines.push((prefix + content).trimEnd());
-                            prefix = hangIndent;
-                            content = word;
-                        }
-                    }
-                });
-                if (content) {
-                    lines.push((prefix + content).trimEnd());
-                }
             };
 
             let lines = [];
@@ -7559,7 +7631,6 @@
             addLabeledField(lines, 'REMARKS', params.remarks);
             addLabeledField(lines, 'ASSOCIATED RESTRICTIONS', params.restrictions);
             addLabeledField(lines, 'MODIFICATIONS', params.modifications);
-            lines.push('');
             lines.push('ROUTES:');
             lines.push('');
 
@@ -7581,7 +7652,11 @@
                                 now.getUTCDate().toString().padStart(2, '0') + ' ' +
                                 now.getUTCHours().toString().padStart(2, '0') + ':' +
                                 now.getUTCMinutes().toString().padStart(2, '0');
-            lines.push(timestampStr);
+
+            // Add author signature: FACILITY.OI (e.g., DCC.HP)
+            const userOI = window.TMI_PUBLISHER_CONFIG?.userOI || '';
+            const authorSig = userOI ? `${params.facility}.${userOI}` : params.facility;
+            lines.push(`${timestampStr} ${authorSig}`);
 
             return lines.join('\n');
         },
@@ -8092,11 +8167,44 @@
                 output += 'ORIG'.padEnd(10) + 'DEST'.padEnd(10) + 'ROUTE\n';
                 output += '----'.padEnd(10) + '----'.padEnd(10) + '-----\n';
 
+                const ORIG_COL = 10;
+                const DEST_COL = 10;
+                const ROUTE_START = ORIG_COL + DEST_COL;
+
                 unmatchedRoutes.forEach(r => {
-                    const orig = (r.origDisplay || '').substring(0, 8).padEnd(10);
-                    const dest = (r.destDisplay || '').substring(0, 8).padEnd(10);
-                    const route = r.tokens.join(' ');
-                    output += orig + dest + route + '\n';
+                    const orig = (r.origDisplay || '').substring(0, 8).padEnd(ORIG_COL);
+                    const dest = (r.destDisplay || '').substring(0, 8).padEnd(DEST_COL);
+                    const routeTokens = r.tokens || [];
+
+                    if (routeTokens.length === 0) {
+                        output += orig + dest + '\n';
+                        return;
+                    }
+
+                    // Build route lines with proper wrapping at 68 chars
+                    let isFirstLine = true;
+                    let currentLine = orig + dest;
+                    const routeColWidth = MAX_LINE - ROUTE_START;
+
+                    routeTokens.forEach((token, idx) => {
+                        const spaceNeeded = currentLine.length > ROUTE_START ? 1 : 0;
+                        const tokenWithSpace = (spaceNeeded ? ' ' : '') + token;
+
+                        if (currentLine.length + tokenWithSpace.length <= MAX_LINE) {
+                            currentLine += tokenWithSpace;
+                        } else {
+                            // Line would exceed limit - output current and start new line
+                            output += currentLine.trimEnd() + '\n';
+                            // Continuation lines start at ROUTE column position
+                            currentLine = ' '.repeat(ROUTE_START) + token;
+                            isFirstLine = false;
+                        }
+                    });
+
+                    // Output final line
+                    if (currentLine.trim()) {
+                        output += currentLine.trimEnd() + '\n';
+                    }
                 });
             }
 
@@ -8785,6 +8893,40 @@
             $('#rr_submit_coordination').on('click', () => self.submitForCoordination());
             $('#rr_save_draft').on('click', () => self.saveDraft());
             $('#rr_refresh_drafts').on('click', () => self.loadDraftsList());
+
+            // Copy preview to clipboard
+            $('#rr_copy_preview').on('click', function() {
+                const previewText = $('#rr_preview_text').text();
+                if (!previewText || previewText === 'Generate preview to see advisory text...') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Preview',
+                        text: 'Generate a preview first before copying.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
+
+                navigator.clipboard.writeText(previewText).then(() => {
+                    // Temporarily change button to show success
+                    const $btn = $(this);
+                    const originalHtml = $btn.html();
+                    $btn.html('<i class="fas fa-check"></i>').addClass('btn-success').removeClass('btn-outline-secondary');
+                    setTimeout(() => {
+                        $btn.html(originalHtml).removeClass('btn-success').addClass('btn-outline-secondary');
+                    }, 1500);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Copy Failed',
+                        text: 'Could not copy to clipboard. Please select and copy manually.',
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
+                });
+            });
 
             $('#rr_add_route').on('click', () => self.addRouteRow());
             $('#rr_make_mandatory').on('click', () => self.makeRoutesMandatory());

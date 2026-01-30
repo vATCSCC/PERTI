@@ -526,7 +526,7 @@ $perm = true;
         <!-- Reroute Panel -->
         <div class="tab-pane fade" id="reroutePanel" role="tabpanel">
             <div class="row">
-                <div class="col-lg-8">
+                <div class="col-lg-7">
                     <!-- Reroute Source Info -->
                     <div class="alert alert-info mb-3" id="rerouteSourceInfo" style="display: none;">
                         <i class="fas fa-info-circle mr-1"></i>
@@ -786,17 +786,20 @@ $perm = true;
                     </div>
                 </div>
 
-                <div class="col-lg-4">
-                    <!-- Advisory Preview -->
-                    <div class="card shadow-sm mb-3">
-                        <div class="card-header">
+                <div class="col-lg-5">
+                    <!-- Advisory Preview (sticky) -->
+                    <div class="card shadow-sm mb-3" style="position: sticky; top: 1rem;">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <span class="tmi-section-title">
                                 <i class="fas fa-eye mr-1"></i> Advisory Preview
                             </span>
+                            <button class="btn btn-sm btn-outline-secondary" id="rr_copy_preview" title="Copy to clipboard">
+                                <i class="far fa-copy"></i>
+                            </button>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body p-2">
                             <pre id="rr_preview_text" class="ntml-preview"
-                                 style="max-height: 400px; overflow-y: auto; font-size: 0.75rem;">Generate preview to see advisory text...</pre>
+                                 style="max-height: calc(100vh - 200px); overflow-y: auto; font-size: 0.7rem; white-space: pre; overflow-x: auto; min-width: 520px;">Generate preview to see advisory text...</pre>
                         </div>
                     </div>
 

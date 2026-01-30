@@ -65,6 +65,14 @@ if [ "$USE_GIS_DAEMONS" = "1" ]; then
     nohup php "${WWWROOT}/adl/php/boundary_gis_daemon.php" --loop --interval=15 >> /home/LogFiles/boundary_gis.log 2>&1 &
     BOUNDARY_PID=$!
     echo "  boundary_gis_daemon.php started (PID: $BOUNDARY_PID)"
+
+    # Start the GIS-based crossing calculation daemon (trajectory-based crossing ETAs)
+    # Uses PostGIS line-polygon intersection for precise boundary crossing points/times
+    # Tier 0 every 15s, Tier 1 every 30s, Tier 2 every 60s, Tier 3 every 2min, Tier 4 every 5min
+    echo "Starting crossing_gis_daemon.php..."
+    nohup php "${WWWROOT}/adl/php/crossing_gis_daemon.php" --loop >> /home/LogFiles/crossing_gis.log 2>&1 &
+    CROSSING_PID=$!
+    echo "  crossing_gis_daemon.php started (PID: $CROSSING_PID)"
 else
     echo "GIS Mode: DISABLED (using ADL-only for spatial operations)"
 
@@ -146,7 +154,8 @@ echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
 echo "========================================"
 echo "All daemons started:"
 echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
-echo "  waypoint=$WAYPOINT_PID, ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
+echo "  waypoint=$WAYPOINT_PID, crossing=${CROSSING_PID:-N/A}"
+echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
 echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
 echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
 echo "  discord_q=$DISCORD_Q_PID"

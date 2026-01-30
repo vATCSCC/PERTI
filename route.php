@@ -59,43 +59,6 @@
             font-size: 0.9rem;
         }
 
-        /* Advisory builder: Facilities Included dropdown */
-        .adv-facilities-wrapper {
-            position: relative;
-        }
-
-        .adv-facilities-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            z-index: 1050;
-            display: none;
-            background-color: #ffffff;
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            border-radius: 0.25rem;
-            padding: 0.5rem;
-            max-height: 260px;
-            overflow-y: auto;
-            min-width: 260px;
-            box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.15);
-        }
-
-        .adv-facilities-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            grid-column-gap: 0.75rem;
-            grid-row-gap: 0.25rem;
-        }
-
-        .adv-facilities-grid .form-check {
-            margin-bottom: 0.1rem;
-        }
-
-        .adv-facilities-grid label {
-            font-size: 0.75rem;
-            margin-bottom: 0;
-        }
-
         /* ═══════════════════════════════════════════════════════════════════
            ADL LIVE FLIGHTS - TSD SYMBOLOGY STYLES
            ═══════════════════════════════════════════════════════════════════ */
@@ -1530,19 +1493,6 @@ include('load/nav.php');
                     </div>
                 </div>
 
-                <!-- Spacer -->
-                <div class="col"></div>
-
-                <!-- Advisory Org Config -->
-                <div class="col-auto px-1">
-                    <div class="card shadow-sm perti-info-card h-100">
-                        <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="AdvisoryConfig.showConfigModal();" data-toggle="tooltip" title="Switch between US DCC and Canadian NOC advisory formats">
-                                <i class="fas fa-globe mr-1"></i> <span id="advisoryOrgDisplay">DCC</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -1648,6 +1598,10 @@ ROUTE2</pre>
                                 <i class="fas fa-database"></i> <span class="d-none d-sm-inline">GPKG</span>
                             </button>
                         </div>
+                        <button class="btn btn-sm btn-warning ml-2" id="adv_draft_tmi"
+                                title="Open TMI Publisher with plotted routes for coordination workflow">
+                            <i class="fas fa-paper-plane mr-1"></i><span class="d-none d-sm-inline">Draft TMI Reroute</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2306,205 +2260,9 @@ ROUTE2</pre>
             </div>
         </div>
 
-    <!-- Reroute Advisory Builder (collapsible, below routes + map) -->
-    <div class="container-fluid mt-4 mb-4">
-        <div class="card bg-light text-dark">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-file-alt mr-2"></i> Reroute Advisory Builder</span>
-                <button type="button" class="btn btn-sm btn-outline-dark" id="adv_panel_toggle">
-                    Show
-                </button>
-            </div>
-
-            <div class="card-body" id="adv_panel_body" style="display: none;">
-                <p class="small text-muted mb-2">
-                    Builds a vATCSCC-style <code>ROUTE RQD</code> advisory from the routes in the
-                    <code>Plot Routes</code> box above (including <code>PB.*</code> playbooks and CDR codes).
-                </p>
-
-                <!-- Basic advisory metadata -->
-                <div class="form-row">
-                    <div class="form-group col-md-2 col-sm-4">
-                        <label class="small mb-0" for="advNumber">Adv #</label>
-                        <input type="text" class="form-control form-control-sm" id="advNumber" placeholder="001">
-                    </div>
-                    <div class="form-group col-md-2 col-sm-4">
-                        <label class="small mb-0" for="advFacility">Facility</label>
-                        <input type="text" class="form-control form-control-sm" id="advFacility" value="DCC">
-                    </div>
-                    <div class="form-group col-md-3 col-sm-4">
-                        <label class="small mb-0" for="advDate">Date</label>
-                        <input type="text" class="form-control form-control-sm" id="advDate" placeholder="MM/DD/YYYY">
-                    </div>
-                    <div class="form-group col-md-5 col-sm-8">
-                        <label class="small mb-0" for="advAction">Type / Action</label>
-                        <input type="text" class="form-control form-control-sm" id="advAction" value="ROUTE RQD">
-                    </div>
-                    <div class="form-group col-md-3 col-sm-4 d-flex align-items-end">
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input" id="advSplitFormat">
-                            <label class="form-check-label small" for="advSplitFormat">Split Format (FROM/TO)</label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Name / constrained area / reason -->
-                <div class="form-row">
-                    <div class="form-group col-md-3 col-sm-6">
-                        <label class="small mb-0" for="advName">Name</label>
-                        <input type="text" class="form-control form-control-sm" id="advName" placeholder="GOLDDR">
-                    </div>
-                    <div class="form-group col-md-3 col-sm-6">
-                        <label class="small mb-0" for="advConstrainedArea">Constrained Area</label>
-                        <input type="text" class="form-control form-control-sm" id="advConstrainedArea" placeholder="ZNY">
-                    </div>
-                    <div class="form-group col-md-6 col-sm-12">
-                        <label class="small mb-0" for="advReason">Reason</label>
-                        <input type="text" class="form-control form-control-sm" id="advReason" placeholder="WEATHER/TRAFFIC MANAGEMENT">
-                    </div>
-                </div>
-
-                <!-- Effective time / TMI ID -->
-                <div class="form-row">
-                    <div class="form-group col-md-2 col-sm-4">
-                        <label class="small mb-0" for="advValidStart">Start (DDHHMM)</label>
-                        <input type="text" class="form-control form-control-sm" id="advValidStart" placeholder="011500">
-                    </div>
-                    <div class="form-group col-md-2 col-sm-4">
-                        <label class="small mb-0" for="advValidEnd">End (DDHHMM)</label>
-                        <input type="text" class="form-control form-control-sm" id="advValidEnd" placeholder="012300">
-                    </div>
-                    <div class="form-group col-md-3 col-sm-4">
-                        <label class="small mb-0" for="advEffectiveTime">Effective (Auto)</label>
-                        <input type="text" class="form-control form-control-sm" id="advEffectiveTime" readonly style="background: #e9ecef;">
-                    </div>
-                    <div class="form-group col-md-2 col-sm-4">
-                        <label class="small mb-0" for="advTmiId">TMI ID</label>
-                        <input type="text" class="form-control form-control-sm" id="advTmiId" placeholder="">
-                    </div>
-                    <div class="form-group col-md-3 col-sm-8 adv-facilities-wrapper">
-                        <label class="small mb-0" for="advFacilities">
-                            Facilities Included
-                            <span id="advFacilitiesAutoBadge" class="badge badge-info ml-1" style="display: none; font-size: 0.65rem;" title="Auto-calculated from routes">AUTO</span>
-                        </label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" class="form-control form-control-sm" id="advFacilities" placeholder="ZBW/ZNY/ZDC">
-                            <div class="input-group-append">
-                                <button class="btn btn-outline-info" type="button" id="advFacilitiesAuto" title="Auto-calculate from routes using GIS">
-                                    <i class="fas fa-magic"></i>
-                                </button>
-                                <button class="btn btn-outline-secondary" type="button" id="advFacilitiesToggle">
-                                    <i class="fas fa-caret-down"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="adv-facilities-dropdown" id="advFacilitiesDropdown">
-                            <div class="adv-facilities-grid" id="advFacilitiesGrid"></div>
-                            <div class="d-flex justify-content-between mt-2 pt-2 border-top" style="gap: 0.5rem;">
-                                <button class="btn btn-sm btn-outline-secondary flex-fill" id="advFacilitiesClear" type="button">Clear</button>
-                                <button class="btn btn-sm btn-outline-secondary flex-fill" id="advFacilitiesSelectAll" type="button">All</button>
-                                <button class="btn btn-sm btn-outline-info flex-fill" id="advFacilitiesSelectUs" type="button">US Only</button>
-                                <button class="btn btn-sm btn-primary flex-fill" id="advFacilitiesApply" type="button">Apply</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Include Traffic / Prob Extension -->
-                <div class="form-row">
-                    <div class="form-group col-md-6 col-sm-12">
-                        <label class="small mb-0" for="advIncludeTraffic">Include Traffic</label>
-                        <input type="text" class="form-control form-control-sm" id="advIncludeTraffic" placeholder="e.g., KJFK/KLGA DEPARTURES TO KCLT/KATL">
-                    </div>
-                    <div class="form-group col-md-3 col-sm-6">
-                        <label class="small mb-0" for="advProb">Prob Extension</label>
-                        <select class="form-control form-control-sm" id="advProb">
-                            <option value="">--</option>
-                            <option value="LOW">LOW</option>
-                            <option value="MODERATE">MODERATE</option>
-                            <option value="HIGH">HIGH</option>
-                        </select>
-                    </div>
-                    <div class="form-group col-md-3 col-sm-6">
-                        <label class="small mb-0" for="advMods">Modifications</label>
-                        <input type="text" class="form-control form-control-sm" id="advMods" placeholder="e.g., AMDT, CNCL">
-                    </div>
-                </div>
-
-                <!-- Restrictions / Remarks -->
-                <div class="form-row">
-                    <div class="form-group col-md-6 col-sm-12">
-                        <label class="small mb-0" for="advRestrictions">Restrictions</label>
-                        <input type="text" class="form-control form-control-sm" id="advRestrictions" placeholder="e.g., FL310 AND ABOVE">
-                    </div>
-                    <div class="form-group col-md-6 col-sm-12">
-                        <label class="small mb-0" for="advRemarks">Remarks</label>
-                        <input type="text" class="form-control form-control-sm" id="advRemarks" placeholder="Optional additional remarks">
-                    </div>
-                </div>
-
-                <!-- Generate / copy buttons -->
-                <div class="d-flex align-items-center flex-wrap mt-2">
-                    <button class="btn btn-primary mr-2 mb-1" id="adv_generate">
-                        <i class="fas fa-file-alt mr-1"></i> Generate
-                    </button>
-                    <button class="btn btn-secondary mr-2 mb-1" id="adv_copy">
-                        <i class="far fa-copy mr-1"></i> Copy
-                    </button>
-                    <button class="btn btn-success mr-2 mb-1" id="adv_publish" title="Publish this route so all users can see it on the map">
-                        <i class="fas fa-globe mr-1"></i> Publish
-                    </button>
-                    <button class="btn btn-warning mb-1" id="adv_draft_tmi"
-                            title="Open TMI Publisher with plotted routes for coordination workflow">
-                        <i class="fas fa-paper-plane mr-1"></i> Draft TMI Reroute
-                    </button>
-                </div>
-
-                <hr>
-
-                <!-- Output text area -->
-                <label class="small mb-1">Advisory Output</label>
-                <textarea class="form-control" id="advOutput" rows="12"
-                          style="font-family: Inconsolata, monospace; font-size: 0.85rem; white-space: pre; overflow-x: auto;"></textarea>
-            </div>
-        </div>
-    </div>
-
 <?php
 include('load/footer.php');
 ?>
-
-<!-- Advisory Organization Config Modal -->
-<div class="modal fade" id="advisoryOrgModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-globe mr-2"></i>Advisory Organization</h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="advisoryOrg" id="orgDCC" value="DCC">
-                    <label class="form-check-label" for="orgDCC">
-                        <strong>US DCC</strong><br><small class="text-muted">vATCSCC ADVZY ... DCC</small>
-                    </label>
-                </div>
-                <div class="form-check mt-3">
-                    <input class="form-check-input" type="radio" name="advisoryOrg" id="orgNOC" value="NOC">
-                    <label class="form-check-label" for="orgNOC">
-                        <strong>Canadian NOC</strong><br><small class="text-muted">vNAVCAN ADVZY ... NOC</small>
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()">Save</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="assets/js/advisory-config.js"></script>
 
 <!-- Phase Colors Configuration -->
 <script src="assets/js/config/phase-colors.js"></script>
