@@ -353,6 +353,94 @@ include("sessions/handler.php");
             color: #000;
             background: rgba(255,255,0,0.3);
         }
+
+        /* TMI Compliance Section Styles */
+        .tmi-compliance-section {
+            padding: 15px;
+        }
+        .tmi-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .tmi-card.mit-card { border-left: 4px solid #007bff; }
+        .tmi-card.gs-card { border-left: 4px solid #dc3545; }
+        .tmi-card.apreq-card { border-left: 4px solid #6c757d; }
+        .tmi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .tmi-fix-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .compliance-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .compliance-badge.good { background: #28a745; color: white; }
+        .compliance-badge.warn { background: #ffc107; color: black; }
+        .compliance-badge.bad { background: #dc3545; color: white; }
+        .tmi-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .tmi-stat {
+            text-align: center;
+        }
+        .tmi-stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+        .tmi-stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #6c757d;
+        }
+        .tmi-distribution {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .dist-item {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .dist-under { background: #dc3545; color: white; }
+        .dist-within { background: #28a745; color: white; }
+        .dist-over { background: #17a2b8; color: white; }
+        .dist-gap { background: #6c757d; color: white; }
+        .tmi-summary-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        .summary-stat {
+            text-align: center;
+            padding: 10px;
+        }
+        .summary-stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .summary-stat-value.good { color: #28a745; }
+        .summary-stat-value.warn { color: #ffc107; }
+        .summary-stat-value.bad { color: #dc3545; }
     </style>
     
     <!-- Chart.js CDN -->
@@ -386,6 +474,7 @@ include('load/nav.php');
                 <ul class="nav flex-column nav-pills" aria-orientation="vertical">
                     <li><a class="nav-link active rounded" data-toggle="tab" href="#scoring">Scoring</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#event_data">Event Data</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#tmi_compliance">TMI Compliance</a></li>
                 </ul>
             </div>
             
@@ -520,8 +609,31 @@ include('load/nav.php');
                         <?php } ?>
 
                         <div class="row gutters-tiny py-20" id="data"></div>
-                    </div>                   
+                    </div>
 
+                    <!-- Tab: TMI Compliance -->
+                    <div class="tab-pane fade" id="tmi_compliance">
+                        <div class="tmi-compliance-section">
+                            <h5 class="text-warning mb-3"><i class="fas fa-chart-line"></i> TMI Compliance Analysis</h5>
+
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-primary" id="load_tmi_results">
+                                    <i class="fas fa-download"></i> Load Results
+                                </button>
+                                <button class="btn btn-sm btn-success" id="run_tmi_analysis" disabled>
+                                    <i class="fas fa-play"></i> Run Analysis
+                                </button>
+                                <span class="text-muted small ml-2" id="tmi_status"></span>
+                            </div>
+
+                            <div id="tmi_results_container">
+                                <div class="text-muted text-center py-4">
+                                    <i class="fas fa-info-circle"></i>
+                                    Click "Load Results" to view TMI compliance analysis for this event.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                 </div>
             </div>
