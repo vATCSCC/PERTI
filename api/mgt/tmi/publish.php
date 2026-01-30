@@ -624,10 +624,11 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
     $determinantCode = $determinantCodes[strtoupper($entryType)] ?? strtoupper($entryType);
     $ctlElement = strtoupper($data['ctl_element'] ?? '') ?: null;
 
-    // CONFIG deduplication: Check for existing active CONFIG for same airport
-    // CONFIG posts only ONCE to Discord - subsequent publishes update DB only
+    // CONFIG deduplication: Check for existing active CONFIG for same airport WITH OVERLAPPING time period
+    // Only deduplicates if time periods overlap - allows multiple non-overlapping configs
+    // CONFIG posts only ONCE to Discord per time period - subsequent publishes update DB only
     if (strtoupper($entryType) === 'CONFIG' && $ctlElement) {
-        $existingConfig = checkExistingConfig($conn, $ctlElement);
+        $existingConfig = checkExistingConfig($conn, $ctlElement, $data['valid_from'] ?? null, $data['valid_until'] ?? null);
         if ($existingConfig) {
             // Check if already posted to Discord - if so, NEVER re-post
             $alreadyPostedToDiscord = !empty($existingConfig['discord_message_id']);
@@ -924,20 +925,53 @@ function parseValidTime($timeStr) {
 }
 
 /**
- * Check for existing active CONFIG entry for the same airport
+ * Check for existing active CONFIG entry for the same airport WITH OVERLAPPING time period
+ * Only matches if the time periods overlap - allows multiple non-overlapping configs
+ * @param PDO $conn Database connection
+ * @param string $ctlElement Airport code
+ * @param string|null $newValidFrom New config start time (ISO8601 or Y-m-d H:i:s)
+ * @param string|null $newValidUntil New config end time (ISO8601 or Y-m-d H:i:s)
  * @return array|null Existing config entry or null if not found
  */
-function checkExistingConfig($conn, $ctlElement) {
-    $sql = "SELECT entry_id, raw_input, parsed_data, discord_message_id, status
+function checkExistingConfig($conn, $ctlElement, $newValidFrom = null, $newValidUntil = null) {
+    // Parse new config times
+    $newStart = $newValidFrom ? (new DateTime($newValidFrom, new DateTimeZone('UTC')))->format('Y-m-d H:i:s') : null;
+    $newEnd = $newValidUntil ? (new DateTime($newValidUntil, new DateTimeZone('UTC')))->format('Y-m-d H:i:s') : null;
+
+    // Build query - check for time period overlap
+    // Overlap condition: newStart < existingEnd AND newEnd > existingStart
+    // Handle NULL values (means unbounded - extends forever)
+    $sql = "SELECT entry_id, raw_input, parsed_data, discord_message_id, status, valid_from, valid_until
             FROM dbo.tmi_entries
             WHERE entry_type = 'CONFIG'
               AND ctl_element = :ctl_element
               AND status = 'ACTIVE'
-              AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())
-            ORDER BY created_at DESC";
+              AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())";
+
+    // Add overlap conditions if new config has time bounds
+    $params = [':ctl_element' => strtoupper($ctlElement)];
+
+    if ($newStart && $newEnd) {
+        // New config has both start and end - check for overlap
+        $sql .= " AND (:new_start < ISNULL(valid_until, '9999-12-31')
+                      AND :new_end > ISNULL(valid_from, '1900-01-01'))";
+        $params[':new_start'] = $newStart;
+        $params[':new_end'] = $newEnd;
+    } elseif ($newStart) {
+        // New config has start only (open-ended) - overlaps if existing hasn't ended
+        $sql .= " AND (valid_until IS NULL OR valid_until > :new_start)";
+        $params[':new_start'] = $newStart;
+    } elseif ($newEnd) {
+        // New config has end only - overlaps if existing started before new end
+        $sql .= " AND (valid_from IS NULL OR valid_from < :new_end)";
+        $params[':new_end'] = $newEnd;
+    }
+    // If no time bounds on new config, fall back to any active config (original behavior)
+
+    $sql .= " ORDER BY created_at DESC";
 
     $stmt = $conn->prepare($sql);
-    $stmt->execute([':ctl_element' => strtoupper($ctlElement)]);
+    $stmt->execute($params);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 

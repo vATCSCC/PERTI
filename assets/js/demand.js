@@ -1438,6 +1438,7 @@ function loadDemandData() {
             if (scheduledConfigsResult.status === 'fulfilled' && scheduledConfigsResult.value &&
                 scheduledConfigsResult.value.success && scheduledConfigsResult.value.configs) {
                 DEMAND_STATE.scheduledConfigs = scheduledConfigsResult.value.configs;
+                console.log('[Demand] Loaded', scheduledConfigsResult.value.configs.length, 'scheduled TMI configs for time-bounded rate lines');
             } else {
                 DEMAND_STATE.scheduledConfigs = null;
                 if (scheduledConfigsResult.status === 'rejected') {
@@ -3673,6 +3674,124 @@ function buildTimeBoundedRateMarkLines() {
             ]);
         }
     });
+
+    // === FALLBACK: Fill gaps with rate data from other sources ===
+    // When CONFIG entries don't cover the full chart range, use DEMAND_STATE.rateData
+    if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
+        const rates = DEMAND_STATE.rateData.rates;
+        const fallbackStyle = cfg.suggested?.vatsim || { color: '#6b7280' };
+        const fallbackTextColor = getContrastTextColor(fallbackStyle.color);
+
+        // Build list of covered periods from configs
+        const coveredPeriods = [];
+        configs.forEach(config => {
+            const configStart = config.valid_from ? new Date(config.valid_from).getTime() : chartStart;
+            const configEnd = config.valid_until ? new Date(config.valid_until).getTime() : chartEnd;
+            const start = Math.max(configStart, chartStart);
+            const end = Math.min(configEnd, chartEnd);
+            if (start < end) {
+                coveredPeriods.push({ start, end });
+            }
+        });
+
+        // Sort periods by start time
+        coveredPeriods.sort((a, b) => a.start - b.start);
+
+        // Find gaps (uncovered periods)
+        const gaps = [];
+        let cursor = chartStart;
+
+        coveredPeriods.forEach(period => {
+            if (period.start > cursor) {
+                gaps.push({ start: cursor, end: period.start });
+            }
+            cursor = Math.max(cursor, period.end);
+        });
+
+        // Final gap after last config
+        if (cursor < chartEnd) {
+            gaps.push({ start: cursor, end: chartEnd });
+        }
+
+        // Add fallback rate lines for each gap
+        gaps.forEach((gap, gapIndex) => {
+            // AAR fallback
+            if ((direction === 'both' || direction === 'arr') && rates.vatsim_aar) {
+                const proRatedValue = Math.round(rates.vatsim_aar * proRateFactor * 10) / 10;
+                const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
+                const labelText = proRateFactor < 1
+                    ? `AAR ${displayValue}`
+                    : `AAR ${rates.vatsim_aar}`;
+
+                lines.push([
+                    { xAxis: gap.start, yAxis: proRatedValue },
+                    {
+                        xAxis: gap.end,
+                        yAxis: proRatedValue,
+                        lineStyle: {
+                            color: fallbackStyle.color,
+                            width: 2,
+                            type: 'dotted'  // Dotted to indicate fallback/suggested
+                        },
+                        label: {
+                            show: gapIndex === gaps.length - 1,  // Only label the last gap
+                            formatter: labelText,
+                            position: 'end',
+                            distance: 5,
+                            offset: [0, 0],
+                            color: fallbackTextColor,
+                            fontSize: cfg.label?.fontSize || 10,
+                            fontWeight: cfg.label?.fontWeight || 'bold',
+                            fontFamily: '"Roboto Mono", monospace',
+                            backgroundColor: fallbackStyle.color,
+                            padding: [2, 6],
+                            borderRadius: 3,
+                            borderColor: 'rgba(0,0,0,0.2)',
+                            borderWidth: 1
+                        }
+                    }
+                ]);
+            }
+
+            // ADR fallback
+            if ((direction === 'both' || direction === 'dep') && rates.vatsim_adr) {
+                const proRatedValue = Math.round(rates.vatsim_adr * proRateFactor * 10) / 10;
+                const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
+                const labelText = proRateFactor < 1
+                    ? `ADR ${displayValue}`
+                    : `ADR ${rates.vatsim_adr}`;
+
+                lines.push([
+                    { xAxis: gap.start, yAxis: proRatedValue },
+                    {
+                        xAxis: gap.end,
+                        yAxis: proRatedValue,
+                        lineStyle: {
+                            color: fallbackStyle.color,
+                            width: 2,
+                            type: 'dotted'  // Dotted to indicate fallback/suggested
+                        },
+                        label: {
+                            show: gapIndex === gaps.length - 1,  // Only label the last gap
+                            formatter: labelText,
+                            position: 'end',
+                            distance: 5,
+                            offset: [0, 20],
+                            color: fallbackTextColor,
+                            fontSize: cfg.label?.fontSize || 10,
+                            fontWeight: cfg.label?.fontWeight || 'bold',
+                            fontFamily: '"Roboto Mono", monospace',
+                            backgroundColor: fallbackStyle.color,
+                            padding: [2, 6],
+                            borderRadius: 3,
+                            borderColor: 'rgba(0,0,0,0.2)',
+                            borderWidth: 1
+                        }
+                    }
+                ]);
+            }
+        });
+    }
 
     return lines;
 }
