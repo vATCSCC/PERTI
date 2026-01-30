@@ -845,6 +845,7 @@ let DEMAND_STATE = {
     lastDemandData: null, // Store last demand response for view switching
     rateData: null, // Store rate suggestion data from API
     tmiConfig: null, // Store active TMI CONFIG entry if any
+    scheduledConfigs: null, // Store all scheduled TMI CONFIG entries for time-bounded rate lines
     showRateLines: true, // Toggle for rate line visibility
     atisData: null, // Store ATIS data from API
     // Cache management
@@ -1352,16 +1353,17 @@ function loadDemandData() {
     DEMAND_STATE.currentStart = start.toISOString();
     DEMAND_STATE.currentEnd = end.toISOString();
 
-    // Fetch demand data, rate suggestions, ATIS, and active TMI config in parallel
+    // Fetch demand data, rate suggestions, ATIS, active TMI config, and scheduled configs in parallel
     // Use Promise.allSettled so optional API failures don't block demand data
     const demandPromise = $.getJSON(`api/demand/airport.php?${params.toString()}`);
     const ratesPromise = $.getJSON(`api/demand/rates.php?airport=${encodeURIComponent(airport)}`);
     const atisPromise = $.getJSON(`api/demand/atis.php?airport=${encodeURIComponent(airport)}`);
     const tmiConfigPromise = $.getJSON(`api/demand/active_config.php?airport=${encodeURIComponent(airport)}`);
+    const scheduledConfigsPromise = $.getJSON(`api/demand/scheduled_configs.php?airport=${encodeURIComponent(airport)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
 
-    Promise.allSettled([demandPromise, ratesPromise, atisPromise, tmiConfigPromise])
+    Promise.allSettled([demandPromise, ratesPromise, atisPromise, tmiConfigPromise, scheduledConfigsPromise])
         .then(function(results) {
-            const [demandResult, ratesResult, atisResult, tmiConfigResult] = results;
+            const [demandResult, ratesResult, atisResult, tmiConfigResult, scheduledConfigsResult] = results;
 
             // Handle demand data (required)
             if (demandResult.status === 'rejected') {
@@ -1429,6 +1431,17 @@ function loadDemandData() {
                 updateAtisDisplay(null);
                 if (atisResult.status === 'rejected') {
                     console.warn('ATIS API unavailable:', atisResult.reason);
+                }
+            }
+
+            // Handle scheduled TMI configs (optional - for time-bounded rate lines)
+            if (scheduledConfigsResult.status === 'fulfilled' && scheduledConfigsResult.value &&
+                scheduledConfigsResult.value.success && scheduledConfigsResult.value.configs) {
+                DEMAND_STATE.scheduledConfigs = scheduledConfigsResult.value.configs;
+            } else {
+                DEMAND_STATE.scheduledConfigs = null;
+                if (scheduledConfigsResult.status === 'rejected') {
+                    console.warn('Scheduled configs API unavailable:', scheduledConfigsResult.reason);
                 }
             }
 
@@ -1890,7 +1903,9 @@ function renderChart(data) {
 
     // Add current time marker and rate lines to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
-    const rateMarkLines = buildRateMarkLinesForChart();
+    const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
+        ? buildTimeBoundedRateMarkLines()
+        : buildRateMarkLinesForChart();
 
     if (series.length > 0) {
         const markLineData = [];
@@ -2335,7 +2350,9 @@ function renderOriginChart() {
 
     // Add current time marker and rate lines to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
-    const rateMarkLines = buildRateMarkLinesForChart();
+    const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
+        ? buildTimeBoundedRateMarkLines()
+        : buildRateMarkLinesForChart();
 
     if (series.length > 0) {
         const markLineData = [];
@@ -2663,7 +2680,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
 
     // Add time marker and rate lines
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
-    const rateMarkLines = buildRateMarkLinesForChart();
+    const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
+        ? buildTimeBoundedRateMarkLines()
+        : buildRateMarkLinesForChart();
 
     if (series.length > 0) {
         const markLineData = [];
@@ -3489,6 +3508,171 @@ function buildRateMarkLinesForChart() {
         addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
         addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
     }
+
+    return lines;
+}
+
+/**
+ * Build time-bounded rate mark lines from scheduled TMI CONFIG entries
+ * Creates horizontal line segments for each config period (stair-step style)
+ * Lines are discontinuous at config transitions - no interpolation
+ */
+function buildTimeBoundedRateMarkLines() {
+    // Check if rate lines are enabled and we have scheduled configs
+    if (!DEMAND_STATE.showRateLines || !DEMAND_STATE.scheduledConfigs) {
+        return [];
+    }
+
+    const configs = DEMAND_STATE.scheduledConfigs;
+    if (!configs || configs.length === 0) return [];
+
+    const lines = [];
+    const direction = DEMAND_STATE.direction;
+
+    // Pro-rate factor: AAR/ADR are hourly rates, adjust for granularity
+    const granularityMinutes = getGranularityMinutes();
+    const proRateFactor = granularityMinutes / 60;
+
+    // Chart time bounds (in milliseconds)
+    const chartStart = new Date(DEMAND_STATE.currentStart).getTime();
+    const chartEnd = new Date(DEMAND_STATE.currentEnd).getTime();
+
+    // Use config if available, otherwise use defaults
+    const cfg = (typeof RATE_LINE_CONFIG !== 'undefined') ? RATE_LINE_CONFIG : {
+        active: {
+            vatsim: { color: '#000000' },
+            rw: { color: '#00FFFF' }
+        },
+        lineStyle: {
+            aar: { type: 'solid', width: 2 },
+            adr: { type: 'dashed', width: 2 }
+        },
+        label: {
+            fontSize: 10,
+            fontWeight: 'bold'
+        }
+    };
+
+    // Track label positions to avoid overlaps
+    let aarLabelIndex = 0;
+    let adrLabelIndex = 0;
+
+    // Process each config
+    configs.forEach((config, configIndex) => {
+        // Parse config times (use chart bounds if null)
+        const configStart = config.valid_from ? new Date(config.valid_from).getTime() : chartStart;
+        const configEnd = config.valid_until ? new Date(config.valid_until).getTime() : chartEnd;
+
+        // Clamp to chart bounds
+        const segmentStart = Math.max(configStart, chartStart);
+        const segmentEnd = Math.min(configEnd, chartEnd);
+
+        // Skip if segment is outside visible range
+        if (segmentStart >= segmentEnd) return;
+
+        // Add AAR line segment (arrivals)
+        if ((direction === 'both' || direction === 'arr') && config.aar) {
+            const proRatedValue = Math.round(config.aar * proRateFactor * 10) / 10;
+            const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
+
+            const labelText = proRateFactor < 1
+                ? `AAR ${displayValue}`
+                : `AAR ${config.aar}`;
+
+            const sourceStyle = cfg.active.vatsim;
+            const lineTypeStyle = cfg.lineStyle.aar;
+            const bgColor = sourceStyle.color;
+            const textColor = getContrastTextColor(bgColor);
+
+            // Vertical offset for label stacking
+            const verticalOffset = aarLabelIndex * 20;
+            aarLabelIndex++;
+
+            // Two-point line segment format for ECharts
+            lines.push([
+                {
+                    xAxis: segmentStart,
+                    yAxis: proRatedValue
+                },
+                {
+                    xAxis: segmentEnd,
+                    yAxis: proRatedValue,
+                    lineStyle: {
+                        color: sourceStyle.color,
+                        width: lineTypeStyle.width,
+                        type: lineTypeStyle.type
+                    },
+                    label: {
+                        show: true,
+                        formatter: labelText,
+                        position: 'end',
+                        distance: 5,
+                        offset: [0, verticalOffset],
+                        color: textColor,
+                        fontSize: cfg.label.fontSize || 10,
+                        fontWeight: cfg.label.fontWeight || 'bold',
+                        fontFamily: '"Roboto Mono", monospace',
+                        backgroundColor: bgColor,
+                        padding: [2, 6],
+                        borderRadius: 3,
+                        borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
+                        borderWidth: 1
+                    }
+                }
+            ]);
+        }
+
+        // Add ADR line segment (departures)
+        if ((direction === 'both' || direction === 'dep') && config.adr) {
+            const proRatedValue = Math.round(config.adr * proRateFactor * 10) / 10;
+            const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
+
+            const labelText = proRateFactor < 1
+                ? `ADR ${displayValue}`
+                : `ADR ${config.adr}`;
+
+            const sourceStyle = cfg.active.vatsim;
+            const lineTypeStyle = cfg.lineStyle.adr;
+            const bgColor = sourceStyle.color;
+            const textColor = getContrastTextColor(bgColor);
+
+            // Vertical offset for label stacking (separate from AAR)
+            const verticalOffset = adrLabelIndex * 20;
+            adrLabelIndex++;
+
+            lines.push([
+                {
+                    xAxis: segmentStart,
+                    yAxis: proRatedValue
+                },
+                {
+                    xAxis: segmentEnd,
+                    yAxis: proRatedValue,
+                    lineStyle: {
+                        color: sourceStyle.color,
+                        width: lineTypeStyle.width,
+                        type: lineTypeStyle.type
+                    },
+                    label: {
+                        show: true,
+                        formatter: labelText,
+                        position: 'end',
+                        distance: 5,
+                        offset: [0, verticalOffset],
+                        color: textColor,
+                        fontSize: cfg.label.fontSize || 10,
+                        fontWeight: cfg.label.fontWeight || 'bold',
+                        fontFamily: '"Roboto Mono", monospace',
+                        backgroundColor: bgColor,
+                        padding: [2, 6],
+                        borderRadius: 3,
+                        borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
+                        borderWidth: 1
+                    }
+                }
+            ]);
+        }
+    });
 
     return lines;
 }
