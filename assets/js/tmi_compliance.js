@@ -18,8 +18,37 @@ const TMICompliance = {
         $('#save_ntml_config').on('click', () => this.saveConfig());
         $('#load_ntml_config').on('click', () => this.loadConfig());
 
-        // Auto-load saved config on init
+        // Auto-fill from plan data first (as defaults)
+        this.populateFromPlanData();
+
+        // Then try to load saved config (overrides defaults if exists)
         this.loadConfig(true);
+    },
+
+    populateFromPlanData: function() {
+        // Use window.planData set by PHP in review.php
+        if (!window.planData) return;
+
+        const pd = window.planData;
+
+        // Destinations
+        if (pd.destinations) {
+            $('#tmi_destinations').val(pd.destinations);
+        }
+
+        // Event Start: combine event_date and event_start (HHMM)
+        if (pd.event_date && pd.event_start) {
+            const startTime = pd.event_start.padStart(4, '0');
+            const startFormatted = `${pd.event_date} ${startTime.substring(0,2)}:${startTime.substring(2,4)}`;
+            $('#tmi_event_start').val(startFormatted);
+        }
+
+        // Event End: combine event_end_date and event_end_time (HHMM)
+        if (pd.event_end_date && pd.event_end_time) {
+            const endTime = pd.event_end_time.padStart(4, '0');
+            const endFormatted = `${pd.event_end_date} ${endTime.substring(0,2)}:${endTime.substring(2,4)}`;
+            $('#tmi_event_end').val(endFormatted);
+        }
     },
 
     saveConfig: function() {

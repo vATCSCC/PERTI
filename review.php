@@ -35,6 +35,11 @@ include("sessions/handler.php");
     }
 
     $plan_info = $conn_sqli->query("SELECT * FROM p_plans WHERE id=$id")->fetch_assoc();
+
+    // Get destinations from p_configs for this plan
+    $dest_result = $conn_sqli->query("SELECT GROUP_CONCAT(DISTINCT airport) as destinations FROM p_configs WHERE p_id=$id");
+    $dest_row = $dest_result ? $dest_result->fetch_assoc() : null;
+    $plan_destinations = $dest_row && $dest_row['destinations'] ? $dest_row['destinations'] : '';
 ?>
 
 <!DOCTYPE html>
@@ -615,6 +620,18 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="tmi_compliance">
                         <div class="tmi-compliance-section">
                             <h5 class="text-warning mb-3"><i class="fas fa-chart-line"></i> TMI Compliance Analysis</h5>
+
+                            <!-- Plan data for auto-fill -->
+                            <script>
+                                window.planData = {
+                                    id: <?= json_encode($plan_info['id']); ?>,
+                                    event_date: <?= json_encode($plan_info['event_date']); ?>,
+                                    event_start: <?= json_encode($plan_info['event_start']); ?>,
+                                    event_end_date: <?= json_encode($plan_info['event_end_date']); ?>,
+                                    event_end_time: <?= json_encode($plan_info['event_end_time']); ?>,
+                                    destinations: <?= json_encode($plan_destinations); ?>
+                                };
+                            </script>
 
                             <!-- NTML Input Section -->
                             <div class="card mb-3">
