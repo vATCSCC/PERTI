@@ -212,34 +212,43 @@ if ($format === 'gdt' || $format === 'csv') {
         }
     }
 
-    // Generate per-facility tier configs using GIS proximity
+    // Generate per-facility tier configs using precomputed tier matrix
+    // This uses a single bulk query instead of 20 separate queries
     $allArtccs = $NAMED_GROUPS['ALL'];
+    $tierMatrix = $gis->getAllArtccTiers(2.0);  // Single query for all ARTCCs
 
     foreach ($allArtccs as $artcc) {
         $icaoCode = toIcaoCode($artcc);
 
-        // Get proximity tiers up to tier 2
-        $tiers = $gis->getProximityTiers('ARTCC', $icaoCode, 2.0, true);
+        // Get precomputed tiers for this ARTCC
+        $artccTiers = $tierMatrix[$icaoCode] ?? [];
 
         // Group results by tier (cumulative)
         $tier0 = [$artcc];  // Self
         $tier1 = [$artcc];  // Self + tier 1
         $tier2 = [$artcc];  // Self + tier 1 + tier 2
 
-        foreach ($tiers as $t) {
-            $code = toFaaCode($t['boundary_code']);
-            $region = getRegionFromCode($t['boundary_code']);
-
-            // Only include US ARTCCs
-            if ($region !== 'US') {
-                continue;
+        // Process tier 0 (self - already included)
+        // Process tier 1 neighbors
+        if (isset($artccTiers[1.0])) {
+            foreach ($artccTiers[1.0] as $neighborCode) {
+                $code = toFaaCode($neighborCode);
+                $region = getRegionFromCode($neighborCode);
+                if ($region === 'US' && !in_array($code, $tier1)) {
+                    $tier1[] = $code;
+                    $tier2[] = $code;
+                }
             }
+        }
 
-            if ($t['tier'] <= 1.0 && $t['tier'] > 0) {
-                if (!in_array($code, $tier1)) $tier1[] = $code;
-                if (!in_array($code, $tier2)) $tier2[] = $code;
-            } elseif ($t['tier'] <= 2.0 && $t['tier'] > 1.0) {
-                if (!in_array($code, $tier2)) $tier2[] = $code;
+        // Process tier 2 neighbors
+        if (isset($artccTiers[2.0])) {
+            foreach ($artccTiers[2.0] as $neighborCode) {
+                $code = toFaaCode($neighborCode);
+                $region = getRegionFromCode($neighborCode);
+                if ($region === 'US' && !in_array($code, $tier2)) {
+                    $tier2[] = $code;
+                }
             }
         }
 
