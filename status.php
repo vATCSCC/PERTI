@@ -120,9 +120,11 @@ $liveData = [
     'swim_audit_log_1h' => 0,
     'swim_last_sync' => null,
     // REF Database Metrics (Reference Data)
-    'ref_airports' => 0,
+    'ref_nav_fixes' => 0,
     'ref_airways' => 0,
-    'ref_waypoints' => 0,
+    'ref_playbook_routes' => 0,
+    'ref_nav_procedures' => 0,
+    'ref_cdrs' => 0,
 ];
 
 // Runtime tracking
@@ -322,12 +324,12 @@ if (isset($conn_swim) && $conn_swim !== null && $conn_swim !== false) {
 if (isset($conn_ref) && $conn_ref !== null && $conn_ref !== false) {
     $liveData['ref_connected'] = true;
 
-    // Airports count
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.airports";
+    // Nav fixes (waypoints + navaids) count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.nav_fixes";
     $stmt = @sqlsrv_query($conn_ref, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['ref_airports'] = $row['cnt'] ?? 0;
+        $liveData['ref_nav_fixes'] = $row['cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 
@@ -340,12 +342,30 @@ if (isset($conn_ref) && $conn_ref !== null && $conn_ref !== false) {
         sqlsrv_free_stmt($stmt);
     }
 
-    // Waypoints/fixes count
-    $sql = "SELECT COUNT(*) AS cnt FROM dbo.waypoints";
+    // Playbook routes count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.playbook_routes";
     $stmt = @sqlsrv_query($conn_ref, $sql);
     if ($stmt) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $liveData['ref_waypoints'] = $row['cnt'] ?? 0;
+        $liveData['ref_playbook_routes'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Nav procedures (SIDs/STARs) count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.nav_procedures";
+    $stmt = @sqlsrv_query($conn_ref, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['ref_nav_procedures'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Coded departure routes count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.coded_departure_routes";
+    $stmt = @sqlsrv_query($conn_ref, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['ref_cdrs'] = $row['cnt'] ?? 0;
         sqlsrv_free_stmt($stmt);
     }
 }
@@ -2655,7 +2675,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         <span class="status-badge warning">Offline</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="timing-info"><?= number_format($liveData['ref_airports']) ?> airports</td>
+                                <td class="timing-info"><?= number_format($liveData['ref_nav_fixes']) ?> fixes</td>
                             </tr>
                         </tbody>
                     </table>
@@ -2924,16 +2944,24 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </div>
                                 <div class="tree-node">
                                     <div class="tree-item">
-                                        <span class="tree-icon file"><i class="fas fa-plane-departure"></i></span>
-                                        <span class="tree-label">airports (<?= number_format($liveData['ref_airports']) ?>)</span>
+                                        <span class="tree-icon file"><i class="fas fa-map-pin"></i></span>
+                                        <span class="tree-label">nav_fixes (<?= number_format($liveData['ref_nav_fixes']) ?>)</span>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fas fa-route"></i></span>
                                         <span class="tree-label">airways (<?= number_format($liveData['ref_airways']) ?>)</span>
                                     </div>
                                     <div class="tree-item">
-                                        <span class="tree-icon file"><i class="fas fa-map-pin"></i></span>
-                                        <span class="tree-label">waypoints (<?= number_format($liveData['ref_waypoints']) ?>)</span>
+                                        <span class="tree-icon file"><i class="fas fa-plane-departure"></i></span>
+                                        <span class="tree-label">nav_procedures (<?= number_format($liveData['ref_nav_procedures']) ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-directions"></i></span>
+                                        <span class="tree-label">coded_departure_routes (<?= number_format($liveData['ref_cdrs']) ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-book"></i></span>
+                                        <span class="tree-label">playbook_routes (<?= number_format($liveData['ref_playbook_routes']) ?>)</span>
                                     </div>
                                 </div>
                             </div>
