@@ -127,6 +127,13 @@ class TMIComplianceAnalyzer:
 
         cursor.close()
 
+    def _normalize_icao(self, code: str) -> List[str]:
+        """Convert FAA codes to ICAO codes (add K prefix for US)"""
+        code = code.upper().strip()
+        if len(code) == 3:
+            return [f'K{code}', code]  # Include both KLAS and LAS
+        return [code]
+
     def _get_flights_for_tmi(self, tmi: TMI) -> Dict[str, Any]:
         """Get flights affected by a TMI based on its scope"""
         cursor = self.adl_conn.cursor()
@@ -136,11 +143,18 @@ class TMIComplianceAnalyzer:
         orig_filter = ""
 
         if tmi.destinations:
-            dest_in = "'" + "','".join(tmi.destinations) + "'"
+            # Handle FAA vs ICAO codes (LAS vs KLAS)
+            all_dests = []
+            for d in tmi.destinations:
+                all_dests.extend(self._normalize_icao(d))
+            dest_in = "'" + "','".join(all_dests) + "'"
             dest_filter = f"AND p.fp_dest_icao IN ({dest_in})"
 
         if tmi.origins:
-            orig_in = "'" + "','".join(tmi.origins) + "'"
+            all_origs = []
+            for o in tmi.origins:
+                all_origs.extend(self._normalize_icao(o))
+            orig_in = "'" + "','".join(all_origs) + "'"
             orig_filter = f"AND p.fp_dept_icao IN ({orig_in})"
 
         # Use WIDEST window
@@ -402,7 +416,11 @@ class TMIComplianceAnalyzer:
         cursor = self.adl_conn.cursor()
 
         # Get flights from affected origins to destinations
-        dest_in = "'" + "','".join(tmi.destinations) + "'" if tmi.destinations else "''"
+        # Handle FAA vs ICAO codes (LAS vs KLAS)
+        all_dests = []
+        for d in (tmi.destinations or []):
+            all_dests.extend(self._normalize_icao(d))
+        dest_in = "'" + "','".join(all_dests) + "'" if all_dests else "''"
 
         # For GS, get ALL flights to destination during event window
         cursor.execute(f"""

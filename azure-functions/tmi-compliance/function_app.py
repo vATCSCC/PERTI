@@ -96,8 +96,15 @@ def tmi_compliance_http(req: func.HttpRequest) -> func.HttpResponse:
         analyzer = TMIComplianceAnalyzer(event)
         results = analyzer.analyze()
 
-        # Add plan_id to results
+        # Add plan_id and debug info to results
         results['plan_id'] = plan_id
+        results['debug'] = {
+            'tmis_parsed': len(event.tmis),
+            'destinations': event.destinations,
+            'tmi_types': [tmi.tmi_type.value for tmi in event.tmis[:10]],
+            'tmi_fixes': [tmi.fix for tmi in event.tmis if tmi.fix],
+            'fix_coords_loaded': list(analyzer.fix_coords.keys()) if hasattr(analyzer, 'fix_coords') else []
+        }
 
         logger.info("Analysis complete")
 
@@ -176,9 +183,16 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
 
     # Parse NTML text into TMIs
     ntml_text = config.get('ntml_text', '')
+    logger.info(f"NTML text length: {len(ntml_text)}, first 200 chars: {ntml_text[:200] if ntml_text else 'empty'}")
+    logger.info(f"Destinations: {destinations}, Event: {event_start} to {event_end}")
+
     if ntml_text:
         tmis = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
         event.tmis = tmis
         logger.info(f"Parsed {len(tmis)} TMIs from NTML")
+        for tmi in tmis[:5]:  # Log first 5 TMIs for debug
+            logger.info(f"  TMI: {tmi.tmi_type.value} {tmi.fix} {tmi.value} {tmi.start_utc}-{tmi.end_utc}")
+    else:
+        logger.warning("NTML text is empty!")
 
     return event
