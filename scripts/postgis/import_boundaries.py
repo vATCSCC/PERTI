@@ -168,9 +168,9 @@ def import_sector_boundaries(conn, geojson: dict, sector_type: str, dry_run: boo
         if artcc:
             artcc = artcc.upper()[:4]
 
-        # Build sector code
+        # Build sector code (no underscore - matches ADL adl_boundary format)
         sector = props.get("sector", props.get("SECTOR", ""))
-        sector_code = f"{artcc}_{sector}" if artcc and sector else sector or "UNK"
+        sector_code = f"{artcc}{sector}" if artcc and sector else sector or "UNK"
 
         row = (
             sector_code[:16],
