@@ -86,8 +86,9 @@ function executeQuery($conn, $sql) {
     return $results;
 }
 
-// Overview Section
+// Overview Section - Comprehensive statistics
 if ($section === 'all' || $section === 'overview') {
+    // Basic stats
     $overviewSql = "
         SELECT
             COUNT(*) as total_snapshots,
@@ -98,10 +99,38 @@ if ($section === 'all' || $section === 'overview') {
             MIN(pilots) as min_pilots,
             AVG(controllers) as avg_controllers,
             MAX(controllers) as max_controllers,
-            STDEV(pilots) as std_dev_pilots
+            STDEV(pilots) as std_dev_pilots,
+            VAR(pilots) as variance_pilots,
+            STDEV(controllers) as std_dev_controllers
         FROM historical_network_stats
     ";
     $overview = executeQuery($conn, $overviewSql);
+
+    // Percentiles using PERCENTILE_CONT
+    $percentileSql = "
+        SELECT
+            PERCENTILE_CONT(0.10) WITHIN GROUP (ORDER BY pilots) OVER () as p10,
+            PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY pilots) OVER () as p25,
+            PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY pilots) OVER () as median,
+            PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY pilots) OVER () as p75,
+            PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY pilots) OVER () as p90,
+            PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY pilots) OVER () as p95,
+            PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY pilots) OVER () as p99
+        FROM historical_network_stats
+    ";
+    $stmt = sqlsrv_query($conn, $percentileSql);
+    $percentiles = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC) : null;
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Controller ratio stats
+    $ratioSql = "
+        SELECT
+            AVG(CAST(controllers AS FLOAT) / NULLIF(pilots, 0) * 100) as avg_ctrl_ratio,
+            STDEV(CAST(controllers AS FLOAT) / NULLIF(pilots, 0) * 100) as std_ctrl_ratio
+        FROM historical_network_stats
+        WHERE pilots > 100
+    ";
+    $ratioData = executeQuery($conn, $ratioSql);
 
     // Current status
     $currentSql = "
@@ -114,9 +143,47 @@ if ($section === 'all' || $section === 'overview') {
     ";
     $current = executeQuery($conn, $currentSql);
 
+    // 24-hour change
+    $changeSql = "
+        WITH current_avg AS (
+            SELECT AVG(pilots) as avg_now
+            FROM historical_network_stats
+            WHERE file_time >= DATEADD(hour, -1, GETUTCDATE())
+        ),
+        yesterday_avg AS (
+            SELECT AVG(pilots) as avg_yesterday
+            FROM historical_network_stats
+            WHERE file_time >= DATEADD(hour, -25, GETUTCDATE())
+              AND file_time < DATEADD(hour, -24, GETUTCDATE())
+        )
+        SELECT
+            c.avg_now,
+            y.avg_yesterday,
+            CASE WHEN y.avg_yesterday > 0
+                THEN (c.avg_now - y.avg_yesterday) / y.avg_yesterday * 100
+                ELSE 0
+            END as pct_change_24h
+        FROM current_avg c, yesterday_avg y
+    ";
+    $changeData = executeQuery($conn, $changeSql);
+
+    // Data quality stats
+    $qualitySql = "
+        SELECT
+            COUNT(DISTINCT CAST(file_time AS DATE)) as days_with_data,
+            DATEDIFF(day, MIN(file_time), MAX(file_time)) + 1 as total_days,
+            COUNT(*) * 1.0 / (DATEDIFF(day, MIN(file_time), MAX(file_time)) + 1) as avg_samples_per_day
+        FROM historical_network_stats
+    ";
+    $qualityData = executeQuery($conn, $qualitySql);
+
     $response['overview'] = [
         'summary' => $overview[0] ?? null,
-        'current' => $current[0] ?? null
+        'percentiles' => $percentiles,
+        'controller_ratio' => $ratioData[0] ?? null,
+        'current' => $current[0] ?? null,
+        'change_24h' => $changeData[0] ?? null,
+        'data_quality' => $qualityData[0] ?? null
     ];
 }
 
