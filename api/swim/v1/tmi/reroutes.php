@@ -470,7 +470,7 @@ function getRerouteRoutes($conn, $rerouteId) {
     if (!$tableExists) return [];
 
     $sql = "
-        SELECT origin, destination, route_string, sort_order
+        SELECT origin, destination, route_string, sort_order, origin_filter, dest_filter
         FROM dbo.tmi_reroute_routes
         WHERE reroute_id = ?
         ORDER BY sort_order
@@ -481,11 +481,19 @@ function getRerouteRoutes($conn, $rerouteId) {
 
     $routes = [];
     while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        $routes[] = [
+        $routeEntry = [
             'origin' => $row['origin'],
             'dest' => $row['destination'],
             'route' => $row['route_string']
         ];
+        // Include filters only if they have values
+        if (!empty($row['origin_filter'])) {
+            $routeEntry['origin_filter'] = $row['origin_filter'];
+        }
+        if (!empty($row['dest_filter'])) {
+            $routeEntry['dest_filter'] = $row['dest_filter'];
+        }
+        $routes[] = $routeEntry;
     }
     sqlsrv_free_stmt($stmt);
 

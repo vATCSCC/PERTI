@@ -2579,8 +2579,8 @@ function createDraftReroute($conn, $entry, $userCid, $proposalId) {
         // Insert individual routes
         if ($rerouteId && !empty($routes)) {
             $routeSql = "INSERT INTO dbo.tmi_reroute_routes
-                         (reroute_id, origin, destination, route_string, sort_order)
-                         VALUES (?, ?, ?, ?, ?)";
+                         (reroute_id, origin, destination, route_string, sort_order, origin_filter, dest_filter)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)";
 
             $sortOrder = 0;
             foreach ($routes as $route) {
@@ -2589,7 +2589,9 @@ function createDraftReroute($conn, $entry, $userCid, $proposalId) {
                     strtoupper(trim($route['origin'] ?? '')),
                     strtoupper(trim($route['destination'] ?? '')),
                     trim($route['route'] ?? ''),
-                    $sortOrder++
+                    $sortOrder++,
+                    strtoupper(trim($route['originFilter'] ?? '')),
+                    strtoupper(trim($route['destFilter'] ?? ''))
                 ]);
             }
         }
