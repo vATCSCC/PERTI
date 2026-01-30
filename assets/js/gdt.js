@@ -4955,9 +4955,10 @@ loadSimTrafficLocalCache(); {
     }
 
 function loadTierInfo() {
-        // Load tier data from API (database-backed, returns CSV format)
+        // Load tier data from GIS-based API (PostGIS proximity tiers)
+        // Falls back to ADL-based API if GIS unavailable
         // Expected header columns: code, facility, select, departureFacilitiesIncluded
-        return fetch("api/tiers.php?format=csv", { cache: "no-cache" })
+        return fetch("api/tiers/query.php?format=gdt", { cache: "no-cache" })
             .then(function(res) { return res.text(); })
             .then(function(text) {
                 TMI_TIER_INFO = [];
@@ -5014,7 +5015,42 @@ function loadTierInfo() {
                 TMI_UNIQUE_FACILITIES = Array.from(facSet).sort();
             })
             .catch(function(err) {
-                console.error("Error loading tier data from API", err);
+                console.warn("GIS tier API failed, falling back to ADL API:", err);
+                // Fallback to ADL-based tier API
+                return fetch("api/tiers.php?format=csv", { cache: "no-cache" })
+                    .then(function(res) { return res.text(); })
+                    .then(function(text) {
+                        TMI_TIER_INFO = [];
+                        TMI_UNIQUE_FACILITIES = [];
+                        TMI_TIER_INFO_BY_CODE = {};
+                        if (!text) return;
+                        var lines = text.replace(/\r/g, "").split("\n").filter(function(l) { return l.trim().length > 0; });
+                        if (!lines.length) return;
+                        var header = lines[0];
+                        var delim = header.indexOf(",") !== -1 ? "," : "\t";
+                        var cols = header.split(delim).map(function(s) { return s.trim(); });
+                        function idx(name) { return cols.indexOf(name); }
+                        var idxCode = idx("code"), idxFacility = idx("facility"), idxLabel = idx("select"), idxDeps = idx("departureFacilitiesIncluded");
+                        var facSet = new Set();
+                        for (var i = 1; i < lines.length; i++) {
+                            var parts = lines[i].split(delim);
+                            function get(idx) { return (idx >= 0 && idx < parts.length) ? parts[idx].trim() : ""; }
+                            var code = get(idxCode);
+                            if (!code) continue;
+                            var facility = get(idxFacility) || null;
+                            var label = get(idxLabel);
+                            var depsRaw = get(idxDeps);
+                            var included = depsRaw ? depsRaw.split(/\s+/).filter(function(x) { return x.length > 0; }) : [];
+                            included.forEach(function(f) { facSet.add(f); });
+                            var entry = { code: code, facility: facility, label: label, included: included };
+                            TMI_TIER_INFO.push(entry);
+                            TMI_TIER_INFO_BY_CODE[code] = entry;
+                        }
+                        TMI_UNIQUE_FACILITIES = Array.from(facSet).sort();
+                    })
+                    .catch(function(fallbackErr) {
+                        console.error("Fallback tier API also failed:", fallbackErr);
+                    });
             });
     }
 
@@ -6792,6 +6828,73 @@ function loadTierInfo() {
             }
         }
         return null;
+    }
+
+    /**
+     * Fetch dynamic proximity tier data from GIS API
+     * @param {string} facility - ARTCC code (e.g., "ZFW")
+     * @param {number} tier - Tier level (1, 2, etc.)
+     * @param {object} options - Optional settings: { include: ["CAN","MEX"], usOnly: true }
+     * @returns {Promise<string[]>} - Array of facility codes
+     */
+    function fetchGisProximityTier(facility, tier, options) {
+        if (!facility) return Promise.resolve([]);
+        options = options || {};
+
+        var url = "api/tiers/query.php?facility=" + encodeURIComponent(facility) + "&tier=" + tier + "&format=codes";
+        if (options.include && options.include.length) {
+            url += "&include=" + options.include.join(",");
+        }
+        if (options.usOnly === false) {
+            url += "&us_only=0";
+        }
+
+        return fetch(url, { cache: "no-cache" })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success && data.facilities) {
+                    return data.facilities;
+                }
+                return [];
+            })
+            .catch(function(err) {
+                console.error("Error fetching GIS proximity tier:", err);
+                return [];
+            });
+    }
+
+    /**
+     * Get cumulative facilities for tier range (tier 0 through tierMax)
+     * @param {string} facility - ARTCC code (e.g., "ZFW")
+     * @param {number} tierMax - Maximum tier (1 = 1stTier, 2 = 2ndTier)
+     * @param {object} options - Optional settings
+     * @returns {Promise<string[]>} - Array of facility codes
+     */
+    function fetchGisCumulativeTier(facility, tierMax, options) {
+        if (!facility) return Promise.resolve([]);
+        options = options || {};
+
+        var url = "api/tiers/query.php?facility=" + encodeURIComponent(facility) +
+                  "&tier_min=0&tier_max=" + tierMax + "&format=codes";
+        if (options.include && options.include.length) {
+            url += "&include=" + options.include.join(",");
+        }
+        if (options.usOnly === false) {
+            url += "&us_only=0";
+        }
+
+        return fetch(url, { cache: "no-cache" })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success && data.facilities) {
+                    return data.facilities;
+                }
+                return [];
+            })
+            .catch(function(err) {
+                console.error("Error fetching GIS cumulative tier:", err);
+                return [];
+            });
     }
 
     // Render Original vs Controlled comparison chart

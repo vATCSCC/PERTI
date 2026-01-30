@@ -95,13 +95,14 @@ try {
             $archiveRange['latest'] = $archiveRange['latest']->format('Y-m-d H:i:s');
         }
         
-        // Event counts by destination
-        $sql = "SELECT dest, COUNT(*) as flight_count 
-                FROM dbo.adl_flight_archive 
-                WHERE fp_dest_icao IN ($destIn) 
-                  AND archived_utc >= '$EVENT_START' 
-                  AND archived_utc <= '$EVENT_END' 
-                GROUP BY dest ORDER BY flight_count DESC";
+        // Event counts by destination - query live data from flight_core/flight_plan
+        $sql = "SELECT p.fp_dest_icao as dest, COUNT(*) as flight_count
+                FROM dbo.adl_flight_core c
+                INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
+                WHERE p.fp_dest_icao IN ($destIn)
+                  AND c.first_seen_utc <= '$EVENT_END'
+                  AND c.last_seen_utc >= '$EVENT_START'
+                GROUP BY p.fp_dest_icao ORDER BY flight_count DESC";
         $stmt = sqlsrv_query($conn, $sql);
         $destCounts = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -109,11 +110,13 @@ try {
         }
         sqlsrv_free_stmt($stmt);
         
-        // Trajectory count
-        $sql = "SELECT COUNT(*) as cnt FROM dbo.adl_trajectory_compressed 
-                WHERE dest IN ($destIn) 
-                  AND flight_start_utc <= '$EVENT_END' 
-                  AND flight_end_utc >= '$EVENT_START'";
+        // Trajectory count - JOIN to get destination
+        $sql = "SELECT COUNT(*) as cnt
+                FROM dbo.adl_trajectory_compressed t
+                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE p.fp_dest_icao IN ($destIn)
+                  AND t.first_timestamp_utc <= '$EVENT_END'
+                  AND t.last_timestamp_utc >= '$EVENT_START'";
         $stmt = sqlsrv_query($conn, $sql);
         $trajRow = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
@@ -126,22 +129,24 @@ try {
     }
     
     // =========================================
-    // FLIGHTS
+    // FLIGHTS - Query from live flight_core/flight_plan/flight_position tables
     // =========================================
     if (in_array('flights', $include)) {
-        $sql = "SELECT 
-                    a.archive_id, a.flight_key, a.callsign, a.cid,
-                    a.fp_dept_icao, a.fp_dest_icao, a.aircraft_type, a.fp_route, a.fp_altitude_ft,
-                    a.last_lat, a.last_lon, a.last_altitude_ft, a.last_heading_deg, a.last_groundspeed_kts,
-                    a.first_seen_utc, a.last_seen_utc, a.archived_utc, a.flight_status,
-                    dept_apt.ARTCC_ID as dept_artcc, dest_apt.ARTCC_ID as dest_artcc
-                FROM dbo.adl_flight_archive a
-                LEFT JOIN dbo.apts dept_apt ON dept_apt.ICAO_ID = a.fp_dept_icao
-                LEFT JOIN dbo.apts dest_apt ON dest_apt.ICAO_ID = a.fp_dest_icao
-                WHERE a.fp_dest_icao IN ($destIn)
-                  AND a.archived_utc >= '$EVENT_START'
-                  AND a.archived_utc <= '$EVENT_END'
-                ORDER BY a.archived_utc";
+        $sql = "SELECT
+                    c.flight_uid, c.flight_key, c.callsign, c.cid,
+                    p.fp_dept_icao, p.fp_dest_icao, p.aircraft_type, p.fp_route, p.fp_altitude_ft,
+                    pos.lat as last_lat, pos.lon as last_lon, pos.altitude_ft as last_altitude_ft,
+                    pos.heading_deg as last_heading_deg, pos.groundspeed_kts as last_groundspeed_kts,
+                    c.first_seen_utc, c.last_seen_utc, c.phase as flight_status,
+                    p.fp_dept_artcc as dept_artcc, p.fp_dest_artcc as dest_artcc,
+                    p.star_name, p.afix, p.dfix, p.dp_name
+                FROM dbo.adl_flight_core c
+                INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
+                LEFT JOIN dbo.adl_flight_position pos ON c.flight_uid = pos.flight_uid
+                WHERE p.fp_dest_icao IN ($destIn)
+                  AND c.first_seen_utc <= '$EVENT_END'
+                  AND c.last_seen_utc >= '$EVENT_START'
+                ORDER BY c.first_seen_utc";
         
         $stmt = sqlsrv_query($conn, $sql);
         if ($stmt === false) {
@@ -151,14 +156,14 @@ try {
         $flights = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             // Format DateTime objects
-            foreach (['first_seen_utc', 'last_seen_utc', 'archived_utc'] as $field) {
-                if ($row[$field] instanceof DateTime) {
+            foreach (['first_seen_utc', 'last_seen_utc'] as $field) {
+                if (isset($row[$field]) && $row[$field] instanceof DateTime) {
                     $row[$field] = $row[$field]->format('Y-m-d H:i:s');
                 }
             }
-            
+
             // Detect arrival fix from route
-            $route = strtoupper($row['route'] ?? '');
+            $route = strtoupper($row['fp_route'] ?? '');
             $row['detected_fix'] = 'UNKNOWN';
             $row['arrival_stream'] = 'OTHER';
             
@@ -208,65 +213,74 @@ try {
     }
     
     // =========================================
-    // TRAJECTORY
+    // TRAJECTORY - JOIN to get dept/dest from flight_plan
     // =========================================
     if (in_array('trajectory', $include)) {
-        $sql = "SELECT compressed_id, callsign, dept, dest, 
-                       flight_start_utc, flight_end_utc, total_points, trajectory_data
-                FROM dbo.adl_trajectory_compressed
-                WHERE dest IN ($destIn)
-                  AND flight_start_utc <= '$EVENT_END'
-                  AND flight_end_utc >= '$EVENT_START'
-                ORDER BY flight_start_utc";
-        
+        $sql = "SELECT t.compressed_id, t.callsign, t.flight_uid,
+                       p.fp_dept_icao as dept, p.fp_dest_icao as dest,
+                       t.first_timestamp_utc, t.last_timestamp_utc,
+                       t.point_count, t.trajectory_data,
+                       t.anchor_lat, t.anchor_lon
+                FROM dbo.adl_trajectory_compressed t
+                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE p.fp_dest_icao IN ($destIn)
+                  AND t.first_timestamp_utc <= '$EVENT_END'
+                  AND t.last_timestamp_utc >= '$EVENT_START'
+                ORDER BY t.first_timestamp_utc";
+
         $stmt = sqlsrv_query($conn, $sql);
         $trajectories = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             // Format dates
-            foreach (['flight_start_utc', 'flight_end_utc'] as $field) {
-                if ($row[$field] instanceof DateTime) {
+            foreach (['first_timestamp_utc', 'last_timestamp_utc'] as $field) {
+                if (isset($row[$field]) && $row[$field] instanceof DateTime) {
                     $row[$field] = $row[$field]->format('Y-m-d H:i:s');
                 }
             }
-            // Parse trajectory JSON
+            // Trajectory data is stored as binary, convert if needed
             if (!empty($row['trajectory_data'])) {
-                $row['trajectory_data'] = json_decode($row['trajectory_data'], true);
+                // Try to decode as JSON, otherwise leave as-is
+                $decoded = @json_decode($row['trajectory_data'], true);
+                if ($decoded !== null) {
+                    $row['trajectory_data'] = $decoded;
+                }
             }
             $trajectories[] = $row;
         }
         sqlsrv_free_stmt($stmt);
-        
+
         $response['data']['trajectory'] = $trajectories;
         $response['data']['trajectory_count'] = count($trajectories);
     }
     
     // =========================================
-    // DEMAND (15-min bins)
+    // DEMAND (15-min bins) - Calculate from flight_core/flight_plan
     // =========================================
     if (in_array('demand', $include)) {
-        $sql = "SELECT 
-                    DATEADD(MINUTE, (DATEDIFF(MINUTE, '$EVENT_START', archived_utc) / 15) * 15, '$EVENT_START') as time_bin,
-                    dest,
+        $sql = "SELECT
+                    DATEADD(MINUTE, (DATEDIFF(MINUTE, '$EVENT_START', c.last_seen_utc) / 15) * 15, '$EVENT_START') as time_bin,
+                    p.fp_dest_icao as dest,
                     COUNT(*) as arrivals
-                FROM dbo.adl_flight_archive
-                WHERE dest IN ($destIn)
-                  AND archived_utc >= '$EVENT_START'
-                  AND archived_utc <= '$EVENT_END'
-                GROUP BY 
-                    DATEADD(MINUTE, (DATEDIFF(MINUTE, '$EVENT_START', archived_utc) / 15) * 15, '$EVENT_START'),
-                    dest
+                FROM dbo.adl_flight_core c
+                INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
+                WHERE p.fp_dest_icao IN ($destIn)
+                  AND c.first_seen_utc <= '$EVENT_END'
+                  AND c.last_seen_utc >= '$EVENT_START'
+                GROUP BY
+                    DATEADD(MINUTE, (DATEDIFF(MINUTE, '$EVENT_START', c.last_seen_utc) / 15) * 15, '$EVENT_START'),
+                    p.fp_dest_icao
                 ORDER BY time_bin, dest";
-        
+
         $stmt = sqlsrv_query($conn, $sql);
         $demand = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            if ($row['time_bin'] instanceof DateTime) {
+            if (isset($row['time_bin']) && $row['time_bin'] instanceof DateTime) {
                 $row['time_bin'] = $row['time_bin']->format('Y-m-d H:i:s');
             }
             $demand[] = $row;
         }
         sqlsrv_free_stmt($stmt);
-        
+
         $response['data']['demand'] = $demand;
     }
     
@@ -276,12 +290,12 @@ try {
     if (isset($_GET['format']) && $_GET['format'] === 'csv' && isset($response['data']['flights'])) {
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="escape_desert_flights.csv"');
-        
+
         $output = fopen('php://output', 'w');
         if (!empty($response['data']['flights'])) {
             fputcsv($output, array_keys($response['data']['flights'][0]));
             foreach ($response['data']['flights'] as $row) {
-                $row['route'] = substr($row['route'] ?? '', 0, 200); // Truncate long routes
+                $row['fp_route'] = substr($row['fp_route'] ?? '', 0, 200); // Truncate long routes
                 fputcsv($output, $row);
             }
         }

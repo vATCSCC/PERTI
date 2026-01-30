@@ -186,7 +186,75 @@ $exclude = isset($_GET['exclude']) ? array_map('strtoupper', array_map('trim', e
 $usOnly = !isset($_GET['include']) && ($_GET['us_only'] ?? '1') !== '0';
 $sameTypeOnly = ($_GET['same_type'] ?? '1') === '1';  // Default to same type (ARTCC-to-ARTCC)
 
-$format = strtolower($_GET['format'] ?? 'full');  // full, simple, codes
+$format = strtolower($_GET['format'] ?? 'full');  // full, simple, codes, gdt
+
+// =============================================================================
+// GDT FORMAT: Generate full tier configuration CSV for GDT scope builder
+// =============================================================================
+if ($format === 'gdt' || $format === 'csv') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: inline; filename="TierInfo.csv"');
+
+    echo "code,facility,select,departureFacilitiesIncluded\n";
+
+    // Global groups
+    echo "ALL,,(ALL)," . implode(' ', $NAMED_GROUPS['ALL']) . "\n";
+    echo "ALL+Canada,,(ALL+Canada)," . implode(' ', $NAMED_GROUPS['ALL+CANADA']) . "\n";
+    echo "Manual,,(Manual),\n";
+
+    // Named tier groups
+    $namedGroupsToExport = ['6WEST', '10WEST', '12WEST', 'EASTCOAST', 'WESTCOAST', 'GULF'];
+    foreach ($namedGroupsToExport as $grpName) {
+        if (isset($NAMED_GROUPS[$grpName])) {
+            $members = $NAMED_GROUPS[$grpName];
+            sort($members);
+            echo "{$grpName},,({$grpName})," . implode(' ', $members) . "\n";
+        }
+    }
+
+    // Generate per-facility tier configs using GIS proximity
+    $allArtccs = $NAMED_GROUPS['ALL'];
+
+    foreach ($allArtccs as $artcc) {
+        $icaoCode = toIcaoCode($artcc);
+
+        // Get proximity tiers up to tier 2
+        $tiers = $gis->getProximityTiers('ARTCC', $icaoCode, 2.0, true);
+
+        // Group results by tier (cumulative)
+        $tier0 = [$artcc];  // Self
+        $tier1 = [$artcc];  // Self + tier 1
+        $tier2 = [$artcc];  // Self + tier 1 + tier 2
+
+        foreach ($tiers as $t) {
+            $code = toFaaCode($t['boundary_code']);
+            $region = getRegionFromCode($t['boundary_code']);
+
+            // Only include US ARTCCs
+            if ($region !== 'US') {
+                continue;
+            }
+
+            if ($t['tier'] <= 1.0 && $t['tier'] > 0) {
+                if (!in_array($code, $tier1)) $tier1[] = $code;
+                if (!in_array($code, $tier2)) $tier2[] = $code;
+            } elseif ($t['tier'] <= 2.0 && $t['tier'] > 1.0) {
+                if (!in_array($code, $tier2)) $tier2[] = $code;
+            }
+        }
+
+        sort($tier0);
+        sort($tier1);
+        sort($tier2);
+
+        // Output facility configs
+        echo "{$artcc}1,{$artcc},(Internal)," . implode(' ', $tier0) . "\n";
+        echo "{$artcc}2,{$artcc},(1stTier)," . implode(' ', $tier1) . "\n";
+        echo "{$artcc}3,{$artcc},(2ndTier)," . implode(' ', $tier2) . "\n";
+    }
+
+    exit;
+}
 
 try {
     // ==========================================================================
