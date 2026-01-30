@@ -138,14 +138,15 @@ try {
  * Call Azure Function to run TMI compliance analysis
  */
 function call_azure_function($plan_id) {
-    $function_url = AZURE_FUNCTION_TMI_URL;
-    $function_key = AZURE_FUNCTION_TMI_KEY;
+    // Check if constants are defined (may not be in older configs)
+    $function_url = defined('AZURE_FUNCTION_TMI_URL') ? AZURE_FUNCTION_TMI_URL : '';
+    $function_key = defined('AZURE_FUNCTION_TMI_KEY') ? AZURE_FUNCTION_TMI_KEY : '';
 
     // Check if Azure Function is configured
     if (empty($function_url)) {
         return [
             'success' => false,
-            'error' => 'Azure Function not configured. Set AZURE_FUNCTION_TMI_URL in environment.'
+            'error' => 'TMI Analysis Azure Function not configured. Run analysis locally using: python C:\\temp\\tmi_compliance_analyzer.py --plan ' . $plan_id
         ];
     }
 
