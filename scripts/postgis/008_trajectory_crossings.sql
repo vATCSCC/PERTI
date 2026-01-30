@@ -434,6 +434,7 @@ COMMENT ON FUNCTION calculate_crossings_batch IS 'Batch crossing ETA calculation
 
 -- -----------------------------------------------------------------------------
 -- Get ARTCCs traversed by route (simplified - just the codes in order)
+-- Uses ST_Boundary for precise crossing point detection (same as trajectory_crossings)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_artccs_traversed(
     p_waypoints JSONB
@@ -449,18 +450,21 @@ BEGIN
         RETURN ARRAY[]::TEXT[];
     END IF;
 
-    -- Get unique ARTCCs in crossing order (GROUP BY ensures uniqueness)
-    SELECT array_agg(sub.artcc_code ORDER BY sub.min_fraction)
+    -- Get unique ARTCCs in first-crossing order using ST_Boundary for precise points
+    -- This matches the approach used in get_trajectory_artcc_crossings
+    SELECT array_agg(sub.artcc_code ORDER BY sub.first_crossing)
     INTO artccs
     FROM (
         SELECT
             ab.artcc_code,
-            MIN(ST_LineLocatePoint(trajectory,
-                (ST_Dump(ST_Intersection(trajectory, ab.geom))).geom
-            )) AS min_fraction
+            MIN(ST_LineLocatePoint(trajectory, crossing_point.geom)) AS first_crossing
         FROM artcc_boundaries ab
+        CROSS JOIN LATERAL (
+            SELECT (ST_Dump(ST_Intersection(trajectory, ST_Boundary(ab.geom)))).geom
+        ) AS crossing_point
         WHERE ST_Intersects(trajectory, ab.geom)
-          AND NOT COALESCE(ab.is_oceanic, FALSE)  -- Exclude oceanic
+          AND NOT COALESCE(ab.is_oceanic, FALSE)
+          AND ST_GeometryType(crossing_point.geom) = 'ST_Point'
         GROUP BY ab.artcc_code
     ) sub;
 
@@ -468,7 +472,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION get_artccs_traversed IS 'Get array of ARTCC codes traversed by route in order';
+COMMENT ON FUNCTION get_artccs_traversed IS 'Get array of ARTCC codes traversed by route in crossing order';
 
 -- =============================================================================
 -- GRANT PERMISSIONS (adjust as needed)

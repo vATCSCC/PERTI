@@ -720,13 +720,22 @@ try {
 
             $artccs = $gis->getArtccsTraversed($waypoints);
 
-            echo json_encode([
+            $response = [
                 'success' => true,
                 'artccs' => $artccs,
                 'artccs_display' => implode('/', $artccs),
                 'count' => count($artccs),
                 'waypoint_count' => count($waypoints)
-            ]);
+            ];
+
+            if (isset($_GET['debug'])) {
+                $response['debug'] = [
+                    'waypoints_formatted' => $waypoints,
+                    'last_error' => $gis->getLastError()
+                ];
+            }
+
+            echo json_encode($response);
             break;
 
         // =====================================================================
