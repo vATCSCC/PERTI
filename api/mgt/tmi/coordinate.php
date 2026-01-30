@@ -1894,6 +1894,61 @@ function handleRescindProposal() {
                 $newStatus = 'DENIED';
                 break;
 
+            case 'PUBLISH_NOW':
+                // Force publish a SCHEDULED reroute/route immediately
+                if ($oldStatus !== 'SCHEDULED') {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Can only publish SCHEDULED proposals']);
+                    return;
+                }
+
+                $newStatus = 'ACTIVATED';
+                $entryType = strtoupper($proposal['entry_type'] ?? '');
+                $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
+                $rawText = $proposal['raw_text'] ?? '';
+                $publishResult = null;
+
+                if ($entryType === 'REROUTE') {
+                    $rerouteId = $proposal['reroute_id'] ?? $entryData['reroute_id'] ?? null;
+                    if ($rerouteId) {
+                        $publishResult = publishRerouteToAdvisories($conn, $rerouteId, $rawText, $entryData);
+                    }
+                } elseif ($entryType === 'ROUTE') {
+                    $routeId = $proposal['route_id'] ?? $entryData['route_id'] ?? null;
+                    if ($routeId) {
+                        $publishResult = publishRouteToAdvisories($conn, $routeId, $rawText, $entryData);
+                    }
+                }
+
+                // Return immediately with publish result
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Published immediately',
+                    'proposal_id' => $proposalId,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus,
+                    'publish_result' => $publishResult
+                ]);
+
+                // Update status to ACTIVATED
+                $updateSql = "UPDATE dbo.tmi_proposals SET
+                                  status = 'ACTIVATED',
+                                  dcc_override = 1,
+                                  dcc_override_action = 'PUBLISH_NOW',
+                                  updated_at = SYSUTCDATETIME()
+                              WHERE proposal_id = :prop_id";
+                $conn->prepare($updateSql)->execute([':prop_id' => $proposalId]);
+
+                logCoordinationActivity($conn, $proposalId, 'DCC_PUBLISH_NOW', [
+                    'old_status' => $oldStatus,
+                    'new_status' => 'ACTIVATED',
+                    'user_cid' => $userCid,
+                    'user_name' => $userName,
+                    'entry_type' => $entryType,
+                    'ctl_element' => $proposal['ctl_element'] ?? ''
+                ]);
+                return;
+
             default:
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Invalid action: ' . $action]);
@@ -2394,12 +2449,16 @@ function activateProposal($conn, $proposalId) {
         $rawText = $proposal['raw_text'];
 
         // Determine if should be scheduled or activated immediately
+        // Publish now if: no start time, already started, or starts within 12 hours
         $now = new DateTime('now', new DateTimeZone('UTC'));
         $startTime = $validFrom ? new DateTime($validFrom) : null;
-        $shouldSchedule = $startTime && $startTime > $now;
+        $twelveHoursFromNow = (clone $now)->modify('+12 hours');
+
+        // Only schedule if start time is MORE than 12 hours in the future
+        $shouldSchedule = $startTime && $startTime > $twelveHoursFromNow;
         $newStatus = $shouldSchedule ? 'SCHEDULED' : 'ACTIVATED';
 
-        $log("Status will be: {$newStatus}");
+        $log("Status will be: {$newStatus} (start: " . ($startTime ? $startTime->format('Y-m-d H:i') : 'null') . ", 12h threshold: " . $twelveHoursFromNow->format('Y-m-d H:i') . ")");
 
         // ===================================================
         // Handle special entry types

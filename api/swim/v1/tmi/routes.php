@@ -149,11 +149,229 @@ function handleGetList() {
     }
     sqlsrv_free_stmt($stmt);
 
+    // Also fetch active REROUTE advisories from tmi_reroutes + tmi_reroute_routes
+    $reroutes = getActiveReroutesForDisplay($conn_tmi, $filter);
+
+    // Merge reroutes with public routes
+    $allRoutes = array_merge($routes, $reroutes);
+
     if ($format === 'geojson') {
-        outputGeoJSON($routes);
+        outputGeoJSON($allRoutes);
     } else {
-        outputJSON($routes, $filter);
+        outputJSON($allRoutes, $filter);
     }
+}
+
+// ============================================================================
+// GET - Active Reroutes from tmi_reroutes + tmi_reroute_routes
+// ============================================================================
+function getActiveReroutesForDisplay($conn, $filter = 'active') {
+    $routes = [];
+
+    // Build WHERE clause based on filter
+    $where_clauses = [];
+    switch ($filter) {
+        case 'active':
+            $where_clauses[] = "rr.status = 2"; // Active reroutes
+            $where_clauses[] = "(rr.start_utc IS NULL OR rr.start_utc <= GETUTCDATE())";
+            $where_clauses[] = "(rr.end_utc IS NULL OR rr.end_utc > GETUTCDATE())";
+            break;
+        case 'future':
+            $where_clauses[] = "rr.status IN (1, 2)"; // Proposed or Active
+            $where_clauses[] = "rr.start_utc > GETUTCDATE()";
+            break;
+        case 'past':
+            $where_clauses[] = "rr.end_utc < GETUTCDATE()";
+            break;
+        case 'all':
+        default:
+            $where_clauses[] = "rr.status IN (1, 2, 3)"; // Proposed, Active, Monitoring
+            break;
+    }
+
+    $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
+
+    // First, get all active reroutes
+    $sql = "
+        SELECT
+            rr.reroute_id, rr.name, rr.adv_number, rr.status,
+            rr.start_utc, rr.end_utc,
+            rr.impacting_condition AS reason,
+            rr.advisory_text,
+            rr.created_by, rr.created_at, rr.updated_at,
+            rr.discord_message_id, rr.discord_channel_id
+        FROM dbo.tmi_reroutes rr
+        $where_sql
+        ORDER BY rr.start_utc DESC
+    ";
+
+    $stmt = sqlsrv_query($conn, $sql);
+    if ($stmt === false) {
+        return [];
+    }
+
+    $reroutes = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $reroutes[$row['reroute_id']] = $row;
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (empty($reroutes)) {
+        return [];
+    }
+
+    // Now get all routes for these reroutes from tmi_reroute_routes
+    $rerouteIds = array_keys($reroutes);
+    $placeholders = implode(',', $rerouteIds);
+
+    // Note: origin_filter and dest_filter columns added in migration 026
+    // Query only core columns that always exist
+    $routesSql = "
+        SELECT
+            route_id, reroute_id, origin, destination, route_string,
+            sort_order, created_at
+        FROM dbo.tmi_reroute_routes
+        WHERE reroute_id IN ($placeholders)
+        ORDER BY reroute_id, sort_order
+    ";
+
+    $routesStmt = sqlsrv_query($conn, $routesSql);
+    if ($routesStmt === false) {
+        return [];
+    }
+
+    // Format each route as a public route entry
+    while ($routeRow = sqlsrv_fetch_array($routesStmt, SQLSRV_FETCH_ASSOC)) {
+        $parentReroute = $reroutes[$routeRow['reroute_id']] ?? null;
+        if (!$parentReroute) continue;
+
+        // Create a formatted route entry compatible with public-routes.js
+        $routes[] = formatRerouteAsPublicRoute($routeRow, $parentReroute);
+    }
+    sqlsrv_free_stmt($routesStmt);
+
+    return $routes;
+}
+
+/**
+ * Format a reroute route entry to match tmi_public_routes structure
+ */
+function formatRerouteAsPublicRoute($routeRow, $parentReroute) {
+    // Compute status based on time
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $validStart = $parentReroute['start_utc'] instanceof DateTime ? $parentReroute['start_utc'] : null;
+    $validEnd = $parentReroute['end_utc'] instanceof DateTime ? $parentReroute['end_utc'] : null;
+
+    $computedStatus = 'active';
+    if ($validStart && $validStart > $now) {
+        $computedStatus = 'future';
+    } elseif ($validEnd && $validEnd < $now) {
+        $computedStatus = 'past';
+    }
+
+    // Build route name: parent name + origin-dest
+    $routeName = $parentReroute['name'];
+    if (!empty($routeRow['origin']) || !empty($routeRow['destination'])) {
+        $routeName .= ' (' . trim($routeRow['origin'] ?? '') . '-' . trim($routeRow['destination'] ?? '') . ')';
+    }
+
+    // Build origin/destination filter arrays from the origin/destination fields
+    // These are space-delimited airport codes (e.g., "KJFK KLGA KEWR")
+    $originFilter = [];
+    $destFilter = [];
+
+    if (!empty($routeRow['origin'])) {
+        $originFilter = array_map('trim', explode(' ', $routeRow['origin']));
+        $originFilter = array_filter($originFilter); // Remove empty values
+    }
+    if (!empty($routeRow['destination'])) {
+        $destFilter = array_map('trim', explode(' ', $routeRow['destination']));
+        $destFilter = array_filter($destFilter);
+    }
+
+    return [
+        // VATSWIM format
+        'route_id' => 'RR' . $routeRow['route_id'], // Prefix to distinguish from public routes
+        'route_guid' => null,
+        'name' => $routeName,
+        'adv_number' => $parentReroute['adv_number'],
+
+        'route' => [
+            'string' => $routeRow['route_string'],
+            'advisory_text' => $parentReroute['advisory_text']
+        ],
+
+        'scope' => [
+            'constrained_area' => null,
+            'origin_filter' => $originFilter,
+            'dest_filter' => $destFilter,
+            'facilities' => null
+        ],
+
+        'display' => [
+            'color' => '#f39c12', // Orange for reroutes
+            'weight' => 4,
+            'style' => 'dashed'
+        ],
+
+        'validity' => [
+            'status' => (int)$parentReroute['status'],
+            'computed_status' => $computedStatus,
+            'start_utc' => formatDT($parentReroute['start_utc']),
+            'end_utc' => formatDT($parentReroute['end_utc'])
+        ],
+
+        'reason' => $parentReroute['reason'],
+
+        'links' => [
+            'advisory_id' => null,
+            'reroute_id' => $parentReroute['reroute_id']
+        ],
+
+        'geometry' => null, // Reroutes don't have pre-computed geometry
+
+        'metadata' => [
+            'created_by' => $parentReroute['created_by'],
+            'created_at' => formatDT($parentReroute['created_at']),
+            'updated_at' => formatDT($parentReroute['updated_at']),
+            'source' => 'reroute_advisory'
+        ],
+
+        'coordination' => [
+            'status' => null,
+            'proposal_id' => null,
+            'requires_approval' => false
+        ],
+
+        'discord' => [
+            'message_id' => $parentReroute['discord_message_id'] ?? null,
+            'channel_id' => $parentReroute['discord_channel_id'] ?? null,
+            'posted_at' => null
+        ],
+
+        // Legacy compatibility fields
+        'id' => 'RR' . $routeRow['route_id'],
+        'status' => (int)$parentReroute['status'],
+        'route_string' => $routeRow['route_string'],
+        'advisory_text' => $parentReroute['advisory_text'],
+        'color' => '#f39c12',
+        'line_weight' => 4,
+        'line_style' => 'dashed',
+        'valid_start_utc' => formatDT($parentReroute['start_utc']),
+        'valid_end_utc' => formatDT($parentReroute['end_utc']),
+        'constrained_area' => null,
+        'origin_filter' => $originFilter,
+        'dest_filter' => $destFilter,
+        'facilities' => null,
+        'route_geojson' => null,
+        'computed_status' => $computedStatus,
+
+        // Additional reroute-specific fields
+        'is_reroute_advisory' => true,
+        'parent_reroute_id' => $parentReroute['reroute_id'],
+        'origin' => $routeRow['origin'],
+        'destination' => $routeRow['destination']
+    ];
 }
 
 // ============================================================================

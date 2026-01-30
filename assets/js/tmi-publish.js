@@ -5684,6 +5684,14 @@
             handleCancelProposal(proposalId, entryType, ctlElement);
         });
 
+        // Publish Now button for SCHEDULED proposals
+        $(document).on('click', '.publish-now-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            const entryType = $(this).data('entry-type') || 'TMI';
+            const ctlElement = $(this).data('ctl-element') || '';
+            handlePublishNow(proposalId, entryType, ctlElement);
+        });
+
         // Batch publish all approved proposals
         $('#batchPublishApproved').on('click', function() {
             if (!isUserLoggedIn()) {
@@ -5823,6 +5831,64 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+            }
+        });
+    }
+
+    // =========================================
+    // Publish Now (for SCHEDULED proposals)
+    // =========================================
+
+    function handlePublishNow(proposalId, entryType, ctlElement) {
+        Swal.fire({
+            title: 'Publish Now?',
+            html: `<p>Immediately publish this scheduled ${entryType} to Discord?</p>
+                   <p class="small text-muted">The proposal will be activated and posted to the advisories channel.</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Publishing...',
+                    html: '<p>Posting to Discord...</p>',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                $.ajax({
+                    url: 'api/mgt/tmi/coordinate.php',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        action: 'DCC_ACTION',
+                        dcc_action: 'PUBLISH_NOW',
+                        proposal_id: proposalId,
+                        user_cid: CONFIG.userCid,
+                        user_name: CONFIG.userName || 'DCC'
+                    }),
+                    success: function(response) {
+                        Swal.close();
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Published!',
+                                html: `<p>${entryType} published to Discord.</p>`,
+                                timer: 3000,
+                                showConfirmButton: true
+                            });
+                            loadProposals(); // Refresh the list
+                        } else {
+                            Swal.fire('Error', response.error || 'Failed to publish', 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+                    }
+                });
             }
         });
     }
@@ -6403,6 +6469,7 @@
             } else {
                 // For resolved proposals, show reopen button if not cancelled
                 const canReopen = p.status !== 'CANCELLED';
+                const isScheduled = p.status === 'SCHEDULED';
                 html += `
                     <tr>
                         <td class="small font-weight-bold">#${p.proposal_id}</td>
@@ -6413,6 +6480,15 @@
                         <td>${statusBadge}</td>
                         <td class="small">${resolvedAt}</td>
                         <td class="text-nowrap">
+                            ${isScheduled && isUserLoggedIn() ? `
+                                <button class="btn btn-sm btn-success publish-now-btn"
+                                        data-proposal-id="${p.proposal_id}"
+                                        data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
+                                        data-ctl-element="${escapeHtml(p.ctl_element || '')}"
+                                        title="Publish to Discord Now">
+                                    <i class="fas fa-broadcast-tower mr-1"></i>Publish Now
+                                </button>
+                            ` : ''}
                             ${canReopen ? `
                                 <button class="btn btn-sm btn-outline-warning reopen-proposal-btn"
                                         data-proposal-id="${p.proposal_id}"
