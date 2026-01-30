@@ -423,6 +423,47 @@ include("sessions/handler.php");
         .dist-within { background: #28a745; color: white; }
         .dist-over { background: #17a2b8; color: white; }
         .dist-gap { background: #6c757d; color: white; }
+
+        /* TMI Detail Tables */
+        .tmi-detail-table {
+            font-size: 0.85rem;
+        }
+        .tmi-detail-table thead.sticky-top th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #343a40;
+            color: white;
+        }
+        .tmi-detail-table thead.thead-light.sticky-top th {
+            background: #e9ecef;
+            color: #212529;
+        }
+        .tmi-detail-table code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+        .tmi-detail-table .table-danger code {
+            background: #f5c6cb;
+        }
+        .tmi-detail-table .table-success code {
+            background: #c3e6cb;
+        }
+        .tmi-card .collapse {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .tmi-card .btn-outline-primary,
+        .tmi-card .btn-outline-danger,
+        .tmi-card .btn-outline-secondary {
+            font-size: 0.8rem;
+            padding: 2px 8px;
+        }
+
         .tmi-summary-card {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: white;
