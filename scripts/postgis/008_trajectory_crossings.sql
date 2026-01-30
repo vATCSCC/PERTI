@@ -34,28 +34,25 @@ CREATE OR REPLACE FUNCTION build_trajectory_line(
 )
 RETURNS GEOMETRY AS $$
 DECLARE
-    points GEOMETRY[];
-    wp JSONB;
+    route_geom GEOMETRY;
 BEGIN
-    -- Extract points in sequence order
-    SELECT array_agg(
-        ST_SetSRID(ST_MakePoint(
-            (w->>'lon')::FLOAT,
-            (w->>'lat')::FLOAT
-        ), 4326)
-        ORDER BY (w->>'sequence_num')::INT
+    -- Build LineString from waypoints using WITH ORDINALITY for robust ordering
+    -- Falls back to sequence_num if provided, otherwise uses array position
+    SELECT ST_MakeLine(
+        array_agg(
+            ST_SetSRID(ST_MakePoint(
+                (wp->>'lon')::FLOAT,
+                (wp->>'lat')::FLOAT
+            ), 4326)
+            ORDER BY COALESCE((wp->>'sequence_num')::INT, ordinality::INT)
+        )
     )
-    INTO points
-    FROM jsonb_array_elements(p_waypoints) AS w
-    WHERE (w->>'lat') IS NOT NULL
-      AND (w->>'lon') IS NOT NULL;
+    INTO route_geom
+    FROM jsonb_array_elements(p_waypoints) WITH ORDINALITY AS t(wp, ordinality)
+    WHERE (wp->>'lat') IS NOT NULL
+      AND (wp->>'lon') IS NOT NULL;
 
-    -- Need at least 2 points for a line
-    IF array_length(points, 1) < 2 THEN
-        RETURN NULL;
-    END IF;
-
-    RETURN ST_MakeLine(points);
+    RETURN route_geom;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 

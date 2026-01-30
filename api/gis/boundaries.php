@@ -609,12 +609,22 @@ try {
 
             $crossings = $gis->getTrajectoryArtccCrossings($waypoints);
 
-            echo json_encode([
+            $response = [
                 'success' => true,
                 'crossings' => $crossings,
                 'count' => count($crossings),
                 'waypoint_count' => count($waypoints)
-            ]);
+            ];
+
+            // Debug mode: show additional info
+            if (isset($_GET['debug'])) {
+                $response['debug'] = [
+                    'waypoints_formatted' => $waypoints,
+                    'last_error' => $gis->getLastError()
+                ];
+            }
+
+            echo json_encode($response);
             break;
 
         // =====================================================================
