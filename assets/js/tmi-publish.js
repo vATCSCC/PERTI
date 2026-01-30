@@ -8724,6 +8724,9 @@
                 return;
             }
 
+            // Ensure preview is generated before submitting
+            this.generatePreview();
+
             // Build entry data
             const entryData = {
                 entryType: 'REROUTE',
