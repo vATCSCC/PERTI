@@ -6626,6 +6626,7 @@ $(document).ready(function() {
         const rawInput = $('#routeSearch').val() || '';
         const collectResult = collectRouteStringsForAdvisory(rawInput);
         const routeStrings = collectResult.routes || [];
+        const usedProcedures = collectResult.procedures || [];
 
         if (!routeStrings.length) {
             Swal.fire({
@@ -6697,6 +6698,9 @@ $(document).ready(function() {
 
                 // Raw route input for reference
                 rawInput: rawInput,
+
+                // Used procedures (playbook names, CDR codes) for auto-naming
+                procedures: usedProcedures,
 
                 // GeoJSON for map visualization in TMI Publisher
                 geojson: exportData.routeFeatures ? {

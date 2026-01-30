@@ -6804,6 +6804,72 @@
             if (!adv.includeTraffic) {
                 this.autoGenerateIncludeTraffic();
             }
+
+            // Auto-fill route name if not already set
+            if (!adv.name) {
+                this.autoFillRouteName();
+            }
+        },
+
+        /**
+         * Auto-fill route name based on playbook/CDR usage
+         * Logic:
+         *   - 1 Playbook route: {Play name}
+         *   - Part of playbook route: {Play name}_PARTIAL
+         *   - 1 Playbook + additional routes: {Play name}_MOD
+         *   - Otherwise: let user define
+         */
+        autoFillRouteName: function() {
+            if (!this.rerouteData) return;
+
+            const procedures = this.rerouteData.procedures || [];
+            const routes = this.rerouteData.routes || [];
+
+            // Extract playbook names from procedures
+            const playbookNames = procedures
+                .filter(p => p.startsWith('PB: '))
+                .map(p => p.slice(4).trim());
+
+            // Extract CDR codes from procedures
+            const cdrCodes = procedures
+                .filter(p => p.startsWith('CDR: '))
+                .map(p => p.slice(5).trim());
+
+            let autoName = '';
+
+            if (playbookNames.length === 1 && cdrCodes.length === 0) {
+                // Single playbook route
+                const pbName = playbookNames[0];
+
+                // Check if routes match full playbook or are partial
+                // For simplicity, if route count > 0, assume it's complete
+                // "Partial" would need more complex analysis of actual vs expected routes
+                autoName = pbName;
+
+                // If there are additional non-playbook routes, mark as _MOD
+                // This is a heuristic - if rawInput contains lines not starting with PB.
+                const rawInput = (this.rerouteData.rawInput || '').trim();
+                const lines = rawInput.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('['));
+                const pbLines = lines.filter(l => l.trim().toUpperCase().startsWith('PB.'));
+                const nonPbLines = lines.filter(l => !l.trim().toUpperCase().startsWith('PB.') && !l.trim().startsWith(';'));
+
+                if (nonPbLines.length > 0 && pbLines.length > 0) {
+                    autoName = pbName + '_MOD';
+                }
+            } else if (playbookNames.length > 1) {
+                // Multiple playbook routes - use first one + _MULTI
+                autoName = playbookNames[0] + '_MULTI';
+            } else if (cdrCodes.length === 1 && playbookNames.length === 0) {
+                // Single CDR code
+                autoName = cdrCodes[0];
+            } else if (cdrCodes.length > 1 && playbookNames.length === 0) {
+                // Multiple CDR codes
+                autoName = cdrCodes[0] + '_MULTI';
+            }
+
+            if (autoName) {
+                $('#rr_name').val(autoName);
+            }
         },
 
         /**
@@ -6837,28 +6903,26 @@
                         <td>
                             <input type="text" class="form-control form-control-sm rr-route-origin"
                                    value="${self.escapeHtml(route.origin)}"
-                                   style="font-family: monospace;">
-                        </td>
-                        <td>
-                            <input type="text" class="form-control form-control-sm rr-route-dest"
-                                   value="${self.escapeHtml(route.destination)}"
-                                   style="font-family: monospace;">
-                        </td>
-                        <td>
-                            <input type="text" class="form-control form-control-sm rr-route-string"
-                                   value="${self.escapeHtml(normalizedRoute)}"
-                                   style="font-family: monospace;">
+                                   style="font-family: monospace; font-size: 0.75rem;">
                         </td>
                         <td>
                             <input type="text" class="form-control form-control-sm rr-route-orig-filter"
                                    value="${self.escapeHtml(route.originFilter || '')}"
-                                   placeholder="-KJFK"
+                                   style="font-family: monospace; font-size: 0.75rem;">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm rr-route-dest"
+                                   value="${self.escapeHtml(route.destination)}"
                                    style="font-family: monospace; font-size: 0.75rem;">
                         </td>
                         <td>
                             <input type="text" class="form-control form-control-sm rr-route-dest-filter"
                                    value="${self.escapeHtml(route.destFilter || '')}"
-                                   placeholder="-KATL"
+                                   style="font-family: monospace; font-size: 0.75rem;">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm rr-route-string"
+                                   value="${self.escapeHtml(normalizedRoute)}"
                                    style="font-family: monospace; font-size: 0.75rem;">
                         </td>
                         <td>
@@ -7239,6 +7303,7 @@
 
         /**
          * Populate facilities grid with checkboxes
+         * Also auto-detect international organization requirements based on route airports
          */
         populateFacilitiesGrid: function(facilities) {
             // Uncheck all first
@@ -7248,6 +7313,116 @@
             facilities.forEach(artcc => {
                 $('#rr_fac_' + artcc).prop('checked', true);
             });
+
+            // Auto-detect international organizations based on route airports
+            this.autoDetectInternationalOrgs();
+        },
+
+        /**
+         * Auto-detect and check international organizations based on route airports/FIRs
+         * Uses FacilityHierarchy global when available for accurate mappings
+         *
+         * VATCAN: Canadian FIRs (CZEG, CZVR, CZWG, CZYZ, CZQM, CZQX, CZQO, CZUL) or CY/CZ airports
+         * VATMEX: Mexican FIRs (MMFR, MMFO) or MM airports
+         * VATCAR: Caribbean FIRs (TJZS, MKJK, MUFH, MYNA, MDCS, MTEG, TNCF, TTZP, MHCC, MPZL) or Caribbean airports
+         * ECFMP: European/North African airports (E*/L*/G* prefixes)
+         */
+        autoDetectInternationalOrgs: function() {
+            const routes = this.rerouteData?.routes || [];
+            const facilities = this.rerouteData?.facilities || [];
+            if (!routes.length && !facilities.length) return;
+
+            // Use FacilityHierarchy if available for region definitions
+            const FH = window.FacilityHierarchy || {};
+            const DCC_REGIONS = FH.DCC_REGIONS || {};
+
+            // Canadian FIRs from hierarchy
+            const canadianFIRs = (DCC_REGIONS.CANADA?.artccs || [
+                'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'
+            ]).map(f => f.toUpperCase());
+
+            // Mexican FIRs from hierarchy
+            const mexicanFIRs = (DCC_REGIONS.MEXICO?.artccs || ['MMFR', 'MMFO']).map(f => f.toUpperCase());
+
+            // Caribbean FIRs from hierarchy
+            const caribbeanFIRs = (DCC_REGIONS.CARIBBEAN?.artccs || [
+                'TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL'
+            ]).map(f => f.toUpperCase());
+
+            // Check if any facilities in the route match international FIRs
+            const upperFacilities = facilities.map(f => f.toUpperCase());
+            const hasCanadianFIR = upperFacilities.some(f => canadianFIRs.includes(f));
+            const hasMexicanFIR = upperFacilities.some(f => mexicanFIRs.includes(f));
+            const hasCaribbeanFIR = upperFacilities.some(f => caribbeanFIRs.includes(f));
+
+            // Collect all airports from routes
+            const allAirports = new Set();
+            const allFIRs = new Set();
+            routes.forEach(r => {
+                // Add origin airports and ARTCCs
+                (r.originAirports || []).forEach(apt => allAirports.add(apt.toUpperCase()));
+                (r.originArtccs || []).forEach(fir => allFIRs.add(fir.toUpperCase()));
+                // Add dest airports and ARTCCs
+                (r.destAirports || []).forEach(apt => allAirports.add(apt.toUpperCase()));
+                (r.destArtccs || []).forEach(fir => allFIRs.add(fir.toUpperCase()));
+                // Also check origin/destination strings for codes
+                const origTokens = (r.origin || '').toUpperCase().split(/[\s\/]+/).filter(Boolean);
+                const destTokens = (r.destination || '').toUpperCase().split(/[\s\/]+/).filter(Boolean);
+                [...origTokens, ...destTokens].forEach(t => {
+                    if (/^[A-Z]{4}$/.test(t)) allAirports.add(t);
+                    if (/^[A-Z]{2,4}$/.test(t) && (t.startsWith('Z') || t.startsWith('CZ') || t.startsWith('MM'))) {
+                        allFIRs.add(t);
+                    }
+                });
+            });
+
+            const airports = Array.from(allAirports);
+            const firs = Array.from(allFIRs);
+
+            // Check FIRs from routes
+            const hasCanadianFIRRoute = firs.some(f => canadianFIRs.includes(f));
+            const hasMexicanFIRRoute = firs.some(f => mexicanFIRs.includes(f));
+            const hasCaribbeanFIRRoute = firs.some(f => caribbeanFIRs.includes(f));
+
+            // Canadian airports (CYXX, CZXX)
+            const hasCanadianAirport = airports.some(apt => /^C[YZ][A-Z]{2}$/.test(apt));
+
+            // Mexican airports (MMXX)
+            const hasMexicanAirport = airports.some(apt => /^MM[A-Z]{2}$/.test(apt));
+
+            // Caribbean airport prefixes (based on ICAO region assignments)
+            // T = Caribbean and North Atlantic, M = Central America/Mexico
+            // TJ = Puerto Rico, TI = Virgin Islands, TN = Netherlands Antilles, TK = St. Kitts
+            // MK = Jamaica, TT = Trinidad, TB = Barbados, TF = French Antilles
+            // MU = Cuba, MY = Bahamas, MD = Dominican Republic, MH = Honduras
+            // MG = Guatemala, MS = El Salvador, MW = Cayman, MP = Panama
+            const caribbeanPrefixes = ['TJ', 'TI', 'TN', 'TK', 'MK', 'TT', 'TB', 'TF', 'MU', 'MY', 'MD', 'MH', 'MG', 'MS', 'MW', 'MP', 'MT'];
+            const hasCaribbeanAirport = airports.some(apt => caribbeanPrefixes.some(pfx => apt.startsWith(pfx)));
+
+            // European/North African prefixes (ICAO regions)
+            // E = Northern Europe (EG=UK, EI=Ireland, EH=NL, EB=Belgium, ED=Germany, EK=Denmark, EN=Norway, ES=Sweden, EF=Finland, EP=Poland)
+            // L = Southern Europe (LF=France, LE=Spain, LP=Portugal, LI=Italy, LG=Greece, LZ=Slovakia, LO=Austria, LK=Czech)
+            // G = West Africa (GM=Morocco, GC=Canary Islands, etc.)
+            const euNaPrefixes = [
+                'EG', 'EI', 'EH', 'EB', 'ED', 'EK', 'EN', 'ES', 'EF', 'EP', 'EE', 'EV', 'EY',
+                'LF', 'LE', 'LP', 'LI', 'LG', 'LZ', 'LO', 'LK', 'LH', 'LJ', 'LD', 'LQ', 'LY',
+                'GM', 'GC', 'DA', 'DT'
+            ];
+            const hasEuNaAirport = airports.some(apt => euNaPrefixes.some(pfx => apt.startsWith(pfx)));
+
+            // Check the appropriate international orgs
+            if (hasCanadianFIR || hasCanadianFIRRoute || hasCanadianAirport) {
+                $('#rr_fac_VATCAN').prop('checked', true);
+            }
+            if (hasMexicanFIR || hasMexicanFIRRoute || hasMexicanAirport) {
+                $('#rr_fac_VATMEX').prop('checked', true);
+            }
+            if (hasCaribbeanFIR || hasCaribbeanFIRRoute || hasCaribbeanAirport) {
+                $('#rr_fac_VATCAR').prop('checked', true);
+            }
+            if (hasEuNaAirport) {
+                $('#rr_fac_ECFMP').prop('checked', true);
+            }
         },
 
         /**

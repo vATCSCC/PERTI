@@ -124,21 +124,17 @@ BEGIN
             is_oceanic := v_artcc.is_oceanic;
         END IF;
 
-        -- Find containing TRACON (only if below FL180)
-        IF v_flight.falt < 18000 THEN
-            SELECT tb.tracon_code, tb.tracon_name
-            INTO v_tracon
-            FROM tracon_boundaries tb
-            WHERE ST_Contains(tb.geom, v_point)
-              AND (tb.floor_altitude IS NULL OR tb.floor_altitude <= v_flight.falt)
-              AND (tb.ceiling_altitude IS NULL OR tb.ceiling_altitude >= v_flight.falt)
-            ORDER BY ST_Area(tb.geom)
-            LIMIT 1;
+        -- Find containing TRACON (no altitude filter - all boundaries SFC to UNL)
+        SELECT tb.tracon_code, tb.tracon_name
+        INTO v_tracon
+        FROM tracon_boundaries tb
+        WHERE ST_Contains(tb.geom, v_point)
+        ORDER BY ST_Area(tb.geom)
+        LIMIT 1;
 
-            IF v_tracon.tracon_code IS NOT NULL THEN
-                tracon_code := v_tracon.tracon_code;
-                tracon_name := v_tracon.tracon_name;
-            END IF;
+        IF v_tracon.tracon_code IS NOT NULL THEN
+            tracon_code := v_tracon.tracon_code;
+            tracon_name := v_tracon.tracon_name;
         END IF;
 
         RETURN NEXT;
@@ -198,18 +194,13 @@ BEGIN
         ORDER BY f.fuid, COALESCE(ab.is_oceanic, FALSE), ST_Area(ab.geom) NULLS LAST
     ),
     tracon_matches AS (
-        -- Find TRACON for low-altitude flights
+        -- Find TRACON (no altitude filter - all boundaries SFC to UNL)
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
             tb.tracon_code,
             tb.tracon_name
         FROM flights f
-        LEFT JOIN tracon_boundaries tb ON
-            f.falt < 18000
-            AND ST_Contains(tb.geom, f.point_geom)
-            AND (tb.floor_altitude IS NULL OR tb.floor_altitude <= f.falt)
-            AND (tb.ceiling_altitude IS NULL OR tb.ceiling_altitude >= f.falt)
-        WHERE f.falt < 18000
+        LEFT JOIN tracon_boundaries tb ON ST_Contains(tb.geom, f.point_geom)
         ORDER BY f.fuid, ST_Area(tb.geom) NULLS LAST
     )
     SELECT
@@ -230,14 +221,15 @@ $$ LANGUAGE plpgsql STABLE;
 COMMENT ON FUNCTION detect_boundaries_batch_optimized IS 'Set-based batch boundary detection - optimized for large batches';
 
 -- -----------------------------------------------------------------------------
--- 4. detect_sector_for_flight - Get sector(s) containing a flight
+-- 4. detect_sector_for_flight - Get all sectors containing a flight position
 -- -----------------------------------------------------------------------------
--- Returns sectors appropriate for the flight's altitude
+-- Returns all sectors (LOW, HIGH, SUPERHIGH) at the position.
+-- NOTE: All boundaries treated as SFC to UNL (no altitude filtering).
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION detect_sector_for_flight(
     p_lat DECIMAL(10,6),
     p_lon DECIMAL(11,6),
-    p_altitude INT
+    p_altitude INT DEFAULT 0
 )
 RETURNS TABLE (
     sector_code VARCHAR(16),
@@ -252,57 +244,21 @@ DECLARE
 BEGIN
     point_geom := ST_SetSRID(ST_MakePoint(p_lon, p_lat), 4326);
 
-    -- Determine sector type based on altitude
-    IF p_altitude < 24000 THEN
-        -- LOW sectors
-        RETURN QUERY
-        SELECT
-            sb.sector_code,
-            sb.sector_name,
-            sb.parent_artcc,
-            sb.sector_type,
-            sb.floor_altitude,
-            sb.ceiling_altitude
-        FROM sector_boundaries sb
-        WHERE sb.sector_type = 'LOW'
-          AND ST_Contains(sb.geom, point_geom)
-          AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= p_altitude)
-          AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= p_altitude);
-    ELSIF p_altitude < 45000 THEN
-        -- HIGH sectors
-        RETURN QUERY
-        SELECT
-            sb.sector_code,
-            sb.sector_name,
-            sb.parent_artcc,
-            sb.sector_type,
-            sb.floor_altitude,
-            sb.ceiling_altitude
-        FROM sector_boundaries sb
-        WHERE sb.sector_type = 'HIGH'
-          AND ST_Contains(sb.geom, point_geom)
-          AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= p_altitude)
-          AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= p_altitude);
-    ELSE
-        -- SUPERHIGH sectors
-        RETURN QUERY
-        SELECT
-            sb.sector_code,
-            sb.sector_name,
-            sb.parent_artcc,
-            sb.sector_type,
-            sb.floor_altitude,
-            sb.ceiling_altitude
-        FROM sector_boundaries sb
-        WHERE sb.sector_type = 'SUPERHIGH'
-          AND ST_Contains(sb.geom, point_geom)
-          AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= p_altitude)
-          AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= p_altitude);
-    END IF;
+    RETURN QUERY
+    SELECT
+        sb.sector_code,
+        sb.sector_name,
+        sb.parent_artcc,
+        sb.sector_type,
+        sb.floor_altitude,
+        sb.ceiling_altitude
+    FROM sector_boundaries sb
+    WHERE ST_Contains(sb.geom, point_geom)
+    ORDER BY sb.sector_type, ST_Area(sb.geom);
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION detect_sector_for_flight IS 'Returns sectors containing a flight at given altitude';
+COMMENT ON FUNCTION detect_sector_for_flight IS 'Returns all sectors containing a point - all boundaries SFC to UNL';
 
 -- =============================================================================
 -- PERFORMANCE INDEXES (ensure they exist)
