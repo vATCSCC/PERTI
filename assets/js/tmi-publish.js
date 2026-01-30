@@ -6816,7 +6816,7 @@
             if (!routes.length) {
                 $tbody.html(`
                     <tr class="rr-empty-row">
-                        <td colspan="5" class="text-center text-muted py-3">
+                        <td colspan="7" class="text-center text-muted py-3">
                             No routes available.
                         </td>
                     </tr>
@@ -6848,6 +6848,18 @@
                             <input type="text" class="form-control form-control-sm rr-route-string"
                                    value="${self.escapeHtml(normalizedRoute)}"
                                    style="font-family: monospace;">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm rr-route-orig-filter"
+                                   value="${self.escapeHtml(route.originFilter || '')}"
+                                   placeholder="-KJFK"
+                                   style="font-family: monospace; font-size: 0.75rem;">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm rr-route-dest-filter"
+                                   value="${self.escapeHtml(route.destFilter || '')}"
+                                   placeholder="-KATL"
+                                   style="font-family: monospace; font-size: 0.75rem;">
                         </td>
                         <td>
                             <button class="btn btn-sm btn-outline-danger rr-remove-route"
@@ -6993,6 +7005,8 @@
                     routeGroups[routeKey] = {
                         origins: new Set(),
                         destinations: new Set(),
+                        originFilters: new Set(),
+                        destFilters: new Set(),
                         route: r.route
                     };
                 }
@@ -7004,13 +7018,22 @@
                     // Handle slash-separated destinations
                     r.destination.split('/').filter(Boolean).forEach(d => routeGroups[routeKey].destinations.add(d.trim().toUpperCase()));
                 }
+                // Merge filters (space-separated tokens)
+                if (r.originFilter) {
+                    r.originFilter.split(/\s+/).filter(Boolean).forEach(f => routeGroups[routeKey].originFilters.add(f.trim()));
+                }
+                if (r.destFilter) {
+                    r.destFilter.split(/\s+/).filter(Boolean).forEach(f => routeGroups[routeKey].destFilters.add(f.trim()));
+                }
             });
 
             // Convert back to array
             const grouped = Object.values(routeGroups).map(g => ({
                 origin: Array.from(g.origins).sort().join('/'),
                 destination: Array.from(g.destinations).sort().join('/'),
-                route: g.route
+                route: g.route,
+                originFilter: Array.from(g.originFilters).sort().join(' '),
+                destFilter: Array.from(g.destFilters).sort().join(' ')
             })).filter(r => r.route); // Remove empty routes
 
             if (grouped.length === routes.length) {
@@ -7034,6 +7057,184 @@
                 timer: 2000,
                 showConfirmButton: false
             });
+        },
+
+        /**
+         * Auto-detect and apply filters for overlapping facilities.
+         * When routes exist for both specific facilities (airports) AND
+         * overlying facilities (ARTCCs), automatically add exclusion filters.
+         *
+         * Example: If KBWI→KMIA and KDCA→KMIA and ZDC→KMIA exist,
+         * ZDC→KMIA gets origin_filter "-KBWI -KDCA"
+         */
+        autoDetectFilters: async function() {
+            const routes = this.collectRoutes();
+            if (routes.length < 2) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Not Enough Routes',
+                    text: 'Need at least 2 routes to detect filters.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // Ensure facility hierarchy is loaded
+            if (typeof FacilityHierarchy === 'undefined' || !FacilityHierarchy.isLoaded) {
+                if (typeof FacilityHierarchy !== 'undefined') {
+                    await FacilityHierarchy.load();
+                } else {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Cannot Auto-Detect',
+                        text: 'Facility hierarchy data not available.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
+            }
+
+            const ARTCCS = FacilityHierarchy.ARTCCS || [];
+            const AIRPORT_TO_ARTCC = FacilityHierarchy.AIRPORT_TO_ARTCC || {};
+
+            // Helper: check if facility is an ARTCC
+            const isARTCC = (fac) => {
+                if (!fac) return false;
+                const upper = fac.toUpperCase().split('/')[0]; // Handle slash-separated
+                return ARTCCS.includes(upper);
+            };
+
+            // Helper: get ARTCC for an airport
+            const getARTCC = (airport) => {
+                if (!airport) return null;
+                const upper = airport.toUpperCase();
+                return AIRPORT_TO_ARTCC[upper] || null;
+            };
+
+            // Build lookup: destination -> [origins that share same route to that dest]
+            // Also build reverse: origin -> [destinations]
+            const destToOrigins = {};
+            const origToDests = {};
+            routes.forEach((r, idx) => {
+                // Handle slash-separated origins/destinations
+                const origins = (r.origin || '').toUpperCase().split('/').filter(Boolean);
+                const dests = (r.destination || '').toUpperCase().split('/').filter(Boolean);
+                const routeNorm = (r.route || '').toUpperCase().trim();
+
+                origins.forEach(orig => {
+                    dests.forEach(dest => {
+                        if (!destToOrigins[dest]) destToOrigins[dest] = [];
+                        destToOrigins[dest].push({ orig, routeIdx: idx, routeStr: routeNorm });
+
+                        if (!origToDests[orig]) origToDests[orig] = [];
+                        origToDests[orig].push({ dest, routeIdx: idx, routeStr: routeNorm });
+                    });
+                });
+            });
+
+            // For each route, detect if it's an ARTCC and there are airports within it
+            // that have their own specific routes
+            let filterCount = 0;
+            routes.forEach((r, idx) => {
+                const origins = (r.origin || '').toUpperCase().split('/').filter(Boolean);
+                const dests = (r.destination || '').toUpperCase().split('/').filter(Boolean);
+
+                // Check origin side: if origin is an ARTCC
+                origins.forEach(orig => {
+                    if (isARTCC(orig)) {
+                        // Find airports within this ARTCC that have different route strings
+                        const childAirports = FacilityHierarchy.getChildFacilities ?
+                            FacilityHierarchy.getChildFacilities(orig) : [];
+
+                        dests.forEach(dest => {
+                            const artccEntries = (destToOrigins[dest] || [])
+                                .filter(e => e.orig === orig && e.routeIdx === idx);
+
+                            if (artccEntries.length === 0) return;
+
+                            // Find other origins to same dest that are children of this ARTCC
+                            const toExclude = [];
+                            (destToOrigins[dest] || []).forEach(entry => {
+                                if (entry.routeIdx === idx) return; // Same route
+                                const entryOrig = entry.orig;
+                                // Check if this origin is a child of our ARTCC
+                                const parentArtcc = getARTCC(entryOrig);
+                                if (parentArtcc === orig || childAirports.includes(entryOrig)) {
+                                    // Different route string = needs exclusion
+                                    if (entry.routeStr !== artccEntries[0].routeStr) {
+                                        toExclude.push('-' + entryOrig);
+                                    }
+                                }
+                            });
+
+                            if (toExclude.length > 0) {
+                                // Merge with existing filter
+                                const existing = (r.originFilter || '').toUpperCase().split(/\s+/).filter(Boolean);
+                                const merged = [...new Set([...existing, ...toExclude])].sort();
+                                r.originFilter = merged.join(' ');
+                                filterCount++;
+                            }
+                        });
+                    }
+                });
+
+                // Check dest side: if dest is an ARTCC
+                dests.forEach(dest => {
+                    if (isARTCC(dest)) {
+                        const childAirports = FacilityHierarchy.getChildFacilities ?
+                            FacilityHierarchy.getChildFacilities(dest) : [];
+
+                        origins.forEach(orig => {
+                            const artccEntries = (origToDests[orig] || [])
+                                .filter(e => e.dest === dest && e.routeIdx === idx);
+
+                            if (artccEntries.length === 0) return;
+
+                            const toExclude = [];
+                            (origToDests[orig] || []).forEach(entry => {
+                                if (entry.routeIdx === idx) return;
+                                const entryDest = entry.dest;
+                                const parentArtcc = getARTCC(entryDest);
+                                if (parentArtcc === dest || childAirports.includes(entryDest)) {
+                                    if (entry.routeStr !== artccEntries[0].routeStr) {
+                                        toExclude.push('-' + entryDest);
+                                    }
+                                }
+                            });
+
+                            if (toExclude.length > 0) {
+                                const existing = (r.destFilter || '').toUpperCase().split(/\s+/).filter(Boolean);
+                                const merged = [...new Set([...existing, ...toExclude])].sort();
+                                r.destFilter = merged.join(' ');
+                                filterCount++;
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Repopulate table with updated filters
+            this.populateRoutesTable(routes);
+
+            if (filterCount > 0) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Filters Detected',
+                    text: `Applied ${filterCount} automatic filter(s) to overlapping routes.`,
+                    timer: 2500,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Filters Needed',
+                    text: 'No overlapping ARTCC/airport routes detected.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
         },
 
         /**
@@ -7214,23 +7415,34 @@
                 return 'ORIG       DEST       ROUTE\n----       ----       -----\n(No routes specified)';
             }
 
-            // Calculate column widths based on content
+            // Calculate column widths based on content (including filters)
             let maxOrigLen = 4, maxDestLen = 4;
             routes.forEach(r => {
-                maxOrigLen = Math.max(maxOrigLen, (r.origin || '').length);
-                maxDestLen = Math.max(maxDestLen, (r.destination || '').length);
+                // Include filter in origin/dest length calculation
+                let origWithFilter = (r.origin || '');
+                if (r.originFilter) origWithFilter += ' ' + r.originFilter;
+                let destWithFilter = (r.destination || '');
+                if (r.destFilter) destWithFilter += ' ' + r.destFilter;
+                maxOrigLen = Math.max(maxOrigLen, origWithFilter.length);
+                maxDestLen = Math.max(maxDestLen, destWithFilter.length);
             });
 
             // Cap column widths to leave room for route text
-            const origColWidth = Math.min(maxOrigLen + 2, 20);
-            const destColWidth = Math.min(maxDestLen + 2, 20);
+            const origColWidth = Math.min(maxOrigLen + 2, 24);
+            const destColWidth = Math.min(maxDestLen + 2, 24);
             const routeStartCol = origColWidth + destColWidth;
 
             // Format route row with proper wrapping
-            const formatRouteRow = (orig, dest, routeText) => {
+            const formatRouteRow = (orig, dest, routeText, origFilter, destFilter) => {
                 orig = (orig || '').toUpperCase();
                 dest = (dest || '').toUpperCase();
+                origFilter = (origFilter || '').toUpperCase().trim();
+                destFilter = (destFilter || '').toUpperCase().trim();
                 routeText = (routeText || '').toUpperCase().trim();
+
+                // Append filters to origin/dest
+                if (origFilter) orig = orig + ' ' + origFilter;
+                if (destFilter) dest = dest + ' ' + destFilter;
 
                 const rowLines = [];
                 const routeTokens = routeText.length ? routeText.split(/\s+/).filter(Boolean) : [];
@@ -7304,7 +7516,7 @@
             output += '----'.padEnd(origColWidth) + '----'.padEnd(destColWidth) + '-----\n';
 
             routes.forEach(r => {
-                const rowLines = formatRouteRow(r.origin, r.destination, r.route);
+                const rowLines = formatRouteRow(r.origin, r.destination, r.route, r.originFilter, r.destFilter);
                 rowLines.forEach(line => {
                     output += line + '\n';
                 });
@@ -7323,9 +7535,17 @@
                 const origin = $row.find('.rr-route-origin').val() || '';
                 const dest = $row.find('.rr-route-dest').val() || '';
                 const route = $row.find('.rr-route-string').val() || '';
+                const originFilter = $row.find('.rr-route-orig-filter').val() || '';
+                const destFilter = $row.find('.rr-route-dest-filter').val() || '';
 
                 if (origin || dest || route) {
-                    routes.push({ origin, destination: dest, route });
+                    routes.push({
+                        origin,
+                        destination: dest,
+                        route,
+                        originFilter: originFilter.trim(),
+                        destFilter: destFilter.trim()
+                    });
                 }
             });
             return routes;
@@ -7677,6 +7897,10 @@
                                style="font-family: monospace;" placeholder="KXYZ"></td>
                     <td><input type="text" class="form-control form-control-sm rr-route-string"
                                style="font-family: monospace;" placeholder="DCT FIX1 J123 FIX2 DCT"></td>
+                    <td><input type="text" class="form-control form-control-sm rr-route-orig-filter"
+                               style="font-family: monospace; font-size: 0.75rem;" placeholder="-KJFK"></td>
+                    <td><input type="text" class="form-control form-control-sm rr-route-dest-filter"
+                               style="font-family: monospace; font-size: 0.75rem;" placeholder="-KATL"></td>
                     <td><button class="btn btn-sm btn-outline-danger rr-remove-route"
                                 data-idx="${idx}"><i class="fas fa-times"></i></button></td>
                 </tr>
@@ -7697,6 +7921,7 @@
             $('#rr_add_route').on('click', () => self.addRouteRow());
             $('#rr_make_mandatory').on('click', () => self.makeRoutesMandatory());
             $('#rr_group_routes').on('click', () => self.groupRoutes());
+            $('#rr_auto_filters').on('click', () => self.autoDetectFilters());
 
             // Select all routes checkbox
             $('#rr_select_all_routes').on('change', function() {
@@ -7710,7 +7935,7 @@
                 if ($('#rr_routes_body tr').length === 0) {
                     $('#rr_routes_body').html(`
                         <tr class="rr-empty-row">
-                            <td colspan="5" class="text-center text-muted py-3">
+                            <td colspan="7" class="text-center text-muted py-3">
                                 No routes loaded.
                             </td>
                         </tr>

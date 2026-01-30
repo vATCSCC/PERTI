@@ -853,6 +853,122 @@ class GISService
         }
     }
 
+    /**
+     * Detect sectors for multiple flights at once (batch)
+     *
+     * Returns LOW, HIGH, and SUPERHIGH sectors based on altitude:
+     *   LOW: altitude < 24000 ft
+     *   HIGH: 24000 <= altitude < 45000 ft
+     *   SUPERHIGH: altitude >= 45000 ft
+     *
+     * @param array $flights Array of [flight_uid, lat, lon, altitude]
+     * @return array Results with sector info for each flight
+     */
+    public function detectSectorsBatch(array $flights): array
+    {
+        if (!$this->conn || empty($flights)) {
+            return [];
+        }
+
+        try {
+            // Format flights as JSONB array
+            $flightsJson = json_encode(array_map(function($f) {
+                return [
+                    'flight_uid' => (int)($f['flight_uid'] ?? $f[0] ?? 0),
+                    'lat' => (float)($f['lat'] ?? $f[1] ?? 0),
+                    'lon' => (float)($f['lon'] ?? $f[2] ?? 0),
+                    'altitude' => (int)($f['altitude'] ?? $f[3] ?? 0)
+                ];
+            }, $flights));
+
+            $sql = "SELECT * FROM detect_sectors_batch_optimized(:flights::jsonb)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':flights' => $flightsJson]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'flight_uid' => (int)$row['flight_uid'],
+                    'lat' => (float)$row['lat'],
+                    'lon' => (float)$row['lon'],
+                    'altitude' => (int)$row['altitude'],
+                    'sector_low' => $row['sector_low'],
+                    'sector_low_name' => $row['sector_low_name'],
+                    'sector_high' => $row['sector_high'],
+                    'sector_high_name' => $row['sector_high_name'],
+                    'sector_superhigh' => $row['sector_superhigh'],
+                    'sector_superhigh_name' => $row['sector_superhigh_name'],
+                    'parent_artcc' => $row['parent_artcc']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::detectSectorsBatch error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Detect ARTCC, TRACON, and sectors for multiple flights in one call
+     *
+     * This is the most efficient method for boundary_gis_daemon as it
+     * combines all spatial lookups into a single database round-trip.
+     *
+     * @param array $flights Array of [flight_uid, lat, lon, altitude]
+     * @return array Results with ARTCC/TRACON/sectors for each flight
+     */
+    public function detectBoundariesAndSectorsBatch(array $flights): array
+    {
+        if (!$this->conn || empty($flights)) {
+            return [];
+        }
+
+        try {
+            // Format flights as JSONB array
+            $flightsJson = json_encode(array_map(function($f) {
+                return [
+                    'flight_uid' => (int)($f['flight_uid'] ?? $f[0] ?? 0),
+                    'lat' => (float)($f['lat'] ?? $f[1] ?? 0),
+                    'lon' => (float)($f['lon'] ?? $f[2] ?? 0),
+                    'altitude' => (int)($f['altitude'] ?? $f[3] ?? 0)
+                ];
+            }, $flights));
+
+            $sql = "SELECT * FROM detect_boundaries_and_sectors_batch(:flights::jsonb)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':flights' => $flightsJson]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'flight_uid' => (int)$row['flight_uid'],
+                    'lat' => (float)$row['lat'],
+                    'lon' => (float)$row['lon'],
+                    'altitude' => (int)$row['altitude'],
+                    'artcc_code' => $row['artcc_code'],
+                    'artcc_name' => $row['artcc_name'],
+                    'tracon_code' => $row['tracon_code'],
+                    'tracon_name' => $row['tracon_name'],
+                    'is_oceanic' => $row['is_oceanic'] === true || $row['is_oceanic'] === 't',
+                    'sector_low' => $row['sector_low'],
+                    'sector_high' => $row['sector_high'],
+                    'sector_superhigh' => $row['sector_superhigh'],
+                    'sector_strata' => $row['sector_strata']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::detectBoundariesAndSectorsBatch error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
     // =========================================================================
     // UTILITY METHODS
     // =========================================================================

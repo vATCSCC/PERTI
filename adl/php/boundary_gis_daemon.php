@@ -94,6 +94,7 @@ class BoundaryGISDaemon
     private int $totalAdlFallback = 0;
     private int $totalFailed = 0;
     private int $totalTransitions = 0;
+    private int $totalSectorUpdates = 0;
 
     public function __construct(
         $conn_adl,
@@ -219,6 +220,9 @@ class BoundaryGISDaemon
 
     /**
      * Process flights through PostGIS
+     *
+     * Uses the combined boundaries+sectors function for efficiency.
+     * Returns ARTCC, TRACON, and LOW/HIGH/SUPERHIGH sectors in one call.
      */
     private function processViaGIS(array $flights): array
     {
@@ -226,7 +230,8 @@ class BoundaryGISDaemon
             return [];
         }
 
-        $results = $this->gis->detectBoundariesBatch($flights);
+        // Use combined function for ARTCC + TRACON + sectors in one call
+        $results = $this->gis->detectBoundariesAndSectorsBatch($flights);
 
         if (empty($results)) {
             $this->log("GIS returned empty results - " . ($this->gis->getLastError() ?? 'no error'));
@@ -263,10 +268,14 @@ class BoundaryGISDaemon
 
     /**
      * Write GIS results back to ADL
+     *
+     * Updates ARTCC, TRACON, and sector columns for each flight.
+     * Sector columns: current_sector_low, current_sector_high, current_sector_superhigh
      */
     private function writeResultsToADL(array $results, array $originalFlights): array
     {
         $transitions = 0;
+        $sectorUpdates = 0;
         $updated = 0;
 
         // Index original flights by flight_uid for comparison
@@ -289,11 +298,20 @@ class BoundaryGISDaemon
                 $transitions++;
             }
 
-            // Update ADL with new boundary info
+            // Check for sector updates
+            $hasSector = !empty($r['sector_low']) || !empty($r['sector_high']) || !empty($r['sector_superhigh']);
+            if ($hasSector) {
+                $sectorUpdates++;
+            }
+
+            // Update ADL with new boundary and sector info
             $updateSql = "
                 UPDATE dbo.adl_flight_core
                 SET current_artcc = ?,
                     current_tracon = ?,
+                    current_sector_low = ?,
+                    current_sector_high = ?,
+                    current_sector_superhigh = ?,
                     last_grid_lat = ?,
                     last_grid_lon = ?,
                     boundary_updated_at = SYSUTCDATETIME()
@@ -303,6 +321,9 @@ class BoundaryGISDaemon
             $params = [
                 $r['artcc_code'],
                 $r['tracon_code'],
+                $r['sector_low'] ?? null,
+                $r['sector_high'] ?? null,
+                $r['sector_superhigh'] ?? null,
                 $original['grid_lat'],
                 $original['grid_lon'],
                 $flightUid
@@ -319,7 +340,8 @@ class BoundaryGISDaemon
 
         return [
             'updated' => $updated,
-            'transitions' => $transitions
+            'transitions' => $transitions,
+            'sectors' => $sectorUpdates
         ];
     }
 
@@ -405,6 +427,7 @@ class BoundaryGISDaemon
 
         $this->totalGisSuccess += $gisCount;
         $this->totalTransitions += $writeResult['transitions'];
+        $this->totalSectorUpdates += $writeResult['sectors'] ?? 0;
 
         $elapsedMs = round((microtime(true) - $startTime) * 1000);
 
@@ -413,6 +436,7 @@ class BoundaryGISDaemon
             'processed' => $writeResult['updated'],
             'gis' => $gisCount,
             'transitions' => $writeResult['transitions'],
+            'sectors' => $writeResult['sectors'] ?? 0,
             'elapsed_ms' => $elapsedMs,
             'method' => 'gis',
             'cycle' => $this->cycleCount
@@ -443,11 +467,13 @@ class BoundaryGISDaemon
                 $this->totalFailed++;
             } else {
                 $method = $result['method'] ?? 'unknown';
+                $sectors = $result['sectors'] ?? 0;
                 $this->log(sprintf(
-                    "Cycle %d: %d flights, %d transitions, %dms (%s)",
+                    "Cycle %d: %d flights, %d transitions, %d sectors, %dms (%s)",
                     $this->cycleCount,
                     $result['processed'] ?? 0,
                     $result['transitions'] ?? 0,
+                    $sectors,
                     $result['elapsed_ms'] ?? 0,
                     $method
                 ));
@@ -460,14 +486,15 @@ class BoundaryGISDaemon
                 $pending = $this->getPendingCount();
 
                 $this->log(sprintf(
-                    "=== Stats @ cycle %d === GIS: %d, ADL: %d, failed: %d, rate: %d%%, pending: %d, transitions: %d",
+                    "=== Stats @ cycle %d === GIS: %d, ADL: %d, failed: %d, GIS rate: %d%%, pending: %d, transitions: %d, sectors: %d",
                     $this->cycleCount,
                     $this->totalGisSuccess,
                     $this->totalAdlFallback,
                     $this->totalFailed,
                     $gisRate,
                     $pending,
-                    $this->totalTransitions
+                    $this->totalTransitions,
+                    $this->totalSectorUpdates
                 ));
             }
 

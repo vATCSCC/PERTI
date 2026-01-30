@@ -251,8 +251,8 @@ function saveRerouteRoutes($conn, $rerouteId, $routes) {
 
     // Insert new routes
     $insertSql = "
-        INSERT INTO dbo.tmi_reroute_routes (reroute_id, origin, destination, route_string, sort_order)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO dbo.tmi_reroute_routes (reroute_id, origin, destination, route_string, sort_order, origin_filter, dest_filter)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     ";
 
     $count = 0;
@@ -262,6 +262,8 @@ function saveRerouteRoutes($conn, $rerouteId, $routes) {
         $origin = strtoupper(trim($route['origin'] ?? $route['orig'] ?? ''));
         $dest = strtoupper(trim($route['dest'] ?? $route['destination'] ?? ''));
         $routeString = trim($route['route'] ?? $route['route_string'] ?? '');
+        $originFilter = strtoupper(trim($route['originFilter'] ?? $route['origin_filter'] ?? ''));
+        $destFilter = strtoupper(trim($route['destFilter'] ?? $route['dest_filter'] ?? ''));
 
         if (empty($origin) || empty($dest) || empty($routeString)) {
             continue;
@@ -272,7 +274,9 @@ function saveRerouteRoutes($conn, $rerouteId, $routes) {
             $origin,
             $dest,
             $routeString,
-            $sortOrder++
+            $sortOrder++,
+            $originFilter ?: null,
+            $destFilter ?: null
         ];
 
         $stmt = sqlsrv_query($conn, $insertSql, $params);

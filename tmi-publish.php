@@ -658,6 +658,10 @@ $perm = true;
                                         title="Group routes with same route string">
                                     <i class="fas fa-object-group mr-1"></i> Group
                                 </button>
+                                <button class="btn btn-sm btn-outline-warning mr-1" id="rr_auto_filters"
+                                        title="Auto-detect filters for overlapping ARTCC/airport routes">
+                                    <i class="fas fa-filter mr-1"></i> Auto Filters
+                                </button>
                                 <button class="btn btn-sm btn-outline-secondary" id="rr_add_route">
                                     <i class="fas fa-plus"></i> Add Route
                                 </button>
@@ -671,15 +675,17 @@ $perm = true;
                                             <th style="width: 30px;">
                                                 <input type="checkbox" id="rr_select_all_routes" title="Select All">
                                             </th>
-                                            <th style="width: 15%;">ORIGIN</th>
-                                            <th style="width: 15%;">DEST</th>
+                                            <th style="width: 10%;">ORIGIN</th>
+                                            <th style="width: 10%;">DEST</th>
                                             <th>ROUTE</th>
+                                            <th style="width: 12%;" title="Origin exclusions (e.g., -KJFK -KPHL)">ORIG FILTER</th>
+                                            <th style="width: 12%;" title="Destination exclusions (e.g., -KATL)">DEST FILTER</th>
                                             <th style="width: 40px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="rr_routes_body">
                                         <tr class="rr-empty-row">
-                                            <td colspan="5" class="text-center text-muted py-3">
+                                            <td colspan="7" class="text-center text-muted py-3">
                                                 No routes loaded. Use Route Plotter to create routes, or add manually.
                                             </td>
                                         </tr>
