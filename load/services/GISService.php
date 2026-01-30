@@ -2005,4 +2005,133 @@ class GISService
             return [];
         }
     }
+
+    // =========================================================================
+    // OPTIMIZED ARTCC TIER METHODS (using materialized view)
+    // =========================================================================
+
+    /**
+     * Get ARTCC tiers using precomputed materialized view
+     *
+     * This is much faster than get_proximity_tiers() for ARTCC-to-ARTCC queries
+     * because it uses a precomputed materialized view instead of BFS traversal.
+     *
+     * @param string $artccCode ARTCC code (e.g., 'KZFW' or 'ZFW')
+     * @param float $maxTier Maximum tier to return (default 3.0)
+     * @param bool $usOnly Only include US ARTCCs (default true)
+     * @return array List of tiers with neighbor info
+     */
+    public function getArtccTierMatrix(string $artccCode, float $maxTier = 3.0, bool $usOnly = true): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        // Normalize to ICAO format (KZXX)
+        $artccCode = strtoupper($artccCode);
+        if (!str_starts_with($artccCode, 'K') && strlen($artccCode) === 3) {
+            $artccCode = 'K' . $artccCode;
+        }
+
+        try {
+            $sql = "SELECT * FROM get_artcc_tier_matrix(:code, :max_tier, :us_only)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':code' => $artccCode,
+                ':max_tier' => $maxTier,
+                ':us_only' => $usOnly ? 'true' : 'false'
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'tier' => (float)$row['tier'],
+                    'boundary_type' => $row['boundary_type'],
+                    'boundary_code' => $row['boundary_code'],
+                    'boundary_name' => $row['boundary_name'],
+                    'adjacency_from' => $row['adjacency_from'],
+                    'adjacency_class' => $row['adjacency_class']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getArtccTierMatrix error: ' . $e->getMessage());
+            // Fall back to dynamic calculation if materialized view doesn't exist
+            return $this->getProximityTiers('ARTCC', $artccCode, $maxTier, true);
+        }
+    }
+
+    /**
+     * Get all US ARTCC tiers in one query (optimized for GDT bulk export)
+     *
+     * Returns tier data for all 20 CONUS ARTCCs in a single query,
+     * avoiding 20 separate round-trips to the database.
+     *
+     * @param float $maxTier Maximum tier to return (default 2.0)
+     * @return array Grouped by origin_code => [tier => [neighbor_codes]]
+     */
+    public function getAllArtccTiers(float $maxTier = 2.0): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM get_all_artcc_tiers(:max_tier)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':max_tier' => $maxTier]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $origin = $row['origin_code'];
+                $tier = (float)$row['tier'];
+                $neighbor = $row['neighbor_code'];
+
+                if (!isset($results[$origin])) {
+                    $results[$origin] = [];
+                }
+                if (!isset($results[$origin][$tier])) {
+                    $results[$origin][$tier] = [];
+                }
+                $results[$origin][$tier][] = $neighbor;
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getAllArtccTiers error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Refresh the ARTCC tier matrix materialized view
+     *
+     * Call this after updating boundary_adjacency or artcc_boundaries tables.
+     *
+     * @return string Status message
+     */
+    public function refreshArtccTierMatrix(): string
+    {
+        if (!$this->conn) {
+            return 'No database connection';
+        }
+
+        try {
+            $sql = "SELECT refresh_artcc_tier_matrix() AS result";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row['result'] ?? 'Refresh completed';
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::refreshArtccTierMatrix error: ' . $e->getMessage());
+            return 'Error: ' . $e->getMessage();
+        }
+    }
 }
