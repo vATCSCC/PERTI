@@ -931,5 +931,6 @@ include('load/nav.php');
 
 <!-- Insert review.js Script -->
 <script src="assets/js/review.js"></script>
+<script src="assets/js/tmi_compliance.js"></script>
 
 </html>
