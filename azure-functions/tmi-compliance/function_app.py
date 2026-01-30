@@ -24,18 +24,48 @@ import azure.functions as func
 import json
 import logging
 import os
-import requests
+import traceback
 from datetime import datetime, timedelta
 
-from core.models import EventConfig
-from core.ntml_parser import parse_ntml_to_tmis
-from core.analyzer import TMIComplianceAnalyzer
-
-# Configure logging
+# Configure logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create app first (before any potentially failing imports)
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+
+# Track import status
+_import_error = None
+_import_traceback = None
+
+# Health check defined first so it always works
+@app.route(route="health")
+def health_check(req: func.HttpRequest) -> func.HttpResponse:
+    """Health check endpoint - always responds"""
+    status = {
+        "status": "healthy" if _import_error is None else "unhealthy",
+        "python_version": __import__('sys').version,
+    }
+    if _import_error:
+        status["import_error"] = _import_error
+        status["traceback"] = _import_traceback
+    return func.HttpResponse(
+        json.dumps(status, indent=2),
+        status_code=200 if _import_error is None else 500,
+        mimetype="application/json"
+    )
+
+# Now try the imports
+try:
+    import requests as req_lib  # Rename to avoid conflict with func parameter
+    from core.models import EventConfig
+    from core.ntml_parser import parse_ntml_to_tmis
+    from core.analyzer import TMIComplianceAnalyzer
+    logger.info("Core modules imported successfully")
+except Exception as e:
+    _import_error = str(e)
+    _import_traceback = traceback.format_exc()
+    logger.exception("Failed to import core modules")
 
 
 @app.route(route="tmi_compliance")
@@ -50,6 +80,14 @@ def tmi_compliance_http(req: func.HttpRequest) -> func.HttpResponse:
         JSON with compliance results
     """
     logger.info('TMI Compliance Analysis triggered')
+
+    # Check for import errors
+    if _import_error:
+        return func.HttpResponse(
+            json.dumps({"error": f"Module import failed: {_import_error}"}),
+            status_code=500,
+            mimetype="application/json"
+        )
 
     try:
         # Get plan_id from query params or body
@@ -135,7 +173,7 @@ def load_config_from_api(plan_id: int) -> dict:
     logger.info(f"Fetching config from: {config_url}")
 
     try:
-        response = requests.get(config_url, timeout=30)
+        response = req_lib.get(config_url, timeout=30)
         response.raise_for_status()
 
         data = response.json()
@@ -145,7 +183,7 @@ def load_config_from_api(plan_id: int) -> dict:
             logger.warning(f"No config in response: {data.get('message', 'Unknown error')}")
             return None
 
-    except requests.RequestException as e:
+    except req_lib.RequestException as e:
         logger.error(f"Failed to fetch config: {e}")
         return None
 

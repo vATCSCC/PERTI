@@ -18,7 +18,7 @@ Supported formats:
 import re
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple, Dict, Any
 
 from .models import TMI, TMIType
 
@@ -49,7 +49,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 return None
         return None
 
-    def extract_modifiers(text: str) -> Dict[str, any]:
+    def extract_modifiers(text: str) -> Dict[str, Any]:
         """Extract qualifiers, conditions, exclusions from NTML text"""
         mods = {
             'application': '',
