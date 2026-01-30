@@ -37,6 +37,7 @@ The GIS API provides spatial analysis capabilities using PostgreSQL/PostGIS. It 
 | `airport_artcc` | GET | Get ARTCC for airport |
 | `artcc_airports` | GET | Get airports in ARTCC |
 | `health` | GET | Service health check |
+| `diag` | GET | Diagnostic/debugging information |
 
 ---
 
@@ -617,6 +618,56 @@ GET /api/gis/boundaries.php?action=health
 
 ---
 
+## Diagnostic Endpoint
+
+### Connection Diagnostics
+
+Debug PostGIS connection issues. Runs before GIS service initialization for troubleshooting.
+
+```
+GET /api/gis/boundaries.php?action=diag
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "diagnostic": {
+    "php_version": "8.2.0",
+    "pdo_drivers": ["mysql", "pgsql", "sqlsrv"],
+    "pdo_pgsql_loaded": true,
+    "pgsql_loaded": true,
+    "connect_loaded": true,
+    "gis_constants_defined": {
+      "GIS_SQL_HOST": true,
+      "GIS_SQL_PORT": true,
+      "GIS_SQL_DATABASE": true,
+      "GIS_SQL_USERNAME": true,
+      "GIS_SQL_PASSWORD": true
+    },
+    "gis_host": "vatcscc-gis.postgres.database.azure.com",
+    "gis_database": "VATSIM_GIS",
+    "config_path_check": "EXISTS",
+    "direct_connection": "SUCCESS",
+    "server_version": "16.0",
+    "gis_service_available": true,
+    "server_time": "2026-01-30 12:00:00 UTC"
+  }
+}
+```
+
+**Diagnostic Fields**
+
+| Field | Description |
+|-------|-------------|
+| `pdo_pgsql_loaded` | PHP PDO PostgreSQL extension status |
+| `gis_constants_defined` | Required config constants check |
+| `direct_connection` | Direct PDO connection test result |
+| `gis_service_available` | GISService singleton availability |
+
+---
+
 ## Error Responses
 
 All endpoints return consistent error responses:
@@ -653,6 +704,8 @@ All endpoints return consistent error responses:
 
 The API uses these PostgreSQL/PostGIS functions:
 
+**Route Expansion Functions**
+
 | Function | Description |
 |----------|-------------|
 | `resolve_waypoint(fix_id)` | Resolve fix to coordinates with source |
@@ -663,6 +716,15 @@ The API uses these PostgreSQL/PostGIS functions:
 | `expand_route_with_boundaries(route, altitude)` | Full boundary analysis |
 | `expand_routes_batch(routes[])` | Batch expansion |
 | `routes_to_geojson_collection(routes[])` | Convert to GeoJSON |
+
+**Batch Boundary Detection Functions** (for daemon processing)
+
+| Function | Description |
+|----------|-------------|
+| `get_artcc_at_point(lat, lon)` | Single-point ARTCC lookup (prefers non-oceanic) |
+| `detect_boundaries_batch(flights_jsonb)` | Row-by-row batch boundary detection |
+| `detect_boundaries_batch_optimized(flights_jsonb)` | Set-based batch detection (faster for >100 flights) |
+| `detect_sector_for_flight(lat, lon, altitude)` | Get sectors containing a flight at altitude |
 
 ---
 

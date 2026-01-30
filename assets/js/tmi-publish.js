@@ -6781,6 +6781,8 @@
             $('#rr_time_basis').val(adv.timeBasis || 'ETD');
             $('#rr_prob_extension').val(adv.probExtension || 'MEDIUM');
             $('#rr_remarks').val(adv.remarks || '');
+            $('#rr_restrictions').val(adv.restrictions || '');
+            $('#rr_modifications').val(adv.modifications || '');
 
             // Parse and set valid times
             if (adv.validStart) {
@@ -6901,6 +6903,8 @@
                 time_basis: $('#rr_time_basis').val() || 'ETD',
                 prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
                 remarks: $('#rr_remarks').val() || '',
+                restrictions: $('#rr_restrictions').val() || '',
+                modifications: $('#rr_modifications').val() || '',
                 routes: routes
             };
 
@@ -6909,9 +6913,10 @@
         },
 
         /**
-         * Format reroute advisory text
+         * Format reroute advisory text with proper 68-char line wrapping
          */
         formatRerouteAdvisory: function(params) {
+            const MAX_LINE = 68;
             const now = new Date();
             const headerDate = (now.getUTCMonth() + 1).toString().padStart(2, '0') + '/' +
                               now.getUTCDate().toString().padStart(2, '0') + '/' +
@@ -6930,21 +6935,77 @@
 
             const tmiId = 'RR' + params.facility + params.advisory_number;
 
+            // Helper: add labeled field with proper wrapping at 68 chars
+            const addLabeledField = (lines, label, value) => {
+                const raw = (value == null ? '' : String(value)).trim().toUpperCase();
+                if (!raw.length) return;
+
+                const labelStr = label + ': ';
+                const hangIndent = ' '.repeat(labelStr.length);
+
+                // Tokenize value, breaking slash-lists for proper wrapping
+                const tokens = [];
+                raw.split(/\s+/).forEach(part => {
+                    if (part.indexOf('/') !== -1 && part.length > 8) {
+                        // Break up long slash-separated lists
+                        part.split('/').forEach((piece, idx, arr) => {
+                            if (piece) tokens.push(idx < arr.length - 1 ? piece + '/' : piece);
+                        });
+                    } else {
+                        tokens.push(part);
+                    }
+                });
+
+                if (!tokens.length) return;
+
+                let prefix = labelStr;
+                let content = '';
+
+                tokens.forEach(word => {
+                    if (!word) return;
+                    if (!content) {
+                        if (prefix.length + word.length <= MAX_LINE) {
+                            content = word;
+                        } else {
+                            lines.push(prefix + word);
+                            prefix = hangIndent;
+                            content = '';
+                        }
+                    } else {
+                        const lastChar = content[content.length - 1];
+                        const joiner = (lastChar === '/' ? '' : ' ');
+                        if (prefix.length + content.length + joiner.length + word.length <= MAX_LINE) {
+                            content += joiner + word;
+                        } else {
+                            lines.push((prefix + content).trimEnd());
+                            prefix = hangIndent;
+                            content = word;
+                        }
+                    }
+                });
+                if (content) {
+                    lines.push((prefix + content).trimEnd());
+                }
+            };
+
             let lines = [];
             lines.push(`vATCSCC ADVZY ${params.advisory_number} ${params.facility} ${headerDate} ROUTE RQD`);
-            if (params.name) lines.push(`NAME: ${params.name.toUpperCase()}`);
-            if (params.constrained_area) lines.push(`CONSTRAINED AREA: ${params.constrained_area.toUpperCase()}`);
-            lines.push(`REASON: ${params.reason.toUpperCase()}`);
-            if (params.include_traffic) lines.push(`INCLUDE TRAFFIC: ${params.include_traffic.toUpperCase()}`);
-            if (params.facilities_included) lines.push(`FACILITIES INCLUDED: ${params.facilities_included}`);
-            lines.push(`FLIGHT STATUS: ALL FLIGHTS`);
+            addLabeledField(lines, 'NAME', params.name);
+            addLabeledField(lines, 'CONSTRAINED AREA', params.constrained_area);
+            addLabeledField(lines, 'REASON', params.reason);
+            addLabeledField(lines, 'INCLUDE TRAFFIC', params.include_traffic);
+            addLabeledField(lines, 'FACILITIES INCLUDED', params.facilities_included);
+            lines.push('FLIGHT STATUS: ALL FLIGHTS');
             lines.push(`VALID: ${params.time_basis} ${startStr} TO ${endStr}`);
-            lines.push(`PROBABILITY OF EXTENSION: ${params.prob_extension}`);
-            if (params.remarks) lines.push(`REMARKS: ${params.remarks}`);
-            lines.push(`ROUTES:`);
+            addLabeledField(lines, 'PROBABILITY OF EXTENSION', params.prob_extension);
+            addLabeledField(lines, 'REMARKS', params.remarks);
+            addLabeledField(lines, 'ASSOCIATED RESTRICTIONS', params.restrictions);
+            addLabeledField(lines, 'MODIFICATIONS', params.modifications);
+            lines.push('');
+            lines.push('ROUTES:');
             lines.push('');
 
-            // Route table
+            // Route table with column alignment and line wrapping
             lines.push(this.formatRouteTable(params.routes));
 
             lines.push('');
@@ -6962,30 +7023,109 @@
         },
 
         /**
-         * Format route table for advisory
+         * Format route table for advisory with proper column alignment and 68-char wrapping
          */
         formatRouteTable: function(routes) {
+            const MAX_LINE = 68;
+
             if (!routes || !routes.length) {
                 return 'ORIG       DEST       ROUTE\n----       ----       -----\n(No routes specified)';
             }
 
+            // Calculate column widths based on content
             let maxOrigLen = 4, maxDestLen = 4;
             routes.forEach(r => {
                 maxOrigLen = Math.max(maxOrigLen, (r.origin || '').length);
                 maxDestLen = Math.max(maxDestLen, (r.destination || '').length);
             });
 
-            const origColWidth = maxOrigLen + 3;
-            const destColWidth = maxDestLen + 3;
+            // Cap column widths to leave room for route text
+            const origColWidth = Math.min(maxOrigLen + 2, 20);
+            const destColWidth = Math.min(maxDestLen + 2, 20);
+            const routeStartCol = origColWidth + destColWidth;
+
+            // Format route row with proper wrapping
+            const formatRouteRow = (orig, dest, routeText) => {
+                orig = (orig || '').toUpperCase();
+                dest = (dest || '').toUpperCase();
+                routeText = (routeText || '').toUpperCase().trim();
+
+                const rowLines = [];
+                const routeTokens = routeText.length ? routeText.split(/\s+/).filter(Boolean) : [];
+
+                // Handle multi-item origins (slash-separated)
+                const origItems = orig.trim() ? orig.trim().split('/').filter(Boolean) : [];
+
+                // Chunk origin items to fit in column
+                const chunkOriginsToFit = (items, maxLen) => {
+                    if (!items.length) return [''];
+                    const chunks = [];
+                    let current = [];
+                    let currentLen = 0;
+
+                    items.forEach(item => {
+                        const slashLen = current.length > 0 ? 1 : 0;
+                        if (currentLen + slashLen + item.length > maxLen && current.length > 0) {
+                            chunks.push(current.join('/'));
+                            current = [item];
+                            currentLen = item.length;
+                        } else {
+                            current.push(item);
+                            currentLen += slashLen + item.length;
+                        }
+                    });
+                    if (current.length) chunks.push(current.join('/'));
+                    return chunks.length ? chunks : [''];
+                };
+
+                const origChunks = chunkOriginsToFit(origItems, origColWidth - 2);
+                const destChunks = [dest]; // Usually single dest
+                const maxColumnLines = Math.max(origChunks.length, destChunks.length, 1);
+                const words = routeTokens.slice();
+                let lineIndex = 0;
+
+                while (lineIndex < maxColumnLines || words.length) {
+                    const oStr = (lineIndex < origChunks.length) ? origChunks[lineIndex] : '';
+                    const dStr = (lineIndex < destChunks.length) ? destChunks[lineIndex] : '';
+                    const origPad = oStr.padEnd(origColWidth).slice(0, origColWidth);
+                    const destPad = dStr.padEnd(destColWidth).slice(0, destColWidth);
+                    const basePrefix = origPad + destPad;
+                    let current = basePrefix;
+                    const baseLen = current.length;
+
+                    if (words.length) {
+                        while (words.length) {
+                            const word = words[0];
+                            const atStart = (current.length === baseLen);
+                            const addition = atStart ? word : ' ' + word;
+                            if (current.length + addition.length <= MAX_LINE) {
+                                current += addition;
+                                words.shift();
+                            } else {
+                                // Force at least one word on the line if at start
+                                if (atStart && current.length + word.length > MAX_LINE) {
+                                    current += word;
+                                    words.shift();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    rowLines.push(current.trimEnd());
+                    lineIndex++;
+                }
+
+                return rowLines.length ? rowLines : [''];
+            };
 
             let output = 'ORIG'.padEnd(origColWidth) + 'DEST'.padEnd(destColWidth) + 'ROUTE\n';
             output += '----'.padEnd(origColWidth) + '----'.padEnd(destColWidth) + '-----\n';
 
             routes.forEach(r => {
-                const orig = (r.origin || '---').toUpperCase();
-                const dest = (r.destination || '---').toUpperCase();
-                const route = (r.route || '').toUpperCase();
-                output += orig.padEnd(origColWidth) + dest.padEnd(destColWidth) + route + '\n';
+                const rowLines = formatRouteRow(r.origin, r.destination, r.route);
+                rowLines.forEach(line => {
+                    output += line + '\n';
+                });
             });
 
             return output.trim();
@@ -7041,7 +7181,9 @@
                     validEnd: $('#rr_valid_until').val() || '',
                     timeBasis: $('#rr_time_basis').val() || 'ETD',
                     probExtension: $('#rr_prob_extension').val() || 'MEDIUM',
-                    remarks: $('#rr_remarks').val() || ''
+                    remarks: $('#rr_remarks').val() || '',
+                    restrictions: $('#rr_restrictions').val() || '',
+                    modifications: $('#rr_modifications').val() || ''
                 },
                 facilities: facilities,
                 routes: routes,

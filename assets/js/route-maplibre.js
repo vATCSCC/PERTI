@@ -6676,7 +6676,9 @@ $(document).ready(function() {
                     validEnd: $('#advValidEnd').val() || '',
                     timeBasis: $('input[name="advTimeBasis"]:checked').val() || 'ETD',
                     probExtension: $('#advProb').val() || 'MEDIUM',
-                    remarks: $('#advRemarks').val() || ''
+                    remarks: $('#advRemarks').val() || '',
+                    restrictions: $('#advRestrictions').val() || '',
+                    modifications: $('#advMods').val() || ''
                 },
 
                 // Calculated facilities for coordination
