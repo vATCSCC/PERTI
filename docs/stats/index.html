@@ -1096,7 +1096,7 @@
                     }
 
                     // 24h change
-                    if (ch && ch.pct_change_24h !== undefined) {
+                    if (ch && typeof ch.pct_change_24h === 'number') {
                         const changeEl = document.getElementById('change24h');
                         const pct = ch.pct_change_24h;
                         changeEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
