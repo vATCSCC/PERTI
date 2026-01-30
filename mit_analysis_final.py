@@ -16,20 +16,48 @@ EVENT_END = '2026-01-18 05:00:00'
 ARRIVAL_AIRPORTS = ['KLAS', 'KVGT', 'KHND']
 DEPARTURE_AIRPORTS = ['KSFO', 'KOAK', 'KSJC', 'KSMF']
 
-# MIT Reference
+# MIT Reference with valid time windows
+# Event date: Jan 17-18, 2026
+# Times are in UTC
 MIT_REFERENCE = [
-    {'fix': 'FLCHR', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZOA'},
-    {'fix': 'ELLDA', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZAB'},
-    {'fix': 'HAHAA', 'dest': 'KLAS', 'mit_nm': 30, 'provider': 'ZLA', 'requestor': 'ZAB'},
-    {'fix': 'GGAPP', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZLC'},
-    {'fix': 'STEWW', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZLC'},
-    {'fix': 'TYEGR', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZDV'},
-    {'fix': 'NTELL', 'dest': 'KLAS', 'mit_nm': 15, 'provider': 'ZOA', 'requestor': 'NCT'},
-    {'fix': 'RUSME', 'dest': 'KSFO', 'mit_nm': 20, 'provider': 'ZOA', 'requestor': 'ZLA/ZLC'},
-    {'fix': 'INYOE', 'dest': 'KSFO', 'mit_nm': 20, 'provider': 'ZOA', 'requestor': 'ZLA/ZLC'},
-    {'fix': 'LEGGS', 'dest': 'KSFO', 'mit_nm': 35, 'provider': 'ZOA', 'requestor': 'ZLC'},
+    {'fix': 'FLCHR', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZOA',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'ELLDA', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZAB',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'HAHAA', 'dest': 'KLAS', 'mit_nm': 30, 'provider': 'ZLA', 'requestor': 'ZAB',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'GGAPP', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZLC',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'STEWW', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZLC',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'TYEGR', 'dest': 'KLAS', 'mit_nm': 20, 'provider': 'ZLA', 'requestor': 'ZDV',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'NTELL', 'dest': 'KLAS', 'mit_nm': 15, 'provider': 'ZOA', 'requestor': 'NCT',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'RUSME', 'dest': 'KSFO', 'mit_nm': 20, 'provider': 'ZOA', 'requestor': 'ZLA/ZLC',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'INYOE', 'dest': 'KSFO', 'mit_nm': 20, 'provider': 'ZOA', 'requestor': 'ZLA/ZLC',
+     'start_utc': datetime(2026, 1, 17, 23, 59), 'end_utc': datetime(2026, 1, 18, 4, 0)},
+    {'fix': 'LEGGS', 'dest': 'KSFO', 'mit_nm': 35, 'provider': 'ZOA', 'requestor': 'ZLC',
+     'start_utc': datetime(2026, 1, 17, 23, 0), 'end_utc': datetime(2026, 1, 18, 3, 0)},  # 2300-0300
 ]
 MIT_FIXES = [m['fix'] for m in MIT_REFERENCE]
+
+def get_tmi_for_fix(fix_name):
+    """Get the TMI reference for a given fix"""
+    for m in MIT_REFERENCE:
+        if m['fix'] == fix_name:
+            return m
+    return None
+
+def is_within_tmi_window(flight_time, tmi):
+    """Check if a flight time falls within the TMI valid window"""
+    if not isinstance(flight_time, datetime):
+        return False
+    # Make naive datetime for comparison if needed
+    if flight_time.tzinfo is not None:
+        flight_time = flight_time.replace(tzinfo=None)
+    return tmi['start_utc'] <= flight_time <= tmi['end_utc']
 
 # Stream patterns
 STREAM_PATTERNS = {
@@ -190,30 +218,55 @@ def main():
             print(f"  {fix}: {len(by_fix[fix])}")
 
     # =====================================================================
-    # MIT Spacing Analysis
+    # MIT Spacing Analysis (TIME-AWARE - only during TMI valid windows)
     # =====================================================================
     print("\n" + "=" * 70)
-    print("MIT SPACING ANALYSIS")
+    print("MIT SPACING ANALYSIS (Time-Filtered by TMI Validity)")
     print("=" * 70)
 
-    mit_lookup = {m['fix']: m['mit_nm'] for m in MIT_REFERENCE}
     compliance_results = {}
 
     for fix in MIT_FIXES:
-        flights = by_fix.get(fix, [])
-        if len(flights) < 2:
+        all_flights = by_fix.get(fix, [])
+        if len(all_flights) < 2:
             continue
 
-        required = mit_lookup.get(fix, 20)
+        # Get the TMI for this fix
+        tmi = get_tmi_for_fix(fix)
+        if not tmi:
+            continue
 
-        # Sort by ETA or last_seen
-        def get_sort_time(f):
+        required = tmi['mit_nm']
+        tmi_start = tmi['start_utc']
+        tmi_end = tmi['end_utc']
+
+        # Filter flights to only those within the TMI valid window
+        # Use ETA or last_seen_utc as the reference time
+        def get_flight_time(f):
             t = f.get('eta_utc') or f.get('last_seen_utc')
             if isinstance(t, datetime):
+                if t.tzinfo is not None:
+                    t = t.replace(tzinfo=None)
                 return t
-            return datetime.max
+            return None
 
-        sorted_flights = sorted(flights, key=get_sort_time)
+        valid_flights = []
+        for f in all_flights:
+            ft = get_flight_time(f)
+            if ft and is_within_tmi_window(ft, tmi):
+                valid_flights.append(f)
+
+        excluded_count = len(all_flights) - len(valid_flights)
+
+        if len(valid_flights) < 2:
+            print(f"\n{fix}:")
+            print(f"  TMI Valid: {tmi_start.strftime('%H:%MZ')} - {tmi_end.strftime('%H:%MZ')}")
+            print(f"  Total flights with fix: {len(all_flights)}, Within TMI window: {len(valid_flights)}")
+            print(f"  Insufficient flights within TMI window for analysis")
+            continue
+
+        # Sort by time
+        sorted_flights = sorted(valid_flights, key=lambda f: get_flight_time(f) or datetime.max)
 
         spacings = []
         violations = []
@@ -222,20 +275,28 @@ def main():
             prev = sorted_flights[i-1]
             curr = sorted_flights[i]
 
-            prev_time = prev.get('eta_utc') or prev.get('last_seen_utc')
-            curr_time = curr.get('eta_utc') or curr.get('last_seen_utc')
+            prev_time = get_flight_time(prev)
+            curr_time = get_flight_time(curr)
 
-            if isinstance(prev_time, datetime) and isinstance(curr_time, datetime):
+            if prev_time and curr_time:
                 time_diff_sec = (curr_time - prev_time).total_seconds()
                 time_diff_min = time_diff_sec / 60
 
-                # Use actual groundspeed if available, else default 250kts
-                gs = curr.get('groundspeed_kts') or 250
+                # Skip if time difference is 0 or negative (data artifact)
+                if time_diff_sec <= 0:
+                    continue
+
+                # Use actual groundspeed if available and reasonable, else default 250kts
+                gs = curr.get('groundspeed_kts')
+                if not gs or gs < 100 or gs > 600:
+                    gs = 250  # Default for jets at cruise/descent
                 estimated_spacing = (time_diff_min * gs) / 60
 
                 pair = {
                     'prev': prev.get('callsign'),
                     'curr': curr.get('callsign'),
+                    'prev_time': prev_time.strftime('%H:%M:%S'),
+                    'curr_time': curr_time.strftime('%H:%M:%S'),
                     'time_min': round(time_diff_min, 1),
                     'spacing_nm': round(estimated_spacing, 1),
                     'gs': gs
@@ -249,7 +310,11 @@ def main():
             spacing_vals = [s['spacing_nm'] for s in spacings]
             compliance_results[fix] = {
                 'required': required,
-                'flights': len(flights),
+                'tmi_start': tmi_start.strftime('%H:%MZ'),
+                'tmi_end': tmi_end.strftime('%H:%MZ'),
+                'total_flights': len(all_flights),
+                'flights_in_window': len(valid_flights),
+                'excluded': excluded_count,
                 'pairs': len(spacings),
                 'avg': round(sum(spacing_vals) / len(spacing_vals), 1),
                 'min': round(min(spacing_vals), 1),
@@ -260,15 +325,120 @@ def main():
             }
 
             print(f"\n{fix}:")
+            print(f"  TMI Valid: {tmi_start.strftime('%H:%MZ')} - {tmi_end.strftime('%H:%MZ')}")
             print(f"  Required MIT: {required} nm")
-            print(f"  Flights: {len(flights)}, Pairs analyzed: {len(spacings)}")
+            print(f"  Flights: {len(all_flights)} total, {len(valid_flights)} in TMI window ({excluded_count} excluded)")
+            print(f"  Pairs analyzed: {len(spacings)}")
             print(f"  Spacing: avg={compliance_results[fix]['avg']} nm, min={compliance_results[fix]['min']} nm, max={compliance_results[fix]['max']} nm")
             print(f"  Violations: {len(violations)} ({100 - compliance_results[fix]['compliance']:.1f}% non-compliant)")
 
             if violations:
                 print(f"  Tightest pairs:")
                 for v in compliance_results[fix]['worst'][:3]:
-                    print(f"    {v['prev']} -> {v['curr']}: {v['spacing_nm']} nm ({v['time_min']} min @ {v['gs']} kts)")
+                    print(f"    {v['prev']} ({v['prev_time']}) -> {v['curr']} ({v['curr_time']}): {v['spacing_nm']} nm ({v['time_min']} min @ {v['gs']} kts)")
+
+    # =====================================================================
+    # GROUND STOP COMPLIANCE ANALYSIS
+    # KLAS GS from NCT: 18/0230Z - 18/0315Z (issued 0244Z)
+    # =====================================================================
+    print("\n" + "=" * 70)
+    print("GROUND STOP COMPLIANCE ANALYSIS")
+    print("=" * 70)
+
+    # GS Parameters
+    GS_START = datetime(2026, 1, 18, 2, 30)  # 0230Z
+    GS_END = datetime(2026, 1, 18, 3, 15)    # 0315Z
+    GS_ISSUED = datetime(2026, 1, 18, 2, 44) # 0244Z
+    GS_DEST = 'KLAS'
+    # NCT area airports (NorCal TRACON)
+    NCT_AIRPORTS = ['KSFO', 'KOAK', 'KSJC', 'KSMF', 'KCCR', 'KHWD', 'KLVK', 'KPAO', 'KSQL', 'KNUQ', 'KRHV', 'KMOD', 'KSTS']
+
+    print(f"\nGround Stop Details:")
+    print(f"  Destination: {GS_DEST}")
+    print(f"  Scope: NCT (NorCal TRACON departures)")
+    print(f"  Valid: {GS_START.strftime('%H:%MZ')} - {GS_END.strftime('%H:%MZ')} (Jan 18)")
+    print(f"  Issued: {GS_ISSUED.strftime('%H:%MZ')}")
+
+    # Find all flights from NCT airports to KLAS
+    nct_to_las = []
+    for f in unique:
+        dept = (f.get('fp_dept_icao') or '').strip()
+        dest = (f.get('fp_dest_icao') or '').strip()
+        if dest == GS_DEST and dept in NCT_AIRPORTS:
+            nct_to_las.append(f)
+
+    print(f"\nTotal NCT -> KLAS flights in event window: {len(nct_to_las)}")
+
+    # Check for departures during the GS window
+    # A GS violation = aircraft that departed DURING the GS window
+    # We'll use first_seen_utc as a proxy for departure time (or etd if available)
+    gs_violations = []
+    gs_compliant = []
+    gs_exempt = []  # Airborne before GS issued
+
+    for f in nct_to_las:
+        # Get departure time (first_seen is often shortly after departure)
+        dept_time = f.get('first_seen_utc')
+        if isinstance(dept_time, datetime):
+            if dept_time.tzinfo is not None:
+                dept_time = dept_time.replace(tzinfo=None)
+
+            # Check if flight was airborne BEFORE the GS was issued (exempt)
+            if dept_time < GS_ISSUED:
+                gs_exempt.append({
+                    'callsign': f.get('callsign'),
+                    'dept': f.get('fp_dept_icao', '').strip(),
+                    'dept_time': dept_time.strftime('%H:%M:%S'),
+                    'status': 'EXEMPT (airborne before GS issued)'
+                })
+            # Check if departed during GS window
+            elif GS_START <= dept_time <= GS_END:
+                gs_violations.append({
+                    'callsign': f.get('callsign'),
+                    'dept': f.get('fp_dept_icao', '').strip(),
+                    'dept_time': dept_time.strftime('%H:%M:%S'),
+                    'status': 'VIOLATION (departed during GS)'
+                })
+            # Departed after GS ended
+            elif dept_time > GS_END:
+                gs_compliant.append({
+                    'callsign': f.get('callsign'),
+                    'dept': f.get('fp_dept_icao', '').strip(),
+                    'dept_time': dept_time.strftime('%H:%M:%S'),
+                    'status': 'COMPLIANT (departed after GS)'
+                })
+            # Departed before GS started but after issue
+            elif GS_ISSUED <= dept_time < GS_START:
+                gs_compliant.append({
+                    'callsign': f.get('callsign'),
+                    'dept': f.get('fp_dept_icao', '').strip(),
+                    'dept_time': dept_time.strftime('%H:%M:%S'),
+                    'status': 'COMPLIANT (departed before GS window)'
+                })
+
+    print(f"\nGround Stop Analysis Results:")
+    print(f"  Exempt (airborne before GS issued): {len(gs_exempt)}")
+    print(f"  Compliant: {len(gs_compliant)}")
+    print(f"  Violations: {len(gs_violations)}")
+
+    if gs_exempt:
+        print(f"\n  Exempt Flights (airborne before {GS_ISSUED.strftime('%H:%MZ')}):")
+        for v in gs_exempt[:10]:
+            print(f"    {v['callsign']} from {v['dept']} @ {v['dept_time']}")
+
+    if gs_violations:
+        gs_compliance_pct = 100 * len(gs_compliant) / (len(gs_compliant) + len(gs_violations))
+        print(f"\n  VIOLATIONS (departed during GS {GS_START.strftime('%H:%MZ')}-{GS_END.strftime('%H:%MZ')}):")
+        for v in gs_violations:
+            print(f"    {v['callsign']} from {v['dept']} @ {v['dept_time']} - {v['status']}")
+        print(f"\n  GS Compliance Rate: {gs_compliance_pct:.1f}%")
+    else:
+        print(f"\n  No GS violations detected - 100% compliance!")
+
+    if gs_compliant:
+        print(f"\n  Compliant Departures:")
+        for v in gs_compliant[:10]:
+            print(f"    {v['callsign']} from {v['dept']} @ {v['dept_time']}")
 
     # =====================================================================
     # Sample Flight List
@@ -316,17 +486,20 @@ MIT COMPLIANCE SUMMARY:
   Total violations: {total_violations} of {total_pairs} aircraft pairs
 """)
 
-    print("BY FIX:")
+    print("BY FIX (during valid TMI windows only):")
     for fix in MIT_FIXES:
         if fix in compliance_results:
             r = compliance_results[fix]
             status = "OK" if r['compliance'] >= 90 else "WARN" if r['compliance'] >= 75 else "FAIL"
-            print(f"  {fix}: {r['compliance']:.1f}% compliant ({r['violations']}/{r['pairs']} violations) [{status}]")
+            print(f"  {fix} ({r['tmi_start']}-{r['tmi_end']}): {r['compliance']:.1f}% compliant ({r['violations']}/{r['pairs']} violations) [{status}]")
+            print(f"       {r['flights_in_window']}/{r['total_flights']} flights within TMI window")
 
     print(f"""
 NOTES:
-- Spacing calculated from ETA differences and groundspeed
-- MIT restrictions were effective 2359Z-0400Z per event briefing
+- Spacing calculated from ETA/last_seen differences and groundspeed
+- Analysis ONLY includes flights during each TMI's valid window
+- TMI Windows: Most fixes 2359Z-0400Z, LEGGS 2300Z-0300Z
+- Groundspeeds < 100 or > 600 kts replaced with 250 kts default
 - Precise fix crossing times would require trajectory analysis
 """)
 
