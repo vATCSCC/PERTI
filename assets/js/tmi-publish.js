@@ -7726,7 +7726,7 @@
             // Airways: letter(s) + numbers (J60, V16, Q99, T200, AR10, A216)
             const isAirway = (token) => {
                 if (!token) return false;
-                // Check against known airways if available
+                // Check against known airways if available (awys array from awys.js)
                 if (typeof awys !== 'undefined' && Array.isArray(awys)) {
                     const found = awys.some(a => a[0] === token);
                     if (found) return true;
@@ -7735,22 +7735,61 @@
                 return /^[A-Z]{1,2}\d+$/.test(token);
             };
 
-            // Procedures (SID/STAR): typically 4+ letters followed by digit(s)
-            // Examples: RNAV6, CAMRN4, WYNDE3, MERIT2
+            // Procedures (SID/STAR): Various patterns including international
+            // Examples: RNAV6, CAMRN4, WYNDE3, JFK5, LGA4, EWR1
             const isProcedure = (token) => {
                 if (!token) return false;
-                // Pattern: 4+ letters followed by 1-2 digits at the end
-                return /^[A-Z]{4,}\d{1,2}$/.test(token);
+
+                // Check against loaded procs array if available (procs.js)
+                if (typeof procs !== 'undefined' && Array.isArray(procs)) {
+                    const found = procs.some(p => p[0] === token);
+                    if (found) return true;
+                }
+
+                // Check against dpAllRootNames and starAllRootNames (from procs_enhanced.js)
+                // Extract root name (letters only) from token
+                const rootName = token.replace(/\d+$/, '');
+                if (rootName) {
+                    if (typeof dpAllRootNames !== 'undefined' && dpAllRootNames instanceof Set) {
+                        if (dpAllRootNames.has(rootName)) return true;
+                    }
+                    if (typeof starAllRootNames !== 'undefined' && starAllRootNames instanceof Set) {
+                        if (starAllRootNames.has(rootName)) return true;
+                    }
+                }
+
+                // Pattern match for procedures:
+                // 1. Standard: 2+ letters followed by 1-2 digits (JFK5, WYNDE3)
+                // 2. Alphanumeric: digit(s) + letters + digit (1U71, 77S2) - small airport DPs
+                // Must avoid matching airways like J6, V16
+                if (/^[A-Z]{2,6}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 8) {
+                    // Exclude if it matches airway pattern (1-2 letters + digits)
+                    if (/^[A-Z]{1,2}\d+$/.test(token)) return false;
+                    return true;
+                }
+                // Alphanumeric small airport DP codes (1U71, 77S2, 0S91, etc.)
+                if (/^\d{1,2}[A-Z]{1,2}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 5) {
+                    return true;
+                }
+
+                return false;
             };
 
             // Waypoints: everything that's not an airway or procedure
-            // Typically 3-5 letter codes (VORs, fixes)
+            // Typically 3-5 letter codes (VORs, fixes) or alphanumeric fix names
             const isWaypoint = (token) => {
                 if (!token) return false;
                 if (isAirway(token)) return false;
                 if (isProcedure(token)) return false;
-                // Valid waypoints: 2-5 alphanumeric (mostly letters)
-                return /^[A-Z0-9]{2,5}$/.test(token);
+
+                // Check against nav_fixes if available
+                if (typeof navFixes !== 'undefined' && navFixes instanceof Set) {
+                    if (navFixes.has(token)) return true;
+                }
+
+                // Valid waypoints: 2-5 alphanumeric, predominantly letters
+                // Includes VORs (3 letters), 5-letter fixes, and some special codes
+                return /^[A-Z]{2,5}$/.test(token) || /^[A-Z]{3,4}[0-9]?$/.test(token);
             };
 
             // Find first waypoint in tokens starting from index
@@ -7779,56 +7818,71 @@
                 destFilter: (r.destFilter || '').toUpperCase()
             }));
 
-            // Find common route segment (longest common contiguous subsequence)
+            // Find common route segment with MAJORITY matching (70%+ of routes)
             // Important: The boundaries of the common segment must be waypoints
             const findCommonSegment = (routes) => {
-                if (routes.length < 2) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null };
+                if (routes.length < 2) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null, matchCount: 0 };
 
                 const allTokens = routes.map(r => r.tokens);
-                if (allTokens.some(t => !t.length)) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null };
+                const nonEmptyTokens = allTokens.filter(t => t.length > 0);
+                if (nonEmptyTokens.length < 2) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null, matchCount: 0 };
 
-                // Try to find the longest common contiguous segment
-                const firstRoute = allTokens[0];
+                // Minimum match threshold (70% of routes)
+                const minMatchCount = Math.ceil(nonEmptyTokens.length * 0.7);
+
+                // Try to find the longest common contiguous segment present in majority of routes
+                // Use the route with fewest tokens as reference (more likely to be fully common)
+                const sortedByLength = [...nonEmptyTokens].sort((a, b) => a.length - b.length);
+                const refRoute = sortedByLength[0];
+
                 let bestCommon = [];
                 let bestEntryWpt = null;
                 let bestExitWpt = null;
+                let bestMatchCount = 0;
 
-                for (let start = 0; start < firstRoute.length; start++) {
-                    for (let len = firstRoute.length - start; len > 0; len--) {
-                        const candidate = firstRoute.slice(start, start + len);
-                        if (candidate.length <= bestCommon.length) continue;
+                for (let start = 0; start < refRoute.length; start++) {
+                    for (let len = refRoute.length - start; len > 0; len--) {
+                        const candidate = refRoute.slice(start, start + len);
 
-                        // Check if this segment exists in all routes
-                        const allMatch = allTokens.every(tokens => {
-                            const candidateStr = candidate.join(' ');
+                        // Skip if shorter than current best (unless it matches more routes)
+                        if (candidate.length < bestCommon.length) continue;
+
+                        // Count how many routes contain this segment
+                        const candidateStr = candidate.join(' ');
+                        let matchCount = 0;
+                        nonEmptyTokens.forEach(tokens => {
                             const tokensStr = tokens.join(' ');
-                            return tokensStr.includes(candidateStr);
+                            if (tokensStr.includes(candidateStr)) matchCount++;
                         });
 
-                        if (allMatch) {
-                            // Find the entry waypoint (first waypoint in common segment)
+                        // Accept if majority match and (longer OR same length with more matches)
+                        if (matchCount >= minMatchCount) {
                             const entryWpt = findFirstWaypoint(candidate, 0);
-                            // Find the exit waypoint (last waypoint in common segment)
                             const exitWpt = findLastWaypoint(candidate, candidate.length);
 
-                            // Only accept if we have valid waypoint boundaries
-                            if (entryWpt && exitWpt && candidate.length > bestCommon.length) {
-                                bestCommon = candidate;
-                                bestEntryWpt = entryWpt.token;
-                                bestExitWpt = exitWpt.token;
+                            if (entryWpt && exitWpt) {
+                                // Prefer longer segments, or more matches if same length
+                                if (candidate.length > bestCommon.length ||
+                                    (candidate.length === bestCommon.length && matchCount > bestMatchCount)) {
+                                    bestCommon = candidate;
+                                    bestEntryWpt = entryWpt.token;
+                                    bestExitWpt = exitWpt.token;
+                                    bestMatchCount = matchCount;
+                                }
                             }
                         }
                     }
                 }
 
                 if (!bestCommon.length || bestCommon.length < 2 || !bestEntryWpt || !bestExitWpt) {
-                    return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null };
+                    return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null, matchCount: 0 };
                 }
 
                 // Extract origin and destination segments for each route
                 const commonStr = bestCommon.join(' ');
                 const originSegs = [];
                 const destSegs = [];
+                const unmatchedRoutes = [];
 
                 routes.forEach(r => {
                     const fullRoute = r.tokens.join(' ');
@@ -7857,21 +7911,34 @@
                             destFilter: r.destFilter,
                             segment: destSeg
                         });
+                    } else {
+                        // Route doesn't contain common segment
+                        unmatchedRoutes.push(r);
                     }
                 });
 
-                return { common: bestCommon, originSegs, destSegs, entryWpt: bestEntryWpt, exitWpt: bestExitWpt };
+                return {
+                    common: bestCommon,
+                    originSegs,
+                    destSegs,
+                    entryWpt: bestEntryWpt,
+                    exitWpt: bestExitWpt,
+                    matchCount: bestMatchCount,
+                    totalRoutes: routes.length,
+                    unmatchedRoutes
+                };
             };
 
-            const { common, originSegs, destSegs, entryWpt, exitWpt } = findCommonSegment(tokenizedRoutes);
+            const result = findCommonSegment(tokenizedRoutes);
+            const { common, originSegs, destSegs, entryWpt, exitWpt, unmatchedRoutes } = result;
 
             // If no common segment found, fall back to showing routes by origin
             if (!common.length) {
                 return this.formatSplitByOriginDest(tokenizedRoutes, MAX_LINE, LABEL_WIDTH);
             }
 
-            // Format helper for split rows
-            const formatSplitRow = (label, routeText) => {
+            // Format helper for split rows - proper column alignment
+            const formatSplitRow = (label, routeText, labelCol = LABEL_WIDTH) => {
                 label = (label || '').toUpperCase().trim();
                 routeText = (routeText || '').toUpperCase().trim();
 
@@ -7882,7 +7949,7 @@
 
                 while (lineIndex === 0 || words.length) {
                     const lStr = lineIndex === 0 ? label : '';
-                    const labelPad = lStr.padEnd(LABEL_WIDTH);
+                    const labelPad = lStr.padEnd(labelCol);
                     let current = labelPad;
                     const baseLen = current.length;
 
@@ -7921,16 +7988,25 @@
             output += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE - ORIGIN SEGMENTS (to >' + entryWpt + ')\n';
             output += '----'.padEnd(LABEL_WIDTH) + ''.padEnd(35, '-') + '\n';
 
-            // Group by origin
-            const byOrig = {};
+            // Group origin segments by origin AND segment (to dedupe)
+            const byOrigSeg = {};
             originSegs.forEach(s => {
-                const key = s.origin + (s.originFilter ? ' ' + s.originFilter : '');
-                if (!byOrig[key]) byOrig[key] = new Set();
-                byOrig[key].add(s.segment);
+                const origKey = s.origin + (s.originFilter ? ' ' + s.originFilter : '');
+                const fullKey = origKey + '|||' + s.segment;
+                if (!byOrigSeg[fullKey]) {
+                    byOrigSeg[fullKey] = { origin: origKey, segment: s.segment };
+                }
+            });
+
+            // Group by origin for display
+            const byOrig = {};
+            Object.values(byOrigSeg).forEach(item => {
+                if (!byOrig[item.origin]) byOrig[item.origin] = new Set();
+                byOrig[item.origin].add(item.segment);
             });
 
             Object.keys(byOrig).sort().forEach(orig => {
-                const segments = Array.from(byOrig[orig]);
+                const segments = Array.from(byOrig[orig]).sort();
                 segments.forEach(seg => {
                     formatSplitRow(orig, seg).forEach(line => {
                         output += line + '\n';
@@ -7945,22 +8021,46 @@
             output += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE - DESTINATION SEGMENTS (from ' + exitWpt + '<)\n';
             output += '----'.padEnd(LABEL_WIDTH) + ''.padEnd(40, '-') + '\n';
 
-            // Group by destination
-            const byDest = {};
+            // Group dest segments by dest AND segment (to dedupe)
+            const byDestSeg = {};
             destSegs.forEach(s => {
-                const key = s.destination + (s.destFilter ? ' ' + s.destFilter : '');
-                if (!byDest[key]) byDest[key] = new Set();
-                byDest[key].add(s.segment);
+                const destKey = s.destination + (s.destFilter ? ' ' + s.destFilter : '');
+                const fullKey = destKey + '|||' + s.segment;
+                if (!byDestSeg[fullKey]) {
+                    byDestSeg[fullKey] = { destination: destKey, segment: s.segment };
+                }
+            });
+
+            // Group by destination for display
+            const byDest = {};
+            Object.values(byDestSeg).forEach(item => {
+                if (!byDest[item.destination]) byDest[item.destination] = new Set();
+                byDest[item.destination].add(item.segment);
             });
 
             Object.keys(byDest).sort().forEach(dest => {
-                const segments = Array.from(byDest[dest]);
+                const segments = Array.from(byDest[dest]).sort();
                 segments.forEach(seg => {
                     formatSplitRow(dest, seg).forEach(line => {
                         output += line + '\n';
                     });
                 });
             });
+
+            // Show unmatched routes if any
+            if (unmatchedRoutes && unmatchedRoutes.length > 0) {
+                output += '\n';
+                output += 'OTHER ROUTES (not matching common segment):\n';
+                output += 'ORIG'.padEnd(10) + 'DEST'.padEnd(10) + 'ROUTE\n';
+                output += '----'.padEnd(10) + '----'.padEnd(10) + '-----\n';
+
+                unmatchedRoutes.forEach(r => {
+                    const orig = (r.origDisplay || '').substring(0, 8).padEnd(10);
+                    const dest = (r.destDisplay || '').substring(0, 8).padEnd(10);
+                    const route = r.tokens.join(' ');
+                    output += orig + dest + route + '\n';
+                });
+            }
 
             return output.trim();
         },
@@ -8099,14 +8199,41 @@
 
             const isProcedure = (token) => {
                 if (!token) return false;
-                return /^[A-Z]{4,}\d{1,2}$/.test(token);
+                // Check against loaded procs array
+                if (typeof procs !== 'undefined' && Array.isArray(procs)) {
+                    const found = procs.some(p => p[0] === token);
+                    if (found) return true;
+                }
+                // Check against dpAllRootNames and starAllRootNames
+                const rootName = token.replace(/\d+$/, '');
+                if (rootName) {
+                    if (typeof dpAllRootNames !== 'undefined' && dpAllRootNames instanceof Set) {
+                        if (dpAllRootNames.has(rootName)) return true;
+                    }
+                    if (typeof starAllRootNames !== 'undefined' && starAllRootNames instanceof Set) {
+                        if (starAllRootNames.has(rootName)) return true;
+                    }
+                }
+                // Pattern: 2+ letters followed by 1-2 digits (JFK5, WYNDE3)
+                if (/^[A-Z]{2,6}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 8) {
+                    if (/^[A-Z]{1,2}\d+$/.test(token)) return false;
+                    return true;
+                }
+                // Alphanumeric small airport DP codes (1U71, 77S2, 0S91, etc.)
+                if (/^\d{1,2}[A-Z]{1,2}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 5) {
+                    return true;
+                }
+                return false;
             };
 
             const isWaypoint = (token) => {
                 if (!token) return false;
                 if (isAirway(token)) return false;
                 if (isProcedure(token)) return false;
-                return /^[A-Z0-9]{2,5}$/.test(token);
+                if (typeof navFixes !== 'undefined' && navFixes instanceof Set) {
+                    if (navFixes.has(token)) return true;
+                }
+                return /^[A-Z]{2,5}$/.test(token) || /^[A-Z]{3,4}[0-9]?$/.test(token);
             };
 
             const findFirstWaypoint = (tokens, startIdx) => {
@@ -8129,33 +8256,44 @@
                 tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean)
             }));
 
-            // Find longest common contiguous segment with waypoint boundaries
+            // Find longest common contiguous segment with majority matching (70%+)
             const allTokens = tokenizedRoutes.map(r => r.tokens);
-            const firstRoute = allTokens[0];
+            const nonEmptyTokens = allTokens.filter(t => t.length > 0);
+            const minMatchCount = Math.ceil(nonEmptyTokens.length * 0.7);
+
+            // Use shortest route as reference
+            const sortedByLength = [...nonEmptyTokens].sort((a, b) => a.length - b.length);
+            const refRoute = sortedByLength[0] || [];
+
             let bestCommon = [];
             let bestEntryWpt = null;
             let bestExitWpt = null;
+            let bestMatchCount = 0;
 
-            for (let start = 0; start < firstRoute.length; start++) {
-                for (let len = firstRoute.length - start; len > 0; len--) {
-                    const candidate = firstRoute.slice(start, start + len);
-                    if (candidate.length <= bestCommon.length) continue;
+            for (let start = 0; start < refRoute.length; start++) {
+                for (let len = refRoute.length - start; len > 0; len--) {
+                    const candidate = refRoute.slice(start, start + len);
+                    if (candidate.length < bestCommon.length) continue;
 
-                    const allMatch = allTokens.every(tokens => {
-                        const candidateStr = candidate.join(' ');
-                        const tokensStr = tokens.join(' ');
-                        return tokensStr.includes(candidateStr);
+                    // Count how many routes contain this segment
+                    const candidateStr = candidate.join(' ');
+                    let matchCount = 0;
+                    nonEmptyTokens.forEach(tokens => {
+                        if (tokens.join(' ').includes(candidateStr)) matchCount++;
                     });
 
-                    if (allMatch) {
-                        // Find waypoint boundaries
+                    if (matchCount >= minMatchCount) {
                         const entryWpt = findFirstWaypoint(candidate, 0);
                         const exitWpt = findLastWaypoint(candidate, candidate.length);
 
-                        if (entryWpt && exitWpt && candidate.length > bestCommon.length) {
-                            bestCommon = candidate;
-                            bestEntryWpt = entryWpt.token;
-                            bestExitWpt = exitWpt.token;
+                        if (entryWpt && exitWpt) {
+                            if (candidate.length > bestCommon.length ||
+                                (candidate.length === bestCommon.length && matchCount > bestMatchCount)) {
+                                bestCommon = candidate;
+                                bestEntryWpt = entryWpt.token;
+                                bestExitWpt = exitWpt.token;
+                                bestMatchCount = matchCount;
+                            }
                         }
                     }
                 }
@@ -8169,13 +8307,17 @@
                     return `<b>${t}</b>`;
                 }).join(' ');
 
+                const matchPct = Math.round((bestMatchCount / routes.length) * 100);
+                const unmatchedCount = routes.length - bestMatchCount;
+
                 Swal.fire({
                     icon: 'success',
                     title: 'Common Segment Detected',
                     html: `
-                        <p>Found common route segment shared by all ${routes.length} routes:</p>
+                        <p>Found common route segment in <strong>${bestMatchCount}/${routes.length}</strong> routes (${matchPct}%):</p>
                         <pre class="text-left bg-light p-2" style="font-size: 0.85rem;">${classified}</pre>
                         <p class="small"><strong>Entry waypoint:</strong> ${bestEntryWpt} &nbsp; <strong>Exit waypoint:</strong> ${bestExitWpt}</p>
+                        ${unmatchedCount > 0 ? `<p class="small text-warning">${unmatchedCount} routes don't contain this segment and will be shown separately.</p>` : ''}
                         <p class="small text-muted mt-2">
                             <b>Bold</b> = waypoints (split points),
                             <span class="text-primary">Blue</span> = airways,
@@ -8196,7 +8338,7 @@
                     icon: 'info',
                     title: 'No Common Segment',
                     html: `
-                        <p>No significant common segment with waypoint boundaries found across all ${routes.length} routes.</p>
+                        <p>No significant common segment with waypoint boundaries found in at least 70% of the ${routes.length} routes.</p>
                         <p class="small text-muted">Routes may still be displayed in split format grouped by origin and destination.</p>
                     `,
                     timer: 3000,
