@@ -109,16 +109,22 @@ const GDP = (function() {
 
     function updateWorkflowButtons() {
         const previewBtn = document.getElementById('gdp_model_btn');
-        const simulateBtn = document.getElementById('gdp_run_proposed_btn');
         const modelBtn = document.getElementById('gdp_model_btn');
-        const applyBtn = document.getElementById('gdp_run_actual_btn');
+        const submitTmiBtn = document.getElementById('gdp_submit_tmi_btn');
         const purgeLocalBtn = document.getElementById('gdp_purge_local_btn');
         const purgeBtn = document.getElementById('gdp_purge_btn');
 
         // Enable based on current state
-        if (simulateBtn) simulateBtn.disabled = (state.status === 'DRAFT');
-        if (modelBtn) modelBtn.disabled = (state.status !== 'SIMULATED' && state.status !== 'ACTIVE');
-        if (applyBtn) applyBtn.disabled = (state.status !== 'SIMULATED');
+        // Submit to TMI is enabled only after simulation (model) completes
+        if (submitTmiBtn) {
+            const canSubmit = state.status === 'SIMULATED' || state.status === 'MODELED';
+            submitTmiBtn.disabled = !canSubmit;
+            if (canSubmit) {
+                submitTmiBtn.title = 'Submit GDP to TMI Publishing for coordination';
+            } else {
+                submitTmiBtn.title = 'Run "Model" first to enable';
+            }
+        }
         if (purgeLocalBtn) purgeLocalBtn.disabled = (state.status === 'DRAFT');
         if (purgeBtn) purgeBtn.disabled = (state.status !== 'ACTIVE');
     }
@@ -575,7 +581,67 @@ const GDP = (function() {
     }
 
     // =========================================================================
-    // Simulate Handler
+    // Model Handler (Combined Preview + Simulate)
+    // =========================================================================
+
+    async function handleModel() {
+        const payload = collectGdpPayload();
+
+        if (!payload.gdp_airport || !payload.gdp_start || !payload.gdp_end) {
+            alert('Please enter CTL Element, Start, and End times.');
+            return;
+        }
+
+        console.log('GDP Model payload:', payload);
+
+        const btn = document.getElementById('gdp_model_btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Modeling...';
+        }
+
+        try {
+            // Run simulation which includes preview + EDCT calculation
+            const result = await apiPostJson(API.simulate, payload);
+
+            console.log('GDP Model result:', result);
+
+            if (result.status !== 'ok') {
+                alert('Model failed: ' + (result.message || 'Unknown error'));
+                return;
+            }
+
+            // Store simulation results
+            state.simulatedFlights = result.flights || [];
+            state.slots = result.slots || [];
+            state.summary = result.summary || {};
+            state.programId = result.program_id;
+
+            if (result.program_id) {
+                document.getElementById('gdp_program_id').value = state.programId;
+            }
+
+            updateStatusBadge('SIMULATED');
+            updateWorkflowButtons();
+            updateMetrics(result.summary);
+            renderFlightTable(state.simulatedFlights, true);
+            renderSlotTable(state.slots);
+            renderDemandChartWithSlots(state.simulatedFlights, state.slots, payload);
+            renderBarGraph('eta');
+
+        } catch (err) {
+            console.error('Model error:', err);
+            alert('Model failed: ' + err.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-calculator mr-1"></i> Model';
+            }
+        }
+    }
+
+    // =========================================================================
+    // Simulate Handler (Legacy - kept for backwards compatibility)
     // =========================================================================
 
     async function handleSimulate() {
@@ -665,6 +731,78 @@ const GDP = (function() {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Run Actual';
             }
+        }
+    }
+
+    // =========================================================================
+    // Submit to TMI Publishing Handler
+    // =========================================================================
+
+    function handleSubmitToTmi() {
+        // Require simulation to be run first
+        if (state.status !== 'SIMULATED' && state.status !== 'MODELED') {
+            if (window.Swal) {
+                window.Swal.fire({
+                    icon: 'warning',
+                    title: 'Model Required',
+                    text: 'You must run "Model" before submitting to TMI Publishing. This ensures EDCTs are calculated correctly.',
+                    confirmButtonText: 'OK'
+                });
+            } else {
+                alert('You must run "Model" before submitting to TMI Publishing.');
+            }
+            return;
+        }
+
+        const payload = collectGdpPayload();
+
+        // Validate required fields
+        if (!payload.gdp_airport || !payload.gdp_start || !payload.gdp_end) {
+            alert('Please enter CTL Element, Start, and End times.');
+            return;
+        }
+
+        // Build the TMI Publishing handoff data
+        const tmiHandoff = {
+            type: 'GDP',
+            program_type: document.getElementById('gdp_program_type')?.value || 'GDP-UDP',
+            program_id: state.programId || null,
+            ctl_element: payload.gdp_airport,
+            start_time: payload.gdp_start,
+            end_time: payload.gdp_end,
+            program_rate: payload.program_rate,
+            reserve_rate: payload.reserve_rate,
+            delay_limit: payload.delay_limit,
+            distance_nm: payload.distance_nm || 0,
+            origin_centers: payload.gdp_origin_centers || '',
+            dep_facilities: payload.gdp_dep_facilities || '',
+            origin_airports: payload.gdp_origin_airports || '',
+            flt_incl_carrier: payload.gdp_flt_incl_carrier || '',
+            flt_incl_type: payload.gdp_flt_incl_type || 'ALL',
+            impacting_condition: payload.impacting_condition || '',
+            prob_extension: payload.prob_extension || '',
+            exemptions: payload.exemptions || {},
+
+            // Include simulation results
+            summary: state.summary || {},
+            flights: state.simulatedFlights || [],
+            slots: state.slots || [],
+
+            // Metadata
+            source: 'GDT',
+            created_at: new Date().toISOString()
+        };
+
+        // Store in sessionStorage for TMI Publishing to pick up
+        try {
+            sessionStorage.setItem('tmi_gdp_handoff', JSON.stringify(tmiHandoff));
+
+            // Navigate to TMI Publishing page with GDP tab active
+            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&program_id=' + (state.programId || '');
+
+        } catch (err) {
+            console.error('Failed to store TMI handoff data:', err);
+            alert('Failed to prepare handoff data: ' + err.message);
         }
     }
 
@@ -1257,9 +1395,8 @@ const GDP = (function() {
 
         // Workflow buttons - map to actual HTML element IDs
         document.getElementById('gdp_reload_btn')?.addEventListener('click', handleReload);
-        document.getElementById('gdp_model_btn')?.addEventListener('click', handlePreview);  // Model = Preview
-        document.getElementById('gdp_run_proposed_btn')?.addEventListener('click', handleSimulate);  // Run Proposed = Simulate
-        document.getElementById('gdp_run_actual_btn')?.addEventListener('click', handleApply);  // Run Actual = Apply
+        document.getElementById('gdp_model_btn')?.addEventListener('click', handleModel);  // Model = Preview + Simulate
+        document.getElementById('gdp_submit_tmi_btn')?.addEventListener('click', handleSubmitToTmi);  // Submit to TMI Publishing
 
         // Scope method radio buttons
         document.getElementById('gdp_scope_tier')?.addEventListener('change', function() {

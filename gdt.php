@@ -689,7 +689,9 @@ include("load/config.php");
                             <div class="btn-group btn-group-sm mr-1" role="group">
                                 <button class="btn btn-outline-info" id="gs_preview_btn" type="button" title="Preview flights from live ADL">Preview</button>
                                 <button class="btn btn-outline-primary" id="gs_simulate_btn" type="button" title="Simulate GS and calculate EDCTs">Simulate</button>
-                                <button class="btn btn-outline-secondary" id="gs_send_actual_btn" type="button" title="Run 'Simulate' first">Send Actual</button>
+                                <button class="btn btn-outline-success" id="gs_submit_tmi_btn" type="button" title="Run 'Simulate' first, then submit to TMI Publishing" disabled>
+                                    <i class="fas fa-paper-plane mr-1"></i>Submit to TMI
+                                </button>
                             </div>
                             <div class="btn-group btn-group-sm mr-1" role="group">
                                 <button class="btn btn-outline-secondary" id="gs_view_flight_list_btn" type="button" title="View GS Flight List">
