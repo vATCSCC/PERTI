@@ -3,44 +3,102 @@ TMI Compliance Analyzer - NTML Parser
 ======================================
 
 Parses NTML (National Traffic Management Log) text into TMI objects.
+
+Supported formats:
+- MIT: "LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z"
+- MIT with qualifiers: "ATL via EMI 25 MIT VOLUME:VOLUME 0000-0400 ZDC:ZNY"
+- MIT with application: "BNA via GROAT 20 MIT AS ONE 0000-0400 ZME:ZID"
+- MINIT: "BNA via GROAT 5MINIT ZME:ZID 0000Z-0400Z"
+- GS: "LAS GS (NCT) 0230Z-0315Z issued 0244Z"
+- APREQ/CFR: "BNA via ALL CFR 2359-0400 ZME:ZME"
+- Cancellations: "CXLD 0330Z" at end of line
+- Exclusions: "EXCL PROPS", "EXCL VFR" etc.
 """
 
 import re
+import logging
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional, Tuple, Dict
 
 from .models import TMI, TMIType
 
+logger = logging.getLogger(__name__)
+
 
 def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> List[TMI]:
-    """
-    Parse NTML text into TMI objects.
-
-    Supported formats:
-    - MIT: "LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z"
-    - MINIT: "BNA via GROAT 5MINIT ZME:ZID 0000Z-0400Z"
-    - GS: "LAS GS (NCT) 0230Z-0315Z issued 0244Z"
-    - APREQ/CFR: "BNA via ALL CFR 2359-0400 ZME:ZME"
-    - Cancellations: "CXLD 0330Z" at end of line
-    """
+    """Parse NTML text into TMI objects."""
     tmis = []
     lines = ntml_text.strip().split('\n')
-
-    # Get event date for parsing times
     event_date = event_start.date()
 
-    def parse_time(time_str: str, base_date) -> datetime:
+    def parse_time(time_str: str, base_date) -> Optional[datetime]:
         """Parse HHMM or HH:MM format time, adjusting date for overnight"""
+        if not time_str:
+            return None
         time_str = time_str.replace(':', '').replace('Z', '').strip()
-        if len(time_str) == 4:
-            hour = int(time_str[:2])
-            minute = int(time_str[2:])
-            result = datetime(base_date.year, base_date.month, base_date.day, hour, minute)
-            # If time < event start time, it's likely next day
-            if result < event_start - timedelta(hours=2):
-                result = result + timedelta(days=1)
-            return result
+        if len(time_str) >= 4:
+            try:
+                hour = int(time_str[:2])
+                minute = int(time_str[2:4])
+                result = datetime(base_date.year, base_date.month, base_date.day, hour, minute)
+                # If time < event start time, it's likely next day
+                if result < event_start - timedelta(hours=2):
+                    result = result + timedelta(days=1)
+                return result
+            except (ValueError, IndexError):
+                return None
         return None
+
+    def extract_modifiers(text: str) -> Dict[str, any]:
+        """Extract qualifiers, conditions, exclusions from NTML text"""
+        mods = {
+            'application': '',
+            'impacting_condition': '',
+            'exclusions': [],
+            'tier': '',
+            'aircraft_type': '',
+            'altitude_restriction': ''
+        }
+
+        # Application type: AS ONE, PER STREAM, PER FIX
+        app_match = re.search(r'(AS\s+ONE|PER\s+STREAM|PER\s+FIX)', text, re.IGNORECASE)
+        if app_match:
+            mods['application'] = app_match.group(1).upper().replace('  ', ' ')
+
+        # Aircraft type: JETS ONLY, PROPS ONLY, HEAVIES, TURBOPROPS, etc.
+        acft_match = re.search(r'(JETS|PROPS|HEAVIES|TURBOPROPS|TURBO)\s*(ONLY)?', text, re.IGNORECASE)
+        if acft_match:
+            mods['aircraft_type'] = acft_match.group(0).upper()
+
+        # Altitude restriction: AOB270, AAB240, AOA310, etc.
+        alt_match = re.search(r'(AOB|AAB|AOA|ABA)\s*(\d{2,3})', text, re.IGNORECASE)
+        if alt_match:
+            mods['altitude_restriction'] = alt_match.group(1).upper() + alt_match.group(2)
+
+        # Impacting condition patterns:
+        # - VOLUME:VOLUME, HEAVY:HEAVY (4+ letter codes)
+        # - WX:LOVIS, WX:LOCIGS, WX:LOVIS/LOCIGS (weather)
+        cond_match = re.search(r'(VOLUME|HEAVY|DEMAND|CAPACITY):(VOLUME|HEAVY|DEMAND|CAPACITY)', text, re.IGNORECASE)
+        if cond_match:
+            mods['impacting_condition'] = cond_match.group(0).upper()
+        else:
+            # Weather condition: WX:something
+            wx_match = re.search(r'WX:(\S+)', text, re.IGNORECASE)
+            if wx_match:
+                mods['impacting_condition'] = 'WX:' + wx_match.group(1).upper()
+
+        # Exclusions - multiple formats:
+        # - EXCL PROPS, EXCL VFR
+        # - EXCL:PCT LTFC, EXCL:LIFEGUARD
+        excl_matches = re.findall(r'EXCL[:\s]+(\S+(?:\s+\w+)?)', text, re.IGNORECASE)
+        mods['exclusions'] = [e.strip().upper() for e in excl_matches]
+
+        # Tier
+        tier_match = re.search(r'TIER\s*(\d+)', text, re.IGNORECASE)
+        if tier_match:
+            mods['tier'] = tier_match.group(1)
+
+        return mods
 
     for line in lines:
         line = line.strip()
@@ -54,45 +112,94 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         cxld_match = re.search(r'CXLD?\s*(\d{4})Z?', line, re.IGNORECASE)
         if cxld_match:
             cancelled_utc = parse_time(cxld_match.group(1), event_date)
-            # Remove cancellation text for further parsing
             line = re.sub(r'CXLD?\s*\d{4}Z?', '', line, flags=re.IGNORECASE).strip()
 
-        # MIT/MINIT pattern - handle formats like:
-        # "17/2300    LAS via FLCHR 20 MIT 2359-0400 ZLA:ZOA"
-        # "LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z"
         # Strip leading date/time prefix like "17/2300" or "01/2300"
         clean_line = re.sub(r'^\d{2}/\d{4}\s+', '', line)
 
-        mit_match = re.match(
-            r'(\w+)\s+via\s+([\w,\s]+?)\s+(\d+)\s*(MIT|MINIT)(?:\s+(?:AS\s+ONE|PER\s+STREAM|PER\s+FIX))?\s*(\d{4})Z?\s*-\s*(\d{4})Z?\s*(\w+)?:?(\w+)?',
-            clean_line, re.IGNORECASE
-        )
-        if mit_match:
-            dest = mit_match.group(1).upper()
-            # Handle multi-fix like "GGAPP, STEWW"
-            fix_raw = mit_match.group(2).strip().upper()
-            fix = fix_raw.split(',')[0].strip()  # Take first fix for simplicity
-            value = int(mit_match.group(3))
-            tmi_type = TMIType.MIT if mit_match.group(4).upper() == 'MIT' else TMIType.MINIT
-            # Groups 5-6 are time, 7-8 are requestor:provider (new order)
-            start_time = parse_time(mit_match.group(5), event_date)
-            end_time = parse_time(mit_match.group(6), event_date)
-            requestor = mit_match.group(7) or ''
-            provider = mit_match.group(8) or ''
+        # =====================================================
+        # MIT/MINIT PARSING - More flexible approach
+        # =====================================================
+        # Check if this line contains MIT or MINIT (handle duplicate "MIT MIT" typos)
+        mit_type_match = re.search(r'(\d+)\s*(MIT|MINIT)(?:\s+MIT)?', clean_line, re.IGNORECASE)
 
-            tmi = TMI(
-                tmi_id=f'{tmi_type.value}_{fix}_{fix}',
-                tmi_type=tmi_type,
-                fix=fix,
-                destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
-                value=value,
-                unit='nm' if tmi_type == TMIType.MIT else 'min',
-                provider=provider,
-                requestor=requestor,
-                start_utc=start_time,
-                end_utc=end_time,
-                cancelled_utc=cancelled_utc
+        if mit_type_match and not tmi:
+            value = int(mit_type_match.group(1))
+            tmi_type = TMIType.MIT if 'MIT' in mit_type_match.group(2).upper() else TMIType.MINIT
+
+            # Extract destination and fix from various patterns:
+            # "DEST via FIX" or "DEST departures via FIX" or "DEST arrivals via FIX"
+            dest_fix_match = re.match(
+                r'(\w+)\s+(?:departures?\s+|arrivals?\s+)?via\s+([\w,/\s]+?)\s+\d+',
+                clean_line, re.IGNORECASE
             )
+            if dest_fix_match:
+                dest = dest_fix_match.group(1).upper()
+                fix_raw = dest_fix_match.group(2).strip().upper()
+
+                # Handle multiple fixes: BARMY/KILNS or BARMY, KILNS
+                if '/' in fix_raw:
+                    fixes = [f.strip() for f in fix_raw.split('/')]
+                elif ',' in fix_raw:
+                    fixes = [f.strip() for f in fix_raw.split(',')]
+                else:
+                    fixes = [fix_raw]
+                fix = fixes[0]  # Primary fix for analysis
+
+                # Find time range: look for HHMM-HHMM or HHMMZ-HHMMZ pattern anywhere in line
+                time_match = re.search(r'(\d{4})Z?\s*[-–]\s*(\d{4})Z?', clean_line)
+                if time_match:
+                    start_time = parse_time(time_match.group(1), event_date)
+                    end_time = parse_time(time_match.group(2), event_date)
+
+                    # Extract requestor:provider - look for 2-4 letter codes at end
+                    # Must be 2-4 letter codes (not VOLUME, HEAVY, etc.)
+                    req_prov_match = re.search(r'\b([A-Z]{2,4}):([A-Z]{2,4})\s*$', clean_line, re.IGNORECASE)
+                    if not req_prov_match:
+                        # Try just before end, after times
+                        req_prov_match = re.search(r'(\d{4})\s+([A-Z]{2,4}):([A-Z]{2,4})', clean_line, re.IGNORECASE)
+                        if req_prov_match:
+                            requestor = req_prov_match.group(2).upper()
+                            provider = req_prov_match.group(3).upper()
+                        else:
+                            requestor = ''
+                            provider = ''
+                    else:
+                        requestor = req_prov_match.group(1).upper()
+                        provider = req_prov_match.group(2).upper()
+
+                    # Don't use impacting conditions as req:prov
+                    if requestor.upper() in ['VOLUME', 'HEAVY', 'DEMAND', 'CAPACITY', 'NONE']:
+                        requestor = ''
+                        provider = ''
+
+                    # Extract all modifiers from the line
+                    mods = extract_modifiers(clean_line)
+
+                    if start_time and end_time:
+                        tmi = TMI(
+                            tmi_id=f'{tmi_type.value}_{fix}_{dest}',
+                            tmi_type=tmi_type,
+                            fix=fix,
+                            fixes=fixes if len(fixes) > 1 else [],
+                            destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                            value=value,
+                            unit='nm' if tmi_type == TMIType.MIT else 'min',
+                            provider=provider,
+                            requestor=requestor,
+                            start_utc=start_time,
+                            end_utc=end_time,
+                            cancelled_utc=cancelled_utc,
+                            application=mods['application'],
+                            impacting_condition=mods['impacting_condition'],
+                            exclusions=mods['exclusions'],
+                            tier=mods['tier'],
+                            aircraft_type=mods['aircraft_type'],
+                            altitude_restriction=mods['altitude_restriction']
+                        )
+                        logger.info(f"Parsed MIT/MINIT: {fix} {value} {tmi_type.value} {start_time}-{end_time} [{mods.get('impacting_condition', '')}]")
+                    else:
+                        logger.warning(f"Could not parse times for MIT/MINIT line: {clean_line}")
 
         # Ground Stop pattern: "DEST GS (SCOPE) 0230Z-0315Z issued 0244Z"
         gs_match = re.match(
@@ -153,31 +260,50 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 reason=f'Ground Stop from {scope}'
             )
 
-        # APREQ/CFR pattern: "DEST via FIX CFR 2359-0400 REQ:PROV"
-        apreq_match = re.match(
-            r'(\w+)\s+via\s+(\w+)\s+(APREQ|CFR)\s*(\d{4})Z?\s*-\s*(\d{4})Z?\s*(\w+)?:?(\w+)?',
-            clean_line, re.IGNORECASE
-        )
-        if apreq_match and not tmi:
-            dest = apreq_match.group(1).upper()
-            fix = apreq_match.group(2).upper()
-            tmi_type = TMIType.APREQ if apreq_match.group(3).upper() == 'APREQ' else TMIType.CFR
-            start_time = parse_time(apreq_match.group(4), event_date)
-            end_time = parse_time(apreq_match.group(5), event_date)
-            requestor = apreq_match.group(6) or ''
-            provider = apreq_match.group(7) or ''
+        # APREQ/CFR pattern - more flexible to handle modifiers between CFR and times
+        # Examples: "JFK via ALL CFR VOLUME:VOLUME 0000-0400 ZDC:PCT"
+        #           "BNA via ALL CFR 2359-0400 ZME:ZME"
+        if not tmi and re.search(r'\b(APREQ|CFR)\b', clean_line, re.IGNORECASE):
+            apreq_type_match = re.search(r'\b(APREQ|CFR)\b', clean_line, re.IGNORECASE)
+            dest_fix_match = re.match(r'(\w+)\s+via\s+(\w+)', clean_line, re.IGNORECASE)
+            time_match = re.search(r'(\d{4})Z?\s*[-–]\s*(\d{4})Z?', clean_line)
 
-            tmi = TMI(
-                tmi_id=f'{tmi_type.value}_{fix}',
-                tmi_type=tmi_type,
-                fix=fix if fix not in ['ALL', 'ANY'] else None,
-                destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
-                provider=provider,
-                requestor=requestor,
-                start_utc=start_time,
-                end_utc=end_time,
-                cancelled_utc=cancelled_utc
-            )
+            if dest_fix_match and time_match:
+                dest = dest_fix_match.group(1).upper()
+                fix = dest_fix_match.group(2).upper()
+                tmi_type = TMIType.APREQ if apreq_type_match.group(1).upper() == 'APREQ' else TMIType.CFR
+                start_time = parse_time(time_match.group(1), event_date)
+                end_time = parse_time(time_match.group(2), event_date)
+
+                # Extract requestor:provider at end
+                req_prov_match = re.search(r'\b([A-Z]{2,4}):([A-Z]{2,4})\s*$', clean_line, re.IGNORECASE)
+                if req_prov_match:
+                    requestor = req_prov_match.group(1).upper()
+                    provider = req_prov_match.group(2).upper()
+                    # Don't use impacting conditions as req:prov
+                    if requestor in ['VOLUME', 'HEAVY', 'DEMAND', 'CAPACITY']:
+                        requestor = ''
+                        provider = ''
+                else:
+                    requestor = ''
+                    provider = ''
+
+                mods = extract_modifiers(clean_line)
+
+                if start_time and end_time:
+                    tmi = TMI(
+                        tmi_id=f'{tmi_type.value}_{fix}_{dest}',
+                        tmi_type=tmi_type,
+                        fix=fix if fix not in ['ALL', 'ANY'] else None,
+                        destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                        provider=provider,
+                        requestor=requestor,
+                        start_utc=start_time,
+                        end_utc=end_time,
+                        cancelled_utc=cancelled_utc,
+                        impacting_condition=mods['impacting_condition']
+                    )
+                    logger.info(f"Parsed APREQ/CFR: {dest} via {fix} {tmi_type.value} {start_time}-{end_time}")
 
         if tmi:
             tmis.append(tmi)

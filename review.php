@@ -451,6 +451,22 @@ include("sessions/handler.php");
         .tmi-detail-table .table-success code {
             background: #c3e6cb;
         }
+        .tmi-detail-table .table-warning code {
+            background: #ffeeba;
+        }
+        .tmi-detail-table code.text-muted {
+            background: transparent;
+            color: #6c757d !important;
+        }
+        /* Spacing bar visualization */
+        .spacing-bar-container {
+            min-width: 120px;
+        }
+        .spacing-bar-container code {
+            font-size: 10px;
+            padding: 0 2px;
+            background: transparent !important;
+        }
         .tmi-card .collapse {
             background: white;
             border: 1px solid #dee2e6;

@@ -399,6 +399,84 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         $('#tmi_results_container').html(html);
     },
 
+    // Helper: Convert decimal minutes to mm:ss format
+    formatTimeGap: function(decimalMin) {
+        const totalSeconds = Math.round(decimalMin * 60);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    },
+
+    // Helper: Calculate margin amount in units
+    calcMarginAmount: function(spacing, required) {
+        return (spacing - required).toFixed(1);
+    },
+
+    // Helper: Create spacing bar visualization
+    renderSpacingBar: function(spacing, required, unitLabel) {
+        const maxDisplay = required * 2.5; // Scale bar to 250% of required
+        const spacingPct = Math.min((spacing / maxDisplay) * 100, 100);
+        const requiredPct = (required / maxDisplay) * 100;
+        const isUnder = spacing < required;
+        const barColor = isUnder ? '#dc3545' : (spacing <= required * 1.1 ? '#28a745' : '#17a2b8');
+
+        return `
+            <div class="spacing-bar-container" style="position: relative; height: 20px; background: #e9ecef; border-radius: 3px; overflow: hidden;">
+                <div class="spacing-bar-fill" style="position: absolute; left: 0; top: 0; height: 100%; width: ${spacingPct}%; background: ${barColor}; transition: width 0.3s;"></div>
+                <div class="spacing-bar-required" style="position: absolute; left: ${requiredPct}%; top: 0; height: 100%; width: 2px; background: #000; z-index: 1;" title="Required: ${required}${unitLabel}"></div>
+                <div class="spacing-bar-label" style="position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: bold; color: ${isUnder ? '#fff' : '#333'}; z-index: 2;">
+                    <code style="background: transparent;">${spacing}${unitLabel}</code>
+                </div>
+            </div>
+        `;
+    },
+
+    // Helper: Calculate compliance streaks
+    calcComplianceStreaks: function(allPairs) {
+        if (!allPairs || allPairs.length === 0) return { longestGood: 0, currentGood: 0, goodPeriods: [] };
+
+        let longestGood = 0;
+        let currentGood = 0;
+        let currentStreak = 0;
+        let goodPeriods = [];
+        let streakStart = null;
+
+        for (let i = 0; i < allPairs.length; i++) {
+            const p = allPairs[i];
+            const isGood = p.spacing_category !== 'UNDER';
+
+            if (isGood) {
+                if (currentStreak === 0) {
+                    streakStart = p.prev_time;
+                }
+                currentStreak++;
+            } else {
+                if (currentStreak >= 3) {
+                    goodPeriods.push({
+                        length: currentStreak,
+                        start: streakStart,
+                        end: allPairs[i-1]?.curr_time || streakStart
+                    });
+                }
+                if (currentStreak > longestGood) longestGood = currentStreak;
+                currentStreak = 0;
+            }
+        }
+
+        // Handle final streak
+        if (currentStreak > longestGood) longestGood = currentStreak;
+        if (currentStreak >= 3) {
+            goodPeriods.push({
+                length: currentStreak,
+                start: streakStart,
+                end: allPairs[allPairs.length - 1]?.curr_time || streakStart
+            });
+        }
+        currentGood = currentStreak;
+
+        return { longestGood, currentGood, goodPeriods };
+    },
+
     renderMitCard: function(r) {
         const compPct = r.compliance_pct || 0;
         const compClass = this.getComplianceClass(compPct);
@@ -406,14 +484,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const violationId = `mit_violations_${this.detailIdCounter}`;
         const allPairs = r.all_pairs || [];
         const violations = allPairs.filter(p => p.spacing_category === 'UNDER');
+        const compliant = allPairs.filter(p => p.spacing_category !== 'UNDER');
         const unitLabel = r.unit === 'min' ? 'min' : 'nm';
+        const required = r.required || 0;
+
+        // Calculate streak metrics
+        const streaks = this.calcComplianceStreaks(allPairs);
 
         let html = `
             <div class="tmi-card mit-card">
                 <div class="tmi-header">
                     <div>
                         <span class="tmi-fix-name">${r.fix || 'Unknown'}</span>
-                        <span class="text-muted ml-2">${r.required || 0}${unitLabel} ${r.unit === 'min' ? 'MINIT' : 'MIT'} | ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
+                        <span class="text-muted ml-2">${required}${unitLabel} ${r.unit === 'min' ? 'MINIT' : 'MIT'} | ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
@@ -428,24 +511,33 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="tmi-stat-label">Pairs Analyzed</div>
                     </div>
                     <div class="tmi-stat">
-                        <div class="tmi-stat-value">${r.spacing_stats?.avg?.toFixed(1) || 0}</div>
+                        <div class="tmi-stat-value">${r.spacing_stats?.avg?.toFixed(1) || 0}${unitLabel}</div>
                         <div class="tmi-stat-label">Avg Spacing</div>
                     </div>
                     <div class="tmi-stat">
-                        <div class="tmi-stat-value">${r.spacing_stats?.min?.toFixed(1) || 0}</div>
+                        <div class="tmi-stat-value">${r.spacing_stats?.min?.toFixed(1) || 0}${unitLabel}</div>
                         <div class="tmi-stat-label">Min Spacing</div>
                     </div>
                 </div>
                 ${r.distribution ? this.renderDistribution(r.distribution) : ''}
+
+                <!-- Good compliance metrics -->
+                ${streaks.longestGood > 0 ? `
+                <div class="mt-2 small text-success d-flex align-items-center">
+                    <span class="mr-3"><i class="fas fa-trophy"></i> Longest compliant streak: <strong>${streaks.longestGood}</strong> pairs</span>
+                    ${streaks.goodPeriods.length > 0 ? `<span class="text-muted">| ${streaks.goodPeriods.length} compliant periods</span>` : ''}
+                </div>
+                ` : ''}
         `;
 
         // Violations summary with expand button
         if (violations.length > 0) {
+            const maxDiff = Math.max(...violations.map(v => Math.abs(v.shortfall_pct || 0)));
             html += `
                 <div class="mt-2 small text-danger d-flex justify-content-between align-items-center">
                     <span>
                         <i class="fas fa-exclamation-triangle"></i>
-                        ${violations.length} violations | Max shortfall: ${r.violations?.max_shortfall_pct || 0}%
+                        <code>${violations.length}</code> violations | Max difference: <code>-${maxDiff}%</code>
                     </span>
                     <button class="btn btn-sm btn-outline-danger" type="button" data-toggle="collapse" data-target="#${violationId}">
                         <i class="fas fa-eye"></i> Show Violations
@@ -458,23 +550,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 <tr>
                                     <th>Lead Aircraft</th>
                                     <th>Trail Aircraft</th>
-                                    <th>Time Gap</th>
-                                    <th>Spacing</th>
+                                    <th>Gap (mm:ss)</th>
+                                    <th style="min-width: 150px;">Spacing</th>
                                     <th>Required</th>
-                                    <th>Shortfall</th>
+                                    <th>Difference</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${violations.map(v => `
+                                ${violations.map(v => {
+                                    const marginAmt = this.calcMarginAmount(v.spacing, v.required);
+                                    return `
                                     <tr class="table-danger">
-                                        <td><code>${v.prev_callsign}</code> @ ${v.prev_time}</td>
-                                        <td><code>${v.curr_callsign}</code> @ ${v.curr_time}</td>
-                                        <td>${v.time_min} min</td>
-                                        <td><strong>${v.spacing}${unitLabel}</strong></td>
-                                        <td>${v.required}${unitLabel}</td>
-                                        <td class="text-danger"><strong>-${v.shortfall_pct}%</strong></td>
+                                        <td><code>${v.prev_callsign}</code><br><code class="text-muted small">${v.prev_time}</code></td>
+                                        <td><code>${v.curr_callsign}</code><br><code class="text-muted small">${v.curr_time}</code></td>
+                                        <td><code>${this.formatTimeGap(v.time_min)}</code></td>
+                                        <td>${this.renderSpacingBar(v.spacing, v.required, unitLabel)}</td>
+                                        <td><code>${v.required}${unitLabel}</code></td>
+                                        <td class="text-danger"><code><strong>${marginAmt}${unitLabel}</strong> (${v.shortfall_pct > 0 ? '-' : ''}${v.shortfall_pct}%)</code></td>
                                     </tr>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -486,7 +581,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (allPairs.length > 0) {
             html += `
                 <div class="mt-2 d-flex justify-content-between align-items-center">
-                    <span class="small text-muted">${allPairs.length} consecutive pairs analyzed</span>
+                    <span class="small text-muted">${allPairs.length} consecutive pairs analyzed (${compliant.length} compliant)</span>
                     <button class="btn btn-sm btn-outline-primary" type="button" data-toggle="collapse" data-target="#${detailId}">
                         <i class="fas fa-table"></i> All Pairs Detail
                     </button>
@@ -498,8 +593,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 <tr>
                                     <th>Lead</th>
                                     <th>Trail</th>
-                                    <th>Time</th>
-                                    <th>Spacing</th>
+                                    <th>Gap (mm:ss)</th>
+                                    <th style="min-width: 150px;">Spacing</th>
                                     <th>Margin</th>
                                     <th>Status</th>
                                 </tr>
@@ -513,13 +608,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                                         p.spacing_category === 'WITHIN' ? '<span class="badge badge-success">WITHIN</span>' :
                                                         p.spacing_category === 'OVER' ? '<span class="badge badge-info">OVER</span>' :
                                                         '<span class="badge badge-warning">GAP</span>';
+                                    const marginAmt = this.calcMarginAmount(p.spacing, required);
+                                    const marginSign = parseFloat(marginAmt) >= 0 ? '+' : '';
                                     return `
                                         <tr class="${rowClass}">
-                                            <td><code>${p.prev_callsign}</code><br><small class="text-muted">${p.prev_time}</small></td>
-                                            <td><code>${p.curr_callsign}</code><br><small class="text-muted">${p.curr_time}</small></td>
-                                            <td>${p.time_min}m</td>
-                                            <td><strong>${p.spacing}${unitLabel}</strong></td>
-                                            <td class="${p.margin_pct < 0 ? 'text-danger' : 'text-success'}">${p.margin_pct > 0 ? '+' : ''}${p.margin_pct}%</td>
+                                            <td><code>${p.prev_callsign}</code><br><code class="text-muted small">${p.prev_time}</code></td>
+                                            <td><code>${p.curr_callsign}</code><br><code class="text-muted small">${p.curr_time}</code></td>
+                                            <td><code>${this.formatTimeGap(p.time_min)}</code></td>
+                                            <td>${this.renderSpacingBar(p.spacing, required, unitLabel)}</td>
+                                            <td class="${p.margin_pct < 0 ? 'text-danger' : 'text-success'}"><code>${marginSign}${marginAmt}${unitLabel}</code><br><small>(${p.margin_pct > 0 ? '+' : ''}${p.margin_pct}%)</small></td>
                                             <td>${statusBadge}</td>
                                         </tr>
                                     `;
