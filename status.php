@@ -3,7 +3,7 @@
  * PERTI System Status Dashboard
  *
  * Live operational status including:
- * - Database metrics (VATSIM_ADL, VATSIM_TMI, VATSIM_GIS, PERTI)
+ * - Database metrics (VATSIM_ADL, VATSIM_TMI, VATSIM_GIS, VATSWIM, VATSIM_REF, PERTI)
  * - External API health checks (VATSIM, Aviation Weather, NOAA)
  * - Recent activity counts (parse/ETA/zone detection/boundary)
  * - Resource tree visualization with all daemons
@@ -13,6 +13,8 @@
  * Databases:
  *   - Azure SQL (VATSIM_ADL): Flight data, trajectories, boundaries
  *   - Azure SQL (VATSIM_TMI): TMI programs, slots, flight control
+ *   - Azure SQL (VATSWIM): SWIM API data, API keys, audit logs
+ *   - Azure SQL (VATSIM_REF): Reference data (airports, airways, waypoints)
  *   - PostgreSQL (VATSIM_GIS): PostGIS spatial data, route expansion
  *   - MySQL (VATSIM_PERTI): Application config, plans, users
  */
@@ -55,6 +57,8 @@ $liveData = [
     'mysql_connected' => false,
     'tmi_connected' => false,
     'gis_connected' => false,
+    'swim_connected' => false,
+    'ref_connected' => false,
     'active_flights' => 0,
     'total_flights_today' => 0,
     'queue_pending' => 0,
@@ -110,6 +114,15 @@ $liveData = [
     'tmi_active_programs' => 0,
     'tmi_active_slots' => 0,
     'tmi_controlled_flights' => 0,
+    // SWIM Database Metrics
+    'swim_active_flights' => 0,
+    'swim_api_keys_active' => 0,
+    'swim_audit_log_1h' => 0,
+    'swim_last_sync' => null,
+    // REF Database Metrics (Reference Data)
+    'ref_airports' => 0,
+    'ref_airways' => 0,
+    'ref_waypoints' => 0,
 ];
 
 // Runtime tracking
@@ -250,6 +263,90 @@ if (isset($conn_gis) && $conn_gis !== null && $conn_gis !== false) {
     } catch (PDOException $e) {
         // GIS queries failed but connection exists
         error_log("Status page GIS query error: " . $e->getMessage());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// SWIM (Azure SQL) Connection Check - VATSWIM API database
+// -----------------------------------------------------------------------------
+if (isset($conn_swim) && $conn_swim !== null && $conn_swim !== false) {
+    $liveData['swim_connected'] = true;
+
+    // Active flights in SWIM
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.swim_flights WHERE is_active = 1";
+    $stmt = @sqlsrv_query($conn_swim, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['swim_active_flights'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Active API keys
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.swim_api_keys WHERE is_active = 1";
+    $stmt = @sqlsrv_query($conn_swim, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['swim_api_keys_active'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Audit log entries in last hour
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.swim_audit_log WHERE request_time > DATEADD(HOUR, -1, SYSUTCDATETIME())";
+    $stmt = @sqlsrv_query($conn_swim, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['swim_audit_log_1h'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Last sync time
+    $sql = "SELECT TOP 1 last_sync_utc FROM dbo.swim_flights ORDER BY last_sync_utc DESC";
+    $stmt = @sqlsrv_query($conn_swim, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row && isset($row['last_sync_utc'])) {
+            $dt = $row['last_sync_utc'];
+            if ($dt instanceof DateTimeInterface) {
+                $liveData['swim_last_sync'] = $dt->format('Y-m-d H:i:s') . ' UTC';
+            } else {
+                $liveData['swim_last_sync'] = $dt;
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// REF (Azure SQL) Connection Check - Reference Data database
+// -----------------------------------------------------------------------------
+if (isset($conn_ref) && $conn_ref !== null && $conn_ref !== false) {
+    $liveData['ref_connected'] = true;
+
+    // Airports count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.airports";
+    $stmt = @sqlsrv_query($conn_ref, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['ref_airports'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Airways count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.airways";
+    $stmt = @sqlsrv_query($conn_ref, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['ref_airways'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Waypoints/fixes count
+    $sql = "SELECT COUNT(*) AS cnt FROM dbo.waypoints";
+    $stmt = @sqlsrv_query($conn_ref, $sql);
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $liveData['ref_waypoints'] = $row['cnt'] ?? 0;
+        sqlsrv_free_stmt($stmt);
     }
 }
 
@@ -2532,6 +2629,34 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td class="timing-info"><?= $liveData['gis_postgis_version'] ? 'v' . explode(' ', $liveData['gis_postgis_version'])[0] : 'N/A' ?></td>
                             </tr>
+                            <tr>
+                                <td>
+                                    <div class="component-name">Azure SQL (SWIM)</div>
+                                    <div class="component-desc">VATSWIM API data</div>
+                                </td>
+                                <td>
+                                    <?php if ($liveData['swim_connected']): ?>
+                                        <span class="status-badge up">Connected</span>
+                                    <?php else: ?>
+                                        <span class="status-badge warning">Offline</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="timing-info"><?= $liveData['swim_api_keys_active'] ?> keys</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="component-name">Azure SQL (REF)</div>
+                                    <div class="component-desc">VATSIM_REF reference data</div>
+                                </td>
+                                <td>
+                                    <?php if ($liveData['ref_connected']): ?>
+                                        <span class="status-badge up">Connected</span>
+                                    <?php else: ?>
+                                        <span class="status-badge warning">Offline</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="timing-info"><?= number_format($liveData['ref_airports']) ?> airports</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -2772,6 +2897,48 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </div>
                             <div class="tree-node">
                                 <div class="tree-item">
+                                    <span class="tree-icon database" style="color: #10b981;"><i class="fas fa-broadcast-tower"></i></span>
+                                    <span class="tree-label">Azure SQL (VATSWIM)</span>
+                                    <span class="status-badge <?= $liveData['swim_connected'] ? 'up' : 'warning' ?> tree-status"><?= $liveData['swim_connected'] ? 'UP' : 'N/A' ?></span>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-plane"></i></span>
+                                        <span class="tree-label">swim_flights (<?= number_format($liveData['swim_active_flights']) ?> active)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-key"></i></span>
+                                        <span class="tree-label">swim_api_keys (<?= $liveData['swim_api_keys_active'] ?> active)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-history"></i></span>
+                                        <span class="tree-label">swim_audit_log (<?= number_format($liveData['swim_audit_log_1h']) ?>/hr)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tree-node">
+                                <div class="tree-item">
+                                    <span class="tree-icon database" style="color: #f59e0b;"><i class="fas fa-book"></i></span>
+                                    <span class="tree-label">Azure SQL (VATSIM_REF)</span>
+                                    <span class="status-badge <?= $liveData['ref_connected'] ? 'up' : 'warning' ?> tree-status"><?= $liveData['ref_connected'] ? 'UP' : 'N/A' ?></span>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-plane-departure"></i></span>
+                                        <span class="tree-label">airports (<?= number_format($liveData['ref_airports']) ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-route"></i></span>
+                                        <span class="tree-label">airways (<?= number_format($liveData['ref_airways']) ?>)</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file"><i class="fas fa-map-pin"></i></span>
+                                        <span class="tree-label">waypoints (<?= number_format($liveData['ref_waypoints']) ?>)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tree-node">
+                                <div class="tree-item">
                                     <span class="tree-icon daemon"><i class="fas fa-cogs"></i></span>
                                     <span class="tree-label">Daemons</span>
                                 </div>
@@ -2825,6 +2992,21 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         <span class="tree-icon file" style="color: #3b82f6;"><i class="fab fa-php"></i></span>
                                         <span class="tree-label" style="color: #3b82f6;">crossing_gis_daemon.php</span>
                                         <span class="status-badge running tree-status">30s</span>
+                                    </div>
+                                    <div class="tree-item" style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #333;">
+                                        <span class="tree-icon file" style="color: #10b981;"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label" style="color: #10b981;">swim_sync_daemon.php</span>
+                                        <span class="status-badge running tree-status">15s</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #10b981;"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label" style="color: #10b981;">swim_adl_reverse_sync_daemon.php</span>
+                                        <span class="status-badge running tree-status">30s</span>
+                                    </div>
+                                    <div class="tree-item">
+                                        <span class="tree-icon file" style="color: #10b981;"><i class="fab fa-php"></i></span>
+                                        <span class="tree-label" style="color: #10b981;">swim_ws_server.php</span>
+                                        <span class="status-badge running tree-status">WS</span>
                                     </div>
                                 </div>
                             </div>

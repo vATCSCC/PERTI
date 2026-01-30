@@ -672,15 +672,15 @@ $perm = true;
                                 <table class="table table-sm table-hover mb-0" id="rr_routes_table">
                                     <thead class="thead-light">
                                         <tr>
-                                            <th style="width: 30px;">
+                                            <th style="width: 24px; padding: 0.25rem;">
                                                 <input type="checkbox" id="rr_select_all_routes" title="Select All">
                                             </th>
-                                            <th style="width: 8%;">ORIGIN</th>
-                                            <th style="width: 8%;" title="Origin exclusions (e.g., -KJFK -KPHL)">ORIG FILTER</th>
-                                            <th style="width: 8%;">DEST</th>
-                                            <th style="width: 8%;" title="Destination exclusions (e.g., -KATL)">DEST FILTER</th>
-                                            <th>ROUTE</th>
-                                            <th style="width: 40px;"></th>
+                                            <th style="width: 60px; font-size: 0.7rem;">ORIG</th>
+                                            <th style="width: 70px; font-size: 0.65rem;" title="Origin exclusions (e.g., -KJFK)">FILTER</th>
+                                            <th style="width: 60px; font-size: 0.7rem;">DEST</th>
+                                            <th style="width: 70px; font-size: 0.65rem;" title="Destination exclusions (e.g., -KATL)">FILTER</th>
+                                            <th style="font-size: 0.7rem;">ROUTE</th>
+                                            <th style="width: 32px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="rr_routes_body">
@@ -787,59 +787,62 @@ $perm = true;
                 </div>
 
                 <div class="col-lg-5">
-                    <!-- Advisory Preview (sticky) -->
-                    <div class="card shadow-sm mb-3" style="position: sticky; top: 1rem;">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span class="tmi-section-title">
-                                <i class="fas fa-eye mr-1"></i> Advisory Preview
-                            </span>
-                            <button class="btn btn-sm btn-outline-secondary" id="rr_copy_preview" title="Copy to clipboard">
-                                <i class="far fa-copy"></i>
-                            </button>
+                    <!-- Sticky wrapper for right panel -->
+                    <div style="position: sticky; top: 1rem;">
+                        <!-- Advisory Preview -->
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span class="tmi-section-title">
+                                    <i class="fas fa-eye mr-1"></i> Advisory Preview
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary" id="rr_copy_preview" title="Copy to clipboard">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="card-body p-2">
+                                <pre id="rr_preview_text" class="ntml-preview"
+                                     style="max-height: calc(100vh - 380px); overflow-y: auto; font-size: 0.7rem; white-space: pre; overflow-x: auto; min-width: 520px;">Generate preview to see advisory text...</pre>
+                            </div>
                         </div>
-                        <div class="card-body p-2">
-                            <pre id="rr_preview_text" class="ntml-preview"
-                                 style="max-height: calc(100vh - 200px); overflow-y: auto; font-size: 0.7rem; white-space: pre; overflow-x: auto; min-width: 520px;">Generate preview to see advisory text...</pre>
-                        </div>
-                    </div>
 
-                    <!-- Saved Drafts -->
-                    <div class="card shadow-sm mb-3">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span class="tmi-section-title">
-                                <i class="fas fa-folder-open mr-1"></i> Saved Drafts
-                            </span>
-                            <button class="btn btn-sm btn-outline-secondary" id="rr_refresh_drafts">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                        <div class="card-body p-0">
-                            <div id="rr_drafts_list" class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
-                                <div class="list-group-item text-center text-muted small">
-                                    <i class="fas fa-spinner fa-spin mr-1"></i> Loading drafts...
+                        <!-- Saved Drafts -->
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                <span class="tmi-section-title">
+                                    <i class="fas fa-folder-open mr-1"></i> Saved Drafts
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary" id="rr_refresh_drafts">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="rr_drafts_list" class="list-group list-group-flush" style="max-height: 120px; overflow-y: auto;">
+                                    <div class="list-group-item text-center text-muted small">
+                                        <i class="fas fa-spinner fa-spin mr-1"></i> Loading drafts...
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Discord Targets -->
-                    <div class="card shadow-sm">
-                        <div class="card-header">
-                            <span class="tmi-section-title">
-                                <i class="fab fa-discord mr-1"></i> Post To Organizations
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <?php foreach ($discordOrgs as $code => $org): ?>
-                            <div class="custom-control custom-checkbox mb-2">
-                                <input type="checkbox" class="custom-control-input discord-org-checkbox-rr"
-                                       id="rr_org_<?= $code ?>" value="<?= $code ?>"
-                                       <?= $org['default'] ? 'checked' : '' ?>>
-                                <label class="custom-control-label" for="rr_org_<?= $code ?>">
-                                    <?= htmlspecialchars($org['name']) ?>
-                                </label>
+                        <!-- Discord Targets -->
+                        <div class="card shadow-sm">
+                            <div class="card-header py-2">
+                                <span class="tmi-section-title">
+                                    <i class="fab fa-discord mr-1"></i> Post To Organizations
+                                </span>
                             </div>
-                            <?php endforeach; ?>
+                            <div class="card-body py-2">
+                                <?php foreach ($discordOrgs as $code => $org): ?>
+                                <div class="custom-control custom-checkbox mb-1">
+                                    <input type="checkbox" class="custom-control-input discord-org-checkbox-rr"
+                                           id="rr_org_<?= $code ?>" value="<?= $code ?>"
+                                           <?= $org['default'] ? 'checked' : '' ?>>
+                                    <label class="custom-control-label small" for="rr_org_<?= $code ?>">
+                                        <?= htmlspecialchars($org['name']) ?>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
                     </div>
                 </div>

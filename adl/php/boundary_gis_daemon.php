@@ -178,6 +178,9 @@ class BoundaryGISDaemon
                 c.current_artcc_id,
                 c.current_tracon,
                 c.current_tracon_id,
+                c.current_sector_low,
+                c.current_sector_high,
+                c.current_sector_superhigh,
                 CAST(FLOOR(p.lat / {$gridSize}) AS SMALLINT) AS grid_lat,
                 CAST(FLOOR(p.lon / {$gridSize}) AS SMALLINT) AS grid_lon
             FROM dbo.adl_flight_core c WITH (NOLOCK)
@@ -209,6 +212,9 @@ class BoundaryGISDaemon
                 'current_artcc_id' => $row['current_artcc_id'],
                 'current_tracon' => $row['current_tracon'],
                 'current_tracon_id' => $row['current_tracon_id'],
+                'current_sector_low' => $row['current_sector_low'],
+                'current_sector_high' => $row['current_sector_high'],
+                'current_sector_superhigh' => $row['current_sector_superhigh'],
                 'grid_lat' => (int)$row['grid_lat'],
                 'grid_lon' => (int)$row['grid_lon']
             ];
@@ -270,6 +276,7 @@ class BoundaryGISDaemon
      * Write GIS results back to ADL
      *
      * Updates ARTCC, TRACON, and sector columns for each flight.
+     * Also logs boundary transitions to adl_flight_boundary_log for status tracking.
      * Sector columns: current_sector_low, current_sector_high, current_sector_superhigh
      */
     private function writeResultsToADL(array $results, array $originalFlights): array
@@ -293,15 +300,65 @@ class BoundaryGISDaemon
             // Check for ARTCC transition
             $oldArtcc = $original['current_artcc'];
             $newArtcc = $r['artcc_code'];
+            $artccTransition = ($oldArtcc !== $newArtcc && $newArtcc !== null);
 
-            if ($oldArtcc !== $newArtcc && $newArtcc !== null) {
+            // Check for TRACON transition
+            $oldTracon = $original['current_tracon'];
+            $newTracon = $r['tracon_code'];
+            $traconTransition = ($oldTracon !== $newTracon);
+
+            if ($artccTransition || $traconTransition) {
                 $transitions++;
             }
 
+            // Log boundary transitions
+            if ($artccTransition) {
+                $this->logBoundaryTransition(
+                    $flightUid,
+                    'ARTCC',
+                    $oldArtcc,
+                    $newArtcc,
+                    $r['lat'],
+                    $r['lon'],
+                    $r['altitude']
+                );
+            }
+
+            if ($traconTransition) {
+                $this->logBoundaryTransition(
+                    $flightUid,
+                    'TRACON',
+                    $oldTracon,
+                    $newTracon,
+                    $r['lat'],
+                    $r['lon'],
+                    $r['altitude']
+                );
+            }
+
+            // Check for sector transitions and log them
+            $oldSectorLow = $original['current_sector_low'] ?? null;
+            $oldSectorHigh = $original['current_sector_high'] ?? null;
+            $oldSectorSuperhigh = $original['current_sector_superhigh'] ?? null;
+            $newSectorLow = $r['sector_low'] ?? null;
+            $newSectorHigh = $r['sector_high'] ?? null;
+            $newSectorSuperhigh = $r['sector_superhigh'] ?? null;
+
             // Check for sector updates
-            $hasSector = !empty($r['sector_low']) || !empty($r['sector_high']) || !empty($r['sector_superhigh']);
+            $hasSector = !empty($newSectorLow) || !empty($newSectorHigh) || !empty($newSectorSuperhigh);
             if ($hasSector) {
                 $sectorUpdates++;
+            }
+
+            // Log sector transitions
+            if ($oldSectorLow !== $newSectorLow) {
+                $this->logBoundaryTransition($flightUid, 'SECTOR_LOW', $oldSectorLow, $newSectorLow, $r['lat'], $r['lon'], $r['altitude']);
+            }
+            if ($oldSectorHigh !== $newSectorHigh) {
+                $this->logBoundaryTransition($flightUid, 'SECTOR_HIGH', $oldSectorHigh, $newSectorHigh, $r['lat'], $r['lon'], $r['altitude']);
+            }
+            if ($oldSectorSuperhigh !== $newSectorSuperhigh) {
+                $this->logBoundaryTransition($flightUid, 'SECTOR_SUPERHIGH', $oldSectorSuperhigh, $newSectorSuperhigh, $r['lat'], $r['lon'], $r['altitude']);
             }
 
             // Update ADL with new boundary and sector info
@@ -343,6 +400,70 @@ class BoundaryGISDaemon
             'transitions' => $transitions,
             'sectors' => $sectorUpdates
         ];
+    }
+
+    /**
+     * Log a boundary transition to adl_flight_boundary_log
+     *
+     * Closes previous open log entry and inserts new one when boundary changes.
+     * This enables status.php to show "TOP BOUNDARIES BY TYPE" stats.
+     */
+    private function logBoundaryTransition(
+        int $flightUid,
+        string $boundaryType,
+        ?string $oldCode,
+        ?string $newCode,
+        float $lat,
+        float $lon,
+        int $altitude
+    ): void {
+        // Close previous log entry if exiting a boundary
+        if ($oldCode !== null) {
+            $closeSql = "
+                UPDATE dbo.adl_flight_boundary_log
+                SET exit_time = SYSUTCDATETIME(),
+                    exit_lat = ?,
+                    exit_lon = ?,
+                    exit_altitude = ?,
+                    duration_seconds = DATEDIFF(SECOND, entry_time, SYSUTCDATETIME())
+                WHERE flight_uid = ?
+                  AND boundary_type = ?
+                  AND boundary_code = ?
+                  AND exit_time IS NULL
+            ";
+            $stmt = @sqlsrv_query($this->connAdl, $closeSql, [$lat, $lon, $altitude, $flightUid, $boundaryType, $oldCode]);
+            if ($stmt) {
+                sqlsrv_free_stmt($stmt);
+            }
+        }
+
+        // Insert new log entry if entering a boundary
+        if ($newCode !== null) {
+            // Look up boundary_id from adl_boundary table
+            $lookupSql = "SELECT boundary_id FROM dbo.adl_boundary WHERE boundary_type = ? AND boundary_code = ?";
+            $stmt = @sqlsrv_query($this->connAdl, $lookupSql, [$boundaryType, $newCode]);
+            $boundaryId = null;
+            if ($stmt) {
+                $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+                $boundaryId = $row['boundary_id'] ?? null;
+                sqlsrv_free_stmt($stmt);
+            }
+
+            if ($boundaryId !== null) {
+                $insertSql = "
+                    INSERT INTO dbo.adl_flight_boundary_log
+                        (flight_uid, boundary_id, boundary_type, boundary_code, entry_time, entry_lat, entry_lon, entry_altitude)
+                    VALUES
+                        (?, ?, ?, ?, SYSUTCDATETIME(), ?, ?, ?)
+                ";
+                $stmt = @sqlsrv_query($this->connAdl, $insertSql, [
+                    $flightUid, $boundaryId, $boundaryType, $newCode, $lat, $lon, $altitude
+                ]);
+                if ($stmt) {
+                    sqlsrv_free_stmt($stmt);
+                }
+            }
+        }
     }
 
     /**
