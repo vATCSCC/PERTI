@@ -30,12 +30,12 @@ CREATE MATERIALIZED VIEW artcc_tier_matrix AS
 WITH RECURSIVE tier_expansion AS (
     -- Tier 0: Self (all US ARTCCs)
     SELECT
-        ab.artcc_code AS origin_code,
-        ab.artcc_code AS neighbor_code,
-        COALESCE(ab.fir_name, ab.artcc_code) AS neighbor_name,
+        ab.artcc_code::VARCHAR(50) AS origin_code,
+        ab.artcc_code::VARCHAR(50) AS neighbor_code,
+        COALESCE(ab.fir_name, ab.artcc_code)::VARCHAR(100) AS neighbor_name,
         0::FLOAT AS tier,
         NULL::VARCHAR(50) AS adjacency_from,
-        NULL::VARCHAR(10) AS adjacency_class
+        NULL::TEXT AS adjacency_class
     FROM artcc_boundaries ab
     WHERE ab.artcc_code LIKE 'KZ%'
       AND ab.artcc_code NOT IN ('KZAN')  -- Exclude Alaska (oceanic)
@@ -44,17 +44,18 @@ WITH RECURSIVE tier_expansion AS (
     UNION ALL
 
     -- Tier N+1: Expand via boundary_adjacency
+    -- Note: May produce duplicates via different paths; DISTINCT ON handles deduplication
     SELECT
         te.origin_code,
-        ba.target_code AS neighbor_code,
-        COALESCE(ab2.fir_name, ba.target_code) AS neighbor_name,
+        ba.target_code::VARCHAR(50) AS neighbor_code,
+        COALESCE(ab2.fir_name, ba.target_code)::VARCHAR(100) AS neighbor_name,
         te.tier + CASE
             WHEN ba.adjacency_class = 'LINE' THEN 1.0
             WHEN ba.adjacency_class = 'POINT' THEN 0.5
             ELSE 1.0
         END AS tier,
-        te.neighbor_code AS adjacency_from,
-        ba.adjacency_class
+        te.neighbor_code::VARCHAR(50) AS adjacency_from,
+        ba.adjacency_class::TEXT
     FROM tier_expansion te
     JOIN boundary_adjacency ba
         ON ba.source_type = 'ARTCC'
@@ -63,13 +64,6 @@ WITH RECURSIVE tier_expansion AS (
     LEFT JOIN artcc_boundaries ab2 ON ab2.artcc_code = ba.target_code
     WHERE te.tier < 3  -- Expand up to tier 3
       AND ba.target_code != te.origin_code  -- Don't loop back to origin
-      AND NOT EXISTS (
-          -- Don't revisit already-visited neighbors at a lower tier
-          SELECT 1 FROM tier_expansion te2
-          WHERE te2.origin_code = te.origin_code
-            AND te2.neighbor_code = ba.target_code
-            AND te2.tier <= te.tier
-      )
 )
 SELECT DISTINCT ON (origin_code, neighbor_code)
     origin_code,
