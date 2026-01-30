@@ -998,7 +998,7 @@ function getActiveReroutes($conn, $limit) {
                 created_by,
                 created_at AS created_utc,
                 updated_at AS updated_utc,
-                activated_utc
+                activated_at AS activated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (2, 3)  -- active, monitoring
               AND (end_utc IS NULL OR end_utc > GETUTCDATE())

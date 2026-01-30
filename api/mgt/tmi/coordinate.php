@@ -2410,6 +2410,7 @@ function activateProposal($conn, $proposalId) {
 
             if ($rerouteId) {
                 // Update reroute status to ACTIVE (2)
+                // Note: TMI database uses _at suffix for date columns
                 $updateRerouteSql = "UPDATE dbo.tmi_reroutes SET
                                          status = 2,
                                          activated_at = SYSUTCDATETIME(),
@@ -2618,11 +2619,12 @@ function publishRerouteToAdvisories($conn, $rerouteId, $rawText, $entryData) {
 
         // Post to advisories channel using postLongMessage (handles splitting if needed)
         // Third param = true means wrap in code block
-        $results = $discord->postLongMessage('advzy_production', $rawText, true);
+        $results = $discord->postLongMessage('advisories', $rawText, true);
         $result = !empty($results) ? $results[0] : null;
 
         if ($result && isset($result['id'])) {
             // Update reroute with Discord message ID
+            // Note: TMI database uses _at suffix for date columns
             $updateSql = "UPDATE dbo.tmi_reroutes SET
                               discord_message_id = :msg_id,
                               discord_channel_id = :channel_id,

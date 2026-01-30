@@ -98,7 +98,7 @@ try {
         // Event counts by destination
         $sql = "SELECT dest, COUNT(*) as flight_count 
                 FROM dbo.adl_flight_archive 
-                WHERE dest IN ($destIn) 
+                WHERE fp_dest_icao IN ($destIn) 
                   AND archived_utc >= '$EVENT_START' 
                   AND archived_utc <= '$EVENT_END' 
                 GROUP BY dest ORDER BY flight_count DESC";
@@ -131,14 +131,14 @@ try {
     if (in_array('flights', $include)) {
         $sql = "SELECT 
                     a.archive_id, a.flight_key, a.callsign, a.cid,
-                    a.dept, a.dest, a.aircraft_type, a.route, a.filed_altitude,
-                    a.last_lat, a.last_lon, a.last_altitude, a.last_heading, a.last_groundspeed,
+                    a.fp_dept_icao, a.fp_dest_icao, a.aircraft_type, a.fp_route, a.fp_altitude_ft,
+                    a.last_lat, a.last_lon, a.last_altitude_ft, a.last_heading_deg, a.last_groundspeed_kts,
                     a.first_seen_utc, a.last_seen_utc, a.archived_utc, a.flight_status,
                     dept_apt.ARTCC_ID as dept_artcc, dest_apt.ARTCC_ID as dest_artcc
                 FROM dbo.adl_flight_archive a
-                LEFT JOIN dbo.apts dept_apt ON dept_apt.ICAO_ID = a.dept
-                LEFT JOIN dbo.apts dest_apt ON dest_apt.ICAO_ID = a.dest
-                WHERE a.dest IN ($destIn)
+                LEFT JOIN dbo.apts dept_apt ON dept_apt.ICAO_ID = a.fp_dept_icao
+                LEFT JOIN dbo.apts dest_apt ON dest_apt.ICAO_ID = a.fp_dest_icao
+                WHERE a.fp_dest_icao IN ($destIn)
                   AND a.archived_utc >= '$EVENT_START'
                   AND a.archived_utc <= '$EVENT_END'
                 ORDER BY a.archived_utc";
