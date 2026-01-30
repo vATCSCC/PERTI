@@ -6,7 +6,7 @@
  *
  * Endpoints:
  *   GET  ?p_id={plan_id}           - Get compliance results for a plan
- *   GET  ?p_id={plan_id}&run=true  - Run analysis and return results
+ *   GET  ?p_id={plan_id}&run=true  - Run analysis via Azure Function and return results
  *   POST                           - Save compliance results for a plan
  */
 
@@ -48,109 +48,57 @@ try {
             throw new Exception("Invalid or missing plan ID");
         }
 
-        // Check if we should run analysis
+        // Check if we should run analysis via Azure Function
         if (isset($_GET['run']) && $_GET['run'] === 'true') {
-            // For now, return cached results from the last analysis
-            // In future, could trigger Python script here
-            $response['message'] = 'Analysis triggered (use cached results for now)';
-        }
+            $result = call_azure_function($plan_id);
 
-        // Load results from data folder (relative to project root)
-        $base_path = realpath(__DIR__ . '/../../data/tmi_compliance');
-        if (!$base_path) {
-            $base_path = __DIR__ . '/../../data/tmi_compliance';
-        }
+            if ($result['success']) {
+                // Save results to file for caching
+                $base_path = realpath(__DIR__ . '/../../data/tmi_compliance');
+                if (!$base_path) {
+                    $base_path = __DIR__ . '/../../data/tmi_compliance';
+                }
+                $results_path = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
 
-        // Only use plan-specific file - don't fall back to global (would show wrong data)
-        $plan_json_path = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
-        $json_path = $plan_json_path;
-        $using_plan_specific = true;
-
-        if (file_exists($json_path)) {
-            $json_content = file_get_contents($json_path);
-            $results = json_decode($json_content, true);
-
-            if ($results) {
-                // Format for frontend display
-                $formatted = [
-                    'event' => $results['event'] ?? 'Unknown Event',
-                    'event_start' => $results['event_start'] ?? null,
-                    'event_end' => $results['event_end'] ?? null,
-                    'generated_utc' => $results['generated_utc'] ?? null,
-                    'summary' => $results['summary'] ?? [],
-                    'mit_results' => [],
-                    'gs_results' => [],
-                    'apreq_results' => []
-                ];
-
-                // Process MIT results
-                if (isset($results['mit_results'])) {
-                    foreach ($results['mit_results'] as $key => $r) {
-                        $formatted['mit_results'][] = [
-                            'fix' => $r['fix'] ?? $key,
-                            'required' => $r['required'] ?? 0,
-                            'tmi_start' => $r['tmi_start'] ?? '',
-                            'tmi_end' => $r['tmi_end'] ?? '',
-                            'crossings' => $r['total_crossings'] ?? 0,
-                            'valid_crossings' => $r['valid_crossings'] ?? 0,
-                            'pairs' => $r['pairs'] ?? 0,
-                            'compliance_pct' => $r['compliance_pct'] ?? 0,
-                            'distribution' => $r['distribution'] ?? [],
-                            'violations' => $r['violations'] ?? [],
-                            'spacing_stats' => [
-                                'min' => $r['spacing_stats']['min'] ?? 0,
-                                'avg' => $r['spacing_stats']['avg'] ?? 0,
-                                'max' => $r['spacing_stats']['max'] ?? 0
-                            ],
-                            'cancelled' => $r['cancelled'] ?? false
-                        ];
-                    }
+                // Ensure directory exists
+                if (!is_dir($base_path)) {
+                    mkdir($base_path, 0755, true);
                 }
 
-                // Process GS results
-                if (isset($results['gs_results'])) {
-                    foreach ($results['gs_results'] as $key => $r) {
-                        $formatted['gs_results'][] = [
-                            'destinations' => $r['destinations'] ?? [],
-                            'origins' => $r['origins'] ?? [],
-                            'gs_start' => $r['gs_start'] ?? '',
-                            'gs_end' => $r['gs_end'] ?? '',
-                            'gs_issued' => $r['gs_issued'] ?? '',
-                            'total_flights' => $r['total_flights'] ?? 0,
-                            'exempt' => count($r['exempt'] ?? []),
-                            'compliant' => count($r['compliant'] ?? []),
-                            'non_compliant' => count($r['non_compliant'] ?? []),
-                            'compliance_pct' => $r['compliance_pct'] ?? 0,
-                            'violations_list' => $r['non_compliant'] ?? []
-                        ];
-                    }
-                }
+                file_put_contents($results_path, json_encode($result['data'], JSON_PRETTY_PRINT));
 
-                // Process APREQ results
-                if (isset($results['apreq_results'])) {
-                    foreach ($results['apreq_results'] as $key => $r) {
-                        $formatted['apreq_results'][] = [
-                            'fix' => $r['fix'] ?? 'ALL',
-                            'destinations' => $r['destinations'] ?? [],
-                            'tmi_start' => $r['tmi_start'] ?? '',
-                            'tmi_end' => $r['tmi_end'] ?? '',
-                            'total_flights' => $r['total_flights'] ?? 0,
-                            'note' => $r['note'] ?? 'No compliance assessment'
-                        ];
-                    }
-                }
-
-                $response['data'] = $formatted;
-                $response['data']['plan_specific'] = $using_plan_specific;
-                $response['message'] = $using_plan_specific
-                    ? "Results loaded for plan $plan_id"
-                    : "Results loaded from global cache (run --plan $plan_id for plan-specific)";
+                $response['data'] = format_results($result['data']);
+                $response['data']['plan_specific'] = true;
+                $response['message'] = 'Analysis completed successfully';
             } else {
-                throw new Exception("Failed to parse results JSON");
+                throw new Exception($result['error'] ?? 'Azure Function call failed');
             }
         } else {
-            $response['data'] = null;
-            $response['message'] = "No analysis results found for plan $plan_id. Run: python tmi_compliance_analyzer.py --plan $plan_id";
+            // Load cached results from file
+            $base_path = realpath(__DIR__ . '/../../data/tmi_compliance');
+            if (!$base_path) {
+                $base_path = __DIR__ . '/../../data/tmi_compliance';
+            }
+
+            $plan_json_path = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
+            $json_path = $plan_json_path;
+            $using_plan_specific = true;
+
+            if (file_exists($json_path)) {
+                $json_content = file_get_contents($json_path);
+                $results = json_decode($json_content, true);
+
+                if ($results) {
+                    $response['data'] = format_results($results);
+                    $response['data']['plan_specific'] = $using_plan_specific;
+                    $response['message'] = "Results loaded for plan $plan_id";
+                } else {
+                    throw new Exception("Failed to parse results JSON");
+                }
+            } else {
+                $response['data'] = null;
+                $response['message'] = "No analysis results found for plan $plan_id. Click 'Run Analysis' to generate.";
+            }
         }
     }
 
@@ -184,4 +132,133 @@ try {
         'success' => false,
         'error' => $e->getMessage()
     ]);
+}
+
+/**
+ * Call Azure Function to run TMI compliance analysis
+ */
+function call_azure_function($plan_id) {
+    $function_url = AZURE_FUNCTION_TMI_URL;
+    $function_key = AZURE_FUNCTION_TMI_KEY;
+
+    // Check if Azure Function is configured
+    if (empty($function_url)) {
+        return [
+            'success' => false,
+            'error' => 'Azure Function not configured. Set AZURE_FUNCTION_TMI_URL in environment.'
+        ];
+    }
+
+    $url = $function_url . '?plan_id=' . $plan_id;
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 180, // 3 minute timeout for analysis
+        CURLOPT_HTTPHEADER => array_filter([
+            'Content-Type: application/json',
+            $function_key ? 'x-functions-key: ' . $function_key : null
+        ])
+    ]);
+
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
+    curl_close($ch);
+
+    if ($curl_error) {
+        return ['success' => false, 'error' => "Connection error: $curl_error"];
+    }
+
+    if ($http_code !== 200) {
+        $error_data = json_decode($response, true);
+        $error_msg = $error_data['error'] ?? "HTTP $http_code error";
+        return ['success' => false, 'error' => $error_msg];
+    }
+
+    $data = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return ['success' => false, 'error' => 'Invalid JSON response from Azure Function'];
+    }
+
+    if (isset($data['error'])) {
+        return ['success' => false, 'error' => $data['error']];
+    }
+
+    return ['success' => true, 'data' => $data];
+}
+
+/**
+ * Format results for frontend display
+ */
+function format_results($results) {
+    $formatted = [
+        'event' => $results['event'] ?? 'Unknown Event',
+        'event_start' => $results['event_start'] ?? null,
+        'event_end' => $results['event_end'] ?? null,
+        'generated_utc' => $results['generated_utc'] ?? null,
+        'summary' => $results['summary'] ?? [],
+        'mit_results' => [],
+        'gs_results' => [],
+        'apreq_results' => []
+    ];
+
+    // Process MIT results
+    if (isset($results['mit_results'])) {
+        foreach ($results['mit_results'] as $key => $r) {
+            $formatted['mit_results'][] = [
+                'fix' => $r['fix'] ?? $key,
+                'required' => $r['required'] ?? 0,
+                'tmi_start' => $r['tmi_start'] ?? '',
+                'tmi_end' => $r['tmi_end'] ?? '',
+                'crossings' => $r['total_crossings'] ?? 0,
+                'valid_crossings' => $r['valid_crossings'] ?? 0,
+                'pairs' => $r['pairs'] ?? 0,
+                'compliance_pct' => $r['compliance_pct'] ?? 0,
+                'distribution' => $r['distribution'] ?? [],
+                'violations' => $r['violations'] ?? [],
+                'spacing_stats' => [
+                    'min' => $r['spacing_stats']['min'] ?? ($r['min_spacing'] ?? 0),
+                    'avg' => $r['spacing_stats']['avg'] ?? ($r['avg_spacing'] ?? 0),
+                    'max' => $r['spacing_stats']['max'] ?? ($r['max_spacing'] ?? 0)
+                ],
+                'cancelled' => $r['cancelled'] ?? false
+            ];
+        }
+    }
+
+    // Process GS results
+    if (isset($results['gs_results'])) {
+        foreach ($results['gs_results'] as $key => $r) {
+            $formatted['gs_results'][] = [
+                'destinations' => $r['destinations'] ?? [],
+                'origins' => $r['origins'] ?? [],
+                'gs_start' => $r['gs_start'] ?? '',
+                'gs_end' => $r['gs_end'] ?? '',
+                'gs_issued' => $r['gs_issued'] ?? '',
+                'total_flights' => $r['total_flights'] ?? 0,
+                'exempt' => is_array($r['exempt'] ?? null) ? count($r['exempt']) : ($r['exempt'] ?? 0),
+                'compliant' => is_array($r['compliant'] ?? null) ? count($r['compliant']) : ($r['compliant'] ?? 0),
+                'non_compliant' => is_array($r['non_compliant'] ?? null) ? count($r['non_compliant']) : ($r['non_compliant'] ?? 0),
+                'compliance_pct' => $r['compliance_pct'] ?? 0,
+                'violations_list' => $r['non_compliant'] ?? []
+            ];
+        }
+    }
+
+    // Process APREQ results
+    if (isset($results['apreq_results'])) {
+        foreach ($results['apreq_results'] as $key => $r) {
+            $formatted['apreq_results'][] = [
+                'fix' => $r['fix'] ?? 'ALL',
+                'destinations' => $r['destinations'] ?? [],
+                'tmi_start' => $r['tmi_start'] ?? '',
+                'tmi_end' => $r['tmi_end'] ?? '',
+                'total_flights' => $r['total_flights'] ?? 0,
+                'note' => $r['note'] ?? 'No compliance assessment'
+            ];
+        }
+    }
+
+    return $formatted;
 }

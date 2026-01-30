@@ -152,50 +152,149 @@ const TMICompliance = {
         });
     },
 
+    analysisInProgress: false,
+
     runAnalysis: function() {
-        // Show instructions for running analysis
-        const config = {
-            destinations: $('#tmi_destinations').val() || 'Not set',
-            event_start: $('#tmi_event_start').val() || 'Not set',
-            event_end: $('#tmi_event_end').val() || 'Not set',
-            ntml: $('#tmi_ntml_input').val() ? 'Configured' : 'Not configured'
-        };
+        if (!this.planId) {
+            this.showError('No plan ID found');
+            return;
+        }
 
-        const planId = this.planId || 'unknown';
+        if (this.analysisInProgress) {
+            Swal.fire('Analysis In Progress', 'Please wait for the current analysis to complete.', 'info');
+            return;
+        }
 
+        // Check if config is saved
+        const ntmlText = $('#tmi_ntml_input').val();
+        if (!ntmlText || ntmlText.trim() === '') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No NTML Configuration',
+                html: `
+                    <div class="text-left">
+                        <p>Please enter NTML entries in the configuration section above and click <strong>Save Config</strong> before running analysis.</p>
+                        <p class="small text-muted">Example NTML format:</p>
+                        <pre class="small">LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z
+LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
+                    </div>
+                `,
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
+        // Confirm before running
         Swal.fire({
-            icon: 'info',
-            title: 'Run TMI Analysis',
+            title: 'Run TMI Compliance Analysis?',
             html: `
                 <div class="text-left small">
-                    <p><strong>Plan ID:</strong> ${planId}</p>
-                    <p><strong>Current Configuration:</strong></p>
-                    <ul>
-                        <li>Destinations: ${config.destinations}</li>
-                        <li>Event Window: ${config.event_start} - ${config.event_end}</li>
-                        <li>NTML: ${config.ntml}</li>
-                    </ul>
-                    <hr>
-                    <p><strong>Step 1: Save Config & Fetch Data (one time)</strong></p>
-                    <ol>
-                        <li>Save your NTML configuration above</li>
-                        <li>Fetch event data (±2hr buffer, cached locally):<br>
-                            <code>python C:\\temp\\tmi_compliance_analyzer.py --fetch --plan ${planId}</code></li>
-                    </ol>
-                    <p><strong>Step 2: Run Analysis (uses cache, no DB hits)</strong></p>
-                    <code>python C:\\temp\\tmi_compliance_analyzer.py --plan ${planId}</code>
-                    <p class="mt-2">Click "Load Results" when complete.</p>
-                    <hr>
-                    <p class="text-muted"><strong>Preset events (no config needed):</strong></p>
-                    <ul class="text-muted">
-                        <li><code>--fetch 1</code> then <code>1</code> - Escape the Desert</li>
-                        <li><code>--fetch 2</code> then <code>2</code> - New Year Nashville</li>
-                        <li><code>--fetch 3</code> then <code>3</code> - Honoring the Dream</li>
-                    </ul>
+                    <p>This will analyze flight data against the configured TMIs for Plan ${this.planId}.</p>
+                    <p><strong>Note:</strong> Analysis typically takes 30-60 seconds depending on traffic volume.</p>
+                    <p class="text-warning"><i class="fas fa-exclamation-triangle"></i>
+                       Make sure your TMI configuration is saved before running.</p>
                 </div>
             `,
-            confirmButtonText: 'OK',
-            width: '600px'
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Run Analysis',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.executeAnalysis();
+            }
+        });
+    },
+
+    executeAnalysis: function() {
+        this.analysisInProgress = true;
+
+        // Show progress modal
+        Swal.fire({
+            title: 'Analyzing TMI Compliance',
+            html: `
+                <div class="text-center">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                    <p id="analysis_status">Connecting to analysis service...</p>
+                    <div class="progress mt-3" style="height: 20px;">
+                        <div id="analysis_progress" class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 10%"></div>
+                    </div>
+                    <p class="small text-muted mt-3">This may take 30-60 seconds</p>
+                </div>
+            `,
+            allowOutsideClick: false,
+            showConfirmButton: false
+        });
+
+        // Simulate progress updates
+        let progress = 10;
+        const progressInterval = setInterval(() => {
+            progress = Math.min(progress + 5, 90);
+            $('#analysis_progress').css('width', progress + '%');
+
+            if (progress >= 20 && progress < 40) {
+                $('#analysis_status').text('Loading configuration...');
+            } else if (progress >= 40 && progress < 60) {
+                $('#analysis_status').text('Querying flight data...');
+            } else if (progress >= 60 && progress < 80) {
+                $('#analysis_status').text('Computing MIT compliance...');
+            } else if (progress >= 80) {
+                $('#analysis_status').text('Generating report...');
+            }
+        }, 2000);
+
+        // Call API with run=true
+        $.ajax({
+            url: `api/analysis/tmi_compliance.php?p_id=${this.planId}&run=true`,
+            method: 'GET',
+            dataType: 'json',
+            timeout: 180000, // 3 minute timeout
+            success: (response) => {
+                clearInterval(progressInterval);
+                this.analysisInProgress = false;
+
+                if (response.success && response.data) {
+                    this.results = response.data;
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Analysis Complete',
+                        text: response.message || 'TMI compliance analysis completed successfully.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    this.renderResults();
+                    $('#tmi_status').text(`Analysis complete: ${response.data.event}`);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Analysis Failed',
+                        html: `<p>${response.message || response.error || 'Unknown error occurred'}</p>
+                               <p class="small text-muted">Check that the Azure Function is configured and TMI config is saved.</p>`
+                    });
+                }
+            },
+            error: (xhr, status, error) => {
+                clearInterval(progressInterval);
+                this.analysisInProgress = false;
+
+                let errorMsg = error;
+                if (status === 'timeout') {
+                    errorMsg = 'Analysis timed out. The event may have too many flights. Try running the Python script locally.';
+                } else if (xhr.responseJSON?.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Analysis Failed',
+                    html: `<p>${errorMsg}</p>
+                           <p class="small text-muted">If the Azure Function is not configured, you can still run analysis locally:<br>
+                           <code>python C:\\temp\\tmi_compliance_analyzer.py --plan ${this.planId}</code></p>`
+                });
+            }
         });
     },
 

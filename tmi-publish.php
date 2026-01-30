@@ -242,6 +242,11 @@ $perm = true;
             </a>
         </li>
         <li class="nav-item">
+            <a class="nav-link" id="gsgdp-tab" data-toggle="tab" href="#gsgdpPanel" role="tab">
+                <i class="fas fa-plane-departure mr-1"></i> GS/GDP
+            </a>
+        </li>
+        <li class="nav-item">
             <a class="nav-link" id="queue-tab" data-toggle="tab" href="#queuePanel" role="tab">
                 <i class="fas fa-list mr-1"></i> Queue 
                 <span class="badge badge-secondary" id="queueBadge">0</span>
@@ -849,6 +854,251 @@ $perm = true;
             </div>
         </div>
 
+        <!-- GS/GDP Panel -->
+        <div class="tab-pane fade" id="gsgdpPanel" role="tabpanel">
+
+            <!-- Source Info Banner -->
+            <div class="alert alert-info mb-3" id="gsgdpSourceInfo" style="display: none;">
+                <i class="fas fa-info-circle mr-1"></i>
+                <strong>Program data received from GDT</strong>
+                <span id="gsgdpSourceDetails"></span>
+            </div>
+
+            <!-- No Handoff Warning -->
+            <div class="alert alert-warning mb-3" id="gsgdpNoHandoff">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                <strong>No Program Data</strong> - Use the GDT page to model a GS or GDP, then click "Submit to TMI" to continue here.
+                <div class="mt-2">
+                    <a href="gdt.php" class="btn btn-sm btn-primary"><i class="fas fa-arrow-left mr-1"></i> Go to GDT</a>
+                </div>
+            </div>
+
+            <div class="row" id="gsgdpMainContent" style="display: none;">
+                <div class="col-lg-7">
+
+                    <!-- Program Summary Card -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center" id="gsgdpProgramHeader">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-plane-departure mr-1"></i>
+                                <span id="gsgdpProgramTitle">Program Details</span>
+                            </span>
+                            <span class="badge badge-lg" id="gsgdpTypeBadge">--</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">CTL Element</label>
+                                    <div class="h5 mb-0" id="gsgdpCtlElement">--</div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">Start Time (UTC)</label>
+                                    <div class="h5 mb-0" id="gsgdpStartTime">--</div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">End Time (UTC)</label>
+                                    <div class="h5 mb-0" id="gsgdpEndTime">--</div>
+                                </div>
+                            </div>
+
+                            <!-- GDP-specific fields -->
+                            <div class="row mt-2" id="gsgdpGdpFields" style="display: none;">
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">Program Rate</label>
+                                    <div class="h5 mb-0" id="gsgdpProgramRate">--</div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">Avg Delay</label>
+                                    <div class="h5 mb-0" id="gsgdpAvgDelay">--</div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">Max Delay</label>
+                                    <div class="h5 mb-0" id="gsgdpMaxDelay">--</div>
+                                </div>
+                            </div>
+
+                            <!-- GS-specific fields -->
+                            <div class="row mt-2" id="gsgdpGsFields" style="display: none;">
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">Scope</label>
+                                    <div class="h5 mb-0" id="gsgdpScope">--</div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">Affected Flights</label>
+                                    <div class="h5 mb-0" id="gsgdpAffectedFlights">--</div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="tmi-label mb-0">Duration</label>
+                                    <div class="h5 mb-0" id="gsgdpDuration">--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flight List Summary -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-list mr-1"></i> Flight List
+                                <span class="badge badge-secondary ml-2" id="gsgdpFlightCount">0</span>
+                                <span class="badge badge-info ml-1" id="gsgdpFlightStats" style="display: none;"></span>
+                            </span>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary mr-1" id="gsgdpRefreshFlights" title="Refresh flight list from ADL">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" id="gsgdpToggleFlights">
+                                    <i class="fas fa-chevron-down"></i> Show
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0" id="gsgdpFlightListContainer" style="display: none;">
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th style="font-size: 0.7rem;">CALLSIGN</th>
+                                            <th style="font-size: 0.7rem;">ORIG</th>
+                                            <th style="font-size: 0.7rem;">DEST</th>
+                                            <th style="font-size: 0.7rem;">TYPE</th>
+                                            <th style="font-size: 0.7rem;">ETD</th>
+                                            <th style="font-size: 0.7rem;">EDCT</th>
+                                            <th style="font-size: 0.7rem;">DELAY</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="gsgdpFlightListBody">
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-3">No flights</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Coordination Section -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-warning">
+                            <span class="tmi-section-title">
+                                <i class="fas fa-handshake mr-1"></i> Coordination
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="tmi-label mb-1">Facilities for Coordination</label>
+                                <div class="small text-muted mb-2">Select facilities that should be notified/coordinated with:</div>
+                                <div id="gsgdpFacilitiesGrid" class="d-flex flex-wrap">
+                                    <?php
+                                    $artccs = ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU',
+                                               'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY',
+                                               'ZOA', 'ZOB', 'ZSE', 'ZTL'];
+                                    foreach ($artccs as $artcc):
+                                    ?>
+                                    <div class="custom-control custom-checkbox mr-3 mb-2">
+                                        <input type="checkbox" class="custom-control-input gsgdp-facility-cb"
+                                               id="gsgdp_fac_<?= $artcc ?>" value="<?= $artcc ?>">
+                                        <label class="custom-control-label" for="gsgdp_fac_<?= $artcc ?>">
+                                            <?= $artcc ?>
+                                        </label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6 mb-2">
+                                    <label class="tmi-label mb-0">Coordination Deadline (min)</label>
+                                    <select class="form-control form-control-sm" id="gsgdpCoordDeadline">
+                                        <option value="15">15 minutes</option>
+                                        <option value="30" selected>30 minutes</option>
+                                        <option value="60">60 minutes</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-6 mb-2">
+                                    <label class="tmi-label mb-0">Reason</label>
+                                    <select class="form-control form-control-sm" id="gsgdpReason">
+                                        <option value="WEATHER">WEATHER</option>
+                                        <option value="VOLUME">VOLUME</option>
+                                        <option value="EQUIPMENT">EQUIPMENT</option>
+                                        <option value="RUNWAY">RUNWAY</option>
+                                        <option value="OTHER">OTHER</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group mb-0">
+                                <label class="tmi-label mb-0">Remarks</label>
+                                <textarea class="form-control form-control-sm" id="gsgdpRemarks" rows="2" placeholder="Optional coordination remarks"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <button class="btn btn-outline-secondary mr-2" id="gsgdpBackToGdt">
+                                <i class="fas fa-arrow-left mr-1"></i> Back to GDT
+                            </button>
+                            <button class="btn btn-outline-danger" id="gsgdpDiscard">
+                                <i class="fas fa-times mr-1"></i> Discard
+                            </button>
+                        </div>
+                        <div>
+                            <button class="btn btn-warning mr-2" id="gsgdpSubmitCoord">
+                                <i class="fas fa-handshake mr-1"></i> Submit for Coordination
+                            </button>
+                            <button class="btn btn-success" id="gsgdpPublishDirect" title="DCC Override: Publish without coordination">
+                                <i class="fas fa-broadcast-tower mr-1"></i> Publish Direct
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <!-- Sticky wrapper -->
+                    <div style="position: sticky; top: 1rem;">
+
+                        <!-- Advisory Preview -->
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span class="tmi-section-title">
+                                    <i class="fas fa-eye mr-1"></i> Advisory Preview
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary" id="gsgdpCopyPreview" title="Copy to clipboard">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="card-body p-2">
+                                <pre id="gsgdpAdvisoryPreview" class="ntml-preview" style="max-height: 350px; overflow-y: auto; font-size: 0.75rem; white-space: pre-wrap;">No program data loaded...</pre>
+                            </div>
+                        </div>
+
+                        <!-- Discord Targets -->
+                        <div class="card shadow-sm">
+                            <div class="card-header py-2">
+                                <span class="tmi-section-title">
+                                    <i class="fab fa-discord mr-1"></i> Post To Organizations
+                                </span>
+                            </div>
+                            <div class="card-body py-2">
+                                <?php foreach ($discordOrgs as $code => $org): ?>
+                                <div class="custom-control custom-checkbox mb-1">
+                                    <input type="checkbox" class="custom-control-input discord-org-checkbox-gsgdp"
+                                           id="gsgdp_org_<?= $code ?>" value="<?= $code ?>"
+                                           <?= $org['default'] ? 'checked' : '' ?>>
+                                    <label class="custom-control-label small" for="gsgdp_org_<?= $code ?>">
+                                        <?= htmlspecialchars($org['name']) ?>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Queue Panel -->
         <div class="tab-pane fade" id="queuePanel" role="tabpanel">
             <div class="row">
@@ -1384,6 +1634,101 @@ $perm = true;
     </div>
 </div>
 
+<!-- GS/GDP Cancellation Modal -->
+<div class="modal fade" id="gsgdpCancelModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-times-circle mr-2"></i>Cancel Program</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Program Info -->
+                <div class="alert alert-warning mb-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Program:</strong>
+                            <span id="cancelProgramType">--</span>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>CTL Element:</strong>
+                            <span id="cancelCtlElement">--</span>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Program ID:</strong>
+                            <span id="cancelProgramId">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="font-weight-bold">Cancellation Reason <span class="text-danger">*</span></label>
+                    <select class="form-control" id="cancelReason">
+                        <option value="">-- Select Reason --</option>
+                        <option value="WEATHER_IMPROVEMENT">Weather Improvement</option>
+                        <option value="DEMAND_DECREASE">Demand Decrease</option>
+                        <option value="FACILITY_RESTORED">Facility/Equipment Restored</option>
+                        <option value="TRANSITION_TO_AFP">Transition to AFP</option>
+                        <option value="TRANSITION_TO_GDP">Transition to GDP</option>
+                        <option value="OPERATIONAL_NEED">Operational Need</option>
+                        <option value="USER_REQUEST">User Request</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="font-weight-bold">EDCT Instruction <span class="text-danger">*</span></label>
+                    <div class="custom-control custom-radio mb-2">
+                        <input type="radio" class="custom-control-input" id="edctDisregard" name="edctAction" value="DISREGARD" checked>
+                        <label class="custom-control-label" for="edctDisregard">
+                            <strong>DISREGARD EDCTS</strong> - All EDCTs for this program should be disregarded
+                        </label>
+                    </div>
+                    <div class="custom-control custom-radio mb-2">
+                        <input type="radio" class="custom-control-input" id="edctDisregardAfter" name="edctAction" value="DISREGARD_AFTER">
+                        <label class="custom-control-label" for="edctDisregardAfter">
+                            <strong>DISREGARD AFTER</strong> - Disregard EDCTs after a specific time
+                        </label>
+                    </div>
+                    <div id="edctAfterTimeGroup" class="ml-4 mt-2 mb-2" style="display: none;">
+                        <label class="small">Disregard After Time (UTC):</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="edctAfterTime" style="width: 250px;">
+                    </div>
+                    <div class="custom-control custom-radio">
+                        <input type="radio" class="custom-control-input" id="edctAfpActive" name="edctAction" value="AFP_ACTIVE">
+                        <label class="custom-control-label" for="edctAfpActive">
+                            <strong>AFP ACTIVE</strong> - Flights may receive new EDCTs due to active AFP
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="font-weight-bold">Additional Notes</label>
+                    <textarea class="form-control" id="cancelNotes" rows="2" placeholder="Optional notes about the cancellation"></textarea>
+                </div>
+
+                <!-- Advisory Preview -->
+                <div class="card bg-dark text-white">
+                    <div class="card-header py-2">
+                        <span class="font-weight-bold"><i class="fas fa-eye mr-1"></i> Cancellation Advisory Preview</span>
+                    </div>
+                    <div class="card-body">
+                        <pre id="cancelAdvisoryPreview" style="font-size: 0.8rem; white-space: pre-wrap; margin: 0; color: #00ff00;">Loading preview...</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">
+                    <i class="fas fa-times-circle mr-1"></i> Cancel Program
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php include('load/footer.php'); ?>
 
 <!-- Config for JS -->
@@ -1418,6 +1763,7 @@ window.TMI_PUBLISHER_CONFIG = {
 </script>
 <script src="assets/js/tmi-publish.js?v=1.9.0"></script>
 <script src="assets/js/tmi-active-display.js?v=1.2.0"></script>
+<script src="assets/js/tmi-gdp.js?v=1.1.0"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
 (function() {

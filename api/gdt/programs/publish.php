@@ -58,21 +58,20 @@ $conn_tmi = gdt_get_conn_tmi();
 
 $program_id = isset($payload['program_id']) ? (int)$payload['program_id'] : 0;
 $proposal_id = isset($payload['proposal_id']) ? (int)$payload['proposal_id'] : 0;
+$dcc_override = isset($payload['dcc_override']) ? (bool)$payload['dcc_override'] : false;
 $regenerate_flight_list = isset($payload['regenerate_flight_list']) ? (bool)$payload['regenerate_flight_list'] : true;
 $user_cid = isset($payload['user_cid']) ? trim($payload['user_cid']) : null;
 $user_name = isset($payload['user_name']) ? trim($payload['user_name']) : 'Unknown';
+
+// DCC override additional fields (for direct publish without proposal)
+$reason = isset($payload['reason']) ? strtoupper(trim($payload['reason'])) : 'WEATHER';
+$remarks = isset($payload['remarks']) ? trim($payload['remarks']) : null;
+$flights = isset($payload['flights']) ? (array)$payload['flights'] : [];
 
 if ($program_id <= 0) {
     respond_json(400, [
         'status' => 'error',
         'message' => 'program_id is required.'
-    ]);
-}
-
-if ($proposal_id <= 0) {
-    respond_json(400, [
-        'status' => 'error',
-        'message' => 'proposal_id is required.'
     ]);
 }
 
@@ -93,31 +92,53 @@ if ($program === null) {
     ]);
 }
 
-// Verify program is linked to this proposal
-if ((int)($program['proposal_id'] ?? 0) !== $proposal_id) {
-    respond_json(400, [
-        'status' => 'error',
-        'message' => "Program {$program_id} is not linked to proposal {$proposal_id}"
-    ]);
-}
+// DCC Override mode - skip proposal validation
+$proposal = null;
+if ($dcc_override) {
+    // DCC can publish directly without coordination approval
+    // Program just needs to be in PROPOSED or MODELING status
+    $valid_statuses = ['PROPOSED', 'MODELING', 'PENDING_COORD'];
+    if (!in_array($program['status'], $valid_statuses) && !$program['is_active']) {
+        respond_json(400, [
+            'status' => 'error',
+            'message' => "Program cannot be published directly. Status: {$program['status']}."
+        ]);
+    }
+} else {
+    // Standard flow - require approved proposal
+    if ($proposal_id <= 0) {
+        respond_json(400, [
+            'status' => 'error',
+            'message' => 'proposal_id is required (or use dcc_override: true).'
+        ]);
+    }
 
-// Check proposal status
-$proposal = get_proposal($conn_tmi, $proposal_id);
+    // Verify program is linked to this proposal
+    if ((int)($program['proposal_id'] ?? 0) !== $proposal_id) {
+        respond_json(400, [
+            'status' => 'error',
+            'message' => "Program {$program_id} is not linked to proposal {$proposal_id}"
+        ]);
+    }
 
-if ($proposal === null) {
-    respond_json(404, [
-        'status' => 'error',
-        'message' => "Proposal not found: {$proposal_id}"
-    ]);
-}
+    // Check proposal status
+    $proposal = get_proposal($conn_tmi, $proposal_id);
 
-// Verify proposal is approved
-$valid_statuses = ['APPROVED'];
-if (!in_array($proposal['status'], $valid_statuses)) {
-    respond_json(400, [
-        'status' => 'error',
-        'message' => "Proposal cannot be published. Status: {$proposal['status']}. Must be APPROVED."
-    ]);
+    if ($proposal === null) {
+        respond_json(404, [
+            'status' => 'error',
+            'message' => "Proposal not found: {$proposal_id}"
+        ]);
+    }
+
+    // Verify proposal is approved
+    $valid_statuses = ['APPROVED'];
+    if (!in_array($proposal['status'], $valid_statuses)) {
+        respond_json(400, [
+            'status' => 'error',
+            'message' => "Proposal cannot be published. Status: {$proposal['status']}. Must be APPROVED."
+        ]);
+    }
 }
 
 // ============================================================================
@@ -236,17 +257,20 @@ sqlsrv_free_stmt($activate_stmt);
 $update_program_sql = "UPDATE dbo.tmi_programs SET
                            adv_number = ?,
                            proposal_status = 'ACTIVATED',
+                           impacting_condition = COALESCE(impacting_condition, ?),
                            updated_at = SYSUTCDATETIME()
                        WHERE program_id = ?";
-execute_query($conn_tmi, $update_program_sql, [$advisory_number, $program_id]);
+execute_query($conn_tmi, $update_program_sql, [$advisory_number, $reason, $program_id]);
 
-// Update proposal status
-$update_proposal_sql = "UPDATE dbo.tmi_proposals SET
-                            status = 'ACTIVATED',
-                            activated_at = SYSUTCDATETIME(),
-                            updated_at = SYSUTCDATETIME()
-                        WHERE proposal_id = ?";
-execute_query($conn_tmi, $update_proposal_sql, [$proposal_id]);
+// Update proposal status (if not DCC override)
+if ($proposal_id > 0) {
+    $update_proposal_sql = "UPDATE dbo.tmi_proposals SET
+                                status = 'ACTIVATED',
+                                activated_at = SYSUTCDATETIME(),
+                                updated_at = SYSUTCDATETIME()
+                            WHERE proposal_id = ?";
+    execute_query($conn_tmi, $update_proposal_sql, [$proposal_id]);
+}
 
 // ============================================================================
 // Generate ACTUAL Advisory Text
@@ -256,22 +280,26 @@ $program = get_program($conn_tmi, $program_id);
 $advisory_text = generate_actual_advisory($program, $advisory_number);
 
 // Log the action
-log_coordination_action($conn_tmi, $program_id, $proposal_id, 'PROGRAM_ACTIVATED', [
+$action_type = $dcc_override ? 'DCC_OVERRIDE_PUBLISH' : 'PROGRAM_ACTIVATED';
+log_coordination_action($conn_tmi, $program_id, $proposal_id ?: null, $action_type, [
     'advisory_number' => $advisory_number,
     'flight_list_count' => $flight_list_count,
+    'dcc_override' => $dcc_override,
+    'reason' => $reason,
     'user_cid' => $user_cid,
     'user_name' => $user_name
 ], $advisory_number, 'ACTUAL');
 
 respond_json(200, [
     'status' => 'ok',
-    'message' => 'Program published and activated',
+    'message' => $dcc_override ? 'Program published directly (DCC override)' : 'Program published and activated',
     'data' => [
         'program_id' => $program_id,
-        'proposal_id' => $proposal_id,
+        'proposal_id' => $proposal_id ?: null,
         'advisory_number' => $advisory_number,
         'advisory_text' => $advisory_text,
         'flight_list_count' => $flight_list_count,
+        'dcc_override' => $dcc_override,
         'program' => $program
     ]
 ]);

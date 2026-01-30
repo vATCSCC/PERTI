@@ -1579,6 +1579,23 @@
     }
 
     function cancelTmi(id, type, subtype) {
+        // Check if this is a GS/GDP program - use specialized modal
+        if (type === 'PROGRAM' && (subtype === 'GS' || subtype === 'GDP' || subtype?.indexOf('GDP') !== -1)) {
+            // Find the program to get its details
+            const program = state.programs.find(p => p.entityId == id) ||
+                           state.scheduled.find(p => p.entityId == id && p.entityType === 'PROGRAM');
+
+            if (program && window.TMI_GSGDP?.openCancelModal) {
+                window.TMI_GSGDP.openCancelModal(
+                    program.programId || id,
+                    subtype || program.type || 'GS',
+                    program.ctlElement || program.element || 'UNKN'
+                );
+                return;
+            }
+        }
+
+        // Default cancellation dialog for other TMI types
         Swal.fire({
             title: 'Cancel TMI?',
             html: `<p>Are you sure you want to cancel this TMI?</p>
