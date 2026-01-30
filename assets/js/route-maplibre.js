@@ -6606,10 +6606,190 @@ $(document).ready(function() {
     function advUpdateEffectiveTime() {
         const startVal = ($('#advValidStart').val() || '').trim();
         const endVal = ($('#advValidEnd').val() || '').trim();
-        
+
         if (startVal && endVal) {
             $('#advEffectiveTime').val(startVal + '-' + endVal);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TMI REROUTE DRAFT - Integration with TMI Publisher
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Collect route data and open TMI Publisher for reroute coordination.
+     * Uses sessionStorage for immediate transfer, with option to save to database.
+     */
+    async function draftRerouteAdvisory() {
+        console.log('[DRAFT-TMI] draftRerouteAdvisory() called');
+
+        const rawInput = $('#routeSearch').val() || '';
+        const collectResult = collectRouteStringsForAdvisory(rawInput);
+        const routeStrings = collectResult.routes || [];
+
+        if (!routeStrings.length) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Routes Plotted',
+                text: 'Plot some routes first before drafting a TMI reroute advisory.',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
+        // Show loading indicator
+        const $btn = $('#adv_draft_tmi');
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Preparing...').prop('disabled', true);
+
+        try {
+            // Collect comprehensive route data
+            const exportData = collectExportData();
+            const parsedRoutes = advParseRoutesEnhanced(routeStrings);
+
+            // Calculate facilities from GIS
+            let facilities = [];
+            try {
+                const gisResult = await calculateFacilitiesFromGISForDraft();
+                facilities = gisResult.artccs || [];
+                console.log('[DRAFT-TMI] GIS facilities:', facilities);
+            } catch (e) {
+                console.warn('[DRAFT-TMI] GIS facilities calculation failed, using fallback:', e);
+                facilities = extractFacilitiesFromRoutes(parsedRoutes);
+            }
+
+            // Build reroute data package
+            const rerouteData = {
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                source: 'route-plotter',
+
+                // Advisory metadata from form fields (if filled)
+                advisory: {
+                    number: null, // Let TMI Publisher auto-generate
+                    facility: $('#advFacility').val() || 'DCC',
+                    name: $('#advName').val() || '',
+                    constrainedArea: $('#advConstrainedArea').val() || '',
+                    reason: $('#advReason').val() || 'WEATHER',
+                    includeTraffic: $('#advIncludeTraffic').val() || '',
+                    validStart: $('#advValidStart').val() || '',
+                    validEnd: $('#advValidEnd').val() || '',
+                    timeBasis: $('input[name="advTimeBasis"]:checked').val() || 'ETD',
+                    probExtension: $('#advProb').val() || 'MEDIUM',
+                    remarks: $('#advRemarks').val() || ''
+                },
+
+                // Calculated facilities for coordination
+                facilities: facilities,
+
+                // Routes data
+                routes: parsedRoutes.map(r => ({
+                    origin: r.orig || '',
+                    originAirports: r.origAirports || [],
+                    originArtccs: r.origArtccs || [],
+                    destination: r.dest || '',
+                    destAirports: r.destAirports || [],
+                    destArtccs: r.destArtccs || [],
+                    route: r.assignedRoute || r.cleanRoute || ''
+                })),
+
+                // Raw route input for reference
+                rawInput: rawInput,
+
+                // GeoJSON for map visualization in TMI Publisher
+                geojson: exportData.routeFeatures ? {
+                    type: 'FeatureCollection',
+                    features: exportData.routeFeatures
+                } : null,
+
+                // Visualization settings
+                visualization: {
+                    color: exportData.routeFeatures?.[0]?.properties?.color || '#3498db',
+                    lineWeight: 3,
+                    lineStyle: 'solid'
+                }
+            };
+
+            console.log('[DRAFT-TMI] Prepared reroute data:', rerouteData);
+
+            // Store in sessionStorage for immediate transfer
+            try {
+                sessionStorage.setItem('tmi_reroute_draft', JSON.stringify(rerouteData));
+                sessionStorage.setItem('tmi_reroute_draft_timestamp', Date.now().toString());
+                console.log('[DRAFT-TMI] Stored draft in sessionStorage');
+            } catch (e) {
+                console.error('[DRAFT-TMI] Failed to store in sessionStorage:', e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Storage Error',
+                    text: 'Failed to prepare reroute data. Please try again.'
+                });
+                return;
+            }
+
+            // Open TMI Publisher in new tab with reroute mode
+            window.open('/tmi-publish.php?mode=reroute', '_blank');
+
+        } catch (err) {
+            console.error('[DRAFT-TMI] Error preparing draft:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to prepare reroute draft: ' + err.message
+            });
+        } finally {
+            $btn.html(originalHtml).prop('disabled', false);
+        }
+    }
+
+    /**
+     * Calculate facilities from GIS API for draft creation
+     * Similar to advCalculateFacilitiesFromGIS but returns the result
+     */
+    async function calculateFacilitiesFromGISForDraft() {
+        const routes = lastExpandedRoutes;
+        if (!routes || !routes.length) {
+            throw new Error('No expanded routes available');
+        }
+
+        // Strip marker symbols for API
+        const cleanRoutes = routes.map(r => r.replace(/[><]/g, '').trim());
+
+        const response = await fetch('/api/gis/boundaries?action=expand_routes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ routes: cleanRoutes })
+        });
+
+        if (!response.ok) {
+            throw new Error(`GIS API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Normalize ARTCCs (strip K prefix, keep only Z** codes)
+        const usArtccs = (data.artccs_all || [])
+            .map(a => a.replace(/^K/, ''))
+            .filter(a => /^Z[A-Z]{2}$/.test(a))
+            .filter((v, i, arr) => arr.indexOf(v) === i)
+            .sort();
+
+        return {
+            artccs: usArtccs,
+            raw: data
+        };
+    }
+
+    /**
+     * Fallback: Extract facilities from parsed routes when GIS is unavailable
+     */
+    function extractFacilitiesFromRoutes(routes) {
+        const artccs = new Set();
+        routes.forEach(r => {
+            (r.origArtccs || []).forEach(a => artccs.add(a));
+            (r.destArtccs || []).forEach(a => artccs.add(a));
+        });
+        return Array.from(artccs).filter(a => /^Z[A-Z]{2}$/.test(a)).sort();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -6634,6 +6814,9 @@ $(document).ready(function() {
         const txt = $('#advOutput').val();
         if (!txt) return;
         navigator.clipboard.writeText(txt);
+    });
+    $('#adv_draft_tmi').on('click', function() {
+        draftRerouteAdvisory();
     });
     $('#adv_panel_toggle').on('click', function() {
         const body = $('#adv_panel_body');

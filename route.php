@@ -2444,15 +2444,19 @@ ROUTE2</pre>
                 </div>
 
                 <!-- Generate / copy buttons -->
-                <div class="d-flex align-items-center mt-2">
-                    <button class="btn btn-primary mr-2" id="adv_generate">
+                <div class="d-flex align-items-center flex-wrap mt-2">
+                    <button class="btn btn-primary mr-2 mb-1" id="adv_generate">
                         <i class="fas fa-file-alt mr-1"></i> Generate
                     </button>
-                    <button class="btn btn-secondary mr-2" id="adv_copy">
+                    <button class="btn btn-secondary mr-2 mb-1" id="adv_copy">
                         <i class="far fa-copy mr-1"></i> Copy
                     </button>
-                    <button class="btn btn-success" id="adv_publish" title="Publish this route so all users can see it on the map">
+                    <button class="btn btn-success mr-2 mb-1" id="adv_publish" title="Publish this route so all users can see it on the map">
                         <i class="fas fa-globe mr-1"></i> Publish
+                    </button>
+                    <button class="btn btn-warning mb-1" id="adv_draft_tmi"
+                            title="Open TMI Publisher with plotted routes for coordination workflow">
+                        <i class="fas fa-paper-plane mr-1"></i> Draft TMI Reroute
                     </button>
                 </div>
 

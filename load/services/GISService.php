@@ -722,6 +722,138 @@ class GISService
     }
 
     // =========================================================================
+    // BATCH BOUNDARY DETECTION METHODS (for daemon processing)
+    // =========================================================================
+
+    /**
+     * Detect boundaries for multiple flights at once
+     *
+     * @param array $flights Array of [flight_uid, lat, lon, altitude]
+     * @return array Results with ARTCC/TRACON for each flight
+     */
+    public function detectBoundariesBatch(array $flights): array
+    {
+        if (!$this->conn || empty($flights)) {
+            return [];
+        }
+
+        try {
+            // Format flights as JSONB array
+            $flightsJson = json_encode(array_map(function($f) {
+                return [
+                    'flight_uid' => (int)($f['flight_uid'] ?? $f[0] ?? 0),
+                    'lat' => (float)($f['lat'] ?? $f[1] ?? 0),
+                    'lon' => (float)($f['lon'] ?? $f[2] ?? 0),
+                    'altitude' => (int)($f['altitude'] ?? $f[3] ?? 0)
+                ];
+            }, $flights));
+
+            // Use optimized set-based function for large batches
+            $sql = "SELECT * FROM detect_boundaries_batch_optimized(:flights::jsonb)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':flights' => $flightsJson]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'flight_uid' => (int)$row['flight_uid'],
+                    'lat' => (float)$row['lat'],
+                    'lon' => (float)$row['lon'],
+                    'altitude' => (int)$row['altitude'],
+                    'artcc_code' => $row['artcc_code'],
+                    'artcc_name' => $row['artcc_name'],
+                    'tracon_code' => $row['tracon_code'],
+                    'tracon_name' => $row['tracon_name'],
+                    'is_oceanic' => $row['is_oceanic'] === true || $row['is_oceanic'] === 't'
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::detectBoundariesBatch error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get ARTCC at a single point
+     *
+     * @param float $lat Latitude
+     * @param float $lon Longitude
+     * @return array|null ARTCC info or null if not found
+     */
+    public function getARTCCAtPoint(float $lat, float $lon): ?array
+    {
+        if (!$this->conn) {
+            return null;
+        }
+
+        try {
+            $sql = "SELECT * FROM get_artcc_at_point(:lat, :lon)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':lat' => $lat, ':lon' => $lon]);
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || !$row['artcc_code']) {
+                return null;
+            }
+
+            return [
+                'artcc_code' => $row['artcc_code'],
+                'artcc_name' => $row['artcc_name'],
+                'is_oceanic' => $row['is_oceanic'] === true || $row['is_oceanic'] === 't'
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getARTCCAtPoint error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get sector for a flight at altitude
+     *
+     * @param float $lat Latitude
+     * @param float $lon Longitude
+     * @param int $altitude Altitude in feet
+     * @return array Sector information (may be empty)
+     */
+    public function getSectorAtPoint(float $lat, float $lon, int $altitude): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM detect_sector_for_flight(:lat, :lon, :alt)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([':lat' => $lat, ':lon' => $lon, ':alt' => $altitude]);
+
+            $sectors = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $sectors[] = [
+                    'sector_code' => $row['sector_code'],
+                    'sector_name' => $row['sector_name'],
+                    'parent_artcc' => $row['parent_artcc'],
+                    'sector_type' => $row['sector_type'],
+                    'floor' => $row['floor_altitude'],
+                    'ceiling' => $row['ceiling_altitude']
+                ];
+            }
+
+            return $sectors;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getSectorAtPoint error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // =========================================================================
     // UTILITY METHODS
     // =========================================================================
 
