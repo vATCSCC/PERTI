@@ -1,6 +1,6 @@
 # GIS Boundaries API
 
-PostGIS-powered spatial queries for route expansion, boundary analysis, and geographic lookups.
+PostGIS-powered spatial queries for route expansion, boundary analysis, trajectory crossing detection, and geographic lookups.
 
 ---
 
@@ -10,16 +10,20 @@ The GIS API provides spatial analysis capabilities using PostgreSQL/PostGIS. It 
 
 - **Route Expansion**: Parse route strings (e.g., "KDFW BNA KMCO") to waypoint coordinates
 - **Boundary Detection**: Identify ARTCCs, TRACONs, and sectors traversed by routes
+- **Trajectory Crossings**: Detect precise ARTCC/sector boundary crossings along flight paths
+- **Boundary Adjacency**: Query boundary neighbor relationships and proximity tiers
 - **Point-in-Polygon**: Determine which boundaries contain a given coordinate
 - **GeoJSON Generation**: Convert routes to GeoJSON for mapping
 
 **Base URL**: `/api/gis/boundaries.php`
 
-**Version**: 1.1.0
+**Version**: 2.0.0
 
 ---
 
 ## Quick Reference
+
+### Route Expansion
 
 | Action | Method | Description |
 |--------|--------|-------------|
@@ -29,6 +33,11 @@ The GIS API provides spatial analysis capabilities using PostgreSQL/PostGIS. It 
 | `analyze_route` | GET/POST | Full analysis with sectors |
 | `resolve_waypoint` | GET | Resolve fix to coordinates |
 | `routes_geojson` | GET/POST | Convert routes to GeoJSON |
+
+### Boundary Queries
+
+| Action | Method | Description |
+|--------|--------|-------------|
 | `at_point` | GET | Point-in-polygon lookup |
 | `route_artccs` | GET | ARTCCs from waypoints |
 | `route_tracons` | GET | TRACONs from waypoints |
@@ -36,6 +45,43 @@ The GIS API provides spatial analysis capabilities using PostgreSQL/PostGIS. It 
 | `analyze_tmi_route` | POST | TMI route proposal analysis |
 | `airport_artcc` | GET | Get ARTCC for airport |
 | `artcc_airports` | GET | Get airports in ARTCC |
+
+### Trajectory Crossings
+
+| Action | Method | Description |
+|--------|--------|-------------|
+| `trajectory_crossings` | GET | ARTCC boundary crossings along trajectory |
+| `sector_crossings` | GET | Sector boundary crossings along trajectory |
+| `all_crossings` | GET | All boundary crossings (ARTCC + sectors) |
+| `artccs_traversed` | GET | Simple list of ARTCCs crossed |
+| `crossing_etas` | GET | ETAs for upcoming boundary crossings |
+
+### Boundary Adjacency Network
+
+| Action | Method | Description |
+|--------|--------|-------------|
+| `compute_adjacencies` | GET | Compute all boundary adjacencies |
+| `boundary_neighbors` | GET | Get neighbors of a boundary |
+| `adjacency_stats` | GET | Adjacency network statistics |
+| `adjacency_edges` | GET | Export adjacency as edge list |
+| `boundary_path` | GET | Find path between boundaries |
+| `artcc_adjacency_map` | GET | ARTCC-to-ARTCC adjacency map |
+| `sector_adjacency` | GET | Sector adjacency within ARTCC |
+
+### Proximity Tiers
+
+| Action | Method | Description |
+|--------|--------|-------------|
+| `proximity_tiers` | GET | Boundaries within N tiers |
+| `proximity_distance` | GET | Tier distance between boundaries |
+| `boundaries_at_tier` | GET | Boundaries at specific tier |
+| `proximity_summary` | GET | Count summary per tier |
+| `validate_tiers` | GET | Validate GIS vs ADL tier mappings |
+
+### Service/Diagnostics
+
+| Action | Method | Description |
+|--------|--------|-------------|
 | `health` | GET | Service health check |
 | `diag` | GET | Diagnostic/debugging information |
 
@@ -595,6 +641,647 @@ GET /api/gis/boundaries.php?action=artcc_airports&artcc=ZFW
 
 ---
 
+## Trajectory Crossing Endpoints
+
+These endpoints analyze flight trajectories to detect precise boundary crossings.
+
+### Trajectory ARTCC Crossings
+
+Get precise ARTCC boundary crossing points along a trajectory.
+
+```
+GET /api/gis/boundaries.php?action=trajectory_crossings&waypoints={json}
+GET /api/gis/boundaries.php?action=artcc_crossings&waypoints={json}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `waypoints` | JSON | Yes | Array of coordinate objects |
+| `debug` | 0/1 | No | Include debug information |
+
+**Example Request**
+
+```
+GET /api/gis/boundaries.php?action=trajectory_crossings&waypoints=[{"lat":32.897,"lon":-97.038},{"lat":36.124,"lon":-86.678},{"lat":28.429,"lon":-81.309}]
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "crossings": [
+    {
+      "from_artcc": "ZFW",
+      "to_artcc": "ZME",
+      "crossing_lat": 34.512,
+      "crossing_lon": -91.234,
+      "segment_index": 0
+    },
+    {
+      "from_artcc": "ZME",
+      "to_artcc": "ZJX",
+      "crossing_lat": 32.456,
+      "crossing_lon": -84.567,
+      "segment_index": 1
+    }
+  ],
+  "count": 2,
+  "waypoint_count": 3
+}
+```
+
+---
+
+### Sector Crossings
+
+Get sector boundary crossings along a trajectory.
+
+```
+GET /api/gis/boundaries.php?action=sector_crossings&waypoints={json}&type={sector_type}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `waypoints` | JSON | Yes | - | Array of coordinate objects |
+| `type` | string | No | HIGH | Sector type: LOW, HIGH, or SUPERHIGH |
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "crossings": [
+    {
+      "from_sector": "ZFW45",
+      "to_sector": "ZFW46",
+      "crossing_lat": 33.456,
+      "crossing_lon": -96.123
+    }
+  ],
+  "sector_type": "HIGH",
+  "count": 1,
+  "waypoint_count": 3
+}
+```
+
+---
+
+### All Crossings (ARTCC + Sectors)
+
+Get all boundary crossings (ARTCC and sectors) along a trajectory.
+
+```
+GET /api/gis/boundaries.php?action=all_crossings&waypoints={json}
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "crossings": [
+    {
+      "boundary_type": "ARTCC",
+      "from": "ZFW",
+      "to": "ZME",
+      "crossing_lat": 34.512,
+      "crossing_lon": -91.234
+    },
+    {
+      "boundary_type": "SECTOR_HIGH",
+      "from": "ZFW45",
+      "to": "ZME22",
+      "crossing_lat": 34.512,
+      "crossing_lon": -91.234
+    }
+  ],
+  "count": 2,
+  "waypoint_count": 3
+}
+```
+
+---
+
+### ARTCCs Traversed (Simple List)
+
+Get a simple ordered list of ARTCCs crossed by a trajectory.
+
+```
+GET /api/gis/boundaries.php?action=artccs_traversed&waypoints={json}
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "artccs": ["ZFW", "ZME", "ZJX"],
+  "artccs_display": "ZFW/ZME/ZJX",
+  "count": 3,
+  "waypoint_count": 3
+}
+```
+
+---
+
+### Crossing ETAs
+
+Calculate ETAs for upcoming boundary crossings based on current position and groundspeed.
+
+```
+GET /api/gis/boundaries.php?action=crossing_etas&waypoints={json}&lat={lat}&lon={lon}&groundspeed={gs}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `waypoints` | JSON | Yes | - | Array of coordinate objects |
+| `lat` | float | Yes | - | Current latitude |
+| `lon` | float | Yes | - | Current longitude |
+| `dist_flown` | float | No | 0 | Distance already flown (nm) |
+| `groundspeed` | int | No | 450 | Ground speed (knots) |
+
+**Example Request**
+
+```
+GET /api/gis/boundaries.php?action=crossing_etas&waypoints=[...]&lat=33.5&lon=-95.2&groundspeed=480
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "crossing_etas": [
+    {
+      "boundary": "ZFW/ZME",
+      "eta_utc": "2026-01-30T15:45:00Z",
+      "minutes_until": 23,
+      "distance_nm": 184
+    },
+    {
+      "boundary": "ZME/ZJX",
+      "eta_utc": "2026-01-30T16:32:00Z",
+      "minutes_until": 70,
+      "distance_nm": 560
+    }
+  ],
+  "count": 2,
+  "query": {
+    "current_position": {"lat": 33.5, "lon": -95.2},
+    "dist_flown_nm": 0,
+    "groundspeed_kts": 480,
+    "waypoint_count": 3
+  }
+}
+```
+
+---
+
+## Boundary Adjacency Network
+
+Endpoints for querying the boundary adjacency graph - which boundaries share borders.
+
+### Compute Adjacencies
+
+Compute all boundary adjacencies. **Heavy operation** - run after importing new boundaries.
+
+```
+GET /api/gis/boundaries.php?action=compute_adjacencies
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "Adjacencies computed",
+  "results": [
+    {"type": "ARTCC", "inserted": 142, "elapsed_ms": 1250},
+    {"type": "TRACON", "inserted": 89, "elapsed_ms": 450},
+    {"type": "SECTOR_HIGH", "inserted": 1247, "elapsed_ms": 3200}
+  ],
+  "summary": {
+    "total_pairs_inserted": 1478,
+    "total_elapsed_ms": 4900
+  }
+}
+```
+
+---
+
+### Boundary Neighbors
+
+Get all boundaries adjacent to a given boundary.
+
+```
+GET /api/gis/boundaries.php?action=boundary_neighbors&type={type}&code={code}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `type` | string | Yes | ARTCC, TRACON, SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH |
+| `code` | string | Yes | Boundary code (e.g., KZFW, N90, ZFW45) |
+| `adjacency` | string | No | Filter: POINT, LINE, or POLY |
+
+**Adjacency Classes**
+
+| Class | Description | Tier Value |
+|-------|-------------|------------|
+| POINT | Corner touch only | 0.5 (half tier) |
+| LINE | Shared border segment | 1.0 (full tier) |
+| POLY | Overlapping area | 1.0 (full tier) |
+
+**Example Request**
+
+```
+GET /api/gis/boundaries.php?action=boundary_neighbors&type=ARTCC&code=KZFW
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "boundary_type": "ARTCC",
+  "boundary_code": "KZFW",
+  "filter_adjacency": null,
+  "neighbors": [
+    {"neighbor_type": "ARTCC", "neighbor_code": "KZME", "adjacency_class": "LINE"},
+    {"neighbor_type": "ARTCC", "neighbor_code": "KZKC", "adjacency_class": "LINE"},
+    {"neighbor_type": "ARTCC", "neighbor_code": "KZAB", "adjacency_class": "LINE"},
+    {"neighbor_type": "ARTCC", "neighbor_code": "KZHU", "adjacency_class": "LINE"}
+  ],
+  "count": 4
+}
+```
+
+---
+
+### Adjacency Statistics
+
+Get summary statistics of the adjacency network.
+
+```
+GET /api/gis/boundaries.php?action=adjacency_stats
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "stats": [
+    {"boundary_type": "ARTCC", "total_boundaries": 21, "total_adjacencies": 142, "avg_neighbors": 6.8},
+    {"boundary_type": "TRACON", "total_boundaries": 45, "total_adjacencies": 89, "avg_neighbors": 2.0},
+    {"boundary_type": "SECTOR_HIGH", "total_boundaries": 312, "total_adjacencies": 1247, "avg_neighbors": 4.0}
+  ],
+  "count": 3
+}
+```
+
+---
+
+### Adjacency Edges (Export)
+
+Export adjacency network as edge list for graph analysis tools.
+
+```
+GET /api/gis/boundaries.php?action=adjacency_edges&types={json}&min_adjacency={class}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `types` | JSON | No | all | Filter by boundary types |
+| `min_adjacency` | string | No | LINE | Minimum adjacency class: POINT, LINE, POLY |
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "min_adjacency": "LINE",
+  "filter_types": null,
+  "edges": [
+    {"source": "ARTCC:KZFW", "target": "ARTCC:KZME", "adjacency": "LINE"},
+    {"source": "ARTCC:KZFW", "target": "ARTCC:KZKC", "adjacency": "LINE"}
+  ],
+  "count": 142
+}
+```
+
+---
+
+### Boundary Path
+
+Find shortest traversal path between two boundaries using BFS.
+
+```
+GET /api/gis/boundaries.php?action=boundary_path&src_type={type}&src_code={code}&tgt_type={type}&tgt_code={code}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `src_type` | string | Yes | - | Source boundary type |
+| `src_code` | string | Yes | - | Source boundary code |
+| `tgt_type` | string | Yes | - | Target boundary type |
+| `tgt_code` | string | Yes | - | Target boundary code |
+| `max_hops` | int | No | 10 | Maximum path length |
+| `same_type` | 0/1 | No | 0 | Only traverse same boundary type |
+
+**Example Request**
+
+```
+GET /api/gis/boundaries.php?action=boundary_path&src_type=ARTCC&src_code=KZFW&tgt_type=ARTCC&tgt_code=KZNY
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "source": {"type": "ARTCC", "code": "KZFW"},
+  "target": {"type": "ARTCC", "code": "KZNY"},
+  "path_found": true,
+  "path": ["KZFW", "KZME", "KZID", "KZOB", "KZNY"],
+  "hops": 5
+}
+```
+
+---
+
+### ARTCC Adjacency Map
+
+Get complete ARTCC-to-ARTCC adjacency map.
+
+```
+GET /api/gis/boundaries.php?action=artcc_adjacency_map&line_only={0|1}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `line_only` | 0/1 | No | 1 | Exclude point-only adjacencies |
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "line_only": true,
+  "artcc_map": {
+    "KZFW": ["KZME", "KZKC", "KZAB", "KZHU"],
+    "KZME": ["KZFW", "KZTL", "KZID", "KZKC", "KZHU"],
+    "KZNY": ["KZDC", "KZOB", "KZBW"]
+  },
+  "artcc_count": 21
+}
+```
+
+---
+
+### Sector Adjacency
+
+Get sector adjacency within an ARTCC.
+
+```
+GET /api/gis/boundaries.php?action=sector_adjacency&artcc={code}&sector_type={type}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `artcc` | string | Yes | - | ARTCC code |
+| `sector_type` | string | No | HIGH | LOW, HIGH, or SUPERHIGH |
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "artcc": "KZFW",
+  "sector_type": "HIGH",
+  "adjacencies": [
+    {"sector": "ZFW45", "neighbors": ["ZFW46", "ZFW47", "ZFW44"]},
+    {"sector": "ZFW46", "neighbors": ["ZFW45", "ZFW47", "ZFW48"]}
+  ],
+  "count": 12
+}
+```
+
+---
+
+## Proximity Tier Endpoints
+
+Query boundaries by proximity tiers. LINE adjacency = 1 full tier, POINT adjacency = 0.5 tier.
+
+### Proximity Tiers
+
+Get all boundaries within N tiers of a given boundary.
+
+```
+GET /api/gis/boundaries.php?action=proximity_tiers&type={type}&code={code}&max_tier={n}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `type` | string | Yes | - | Boundary type |
+| `code` | string | Yes | - | Boundary code |
+| `max_tier` | float | No | 5.0 | Maximum tier distance |
+| `same_type` | 0/1 | No | 0 | Only same boundary type |
+
+**Example Request**
+
+```
+GET /api/gis/boundaries.php?action=proximity_tiers&type=ARTCC&code=KZFW&max_tier=2&same_type=1
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "origin": {"type": "ARTCC", "code": "KZFW"},
+  "max_tier": 2.0,
+  "same_type_only": true,
+  "tiers": {
+    "1": [
+      {"boundary_type": "ARTCC", "boundary_code": "KZME", "tier": 1.0},
+      {"boundary_type": "ARTCC", "boundary_code": "KZKC", "tier": 1.0}
+    ],
+    "2": [
+      {"boundary_type": "ARTCC", "boundary_code": "KZTL", "tier": 2.0},
+      {"boundary_type": "ARTCC", "boundary_code": "KZID", "tier": 2.0}
+    ]
+  },
+  "boundaries": [...],
+  "total_count": 12
+}
+```
+
+---
+
+### Proximity Distance
+
+Get tier distance between two specific boundaries.
+
+```
+GET /api/gis/boundaries.php?action=proximity_distance&src_type={type}&src_code={code}&tgt_type={type}&tgt_code={code}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `src_type` | string | Yes | - | Source boundary type |
+| `src_code` | string | Yes | - | Source boundary code |
+| `tgt_type` | string | Yes | - | Target boundary type |
+| `tgt_code` | string | Yes | - | Target boundary code |
+| `max_tier` | float | No | 10.0 | Maximum search distance |
+| `same_type` | 0/1 | No | 0 | Only same boundary type |
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "source": {"type": "ARTCC", "code": "KZFW"},
+  "target": {"type": "ARTCC", "code": "KZNY"},
+  "tier_distance": 4.0,
+  "reachable": true,
+  "is_neighbor": false,
+  "is_corner_neighbor": false
+}
+```
+
+---
+
+### Boundaries at Tier
+
+Get boundaries at a specific tier or tier range.
+
+```
+GET /api/gis/boundaries.php?action=boundaries_at_tier&type={type}&code={code}&tier={n}
+```
+
+**Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `type` | string | Yes | Boundary type |
+| `code` | string | Yes | Boundary code |
+| `tier` | float | Yes* | Exact tier (or use tier_min) |
+| `tier_min` | float | Yes* | Minimum tier (alternative to tier) |
+| `tier_max` | float | No | Maximum tier (for ranges) |
+| `same_type` | 0/1 | No | Only same boundary type |
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "origin": {"type": "ARTCC", "code": "KZFW"},
+  "tier_min": 1.0,
+  "tier_max": 1.0,
+  "boundaries": [
+    {"boundary_type": "ARTCC", "boundary_code": "KZME"},
+    {"boundary_type": "ARTCC", "boundary_code": "KZKC"},
+    {"boundary_type": "ARTCC", "boundary_code": "KZAB"},
+    {"boundary_type": "ARTCC", "boundary_code": "KZHU"}
+  ],
+  "count": 4
+}
+```
+
+---
+
+### Proximity Summary
+
+Get boundary count summary per tier.
+
+```
+GET /api/gis/boundaries.php?action=proximity_summary&type={type}&code={code}&max_tier={n}
+```
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "origin": {"type": "ARTCC", "code": "KZFW"},
+  "max_tier": 5.0,
+  "same_type_only": false,
+  "summary": [
+    {"tier": 0.5, "count": 2},
+    {"tier": 1.0, "count": 4},
+    {"tier": 1.5, "count": 3},
+    {"tier": 2.0, "count": 6},
+    {"tier": 2.5, "count": 4},
+    {"tier": 3.0, "count": 5}
+  ],
+  "total_boundaries": 24
+}
+```
+
+---
+
+### Validate Tiers
+
+Validate GIS proximity tiers against ADL manual tier mappings.
+
+```
+GET /api/gis/boundaries.php?action=validate_tiers
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "validation": "GIS Proximity Tier 1 vs ADL Manual 1st Tier",
+  "summary": {
+    "total_artccs": 20,
+    "exact_matches": 18,
+    "mismatches": 2,
+    "match_percentage": 90.0
+  },
+  "results": {
+    "ZFW": {
+      "status": "MATCH",
+      "adl_count": 4,
+      "gis_count": 4,
+      "adl_neighbors": ["ZAB", "ZHU", "ZKC", "ZME"],
+      "gis_neighbors": ["ZAB", "ZHU", "ZKC", "ZME"],
+      "adl_only": [],
+      "gis_only": []
+    }
+  },
+  "notes": [
+    "GIS uses ICAO codes (KZFW), ADL uses FAA codes (ZFW)",
+    "GIS may find additional international adjacencies (Mexican FIRs)",
+    "LINE adjacency = shared border (full tier), POINT = corner touch (half tier)"
+  ]
+}
+```
+
+---
+
 ## Health Check
 
 ### Service Status
@@ -775,4 +1462,4 @@ Based on observed metrics (see metrics analysis):
 
 ---
 
-*Last updated: 2026-01-29*
+*Last updated: 2026-01-30*

@@ -361,53 +361,86 @@ function datetime_to_sql($val) {
 }
 
 /**
- * Generate ACTUAL advisory text
+ * Generate ACTUAL advisory text (vATCSCC format)
  */
 function generate_actual_advisory($program, $advisory_number) {
     $program_type = $program['program_type'] ?? 'GS';
     $is_gdp = strpos($program_type, 'GDP') !== false;
     $ctl_element = $program['ctl_element'] ?? 'UNKN';
+    $element_type = $program['element_type'] ?? 'APT';
+    $artcc = $program['artcc'] ?? $program['arr_center'] ?? 'ZZZ';
 
-    // Format dates
+    // Current time for ADL TIME
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $adl_time = $now->format('Hi') . 'Z';
+    $header_date = $now->format('m/d/Y');
+
+    // Format program period dates
     $start = $program['start_utc'] instanceof DateTime ? $program['start_utc'] : new DateTime($program['start_utc']);
     $end = $program['end_utc'] instanceof DateTime ? $program['end_utc'] : new DateTime($program['end_utc']);
-    $start_str = $start->format('d/Hi') . 'Z';
-    $end_str = $end->format('d/Hi') . 'Z';
+    $start_period = $start->format('d/Hi') . 'Z';
+    $end_period = $end->format('d/Hi') . 'Z';
+
+    // Footer time codes
+    $start_code = $start->format('dHi');
+    $end_code = $end->format('dHi');
+    $footer_timestamp = $now->format('y/m/d H:i');
+
+    // Get delay summary
+    $total_delay = round($program['total_delay_min'] ?? 0);
+    $max_delay = round($program['max_delay_min'] ?? $program['delay_limit_min'] ?? 0);
+    $avg_delay = round($program['avg_delay_min'] ?? 0);
+
+    // Flight inclusion and facilities
+    $flt_incl = $program['flight_filter'] ?? 'ALL';
+    $facilities = $program['scope_facilities'] ?? $artcc;
+    $prob_extension = $program['prob_extension'] ?? 'MODERATE';
+    $reason = $program['impacting_condition'] ?? 'VOLUME';
+    $comments = $program['comments'] ?? 'NONE';
+
+    // Extract advisory number (e.g., "ADVZY 001" -> "001")
+    $adv_num = preg_replace('/[^0-9]/', '', $advisory_number) ?: '001';
+    $adv_num = str_pad($adv_num, 3, '0', STR_PAD_LEFT);
 
     $lines = [];
 
     if ($is_gdp) {
-        $lines[] = "CDM GROUND DELAY PROGRAM {$advisory_number}";
-        $lines[] = "";
-        $lines[] = "CTL ELEMENT.................. {$ctl_element}";
-        $lines[] = "REASON FOR PROGRAM........... " . ($program['impacting_condition'] ?? 'VOLUME') . "/" . ($program['cause_text'] ?? 'DEMAND');
-        $lines[] = "PROGRAM START................ {$start_str}";
-        $lines[] = "END TIME..................... {$end_str}";
+        // GDP format
+        $program_rate = $program['program_rate'] ?? 0;
+        $controlled_flights = $program['controlled_flights'] ?? $program['flight_count'] ?? 0;
 
-        if (isset($program['avg_delay_min']) && $program['avg_delay_min'] > 0) {
-            $lines[] = "AVERAGE DELAY................ " . round($program['avg_delay_min']) . " MINUTES";
-        }
-        if (isset($program['max_delay_min']) && $program['max_delay_min'] > 0) {
-            $lines[] = "MAXIMUM DELAY................ " . $program['max_delay_min'] . " MINUTES";
-        }
-
-        $lines[] = "DELAY ASSIGNMENT MODE........ UDP";
-
-        if (isset($program['program_rate']) && $program['program_rate'] > 0) {
-            $lines[] = "PROGRAM RATE................. " . $program['program_rate'] . " PER HOUR";
-        }
+        $lines[] = "vATCSCC ADVZY {$adv_num} {$ctl_element}/{$artcc} {$header_date} CDM GROUND DELAY PROGRAM";
+        $lines[] = "CTL ELEMENT: {$ctl_element}";
+        $lines[] = "ELEMENT TYPE: {$element_type}";
+        $lines[] = "ADL TIME: {$adl_time}";
+        $lines[] = "GDP PERIOD: {$start_period} - {$end_period}";
+        $lines[] = "FLT INCL: {$flt_incl}";
+        $lines[] = "DEP FACILITIES INCLUDED: (Tier1) {$facilities}";
+        $lines[] = "PROGRAM RATE: {$program_rate}/HR";
+        $lines[] = "DELAY ASSIGNMENT MODE: UDP";
+        $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$total_delay} / {$max_delay} / {$avg_delay}";
+        $lines[] = "CONTROLLED FLIGHTS: {$controlled_flights}";
+        $lines[] = "PROBABILITY OF EXTENSION: {$prob_extension}";
+        $lines[] = "IMPACTING CONDITION: {$reason}";
+        $lines[] = "COMMENTS: {$comments}";
     } else {
-        // Ground Stop
-        $lines[] = "CDM GROUND STOP {$advisory_number}";
-        $lines[] = "";
-        $lines[] = "CTL ELEMENT.................. {$ctl_element}";
-        $lines[] = "REASON FOR GROUND STOP....... " . ($program['impacting_condition'] ?? 'WEATHER') . "/" . ($program['cause_text'] ?? 'CONDITIONS');
-        $lines[] = "GROUND STOP.................. {$start_str}";
-        $lines[] = "END TIME..................... {$end_str}";
+        // Ground Stop format
+        $lines[] = "vATCSCC ADVZY {$adv_num} {$ctl_element}/{$artcc} {$header_date} CDM GROUND STOP";
+        $lines[] = "CTL ELEMENT: {$ctl_element}";
+        $lines[] = "ELEMENT TYPE: {$element_type}";
+        $lines[] = "ADL TIME: {$adl_time}";
+        $lines[] = "GROUND STOP PERIOD: {$start_period} - {$end_period}";
+        $lines[] = "FLT INCL: {$flt_incl}";
+        $lines[] = "DEP FACILITIES INCLUDED: (Tier1) {$facilities}";
+        $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$total_delay} / {$max_delay} / {$avg_delay}";
+        $lines[] = "PROBABILITY OF EXTENSION: {$prob_extension}";
+        $lines[] = "IMPACTING CONDITION: {$reason}";
+        $lines[] = "COMMENTS: {$comments}";
     }
 
     $lines[] = "";
-    $lines[] = "JO/DCC";
+    $lines[] = "{$start_code}-{$end_code}";
+    $lines[] = $footer_timestamp;
 
     return implode("\n", $lines);
 }

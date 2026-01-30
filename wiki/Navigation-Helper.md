@@ -78,12 +78,22 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 
 ## By Database
 
+### VATSIM_REF (Azure SQL) - Navigation Reference Data
+
+| Table Group | Tables | Documentation |
+|-------------|--------|---------------|
+| **Navigation** | `nav_fixes`, `airways`, `airway_segments` | [[Database Schema]] - Waypoints and airways |
+| **Routes** | `playbook_routes`, `playbook_route_fixes` | [[Database Schema]] - CDR/Playbook routes |
+| **Boundaries** | `artcc_boundaries`, `tracon_boundaries` | [[Database Schema]] - Boundary reference data |
+| **Airports** | `airports`, `runways` | [[Database Schema]] - Airport reference data |
+
 ### VATSIM_GIS (PostgreSQL/PostGIS) - Spatial Analysis
 
 | Table Group | Tables | Documentation |
 |-------------|--------|---------------|
 | **Navigation** | `nav_fixes`, `airways`, `airway_segments` | [[Database Schema]] - Waypoints and airways |
 | **Boundaries** | `artcc_boundaries`, `sector_boundaries`, `tracon_boundaries` | [[Database Schema]] - PostGIS geometries |
+| **Adjacency Network** | `boundary_adjacency`, `boundary_proximity` | [[Database Schema]] - Boundary graph relationships |
 | **Airports** | `airports`, `area_centers` | [[Database Schema]] - Airport data |
 | **Routes** | `playbook_routes` | [[Database Schema]] - CDR/Playbook routes |
 
@@ -135,7 +145,7 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 | **Stats** | `/api/stats/` | `realtime.php`, `daily.php`, `airport.php`, `artcc.php` | [[API Reference]] |
 | **SWIM v1** | `/api/swim/v1/` | `flights.php`, `positions.php`, `auth.php`, `tmi/*` | `docs/swim/` |
 | **GDT** | `/api/gdt/` | `programs/*`, `flights/*`, `slots/*`, `demand/*` | [[GDT Ground Delay Tool]] - Uses VATSIM_TMI |
-| **GIS** | `/api/gis/` | `boundaries.php` | [[GIS API]] - Route expansion, boundaries |
+| **GIS** | `/api/gis/` | `boundaries.php`, `trajectory.php`, `adjacency.php`, `proximity.php` | [[GIS API]] - Route expansion, boundaries, adjacency network |
 | **Simulator** | `/api/simulator/` | `engine.php`, `traffic.php`, `navdata.php` | [[ATFM Training Simulator]] |
 | **Data** | `/api/data/` | `weather.php`, `sua.php`, `tfr.php`, `routes.php` | [[API Reference]] |
 | **Routes** | `/api/routes/` | `public.php`, `public_post.php` | [[API Reference]] |
@@ -295,4 +305,4 @@ See [[Daemons and Scripts]] for full documentation.
 
 ---
 
-*Last updated: 2026-01-26*
+*Last updated: 2026-01-30*

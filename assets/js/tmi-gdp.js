@@ -20,7 +20,8 @@
         handoffType: null,      // 'GS' or 'GDP'
         handoffData: null,      // Parsed handoff data
         programId: null,
-        flightsVisible: false
+        flightsVisible: false,
+        nextAdvisoryNumber: '001'  // Will be fetched from API
     };
 
     // API endpoints
@@ -240,68 +241,154 @@
     }
 
     /**
-     * Generate Ground Stop advisory text
+     * Generate Ground Stop advisory text (vATCSCC format)
      */
     function generateGsAdvisory(data) {
         var ctlElement = data.ctl_element || 'UNKN';
-        var startTime = formatAdvisoryTime(data.start_time);
-        var endTime = formatAdvisoryTime(data.end_time);
-        var reason = document.getElementById('gsgdpReason')?.value || 'WEATHER';
+        var elementType = data.element_type || 'APT';
+        var artcc = data.artcc || data.arr_center || 'ZZZ';
+        var reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
         var remarks = document.getElementById('gsgdpRemarks')?.value || '';
+        var probExtension = document.getElementById('gsgdpProbExtension')?.value || 'MODERATE';
 
-        var scope = data.airports || ctlElement;
+        // Get selected facilities
+        var facilities = [];
+        document.querySelectorAll('.gsgdp-facility-cb:checked').forEach(function(cb) {
+            facilities.push(cb.value);
+        });
+        var facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
 
-        var text = 'DCC GROUND STOP ADVZY [###]\n\n' +
-                   'CTL ELEMENT.................. ' + ctlElement + '\n' +
-                   'START TIME................... ' + startTime + '\n' +
-                   'END TIME..................... ' + endTime + '\n' +
-                   'SCOPE........................ ' + scope + '\n' +
-                   'REASON....................... ' + reason + '\n';
+        // Get flight inclusion criteria
+        var fltIncl = data.flight_filter || 'ALL';
 
-        if (remarks) {
-            text += 'REMARKS...................... ' + remarks + '\n';
-        }
+        // Get delay summary
+        var summary = data.summary || data.simulation_data || {};
+        var totalDelay = summary.total_delay_min || 0;
+        var maxDelay = summary.max_delay_min || 0;
+        var avgDelay = summary.avg_delay_min || 0;
 
-        text += '\nJO/DCC';
+        // Format dates
+        var now = new Date();
+        var startDt = data.start_time ? new Date(data.start_time) : now;
+        var endDt = data.end_time ? new Date(data.end_time) : now;
+
+        // Header date format: MM/DD/YYYY
+        var headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
+
+        // ADL time: HHmmZ
+        var adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+
+        // Period format: DD/HHmmZ - DD/HHmmZ
+        var startPeriod = padZero(startDt.getUTCDate()) + '/' + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes()) + 'Z';
+        var endPeriod = padZero(endDt.getUTCDate()) + '/' + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes()) + 'Z';
+
+        // Footer time code: DDHHmm-DDHHmm
+        var startCode = padZero(startDt.getUTCDate()) + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes());
+        var endCode = padZero(endDt.getUTCDate()) + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes());
+
+        // Footer timestamp: YY/MM/DD HH:mm
+        var footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
+                              padZero(now.getUTCMonth() + 1) + '/' +
+                              padZero(now.getUTCDate()) + ' ' +
+                              padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
+
+        var text = 'vATCSCC ADVZY ### ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND STOP\n' +
+                   'CTL ELEMENT: ' + ctlElement + '\n' +
+                   'ELEMENT TYPE: ' + elementType + '\n' +
+                   'ADL TIME: ' + adlTime + '\n' +
+                   'GROUND STOP PERIOD: ' + startPeriod + ' - ' + endPeriod + '\n' +
+                   'FLT INCL: ' + fltIncl + '\n' +
+                   'DEP FACILITIES INCLUDED: (Tier1) ' + facilitiesStr + '\n' +
+                   'NEW TOTAL, MAXIMUM, AVERAGE DELAYS: ' + Math.round(totalDelay) + ' / ' + Math.round(maxDelay) + ' / ' + Math.round(avgDelay) + '\n' +
+                   'PROBABILITY OF EXTENSION: ' + probExtension + '\n' +
+                   'IMPACTING CONDITION: ' + reason + '\n' +
+                   'COMMENTS: ' + (remarks || 'NONE') + '\n' +
+                   '\n' +
+                   startCode + '-' + endCode + '\n' +
+                   footerTimestamp;
 
         return text;
     }
 
     /**
-     * Generate GDP advisory text
+     * Pad number with leading zero
+     */
+    function padZero(num) {
+        return String(num).padStart(2, '0');
+    }
+
+    /**
+     * Generate GDP advisory text (vATCSCC format)
      */
     function generateGdpAdvisory(data) {
         var ctlElement = data.ctl_element || 'UNKN';
+        var elementType = data.element_type || 'APT';
+        var artcc = data.artcc || data.arr_center || 'ZZZ';
         var programType = data.program_type || 'GDP-UDP';
-        var startTime = formatAdvisoryTime(data.start_time);
-        var endTime = formatAdvisoryTime(data.end_time);
-        var programRate = data.program_rate || data.summary?.program_rate || '--';
-        var reason = document.getElementById('gsgdpReason')?.value || 'WEATHER';
+        var reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
         var remarks = document.getElementById('gsgdpRemarks')?.value || '';
+        var probExtension = document.getElementById('gsgdpProbExtension')?.value || 'MODERATE';
 
-        var summary = data.summary || {};
-        var avgDelay = summary.avg_delay_min || summary.avgDelay || '--';
-        var maxDelay = summary.max_delay_min || summary.maxDelay || '--';
-        var totalFlights = data.flights?.length || summary.total_flights || '--';
+        // Get selected facilities
+        var facilities = [];
+        document.querySelectorAll('.gsgdp-facility-cb:checked').forEach(function(cb) {
+            facilities.push(cb.value);
+        });
+        var facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
 
-        var text = 'DCC GROUND DELAY PROGRAM ADVZY [###]\n\n' +
-                   'CTL ELEMENT.................. ' + ctlElement + '\n' +
-                   'PROGRAM TYPE................. ' + programType + '\n' +
-                   'START TIME................... ' + startTime + '\n' +
-                   'END TIME..................... ' + endTime + '\n' +
-                   'PROGRAM RATE................. ' + programRate + '/HR\n' +
-                   'REASON....................... ' + reason + '\n' +
+        // Get flight inclusion criteria
+        var fltIncl = data.flight_filter || 'ALL';
+
+        // Get delay/rate summary
+        var summary = data.summary || data.simulation_data || {};
+        var programRate = data.program_rate || summary.program_rate || 0;
+        var totalDelay = summary.total_delay_min || 0;
+        var maxDelay = summary.max_delay_min || data.delay_limit_min || 0;
+        var avgDelay = summary.avg_delay_min || 0;
+        var controlledFlights = summary.controlled_flights || data.flights?.length || 0;
+
+        // Format dates
+        var now = new Date();
+        var startDt = data.start_time ? new Date(data.start_time) : now;
+        var endDt = data.end_time ? new Date(data.end_time) : now;
+
+        // Header date format: MM/DD/YYYY
+        var headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
+
+        // ADL time: HHmmZ
+        var adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+
+        // Period format: DD/HHmmZ - DD/HHmmZ
+        var startPeriod = padZero(startDt.getUTCDate()) + '/' + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes()) + 'Z';
+        var endPeriod = padZero(endDt.getUTCDate()) + '/' + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes()) + 'Z';
+
+        // Footer time code: DDHHmm-DDHHmm
+        var startCode = padZero(startDt.getUTCDate()) + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes());
+        var endCode = padZero(endDt.getUTCDate()) + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes());
+
+        // Footer timestamp: YY/MM/DD HH:mm
+        var footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
+                              padZero(now.getUTCMonth() + 1) + '/' +
+                              padZero(now.getUTCDate()) + ' ' +
+                              padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
+
+        var text = 'vATCSCC ADVZY ### ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND DELAY PROGRAM\n' +
+                   'CTL ELEMENT: ' + ctlElement + '\n' +
+                   'ELEMENT TYPE: ' + elementType + '\n' +
+                   'ADL TIME: ' + adlTime + '\n' +
+                   'GDP PERIOD: ' + startPeriod + ' - ' + endPeriod + '\n' +
+                   'FLT INCL: ' + fltIncl + '\n' +
+                   'DEP FACILITIES INCLUDED: (Tier1) ' + facilitiesStr + '\n' +
+                   'PROGRAM RATE: ' + programRate + '/HR\n' +
+                   'DELAY ASSIGNMENT MODE: UDP\n' +
+                   'NEW TOTAL, MAXIMUM, AVERAGE DELAYS: ' + Math.round(totalDelay) + ' / ' + Math.round(maxDelay) + ' / ' + Math.round(avgDelay) + '\n' +
+                   'CONTROLLED FLIGHTS: ' + controlledFlights + '\n' +
+                   'PROBABILITY OF EXTENSION: ' + probExtension + '\n' +
+                   'IMPACTING CONDITION: ' + reason + '\n' +
+                   'COMMENTS: ' + (remarks || 'NONE') + '\n' +
                    '\n' +
-                   'DELAY PARAMETERS:\n' +
-                   '  AVG DELAY.................. ' + avgDelay + ' MIN\n' +
-                   '  MAX DELAY.................. ' + maxDelay + ' MIN\n' +
-                   '  CONTROLLED FLIGHTS......... ' + totalFlights + '\n';
-
-        if (remarks) {
-            text += '\nREMARKS...................... ' + remarks + '\n';
-        }
-
-        text += '\nJO/DCC';
+                   startCode + '-' + endCode + '\n' +
+                   footerTimestamp;
 
         return text;
     }
@@ -826,10 +913,12 @@
     }
 
     /**
-     * Update the cancellation advisory preview
+     * Update the cancellation advisory preview (vATCSCC format)
      */
     function updateCancelPreview() {
         var ctlElement = cancelState.ctlElement || 'UNKN';
+        var elementType = cancelState.elementType || 'APT';
+        var artcc = cancelState.artcc || 'ZZZ';
         var programType = cancelState.programType || 'GS';
         var isGdp = programType.indexOf('GDP') !== -1;
         var typeName = isGdp ? 'GROUND DELAY PROGRAM' : 'GROUND STOP';
@@ -839,7 +928,21 @@
         var notes = document.getElementById('cancelNotes')?.value || '';
 
         var now = new Date();
-        var cancelTimeStr = formatAdvisoryTime(now.toISOString());
+
+        // Header date: MM/DD/YYYY
+        var headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
+
+        // ADL time: HHmmZ
+        var adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+
+        // Cancel time: DD/HHmmZ
+        var cancelTimeStr = padZero(now.getUTCDate()) + '/' + padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+
+        // Footer timestamp: YY/MM/DD HH:mm
+        var footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
+                              padZero(now.getUTCMonth() + 1) + '/' +
+                              padZero(now.getUTCDate()) + ' ' +
+                              padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
 
         // Build EDCT line
         var edctLine = '';
@@ -853,17 +956,16 @@
             edctLine = 'FLIGHTS MAY RECEIVE NEW EDCTS DUE TO AN ACTIVE AFP';
         }
 
-        var preview = 'DCC ' + typeName + ' CANCELLATION ADVZY [###]\n\n' +
-                      'CTL ELEMENT.................. ' + ctlElement + '\n' +
-                      'CANCEL TIME.................. ' + cancelTimeStr + '\n' +
-                      'REASON....................... ' + reason.replace(/_/g, ' ') + '\n\n' +
-                      edctLine;
-
-        if (notes) {
-            preview += '\n\nREMARKS: ' + notes;
-        }
-
-        preview += '\n\nJO/DCC';
+        var preview = 'vATCSCC ADVZY ### ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM ' + typeName + ' CNX\n' +
+                      'CTL ELEMENT: ' + ctlElement + '\n' +
+                      'ELEMENT TYPE: ' + elementType + '\n' +
+                      'ADL TIME: ' + adlTime + '\n' +
+                      'CANCEL TIME: ' + cancelTimeStr + '\n' +
+                      'CANCEL REASON: ' + reason.replace(/_/g, ' ') + '\n' +
+                      edctLine + '\n' +
+                      'COMMENTS: ' + (notes || 'NONE') + '\n' +
+                      '\n' +
+                      footerTimestamp;
 
         document.getElementById('cancelAdvisoryPreview').textContent = preview;
     }

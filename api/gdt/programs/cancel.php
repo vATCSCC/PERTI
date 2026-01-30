@@ -161,16 +161,25 @@ if (!$advisory_number) {
 }
 
 // ============================================================================
-// Generate Cancellation Advisory
+// Generate Cancellation Advisory (vATCSCC format)
 // ============================================================================
 
 $ctl_element = $program['ctl_element'] ?? 'UNKN';
+$element_type = $program['element_type'] ?? 'APT';
+$artcc = $program['artcc'] ?? $program['arr_center'] ?? 'ZZZ';
 $program_type = $program['program_type'] ?? 'GS';
 $is_gdp = strpos($program_type, 'GDP') !== false;
 $type_name = $is_gdp ? 'GROUND DELAY PROGRAM' : 'GROUND STOP';
 
 $now = new DateTime('now', new DateTimeZone('UTC'));
+$adl_time = $now->format('Hi') . 'Z';
+$header_date = $now->format('m/d/Y');
 $cancel_time_str = $now->format('d/Hi') . 'Z';
+$footer_timestamp = $now->format('y/m/d H:i');
+
+// Extract advisory number for header
+$adv_num = preg_replace('/[^0-9]/', '', $advisory_number) ?: '001';
+$adv_num = str_pad($adv_num, 3, '0', STR_PAD_LEFT);
 
 // Build EDCT purge line
 $edct_line = '';
@@ -187,14 +196,16 @@ switch ($edct_action) {
         break;
 }
 
-$advisory_text = "DCC {$type_name} CANCELLATION {$advisory_number}
-
-CTL ELEMENT.................. {$ctl_element}
-CANCEL TIME.................. {$cancel_time_str}
-
+$advisory_text = "vATCSCC ADVZY {$adv_num} {$ctl_element}/{$artcc} {$header_date} CDM {$type_name} CNX
+CTL ELEMENT: {$ctl_element}
+ELEMENT TYPE: {$element_type}
+ADL TIME: {$adl_time}
+CANCEL TIME: {$cancel_time_str}
+CANCEL REASON: " . str_replace('_', ' ', $cancel_reason) . "
 {$edct_line}
+" . ($cancel_notes ? "COMMENTS: {$cancel_notes}" : "COMMENTS: NONE") . "
 
-JO/DCC";
+{$footer_timestamp}";
 
 // ============================================================================
 // Purge Flight List for This Program

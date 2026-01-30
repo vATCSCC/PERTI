@@ -282,6 +282,12 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | **SRID** | Spatial Reference System Identifier (4326 = WGS84) |
 | **GeoJSON** | JSON format for encoding geographic data structures |
 | **GIST** | Generalized Search Tree - PostgreSQL index type for spatial queries |
+| **Adjacency Class** | Type of boundary relationship: POINT (corner touch), LINE (shared border), POLY (overlap) |
+| **Boundary Adjacency** | Graph network of which airspace boundaries share borders |
+| **Proximity Tier** | Distance-based classification between boundaries (0-25nm, 25-50nm, 50-100nm, 100-200nm) |
+| **Shared Length** | Length in nautical miles of common border between adjacent boundaries |
+| **Trajectory Crossing** | Point where a flight path intersects an airspace boundary |
+| **Route Expansion** | Process of converting route string to waypoint coordinates via GIS |
 
 ---
 

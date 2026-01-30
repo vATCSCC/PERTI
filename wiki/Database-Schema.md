@@ -451,6 +451,73 @@ FSM-format slot naming: `ccc[c].ddddddL` (e.g., KJFK.091530A)
 
 ---
 
+## Azure SQL (VATSIM_REF)
+
+Reference data database for navigation and airspace definitions.
+
+**Server:** `vatsim.database.windows.net`
+**Database:** `VATSIM_REF`
+
+### Navigation Reference Tables
+
+| Table | Purpose |
+|-------|---------|
+| `nav_fixes` | Navigation fixes/waypoints (VORs, NDBs, RNAV fixes) |
+| `airways` | Airway definitions (J, Q, V, T routes) |
+| `airway_segments` | Airway segment waypoints with sequence |
+| `nav_procedures` | SIDs and STARs |
+| `coded_departure_routes` | CDRs for traffic management |
+| `playbook_routes` | Playbook route definitions |
+| `area_centers` | ARTCC center reference points |
+| `oceanic_fir_bounds` | Oceanic FIR boundaries |
+| `ref_sync_log` | AIRAC update synchronization log |
+
+#### nav_fixes
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `fix_id` | INT | Primary key |
+| `fix_name` | NVARCHAR(8) | Fix identifier (e.g., BNA, MERIT) |
+| `lat` | DECIMAL(10,7) | Latitude |
+| `lon` | DECIMAL(11,7) | Longitude |
+| `fix_type` | NVARCHAR(16) | VOR, NDB, RNAV, INTERSECTION, WAYPOINT |
+| `navaid_class` | NVARCHAR(16) | For navaids: HIGH, LOW, TERMINAL |
+| `frequency` | DECIMAL(7,3) | Navaid frequency (MHz/kHz) |
+| `artcc` | NVARCHAR(4) | Containing ARTCC |
+| `state` | NVARCHAR(2) | US state code |
+| `country` | NVARCHAR(2) | Country code |
+
+#### airways
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `airway_id` | INT | Primary key |
+| `airway_name` | NVARCHAR(8) | Airway identifier (J48, Q100, V1) |
+| `airway_type` | NVARCHAR(4) | J (jet), Q (RNAV jet), V (victor), T (RNAV low) |
+| `base_altitude` | INT | Minimum enroute altitude |
+| `top_altitude` | INT | Maximum altitude |
+
+#### playbook_routes
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `playbook_id` | INT | Primary key |
+| `play_name` | NVARCHAR(32) | Play code (e.g., ROD, SWAP) |
+| `full_route` | NVARCHAR(MAX) | Complete route string |
+| `origin_airports` | NVARCHAR(MAX) | Origin airport codes |
+| `origin_tracons` | NVARCHAR(MAX) | Origin TRACON codes |
+| `origin_artccs` | NVARCHAR(MAX) | Origin ARTCC codes |
+| `dest_airports` | NVARCHAR(MAX) | Destination airport codes |
+| `dest_tracons` | NVARCHAR(MAX) | Destination TRACON codes |
+| `dest_artccs` | NVARCHAR(MAX) | Destination ARTCC codes |
+| `altitude_min_ft` | INT | Minimum altitude |
+| `altitude_max_ft` | INT | Maximum altitude |
+| `is_active` | BIT | Route is currently active |
+| `source` | NVARCHAR(16) | Data source (FAA, CUSTOM) |
+| `effective_date` | DATE | AIRAC effective date |
+
+---
+
 ## PostgreSQL (VATSIM_GIS)
 
 Dedicated PostGIS-enabled database for spatial route analysis and boundary queries.
@@ -561,6 +628,39 @@ Batch boundary detection functions (for daemon processing).
 | `detect_boundaries_batch_optimized(flights_jsonb)` | Set-based batch detection (faster for >100 flights) |
 | `detect_sector_for_flight(lat, lon, alt)` | Get sector(s) containing a flight at given altitude |
 
+### Boundary Adjacency Network
+
+Precomputed adjacency relationships between airspace boundaries.
+
+| Table | Purpose |
+|-------|---------|
+| `boundary_adjacency` | Boundary neighbor relationships (graph edges) |
+
+#### boundary_adjacency
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `adjacency_id` | SERIAL | Primary key |
+| `source_type` | VARCHAR(20) | Source boundary type (ARTCC, TRACON, SECTOR_LOW, SECTOR_HIGH, SECTOR_SUPERHIGH) |
+| `source_code` | VARCHAR(50) | Source boundary code |
+| `source_name` | VARCHAR(100) | Source boundary name |
+| `target_type` | VARCHAR(20) | Target boundary type |
+| `target_code` | VARCHAR(50) | Target boundary code |
+| `target_name` | VARCHAR(100) | Target boundary name |
+| `adjacency_class` | ENUM | POINT (corner touch), LINE (shared border), POLY (overlap) |
+| `shared_length_nm` | FLOAT | Length of shared boundary (NULL for POINT) |
+| `shared_points` | INT | Number of shared points (for POINT type) |
+| `intersection_geom` | GEOMETRY | The actual shared geometry |
+| `computed_at` | TIMESTAMPTZ | When adjacency was computed |
+
+**Adjacency Classes**
+
+| Class | Description | Tier Value |
+|-------|-------------|------------|
+| POINT | Corner touch only (0-dimensional) | 0.5 tier |
+| LINE | Shared border segment (1-dimensional) | 1.0 tier |
+| POLY | Overlapping area (2-dimensional, rare) | 1.0 tier |
+
 ### PostGIS Indexes
 
 | Index | Table | Purpose |
@@ -572,6 +672,10 @@ Batch boundary detection functions (for daemon processing).
 | `idx_artcc_geom_gist` | artcc_boundaries | Spatial index (GIST) |
 | `idx_sector_geom_gist` | sector_boundaries | Spatial index (GIST) |
 | `idx_tracon_geom_gist` | tracon_boundaries | Spatial index (GIST) |
+| `idx_adj_source` | boundary_adjacency | Source boundary lookup |
+| `idx_adj_target` | boundary_adjacency | Target boundary lookup |
+| `idx_adj_class` | boundary_adjacency | Adjacency class filter |
+| `idx_adj_geom` | boundary_adjacency | Spatial index (GIST) |
 
 ---
 
