@@ -6678,7 +6678,781 @@
     // Initialize coordination tab events
     $(document).ready(function() {
         initCoordinationTab();
+        RerouteHandler.init();
     });
+
+    // ===========================================
+    // REROUTE HANDLER
+    // Integration with Route Plotter for TMI reroute coordination
+    // ===========================================
+
+    const RerouteHandler = {
+        rerouteData: null,
+        userCid: null,
+        userName: null,
+
+        /**
+         * Initialize reroute mode on page load
+         */
+        init: function() {
+            const self = this;
+
+            // Get user info from page config
+            this.userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
+            this.userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+
+            // Check for reroute mode from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'reroute') {
+                this.loadFromSessionStorage();
+            }
+
+            // Bind events
+            this.bindEvents();
+
+            // Fetch next advisory number
+            this.fetchNextAdvisoryNumber();
+
+            // Load saved drafts
+            this.loadDraftsList();
+
+            console.log('[REROUTE] Handler initialized');
+        },
+
+        /**
+         * Load reroute data from sessionStorage
+         */
+        loadFromSessionStorage: function() {
+            try {
+                const dataStr = sessionStorage.getItem('tmi_reroute_draft');
+                const timestamp = sessionStorage.getItem('tmi_reroute_draft_timestamp');
+
+                if (!dataStr) {
+                    console.log('[REROUTE] No draft data found in sessionStorage');
+                    return;
+                }
+
+                // Check if data is stale (older than 1 hour)
+                if (timestamp && (Date.now() - parseInt(timestamp)) > 3600000) {
+                    console.log('[REROUTE] Draft data is stale, ignoring');
+                    sessionStorage.removeItem('tmi_reroute_draft');
+                    sessionStorage.removeItem('tmi_reroute_draft_timestamp');
+                    return;
+                }
+
+                this.rerouteData = JSON.parse(dataStr);
+                console.log('[REROUTE] Loaded draft data:', this.rerouteData);
+
+                // Switch to reroute tab
+                $('#reroute-tab').tab('show');
+
+                // Populate form
+                this.populateForm();
+
+                // Show source info
+                $('#rerouteSourceInfo').show();
+                $('#rerouteRouteCount').text(
+                    ` - ${this.rerouteData.routes?.length || 0} route(s)`
+                );
+
+                // Clean up sessionStorage
+                sessionStorage.removeItem('tmi_reroute_draft');
+                sessionStorage.removeItem('tmi_reroute_draft_timestamp');
+
+            } catch (e) {
+                console.error('[REROUTE] Failed to load from sessionStorage:', e);
+            }
+        },
+
+        /**
+         * Populate form from loaded data
+         */
+        populateForm: function() {
+            if (!this.rerouteData) return;
+
+            const adv = this.rerouteData.advisory || {};
+
+            // Basic info
+            $('#rr_facility').val(adv.facility || 'DCC');
+            $('#rr_name').val(adv.name || '');
+            $('#rr_constrained_area').val(adv.constrainedArea || '');
+            $('#rr_reason').val(adv.reason || 'WEATHER');
+            $('#rr_include_traffic').val(adv.includeTraffic || '');
+            $('#rr_time_basis').val(adv.timeBasis || 'ETD');
+            $('#rr_prob_extension').val(adv.probExtension || 'MEDIUM');
+            $('#rr_remarks').val(adv.remarks || '');
+
+            // Parse and set valid times
+            if (adv.validStart) {
+                const start = this.parseValidTime(adv.validStart);
+                if (start) $('#rr_valid_from').val(start);
+            }
+            if (adv.validEnd) {
+                const end = this.parseValidTime(adv.validEnd);
+                if (end) $('#rr_valid_until').val(end);
+            }
+
+            // Populate routes table
+            this.populateRoutesTable(this.rerouteData.routes || []);
+
+            // Populate facilities grid
+            this.populateFacilitiesGrid(this.rerouteData.facilities || []);
+
+            // Auto-generate include traffic if not provided
+            if (!adv.includeTraffic) {
+                this.autoGenerateIncludeTraffic();
+            }
+        },
+
+        /**
+         * Populate routes table
+         */
+        populateRoutesTable: function(routes) {
+            const $tbody = $('#rr_routes_body');
+            $tbody.empty();
+
+            if (!routes.length) {
+                $tbody.html(`
+                    <tr class="rr-empty-row">
+                        <td colspan="4" class="text-center text-muted py-3">
+                            No routes available.
+                        </td>
+                    </tr>
+                `);
+                return;
+            }
+
+            const self = this;
+            routes.forEach((route, idx) => {
+                $tbody.append(`
+                    <tr data-idx="${idx}">
+                        <td>
+                            <input type="text" class="form-control form-control-sm rr-route-origin"
+                                   value="${self.escapeHtml(route.origin)}"
+                                   style="font-family: monospace;">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm rr-route-dest"
+                                   value="${self.escapeHtml(route.destination)}"
+                                   style="font-family: monospace;">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm rr-route-string"
+                                   value="${self.escapeHtml(route.route)}"
+                                   style="font-family: monospace;">
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger rr-remove-route"
+                                    data-idx="${idx}" title="Remove">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `);
+            });
+        },
+
+        /**
+         * Populate facilities grid with checkboxes
+         */
+        populateFacilitiesGrid: function(facilities) {
+            // Uncheck all first
+            $('.rr-facility-cb').prop('checked', false);
+
+            // Check the ones in the facilities array
+            facilities.forEach(artcc => {
+                $('#rr_fac_' + artcc).prop('checked', true);
+            });
+        },
+
+        /**
+         * Fetch next advisory number from API
+         */
+        fetchNextAdvisoryNumber: async function() {
+            try {
+                const response = await fetch('/api/mgt/tmi/advisory-number.php?peek=1');
+                if (response.ok) {
+                    const data = await response.json();
+                    $('#rr_adv_number').val(data.advisory_number || '001');
+                }
+            } catch (e) {
+                console.warn('[REROUTE] Could not fetch advisory number:', e);
+                $('#rr_adv_number').val('001');
+            }
+        },
+
+        /**
+         * Generate advisory preview text
+         */
+        generatePreview: function() {
+            const routes = this.collectRoutes();
+            const facilities = this.getSelectedFacilities();
+
+            const params = {
+                advisory_number: $('#rr_adv_number').val() || '001',
+                facility: $('#rr_facility').val() || 'DCC',
+                name: $('#rr_name').val() || '',
+                constrained_area: $('#rr_constrained_area').val() || '',
+                reason: $('#rr_reason').val() || 'WEATHER',
+                include_traffic: $('#rr_include_traffic').val() || '',
+                facilities_included: facilities.join('/'),
+                valid_from: $('#rr_valid_from').val() || '',
+                valid_until: $('#rr_valid_until').val() || '',
+                time_basis: $('#rr_time_basis').val() || 'ETD',
+                prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
+                remarks: $('#rr_remarks').val() || '',
+                routes: routes
+            };
+
+            const preview = this.formatRerouteAdvisory(params);
+            $('#rr_preview_text').text(preview);
+        },
+
+        /**
+         * Format reroute advisory text
+         */
+        formatRerouteAdvisory: function(params) {
+            const now = new Date();
+            const headerDate = (now.getUTCMonth() + 1).toString().padStart(2, '0') + '/' +
+                              now.getUTCDate().toString().padStart(2, '0') + '/' +
+                              now.getUTCFullYear();
+
+            const validFromDt = params.valid_from ? new Date(params.valid_from) : now;
+            const validUntilDt = params.valid_until ? new Date(params.valid_until) :
+                                new Date(now.getTime() + 4 * 3600000);
+
+            const startStr = validFromDt.getUTCDate().toString().padStart(2, '0') +
+                            validFromDt.getUTCHours().toString().padStart(2, '0') +
+                            validFromDt.getUTCMinutes().toString().padStart(2, '0');
+            const endStr = validUntilDt.getUTCDate().toString().padStart(2, '0') +
+                          validUntilDt.getUTCHours().toString().padStart(2, '0') +
+                          validUntilDt.getUTCMinutes().toString().padStart(2, '0');
+
+            const tmiId = 'RR' + params.facility + params.advisory_number;
+
+            let lines = [];
+            lines.push(`vATCSCC ADVZY ${params.advisory_number} ${params.facility} ${headerDate} ROUTE RQD`);
+            if (params.name) lines.push(`NAME: ${params.name.toUpperCase()}`);
+            if (params.constrained_area) lines.push(`CONSTRAINED AREA: ${params.constrained_area.toUpperCase()}`);
+            lines.push(`REASON: ${params.reason.toUpperCase()}`);
+            if (params.include_traffic) lines.push(`INCLUDE TRAFFIC: ${params.include_traffic.toUpperCase()}`);
+            if (params.facilities_included) lines.push(`FACILITIES INCLUDED: ${params.facilities_included}`);
+            lines.push(`FLIGHT STATUS: ALL FLIGHTS`);
+            lines.push(`VALID: ${params.time_basis} ${startStr} TO ${endStr}`);
+            lines.push(`PROBABILITY OF EXTENSION: ${params.prob_extension}`);
+            if (params.remarks) lines.push(`REMARKS: ${params.remarks}`);
+            lines.push(`ROUTES:`);
+            lines.push('');
+
+            // Route table
+            lines.push(this.formatRouteTable(params.routes));
+
+            lines.push('');
+            lines.push(`TMI ID: ${tmiId}`);
+            lines.push(`${startStr} - ${endStr}`);
+
+            const timestampStr = now.getUTCFullYear().toString().slice(2) + '/' +
+                                (now.getUTCMonth() + 1).toString().padStart(2, '0') + '/' +
+                                now.getUTCDate().toString().padStart(2, '0') + ' ' +
+                                now.getUTCHours().toString().padStart(2, '0') + ':' +
+                                now.getUTCMinutes().toString().padStart(2, '0');
+            lines.push(timestampStr);
+
+            return lines.join('\n');
+        },
+
+        /**
+         * Format route table for advisory
+         */
+        formatRouteTable: function(routes) {
+            if (!routes || !routes.length) {
+                return 'ORIG       DEST       ROUTE\n----       ----       -----\n(No routes specified)';
+            }
+
+            let maxOrigLen = 4, maxDestLen = 4;
+            routes.forEach(r => {
+                maxOrigLen = Math.max(maxOrigLen, (r.origin || '').length);
+                maxDestLen = Math.max(maxDestLen, (r.destination || '').length);
+            });
+
+            const origColWidth = maxOrigLen + 3;
+            const destColWidth = maxDestLen + 3;
+
+            let output = 'ORIG'.padEnd(origColWidth) + 'DEST'.padEnd(destColWidth) + 'ROUTE\n';
+            output += '----'.padEnd(origColWidth) + '----'.padEnd(destColWidth) + '-----\n';
+
+            routes.forEach(r => {
+                const orig = (r.origin || '---').toUpperCase();
+                const dest = (r.destination || '---').toUpperCase();
+                const route = (r.route || '').toUpperCase();
+                output += orig.padEnd(origColWidth) + dest.padEnd(destColWidth) + route + '\n';
+            });
+
+            return output.trim();
+        },
+
+        /**
+         * Collect routes from form
+         */
+        collectRoutes: function() {
+            const routes = [];
+            $('#rr_routes_body tr:not(.rr-empty-row)').each(function() {
+                const $row = $(this);
+                const origin = $row.find('.rr-route-origin').val() || '';
+                const dest = $row.find('.rr-route-dest').val() || '';
+                const route = $row.find('.rr-route-string').val() || '';
+
+                if (origin || dest || route) {
+                    routes.push({ origin, destination: dest, route });
+                }
+            });
+            return routes;
+        },
+
+        /**
+         * Get selected facilities
+         */
+        getSelectedFacilities: function() {
+            const facilities = [];
+            $('.rr-facility-cb:checked').each(function() {
+                facilities.push($(this).val());
+            });
+            return facilities;
+        },
+
+        /**
+         * Save draft to database
+         */
+        saveDraft: async function() {
+            const routes = this.collectRoutes();
+            const facilities = this.getSelectedFacilities();
+
+            const draftData = {
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                source: 'tmi-publisher',
+                advisory: {
+                    facility: $('#rr_facility').val() || 'DCC',
+                    name: $('#rr_name').val() || '',
+                    constrainedArea: $('#rr_constrained_area').val() || '',
+                    reason: $('#rr_reason').val() || 'WEATHER',
+                    includeTraffic: $('#rr_include_traffic').val() || '',
+                    validStart: $('#rr_valid_from').val() || '',
+                    validEnd: $('#rr_valid_until').val() || '',
+                    timeBasis: $('#rr_time_basis').val() || 'ETD',
+                    probExtension: $('#rr_prob_extension').val() || 'MEDIUM',
+                    remarks: $('#rr_remarks').val() || ''
+                },
+                facilities: facilities,
+                routes: routes,
+                geojson: this.rerouteData?.geojson || null
+            };
+
+            try {
+                const response = await fetch('/api/mgt/tmi/reroute-drafts.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_cid: this.userCid,
+                        user_name: this.userName,
+                        draft_name: draftData.advisory.name || `${routes[0]?.origin || 'Unknown'}-${routes[0]?.destination || 'Unknown'} Reroute`,
+                        draft_data: draftData
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Draft Saved',
+                        text: `Draft saved successfully (ID: ${result.draft_id})`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    this.loadDraftsList();
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+            } catch (e) {
+                Swal.fire('Error', 'Failed to save draft: ' + e.message, 'error');
+            }
+        },
+
+        /**
+         * Load drafts list for current user
+         */
+        loadDraftsList: async function() {
+            const $list = $('#rr_drafts_list');
+
+            if (!this.userCid) {
+                $list.html('<div class="list-group-item text-center text-muted small">Sign in to save drafts</div>');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/mgt/tmi/reroute-drafts.php?user_cid=${this.userCid}&limit=10`);
+                const result = await response.json();
+
+                if (!result.success || !result.drafts.length) {
+                    $list.html('<div class="list-group-item text-center text-muted small">No saved drafts</div>');
+                    return;
+                }
+
+                let html = '';
+                const self = this;
+                result.drafts.forEach(draft => {
+                    const updatedAt = new Date(draft.updated_at).toLocaleString();
+                    html += `
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center rr-draft-item"
+                           data-draft-id="${draft.draft_id}">
+                            <div>
+                                <div class="font-weight-bold small">${self.escapeHtml(draft.draft_name || 'Untitled')}</div>
+                                <small class="text-muted">${updatedAt}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger rr-delete-draft" data-draft-id="${draft.draft_id}"
+                                    onclick="event.stopPropagation(); RerouteHandler.deleteDraft(${draft.draft_id});">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </a>
+                    `;
+                });
+
+                $list.html(html);
+
+            } catch (e) {
+                console.error('[REROUTE] Failed to load drafts:', e);
+                $list.html('<div class="list-group-item text-center text-danger small">Failed to load drafts</div>');
+            }
+        },
+
+        /**
+         * Load a specific draft
+         */
+        loadDraft: async function(draftId) {
+            try {
+                const response = await fetch(`/api/mgt/tmi/reroute-drafts.php?draft_id=${draftId}`);
+                const result = await response.json();
+
+                if (!result.success || !result.draft) {
+                    throw new Error('Draft not found');
+                }
+
+                this.rerouteData = result.draft.draft_data;
+                this.populateForm();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Draft Loaded',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
+            } catch (e) {
+                Swal.fire('Error', 'Failed to load draft: ' + e.message, 'error');
+            }
+        },
+
+        /**
+         * Delete a draft
+         */
+        deleteDraft: async function(draftId) {
+            const confirm = await Swal.fire({
+                title: 'Delete Draft?',
+                text: 'This cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Delete'
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            try {
+                const response = await fetch(`/api/mgt/tmi/reroute-drafts.php?draft_id=${draftId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    this.loadDraftsList();
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+            } catch (e) {
+                Swal.fire('Error', 'Failed to delete draft: ' + e.message, 'error');
+            }
+        },
+
+        /**
+         * Submit for coordination
+         */
+        submitForCoordination: async function() {
+            const routes = this.collectRoutes();
+            const facilities = this.getSelectedFacilities();
+
+            if (!routes.length) {
+                Swal.fire('Error', 'At least one route is required.', 'error');
+                return;
+            }
+
+            if (!facilities.length) {
+                Swal.fire('Error', 'Select at least one facility for coordination.', 'error');
+                return;
+            }
+
+            // Build entry data
+            const entryData = {
+                entryType: 'REROUTE',
+                data: {
+                    entry_type: 'REROUTE',
+                    req_facility: $('#rr_facility').val() || 'DCC',
+                    name: $('#rr_name').val() || '',
+                    constrained_area: $('#rr_constrained_area').val() || '',
+                    reason: $('#rr_reason').val() || 'WEATHER',
+                    include_traffic: $('#rr_include_traffic').val() || '',
+                    valid_from: $('#rr_valid_from').val() || '',
+                    valid_until: $('#rr_valid_until').val() || '',
+                    time_basis: $('#rr_time_basis').val() || 'ETD',
+                    airborne_filter: $('#rr_airborne_filter').val() || 'NOT_AIRBORNE',
+                    prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
+                    remarks: $('#rr_remarks').val() || '',
+                    routes: routes,
+                    geojson: this.rerouteData?.geojson || null
+                },
+                rawText: $('#rr_preview_text').text()
+            };
+
+            // Get selected Discord orgs
+            const orgs = [];
+            $('.discord-org-checkbox-rr:checked').each(function() {
+                orgs.push($(this).val());
+            });
+
+            // Show deadline dialog
+            const { value: deadline } = await Swal.fire({
+                title: 'Coordination Deadline',
+                html: `
+                    <p class="mb-2">Set deadline for facility approvals:</p>
+                    <input type="datetime-local" id="swal-deadline" class="swal2-input"
+                           style="width: 100%;">
+                    <p class="small text-muted mt-2">
+                        Facilities: ${facilities.join(', ')}
+                    </p>
+                `,
+                didOpen: () => {
+                    // Default: 30 minutes from now
+                    const defaultDeadline = new Date(Date.now() + 30 * 60000);
+                    const isoStr = defaultDeadline.toISOString().slice(0, 16);
+                    document.getElementById('swal-deadline').value = isoStr;
+                },
+                preConfirm: () => {
+                    return document.getElementById('swal-deadline').value;
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Submit',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (!deadline) return;
+
+            // Submit to coordination API
+            Swal.fire({
+                title: 'Submitting...',
+                text: 'Creating coordination proposal',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const response = await fetch('/api/mgt/tmi/coordinate.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entry: entryData,
+                        deadlineUtc: deadline + ':00.000Z',
+                        facilities: facilities.map(f => ({ code: f })),
+                        orgs: orgs,
+                        userCid: this.userCid,
+                        userName: this.userName
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Submitted for Coordination',
+                        html: `
+                            <p>Proposal ID: <strong>${result.proposal_id}</strong></p>
+                            ${result.auto_approved ?
+                                '<p class="text-success">Auto-approved (internal TMI)</p>' :
+                                '<p>Awaiting facility approvals on Discord.</p>'
+                            }
+                        `,
+                        confirmButtonText: 'View in Coordination Tab'
+                    }).then(() => {
+                        // Switch to coordination tab
+                        $('#coordination-tab').tab('show');
+                        // Refresh proposals list
+                        if (typeof loadProposals === 'function') {
+                            loadProposals();
+                        }
+                    });
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+            } catch (e) {
+                Swal.fire('Error', 'Failed to submit: ' + e.message, 'error');
+            }
+        },
+
+        /**
+         * Reset form
+         */
+        resetForm: function() {
+            this.rerouteData = null;
+            $('#reroutePanel input:not([type="checkbox"]), #reroutePanel textarea').val('');
+            $('#reroutePanel select').each(function() {
+                $(this).val($(this).find('option:first').val());
+            });
+            $('#rr_routes_body').html(`
+                <tr class="rr-empty-row">
+                    <td colspan="4" class="text-center text-muted py-3">
+                        No routes loaded. Use Route Plotter to create routes, or add manually.
+                    </td>
+                </tr>
+            `);
+            $('.rr-facility-cb').prop('checked', false);
+            $('#rerouteSourceInfo').hide();
+            $('#rr_preview_text').text('Generate preview to see advisory text...');
+            this.fetchNextAdvisoryNumber();
+        },
+
+        /**
+         * Add empty route row
+         */
+        addRouteRow: function() {
+            const $tbody = $('#rr_routes_body');
+            // Remove empty row placeholder if present
+            $tbody.find('.rr-empty-row').remove();
+
+            const idx = $tbody.find('tr').length;
+            $tbody.append(`
+                <tr data-idx="${idx}">
+                    <td><input type="text" class="form-control form-control-sm rr-route-origin"
+                               style="font-family: monospace;" placeholder="KABC"></td>
+                    <td><input type="text" class="form-control form-control-sm rr-route-dest"
+                               style="font-family: monospace;" placeholder="KXYZ"></td>
+                    <td><input type="text" class="form-control form-control-sm rr-route-string"
+                               style="font-family: monospace;" placeholder="DCT FIX1 J123 FIX2 DCT"></td>
+                    <td><button class="btn btn-sm btn-outline-danger rr-remove-route"
+                                data-idx="${idx}"><i class="fas fa-times"></i></button></td>
+                </tr>
+            `);
+        },
+
+        /**
+         * Bind event handlers
+         */
+        bindEvents: function() {
+            const self = this;
+
+            $('#rr_preview').on('click', () => self.generatePreview());
+            $('#rr_submit_coordination').on('click', () => self.submitForCoordination());
+            $('#rr_save_draft').on('click', () => self.saveDraft());
+            $('#rr_refresh_drafts').on('click', () => self.loadDraftsList());
+
+            $('#rr_add_route').on('click', () => self.addRouteRow());
+
+            $(document).on('click', '.rr-remove-route', function() {
+                $(this).closest('tr').remove();
+                // Show empty row if no routes left
+                if ($('#rr_routes_body tr').length === 0) {
+                    $('#rr_routes_body').html(`
+                        <tr class="rr-empty-row">
+                            <td colspan="4" class="text-center text-muted py-3">
+                                No routes loaded.
+                            </td>
+                        </tr>
+                    `);
+                }
+            });
+
+            $(document).on('click', '.rr-draft-item', function(e) {
+                e.preventDefault();
+                const draftId = $(this).data('draft-id');
+                self.loadDraft(draftId);
+            });
+
+            $('#rr_reset').on('click', () => {
+                Swal.fire({
+                    title: 'Reset Form?',
+                    text: 'This will clear all fields.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Reset'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        self.resetForm();
+                    }
+                });
+            });
+        },
+
+        // Helper methods
+        escapeHtml: function(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        },
+
+        parseValidTime: function(timeStr) {
+            // Convert DDHHMM to datetime-local format
+            if (!timeStr || timeStr.length < 6) return null;
+            const now = new Date();
+            const dd = timeStr.slice(0, 2);
+            const hh = timeStr.slice(2, 4);
+            const mm = timeStr.slice(4, 6);
+            const year = now.getUTCFullYear();
+            const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
+            return `${year}-${month}-${dd}T${hh}:${mm}`;
+        },
+
+        autoGenerateIncludeTraffic: function() {
+            if (!this.rerouteData?.routes?.length) return;
+
+            const origins = new Set();
+            const dests = new Set();
+
+            this.rerouteData.routes.forEach(r => {
+                if (r.origin) origins.add(r.origin.toUpperCase());
+                if (r.destination) dests.add(r.destination.toUpperCase());
+                (r.originAirports || []).forEach(a => origins.add(a.toUpperCase()));
+                (r.destAirports || []).forEach(a => dests.add(a.toUpperCase()));
+            });
+
+            if (origins.size && dests.size) {
+                const originStr = Array.from(origins).map(a =>
+                    a.startsWith('K') ? a : 'K' + a
+                ).join('/');
+                const destStr = Array.from(dests).map(a =>
+                    a.startsWith('K') ? a : 'K' + a
+                ).join('/');
+
+                $('#rr_include_traffic').val(`${originStr} DEPARTURES TO ${destStr}`);
+            }
+        }
+    };
+
+    // Expose RerouteHandler globally for event handlers
+    window.RerouteHandler = RerouteHandler;
 
     // ===========================================
     // Public API

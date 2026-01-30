@@ -522,6 +522,20 @@ function handleSubmitForCoordination() {
         }
 
         // ===================================================
+        // HANDLE REROUTE ENTRY TYPE
+        // Create draft reroute record and link to proposal
+        // ===================================================
+        $rerouteId = null;
+        if (strtoupper($entryType) === 'REROUTE') {
+            $rerouteId = createDraftReroute($conn, $entry, $userCid, $proposalId);
+            if ($rerouteId) {
+                // Update proposal with reroute_id
+                $linkSql = "UPDATE dbo.tmi_proposals SET reroute_id = :rr_id WHERE proposal_id = :prop_id";
+                $conn->prepare($linkSql)->execute([':rr_id' => $rerouteId, ':prop_id' => $proposalId]);
+            }
+        }
+
+        // ===================================================
         // CHECK FOR INTERNAL TMI (same responsible ARTCC)
         // If all providers share the same responsible ARTCC as the requester,
         // auto-approve immediately without coordination
@@ -2377,13 +2391,44 @@ function activateProposal($conn, $proposalId) {
         $log("Status will be: {$newStatus}");
 
         // ===================================================
-        // Handle ROUTE entries specially - they live in tmi_public_routes
+        // Handle special entry types
         // ===================================================
         $entryType = $proposal['entry_type'] ?? '';
         $tmiEntryId = null;
         $discordResult = null;
 
-        if (strtoupper($entryType) === 'ROUTE') {
+        // ===================================================
+        // Handle REROUTE entries - they live in tmi_reroutes
+        // ===================================================
+        if (strtoupper($entryType) === 'REROUTE') {
+            $rerouteId = $proposal['reroute_id'] ?? $entryData['reroute_id'] ?? null;
+            $log("Processing REROUTE proposal, reroute_id: " . ($rerouteId ?: 'UNKNOWN'));
+
+            if ($rerouteId) {
+                // Update reroute status to ACTIVE (2)
+                $updateRerouteSql = "UPDATE dbo.tmi_reroutes SET
+                                         status = 2,
+                                         activated_utc = SYSUTCDATETIME(),
+                                         updated_at = SYSUTCDATETIME()
+                                     WHERE reroute_id = :reroute_id";
+                $updateRerouteStmt = $conn->prepare($updateRerouteSql);
+                $updateRerouteStmt->execute([':reroute_id' => $rerouteId]);
+                $log("Reroute status set to ACTIVE (2) for reroute_id: $rerouteId");
+
+                // Publish to Discord advisories channel if not scheduled for later
+                if (!$shouldSchedule) {
+                    $discordResult = publishRerouteToAdvisories($conn, $rerouteId, $rawText, $entryData);
+                    $log("Reroute Discord publish result: " . json_encode($discordResult));
+                }
+            }
+
+            // Use reroute_id as the "entry" reference
+            $tmiEntryId = $rerouteId;
+
+        // ===================================================
+        // Handle ROUTE entries - they live in tmi_public_routes
+        // ===================================================
+        } elseif (strtoupper($entryType) === 'ROUTE') {
             // ROUTE: Publish to advisories channel and update tmi_public_routes
             // Get route_id from proposal record (preferred) or entry_data_json (fallback)
             $routeId = $proposal['route_id'] ?? $entryData['route_id'] ?? null;
@@ -2468,6 +2513,131 @@ function activateProposal($conn, $proposalId) {
 
     } catch (Exception $e) {
         $log("ERROR: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Create draft reroute record when REROUTE proposal is submitted
+ */
+function createDraftReroute($conn, $entry, $userCid, $proposalId) {
+    $data = $entry['data'] ?? [];
+    $routes = $data['routes'] ?? [];
+
+    try {
+        // Collect origin/dest airports from routes
+        $origAirports = [];
+        $destAirports = [];
+        foreach ($routes as $r) {
+            if (!empty($r['origin'])) $origAirports[] = strtoupper(trim($r['origin']));
+            if (!empty($r['destination'])) $destAirports[] = strtoupper(trim($r['destination']));
+        }
+
+        // Insert main reroute record with status=1 (PROPOSED)
+        $sql = "INSERT INTO dbo.tmi_reroutes (
+                    status, name, start_utc, end_utc, time_basis,
+                    origin_airports, origin_centers, dest_airports, dest_centers,
+                    impacting_condition, comments, airborne_filter,
+                    route_geojson, source_type, created_by, created_at
+                ) OUTPUT INSERTED.reroute_id
+                VALUES (
+                    1, :name, :start, :end, :time_basis,
+                    :orig_apt, :orig_ctr, :dest_apt, :dest_ctr,
+                    :reason, :remarks, :airborne,
+                    :geojson, 'COORDINATION', :user_cid, SYSUTCDATETIME()
+                )";
+
+        $validFrom = null;
+        $validUntil = null;
+        if (!empty($data['valid_from'])) {
+            $validFrom = (new DateTime($data['valid_from']))->format('Y-m-d H:i:s');
+        }
+        if (!empty($data['valid_until'])) {
+            $validUntil = (new DateTime($data['valid_until']))->format('Y-m-d H:i:s');
+        }
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':name' => $data['name'] ?? 'Untitled Reroute',
+            ':start' => $validFrom,
+            ':end' => $validUntil,
+            ':time_basis' => $data['time_basis'] ?? 'ETD',
+            ':orig_apt' => json_encode(array_unique($origAirports)),
+            ':orig_ctr' => json_encode([]),
+            ':dest_apt' => json_encode(array_unique($destAirports)),
+            ':dest_ctr' => json_encode([]),
+            ':reason' => $data['reason'] ?? 'WEATHER',
+            ':remarks' => $data['remarks'] ?? '',
+            ':airborne' => $data['airborne_filter'] ?? 'NOT_AIRBORNE',
+            ':geojson' => isset($data['geojson']) ? json_encode($data['geojson']) : null,
+            ':user_cid' => $userCid
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $rerouteId = $row['reroute_id'];
+
+        // Insert individual routes
+        if ($rerouteId && !empty($routes)) {
+            $routeSql = "INSERT INTO dbo.tmi_reroute_routes
+                         (reroute_id, origin, destination, route_string, sort_order)
+                         VALUES (?, ?, ?, ?, ?)";
+
+            $sortOrder = 0;
+            foreach ($routes as $route) {
+                $conn->prepare($routeSql)->execute([
+                    $rerouteId,
+                    strtoupper(trim($route['origin'] ?? '')),
+                    strtoupper(trim($route['destination'] ?? '')),
+                    trim($route['route'] ?? ''),
+                    $sortOrder++
+                ]);
+            }
+        }
+
+        return $rerouteId;
+
+    } catch (Exception $e) {
+        error_log("[COORD_REROUTE] Failed to create draft reroute: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Publish approved reroute to Discord advisories channel
+ */
+function publishRerouteToAdvisories($conn, $rerouteId, $rawText, $entryData) {
+    try {
+        // Post to advisories channel using TMIDiscord
+        $discord = new TMIDiscord();
+
+        // Build advisory message
+        $message = "```\n" . $rawText . "\n```";
+
+        // Post to advisories channel
+        $result = $discord->postToChannel('advzy_production', $message);
+
+        if ($result && isset($result['id'])) {
+            // Update reroute with Discord message ID
+            $updateSql = "UPDATE dbo.tmi_reroutes SET
+                              discord_message_id = :msg_id,
+                              discord_posted_at = SYSUTCDATETIME()
+                          WHERE reroute_id = :rr_id";
+            $conn->prepare($updateSql)->execute([
+                ':msg_id' => $result['id'],
+                ':rr_id' => $rerouteId
+            ]);
+
+            return [
+                'success' => true,
+                'message_id' => $result['id'],
+                'channel_id' => $result['channel_id'] ?? null
+            ];
+        }
+
+        return ['success' => false, 'error' => 'No message ID returned'];
+
+    } catch (Exception $e) {
+        error_log("[COORD_REROUTE] Failed to publish reroute: " . $e->getMessage());
         return ['success' => false, 'error' => $e->getMessage()];
     }
 }
