@@ -7711,6 +7711,8 @@
          * This format groups routes by common segments and shows:
          * - FROM section: Origins with their route segments to the common point
          * - TO section: Common point to destinations
+         *
+         * Only waypoints are valid split points (not airways or procedures)
          */
         formatSplitRouteTable: function(routes) {
             const MAX_LINE = 68;
@@ -7719,6 +7721,53 @@
             if (!routes || !routes.length) {
                 return 'ORIG                 ROUTE - ORIGIN SEGMENTS\n----                 -----------------------\n(No routes specified)';
             }
+
+            // Token classification helpers
+            // Airways: letter(s) + numbers (J60, V16, Q99, T200, AR10, A216)
+            const isAirway = (token) => {
+                if (!token) return false;
+                // Check against known airways if available
+                if (typeof awys !== 'undefined' && Array.isArray(awys)) {
+                    const found = awys.some(a => a[0] === token);
+                    if (found) return true;
+                }
+                // Pattern match: 1-2 letters followed by digits (J60, V16, Q99, T200, AR10)
+                return /^[A-Z]{1,2}\d+$/.test(token);
+            };
+
+            // Procedures (SID/STAR): typically 4+ letters followed by digit(s)
+            // Examples: RNAV6, CAMRN4, WYNDE3, MERIT2
+            const isProcedure = (token) => {
+                if (!token) return false;
+                // Pattern: 4+ letters followed by 1-2 digits at the end
+                return /^[A-Z]{4,}\d{1,2}$/.test(token);
+            };
+
+            // Waypoints: everything that's not an airway or procedure
+            // Typically 3-5 letter codes (VORs, fixes)
+            const isWaypoint = (token) => {
+                if (!token) return false;
+                if (isAirway(token)) return false;
+                if (isProcedure(token)) return false;
+                // Valid waypoints: 2-5 alphanumeric (mostly letters)
+                return /^[A-Z0-9]{2,5}$/.test(token);
+            };
+
+            // Find first waypoint in tokens starting from index
+            const findFirstWaypoint = (tokens, startIdx) => {
+                for (let i = startIdx; i < tokens.length; i++) {
+                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
+                }
+                return null;
+            };
+
+            // Find last waypoint in tokens up to (but not including) endIdx
+            const findLastWaypoint = (tokens, endIdx) => {
+                for (let i = endIdx - 1; i >= 0; i--) {
+                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
+                }
+                return null;
+            };
 
             // Tokenize all routes for comparison
             const tokenizedRoutes = routes.map(r => ({
@@ -7731,16 +7780,18 @@
             }));
 
             // Find common route segment (longest common contiguous subsequence)
+            // Important: The boundaries of the common segment must be waypoints
             const findCommonSegment = (routes) => {
-                if (routes.length < 2) return { common: [], originSegs: [], destSegs: [] };
+                if (routes.length < 2) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null };
 
                 const allTokens = routes.map(r => r.tokens);
-                if (allTokens.some(t => !t.length)) return { common: [], originSegs: [], destSegs: [] };
+                if (allTokens.some(t => !t.length)) return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null };
 
                 // Try to find the longest common contiguous segment
                 const firstRoute = allTokens[0];
                 let bestCommon = [];
-                let bestStart = -1;
+                let bestEntryWpt = null;
+                let bestExitWpt = null;
 
                 for (let start = 0; start < firstRoute.length; start++) {
                     for (let len = firstRoute.length - start; len > 0; len--) {
@@ -7754,15 +7805,24 @@
                             return tokensStr.includes(candidateStr);
                         });
 
-                        if (allMatch && candidate.length > bestCommon.length) {
-                            bestCommon = candidate;
-                            bestStart = start;
+                        if (allMatch) {
+                            // Find the entry waypoint (first waypoint in common segment)
+                            const entryWpt = findFirstWaypoint(candidate, 0);
+                            // Find the exit waypoint (last waypoint in common segment)
+                            const exitWpt = findLastWaypoint(candidate, candidate.length);
+
+                            // Only accept if we have valid waypoint boundaries
+                            if (entryWpt && exitWpt && candidate.length > bestCommon.length) {
+                                bestCommon = candidate;
+                                bestEntryWpt = entryWpt.token;
+                                bestExitWpt = exitWpt.token;
+                            }
                         }
                     }
                 }
 
-                if (!bestCommon.length || bestCommon.length < 2) {
-                    return { common: [], originSegs: [], destSegs: [] };
+                if (!bestCommon.length || bestCommon.length < 2 || !bestEntryWpt || !bestExitWpt) {
+                    return { common: [], originSegs: [], destSegs: [], entryWpt: null, exitWpt: null };
                 }
 
                 // Extract origin and destination segments for each route
@@ -7777,14 +7837,14 @@
                     if (commonIdx >= 0) {
                         // Origin segment: everything before common
                         const origPart = fullRoute.slice(0, commonIdx).trim();
-                        // Dest segment: everything after common (including common end fix for context)
+                        // Dest segment: everything after common
                         const destStart = commonIdx + commonStr.length;
                         const destPart = fullRoute.slice(destStart).trim();
 
-                        // Add first fix of common to origin segment for context
-                        const origSeg = origPart ? origPart + ' >' + bestCommon[0] : '>' + bestCommon[0];
-                        // Add last fix of common to dest segment for context
-                        const destSeg = destPart ? bestCommon[bestCommon.length - 1] + '< ' + destPart : bestCommon[bestCommon.length - 1] + '<';
+                        // Add entry waypoint marker (>) for origin segment
+                        const origSeg = origPart ? origPart + ' >' + bestEntryWpt : '>' + bestEntryWpt;
+                        // Add exit waypoint marker (<) for dest segment
+                        const destSeg = destPart ? bestExitWpt + '< ' + destPart : bestExitWpt + '<';
 
                         originSegs.push({
                             origin: r.origDisplay,
@@ -7800,10 +7860,10 @@
                     }
                 });
 
-                return { common: bestCommon, originSegs, destSegs };
+                return { common: bestCommon, originSegs, destSegs, entryWpt: bestEntryWpt, exitWpt: bestExitWpt };
             };
 
-            const { common, originSegs, destSegs } = findCommonSegment(tokenizedRoutes);
+            const { common, originSegs, destSegs, entryWpt, exitWpt } = findCommonSegment(tokenizedRoutes);
 
             // If no common segment found, fall back to showing routes by origin
             if (!common.length) {
@@ -7851,14 +7911,15 @@
 
             let output = '';
 
-            // Common segment header
-            output += 'COMMON ROUTE SEGMENT: ' + common.join(' ') + '\n';
+            // Common segment header with entry/exit waypoints
+            output += 'COMMON ROUTE: ' + common.join(' ') + '\n';
+            output += '(Entry: ' + entryWpt + ', Exit: ' + exitWpt + ')\n';
             output += '\n';
 
             // FROM / ORIGIN SEGMENTS section
             output += 'FROM:\n';
-            output += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE - ORIGIN SEGMENTS\n';
-            output += '----'.padEnd(LABEL_WIDTH) + '-----------------------\n';
+            output += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE - ORIGIN SEGMENTS (to >' + entryWpt + ')\n';
+            output += '----'.padEnd(LABEL_WIDTH) + ''.padEnd(35, '-') + '\n';
 
             // Group by origin
             const byOrig = {};
@@ -7881,8 +7942,8 @@
 
             // TO / DESTINATION SEGMENTS section
             output += 'TO:\n';
-            output += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE - DESTINATION SEGMENTS\n';
-            output += '----'.padEnd(LABEL_WIDTH) + '----------------------------\n';
+            output += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE - DESTINATION SEGMENTS (from ' + exitWpt + '<)\n';
+            output += '----'.padEnd(LABEL_WIDTH) + ''.padEnd(40, '-') + '\n';
 
             // Group by destination
             const byDest = {};
@@ -8011,6 +8072,7 @@
 
         /**
          * Detect common segments in routes and show analysis
+         * Only considers waypoints as valid split points (not airways or procedures)
          */
         detectCommonSegments: function() {
             const routes = this.collectRoutes();
@@ -8025,16 +8087,54 @@
                 return;
             }
 
+            // Token classification helpers (same as formatSplitRouteTable)
+            const isAirway = (token) => {
+                if (!token) return false;
+                if (typeof awys !== 'undefined' && Array.isArray(awys)) {
+                    const found = awys.some(a => a[0] === token);
+                    if (found) return true;
+                }
+                return /^[A-Z]{1,2}\d+$/.test(token);
+            };
+
+            const isProcedure = (token) => {
+                if (!token) return false;
+                return /^[A-Z]{4,}\d{1,2}$/.test(token);
+            };
+
+            const isWaypoint = (token) => {
+                if (!token) return false;
+                if (isAirway(token)) return false;
+                if (isProcedure(token)) return false;
+                return /^[A-Z0-9]{2,5}$/.test(token);
+            };
+
+            const findFirstWaypoint = (tokens, startIdx) => {
+                for (let i = startIdx; i < tokens.length; i++) {
+                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
+                }
+                return null;
+            };
+
+            const findLastWaypoint = (tokens, endIdx) => {
+                for (let i = endIdx - 1; i >= 0; i--) {
+                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
+                }
+                return null;
+            };
+
             // Tokenize routes
             const tokenizedRoutes = routes.map(r => ({
                 ...r,
                 tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean)
             }));
 
-            // Find longest common contiguous segment
+            // Find longest common contiguous segment with waypoint boundaries
             const allTokens = tokenizedRoutes.map(r => r.tokens);
             const firstRoute = allTokens[0];
             let bestCommon = [];
+            let bestEntryWpt = null;
+            let bestExitWpt = null;
 
             for (let start = 0; start < firstRoute.length; start++) {
                 for (let len = firstRoute.length - start; len > 0; len--) {
@@ -8047,20 +8147,40 @@
                         return tokensStr.includes(candidateStr);
                     });
 
-                    if (allMatch && candidate.length > bestCommon.length) {
-                        bestCommon = candidate;
+                    if (allMatch) {
+                        // Find waypoint boundaries
+                        const entryWpt = findFirstWaypoint(candidate, 0);
+                        const exitWpt = findLastWaypoint(candidate, candidate.length);
+
+                        if (entryWpt && exitWpt && candidate.length > bestCommon.length) {
+                            bestCommon = candidate;
+                            bestEntryWpt = entryWpt.token;
+                            bestExitWpt = exitWpt.token;
+                        }
                     }
                 }
             }
 
-            if (bestCommon.length >= 2) {
+            if (bestCommon.length >= 2 && bestEntryWpt && bestExitWpt) {
+                // Classify tokens in the common segment
+                const classified = bestCommon.map(t => {
+                    if (isAirway(t)) return `<span class="text-primary">${t}</span>`;
+                    if (isProcedure(t)) return `<span class="text-warning">${t}</span>`;
+                    return `<b>${t}</b>`;
+                }).join(' ');
+
                 Swal.fire({
                     icon: 'success',
                     title: 'Common Segment Detected',
                     html: `
                         <p>Found common route segment shared by all ${routes.length} routes:</p>
-                        <pre class="text-left bg-light p-2" style="font-size: 0.85rem;">${bestCommon.join(' ')}</pre>
-                        <p class="small text-muted">Use "Split Format" in preview to see separated ORIGIN/DESTINATION segments.</p>
+                        <pre class="text-left bg-light p-2" style="font-size: 0.85rem;">${classified}</pre>
+                        <p class="small"><strong>Entry waypoint:</strong> ${bestEntryWpt} &nbsp; <strong>Exit waypoint:</strong> ${bestExitWpt}</p>
+                        <p class="small text-muted mt-2">
+                            <b>Bold</b> = waypoints (split points),
+                            <span class="text-primary">Blue</span> = airways,
+                            <span class="text-warning">Yellow</span> = procedures
+                        </p>
                     `,
                     confirmButtonText: 'Use Split Format',
                     showCancelButton: true,
@@ -8076,7 +8196,7 @@
                     icon: 'info',
                     title: 'No Common Segment',
                     html: `
-                        <p>No significant common segment found across all ${routes.length} routes.</p>
+                        <p>No significant common segment with waypoint boundaries found across all ${routes.length} routes.</p>
                         <p class="small text-muted">Routes may still be displayed in split format grouped by origin and destination.</p>
                     `,
                     timer: 3000,
