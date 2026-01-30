@@ -6816,7 +6816,7 @@
             if (!routes.length) {
                 $tbody.html(`
                     <tr class="rr-empty-row">
-                        <td colspan="4" class="text-center text-muted py-3">
+                        <td colspan="5" class="text-center text-muted py-3">
                             No routes available.
                         </td>
                     </tr>
@@ -6826,8 +6826,14 @@
 
             const self = this;
             routes.forEach((route, idx) => {
+                // Normalize route string: strip dots between proc and trans
+                const normalizedRoute = self.normalizeRouteString(route.route || '');
+
                 $tbody.append(`
                     <tr data-idx="${idx}">
+                        <td class="text-center align-middle">
+                            <input type="checkbox" class="rr-route-select" data-idx="${idx}">
+                        </td>
                         <td>
                             <input type="text" class="form-control form-control-sm rr-route-origin"
                                    value="${self.escapeHtml(route.origin)}"
@@ -6840,7 +6846,7 @@
                         </td>
                         <td>
                             <input type="text" class="form-control form-control-sm rr-route-string"
-                                   value="${self.escapeHtml(route.route)}"
+                                   value="${self.escapeHtml(normalizedRoute)}"
                                    style="font-family: monospace;">
                         </td>
                         <td>
@@ -6851,6 +6857,182 @@
                         </td>
                     </tr>
                 `);
+            });
+        },
+
+        /**
+         * Normalize route string: strip dots between procedure and transition
+         */
+        normalizeRouteString: function(routeText) {
+            if (!routeText) return '';
+            // Replace PROC.TRANS patterns with PROC TRANS (strip the dot)
+            return routeText.replace(/(\w+)\.(\w+)/g, '$1 $2');
+        },
+
+        /**
+         * Check if a token looks like a DP or STAR procedure (ends with digit)
+         */
+        looksLikeProcedure: function(token) {
+            if (!token) return false;
+            const clean = token.replace(/[<>]/g, '').toUpperCase();
+            // Typical DP/STAR: 4-7 alphanumeric chars ending in a digit
+            if (clean.length < 4 || clean.length > 7) return false;
+            if (!/^[A-Z]+\d$/.test(clean)) return false;
+            // Exclude airport codes
+            if (/^K[A-Z]{3}$/.test(clean)) return false;
+            return true;
+        },
+
+        /**
+         * Make selected routes mandatory by adding >< markers around the route portion
+         * (excluding any DP/STAR procedures at the start/end)
+         */
+        makeRoutesMandatory: function() {
+            const self = this;
+            const $selectedRows = $('#rr_routes_body tr:not(.rr-empty-row)').filter(function() {
+                return $(this).find('.rr-route-select').is(':checked');
+            });
+
+            if ($selectedRows.length === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Routes Selected',
+                    text: 'Please select one or more routes to make mandatory.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            $selectedRows.each(function() {
+                const $input = $(this).find('.rr-route-string');
+                const routeText = $input.val() || '';
+                const mandatoryRoute = self.applyMandatoryMarkers(routeText);
+                $input.val(mandatoryRoute);
+            });
+
+            // Uncheck all after operation
+            $('.rr-route-select').prop('checked', false);
+            $('#rr_select_all_routes').prop('checked', false);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Routes Made Mandatory',
+                text: `Applied mandatory markers to ${$selectedRows.length} route(s).`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        },
+
+        /**
+         * Apply mandatory markers to a route string, excluding DP/STAR at start/end
+         */
+        applyMandatoryMarkers: function(routeText) {
+            if (!routeText) return routeText;
+
+            // Already has markers
+            if (routeText.indexOf('>') !== -1 || routeText.indexOf('<') !== -1) {
+                return routeText;
+            }
+
+            const tokens = routeText.trim().split(/\s+/).filter(Boolean);
+            if (tokens.length === 0) return routeText;
+            if (tokens.length === 1) {
+                // Single token - wrap it if not a procedure
+                if (this.looksLikeProcedure(tokens[0])) {
+                    return routeText; // Don't wrap standalone procedure
+                }
+                return '>' + tokens[0] + '<';
+            }
+
+            // Find first non-procedure token (where mandatory starts)
+            let startIdx = 0;
+            while (startIdx < tokens.length && this.looksLikeProcedure(tokens[startIdx])) {
+                startIdx++;
+            }
+
+            // Find last non-procedure token (where mandatory ends)
+            let endIdx = tokens.length - 1;
+            while (endIdx >= startIdx && this.looksLikeProcedure(tokens[endIdx])) {
+                endIdx--;
+            }
+
+            // If all tokens are procedures, don't add markers
+            if (startIdx > endIdx) {
+                return routeText;
+            }
+
+            // Apply markers
+            tokens[startIdx] = '>' + tokens[startIdx];
+            tokens[endIdx] = tokens[endIdx] + '<';
+
+            return tokens.join(' ');
+        },
+
+        /**
+         * Group routes that share the same route string, consolidating origins/destinations
+         */
+        groupRoutes: function() {
+            const routes = this.collectRoutes();
+            if (routes.length < 2) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Nothing to Group',
+                    text: 'Need at least 2 routes to group.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // Group by normalized route string
+            const routeGroups = {};
+            routes.forEach(r => {
+                const routeKey = (r.route || '').trim().toUpperCase();
+                if (!routeGroups[routeKey]) {
+                    routeGroups[routeKey] = {
+                        origins: new Set(),
+                        destinations: new Set(),
+                        route: r.route
+                    };
+                }
+                if (r.origin) {
+                    // Handle slash-separated origins
+                    r.origin.split('/').filter(Boolean).forEach(o => routeGroups[routeKey].origins.add(o.trim().toUpperCase()));
+                }
+                if (r.destination) {
+                    // Handle slash-separated destinations
+                    r.destination.split('/').filter(Boolean).forEach(d => routeGroups[routeKey].destinations.add(d.trim().toUpperCase()));
+                }
+            });
+
+            // Convert back to array
+            const grouped = Object.values(routeGroups).map(g => ({
+                origin: Array.from(g.origins).sort().join('/'),
+                destination: Array.from(g.destinations).sort().join('/'),
+                route: g.route
+            })).filter(r => r.route); // Remove empty routes
+
+            if (grouped.length === routes.length) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Grouping Possible',
+                    text: 'All routes have unique route strings.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // Update the table
+            this.populateRoutesTable(grouped);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Routes Grouped',
+                text: `Consolidated ${routes.length} routes into ${grouped.length} groups.`,
+                timer: 2000,
+                showConfirmButton: false
             });
         },
 
@@ -7486,6 +7668,9 @@
             const idx = $tbody.find('tr').length;
             $tbody.append(`
                 <tr data-idx="${idx}">
+                    <td class="text-center align-middle">
+                        <input type="checkbox" class="rr-route-select" data-idx="${idx}">
+                    </td>
                     <td><input type="text" class="form-control form-control-sm rr-route-origin"
                                style="font-family: monospace;" placeholder="KABC"></td>
                     <td><input type="text" class="form-control form-control-sm rr-route-dest"
@@ -7510,6 +7695,14 @@
             $('#rr_refresh_drafts').on('click', () => self.loadDraftsList());
 
             $('#rr_add_route').on('click', () => self.addRouteRow());
+            $('#rr_make_mandatory').on('click', () => self.makeRoutesMandatory());
+            $('#rr_group_routes').on('click', () => self.groupRoutes());
+
+            // Select all routes checkbox
+            $('#rr_select_all_routes').on('change', function() {
+                const isChecked = $(this).is(':checked');
+                $('.rr-route-select').prop('checked', isChecked);
+            });
 
             $(document).on('click', '.rr-remove-route', function() {
                 $(this).closest('tr').remove();
@@ -7517,7 +7710,7 @@
                 if ($('#rr_routes_body tr').length === 0) {
                     $('#rr_routes_body').html(`
                         <tr class="rr-empty-row">
-                            <td colspan="4" class="text-center text-muted py-3">
+                            <td colspan="5" class="text-center text-muted py-3">
                                 No routes loaded.
                             </td>
                         </tr>

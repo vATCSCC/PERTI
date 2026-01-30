@@ -578,6 +578,7 @@ $perm = true;
                                 <div class="form-group col-md-4">
                                     <label class="tmi-label mb-0">Prob. Extension</label>
                                     <select class="form-control" id="rr_prob_extension">
+                                        <option value="NONE">NONE</option>
                                         <option value="LOW">LOW</option>
                                         <option value="MEDIUM" selected>MEDIUM</option>
                                         <option value="HIGH">HIGH</option>
@@ -648,15 +649,28 @@ $perm = true;
                             <span class="tmi-section-title">
                                 <i class="fas fa-list mr-1"></i> Routes
                             </span>
-                            <button class="btn btn-sm btn-outline-secondary" id="rr_add_route">
-                                <i class="fas fa-plus"></i> Add Route
-                            </button>
+                            <div>
+                                <button class="btn btn-sm btn-outline-info mr-1" id="rr_make_mandatory"
+                                        title="Add mandatory markers (><) to selected routes">
+                                    <i class="fas fa-lock mr-1"></i> Make Mandatory
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary mr-1" id="rr_group_routes"
+                                        title="Group routes with same route string">
+                                    <i class="fas fa-object-group mr-1"></i> Group
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" id="rr_add_route">
+                                    <i class="fas fa-plus"></i> Add Route
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0" id="rr_routes_table">
                                     <thead class="thead-light">
                                         <tr>
+                                            <th style="width: 30px;">
+                                                <input type="checkbox" id="rr_select_all_routes" title="Select All">
+                                            </th>
                                             <th style="width: 15%;">ORIGIN</th>
                                             <th style="width: 15%;">DEST</th>
                                             <th>ROUTE</th>
@@ -665,7 +679,7 @@ $perm = true;
                                     </thead>
                                     <tbody id="rr_routes_body">
                                         <tr class="rr-empty-row">
-                                            <td colspan="4" class="text-center text-muted py-3">
+                                            <td colspan="5" class="text-center text-muted py-3">
                                                 No routes loaded. Use Route Plotter to create routes, or add manually.
                                             </td>
                                         </tr>
