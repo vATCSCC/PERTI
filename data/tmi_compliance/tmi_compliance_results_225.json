@@ -2,7 +2,8 @@
   "event": "Honoring the Dream FNO",
   "event_start": "2026-01-16T23:59:00",
   "event_end": "2026-01-17T04:00:00",
-  "generated_utc": "2026-01-30T09:16:21.733751",
+  "generated_utc": "2026-01-30T11:40:08.207542",
+  "plan_id": null,
   "summary": {
     "mit": {
       "total_pairs": 73,
