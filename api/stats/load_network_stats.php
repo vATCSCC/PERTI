@@ -12,9 +12,42 @@
  *   0,5,10,15,20,25,30,35,40,45,50,55 * * * * curl -s https://perti.vatcscc.org/api/stats/load_network_stats.php
  */
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// Set up error handler to return JSON
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'PHP Error',
+        'message' => $errstr,
+        'file' => basename($errfile),
+        'line' => $errline
+    ]);
+    exit;
+});
+
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../load/config.php';
+
+// Verify STATS constants are defined
+if (!defined('STATS_SQL_HOST') || !defined('STATS_SQL_DATABASE')) {
+    echo json_encode([
+        'success' => false,
+        'error' => 'STATS database not configured',
+        'defined' => [
+            'STATS_SQL_HOST' => defined('STATS_SQL_HOST'),
+            'STATS_SQL_DATABASE' => defined('STATS_SQL_DATABASE'),
+            'STATS_SQL_USERNAME' => defined('STATS_SQL_USERNAME'),
+            'STATS_SQL_PASSWORD' => defined('STATS_SQL_PASSWORD')
+        ]
+    ]);
+    exit;
+}
 
 // Helper for SQL Server error messages
 function stats_sql_error_message()
