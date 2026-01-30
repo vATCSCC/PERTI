@@ -51,6 +51,12 @@ jobs:
         echo "=== Copied VATSWIM documentation ==="
         ls -la deploy/docs/swim/*.md | head -10
 
+        # Copy docs/stats for network statistics dashboard
+        mkdir -p deploy/docs/stats
+        cp -r docs/stats/* deploy/docs/stats/
+        echo "=== Copied Stats documentation ==="
+        ls -la deploy/docs/stats/
+
     # Verify critical files are in deployment package
     - name: Verify deployment package
       run: |
@@ -63,6 +69,8 @@ jobs:
         ls -la deploy/scripts/*.sh || echo "No .sh files found"
         echo "=== VATSWIM Documentation ==="
         ls -la deploy/docs/swim/*.md 2>/dev/null | head -5 || echo "WARNING: VATSWIM docs missing!"
+        echo "=== Stats Documentation ==="
+        ls -la deploy/docs/stats/ 2>/dev/null || echo "WARNING: Stats docs missing!"
 
     # Deploy to Azure Web App
     - name: Deploy to Azure Web App
