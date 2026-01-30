@@ -7325,7 +7325,7 @@
          * VATCAN: Canadian FIRs (CZEG, CZVR, CZWG, CZYZ, CZQM, CZQX, CZQO, CZUL) or CY/CZ airports
          * VATMEX: Mexican FIRs (MMFR, MMFO) or MM airports
          * VATCAR: Caribbean FIRs (TJZS, MKJK, MUFH, MYNA, MDCS, MTEG, TNCF, TTZP, MHCC, MPZL) or Caribbean airports
-         * ECFMP: European/North African airports (E*/L*/G* prefixes)
+         * ECFMP: European/North African airports (Exx/Lxx/Gxx prefixes)
          */
         autoDetectInternationalOrgs: function() {
             const routes = this.rerouteData?.routes || [];
@@ -7564,7 +7564,13 @@
             lines.push('');
 
             // Route table with column alignment and line wrapping
-            lines.push(this.formatRouteTable(params.routes));
+            // Check format option - split vs full
+            const useSplitFormat = $('input[name="rr_format"]:checked').val() === 'split';
+            if (useSplitFormat) {
+                lines.push(this.formatSplitRouteTable(params.routes));
+            } else {
+                lines.push(this.formatRouteTable(params.routes));
+            }
 
             lines.push('');
             lines.push(`TMI ID: ${tmiId}`);
@@ -7698,6 +7704,385 @@
             });
 
             return output.trim();
+        },
+
+        /**
+         * Format routes in SPLIT format (ORIGIN SEGMENTS / DESTINATION SEGMENTS)
+         * This format groups routes by common segments and shows:
+         * - FROM section: Origins with their route segments to the common point
+         * - TO section: Common point to destinations
+         */
+        formatSplitRouteTable: function(routes) {
+            const MAX_LINE = 68;
+            const LABEL_WIDTH = 20;
+
+            if (!routes || !routes.length) {
+                return 'ORIG                 ROUTE - ORIGIN SEGMENTS\n----                 -----------------------\n(No routes specified)';
+            }
+
+            // Tokenize all routes for comparison
+            const tokenizedRoutes = routes.map(r => ({
+                ...r,
+                tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean),
+                origDisplay: (r.origin || '').toUpperCase(),
+                destDisplay: (r.destination || '').toUpperCase(),
+                origFilter: (r.originFilter || '').toUpperCase(),
+                destFilter: (r.destFilter || '').toUpperCase()
+            }));
+
+            // Find common route segment (longest common contiguous subsequence)
+            const findCommonSegment = (routes) => {
+                if (routes.length < 2) return { common: [], originSegs: [], destSegs: [] };
+
+                const allTokens = routes.map(r => r.tokens);
+                if (allTokens.some(t => !t.length)) return { common: [], originSegs: [], destSegs: [] };
+
+                // Try to find the longest common contiguous segment
+                const firstRoute = allTokens[0];
+                let bestCommon = [];
+                let bestStart = -1;
+
+                for (let start = 0; start < firstRoute.length; start++) {
+                    for (let len = firstRoute.length - start; len > 0; len--) {
+                        const candidate = firstRoute.slice(start, start + len);
+                        if (candidate.length <= bestCommon.length) continue;
+
+                        // Check if this segment exists in all routes
+                        const allMatch = allTokens.every(tokens => {
+                            const candidateStr = candidate.join(' ');
+                            const tokensStr = tokens.join(' ');
+                            return tokensStr.includes(candidateStr);
+                        });
+
+                        if (allMatch && candidate.length > bestCommon.length) {
+                            bestCommon = candidate;
+                            bestStart = start;
+                        }
+                    }
+                }
+
+                if (!bestCommon.length || bestCommon.length < 2) {
+                    return { common: [], originSegs: [], destSegs: [] };
+                }
+
+                // Extract origin and destination segments for each route
+                const commonStr = bestCommon.join(' ');
+                const originSegs = [];
+                const destSegs = [];
+
+                routes.forEach(r => {
+                    const fullRoute = r.tokens.join(' ');
+                    const commonIdx = fullRoute.indexOf(commonStr);
+
+                    if (commonIdx >= 0) {
+                        // Origin segment: everything before common
+                        const origPart = fullRoute.slice(0, commonIdx).trim();
+                        // Dest segment: everything after common (including common end fix for context)
+                        const destStart = commonIdx + commonStr.length;
+                        const destPart = fullRoute.slice(destStart).trim();
+
+                        // Add first fix of common to origin segment for context
+                        const origSeg = origPart ? origPart + ' >' + bestCommon[0] : '>' + bestCommon[0];
+                        // Add last fix of common to dest segment for context
+                        const destSeg = destPart ? bestCommon[bestCommon.length - 1] + '< ' + destPart : bestCommon[bestCommon.length - 1] + '<';
+
+                        originSegs.push({
+                            origin: r.origDisplay,
+                            originFilter: r.origFilter,
+                            segment: origSeg
+                        });
+
+                        destSegs.push({
+                            destination: r.destDisplay,
+                            destFilter: r.destFilter,
+                            segment: destSeg
+                        });
+                    }
+                });
+
+                return { common: bestCommon, originSegs, destSegs };
+            };
+
+            const { common, originSegs, destSegs } = findCommonSegment(tokenizedRoutes);
+
+            // If no common segment found, fall back to showing routes by origin
+            if (!common.length) {
+                return this.formatSplitByOriginDest(tokenizedRoutes, MAX_LINE, LABEL_WIDTH);
+            }
+
+            // Format helper for split rows
+            const formatSplitRow = (label, routeText) => {
+                label = (label || '').toUpperCase().trim();
+                routeText = (routeText || '').toUpperCase().trim();
+
+                const lines = [];
+                const routeTokens = routeText.split(/\s+/).filter(Boolean);
+                const words = routeTokens.slice();
+                let lineIndex = 0;
+
+                while (lineIndex === 0 || words.length) {
+                    const lStr = lineIndex === 0 ? label : '';
+                    const labelPad = lStr.padEnd(LABEL_WIDTH);
+                    let current = labelPad;
+                    const baseLen = current.length;
+
+                    if (words.length) {
+                        while (words.length) {
+                            const word = words[0];
+                            const atStart = (current.length === baseLen);
+                            const addition = atStart ? word : ' ' + word;
+                            if (current.length + addition.length <= MAX_LINE) {
+                                current += addition;
+                                words.shift();
+                            } else {
+                                if (atStart && current.length + word.length > MAX_LINE) {
+                                    current += word;
+                                    words.shift();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    lines.push(current.trimEnd());
+                    lineIndex++;
+                }
+                return lines.length ? lines : [''];
+            };
+
+            let output = '';
+
+            // Common segment header
+            output += 'COMMON ROUTE SEGMENT: ' + common.join(' ') + '\n';
+            output += '\n';
+
+            // FROM / ORIGIN SEGMENTS section
+            output += 'FROM:\n';
+            output += 'ORIG'.padEnd(LABEL_WIDTH) + 'ROUTE - ORIGIN SEGMENTS\n';
+            output += '----'.padEnd(LABEL_WIDTH) + '-----------------------\n';
+
+            // Group by origin
+            const byOrig = {};
+            originSegs.forEach(s => {
+                const key = s.origin + (s.originFilter ? ' ' + s.originFilter : '');
+                if (!byOrig[key]) byOrig[key] = new Set();
+                byOrig[key].add(s.segment);
+            });
+
+            Object.keys(byOrig).sort().forEach(orig => {
+                const segments = Array.from(byOrig[orig]);
+                segments.forEach(seg => {
+                    formatSplitRow(orig, seg).forEach(line => {
+                        output += line + '\n';
+                    });
+                });
+            });
+
+            output += '\n';
+
+            // TO / DESTINATION SEGMENTS section
+            output += 'TO:\n';
+            output += 'DEST'.padEnd(LABEL_WIDTH) + 'ROUTE - DESTINATION SEGMENTS\n';
+            output += '----'.padEnd(LABEL_WIDTH) + '----------------------------\n';
+
+            // Group by destination
+            const byDest = {};
+            destSegs.forEach(s => {
+                const key = s.destination + (s.destFilter ? ' ' + s.destFilter : '');
+                if (!byDest[key]) byDest[key] = new Set();
+                byDest[key].add(s.segment);
+            });
+
+            Object.keys(byDest).sort().forEach(dest => {
+                const segments = Array.from(byDest[dest]);
+                segments.forEach(seg => {
+                    formatSplitRow(dest, seg).forEach(line => {
+                        output += line + '\n';
+                    });
+                });
+            });
+
+            return output.trim();
+        },
+
+        /**
+         * Format split by origin/dest when no common segment found
+         * Falls back to grouping by origin for FROM and by dest for TO
+         */
+        formatSplitByOriginDest: function(routes, maxLine, labelWidth) {
+            const formatSplitRow = (label, routeText) => {
+                label = (label || '').toUpperCase().trim();
+                routeText = (routeText || '').toUpperCase().trim();
+
+                const lines = [];
+                const routeTokens = routeText.split(/\s+/).filter(Boolean);
+                const words = routeTokens.slice();
+                let lineIndex = 0;
+
+                while (lineIndex === 0 || words.length) {
+                    const lStr = lineIndex === 0 ? label : '';
+                    const labelPad = lStr.padEnd(labelWidth);
+                    let current = labelPad;
+                    const baseLen = current.length;
+
+                    if (words.length) {
+                        while (words.length) {
+                            const word = words[0];
+                            const atStart = (current.length === baseLen);
+                            const addition = atStart ? word : ' ' + word;
+                            if (current.length + addition.length <= maxLine) {
+                                current += addition;
+                                words.shift();
+                            } else {
+                                if (atStart && current.length + word.length > maxLine) {
+                                    current += word;
+                                    words.shift();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    lines.push(current.trimEnd());
+                    lineIndex++;
+                }
+                return lines.length ? lines : [''];
+            };
+
+            let output = '';
+
+            // Group by origin
+            const byOrig = {};
+            routes.forEach(r => {
+                const origKey = r.origDisplay + (r.origFilter ? ' ' + r.origFilter : '');
+                if (!byOrig[origKey]) byOrig[origKey] = [];
+                byOrig[origKey].push(r);
+            });
+
+            // FROM section
+            output += 'FROM:\n';
+            output += 'ORIG'.padEnd(labelWidth) + 'ROUTE - ORIGIN SEGMENTS\n';
+            output += '----'.padEnd(labelWidth) + '-----------------------\n';
+
+            Object.keys(byOrig).sort().forEach(orig => {
+                const origRoutes = byOrig[orig];
+                // Get unique route strings for this origin
+                const seenRoutes = new Set();
+                origRoutes.forEach(r => {
+                    const routeStr = r.tokens.join(' ');
+                    if (routeStr && !seenRoutes.has(routeStr)) {
+                        seenRoutes.add(routeStr);
+                        formatSplitRow(orig, '>' + routeStr).forEach(line => {
+                            output += line + '\n';
+                        });
+                    }
+                });
+            });
+
+            output += '\n';
+
+            // Group by destination
+            const byDest = {};
+            routes.forEach(r => {
+                const destKey = r.destDisplay + (r.destFilter ? ' ' + r.destFilter : '');
+                if (!byDest[destKey]) byDest[destKey] = [];
+                byDest[destKey].push(r);
+            });
+
+            // TO section
+            output += 'TO:\n';
+            output += 'DEST'.padEnd(labelWidth) + 'ROUTE - DESTINATION SEGMENTS\n';
+            output += '----'.padEnd(labelWidth) + '----------------------------\n';
+
+            Object.keys(byDest).sort().forEach(dest => {
+                const destRoutes = byDest[dest];
+                const seenRoutes = new Set();
+                destRoutes.forEach(r => {
+                    const routeStr = r.tokens.join(' ');
+                    if (routeStr && !seenRoutes.has(routeStr)) {
+                        seenRoutes.add(routeStr);
+                        formatSplitRow(dest, routeStr + '<').forEach(line => {
+                            output += line + '\n';
+                        });
+                    }
+                });
+            });
+
+            return output.trim();
+        },
+
+        /**
+         * Detect common segments in routes and show analysis
+         */
+        detectCommonSegments: function() {
+            const routes = this.collectRoutes();
+            if (routes.length < 2) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Need More Routes',
+                    text: 'Need at least 2 routes to detect common segments.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // Tokenize routes
+            const tokenizedRoutes = routes.map(r => ({
+                ...r,
+                tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean)
+            }));
+
+            // Find longest common contiguous segment
+            const allTokens = tokenizedRoutes.map(r => r.tokens);
+            const firstRoute = allTokens[0];
+            let bestCommon = [];
+
+            for (let start = 0; start < firstRoute.length; start++) {
+                for (let len = firstRoute.length - start; len > 0; len--) {
+                    const candidate = firstRoute.slice(start, start + len);
+                    if (candidate.length <= bestCommon.length) continue;
+
+                    const allMatch = allTokens.every(tokens => {
+                        const candidateStr = candidate.join(' ');
+                        const tokensStr = tokens.join(' ');
+                        return tokensStr.includes(candidateStr);
+                    });
+
+                    if (allMatch && candidate.length > bestCommon.length) {
+                        bestCommon = candidate;
+                    }
+                }
+            }
+
+            if (bestCommon.length >= 2) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Common Segment Detected',
+                    html: `
+                        <p>Found common route segment shared by all ${routes.length} routes:</p>
+                        <pre class="text-left bg-light p-2" style="font-size: 0.85rem;">${bestCommon.join(' ')}</pre>
+                        <p class="small text-muted">Use "Split Format" in preview to see separated ORIGIN/DESTINATION segments.</p>
+                    `,
+                    confirmButtonText: 'Use Split Format',
+                    showCancelButton: true,
+                    cancelButtonText: 'Close'
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        $('#rr_format_split').prop('checked', true);
+                        this.generatePreview();
+                    }
+                });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Common Segment',
+                    html: `
+                        <p>No significant common segment found across all ${routes.length} routes.</p>
+                        <p class="small text-muted">Routes may still be displayed in split format grouped by origin and destination.</p>
+                    `,
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            }
         },
 
         /**
@@ -8097,6 +8482,7 @@
             $('#rr_make_mandatory').on('click', () => self.makeRoutesMandatory());
             $('#rr_group_routes').on('click', () => self.groupRoutes());
             $('#rr_auto_filters').on('click', () => self.autoDetectFilters());
+            $('#rr_detect_common').on('click', () => self.detectCommonSegments());
 
             // Select all routes checkbox
             $('#rr_select_all_routes').on('change', function() {

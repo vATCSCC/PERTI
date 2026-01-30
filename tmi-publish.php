@@ -748,6 +748,23 @@ $perm = true;
                         </div>
                     </div>
 
+                    <!-- Route Format Options -->
+                    <div class="d-flex align-items-center mb-3 border rounded p-2 bg-light">
+                        <span class="small font-weight-bold mr-3">Format:</span>
+                        <div class="custom-control custom-radio mr-3">
+                            <input type="radio" class="custom-control-input" id="rr_format_full" name="rr_format" value="full" checked>
+                            <label class="custom-control-label small" for="rr_format_full">Full (ORIG/DEST/ROUTE)</label>
+                        </div>
+                        <div class="custom-control custom-radio mr-3">
+                            <input type="radio" class="custom-control-input" id="rr_format_split" name="rr_format" value="split">
+                            <label class="custom-control-label small" for="rr_format_split">Split (FROM/TO segments)</label>
+                        </div>
+                        <button class="btn btn-sm btn-outline-info ml-auto" id="rr_detect_common" type="button"
+                                title="Detect common route segments and split into ORIGIN/DESTINATION sections">
+                            <i class="fas fa-code-branch mr-1"></i> Detect Common
+                        </button>
+                    </div>
+
                     <!-- Action Buttons -->
                     <div class="d-flex justify-content-between mb-3">
                         <div>
