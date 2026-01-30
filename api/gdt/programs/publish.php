@@ -219,7 +219,7 @@ if ($regenerate_flight_list) {
                 $flight['slot_id'] ?? null,
                 datetime_to_sql($flight['cta_utc'] ?? null), // Slot time = CTA for GDP
                 $flight['ctl_exempt'] ?? 0,
-                $flight['ctl_exempt'] ? ($flight['exempt_reason'] ?? 'EXEMPT') : null,
+                $flight['ctl_exempt'] ? ($flight['ctl_exempt_reason'] ?? 'EXEMPT') : null,
                 $user_cid
             ];
 
