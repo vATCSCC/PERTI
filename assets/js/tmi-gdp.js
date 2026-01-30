@@ -36,6 +36,9 @@
      * Initialize module on page load
      */
     function init() {
+        // Fetch next advisory number from API
+        fetchNextAdvisoryNumber();
+
         // Check URL parameters
         var params = new URLSearchParams(window.location.search);
         var tab = params.get('tab');
@@ -62,6 +65,26 @@
 
         // Bind event handlers
         bindEvents();
+    }
+
+    /**
+     * Fetch next advisory number from API
+     */
+    async function fetchNextAdvisoryNumber() {
+        try {
+            var response = await fetch('/api/mgt/tmi/advisory-number.php?peek=1');
+            if (response.ok) {
+                var data = await response.json();
+                if (data.success && data.advisory_number) {
+                    // Extract just the number part (e.g., "ADVZY 001" -> "001")
+                    var match = data.advisory_number.match(/(\d+)/);
+                    state.nextAdvisoryNumber = match ? match[1] : '001';
+                }
+            }
+        } catch (e) {
+            console.warn('GSGDP: Could not fetch advisory number:', e);
+            state.nextAdvisoryNumber = '001';
+        }
     }
 
     /**
@@ -292,7 +315,7 @@
                               padZero(now.getUTCDate()) + ' ' +
                               padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
 
-        var text = 'vATCSCC ADVZY ### ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND STOP\n' +
+        var text = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND STOP\n' +
                    'CTL ELEMENT: ' + ctlElement + '\n' +
                    'ELEMENT TYPE: ' + elementType + '\n' +
                    'ADL TIME: ' + adlTime + '\n' +
@@ -372,7 +395,7 @@
                               padZero(now.getUTCDate()) + ' ' +
                               padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
 
-        var text = 'vATCSCC ADVZY ### ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND DELAY PROGRAM\n' +
+        var text = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND DELAY PROGRAM\n' +
                    'CTL ELEMENT: ' + ctlElement + '\n' +
                    'ELEMENT TYPE: ' + elementType + '\n' +
                    'ADL TIME: ' + adlTime + '\n' +
@@ -956,7 +979,7 @@
             edctLine = 'FLIGHTS MAY RECEIVE NEW EDCTS DUE TO AN ACTIVE AFP';
         }
 
-        var preview = 'vATCSCC ADVZY ### ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM ' + typeName + ' CNX\n' +
+        var preview = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM ' + typeName + ' CNX\n' +
                       'CTL ELEMENT: ' + ctlElement + '\n' +
                       'ELEMENT TYPE: ' + elementType + '\n' +
                       'ADL TIME: ' + adlTime + '\n' +
