@@ -1949,9 +1949,13 @@ function handleRescindProposal() {
  * Uses the 'preview' field if available (already formatted by JS), otherwise rebuilds
  */
 function buildNtmlText($entry) {
-    // Prefer the preview field which is already correctly formatted by the JS side
+    // Prefer the preview/rawText field which is already correctly formatted by the JS side
+    // JS may send either 'preview' or 'rawText' depending on the entry type
     if (!empty($entry['preview'])) {
         return $entry['preview'];
+    }
+    if (!empty($entry['rawText'])) {
+        return $entry['rawText'];
     }
 
     // Fallback: try to rebuild via TMIDiscord

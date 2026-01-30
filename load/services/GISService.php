@@ -1476,4 +1476,324 @@ class GISService
             return null;
         }
     }
+
+    // =========================================================================
+    // BOUNDARY ADJACENCY NETWORK METHODS
+    // =========================================================================
+
+    /**
+     * Compute all boundary adjacencies
+     *
+     * This is a heavy operation - run after importing new boundaries.
+     * Populates the boundary_adjacency table with precomputed relationships.
+     *
+     * @return array Summary of computed adjacencies by category
+     */
+    public function computeAllAdjacencies(): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM compute_all_adjacencies()";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'category' => $row['category'],
+                    'inserted' => (int)$row['inserted'],
+                    'elapsed_ms' => (float)$row['elapsed_ms']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::computeAllAdjacencies error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get neighbors of a specific boundary
+     *
+     * @param string $boundaryType Type: 'ARTCC', 'TRACON', 'SECTOR_LOW', 'SECTOR_HIGH', 'SECTOR_SUPERHIGH'
+     * @param string $boundaryCode The boundary code (e.g., 'ZFW', 'A80', 'ZFW15')
+     * @param string|null $adjacencyClass Filter: 'POINT', 'LINE', 'POLY', or null for all
+     * @return array List of neighboring boundaries
+     */
+    public function getBoundaryNeighbors(string $boundaryType, string $boundaryCode, ?string $adjacencyClass = null): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM get_boundary_neighbors(:type, :code, :class::adjacency_type)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':type' => strtoupper($boundaryType),
+                ':code' => strtoupper($boundaryCode),
+                ':class' => $adjacencyClass ? strtoupper($adjacencyClass) : null
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'neighbor_type' => $row['neighbor_type'],
+                    'neighbor_code' => $row['neighbor_code'],
+                    'neighbor_name' => $row['neighbor_name'],
+                    'adjacency_class' => $row['adjacency_class'],
+                    'shared_length_nm' => $row['shared_length_nm'] !== null ? (float)$row['shared_length_nm'] : null,
+                    'shared_points' => $row['shared_points'] !== null ? (int)$row['shared_points'] : null
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getBoundaryNeighbors error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get adjacency network summary statistics
+     *
+     * @return array Statistics by relationship type
+     */
+    public function getAdjacencyStats(): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM get_adjacency_stats()";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'relationship' => $row['relationship'],
+                    'total_pairs' => (int)$row['total_pairs'],
+                    'point_adjacencies' => (int)$row['point_adjacencies'],
+                    'line_adjacencies' => (int)$row['line_adjacencies'],
+                    'poly_adjacencies' => (int)$row['poly_adjacencies'],
+                    'avg_shared_length_nm' => $row['avg_shared_length_nm'] !== null ? (float)$row['avg_shared_length_nm'] : null,
+                    'max_shared_length_nm' => $row['max_shared_length_nm'] !== null ? (float)$row['max_shared_length_nm'] : null
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getAdjacencyStats error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Export adjacency network as edge list for graph analysis tools
+     *
+     * @param array|null $types Filter by boundary types (null = all)
+     * @param string $minAdjacency Minimum adjacency level: 'POINT', 'LINE', 'POLY'
+     * @return array Edge list with source_id, target_id, weight, edge_type
+     */
+    public function exportAdjacencyEdges(?array $types = null, string $minAdjacency = 'POINT'): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $typesParam = $types ? $this->formatPostgresTextArray($types) : null;
+
+            $sql = "SELECT * FROM export_adjacency_edges(:types, :min_adj::adjacency_type)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':types' => $typesParam,
+                ':min_adj' => strtoupper($minAdjacency)
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'source_id' => $row['source_id'],
+                    'target_id' => $row['target_id'],
+                    'weight' => (float)$row['weight'],
+                    'edge_type' => $row['edge_type']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::exportAdjacencyEdges error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Find traversal path between two boundaries using BFS
+     *
+     * @param string $sourceType Source boundary type
+     * @param string $sourceCode Source boundary code
+     * @param string $targetType Target boundary type
+     * @param string $targetCode Target boundary code
+     * @param int $maxHops Maximum number of boundary transitions
+     * @param bool $sameTypeOnly Only traverse through same boundary type
+     * @return array Path from source to target
+     */
+    public function findBoundaryPath(
+        string $sourceType,
+        string $sourceCode,
+        string $targetType,
+        string $targetCode,
+        int $maxHops = 10,
+        bool $sameTypeOnly = false
+    ): array {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "SELECT * FROM find_boundary_path(:src_type, :src_code, :tgt_type, :tgt_code, :max_hops, :same_type)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':src_type' => strtoupper($sourceType),
+                ':src_code' => strtoupper($sourceCode),
+                ':tgt_type' => strtoupper($targetType),
+                ':tgt_code' => strtoupper($targetCode),
+                ':max_hops' => $maxHops,
+                ':same_type' => $sameTypeOnly ? 'true' : 'false'
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'hop' => (int)$row['hop'],
+                    'boundary_type' => $row['boundary_type'],
+                    'boundary_code' => $row['boundary_code'],
+                    'boundary_name' => $row['boundary_name']
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::findBoundaryPath error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get ARTCC adjacency map (all ARTCC-to-ARTCC connections)
+     *
+     * Convenience method for getting the ARTCC network graph.
+     *
+     * @param bool $lineOnlyOnly include LINE adjacencies (default true for traversable only)
+     * @return array Map of artcc_code => [neighbor_codes]
+     */
+    public function getArtccAdjacencyMap(bool $lineOnly = true): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        try {
+            $sql = "
+                SELECT source_code, target_code, adjacency_class, shared_length_nm
+                FROM boundary_adjacency
+                WHERE source_type = 'ARTCC'
+                  AND target_type = 'ARTCC'
+                " . ($lineOnly ? "AND adjacency_class = 'LINE'" : "") . "
+                ORDER BY source_code, shared_length_nm DESC NULLS LAST
+            ";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+
+            $map = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $source = $row['source_code'];
+                if (!isset($map[$source])) {
+                    $map[$source] = [];
+                }
+                $map[$source][] = [
+                    'neighbor' => $row['target_code'],
+                    'adjacency' => $row['adjacency_class'],
+                    'shared_length_nm' => $row['shared_length_nm'] !== null ? (float)$row['shared_length_nm'] : null
+                ];
+            }
+
+            return $map;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getArtccAdjacencyMap error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get sector adjacency within an ARTCC
+     *
+     * @param string $artccCode ARTCC code (e.g., 'ZFW')
+     * @param string $sectorType Sector type: 'LOW', 'HIGH', 'SUPERHIGH'
+     * @return array Sector adjacency network within the ARTCC
+     */
+    public function getSectorAdjacencyInArtcc(string $artccCode, string $sectorType = 'HIGH'): array
+    {
+        if (!$this->conn) {
+            return [];
+        }
+
+        $boundaryType = 'SECTOR_' . strtoupper($sectorType);
+
+        try {
+            $sql = "
+                SELECT ba.source_code, ba.source_name, ba.target_code, ba.target_name,
+                       ba.adjacency_class, ba.shared_length_nm
+                FROM boundary_adjacency ba
+                JOIN sector_boundaries sb ON sb.sector_code = ba.source_code
+                WHERE ba.source_type = :btype
+                  AND ba.target_type = :btype
+                  AND sb.parent_artcc = :artcc
+                ORDER BY ba.source_code, ba.shared_length_nm DESC NULLS LAST
+            ";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':btype' => $boundaryType,
+                ':artcc' => strtoupper($artccCode)
+            ]);
+
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = [
+                    'source_code' => $row['source_code'],
+                    'source_name' => $row['source_name'],
+                    'target_code' => $row['target_code'],
+                    'target_name' => $row['target_name'],
+                    'adjacency_class' => $row['adjacency_class'],
+                    'shared_length_nm' => $row['shared_length_nm'] !== null ? (float)$row['shared_length_nm'] : null
+                ];
+            }
+
+            return $results;
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getSectorAdjacencyInArtcc error: ' . $e->getMessage());
+            return [];
+        }
+    }
 }

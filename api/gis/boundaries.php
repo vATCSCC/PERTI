@@ -797,6 +797,154 @@ try {
             break;
 
         // =====================================================================
+        // BOUNDARY ADJACENCY NETWORK ENDPOINTS
+        // =====================================================================
+
+        // Compute all adjacencies (heavy operation - run after importing new boundaries)
+        case 'compute_adjacencies':
+            $results = $gis->computeAllAdjacencies();
+
+            $totalInserted = array_sum(array_column($results, 'inserted'));
+            $totalElapsed = array_sum(array_column($results, 'elapsed_ms'));
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Adjacencies computed',
+                'results' => $results,
+                'summary' => [
+                    'total_pairs_inserted' => $totalInserted,
+                    'total_elapsed_ms' => round($totalElapsed, 1)
+                ]
+            ]);
+            break;
+
+        // Get neighbors of a specific boundary
+        case 'boundary_neighbors':
+            $boundaryType = strtoupper($_GET['type'] ?? '');
+            $boundaryCode = strtoupper($_GET['code'] ?? '');
+            $adjacencyClass = isset($_GET['adjacency']) ? strtoupper($_GET['adjacency']) : null;
+
+            if (!$boundaryType || !$boundaryCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required params: type, code',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $neighbors = $gis->getBoundaryNeighbors($boundaryType, $boundaryCode, $adjacencyClass);
+
+            echo json_encode([
+                'success' => true,
+                'boundary_type' => $boundaryType,
+                'boundary_code' => $boundaryCode,
+                'filter_adjacency' => $adjacencyClass,
+                'neighbors' => $neighbors,
+                'count' => count($neighbors)
+            ]);
+            break;
+
+        // Get adjacency network statistics
+        case 'adjacency_stats':
+            $stats = $gis->getAdjacencyStats();
+
+            echo json_encode([
+                'success' => true,
+                'stats' => $stats,
+                'count' => count($stats)
+            ]);
+            break;
+
+        // Export adjacency network as edge list for graph tools
+        case 'adjacency_edges':
+            $types = isset($_GET['types']) ? json_decode($_GET['types'], true) : null;
+            $minAdjacency = strtoupper($_GET['min_adjacency'] ?? 'LINE');
+
+            $edges = $gis->exportAdjacencyEdges($types, $minAdjacency);
+
+            echo json_encode([
+                'success' => true,
+                'min_adjacency' => $minAdjacency,
+                'filter_types' => $types,
+                'edges' => $edges,
+                'count' => count($edges)
+            ]);
+            break;
+
+        // Find path between two boundaries
+        case 'boundary_path':
+            $srcType = strtoupper($_GET['src_type'] ?? '');
+            $srcCode = strtoupper($_GET['src_code'] ?? '');
+            $tgtType = strtoupper($_GET['tgt_type'] ?? '');
+            $tgtCode = strtoupper($_GET['tgt_code'] ?? '');
+            $maxHops = (int)($_GET['max_hops'] ?? 10);
+            $sameTypeOnly = ($_GET['same_type'] ?? '0') === '1';
+
+            if (!$srcType || !$srcCode || !$tgtType || !$tgtCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required params: src_type, src_code, tgt_type, tgt_code',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $path = $gis->findBoundaryPath($srcType, $srcCode, $tgtType, $tgtCode, $maxHops, $sameTypeOnly);
+
+            echo json_encode([
+                'success' => true,
+                'source' => ['type' => $srcType, 'code' => $srcCode],
+                'target' => ['type' => $tgtType, 'code' => $tgtCode],
+                'path_found' => !empty($path),
+                'path' => $path,
+                'hops' => count($path)
+            ]);
+            break;
+
+        // Get ARTCC adjacency map (ARTCC-to-ARTCC connections)
+        case 'artcc_adjacency_map':
+            $lineOnly = ($_GET['line_only'] ?? '1') !== '0';
+
+            $map = $gis->getArtccAdjacencyMap($lineOnly);
+
+            echo json_encode([
+                'success' => true,
+                'line_only' => $lineOnly,
+                'artcc_map' => $map,
+                'artcc_count' => count($map)
+            ]);
+            break;
+
+        // Get sector adjacency within an ARTCC
+        case 'sector_adjacency':
+            $artccCode = strtoupper($_GET['artcc'] ?? '');
+            $sectorType = strtoupper($_GET['sector_type'] ?? 'HIGH');
+
+            if (!$artccCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required param: artcc',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $adjacencies = $gis->getSectorAdjacencyInArtcc($artccCode, $sectorType);
+
+            echo json_encode([
+                'success' => true,
+                'artcc' => $artccCode,
+                'sector_type' => $sectorType,
+                'adjacencies' => $adjacencies,
+                'count' => count($adjacencies)
+            ]);
+            break;
+
+        // =====================================================================
         // Health check
         // =====================================================================
         case 'health':
@@ -920,6 +1068,40 @@ try {
                         'method' => 'GET',
                         'params' => ['waypoints' => 'JSON array', 'lat' => 'float (current)', 'lon' => 'float (current)', 'dist_flown' => 'nm', 'groundspeed' => 'kts'],
                         'description' => 'Calculate ETAs for upcoming boundary crossings'
+                    ],
+                    // Boundary Adjacency Network (NEW)
+                    'compute_adjacencies' => [
+                        'method' => 'GET',
+                        'description' => 'Compute all boundary adjacencies (heavy operation - run after importing new boundaries)'
+                    ],
+                    'boundary_neighbors' => [
+                        'method' => 'GET',
+                        'params' => ['type' => 'ARTCC|TRACON|SECTOR_LOW|SECTOR_HIGH|SECTOR_SUPERHIGH', 'code' => 'string', 'adjacency' => 'POINT|LINE|POLY (optional)'],
+                        'description' => 'Get all boundaries adjacent to a given boundary'
+                    ],
+                    'adjacency_stats' => [
+                        'method' => 'GET',
+                        'description' => 'Get summary statistics of the adjacency network'
+                    ],
+                    'adjacency_edges' => [
+                        'method' => 'GET',
+                        'params' => ['types' => 'JSON array (optional)', 'min_adjacency' => 'POINT|LINE|POLY (default LINE)'],
+                        'description' => 'Export adjacency network as edge list for graph analysis tools'
+                    ],
+                    'boundary_path' => [
+                        'method' => 'GET',
+                        'params' => ['src_type' => 'string', 'src_code' => 'string', 'tgt_type' => 'string', 'tgt_code' => 'string', 'max_hops' => 'int (default 10)', 'same_type' => '0|1'],
+                        'description' => 'Find traversal path between two boundaries using BFS'
+                    ],
+                    'artcc_adjacency_map' => [
+                        'method' => 'GET',
+                        'params' => ['line_only' => '0|1 (default 1)'],
+                        'description' => 'Get ARTCC-to-ARTCC adjacency map (all center borders)'
+                    ],
+                    'sector_adjacency' => [
+                        'method' => 'GET',
+                        'params' => ['artcc' => 'string (required)', 'sector_type' => 'LOW|HIGH|SUPERHIGH (default HIGH)'],
+                        'description' => 'Get sector adjacency within an ARTCC'
                     ]
                 ],
                 'route_string_format' => [
