@@ -749,7 +749,7 @@
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
-                grid: { left: 50, right: 20, bottom: 30, top: 20 },
+                grid: { left: 50, right: 20, bottom: 40, top: 20 },
                 xAxis: {
                     type: 'category',
                     data: hourly.map(h => h.hour_of_day + ':00'),
@@ -792,7 +792,7 @@
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
-                grid: { left: 50, right: 20, bottom: 30, top: 20 },
+                grid: { left: 50, right: 20, bottom: 40, top: 20 },
                 xAxis: {
                     type: 'category',
                     data: dow.map((_, i) => days[i]),
@@ -864,11 +864,11 @@
                     textStyle: { color: '#f1f5f9' },
                     formatter: (p) => `${p[0].name} pilots<br/>${p[0].data.toFixed(1)}% of time`
                 },
-                grid: { left: 60, right: 20, bottom: 30, top: 20 },
+                grid: { left: 60, right: 20, bottom: 60, top: 20 },
                 xAxis: {
                     type: 'category',
                     data: distribution.map(d => d.traffic_bucket),
-                    axisLabel: { color: '#94a3b8', rotate: 30 }
+                    axisLabel: { color: '#94a3b8', rotate: 45, fontSize: 11 }
                 },
                 yAxis: {
                     type: 'value',
@@ -1056,7 +1056,7 @@
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
-                grid: { left: 50, right: 20, bottom: 30, top: 20 },
+                grid: { left: 50, right: 20, bottom: 40, top: 20 },
                 xAxis: {
                     type: 'value',
                     name: 'Avg Pilots',
@@ -1129,11 +1129,11 @@
                     borderColor: '#334155',
                     textStyle: { color: '#f1f5f9' }
                 },
-                grid: { left: 50, right: 20, bottom: 30, top: 20 },
+                grid: { left: 50, right: 20, bottom: 70, top: 20 },
                 xAxis: {
                     type: 'category',
                     data: labels,
-                    axisLabel: { color: '#94a3b8', rotate: 30, fontSize: 10 }
+                    axisLabel: { color: '#94a3b8', rotate: 45, fontSize: 10, interval: 'auto' }
                 },
                 yAxis: {
                     type: 'value',
