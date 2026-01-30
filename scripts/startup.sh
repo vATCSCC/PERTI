@@ -41,6 +41,13 @@ echo "  vatsim_adl_daemon.php started (PID: $ADL_PID)"
 # GIS Mode Switch
 # Set USE_GIS_DAEMONS=1 to use PostGIS for spatial operations (cost savings)
 # Set USE_GIS_DAEMONS=0 to use ADL-only mode (original behavior)
+#
+# REVIEW DATE: 2026-03-01
+# After 30 days of GIS mode, evaluate whether to:
+#   - Delete old ADL daemons (boundary_daemon.php, parse_queue_daemon.php)
+#   - Remove this else branch and USE_GIS_DAEMONS switch entirely
+#   - Remove ADL fallback code from GIS daemons
+# Check logs for GIS success rate: grep "GIS rate" /home/LogFiles/*.log
 # =============================================================================
 USE_GIS_DAEMONS=${USE_GIS_DAEMONS:-1}  # Default: use GIS daemons
 

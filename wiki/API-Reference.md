@@ -275,6 +275,13 @@ PostGIS-powered spatial queries for route analysis and boundary detection.
 | `boundaries.php?action=airport_artcc` | GET | Get ARTCC containing an airport |
 | `boundaries.php?action=artcc_airports` | GET | Get airports within an ARTCC |
 
+### Service/Diagnostics
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `boundaries.php?action=health` | GET | Service health check |
+| `boundaries.php?action=diag` | GET | Connection diagnostics for debugging |
+
 ### Example: Expand Route
 
 **Request:**

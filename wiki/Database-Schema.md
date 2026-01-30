@@ -552,6 +552,15 @@ Route expansion and spatial analysis functions.
 | `expand_routes_full(routes[], alt)` | Full batch analysis with sectors |
 | `routes_to_geojson_collection(routes[])` | Convert routes to GeoJSON FeatureCollection |
 
+Batch boundary detection functions (for daemon processing).
+
+| Function | Purpose |
+|----------|---------|
+| `get_artcc_at_point(lat, lon)` | Single-point ARTCC lookup (prefers non-oceanic, smallest area) |
+| `detect_boundaries_batch(flights_jsonb)` | Row-by-row batch boundary detection for multiple flights |
+| `detect_boundaries_batch_optimized(flights_jsonb)` | Set-based batch detection (faster for >100 flights) |
+| `detect_sector_for_flight(lat, lon, alt)` | Get sector(s) containing a flight at given altitude |
+
 ### PostGIS Indexes
 
 | Index | Table | Purpose |

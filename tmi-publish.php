@@ -626,6 +626,19 @@ $perm = true;
                                 <textarea class="form-control" id="rr_remarks" rows="2"
                                           placeholder="Optional additional remarks"></textarea>
                             </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label class="tmi-label mb-0">Associated Restrictions</label>
+                                    <input type="text" class="form-control" id="rr_restrictions"
+                                           placeholder="e.g., FL310 AND ABOVE">
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label class="tmi-label mb-0">Modifications</label>
+                                    <input type="text" class="form-control" id="rr_modifications"
+                                           placeholder="e.g., AMDT, CNCL, CORRN">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
