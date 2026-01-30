@@ -24,11 +24,16 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.6;
+            min-height: 100vh;
         }
 
         .header {
@@ -114,6 +119,16 @@
             padding: 20px;
             border: 1px solid var(--bg-card);
             position: relative;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
         }
 
         .stat-card .label {
@@ -257,7 +272,24 @@
         }
 
         select:hover, button:hover { border-color: var(--accent); }
-        button.active { background: var(--accent); color: #000; }
+        select:focus, button:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+        button.active { background: var(--accent); color: #000; font-weight: 600; }
+
+        /* Loading state */
+        .loading {
+            opacity: 0.6;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Error state */
+        .error-message {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            color: var(--danger);
+        }
 
         .breadcrumb {
             display: flex;
@@ -291,6 +323,11 @@
             border-radius: 12px;
             padding: 20px;
             border: 1px solid var(--bg-card);
+            transition: border-color 0.2s;
+        }
+
+        .chart-card:hover {
+            border-color: rgba(56, 189, 248, 0.3);
         }
 
         .chart-card.full-width { grid-column: 1 / -1; }
@@ -378,22 +415,36 @@
             background: linear-gradient(90deg, #0369a1, #38bdf8, #7dd3fc, #fbbf24, #f87171);
             border-radius: 4px;
             position: relative;
-            margin-bottom: 8px;
+            margin-top: 30px;
+            margin-bottom: 12px;
         }
 
         .percentile-marker {
             position: absolute;
-            top: -8px;
+            top: -10px;
             transform: translateX(-50%);
             text-align: center;
         }
 
         .percentile-marker .value {
             background: var(--bg-primary);
-            padding: 2px 6px;
+            padding: 3px 8px;
             border-radius: 4px;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
+            font-weight: 600;
             white-space: nowrap;
+            border: 1px solid var(--bg-card);
+        }
+
+        .percentile-marker::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 6px;
+            background: var(--text-muted);
         }
 
         .percentile-labels {
@@ -525,9 +576,23 @@
 
         @media (max-width: 768px) {
             .header { flex-direction: column; gap: 16px; padding: 16px; }
-            .controls { flex-direction: column; align-items: stretch; }
+            .header-links { flex-wrap: wrap; justify-content: center; }
+            .controls { flex-direction: column; align-items: stretch; gap: 12px; }
+            .control-group { flex-wrap: wrap; justify-content: center; }
+            .control-group button { flex: 1; min-width: 80px; padding: 10px 12px; }
             .main-container { padding: 16px; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .stat-card { min-height: 95px; padding: 16px; }
+            .stat-card .value { font-size: 1.4rem; }
+            .intro-section { padding: 20px; }
+            .intro-section h2 { font-size: 1.25rem; }
+            .percentile-bar { padding: 12px; }
+            .percentile-marker .value { font-size: 0.65rem; padding: 2px 4px; }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .stat-card .change { position: static; margin-top: 8px; display: inline-block; }
         }
     </style>
 </head>
@@ -612,10 +677,10 @@
             <div class="stat-card">
                 <div class="label">
                     Controller Ratio
-                    <span class="tooltip info-icon" data-tooltip="Average controllers per 100 pilots. Higher ratio = better ATC coverage. Typical range is 8-15%.">i</span>
+                    <span class="tooltip info-icon" data-tooltip="Average controllers per 100 pilots. Higher ratio = better ATC coverage. Typical range is 8-15 controllers per 100 pilots.">i</span>
                 </div>
                 <div class="value" id="ctrlRatio">--</div>
-                <div class="subtext">per 100 pilots</div>
+                <div class="subtext">controllers per 100 pilots</div>
             </div>
             <div class="stat-card">
                 <div class="label">
@@ -627,11 +692,11 @@
             </div>
             <div class="stat-card">
                 <div class="label">
-                    CAGR (2022-2025)
+                    CAGR
                     <span class="tooltip info-icon" data-tooltip="Compound Annual Growth Rate - the smoothed annual growth rate as if growth were constant each year. Formula: (End/Start)^(1/years) - 1">i</span>
                 </div>
                 <div class="value" id="cagr">--</div>
-                <div class="subtext">yearly growth</div>
+                <div class="subtext" id="cagrRange">yearly growth</div>
             </div>
         </div>
 
@@ -1027,7 +1092,7 @@
 
                     // Controller ratio
                     if (r && r.avg_ctrl_ratio) {
-                        document.getElementById('ctrlRatio').textContent = r.avg_ctrl_ratio.toFixed(1) + '%';
+                        document.getElementById('ctrlRatio').textContent = r.avg_ctrl_ratio.toFixed(1);
                     }
 
                     // 24h change
@@ -1054,14 +1119,17 @@
                     }
                 }
 
-                // CAGR
-                if (data.growth && data.growth.year_over_year) {
+                // CAGR - calculate dynamically from first to last year with data
+                if (data.growth && data.growth.year_over_year && data.growth.year_over_year.length >= 2) {
                     const years = data.growth.year_over_year;
-                    const y2022 = years.find(y => y.year_num === 2022);
-                    const y2025 = years.find(y => y.year_num === 2025);
-                    if (y2022 && y2025) {
-                        const cagr = (Math.pow(y2025.avg_pilots / y2022.avg_pilots, 1/3) - 1) * 100;
-                        document.getElementById('cagr').textContent = cagr.toFixed(1) + '%';
+                    const firstYear = years[0];
+                    const lastYear = years[years.length - 1];
+                    const numYears = lastYear.year_num - firstYear.year_num;
+
+                    if (numYears > 0 && firstYear.avg_pilots > 0) {
+                        const cagr = (Math.pow(lastYear.avg_pilots / firstYear.avg_pilots, 1/numYears) - 1) * 100;
+                        document.getElementById('cagr').textContent = (cagr >= 0 ? '+' : '') + cagr.toFixed(1) + '%';
+                        document.getElementById('cagrRange').textContent = `${firstYear.year_num}–${lastYear.year_num} growth`;
                     }
 
                     // Generate insights
@@ -1076,6 +1144,15 @@
 
             } catch (err) {
                 console.error('Failed to load data:', err);
+                document.getElementById('totalSnapshots').textContent = 'Error';
+                document.getElementById('avgPilots').textContent = '--';
+            }
+        }
+
+        function showError(containerId, message) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `<div class="error-message">${message}</div>`;
             }
         }
 
