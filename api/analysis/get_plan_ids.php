@@ -17,9 +17,9 @@ try {
         ORDER BY event_date
     ";
 
-    $result = $mysqli->query($query);
+    $result = $conn_sqli->query($query);
     if (!$result) {
-        throw new Exception("Query failed: " . $mysqli->error);
+        throw new Exception("Query failed: " . $conn_sqli->error);
     }
 
     $events = [];
