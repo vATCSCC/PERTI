@@ -616,11 +616,62 @@ include('load/nav.php');
                         <div class="tmi-compliance-section">
                             <h5 class="text-warning mb-3"><i class="fas fa-chart-line"></i> TMI Compliance Analysis</h5>
 
+                            <!-- NTML Input Section -->
+                            <div class="card mb-3">
+                                <div class="card-header py-2" data-toggle="collapse" data-target="#ntmlInputSection" style="cursor: pointer;">
+                                    <i class="fas fa-clipboard-list"></i> NTML / Advisory Input
+                                    <i class="fas fa-chevron-down float-right"></i>
+                                </div>
+                                <div class="collapse" id="ntmlInputSection">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label class="small">Destinations (comma-separated)</label>
+                                                    <input type="text" class="form-control form-control-sm" id="tmi_destinations"
+                                                           placeholder="KLAS, KVGT, KHND">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="small">Event Start (UTC)</label>
+                                                    <input type="text" class="form-control form-control-sm" id="tmi_event_start"
+                                                           placeholder="2026-01-17 22:00">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="small">Event End (UTC)</label>
+                                                    <input type="text" class="form-control form-control-sm" id="tmi_event_end"
+                                                           placeholder="2026-01-18 05:00">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-8">
+                                                <div class="form-group">
+                                                    <label class="small">NTML Entries (paste from Discord)</label>
+                                                    <textarea class="form-control form-control-sm" id="tmi_ntml_input" rows="8"
+                                                        placeholder="Paste NTML entries here, e.g.:
+LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z
+LAS via ELLDA 20MIT ZLA:ZAB 2359Z-0400Z
+LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <button class="btn btn-sm btn-outline-primary" id="save_ntml_config">
+                                                <i class="fas fa-save"></i> Save Configuration
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" id="load_ntml_config">
+                                                <i class="fas fa-folder-open"></i> Load Saved
+                                            </button>
+                                            <span class="text-muted small ml-2" id="ntml_save_status"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Results Section -->
                             <div class="mb-3">
                                 <button class="btn btn-sm btn-primary" id="load_tmi_results">
                                     <i class="fas fa-download"></i> Load Results
                                 </button>
-                                <button class="btn btn-sm btn-success" id="run_tmi_analysis" disabled>
+                                <button class="btn btn-sm btn-success" id="run_tmi_analysis">
                                     <i class="fas fa-play"></i> Run Analysis
                                 </button>
                                 <span class="text-muted small ml-2" id="tmi_status"></span>

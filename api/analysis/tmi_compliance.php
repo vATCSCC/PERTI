@@ -57,7 +57,16 @@ try {
 
         // Load results from data folder (relative to project root)
         $base_path = realpath(__DIR__ . '/../../data/tmi_compliance');
-        $json_path = $base_path . '/tmi_compliance_results.json';
+        if (!$base_path) {
+            $base_path = __DIR__ . '/../../data/tmi_compliance';
+        }
+
+        // Try plan-specific file first, fall back to global file
+        $plan_json_path = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
+        $global_json_path = $base_path . '/tmi_compliance_results.json';
+
+        $json_path = file_exists($plan_json_path) ? $plan_json_path : $global_json_path;
+        $using_plan_specific = ($json_path === $plan_json_path);
 
         if (file_exists($json_path)) {
             $json_content = file_get_contents($json_path);
@@ -134,13 +143,16 @@ try {
                 }
 
                 $response['data'] = $formatted;
-                $response['message'] = 'Results loaded from cache';
+                $response['data']['plan_specific'] = $using_plan_specific;
+                $response['message'] = $using_plan_specific
+                    ? "Results loaded for plan $plan_id"
+                    : "Results loaded from global cache (run --plan $plan_id for plan-specific)";
             } else {
                 throw new Exception("Failed to parse results JSON");
             }
         } else {
             $response['data'] = null;
-            $response['message'] = 'No analysis results found. Run analysis first.';
+            $response['message'] = "No analysis results found for plan $plan_id. Run: python tmi_compliance_analyzer.py --plan $plan_id";
         }
     }
 

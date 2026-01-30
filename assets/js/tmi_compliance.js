@@ -15,6 +15,79 @@ const TMICompliance = {
         // Bind button events
         $('#load_tmi_results').on('click', () => this.loadResults());
         $('#run_tmi_analysis').on('click', () => this.runAnalysis());
+        $('#save_ntml_config').on('click', () => this.saveConfig());
+        $('#load_ntml_config').on('click', () => this.loadConfig());
+
+        // Auto-load saved config on init
+        this.loadConfig(true);
+    },
+
+    saveConfig: function() {
+        if (!this.planId) {
+            $('#ntml_save_status').text('No plan ID').addClass('text-danger');
+            return;
+        }
+
+        const config = {
+            p_id: this.planId,
+            destinations: $('#tmi_destinations').val(),
+            event_start: $('#tmi_event_start').val(),
+            event_end: $('#tmi_event_end').val(),
+            ntml_text: $('#tmi_ntml_input').val()
+        };
+
+        $('#ntml_save_status').text('Saving...');
+
+        $.ajax({
+            url: 'api/analysis/tmi_config.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(config),
+            success: (response) => {
+                if (response.success) {
+                    $('#ntml_save_status').text('Saved!').removeClass('text-danger').addClass('text-success');
+                    setTimeout(() => $('#ntml_save_status').text(''), 3000);
+                } else {
+                    $('#ntml_save_status').text('Save failed').addClass('text-danger');
+                }
+            },
+            error: () => {
+                $('#ntml_save_status').text('Save error').addClass('text-danger');
+            }
+        });
+    },
+
+    loadConfig: function(silent = false) {
+        if (!this.planId) {
+            if (!silent) $('#ntml_save_status').text('No plan ID').addClass('text-danger');
+            return;
+        }
+
+        if (!silent) $('#ntml_save_status').text('Loading...');
+
+        $.ajax({
+            url: `api/analysis/tmi_config.php?p_id=${this.planId}`,
+            method: 'GET',
+            dataType: 'json',
+            success: (response) => {
+                if (response.success && response.data) {
+                    $('#tmi_destinations').val(response.data.destinations || '');
+                    $('#tmi_event_start').val(response.data.event_start || '');
+                    $('#tmi_event_end').val(response.data.event_end || '');
+                    $('#tmi_ntml_input').val(response.data.ntml_text || '');
+                    if (!silent) {
+                        $('#ntml_save_status').text('Loaded').removeClass('text-danger').addClass('text-success');
+                        setTimeout(() => $('#ntml_save_status').text(''), 2000);
+                    }
+                } else if (!silent) {
+                    $('#ntml_save_status').text('No saved config');
+                    setTimeout(() => $('#ntml_save_status').text(''), 2000);
+                }
+            },
+            error: () => {
+                if (!silent) $('#ntml_save_status').text('Load error').addClass('text-danger');
+            }
+        });
     },
 
     loadResults: function() {
@@ -51,12 +124,49 @@ const TMICompliance = {
     },
 
     runAnalysis: function() {
-        // Placeholder for triggering analysis
+        // Show instructions for running analysis
+        const config = {
+            destinations: $('#tmi_destinations').val() || 'Not set',
+            event_start: $('#tmi_event_start').val() || 'Not set',
+            event_end: $('#tmi_event_end').val() || 'Not set',
+            ntml: $('#tmi_ntml_input').val() ? 'Configured' : 'Not configured'
+        };
+
+        const planId = this.planId || 'unknown';
+
         Swal.fire({
             icon: 'info',
-            title: 'Analysis',
-            text: 'Run the Python analyzer script and then click Load Results.',
-            confirmButtonText: 'OK'
+            title: 'Run TMI Analysis',
+            html: `
+                <div class="text-left small">
+                    <p><strong>Plan ID:</strong> ${planId}</p>
+                    <p><strong>Current Configuration:</strong></p>
+                    <ul>
+                        <li>Destinations: ${config.destinations}</li>
+                        <li>Event Window: ${config.event_start} - ${config.event_end}</li>
+                        <li>NTML: ${config.ntml}</li>
+                    </ul>
+                    <hr>
+                    <p><strong>Step 1: Save Config & Fetch Data (one time)</strong></p>
+                    <ol>
+                        <li>Save your NTML configuration above</li>
+                        <li>Fetch event data (±2hr buffer, cached locally):<br>
+                            <code>python C:\\temp\\tmi_compliance_analyzer.py --fetch --plan ${planId}</code></li>
+                    </ol>
+                    <p><strong>Step 2: Run Analysis (uses cache, no DB hits)</strong></p>
+                    <code>python C:\\temp\\tmi_compliance_analyzer.py --plan ${planId}</code>
+                    <p class="mt-2">Click "Load Results" when complete.</p>
+                    <hr>
+                    <p class="text-muted"><strong>Preset events (no config needed):</strong></p>
+                    <ul class="text-muted">
+                        <li><code>--fetch 1</code> then <code>1</code> - Escape the Desert</li>
+                        <li><code>--fetch 2</code> then <code>2</code> - New Year Nashville</li>
+                        <li><code>--fetch 3</code> then <code>3</code> - Honoring the Dream</li>
+                    </ul>
+                </div>
+            `,
+            confirmButtonText: 'OK',
+            width: '600px'
         });
     },
 
