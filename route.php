@@ -1598,9 +1598,13 @@ ROUTE2</pre>
                                 <i class="fas fa-database"></i> <span class="d-none d-sm-inline">GPKG</span>
                             </button>
                         </div>
-                        <button class="btn btn-sm btn-warning ml-2" id="adv_draft_tmi"
+                    </div>
+
+                    <!-- Draft TMI Reroute -->
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-warning" id="adv_draft_tmi"
                                 title="Open TMI Publisher with plotted routes for coordination workflow">
-                            <i class="fas fa-paper-plane mr-1"></i><span class="d-none d-sm-inline">Draft TMI Reroute</span>
+                            <i class="fas fa-paper-plane mr-1"></i>Draft TMI Reroute
                         </button>
                     </div>
                 </div>
