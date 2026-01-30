@@ -283,8 +283,8 @@ try {
 
             $sql = "UPDATE dbo.tmi_reroutes
                     SET status = 5,
-                        updated_at = GETUTCDATE()
-                    WHERE id = :id
+                        updated_at = SYSUTCDATETIME()
+                    WHERE reroute_id = :id
                       AND status NOT IN (4, 5)";
 
             $stmt = $rerouteConn->prepare($sql);
@@ -472,9 +472,9 @@ function postCancellationAdvisory($entityType, $entityId, $tmiConn, $adlConn, $c
                     'reason' => $reason
                 ];
             } else {
-                // Fetch from tmi_reroutes (column is 'id' not 'reroute_id')
+                // Fetch from tmi_reroutes (TMI database uses 'reroute_id')
                 $stmt = $tmiConn->prepare("
-                    SELECT * FROM dbo.tmi_reroutes WHERE id = :id
+                    SELECT * FROM dbo.tmi_reroutes WHERE reroute_id = :id
                 ");
                 $stmt->execute([':id' => $entityId]);
                 $reroute = $stmt->fetch(PDO::FETCH_ASSOC);
