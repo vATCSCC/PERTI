@@ -2086,64 +2086,7 @@ function renderChart(data) {
             textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' }
         },
         // DataZoom sliders for customizable time/demand ranges
-        dataZoom: [
-            {
-                // Horizontal slider (time axis)
-                type: 'slider',
-                xAxisIndex: 0,
-                bottom: 10,
-                height: 25,
-                start: 0,
-                end: 100,
-                borderColor: '#ddd',
-                backgroundColor: '#f8f9fa',
-                fillerColor: 'rgba(0, 123, 255, 0.15)',
-                handleStyle: {
-                    color: '#007bff',
-                    borderColor: '#0056b3'
-                },
-                textStyle: {
-                    color: '#333',
-                    fontSize: 10,
-                    fontFamily: '"Inconsolata", monospace'
-                },
-                labelFormatter: function(value) {
-                    const d = new Date(value);
-                    return d.getUTCHours().toString().padStart(2, '0') +
-                           d.getUTCMinutes().toString().padStart(2, '0') + 'z';
-                },
-                brushSelect: false
-            },
-            {
-                // Vertical slider (demand axis) - on the right side
-                type: 'slider',
-                yAxisIndex: 0,
-                right: 5,
-                width: 20,
-                start: 0,
-                end: 100,
-                borderColor: '#ddd',
-                backgroundColor: '#f8f9fa',
-                fillerColor: 'rgba(40, 167, 69, 0.15)',
-                handleStyle: {
-                    color: '#28a745',
-                    borderColor: '#1e7e34'
-                },
-                textStyle: {
-                    color: '#333',
-                    fontSize: 10
-                },
-                brushSelect: false
-            },
-            {
-                // Inside zoom for time axis (mouse scroll/drag)
-                type: 'inside',
-                xAxisIndex: 0,
-                zoomOnMouseWheel: 'shift', // Shift+scroll to zoom
-                moveOnMouseMove: false,
-                moveOnMouseWheel: false
-            }
-        ],
+        dataZoom: getDataZoomConfig(),
         grid: {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
@@ -4016,15 +3959,24 @@ function getDataZoomConfig() {
             type: 'slider',
             xAxisIndex: 0,
             bottom: 10,
-            height: 25,
+            height: 30,
             start: 0,
             end: 100,
-            borderColor: '#ddd',
+            borderColor: '#adb5bd',
             backgroundColor: '#f8f9fa',
-            fillerColor: 'rgba(0, 123, 255, 0.15)',
+            fillerColor: 'rgba(0, 123, 255, 0.2)',
+            handleSize: '110%',           // Larger handles for easier interaction
             handleStyle: {
                 color: '#007bff',
-                borderColor: '#0056b3'
+                borderColor: '#0056b3',
+                borderWidth: 1
+            },
+            moveHandleSize: 10,           // Size of the move handle (middle bar)
+            emphasis: {
+                handleStyle: {
+                    color: '#0056b3',
+                    borderColor: '#003d82'
+                }
             },
             textStyle: {
                 color: '#333',
@@ -4036,28 +3988,38 @@ function getDataZoomConfig() {
                 return d.getUTCHours().toString().padStart(2, '0') +
                        d.getUTCMinutes().toString().padStart(2, '0') + 'z';
             },
-            brushSelect: false
+            brushSelect: false,
+            zLevel: 10                    // Ensure slider is above other elements
         },
         {
             // Vertical slider (demand axis) - on the right side
             type: 'slider',
             yAxisIndex: 0,
             right: 5,
-            width: 20,
+            width: 25,
             start: 0,
             end: 100,
-            borderColor: '#ddd',
+            borderColor: '#adb5bd',
             backgroundColor: '#f8f9fa',
-            fillerColor: 'rgba(40, 167, 69, 0.15)',
+            fillerColor: 'rgba(40, 167, 69, 0.2)',
+            handleSize: '110%',
             handleStyle: {
                 color: '#28a745',
-                borderColor: '#1e7e34'
+                borderColor: '#1e7e34',
+                borderWidth: 1
+            },
+            emphasis: {
+                handleStyle: {
+                    color: '#1e7e34',
+                    borderColor: '#155d27'
+                }
             },
             textStyle: {
                 color: '#333',
                 fontSize: 10
             },
-            brushSelect: false
+            brushSelect: false,
+            zLevel: 10
         },
         {
             // Inside zoom for time axis (mouse scroll/drag)

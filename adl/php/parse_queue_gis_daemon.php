@@ -394,91 +394,88 @@ class ParseQueueGISDaemon
     }
 
     /**
-     * Extract departure fix (dfix) and arrival fix (afix) from route string and waypoints.
+     * Extract SID/STAR names and departure/arrival fixes from route string and waypoints.
      *
      * Logic:
-     * - dfix: First fix in the waypoints after skipping the departure airport (2nd waypoint typically)
-     * - afix: Last fix before the arrival airport (2nd-to-last waypoint typically)
-     *
-     * The waypoints array comes from GIS route expansion which resolves airways and procedures
-     * into individual fixes.
+     * - dp_name (SID): First token in route matching procedure pattern (ends with digit+letter)
+     * - star_name (STAR): Last token in route matching procedure pattern
+     * - dfix: First fix in waypoints after departure (2nd waypoint typically)
+     * - afix: Last fix before arrival (2nd-to-last waypoint typically)
      *
      * @param string $routeString Original filed route
      * @param array $waypoints Expanded waypoints array
-     * @return array ['dfix' => string|null, 'afix' => string|null]
+     * @return array ['dp_name' => string|null, 'star_name' => string|null, 'dfix' => string|null, 'afix' => string|null]
      */
-    private function extractDfixAfix(string $routeString, array $waypoints): array
+    private function extractRouteInfo(string $routeString, array $waypoints): array
     {
+        $dpName = null;
+        $starName = null;
         $dfix = null;
         $afix = null;
 
-        if (empty($waypoints) || count($waypoints) < 2) {
-            return ['dfix' => $dfix, 'afix' => $afix];
-        }
-
-        // Parse route string tokens to identify potential SIDs/STARs
+        // Parse route string tokens
         $tokens = preg_split('/\s+/', strtoupper(trim($routeString)));
-        $tokens = array_filter($tokens, fn($t) => !empty($t) && $t !== 'DCT');
+        $tokens = array_values(array_filter($tokens, fn($t) => !empty($t) && $t !== 'DCT'));
 
-        // SID pattern: ends with digit + optional letter (e.g., KRSTA4, KKILR3, ULKIG4S)
-        // STAR pattern: similar, often with digit at end
-        $procedurePattern = '/^[A-Z]{3,6}\d[A-Z]?$/';
+        // Procedure pattern: 3-6 letters followed by digit + optional letter (e.g., KRSTA4, KKILR3, ULKIG4S, WYNDE3)
+        // More permissive pattern to catch various naming conventions
+        $procedurePattern = '/^[A-Z]{2,7}\d[A-Z0-9]?$/';
 
-        // Check first few route tokens for SID
-        $hasSid = false;
-        $sidEndIndex = 0;
+        // Check first few route tokens for SID (departure procedure)
         for ($i = 0; $i < min(3, count($tokens)); $i++) {
             $token = preg_replace('/\/.*$/', '', $tokens[$i]); // Remove /altitude suffixes
             if (preg_match($procedurePattern, $token)) {
-                $hasSid = true;
-                $sidEndIndex = $i;
+                $dpName = $token;
                 break;
             }
         }
 
-        // Check last few route tokens for STAR
-        $hasStar = false;
-        $starStartIndex = count($tokens) - 1;
+        // Check last few route tokens for STAR (arrival procedure)
         for ($i = count($tokens) - 1; $i >= max(0, count($tokens) - 3); $i--) {
             $token = preg_replace('/\/.*$/', '', $tokens[$i]); // Remove /altitude suffixes
             if (preg_match($procedurePattern, $token)) {
-                $hasStar = true;
-                $starStartIndex = $i;
+                // Make sure it's not the same as SID (for short routes)
+                if ($token !== $dpName) {
+                    $starName = $token;
+                }
                 break;
             }
         }
 
-        // Extract dfix - first non-airway fix after departure
-        // Skip first waypoint (likely departure airport or first SID fix)
-        for ($i = 1; $i < min(5, count($waypoints)); $i++) {
-            $wp = $waypoints[$i];
-            $fixId = $wp['fix_id'] ?? $wp['id'] ?? null;
-            $fixType = $wp['fix_type'] ?? $wp['type'] ?? '';
+        // Extract fixes from waypoints if available
+        if (!empty($waypoints) && count($waypoints) >= 2) {
+            // Extract dfix - first non-airway fix after departure
+            for ($i = 1; $i < min(5, count($waypoints)); $i++) {
+                $wp = $waypoints[$i];
+                $fixId = $wp['fix_id'] ?? $wp['id'] ?? null;
+                $fixType = $wp['fix_type'] ?? $wp['type'] ?? '';
 
-            // Skip airway waypoints (type contains 'airway_')
-            if ($fixId && strpos($fixType, 'airway_') === false) {
-                // Valid navigation fix - use as dfix
-                $dfix = strtoupper($fixId);
-                break;
+                // Skip airway waypoints (type contains 'airway_')
+                if ($fixId && strpos($fixType, 'airway_') === false) {
+                    $dfix = strtoupper($fixId);
+                    break;
+                }
+            }
+
+            // Extract afix - last non-airway fix before arrival
+            for ($i = count($waypoints) - 2; $i >= max(0, count($waypoints) - 5); $i--) {
+                $wp = $waypoints[$i];
+                $fixId = $wp['fix_id'] ?? $wp['id'] ?? null;
+                $fixType = $wp['fix_type'] ?? $wp['type'] ?? '';
+
+                if ($fixId && strpos($fixType, 'airway_') === false) {
+                    $afix = strtoupper($fixId);
+                    break;
+                }
             }
         }
 
-        // Extract afix - last non-airway fix before arrival
-        // Skip last waypoint (likely arrival airport or STAR fix)
-        for ($i = count($waypoints) - 2; $i >= max(0, count($waypoints) - 5); $i--) {
-            $wp = $waypoints[$i];
-            $fixId = $wp['fix_id'] ?? $wp['id'] ?? null;
-            $fixType = $wp['fix_type'] ?? $wp['type'] ?? '';
-
-            // Skip airway waypoints
-            if ($fixId && strpos($fixType, 'airway_') === false) {
-                // Valid navigation fix - use as afix
-                $afix = strtoupper($fixId);
-                break;
-            }
-        }
-
-        return ['dfix' => $dfix, 'afix' => $afix];
+        return [
+            'dp_name' => $dpName,
+            'star_name' => $starName,
+            'dfix' => $dfix,
+            'afix' => $afix
+        ];
     }
 
     /**
