@@ -81,7 +81,9 @@ class TMIComplianceAnalyzer:
                 for tmi in mit_tmis:
                     result = self._analyze_mit_compliance(tmi)
                     if result:
-                        key = f"{tmi.tmi_type.value}_{tmi.fix}_{tmi.fix}"
+                        # Use unique key: type_fix_starttime_value to differentiate multiple TMIs per fix
+                        time_key = tmi.start_utc.strftime('%H%M') if tmi.start_utc else 'notime'
+                        key = f"{tmi.tmi_type.value}_{tmi.fix}_{time_key}_{tmi.value}"
                         results['mit_results'][key] = result
 
                 # Ground Stop Analysis
@@ -215,11 +217,13 @@ class TMIComplianceAnalyzer:
 
         positions = cursor.fetchall()
         cursor.close()
+        logger.info(f"  Found {len(positions)} trajectory points near {fix_name}")
 
         # Group by callsign and find closest approach
         flight_positions = defaultdict(list)
         for pos in positions:
             flight_positions[pos[0]].append(pos)
+        logger.info(f"  Trajectory data for {len(flight_positions)} unique flights")
 
         for callsign, pos_list in flight_positions.items():
             closest_dist = float('inf')
@@ -253,7 +257,8 @@ class TMIComplianceAnalyzer:
 
     def _analyze_mit_compliance(self, tmi: TMI) -> Optional[Dict]:
         """Analyze MIT/MINIT compliance for a TMI"""
-        logger.info(f"Analyzing {tmi.tmi_type.value}: {tmi.fix}")
+        time_str = f"{tmi.start_utc.strftime('%H:%MZ') if tmi.start_utc else '??'}-{tmi.end_utc.strftime('%H:%MZ') if tmi.end_utc else '??'}"
+        logger.info(f"Analyzing {tmi.tmi_type.value}: {tmi.fix} {tmi.value}nm {time_str}")
 
         fix = tmi.fix
         if fix not in self.fix_coords:
@@ -262,6 +267,7 @@ class TMIComplianceAnalyzer:
 
         coords = self.fix_coords[fix]
         flights = self._get_flights_for_tmi(tmi)
+        logger.info(f"  Found {len(flights)} flights matching destination filter")
 
         if not flights:
             logger.info(f"No flights found for TMI scope")
