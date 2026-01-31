@@ -198,7 +198,7 @@ class TMIComplianceAnalyzer:
 
     def _detect_crossings(self, fix_name: str, fix_lat: float, fix_lon: float,
                           callsigns: List[str], tmi: TMI) -> List[CrossingResult]:
-        """Detect fix crossings using trajectory data"""
+        """Detect fix crossings using trajectory data from both live and archive tables"""
         crossings = []
         cursor = self.adl_conn.cursor()
 
@@ -211,21 +211,49 @@ class TMIComplianceAnalyzer:
 
         callsign_in = "'" + "','".join(callsigns) + "'"
 
-        # Format query for current driver (pymssql uses %s, pyodbc uses ?)
+        # Query both live (adl_flight_trajectory) and archive (adl_trajectory_archive) tables
+        # Live table uses recorded_utc and needs join to get callsign
+        # Archive table has callsign and uses timestamp_utc
         query = self.adl.format_query(f"""
-            SELECT t.callsign, t.flight_uid, t.timestamp_utc,
-                   t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                   p.fp_dept_icao, p.fp_dest_icao
-            FROM dbo.adl_trajectory_archive t
-            INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-            WHERE t.timestamp_utc >= %s
-              AND t.timestamp_utc <= %s
-              AND t.callsign IN ({callsign_in})
-              AND t.lat BETWEEN %s AND %s
-              AND t.lon BETWEEN %s AND %s
-            ORDER BY t.callsign, t.timestamp_utc
+            SELECT callsign, flight_uid, timestamp_utc, lat, lon, groundspeed_kts, altitude_ft,
+                   fp_dept_icao, fp_dest_icao
+            FROM (
+                -- Archive table (older data)
+                SELECT t.callsign, t.flight_uid, t.timestamp_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao
+                FROM dbo.adl_trajectory_archive t
+                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s
+                  AND t.timestamp_utc <= %s
+                  AND t.callsign IN ({callsign_in})
+                  AND t.lat BETWEEN %s AND %s
+                  AND t.lon BETWEEN %s AND %s
+
+                UNION ALL
+
+                -- Live table (recent data - needs join for callsign)
+                SELECT c.callsign, t.flight_uid, t.recorded_utc AS timestamp_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao
+                FROM dbo.adl_flight_trajectory t
+                INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.recorded_utc >= %s
+                  AND t.recorded_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                  AND t.lat BETWEEN %s AND %s
+                  AND t.lon BETWEEN %s AND %s
+            ) combined
+            ORDER BY callsign, timestamp_utc
         """)
         cursor.execute(query, (
+            # Archive table params
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
+            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin,
+            fix_lon - lon_margin, fix_lon + lon_margin,
+            # Live table params (same values)
             tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
             tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
             fix_lat - lat_margin, fix_lat + lat_margin,
@@ -234,7 +262,7 @@ class TMIComplianceAnalyzer:
 
         positions = cursor.fetchall()
         cursor.close()
-        logger.info(f"  Found {len(positions)} trajectory points near {fix_name}")
+        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (live+archive)")
 
         # Group by callsign and find closest approach
         flight_positions = defaultdict(list)
