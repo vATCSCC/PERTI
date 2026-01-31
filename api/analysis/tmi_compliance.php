@@ -72,7 +72,9 @@ try {
                 $response['data']['plan_specific'] = true;
                 $response['message'] = 'Analysis completed successfully';
             } else {
-                throw new Exception($result['error'] ?? 'Azure Function call failed');
+                // Return error as normal response (not 500) for user-facing errors
+                $response['success'] = false;
+                $response['message'] = $result['error'] ?? 'Analysis failed';
             }
         } else {
             // Load cached results from file
