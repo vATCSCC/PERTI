@@ -107,7 +107,8 @@ class TMIComplianceAnalyzer:
             'summary': {},
             'mit_results': {},
             'gs_results': {},
-            'apreq_results': {}
+            'apreq_results': {},
+            'delay_results': []
         }
 
         # Connect to databases
@@ -165,6 +166,11 @@ class TMIComplianceAnalyzer:
                     if result:
                         key = f"{tmi.tmi_type.value}_{tmi.fix or 'ALL'}"
                         results['apreq_results'][key] = result
+
+                # Delay Tracking - include parsed delay entries from NTML
+                if self.event.delays:
+                    results['delay_results'] = self._format_delay_entries()
+                    logger.info(f"Included {len(results['delay_results'])} delay entries")
 
         except Exception as e:
             logger.exception("Analysis failed")
@@ -1142,6 +1148,38 @@ class TMIComplianceAnalyzer:
             'requestor': tmi.requestor,
             'note': 'APREQ/CFR requires coordination verification - these flights would need release'
         }
+
+    def _format_delay_entries(self) -> List[Dict]:
+        """
+        Format delay entries from NTML for output.
+
+        Groups delays by airport and delay type, tracking how delays changed over time.
+        """
+        from .models import DelayType, DelayTrend, HoldingStatus
+
+        delay_list = []
+
+        for d in self.event.delays:
+            entry = {
+                'delay_type': d.delay_type.value if d.delay_type else 'UNKNOWN',
+                'airport': d.airport,
+                'facility': d.facility,
+                'timestamp': d.timestamp_utc.strftime('%H:%MZ') if d.timestamp_utc else None,
+                'delay_minutes': d.delay_minutes,
+                'delay_trend': d.delay_trend.value if d.delay_trend else 'UNKNOWN',
+                'delay_start': d.delay_start_utc.strftime('%H:%MZ') if d.delay_start_utc else None,
+                'holding_status': d.holding_status.value if d.holding_status else 'NONE',
+                'holding_fix': d.holding_fix,
+                'aircraft_holding': d.aircraft_holding,
+                'reason': d.reason,
+                'raw_line': d.raw_line
+            }
+            delay_list.append(entry)
+
+        # Sort by timestamp
+        delay_list.sort(key=lambda x: x.get('timestamp') or '')
+
+        return delay_list
 
     def _calculate_summary(self, results: Dict) -> Dict:
         """Calculate overall summary statistics"""
