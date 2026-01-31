@@ -1606,6 +1606,8 @@ function initPhaseFilterFloatingPanel() {
         dragOffset.x = e.clientX - $floatingPanel.offset().left;
         dragOffset.y = e.clientY - $floatingPanel.offset().top;
         $('body').css('user-select', 'none');
+        // Disable pointer events on chart so drag works over it
+        $('#demand_chart').css('pointer-events', 'none');
     });
 
     $(document).on('mousemove', function(e) {
@@ -1630,6 +1632,8 @@ function initPhaseFilterFloatingPanel() {
         if (isDragging) {
             isDragging = false;
             $('body').css('user-select', '');
+            // Re-enable pointer events on chart
+            $('#demand_chart').css('pointer-events', '');
             // Save position
             panelPos.x = parseInt($floatingPanel.css('left'));
             panelPos.y = parseInt($floatingPanel.css('top'));
