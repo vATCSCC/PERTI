@@ -124,9 +124,9 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             start_utc = event_start
             end_utc = event_end
 
-            # Extract time window from raw text (e.g., "0045-0320")
+            # Extract time window from raw text (e.g., "0045-0320" or "2359Z-0400Z")
             import re
-            time_match = re.search(r'(\d{4})-(\d{4})', raw)
+            time_match = re.search(r'(\d{4})Z?-(\d{4})Z?', raw)
             if time_match:
                 start_utc = parse_time_window(time_match.group(1), event_start.date())
                 end_utc = parse_time_window(time_match.group(2), event_start.date())
