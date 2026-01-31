@@ -2178,7 +2178,43 @@ const NODDemandLayer = (function() {
             case 'fix':
                 // Check if any waypoint matches the fix name
                 const fixName = (monitor.fix || '').toUpperCase();
-                return waypointNames.includes(fixName);
+
+                // First check if fix is in waypoints (standard fix matching)
+                if (waypointNames.includes(fixName)) {
+                    return true;
+                }
+
+                // Get flight's procedure names for matching
+                const flightStar = (flight.star_name || '').toUpperCase();
+                const flightDp = (flight.dp_name || '').toUpperCase();
+
+                // Check if this looks like a SID/STAR procedure name
+                // Pattern: 3+ letters followed by digit, optionally followed by letter
+                // Examples: SNFLD3, ICONS5, DUMEP1T, KRSTA4
+                const procedurePattern = /^[A-Z]{3,}[0-9][A-Z]?$/;
+                if (procedurePattern.test(fixName)) {
+                    // Exact match or base name match (SNFLD3 matches star_name SNFLD3 or SNFLD3A)
+                    if (flightStar && (flightStar === fixName || flightStar.startsWith(fixName.slice(0, -1)))) {
+                        return true;
+                    }
+                    if (flightDp && (flightDp === fixName || flightDp.startsWith(fixName.slice(0, -1)))) {
+                        return true;
+                    }
+                }
+
+                // Also check if input is a procedure base name (3+ letters, no number)
+                // e.g., "SNFLD" should match star_name "SNFLD3" or "SNFLD3A"
+                // This handles when users enter just the fix name expecting STAR matching
+                if (/^[A-Z]{3,}$/.test(fixName) && fixName.length >= 3) {
+                    if (flightStar && flightStar.startsWith(fixName)) {
+                        return true;
+                    }
+                    if (flightDp && flightDp.startsWith(fixName)) {
+                        return true;
+                    }
+                }
+
+                return false;
 
             case 'segment':
                 // Check if waypoints contain both from and to fixes
@@ -2216,7 +2252,35 @@ const NODDemandLayer = (function() {
                 if (viaType === 'airway') {
                     passesVia = waypointAirways.includes(viaValue);
                 } else {
+                    // Check waypoints first
                     passesVia = waypointNames.includes(viaValue);
+
+                    // Get flight's procedure names for matching
+                    const viaFlightStar = (flight.star_name || '').toUpperCase();
+                    const viaFlightDp = (flight.dp_name || '').toUpperCase();
+
+                    // Also check if this looks like a SID/STAR procedure name
+                    if (!passesVia) {
+                        const viaProcPattern = /^[A-Z]{3,}[0-9][A-Z]?$/;
+                        if (viaProcPattern.test(viaValue)) {
+                            if (viaFlightStar && (viaFlightStar === viaValue || viaFlightStar.startsWith(viaValue.slice(0, -1)))) {
+                                passesVia = true;
+                            }
+                            if (!passesVia && viaFlightDp && (viaFlightDp === viaValue || viaFlightDp.startsWith(viaValue.slice(0, -1)))) {
+                                passesVia = true;
+                            }
+                        }
+                    }
+
+                    // Also check if input is a procedure base name (e.g., "SNFLD" matches "SNFLD3")
+                    if (!passesVia && /^[A-Z]{3,}$/.test(viaValue) && viaValue.length >= 3) {
+                        if (viaFlightStar && viaFlightStar.startsWith(viaValue)) {
+                            passesVia = true;
+                        }
+                        if (!passesVia && viaFlightDp && viaFlightDp.startsWith(viaValue)) {
+                            passesVia = true;
+                        }
+                    }
                 }
 
                 if (!passesVia) return false;
