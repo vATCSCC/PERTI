@@ -199,6 +199,40 @@ function buildFlightFilterClause($filter, $coreAlias = 'c', $planAlias = 'fp') {
     ];
 }
 
+/**
+ * Check if a value looks like a SID/STAR procedure name
+ * Pattern: 3+ letters followed by a digit, optionally followed by a letter
+ * Examples: SNFLD3, ICONS5, DUMEP1T, KRSTA4, BNFSH3, PRICY4
+ *
+ * @param string $value The value to check
+ * @return bool True if it matches the SID/STAR pattern
+ */
+function isProcedureName($value) {
+    // Pattern: 3+ uppercase letters, followed by a digit, optionally followed by a letter
+    return preg_match('/^[A-Z]{3,}[0-9][A-Z]?$/', strtoupper($value)) === 1;
+}
+
+/**
+ * Check if a value could be a procedure base name (without version number)
+ * Pattern: 3+ letters (could be start of a STAR like "SNFLD" for "SNFLD3")
+ *
+ * @param string $value The value to check
+ * @return bool True if it could be a procedure base name
+ */
+function couldBeProcedureBaseName($value) {
+    // 3-5 uppercase letters that aren't an airway (airways start with J/V/Q/T/Y/L/M/A/B/G/R followed by digits)
+    $upper = strtoupper($value);
+    if (strlen($upper) < 3 || strlen($upper) > 6) {
+        return false;
+    }
+    // Check if it's NOT an airway pattern
+    if (preg_match('/^[JVQTYLMABGR][0-9]+$/', $upper)) {
+        return false;
+    }
+    // Check if it's all letters
+    return preg_match('/^[A-Z]+$/', $upper) === 1;
+}
+
 // Parse parameters
 $monitorsJson = isset($_GET['monitors']) ? trim($_GET['monitors']) : '';
 $bucketMinutes = isset($_GET['bucket_minutes']) ? (int)$_GET['bucket_minutes'] : 15;
@@ -1034,29 +1068,81 @@ foreach ($viaMonitors as $idx => $m) {
         $locationParams = ($direction === 'both') ? [$locationFilterCode, $locationFilterCode] : [$locationFilterCode];
 
         if ($viaType === 'fix') {
-            $sql = "WITH TimeBounds AS (
-                        SELECT GETUTCDATE() AS start_time,
-                               DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
-                    ),
-                    BucketCounts AS (
-                        SELECT
-                            DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ? AS bucket_num,
-                            COUNT(DISTINCT w.flight_uid) AS flight_count
-                        FROM dbo.adl_flight_waypoints w
-                        CROSS JOIN TimeBounds tb
-                        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
-                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
-                        WHERE w.fix_name = ?
-                          AND w.eta_utc >= tb.start_time
-                          AND w.eta_utc < tb.end_time
-                          AND c.is_active = 1
-                          AND c.phase NOT IN ('arrived', 'disconnected')
-                          AND $locationClause
-                          $flightFilterClause
-                        GROUP BY DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ?
-                    )
-                    SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
-            $params = array_merge([$horizonHours, $bucketMinutes, $viaValue], $locationParams, $flightFilterParams, [$bucketMinutes]);
+            // Check if viaValue looks like a SID/STAR procedure name
+            $isProcedure = isProcedureName($viaValue);
+            $isBaseName = couldBeProcedureBaseName($viaValue);
+
+            if ($isProcedure || $isBaseName) {
+                // Use procedure-aware matching: check waypoints OR star_name OR dp_name
+                // For arrivals, primarily check star_name; for departures, check dp_name
+                $procMatchClause = "w.fix_name = ?";
+                $procParams = [$viaValue];
+
+                if ($isProcedure) {
+                    // Full procedure name like SNFLD3 - exact match or base match
+                    $baseName = preg_replace('/[0-9][A-Z]?$/', '', $viaValue);
+                    $procMatchClause = "(w.fix_name = ? OR fp.star_name = ? OR fp.star_name LIKE ? OR fp.dp_name = ? OR fp.dp_name LIKE ?)";
+                    $procParams = [$viaValue, $viaValue, $baseName . '%', $viaValue, $baseName . '%'];
+                } else {
+                    // Base name like SNFLD - prefix match on star_name/dp_name
+                    $procMatchClause = "(w.fix_name = ? OR fp.star_name LIKE ? OR fp.dp_name LIKE ?)";
+                    $procParams = [$viaValue, $viaValue . '%', $viaValue . '%'];
+                }
+
+                $sql = "WITH TimeBounds AS (
+                            SELECT GETUTCDATE() AS start_time,
+                                   DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                        ),
+                        MatchingFlights AS (
+                            SELECT DISTINCT c.flight_uid, t.eta_runway_utc
+                            FROM dbo.adl_flight_core c
+                            INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                            INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                            CROSS JOIN TimeBounds tb
+                            WHERE $procMatchClause
+                              AND c.is_active = 1
+                              AND c.phase NOT IN ('arrived', 'disconnected')
+                              AND t.eta_runway_utc >= tb.start_time
+                              AND t.eta_runway_utc < tb.end_time
+                              AND $locationClause
+                              $flightFilterClause
+                        ),
+                        BucketCounts AS (
+                            SELECT
+                                DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ? AS bucket_num,
+                                COUNT(*) AS flight_count
+                            FROM MatchingFlights mf
+                            CROSS JOIN TimeBounds tb
+                            GROUP BY DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ?
+                        )
+                        SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+                $params = array_merge([$horizonHours], $procParams, $locationParams, $flightFilterParams, [$bucketMinutes, $bucketMinutes]);
+            } else {
+                // Standard fix matching (not a procedure name)
+                $sql = "WITH TimeBounds AS (
+                            SELECT GETUTCDATE() AS start_time,
+                                   DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                        ),
+                        BucketCounts AS (
+                            SELECT
+                                DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ? AS bucket_num,
+                                COUNT(DISTINCT w.flight_uid) AS flight_count
+                            FROM dbo.adl_flight_waypoints w
+                            CROSS JOIN TimeBounds tb
+                            INNER JOIN dbo.adl_flight_core c ON c.flight_uid = w.flight_uid
+                            INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = w.flight_uid
+                            WHERE w.fix_name = ?
+                              AND w.eta_utc >= tb.start_time
+                              AND w.eta_utc < tb.end_time
+                              AND c.is_active = 1
+                              AND c.phase NOT IN ('arrived', 'disconnected')
+                              AND $locationClause
+                              $flightFilterClause
+                            GROUP BY DATEDIFF(MINUTE, tb.start_time, w.eta_utc) / ?
+                        )
+                        SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+                $params = array_merge([$horizonHours, $bucketMinutes, $viaValue], $locationParams, $flightFilterParams, [$bucketMinutes]);
+            }
         } else {
             // Via airway
             $sql = "WITH TimeBounds AS (
@@ -1084,9 +1170,87 @@ foreach ($viaMonitors as $idx => $m) {
             $params = array_merge([$horizonHours, $bucketMinutes, $viaValue], $locationParams, $flightFilterParams, [$bucketMinutes]);
         }
     } else {
-        // Use SQL function without flight filter
-        $sql = "SELECT * FROM dbo.fn_ViaDemandBucketed(?, ?, ?, ?, ?, ?, ?, NULL)";
-        $params = [$locationFilterType, $locationFilterCode, $direction, $viaValue, $viaType, $bucketMinutes, $horizonHours];
+        // No flight filter - use SQL function OR inline SQL for procedures
+        $isProcedure = isProcedureName($viaValue);
+        $isBaseName = couldBeProcedureBaseName($viaValue);
+
+        if ($viaType === 'fix' && ($isProcedure || $isBaseName)) {
+            // For procedure-like values, use inline SQL with star_name/dp_name matching
+            // Build location filter clause
+            $locationClause = "1=1";
+            switch ($locationFilterType) {
+                case 'airport':
+                    if ($direction === 'arr') {
+                        $locationClause = "fp.fp_dest_icao = ?";
+                    } else if ($direction === 'dep') {
+                        $locationClause = "fp.fp_dept_icao = ?";
+                    } else {
+                        $locationClause = "(fp.fp_dest_icao = ? OR fp.fp_dept_icao = ?)";
+                    }
+                    break;
+                case 'tracon':
+                    if ($direction === 'arr') {
+                        $locationClause = "fp.fp_dest_tracon = ?";
+                    } else if ($direction === 'dep') {
+                        $locationClause = "fp.fp_dept_tracon = ?";
+                    } else {
+                        $locationClause = "(fp.fp_dest_tracon = ? OR fp.fp_dept_tracon = ?)";
+                    }
+                    break;
+                case 'artcc':
+                    if ($direction === 'arr') {
+                        $locationClause = "fp.fp_dest_artcc = ?";
+                    } else if ($direction === 'dep') {
+                        $locationClause = "fp.fp_dept_artcc = ?";
+                    } else {
+                        $locationClause = "(fp.fp_dest_artcc = ? OR fp.fp_dept_artcc = ?)";
+                    }
+                    break;
+            }
+            $locationParams = ($direction === 'both') ? [$locationFilterCode, $locationFilterCode] : [$locationFilterCode];
+
+            // Build procedure match clause
+            if ($isProcedure) {
+                $baseName = preg_replace('/[0-9][A-Z]?$/', '', $viaValue);
+                $procMatchClause = "(w.fix_name = ? OR fp.star_name = ? OR fp.star_name LIKE ? OR fp.dp_name = ? OR fp.dp_name LIKE ?)";
+                $procParams = [$viaValue, $viaValue, $baseName . '%', $viaValue, $baseName . '%'];
+            } else {
+                $procMatchClause = "(w.fix_name = ? OR fp.star_name LIKE ? OR fp.dp_name LIKE ?)";
+                $procParams = [$viaValue, $viaValue . '%', $viaValue . '%'];
+            }
+
+            $sql = "WITH TimeBounds AS (
+                        SELECT GETUTCDATE() AS start_time,
+                               DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
+                    ),
+                    MatchingFlights AS (
+                        SELECT DISTINCT c.flight_uid, t.eta_runway_utc
+                        FROM dbo.adl_flight_core c
+                        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+                        INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                        CROSS JOIN TimeBounds tb
+                        WHERE $procMatchClause
+                          AND c.is_active = 1
+                          AND c.phase NOT IN ('arrived', 'disconnected')
+                          AND t.eta_runway_utc >= tb.start_time
+                          AND t.eta_runway_utc < tb.end_time
+                          AND $locationClause
+                    ),
+                    BucketCounts AS (
+                        SELECT
+                            DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ? AS bucket_num,
+                            COUNT(*) AS flight_count
+                        FROM MatchingFlights mf
+                        CROSS JOIN TimeBounds tb
+                        GROUP BY DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ?
+                    )
+                    SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
+            $params = array_merge([$horizonHours], $procParams, $locationParams, [$bucketMinutes, $bucketMinutes]);
+        } else {
+            // Use SQL function for standard fixes and airways
+            $sql = "SELECT * FROM dbo.fn_ViaDemandBucketed(?, ?, ?, ?, ?, ?, ?, NULL)";
+            $params = [$locationFilterType, $locationFilterCode, $direction, $viaValue, $viaType, $bucketMinutes, $horizonHours];
+        }
     }
 
     $stmt = sqlsrv_query($conn, $sql, $params);
