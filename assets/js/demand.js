@@ -907,13 +907,28 @@ function getARTCCColor(artcc) {
 }
 
 // Format date for datetime-local input (YYYY-MM-DDTHH:MM in local time)
-function formatDateTimeLocal(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+/**
+ * Format a Date object for datetime-local input in UTC
+ * @param {Date} date - Date object to format
+ * @returns {string} - Format: YYYY-MM-DDTHH:MM (UTC time)
+ */
+function formatDateTimeLocalUTC(date) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
     return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+/**
+ * Parse a datetime-local input value as UTC
+ * @param {string} value - datetime-local value (YYYY-MM-DDTHH:MM)
+ * @returns {Date} - Date object representing the UTC time
+ */
+function parseDateTimeLocalAsUTC(value) {
+    // Append 'Z' to interpret as UTC
+    return new Date(value + ':00Z');
 }
 
 // Time range options (from design document)
@@ -1201,9 +1216,9 @@ function setupEventHandlers() {
             const defaultStart = new Date(now.getTime() - 2 * 60 * 60 * 1000); // T-2H
             const defaultEnd = new Date(now.getTime() + 14 * 60 * 60 * 1000);  // T+14H
 
-            // Format for datetime-local input (YYYY-MM-DDTHH:MM)
-            $('#demand_custom_start').val(formatDateTimeLocal(defaultStart));
-            $('#demand_custom_end').val(formatDateTimeLocal(defaultEnd));
+            // Format for datetime-local input in UTC (YYYY-MM-DDTHH:MM)
+            $('#demand_custom_start').val(formatDateTimeLocalUTC(defaultStart));
+            $('#demand_custom_end').val(formatDateTimeLocalUTC(defaultEnd));
         } else {
             // Hide custom inputs, use preset
             $('#custom_time_range_container').hide();
@@ -1229,8 +1244,9 @@ function setupEventHandlers() {
             return;
         }
 
-        const startDate = new Date(startVal);
-        const endDate = new Date(endVal);
+        // Parse datetime-local values as UTC
+        const startDate = parseDateTimeLocalAsUTC(startVal);
+        const endDate = parseDateTimeLocalAsUTC(endVal);
 
         if (endDate <= startDate) {
             showError('End time must be after start time');

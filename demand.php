@@ -617,9 +617,9 @@ include("load/config.php");
 
                     <!-- Custom Time Range Inputs (hidden by default) -->
                     <div class="form-group" id="custom_time_range_container" style="display: none;">
-                        <label class="demand-label mb-1">Start</label>
+                        <label class="demand-label mb-1">Start (UTC)</label>
                         <input type="datetime-local" class="form-control form-control-sm mb-2" id="demand_custom_start">
-                        <label class="demand-label mb-1">End</label>
+                        <label class="demand-label mb-1">End (UTC)</label>
                         <input type="datetime-local" class="form-control form-control-sm mb-2" id="demand_custom_end">
                         <button type="button" class="btn btn-primary btn-sm w-100" id="apply_custom_range">Apply Range</button>
                     </div>
