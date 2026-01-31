@@ -1653,10 +1653,18 @@ class AdlQueryHelper {
                         fp_dept_icao AS origin,
                         fp_dest_icao AS destination,
                         fp_dept_artcc AS origin_artcc,
+                        fp_dest_artcc AS dest_artcc,
                         COALESCE(eta_runway_utc, eta_utc) AS eta,
                         phase,
                         is_active,
-                        aircraft_type
+                        aircraft_type,
+                        airline_icao AS carrier,
+                        weight_class,
+                        fp_rule AS flight_rules,
+                        dfix,
+                        afix,
+                        dp_name,
+                        star_name
                     FROM dbo.vw_adl_flights
                     WHERE fp_dest_icao = ?
                       AND COALESCE(eta_runway_utc, eta_utc) >= ?
@@ -1669,11 +1677,19 @@ class AdlQueryHelper {
                         callsign,
                         fp_dept_icao AS origin,
                         fp_dest_icao AS destination,
+                        fp_dept_artcc AS origin_artcc,
                         fp_dest_artcc AS dest_artcc,
                         COALESCE(etd_runway_utc, etd_utc) AS etd,
                         phase,
                         is_active,
-                        aircraft_type
+                        aircraft_type,
+                        airline_icao AS carrier,
+                        weight_class,
+                        fp_rule AS flight_rules,
+                        dfix,
+                        afix,
+                        dp_name,
+                        star_name
                     FROM dbo.vw_adl_flights
                     WHERE fp_dept_icao = ?
                       AND COALESCE(etd_runway_utc, etd_utc) >= ?
@@ -1689,10 +1705,18 @@ class AdlQueryHelper {
                         fp.fp_dept_icao AS origin,
                         fp.fp_dest_icao AS destination,
                         fp.fp_dept_artcc AS origin_artcc,
+                        fp.fp_dest_artcc AS dest_artcc,
                         COALESCE(t.eta_runway_utc, t.eta_utc) AS eta,
                         c.phase,
                         c.is_active,
-                        fp.aircraft_type
+                        fp.aircraft_type,
+                        fp.airline_icao AS carrier,
+                        fp.weight_class,
+                        fp.fp_rule AS flight_rules,
+                        fp.dfix,
+                        fp.afix,
+                        fp.dp_name,
+                        fp.star_name
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
@@ -1707,11 +1731,19 @@ class AdlQueryHelper {
                         c.callsign,
                         fp.fp_dept_icao AS origin,
                         fp.fp_dest_icao AS destination,
+                        fp.fp_dept_artcc AS origin_artcc,
                         fp.fp_dest_artcc AS dest_artcc,
                         COALESCE(t.etd_runway_utc, t.etd_utc) AS etd,
                         c.phase,
                         c.is_active,
-                        fp.aircraft_type
+                        fp.aircraft_type,
+                        fp.airline_icao AS carrier,
+                        fp.weight_class,
+                        fp.fp_rule AS flight_rules,
+                        fp.dfix,
+                        fp.afix,
+                        fp.dp_name,
+                        fp.star_name
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid

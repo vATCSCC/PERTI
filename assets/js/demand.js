@@ -863,7 +863,12 @@ let DEMAND_STATE = {
     tmiConfig: null, // Store active TMI CONFIG entry if any
     scheduledConfigs: null, // Store all scheduled TMI CONFIG entries for time-bounded rate lines
     tmiPrograms: null, // Store GS/GDP programs for vertical markers
-    showRateLines: true, // Toggle for rate line visibility
+    showRateLines: true, // Master toggle for rate line visibility
+    // Individual rate line visibility toggles
+    showVatsimAar: true,
+    showVatsimAdr: true,
+    showRwAar: true,
+    showRwAdr: true,
     atisData: null, // Store ATIS data from API
     // Cache management
     cacheTimestamp: null, // When data was last loaded from API
@@ -1346,6 +1351,27 @@ function setupEventHandlers() {
     // ATIS details button click handler
     $('#atis_details_btn').on('click', function() {
         showAtisModal();
+    });
+
+    // Rate line visibility toggles
+    $('#rate_vatsim_aar').on('change', function() {
+        DEMAND_STATE.showVatsimAar = $(this).is(':checked');
+        renderCurrentView();
+    });
+
+    $('#rate_vatsim_adr').on('change', function() {
+        DEMAND_STATE.showVatsimAdr = $(this).is(':checked');
+        renderCurrentView();
+    });
+
+    $('#rate_rw_aar').on('change', function() {
+        DEMAND_STATE.showRwAar = $(this).is(':checked');
+        renderCurrentView();
+    });
+
+    $('#rate_rw_adr').on('change', function() {
+        DEMAND_STATE.showRwAdr = $(this).is(':checked');
+        renderCurrentView();
     });
 }
 
@@ -2327,7 +2353,8 @@ function renderChart(data) {
             const timestamp = params.value[0];
             const timeBin = new Date(timestamp).toISOString();
             if (timeBin) {
-                showFlightDetails(timeBin);
+                // Pass the clicked series name for emphasis in flight list
+                showFlightDetails(timeBin, params.seriesName);
             }
         }
     });
@@ -2644,7 +2671,7 @@ function renderOriginChart() {
             const timestamp = params.value[0];
             const timeBin = new Date(timestamp).toISOString();
             if (timeBin) {
-                showFlightDetails(timeBin);
+                showFlightDetails(timeBin, params.seriesName);
             }
         }
     });
@@ -2962,7 +2989,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             const timestamp = params.value[0];
             const timeBin = new Date(timestamp).toISOString();
             if (timeBin) {
-                showFlightDetails(timeBin);
+                showFlightDetails(timeBin, params.seriesName);
             }
         }
     });
@@ -3449,19 +3476,48 @@ function formatTimeLabelFromTimestamp(timestamp) {
 /**
  * Get current time markLine data item for TRUE TIME AXIS - FAA AADC style
  * Returns a data item with embedded label config (for merging with rate lines)
+ * Includes overlap detection with TMI program markers
  */
 function getCurrentTimeMarkLineForTimeAxis() {
     const now = new Date();
+    const nowMs = now.getTime();
     const hours = now.getUTCHours().toString().padStart(2, '0');
     const minutes = now.getUTCMinutes().toString().padStart(2, '0');
 
     // FSM/TBFM style: yellow/orange current time marker
     const markerColor = '#f59e0b';  // Amber/yellow like FSM reference
 
+    // Check for overlap with TMI program markers
+    const LABEL_PROXIMITY_THRESHOLD = 30 * 60 * 1000;  // 30 minutes in ms
+    const LABEL_HEIGHT = 22;
+    let labelOffset = 0;
+
+    if (DEMAND_STATE.tmiPrograms && DEMAND_STATE.tmiPrograms.length > 0) {
+        // Collect all TMI marker timestamps
+        const tmiMarkerTimes = [];
+        DEMAND_STATE.tmiPrograms.forEach(program => {
+            if (program.start_utc) tmiMarkerTimes.push(new Date(program.start_utc).getTime());
+            if (program.was_updated && program.updated_at) tmiMarkerTimes.push(new Date(program.updated_at).getTime());
+            if (program.status === 'PURGED' && program.purged_at) tmiMarkerTimes.push(new Date(program.purged_at).getTime());
+            else if (program.end_utc) tmiMarkerTimes.push(new Date(program.end_utc).getTime());
+        });
+
+        // Count how many TMI markers are within proximity of current time
+        let markersInProximity = 0;
+        tmiMarkerTimes.forEach(markerTime => {
+            if (Math.abs(markerTime - nowMs) < LABEL_PROXIMITY_THRESHOLD) {
+                markersInProximity++;
+            }
+        });
+
+        // Offset time marker label based on number of nearby TMI markers
+        labelOffset = markersInProximity * LABEL_HEIGHT;
+    }
+
     // Return data item with label embedded (not at markLine level)
     // This allows proper merging with rate lines
     return {
-        xAxis: now.getTime(),
+        xAxis: nowMs,
         lineStyle: {
             color: markerColor,
             width: 2,
@@ -3471,6 +3527,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
             show: true,
             formatter: `${hours}${minutes}Z`,
             position: 'end',
+            offset: [0, labelOffset],
             color: markerColor,
             fontWeight: 'bold',
             fontSize: 10,
@@ -3634,15 +3691,15 @@ function buildRateMarkLinesForChart() {
         });
     };
 
-    // Add lines based on direction filter
+    // Add lines based on direction filter AND individual visibility toggles
     if (direction === 'both' || direction === 'arr') {
-        addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');
-        addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');
+        if (DEMAND_STATE.showVatsimAar) addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');
+        if (DEMAND_STATE.showRwAar) addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');
     }
 
     if (direction === 'both' || direction === 'dep') {
-        addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
-        addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
+        if (DEMAND_STATE.showVatsimAdr) addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
+        if (DEMAND_STATE.showRwAdr) addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
     }
 
     return lines;
@@ -3689,9 +3746,8 @@ function buildTimeBoundedRateMarkLines() {
         }
     };
 
-    // Track label positions to avoid overlaps
-    let aarLabelIndex = 0;
-    let adrLabelIndex = 0;
+    // Track label positions to avoid overlaps (unified counter for all labels)
+    let labelIndex = 0;
 
     // Process each config
     configs.forEach((config, configIndex) => {
@@ -3706,8 +3762,8 @@ function buildTimeBoundedRateMarkLines() {
         // Skip if segment is outside visible range
         if (segmentStart >= segmentEnd) return;
 
-        // Add AAR line segment (arrivals)
-        if ((direction === 'both' || direction === 'arr') && config.aar) {
+        // Add AAR line segment (arrivals) - uses VATSIM visibility toggle
+        if ((direction === 'both' || direction === 'arr') && config.aar && DEMAND_STATE.showVatsimAar) {
             const proRatedValue = Math.round(config.aar * proRateFactor * 10) / 10;
             const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
 
@@ -3720,9 +3776,9 @@ function buildTimeBoundedRateMarkLines() {
             const bgColor = sourceStyle.color;
             const textColor = getContrastTextColor(bgColor);
 
-            // Vertical offset for label stacking
-            const verticalOffset = aarLabelIndex * 20;
-            aarLabelIndex++;
+            // Vertical offset for label stacking (unified index)
+            const verticalOffset = labelIndex * 20;
+            labelIndex++;
 
             // Two-point line segment format for ECharts
             lines.push([
@@ -3758,8 +3814,8 @@ function buildTimeBoundedRateMarkLines() {
             ]);
         }
 
-        // Add ADR line segment (departures)
-        if ((direction === 'both' || direction === 'dep') && config.adr) {
+        // Add ADR line segment (departures) - uses VATSIM visibility toggle
+        if ((direction === 'both' || direction === 'dep') && config.adr && DEMAND_STATE.showVatsimAdr) {
             const proRatedValue = Math.round(config.adr * proRateFactor * 10) / 10;
             const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
 
@@ -3772,9 +3828,9 @@ function buildTimeBoundedRateMarkLines() {
             const bgColor = sourceStyle.color;
             const textColor = getContrastTextColor(bgColor);
 
-            // Vertical offset for label stacking (separate from AAR)
-            const verticalOffset = adrLabelIndex * 20;
-            adrLabelIndex++;
+            // Vertical offset for label stacking (unified index)
+            const verticalOffset = labelIndex * 20;
+            labelIndex++;
 
             lines.push([
                 {
@@ -3849,15 +3905,28 @@ function buildTimeBoundedRateMarkLines() {
             gaps.push({ start: cursor, end: chartEnd });
         }
 
+        // Track which fallback labels have been added (only label once, on last gap)
+        let vatsimAarLabeled = false;
+        let vatsimAdrLabeled = false;
+
         // Add fallback VATSIM rate lines for each gap (same symbology as active)
         gaps.forEach((gap, gapIndex) => {
+            const isLastGap = gapIndex === gaps.length - 1;
+
             // VATSIM AAR fallback - solid black
-            if ((direction === 'both' || direction === 'arr') && rates.vatsim_aar) {
+            if ((direction === 'both' || direction === 'arr') && rates.vatsim_aar && DEMAND_STATE.showVatsimAar) {
                 const proRatedValue = Math.round(rates.vatsim_aar * proRateFactor * 10) / 10;
                 const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
                 const labelText = proRateFactor < 1
                     ? `AAR ${displayValue}`
                     : `AAR ${rates.vatsim_aar}`;
+
+                const showLabel = isLastGap && !vatsimAarLabeled;
+                const verticalOffset = showLabel ? labelIndex * 20 : 0;
+                if (showLabel) {
+                    labelIndex++;
+                    vatsimAarLabeled = true;
+                }
 
                 lines.push([
                     { xAxis: gap.start, yAxis: proRatedValue },
@@ -3870,11 +3939,11 @@ function buildTimeBoundedRateMarkLines() {
                             type: 'solid'  // Solid for AAR
                         },
                         label: {
-                            show: gapIndex === gaps.length - 1,  // Only label the last gap
+                            show: showLabel,
                             formatter: labelText,
                             position: 'end',
                             distance: 5,
-                            offset: [0, 0],
+                            offset: [0, verticalOffset],
                             color: vatsimTextColor,
                             fontSize: cfg.label?.fontSize || 10,
                             fontWeight: cfg.label?.fontWeight || 'bold',
@@ -3890,12 +3959,19 @@ function buildTimeBoundedRateMarkLines() {
             }
 
             // VATSIM ADR fallback - dashed black
-            if ((direction === 'both' || direction === 'dep') && rates.vatsim_adr) {
+            if ((direction === 'both' || direction === 'dep') && rates.vatsim_adr && DEMAND_STATE.showVatsimAdr) {
                 const proRatedValue = Math.round(rates.vatsim_adr * proRateFactor * 10) / 10;
                 const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
                 const labelText = proRateFactor < 1
                     ? `ADR ${displayValue}`
                     : `ADR ${rates.vatsim_adr}`;
+
+                const showLabel = isLastGap && !vatsimAdrLabeled;
+                const verticalOffset = showLabel ? labelIndex * 20 : 0;
+                if (showLabel) {
+                    labelIndex++;
+                    vatsimAdrLabeled = true;
+                }
 
                 lines.push([
                     { xAxis: gap.start, yAxis: proRatedValue },
@@ -3908,11 +3984,11 @@ function buildTimeBoundedRateMarkLines() {
                             type: 'dashed'  // Dashed for ADR
                         },
                         label: {
-                            show: gapIndex === gaps.length - 1,  // Only label the last gap
+                            show: showLabel,
                             formatter: labelText,
                             position: 'end',
                             distance: 5,
-                            offset: [0, 20],
+                            offset: [0, verticalOffset],
                             color: vatsimTextColor,
                             fontSize: cfg.label?.fontSize || 10,
                             fontWeight: cfg.label?.fontWeight || 'bold',
@@ -3934,12 +4010,15 @@ function buildTimeBoundedRateMarkLines() {
         const rwTextColor = getContrastTextColor(rwStyle.color);
 
         // RW AAR - solid cyan across full chart
-        if ((direction === 'both' || direction === 'arr') && rates.rw_aar) {
+        if ((direction === 'both' || direction === 'arr') && rates.rw_aar && DEMAND_STATE.showRwAar) {
             const proRatedValue = Math.round(rates.rw_aar * proRateFactor * 10) / 10;
             const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
             const labelText = proRateFactor < 1
                 ? `RW AAR ${displayValue}`
                 : `RW AAR ${rates.rw_aar}`;
+
+            const verticalOffset = labelIndex * 20;
+            labelIndex++;
 
             lines.push([
                 { xAxis: chartStart, yAxis: proRatedValue },
@@ -3956,7 +4035,7 @@ function buildTimeBoundedRateMarkLines() {
                         formatter: labelText,
                         position: 'end',
                         distance: 5,
-                        offset: [0, 40],  // Offset below VATSIM labels
+                        offset: [0, verticalOffset],
                         color: rwTextColor,
                         fontSize: cfg.label?.fontSize || 10,
                         fontWeight: cfg.label?.fontWeight || 'bold',
@@ -3972,12 +4051,15 @@ function buildTimeBoundedRateMarkLines() {
         }
 
         // RW ADR - dashed cyan across full chart
-        if ((direction === 'both' || direction === 'dep') && rates.rw_adr) {
+        if ((direction === 'both' || direction === 'dep') && rates.rw_adr && DEMAND_STATE.showRwAdr) {
             const proRatedValue = Math.round(rates.rw_adr * proRateFactor * 10) / 10;
             const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
             const labelText = proRateFactor < 1
                 ? `RW ADR ${displayValue}`
                 : `RW ADR ${rates.rw_adr}`;
+
+            const verticalOffset = labelIndex * 20;
+            labelIndex++;
 
             lines.push([
                 { xAxis: chartStart, yAxis: proRatedValue },
@@ -3994,7 +4076,7 @@ function buildTimeBoundedRateMarkLines() {
                         formatter: labelText,
                         position: 'end',
                         distance: 5,
-                        offset: [0, 60],  // Offset below other labels
+                        offset: [0, verticalOffset],
                         color: rwTextColor,
                         fontSize: cfg.label?.fontSize || 10,
                         fontWeight: cfg.label?.fontWeight || 'bold',
@@ -4017,6 +4099,7 @@ function buildTimeBoundedRateMarkLines() {
  * Build vertical marker lines for GS (Ground Stop) and GDP programs
  * GS = Yellow vertical lines, GDP = Brown vertical lines
  * Markers: Start (solid), Update (dashed), CNX/End (solid)
+ * Includes label overlap detection to stack labels when markers are close together
  *
  * @returns {Array} Array of markLine data items for ECharts
  */
@@ -4031,6 +4114,11 @@ function buildTmiProgramMarkLines() {
     const GS_COLOR = '#fbbf24';   // Yellow/Amber for Ground Stops
     const GDP_COLOR = '#92400e';  // Brown for Ground Delay Programs
 
+    // Label overlap detection - track marker positions
+    const markerPositions = [];  // Array of {xAxis, labelOffset}
+    const LABEL_PROXIMITY_THRESHOLD = 30 * 60 * 1000;  // 30 minutes in ms - labels closer than this get stacked
+    const LABEL_HEIGHT = 22;  // Approximate height of label in pixels
+
     // Helper to format time as HHMMZ
     const formatTimeZ = (isoString) => {
         if (!isoString) return '';
@@ -4039,40 +4127,21 @@ function buildTmiProgramMarkLines() {
                d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
     };
 
-    // Helper to create a vertical marker line
-    const addVerticalMarker = (timestamp, label, color, isDashed = false) => {
-        if (!timestamp) return;
-
-        const timeMs = new Date(timestamp).getTime();
-        const chartStart = new Date(DEMAND_STATE.currentStart).getTime();
-        const chartEnd = new Date(DEMAND_STATE.currentEnd).getTime();
-
-        // Skip if outside visible range
-        if (timeMs < chartStart || timeMs > chartEnd) return;
-
-        lines.push({
-            xAxis: timeMs,
-            lineStyle: {
-                color: color,
-                width: 2,
-                type: isDashed ? 'dashed' : 'solid'
-            },
-            label: {
-                show: true,
-                formatter: label,
-                position: 'end',
-                color: '#000000',  // Black text for readability
-                fontWeight: 'bold',
-                fontSize: 10,
-                fontFamily: '"Inconsolata", monospace',
-                backgroundColor: color,
-                padding: [2, 6],
-                borderRadius: 2,
-                borderColor: 'rgba(0,0,0,0.3)',
-                borderWidth: 1
+    // Calculate label offset based on proximity to other markers
+    const calculateLabelOffset = (xAxis) => {
+        // Find markers within proximity threshold
+        let maxOffsetInProximity = -1;
+        markerPositions.forEach(pos => {
+            if (Math.abs(pos.xAxis - xAxis) < LABEL_PROXIMITY_THRESHOLD) {
+                maxOffsetInProximity = Math.max(maxOffsetInProximity, pos.labelOffset);
             }
         });
+        // Next offset is one level higher than the highest in proximity
+        return maxOffsetInProximity + 1;
     };
+
+    // Collect all markers first with their timestamps
+    const markersToAdd = [];
 
     // Process each program
     DEMAND_STATE.tmiPrograms.forEach(program => {
@@ -4082,42 +4151,85 @@ function buildTmiProgramMarkLines() {
 
         // Start marker (solid line)
         if (program.start_utc) {
-            addVerticalMarker(
-                program.start_utc,
-                `${prefix} Start: ${formatTimeZ(program.start_utc)}`,
-                color,
-                false  // solid
-            );
+            markersToAdd.push({
+                timestamp: program.start_utc,
+                label: `${prefix} Start: ${formatTimeZ(program.start_utc)}`,
+                color: color,
+                isDashed: false
+            });
         }
 
         // Update marker (dashed line) - only if was_updated is true
         if (program.was_updated && program.updated_at) {
-            addVerticalMarker(
-                program.updated_at,
-                `${prefix} Update: ${formatTimeZ(program.updated_at)}`,
-                color,
-                true  // dashed
-            );
+            markersToAdd.push({
+                timestamp: program.updated_at,
+                label: `${prefix} Update: ${formatTimeZ(program.updated_at)}`,
+                color: color,
+                isDashed: true
+            });
         }
 
         // End marker - check status
         if (program.status === 'PURGED' && program.purged_at) {
-            // Cancelled/Purged - use CNX label
-            addVerticalMarker(
-                program.purged_at,
-                `${prefix} CNX: ${formatTimeZ(program.purged_at)}`,
-                color,
-                false  // solid
-            );
+            markersToAdd.push({
+                timestamp: program.purged_at,
+                label: `${prefix} CNX: ${formatTimeZ(program.purged_at)}`,
+                color: color,
+                isDashed: false
+            });
         } else if (program.end_utc) {
-            // Normal end
-            addVerticalMarker(
-                program.end_utc,
-                `${prefix} End: ${formatTimeZ(program.end_utc)}`,
-                color,
-                false  // solid
-            );
+            markersToAdd.push({
+                timestamp: program.end_utc,
+                label: `${prefix} End: ${formatTimeZ(program.end_utc)}`,
+                color: color,
+                isDashed: false
+            });
         }
+    });
+
+    // Sort markers by timestamp for consistent offset calculation
+    markersToAdd.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const chartStart = new Date(DEMAND_STATE.currentStart).getTime();
+    const chartEnd = new Date(DEMAND_STATE.currentEnd).getTime();
+
+    // Add markers with overlap detection
+    markersToAdd.forEach(marker => {
+        const timeMs = new Date(marker.timestamp).getTime();
+
+        // Skip if outside visible range
+        if (timeMs < chartStart || timeMs > chartEnd) return;
+
+        // Calculate offset for this marker
+        const labelOffset = calculateLabelOffset(timeMs);
+        const verticalOffset = labelOffset * LABEL_HEIGHT;
+
+        // Record this marker's position for future overlap detection
+        markerPositions.push({ xAxis: timeMs, labelOffset: labelOffset });
+
+        lines.push({
+            xAxis: timeMs,
+            lineStyle: {
+                color: marker.color,
+                width: 2,
+                type: marker.isDashed ? 'dashed' : 'solid'
+            },
+            label: {
+                show: true,
+                formatter: marker.label,
+                position: 'end',
+                offset: [0, verticalOffset],
+                color: '#000000',  // Black text for readability
+                fontWeight: 'bold',
+                fontSize: 10,
+                fontFamily: '"Inconsolata", monospace',
+                backgroundColor: marker.color,
+                padding: [2, 6],
+                borderRadius: 2,
+                borderColor: 'rgba(0,0,0,0.3)',
+                borderWidth: 1
+            }
+        });
     });
 
     return lines;
@@ -4679,8 +4791,10 @@ function updateTopCarriers(carriers) {
  * Show flight details for a specific time bin (drill-down)
  * Note: timeBin is centered on the period (shifted by half interval),
  * so we adjust it back to get the actual bin start time.
+ * @param {string} timeBin - ISO timestamp of the clicked time bin
+ * @param {string} clickedSeries - Optional: the series name that was clicked (status, carrier, ARTCC, etc.)
  */
-function showFlightDetails(timeBin) {
+function showFlightDetails(timeBin, clickedSeries) {
     const airport = DEMAND_STATE.selectedAirport;
     if (!airport) return;
 
@@ -4697,21 +4811,21 @@ function showFlightDetails(timeBin) {
     });
 
     // Show loading in modal
-    const timeLabel = formatTimeLabel(actualTimeBin);
+    const timeLabel = formatTimeLabelZ(actualTimeBin);
     const endTime = new Date(binStartMs + intervalMs);
-    const endLabel = formatTimeLabel(endTime.toISOString());
+    const endLabel = formatTimeLabelZ(endTime.toISOString());
 
     Swal.fire({
         title: `Flights: ${timeLabel} - ${endLabel}`,
         html: '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Loading flights...</div>',
         showConfirmButton: false,
         showCloseButton: true,
-        width: '800px',
+        width: '900px',
         didOpen: function() {
             $.getJSON(`api/demand/summary.php?${params.toString()}`)
                 .done(function(response) {
                     if (response.success && response.flights) {
-                        const html = buildFlightListHtml(response.flights);
+                        const html = buildFlightListHtml(response.flights, clickedSeries);
                         Swal.update({
                             html: html
                         });
@@ -4731,44 +4845,146 @@ function showFlightDetails(timeBin) {
 }
 
 /**
- * Build HTML for flight list
+ * Format time as HH:MMZ (consistent Zulu time format)
  */
-function buildFlightListHtml(flights) {
+function formatTimeLabelZ(isoString) {
+    const date = new Date(isoString);
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}Z`;
+}
+
+/**
+ * Build HTML for flight list with color-coded status and filter-aware columns
+ * @param {Array} flights - Array of flight objects
+ * @param {string} clickedSeries - Optional: the series name that was clicked for emphasis
+ */
+function buildFlightListHtml(flights, clickedSeries) {
     if (!flights || flights.length === 0) {
         return '<p class="text-muted">No flights found for this time period.</p>';
     }
 
+    const chartView = DEMAND_STATE.chartView || 'status';
+    const direction = DEMAND_STATE.direction || 'both';
+
+    // Determine if we need an extra column based on chart view
+    const showExtraColumn = chartView !== 'status';
+    let extraColumnHeader = '';
+    let extraColumnField = '';
+
+    switch (chartView) {
+        case 'origin':
+            extraColumnHeader = 'Origin ARTCC';
+            extraColumnField = 'origin_artcc';
+            break;
+        case 'dest':
+            extraColumnHeader = 'Dest ARTCC';
+            extraColumnField = 'dest_artcc';
+            break;
+        case 'carrier':
+            extraColumnHeader = 'Carrier';
+            extraColumnField = 'carrier';
+            break;
+        case 'weight':
+            extraColumnHeader = 'Weight';
+            extraColumnField = 'weight_class';
+            break;
+        case 'equipment':
+            extraColumnHeader = 'Equipment';
+            extraColumnField = 'aircraft';
+            break;
+        case 'rule':
+            extraColumnHeader = 'Rule';
+            extraColumnField = 'flight_rules';
+            break;
+        case 'dep_fix':
+            extraColumnHeader = 'Dep Fix';
+            extraColumnField = 'dfix';
+            break;
+        case 'arr_fix':
+            extraColumnHeader = 'Arr Fix';
+            extraColumnField = 'afix';
+            break;
+        case 'dp':
+            extraColumnHeader = 'SID';
+            extraColumnField = 'dp_name';
+            break;
+        case 'star':
+            extraColumnHeader = 'STAR';
+            extraColumnField = 'star_name';
+            break;
+    }
+
+    // Time column header based on direction
+    let timeHeader = 'Time';
+    if (direction === 'arr') timeHeader = 'ETA';
+    else if (direction === 'dep') timeHeader = 'ETD';
+
     let html = `
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-sm table-striped table-hover mb-0">
-                <thead class="thead-light" style="position: sticky; top: 0;">
+            <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+                <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
                     <tr>
-                        <th>Callsign</th>
-                        <th>Type</th>
-                        <th>Origin</th>
-                        <th>Dest</th>
-                        <th>Time</th>
-                        <th>Status</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">Callsign</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">Type</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">Origin</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">Dest</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">${timeHeader}</th>
+                        ${showExtraColumn ? `<th style="border-bottom: 2px solid #dee2e6;">${extraColumnHeader}</th>` : ''}
+                        <th style="border-bottom: 2px solid #dee2e6;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
     flights.forEach(function(flight) {
-        const statusClass = getStatusBadgeClass(flight.status);
+        const status = flight.status || 'unknown';
+        const statusStyle = getStatusBadgeStyle(status);
         const dirIcon = flight.direction === 'arrival'
             ? '<i class="fas fa-plane-arrival text-success"></i>'
             : '<i class="fas fa-plane-departure text-warning"></i>';
-        const time = flight.time ? formatTimeLabel(flight.time) : '--';
+        const time = flight.time ? formatTimeLabelZ(flight.time) : '--';
+
+        // Check if this row should be emphasized (matches clicked series)
+        let rowStyle = '';
+        let isEmphasized = false;
+        if (clickedSeries) {
+            // Normalize for comparison
+            const normalizedClicked = clickedSeries.toLowerCase();
+            const normalizedStatus = status.toLowerCase();
+
+            // Check if this flight matches the clicked series
+            if (chartView === 'status' && normalizedStatus === normalizedClicked) {
+                isEmphasized = true;
+            } else if (showExtraColumn) {
+                const extraValue = (flight[extraColumnField] || '').toString();
+                if (extraValue.toUpperCase() === clickedSeries.toUpperCase()) {
+                    isEmphasized = true;
+                }
+            }
+        }
+
+        if (isEmphasized) {
+            rowStyle = 'background-color: rgba(59, 130, 246, 0.15); font-weight: 600;';
+        }
+
+        // Build extra column cell with color coding
+        let extraColumnCell = '';
+        if (showExtraColumn) {
+            const extraValue = flight[extraColumnField] || '--';
+            const extraStyle = getExtraColumnStyle(chartView, extraValue);
+            extraColumnCell = `<td><span style="${extraStyle}">${extraValue}</span></td>`;
+        }
 
         html += `
-            <tr>
+            <tr style="${rowStyle}">
                 <td><strong>${flight.callsign || '--'}</strong></td>
                 <td>${flight.aircraft || '--'}</td>
                 <td>${flight.origin || '--'}</td>
                 <td>${flight.destination || '--'}</td>
-                <td>${time} ${dirIcon}</td>
-                <td><span class="badge ${statusClass}">${flight.status || 'unknown'}</span></td>
+                <td style="white-space: nowrap;">${time} ${dirIcon}</td>
+                ${extraColumnCell}
+                <td><span style="${statusStyle}">${FSM_PHASE_LABELS[status] || status}</span></td>
             </tr>
         `;
     });
@@ -4777,10 +4993,12 @@ function buildFlightListHtml(flights) {
                 </tbody>
             </table>
         </div>
-        <div class="mt-2 text-muted small">
-            <i class="fas fa-plane-arrival text-success"></i> Arrival &nbsp;
-            <i class="fas fa-plane-departure text-warning"></i> Departure &nbsp;
-            Total: ${flights.length} flights
+        <div class="mt-2 text-muted small d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-plane-arrival text-success"></i> Arrival &nbsp;
+                <i class="fas fa-plane-departure text-warning"></i> Departure
+            </div>
+            <div>Total: <strong>${flights.length}</strong> flights</div>
         </div>
     `;
 
@@ -4788,25 +5006,103 @@ function buildFlightListHtml(flights) {
 }
 
 /**
- * Get Bootstrap badge class for phase/status
+ * Get inline style for status badge using phase colors
  */
-function getStatusBadgeClass(status) {
-    switch (status) {
-        // Individual phases
-        case 'arrived': return 'badge-dark';
-        case 'disconnected': return 'badge-secondary';
-        case 'descending': return 'badge-danger';
-        case 'enroute': return 'badge-danger';
-        case 'departed': return 'badge-danger';
-        case 'taxiing': return 'badge-success';
-        case 'prefile': return 'badge-info';
-        // Legacy statuses (for backwards compatibility)
-        case 'active': return 'badge-danger';
-        case 'scheduled': return 'badge-info';
-        case 'proposed': return 'badge-primary';
-        case 'unknown': return 'badge-warning';
-        default: return 'badge-secondary';
+function getStatusBadgeStyle(status) {
+    const bgColor = FSM_PHASE_COLORS[status] || '#6b7280';
+    const textColor = getContrastTextColor(bgColor);
+    return `background-color: ${bgColor}; color: ${textColor}; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; display: inline-block;`;
+}
+
+/**
+ * Get inline style for extra column values based on chart view
+ */
+function getExtraColumnStyle(chartView, value) {
+    if (!value || value === '--') {
+        return 'color: #999;';
     }
+
+    let bgColor = null;
+
+    switch (chartView) {
+        case 'origin':
+        case 'dest':
+            // Use ARTCC colors
+            bgColor = getARTCCColor(value);
+            break;
+        case 'carrier':
+            // Generate color from carrier code
+            bgColor = getCarrierColor(value);
+            break;
+        case 'weight':
+            // Weight class colors
+            bgColor = getWeightClassColor(value);
+            break;
+        case 'rule':
+            // IFR/VFR colors
+            bgColor = value === 'IFR' ? '#3b82f6' : '#22c55e';
+            break;
+        case 'equipment':
+        case 'dep_fix':
+        case 'arr_fix':
+        case 'dp':
+        case 'star':
+            // Generate color from value
+            bgColor = getHashColor(value);
+            break;
+    }
+
+    if (bgColor) {
+        const textColor = getContrastTextColor(bgColor);
+        return `background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: 500; display: inline-block;`;
+    }
+
+    return '';
+}
+
+/**
+ * Generate consistent color from carrier code
+ */
+function getCarrierColor(carrier) {
+    // Common carriers with specific colors
+    const CARRIER_COLORS = {
+        'AAL': '#c41230', 'DAL': '#003366', 'UAL': '#002244', 'SWA': '#f9a825',
+        'JBU': '#003876', 'ASA': '#00205b', 'FFT': '#00467f', 'SKW': '#1a1a1a',
+        'RPA': '#00467f', 'ENY': '#c41230', 'PDT': '#c41230', 'PSA': '#c41230',
+        'NKS': '#ffd700', 'AAY': '#ff6600', 'FDX': '#4d148c', 'UPS': '#351c15'
+    };
+
+    if (CARRIER_COLORS[carrier]) {
+        return CARRIER_COLORS[carrier];
+    }
+    return getHashColor(carrier);
+}
+
+/**
+ * Get color for weight class
+ */
+function getWeightClassColor(weightClass) {
+    const WEIGHT_COLORS = {
+        'SMALL': '#22c55e',
+        'LARGE': '#3b82f6',
+        'B757': '#f59e0b',
+        'HEAVY': '#ef4444',
+        'SUPER': '#9333ea'
+    };
+    return WEIGHT_COLORS[weightClass] || '#6b7280';
+}
+
+/**
+ * Generate consistent color from any string value
+ */
+function getHashColor(str) {
+    if (!str) return '#6b7280';
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    return `hsl(${hue}, 65%, 45%)`;
 }
 
 // Initialize when document is ready (only on demand.php page)
