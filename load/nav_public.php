@@ -59,7 +59,7 @@ $nav_config = [
         'items' => [
             ['label' => 'JATOC', 'path' => './jatoc'],
             ['label' => 'Event AAR', 'path' => './event-aar'],
-            // NTML requires login - not shown in public nav
+            ['label' => 'TMI Publisher', 'path' => './tmi-publish', 'perm' => true],
             ['label' => 'Status', 'path' => './status'],
         ]
     ],
@@ -97,15 +97,15 @@ if (!function_exists('render_nav_item_public')) {
 }
 
 if (!function_exists('render_dropdown_public')) {
-    function render_dropdown_public($key, $group, $filepath) {
+    function render_dropdown_public($key, $group, $filepath, $logged_in = false) {
         $html = '<li class="nav-item dropdown">';
         $html .= '<a class="nav-link dropdown-toggle" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
         $html .= $group['label'];
         $html .= '</a>';
         $html .= '<div class="dropdown-menu" aria-labelledby="nav-' . $key . '">';
         foreach ($group['items'] as $item) {
-            // Skip items that require permission
-            if (isset($item['perm']) && $item['perm']) continue;
+            // Skip items that require permission unless user is logged in
+            if (isset($item['perm']) && $item['perm'] && !$logged_in) continue;
             $html .= render_nav_item_public($item, $filepath);
         }
         $html .= '</div>';
@@ -143,7 +143,7 @@ if (!function_exists('render_dropdown_public')) {
 
                 // Render as dropdown
                 if (isset($group['items'])) {
-                    echo render_dropdown_public($key, $group, $filepath);
+                    echo render_dropdown_public($key, $group, $filepath, $logged_in);
                 }
                 ?>
             <?php endforeach; ?>
@@ -193,8 +193,8 @@ if (!function_exists('render_dropdown_public')) {
                         </a>
                         <div class="collapse" id="mobile-<?= $key ?>">
                             <?php foreach ($group['items'] as $item):
-                                // Skip permission-gated items
-                                if (isset($item['perm']) && $item['perm']) continue;
+                                // Skip permission-gated items unless user is logged in
+                                if (isset($item['perm']) && $item['perm'] && !$logged_in) continue;
                                 $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
                             ?>
                                 <a class="mobile-nav-link" href="<?= $filepath . $item['path'] ?>"<?= $target ?>><?= $item['label'] ?></a>
