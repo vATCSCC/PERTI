@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import requests
 from core.models import EventConfig, TMI, TMIType
-from core.ntml_parser import parse_ntml_to_tmis
+from core.ntml_parser import parse_ntml_to_tmis, parse_ntml_full
 from core.analyzer import TMIComplianceAnalyzer
 
 # Configure logging to stderr (so stdout is clean JSON)
@@ -177,12 +177,16 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
         event.tmis = tmis
         logger.info(f"Loaded {len(tmis)} pre-parsed TMIs from API")
     else:
-        # Fallback: try to parse NTML text directly
+        # Fallback: try to parse NTML text directly using full parser for delays too
         ntml_text = config.get('ntml_text', '')
         if ntml_text:
-            tmis = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
-            event.tmis = tmis
-            logger.info(f"Parsed {len(tmis)} TMIs from NTML text")
+            # Use parse_ntml_full to get TMIs, delays, and other entries
+            parse_result = parse_ntml_full(ntml_text, event_start, event_end, destinations)
+            event.tmis = parse_result.tmis
+            event.delays = parse_result.delays
+            event.airport_configs = parse_result.airport_configs
+            event.cancellations = parse_result.cancellations
+            logger.info(f"Parsed {len(parse_result.tmis)} TMIs, {len(parse_result.delays)} delays from NTML text")
 
     return event
 
