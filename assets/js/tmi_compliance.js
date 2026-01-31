@@ -455,6 +455,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
         }
 
+        // Delay Tracking Results
+        const delayResults = this.results.delay_results || [];
+        if (delayResults.length > 0) {
+            html += this.renderDelaySection(delayResults);
+        }
+
         if (!html) {
             this.showNoData();
             return;
@@ -1434,6 +1440,133 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         html += '</div>';
         return html;
+    },
+
+    renderDelaySection: function(delays) {
+        if (!delays || delays.length === 0) return '';
+
+        // Group delays by airport
+        const byAirport = {};
+        delays.forEach(d => {
+            const apt = d.airport || 'UNKNOWN';
+            if (!byAirport[apt]) byAirport[apt] = [];
+            byAirport[apt].push(d);
+        });
+
+        let html = '<h6 class="text-warning mb-3 mt-4" style="color:#856404 !important;"><i class="fas fa-clock"></i> Delay Tracking</h6>';
+
+        // Summary stats
+        const totalDelay = delays.reduce((sum, d) => sum + (d.delay_minutes || 0), 0);
+        const holdingEntries = delays.filter(d => d.holding_status === 'HOLDING');
+        const airports = Object.keys(byAirport);
+
+        html += `
+            <div class="tmi-card delay-card mb-3">
+                <div class="tmi-header">
+                    <div>
+                        <span class="tmi-fix-name">Delay Overview</span>
+                        <span class="text-muted ml-2">| ${delays.length} entries across ${airports.length} airport(s)</span>
+                    </div>
+                </div>
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${delays.length}</div>
+                        <div class="tmi-stat-label">Total Updates</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-warning">${holdingEntries.length}</div>
+                        <div class="tmi-stat-label">Holding Events</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${airports.length}</div>
+                        <div class="tmi-stat-label">Airports</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Render each airport's delay timeline
+        for (const [airport, aptDelays] of Object.entries(byAirport)) {
+            html += this.renderAirportDelays(airport, aptDelays);
+        }
+
+        return html;
+    },
+
+    renderAirportDelays: function(airport, delays) {
+        // Separate by delay type
+        const departures = delays.filter(d => d.delay_type === 'D/D' || d.delay_type === 'DEPARTURE');
+        const enroute = delays.filter(d => d.delay_type === 'E/D' || d.delay_type === 'ENROUTE');
+        const arrivals = delays.filter(d => d.delay_type === 'A/D' || d.delay_type === 'ARRIVAL');
+
+        let html = `
+            <div class="tmi-card delay-airport-card mb-2">
+                <div class="tmi-header">
+                    <div>
+                        <span class="tmi-fix-name">${airport}</span>
+                        <span class="text-muted ml-2">| ${delays.length} delay update(s)</span>
+                    </div>
+                </div>
+                <div class="delay-timeline">
+        `;
+
+        // Departure delays (D/D)
+        if (departures.length > 0) {
+            html += `<div class="delay-type-section mb-2">
+                <div class="small text-muted mb-1"><i class="fas fa-plane-departure"></i> Departure Delays (D/D)</div>
+                <div class="delay-entries">`;
+            for (const d of departures) {
+                html += this.renderDelayEntry(d);
+            }
+            html += `</div></div>`;
+        }
+
+        // En-route delays (E/D)
+        if (enroute.length > 0) {
+            html += `<div class="delay-type-section mb-2">
+                <div class="small text-muted mb-1"><i class="fas fa-plane"></i> En-Route Delays (E/D)</div>
+                <div class="delay-entries">`;
+            for (const d of enroute) {
+                html += this.renderDelayEntry(d);
+            }
+            html += `</div></div>`;
+        }
+
+        // Arrival delays (A/D)
+        if (arrivals.length > 0) {
+            html += `<div class="delay-type-section mb-2">
+                <div class="small text-muted mb-1"><i class="fas fa-plane-arrival"></i> Arrival Delays (A/D)</div>
+                <div class="delay-entries">`;
+            for (const d of arrivals) {
+                html += this.renderDelayEntry(d);
+            }
+            html += `</div></div>`;
+        }
+
+        html += `</div></div>`;
+        return html;
+    },
+
+    renderDelayEntry: function(d) {
+        const trendIcon = d.delay_trend === 'INCREASING' ? '<i class="fas fa-arrow-up text-danger"></i>'
+            : d.delay_trend === 'DECREASING' ? '<i class="fas fa-arrow-down text-success"></i>'
+            : d.delay_trend === 'STEADY' ? '<i class="fas fa-minus text-muted"></i>'
+            : '';
+
+        const holdingBadge = d.holding_status === 'HOLDING'
+            ? `<span class="badge badge-warning ml-1"><i class="fas fa-sync"></i> Holding${d.holding_fix ? ' @ ' + d.holding_fix : ''}${d.aircraft_holding ? ' (' + d.aircraft_holding + ' ACFT)' : ''}</span>`
+            : '';
+
+        const delayDisplay = d.delay_minutes > 0 ? `+${d.delay_minutes}min` : (d.holding_status === 'HOLDING' ? 'Holding' : '-');
+
+        return `
+            <div class="delay-entry d-flex align-items-center py-1 border-bottom" style="font-size: 0.85rem;">
+                <span class="text-monospace mr-2" style="min-width:50px;">${d.timestamp || '??:??'}</span>
+                <span class="mr-2" style="min-width:60px;">${trendIcon} <strong>${delayDisplay}</strong></span>
+                ${holdingBadge}
+                <span class="text-muted ml-auto small">${d.reason || ''}</span>
+            </div>
+        `;
     },
 
     renderDistribution: function(dist) {
