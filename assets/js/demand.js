@@ -3746,8 +3746,34 @@ function buildTimeBoundedRateMarkLines() {
         }
     };
 
-    // Track label positions to avoid overlaps (unified counter for all labels)
-    let labelIndex = 0;
+    // === Smart label positioning to avoid collisions ===
+    // - Group labels by X endpoint position (within proximity threshold)
+    // - AAR labels positioned above the line (negative offset)
+    // - ADR labels positioned below the line (positive offset)
+    // - Stack multiple labels at same X position
+    const LABEL_HEIGHT = 22;  // Approximate label height in pixels
+    const X_PROXIMITY_MS = 30 * 60 * 1000;  // 30 minutes in ms - labels closer than this are grouped
+
+    // Track labels at each X position endpoint: Map<xEndRounded, {aarCount, adrCount}>
+    const labelCountsByX = new Map();
+
+    // Helper to get label offset for a position
+    const getLabelOffset = (xEnd, isAar) => {
+        const xKey = Math.round(xEnd / X_PROXIMITY_MS) * X_PROXIMITY_MS;  // Round to 30-min intervals
+        if (!labelCountsByX.has(xKey)) {
+            labelCountsByX.set(xKey, { aarCount: 0, adrCount: 0 });
+        }
+        const counts = labelCountsByX.get(xKey);
+        if (isAar) {
+            const offset = -LABEL_HEIGHT * counts.aarCount;  // Stack upward (negative Y)
+            counts.aarCount++;
+            return offset;
+        } else {
+            const offset = LABEL_HEIGHT + (LABEL_HEIGHT * counts.adrCount);  // Stack downward (positive Y)
+            counts.adrCount++;
+            return offset;
+        }
+    };
 
     // Process each config
     configs.forEach((config, configIndex) => {
@@ -3776,9 +3802,8 @@ function buildTimeBoundedRateMarkLines() {
             const bgColor = sourceStyle.color;
             const textColor = getContrastTextColor(bgColor);
 
-            // Vertical offset for label stacking (unified index)
-            const verticalOffset = labelIndex * 20;
-            labelIndex++;
+            // Smart vertical offset: AAR labels above, grouped by X position
+            const verticalOffset = getLabelOffset(segmentEnd, true);
 
             // Two-point line segment format for ECharts
             lines.push([
@@ -3828,9 +3853,8 @@ function buildTimeBoundedRateMarkLines() {
             const bgColor = sourceStyle.color;
             const textColor = getContrastTextColor(bgColor);
 
-            // Vertical offset for label stacking (unified index)
-            const verticalOffset = labelIndex * 20;
-            labelIndex++;
+            // Smart vertical offset: ADR labels below, grouped by X position
+            const verticalOffset = getLabelOffset(segmentEnd, false);
 
             lines.push([
                 {
@@ -4017,8 +4041,8 @@ function buildTimeBoundedRateMarkLines() {
                 ? `RW AAR ${displayValue}`
                 : `RW AAR ${rates.rw_aar}`;
 
-            const verticalOffset = labelIndex * 20;
-            labelIndex++;
+            // Smart vertical offset: AAR labels above
+            const verticalOffset = getLabelOffset(chartEnd, true);
 
             lines.push([
                 { xAxis: chartStart, yAxis: proRatedValue },
@@ -4058,8 +4082,8 @@ function buildTimeBoundedRateMarkLines() {
                 ? `RW ADR ${displayValue}`
                 : `RW ADR ${rates.rw_adr}`;
 
-            const verticalOffset = labelIndex * 20;
-            labelIndex++;
+            // Smart vertical offset: ADR labels below
+            const verticalOffset = getLabelOffset(chartEnd, false);
 
             lines.push([
                 { xAxis: chartStart, yAxis: proRatedValue },
