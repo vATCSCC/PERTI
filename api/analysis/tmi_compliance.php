@@ -179,9 +179,22 @@ function call_azure_function($plan_id) {
         $python = 'python';
     }
 
-    // Build command
+    // Build command with environment variables inline (for Linux)
+    // This ensures pip-installed packages in /home/.local are found
+    $env_prefix = '';
+    if (PHP_OS_FAMILY !== 'Windows') {
+        $env_parts = ['PYTHONPATH=/home/.local/lib/python3.9/site-packages'];
+        foreach ($env_vars as $key => $value) {
+            if (!in_array($key, ['PYTHONUSERBASE', 'PYTHONPATH', 'PATH'])) {
+                $env_parts[] = sprintf('%s=%s', $key, escapeshellarg($value));
+            }
+        }
+        $env_prefix = implode(' ', $env_parts) . ' ';
+    }
+
     $cmd = sprintf(
-        '%s %s --plan_id %d 2>&1',
+        '%s%s %s --plan_id %d 2>&1',
+        $env_prefix,
         escapeshellcmd($python),
         escapeshellarg($script_path),
         intval($plan_id)
