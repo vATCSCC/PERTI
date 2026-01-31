@@ -2637,6 +2637,9 @@ function renderOriginChart() {
     const intervalMs = getGranularityMinutes() * 60 * 1000;
     const halfInterval = intervalMs / 2;
 
+    // Get enabled phases for filtering
+    const enabledPhases = getEnabledPhases();
+
     // Build series for each ARTCC with TRUE TIME AXIS data format
     // Shift by half interval so bars are centered on the time period
     const series = artccList.map(artcc => {
@@ -2645,7 +2648,20 @@ function renderOriginChart() {
             const hourlyBin = roundToHour(bin);
             const binData = originBreakdown[hourlyBin] || originBreakdown[normalizeTimeBin(bin)] || [];
             const artccEntry = Array.isArray(binData) ? binData.find(item => item.artcc === artcc) : null;
-            const value = artccEntry ? artccEntry.count : 0;
+
+            // Calculate value based on enabled phases
+            let value = 0;
+            if (artccEntry) {
+                if (artccEntry.phases) {
+                    // Use phase-filtered count
+                    enabledPhases.forEach(phase => {
+                        value += artccEntry.phases[phase] || 0;
+                    });
+                } else {
+                    // Fallback for data without phase breakdown
+                    value = artccEntry.count;
+                }
+            }
             // Center the bar on the time period (start + half interval)
             return [new Date(bin).getTime() + halfInterval, value];
         });
