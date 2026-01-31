@@ -788,10 +788,16 @@ function outputGeoJSON($routes) {
 
 
 function formatRoute($row) {
-    // Parse JSON fields
-    $originFilter = !empty($row['origin_filter']) ? json_decode($row['origin_filter'], true) : [];
-    $destFilter = !empty($row['dest_filter']) ? json_decode($row['dest_filter'], true) : [];
-    $routeGeojson = !empty($row['route_geojson']) ? json_decode($row['route_geojson'], true) : null;
+    // Parse JSON fields (skip decode if already an array - from reroute formatting)
+    $originFilter = !empty($row['origin_filter'])
+        ? (is_array($row['origin_filter']) ? $row['origin_filter'] : json_decode($row['origin_filter'], true))
+        : [];
+    $destFilter = !empty($row['dest_filter'])
+        ? (is_array($row['dest_filter']) ? $row['dest_filter'] : json_decode($row['dest_filter'], true))
+        : [];
+    $routeGeojson = !empty($row['route_geojson'])
+        ? (is_array($row['route_geojson']) ? $row['route_geojson'] : json_decode($row['route_geojson'], true))
+        : null;
 
     // Compute status based on time
     $now = new DateTime('now', new DateTimeZone('UTC'));
