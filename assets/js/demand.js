@@ -957,6 +957,65 @@ function getARTCCColor(artcc) {
 }
 
 /**
+ * Get DCC region color for an ARTCC
+ * Uses FacilityHierarchy regional color scheme:
+ * - Northeast (ZBW, ZDC, ZNY, ZOB): Blue
+ * - Southeast (ZID, ZJX, ZMA, ZTL): Yellow
+ * - South Central (ZAB, ZFW, ZHU, ZME): Orange
+ * - Midwest (ZAU, ZDV, ZKC, ZMP): Green
+ * - West (ZLA, ZLC, ZOA, ZSE, ZAN, ZHN): Red
+ * - Canada: Purple
+ * - International: Various
+ * @param {string} artcc - ARTCC code
+ * @returns {string} Color hex code
+ */
+function getDCCRegionColor(artcc) {
+    // Use FacilityHierarchy if available
+    if (typeof FH !== 'undefined' && FH.getRegionColor) {
+        const regionColor = FH.getRegionColor(artcc);
+        if (regionColor) {
+            return regionColor;
+        }
+    }
+
+    // Fallback: inline DCC region mapping
+    const DCC_REGION_COLORS = {
+        // Northeast - Blue
+        'ZBW': '#007bff', 'ZDC': '#007bff', 'ZNY': '#007bff', 'ZOB': '#007bff', 'ZWY': '#007bff',
+        // Southeast - Yellow/Gold
+        'ZID': '#ffc107', 'ZJX': '#ffc107', 'ZMA': '#ffc107', 'ZMO': '#ffc107', 'ZTL': '#ffc107',
+        // South Central - Orange
+        'ZAB': '#ec791b', 'ZFW': '#ec791b', 'ZHO': '#ec791b', 'ZHU': '#ec791b', 'ZME': '#ec791b',
+        // Midwest - Green
+        'ZAU': '#28a745', 'ZDV': '#28a745', 'ZKC': '#28a745', 'ZMP': '#28a745',
+        // West - Red
+        'ZAK': '#dc3545', 'ZAN': '#dc3545', 'ZAP': '#dc3545', 'ZHN': '#dc3545',
+        'ZLA': '#dc3545', 'ZLC': '#dc3545', 'ZOA': '#dc3545', 'ZSE': '#dc3545', 'ZUA': '#dc3545',
+        // Canada - Purple
+        'CZEG': '#6f42c1', 'CZVR': '#6f42c1', 'CZWG': '#6f42c1', 'CZYZ': '#6f42c1',
+        'CZQM': '#6f42c1', 'CZQX': '#6f42c1', 'CZQO': '#6f42c1', 'CZUL': '#6f42c1',
+        // Mexico - Brown
+        'MMFR': '#8B4513', 'MMFO': '#8B4513',
+        // Caribbean - Pink
+        'TJZS': '#e83e8c', 'MKJK': '#e83e8c', 'MUFH': '#e83e8c', 'MYNA': '#e83e8c',
+        // International oceanic regions
+        'ASIA': '#e83e8c', 'EURO': '#6f42c1', 'INTL': '#8B4513', 'YPAC': '#17a2b8'
+    };
+
+    if (DCC_REGION_COLORS[artcc]) {
+        return DCC_REGION_COLORS[artcc];
+    }
+
+    // Generate consistent color for unknown ARTCCs
+    let hash = 0;
+    for (let i = 0; i < artcc.length; i++) {
+        hash = artcc.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    return `hsl(${hue}, 70%, 50%)`;
+}
+
+/**
  * Check if a specific phase is enabled based on phase group selections
  * @param {string} phase - Phase name (e.g., 'enroute', 'taxiing', 'arrived')
  * @returns {boolean} True if the phase should be displayed
@@ -2585,6 +2644,7 @@ function renderChart(data) {
 
 /**
  * Render chart with origin ARTCC breakdown - TBFM/FSM style with TRUE TIME AXIS
+ * Origin breakdown shows where arrivals come from, so only applies to arr/both directions
  */
 function renderOriginChart() {
     if (!DEMAND_STATE.chart) {
@@ -2595,8 +2655,44 @@ function renderOriginChart() {
     // Hide loading indicator
     DEMAND_STATE.chart.hideLoading();
 
+    const direction = DEMAND_STATE.direction;
     const originBreakdown = DEMAND_STATE.originBreakdown || {};
     const data = DEMAND_STATE.lastDemandData;
+
+    // Origin breakdown only makes sense for arrivals (where did they come from?)
+    // For departures-only, show empty state
+    if (direction === 'dep') {
+        const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
+        DEMAND_STATE.chart.setOption({
+            backgroundColor: '#ffffff',
+            title: {
+                text: chartTitle,
+                subtext: 'Origin breakdown not applicable for departures',
+                left: 'center',
+                top: 5,
+                textStyle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+                subtextStyle: { fontSize: 11, color: '#999', fontStyle: 'italic' }
+            },
+            xAxis: { show: false },
+            yAxis: { show: false },
+            series: [],
+            graphic: {
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: {
+                    text: 'Origin ARTCC breakdown shows where arrivals come from.\nSwitch direction to "Arr" or "Both" to view.',
+                    fontSize: 14,
+                    fill: '#999',
+                    textAlign: 'center'
+                }
+            }
+        }, true);
+        return;
+    }
+
+    // Build direction label for subtitle
+    const dirLabel = direction === 'arr' ? 'Arrivals' : 'Flights';
 
     if (!data) {
         console.error('No demand data available');
@@ -2680,7 +2776,7 @@ function renderOriginChart() {
                 }
             },
             itemStyle: {
-                color: getARTCCColor(artcc),
+                color: getDCCRegionColor(artcc),
                 borderColor: 'transparent', // No borders - AADC style
                 borderWidth: 0
             },
@@ -2732,7 +2828,7 @@ function renderOriginChart() {
         backgroundColor: '#ffffff',
         title: {
             text: chartTitle,
-            subtext: 'Arrivals by Origin ARTCC',
+            subtext: `${dirLabel} by Origin ARTCC`,
             left: 'center',
             top: 5,
             textStyle: {
@@ -3250,10 +3346,46 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
 
 /**
  * Render chart with destination ARTCC breakdown
+ * Dest breakdown shows where departures go, so only applies to dep/both directions
  */
 function renderDestChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    // Dest breakdown only makes sense for departures (where are they going?)
+    // For arrivals-only, show empty state
+    if (direction === 'arr') {
+        if (!DEMAND_STATE.chart) return;
+        const data = DEMAND_STATE.lastDemandData;
+        const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
+        DEMAND_STATE.chart.setOption({
+            backgroundColor: '#ffffff',
+            title: {
+                text: chartTitle,
+                subtext: 'Destination breakdown not applicable for arrivals',
+                left: 'center',
+                top: 5,
+                textStyle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+                subtextStyle: { fontSize: 11, color: '#999', fontStyle: 'italic' }
+            },
+            xAxis: { show: false },
+            yAxis: { show: false },
+            series: [],
+            graphic: {
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: {
+                    text: 'Destination ARTCC breakdown shows where departures go.\nSwitch direction to "Dep" or "Both" to view.',
+                    fontSize: 14,
+                    fill: '#999',
+                    textAlign: 'center'
+                }
+            }
+        }, true);
+        return;
+    }
+
+    const dirLabel = direction === 'dep' ? 'Departures' : 'Flights';
     renderBreakdownChart(
         DEMAND_STATE.destBreakdown,
         `${dirLabel} by Destination ARTCC`,
@@ -3387,11 +3519,54 @@ function renderRuleChart() {
 }
 
 /**
+ * Show empty state for direction-restricted breakdown views
+ */
+function showDirectionRestrictedEmptyState(viewName, requiredDirection, requiredLabel) {
+    if (!DEMAND_STATE.chart) return;
+    const data = DEMAND_STATE.lastDemandData;
+    const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
+    const dirText = requiredDirection === 'arr' ? '"Arr" or "Both"' : '"Dep" or "Both"';
+    DEMAND_STATE.chart.setOption({
+        backgroundColor: '#ffffff',
+        title: {
+            text: chartTitle,
+            subtext: `${viewName} not applicable for ${requiredLabel}`,
+            left: 'center',
+            top: 5,
+            textStyle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+            subtextStyle: { fontSize: 11, color: '#999', fontStyle: 'italic' }
+        },
+        xAxis: { show: false },
+        yAxis: { show: false },
+        series: [],
+        graphic: {
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+                text: `${viewName} only applies to ${requiredDirection === 'arr' ? 'arrivals' : 'departures'}.\nSwitch direction to ${dirText} to view.`,
+                fontSize: 14,
+                fill: '#999',
+                textAlign: 'center'
+            }
+        }
+    }, true);
+}
+
+/**
  * Render chart with departure fix breakdown
+ * Dep fix only applies to departures
  */
 function renderDepFixChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    // Dep fix only makes sense for departures
+    if (direction === 'arr') {
+        showDirectionRestrictedEmptyState('Departure fix breakdown', 'dep', 'arrivals');
+        return;
+    }
+
+    const dirLabel = direction === 'dep' ? 'Departures' : 'Flights';
     renderBreakdownChart(
         DEMAND_STATE.depFixBreakdown,
         `${dirLabel} by Departure Fix`,
@@ -3417,10 +3592,18 @@ function renderDepFixChart() {
 
 /**
  * Render chart with arrival fix breakdown
+ * Arr fix only applies to arrivals
  */
 function renderArrFixChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    // Arr fix only makes sense for arrivals
+    if (direction === 'dep') {
+        showDirectionRestrictedEmptyState('Arrival fix breakdown', 'arr', 'departures');
+        return;
+    }
+
+    const dirLabel = direction === 'arr' ? 'Arrivals' : 'Flights';
     renderBreakdownChart(
         DEMAND_STATE.arrFixBreakdown,
         `${dirLabel} by Arrival Fix`,
@@ -3446,10 +3629,18 @@ function renderArrFixChart() {
 
 /**
  * Render chart with DP/SID breakdown
+ * DP (SID) only applies to departures
  */
 function renderDPChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    // DP/SID only makes sense for departures
+    if (direction === 'arr') {
+        showDirectionRestrictedEmptyState('DP (SID) breakdown', 'dep', 'arrivals');
+        return;
+    }
+
+    const dirLabel = direction === 'dep' ? 'Departures' : 'Flights';
     renderBreakdownChart(
         DEMAND_STATE.dpBreakdown,
         `${dirLabel} by Departure Procedure (SID)`,
@@ -3475,10 +3666,18 @@ function renderDPChart() {
 
 /**
  * Render chart with STAR breakdown
+ * STAR only applies to arrivals
  */
 function renderSTARChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    // STAR only makes sense for arrivals
+    if (direction === 'dep') {
+        showDirectionRestrictedEmptyState('STAR breakdown', 'arr', 'departures');
+        return;
+    }
+
+    const dirLabel = direction === 'arr' ? 'Arrivals' : 'Flights';
     renderBreakdownChart(
         DEMAND_STATE.starBreakdown,
         `${dirLabel} by STAR`,
@@ -5324,8 +5523,8 @@ function getExtraColumnStyle(chartView, value) {
     switch (chartView) {
         case 'origin':
         case 'dest':
-            // Use ARTCC colors
-            bgColor = getARTCCColor(value);
+            // Use DCC region colors
+            bgColor = getDCCRegionColor(value);
             break;
         case 'carrier':
             // Generate color from carrier code
