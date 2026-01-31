@@ -262,18 +262,18 @@ function getTopCarriers($conn, $helper, $airport, $startSQL, $endSQL, $direction
 function getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
     $phaseAgg = getPhaseAggregationSQL();
     // Override with inline query that includes phase data
+    // Use ISNULL to include flights without departure ARTCC as 'UNKN'
     $sql = "
         SELECT
             DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0) AS time_bin,
-            fp_dept_artcc AS artcc,
+            ISNULL(fp_dept_artcc, 'UNKN') AS artcc,
             COUNT(*) AS count,
             {$phaseAgg}
         FROM dbo.vw_adl_flights
         WHERE fp_dest_icao = ?
           AND COALESCE(eta_runway_utc, eta_utc) >= ?
           AND COALESCE(eta_runway_utc, eta_utc) < ?
-          AND fp_dept_artcc IS NOT NULL
-        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0), fp_dept_artcc
+        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(eta_runway_utc, eta_utc)), 0), ISNULL(fp_dept_artcc, 'UNKN')
         ORDER BY time_bin, count DESC
     ";
     $stmt = sqlsrv_query($conn, $sql, [$airport, $startSQL, $endSQL]);
@@ -307,18 +307,18 @@ function getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
 function getDestARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL) {
     $phaseAgg = getPhaseAggregationSQL();
     // Override with inline query that includes phase data
+    // Use ISNULL to include flights without destination ARTCC as 'UNKN'
     $sql = "
         SELECT
             DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(etd_runway_utc, etd_utc)), 0) AS time_bin,
-            fp_dest_artcc AS artcc,
+            ISNULL(fp_dest_artcc, 'UNKN') AS artcc,
             COUNT(*) AS count,
             {$phaseAgg}
         FROM dbo.vw_adl_flights
         WHERE fp_dept_icao = ?
           AND COALESCE(etd_runway_utc, etd_utc) >= ?
           AND COALESCE(etd_runway_utc, etd_utc) < ?
-          AND fp_dest_artcc IS NOT NULL
-        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(etd_runway_utc, etd_utc)), 0), fp_dest_artcc
+        GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, COALESCE(etd_runway_utc, etd_utc)), 0), ISNULL(fp_dest_artcc, 'UNKN')
         ORDER BY time_bin, count DESC
     ";
     $stmt = sqlsrv_query($conn, $sql, [$airport, $startSQL, $endSQL]);
