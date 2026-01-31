@@ -24,48 +24,18 @@ import azure.functions as func
 import json
 import logging
 import os
-import traceback
+import requests
 from datetime import datetime, timedelta
 
-# Configure logging first
+from core.models import EventConfig
+from core.ntml_parser import parse_ntml_to_tmis
+from core.analyzer import TMIComplianceAnalyzer
+
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create app first (before any potentially failing imports)
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
-
-# Track import status
-_import_error = None
-_import_traceback = None
-
-# Health check defined first so it always works
-@app.route(route="health")
-def health_check(req: func.HttpRequest) -> func.HttpResponse:
-    """Health check endpoint - always responds"""
-    status = {
-        "status": "healthy" if _import_error is None else "unhealthy",
-        "python_version": __import__('sys').version,
-    }
-    if _import_error:
-        status["import_error"] = _import_error
-        status["traceback"] = _import_traceback
-    return func.HttpResponse(
-        json.dumps(status, indent=2),
-        status_code=200 if _import_error is None else 500,
-        mimetype="application/json"
-    )
-
-# Now try the imports
-try:
-    import requests as req_lib  # Rename to avoid conflict with func parameter
-    from core.models import EventConfig
-    from core.ntml_parser import parse_ntml_to_tmis
-    from core.analyzer import TMIComplianceAnalyzer
-    logger.info("Core modules imported successfully")
-except Exception as e:
-    _import_error = str(e)
-    _import_traceback = traceback.format_exc()
-    logger.exception("Failed to import core modules")
 
 
 @app.route(route="tmi_compliance")
@@ -80,14 +50,6 @@ def tmi_compliance_http(req: func.HttpRequest) -> func.HttpResponse:
         JSON with compliance results
     """
     logger.info('TMI Compliance Analysis triggered')
-
-    # Check for import errors
-    if _import_error:
-        return func.HttpResponse(
-            json.dumps({"error": f"Module import failed: {_import_error}"}),
-            status_code=500,
-            mimetype="application/json"
-        )
 
     try:
         # Get plan_id from query params or body
@@ -134,15 +96,8 @@ def tmi_compliance_http(req: func.HttpRequest) -> func.HttpResponse:
         analyzer = TMIComplianceAnalyzer(event)
         results = analyzer.analyze()
 
-        # Add plan_id and debug info to results
+        # Add plan_id to results
         results['plan_id'] = plan_id
-        results['debug'] = {
-            'tmis_parsed': len(event.tmis),
-            'destinations': event.destinations,
-            'tmi_types': [tmi.tmi_type.value for tmi in event.tmis[:10]],
-            'tmi_fixes': [tmi.fix for tmi in event.tmis if tmi.fix],
-            'fix_coords_loaded': list(analyzer.fix_coords.keys()) if hasattr(analyzer, 'fix_coords') else []
-        }
 
         logger.info("Analysis complete")
 
@@ -173,7 +128,7 @@ def load_config_from_api(plan_id: int) -> dict:
     logger.info(f"Fetching config from: {config_url}")
 
     try:
-        response = req_lib.get(config_url, timeout=30)
+        response = requests.get(config_url, timeout=30)
         response.raise_for_status()
 
         data = response.json()
@@ -183,7 +138,7 @@ def load_config_from_api(plan_id: int) -> dict:
             logger.warning(f"No config in response: {data.get('message', 'Unknown error')}")
             return None
 
-    except req_lib.RequestException as e:
+    except requests.RequestException as e:
         logger.error(f"Failed to fetch config: {e}")
         return None
 
@@ -221,16 +176,9 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
 
     # Parse NTML text into TMIs
     ntml_text = config.get('ntml_text', '')
-    logger.info(f"NTML text length: {len(ntml_text)}, first 200 chars: {ntml_text[:200] if ntml_text else 'empty'}")
-    logger.info(f"Destinations: {destinations}, Event: {event_start} to {event_end}")
-
     if ntml_text:
         tmis = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
         event.tmis = tmis
         logger.info(f"Parsed {len(tmis)} TMIs from NTML")
-        for tmi in tmis[:5]:  # Log first 5 TMIs for debug
-            logger.info(f"  TMI: {tmi.tmi_type.value} {tmi.fix} {tmi.value} {tmi.start_utc}-{tmi.end_utc}")
-    else:
-        logger.warning("NTML text is empty!")
 
     return event

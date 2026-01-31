@@ -86,14 +86,6 @@ class TMI:
     reason: str = ''
     notes: str = ''
 
-    # Qualifiers & Conditions (from NTML)
-    application: str = ''                  # AS ONE, PER STREAM, PER FIX
-    impacting_condition: str = ''          # VOLUME:VOLUME, HEAVY:HEAVY, WX:LOVIS, etc.
-    exclusions: List[str] = field(default_factory=list)  # EXCL PROPS, EXCL VFR, PCT LTFC, etc.
-    tier: str = ''                         # Tier classification if applicable
-    aircraft_type: str = ''                # JETS ONLY, PROPS ONLY, HEAVIES, etc.
-    altitude_restriction: str = ''         # AOB270, AAB240, etc.
-
     def is_active_at(self, check_time: datetime) -> bool:
         """Check if TMI is active at a given time (considering cancellation)"""
         if check_time.tzinfo:
