@@ -54,6 +54,15 @@ $includeCancelled = ($_GET['include_cancelled'] ?? '1') === '1';
 $cancelledHours = intval($_GET['cancelled_hours'] ?? 4);
 $limit = min(intval($_GET['limit'] ?? 100), 500);
 
+// Date filter: if provided, get TMIs active on that date (YYYY-MM-DD format)
+$filterDate = $_GET['date'] ?? null;
+$filterDateStart = null;
+$filterDateEnd = null;
+if ($filterDate && preg_match('/^\d{4}-\d{2}-\d{2}$/', $filterDate)) {
+    $filterDateStart = $filterDate . ' 00:00:00';
+    $filterDateEnd = $filterDate . ' 23:59:59';
+}
+
 // Source filter: PRODUCTION (default), STAGING, or ALL
 $source = strtoupper($_GET['source'] ?? 'PRODUCTION');
 $includeStaging = ($source === 'ALL' || $source === 'STAGING');
@@ -105,85 +114,112 @@ $results = [
 ];
 
 try {
-    // Get active NTML entries
-    if ($type === 'all' || $type === 'ntml') {
-        $activeNtml = getActiveNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
-        $results['active'] = array_merge($results['active'], $activeNtml);
+    // If date filter is provided, get historical data for that date
+    if ($filterDateStart && $filterDateEnd) {
+        // Get TMIs that were active on the specified date
+        if ($type === 'all' || $type === 'ntml') {
+            $results['active'] = array_merge($results['active'],
+                getHistoricalNtmlEntries($tmiConn, $filterDateStart, $filterDateEnd, $limit, $includeStaging, $stagingOnly));
+        }
+        if ($type === 'all' || $type === 'advisory' || $type === 'advisories') {
+            $results['active'] = array_merge($results['active'],
+                getHistoricalAdvisories($tmiConn, $filterDateStart, $filterDateEnd, $limit, $includeStaging, $stagingOnly));
+        }
+        if ($type === 'all' || $type === 'program' || $type === 'programs' || $type === 'gdt') {
+            $results['active'] = array_merge($results['active'],
+                getHistoricalPrograms($tmiConn, $filterDateStart, $filterDateEnd, $limit));
+        }
+        $rerouteConn = $tmiConn ?? $adlConn;
+        if (($type === 'all' || $type === 'reroute' || $type === 'reroutes') && $rerouteConn) {
+            $results['active'] = array_merge($results['active'],
+                getHistoricalReroutes($rerouteConn, $filterDateStart, $filterDateEnd, $limit));
+        }
+        if (($type === 'all' || $type === 'reroute' || $type === 'reroutes' || $type === 'publicroute') && $tmiConn) {
+            $results['active'] = array_merge($results['active'],
+                getHistoricalPublicRoutes($tmiConn, $filterDateStart, $filterDateEnd, $limit));
+        }
+    } else {
+        // Normal behavior - get current active/scheduled/cancelled
+        // Get active NTML entries
+        if ($type === 'all' || $type === 'ntml') {
+            $activeNtml = getActiveNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
+            $results['active'] = array_merge($results['active'], $activeNtml);
 
-        if ($includeScheduled) {
-            $scheduledNtml = getScheduledNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
-            $results['scheduled'] = array_merge($results['scheduled'], $scheduledNtml);
+            if ($includeScheduled) {
+                $scheduledNtml = getScheduledNtmlEntries($tmiConn, $limit, $includeStaging, $stagingOnly);
+                $results['scheduled'] = array_merge($results['scheduled'], $scheduledNtml);
+            }
+
+            if ($includeCancelled) {
+                $cancelledNtml = getCancelledNtmlEntries($tmiConn, $cancelledHours, $limit);
+                $results['cancelled'] = array_merge($results['cancelled'], $cancelledNtml);
+            }
         }
 
-        if ($includeCancelled) {
-            $cancelledNtml = getCancelledNtmlEntries($tmiConn, $cancelledHours, $limit);
-            $results['cancelled'] = array_merge($results['cancelled'], $cancelledNtml);
-        }
-    }
+        // Get active advisories
+        if ($type === 'all' || $type === 'advisory' || $type === 'advisories') {
+            $activeAdv = getActiveAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
+            $results['active'] = array_merge($results['active'], $activeAdv);
 
-    // Get active advisories
-    if ($type === 'all' || $type === 'advisory' || $type === 'advisories') {
-        $activeAdv = getActiveAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
-        $results['active'] = array_merge($results['active'], $activeAdv);
+            if ($includeScheduled) {
+                $scheduledAdv = getScheduledAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
+                $results['scheduled'] = array_merge($results['scheduled'], $scheduledAdv);
+            }
 
-        if ($includeScheduled) {
-            $scheduledAdv = getScheduledAdvisories($tmiConn, $limit, $includeStaging, $stagingOnly);
-            $results['scheduled'] = array_merge($results['scheduled'], $scheduledAdv);
-        }
-
-        if ($includeCancelled) {
-            $cancelledAdv = getCancelledAdvisories($tmiConn, $cancelledHours, $limit);
-            $results['cancelled'] = array_merge($results['cancelled'], $cancelledAdv);
-        }
-    }
-
-    // Get active GDT programs (Ground Stops, GDPs)
-    if ($type === 'all' || $type === 'program' || $type === 'programs' || $type === 'gdt') {
-        $activePrograms = getActivePrograms($tmiConn, $limit);
-        $results['active'] = array_merge($results['active'], $activePrograms);
-
-        if ($includeScheduled) {
-            $scheduledPrograms = getScheduledPrograms($tmiConn, $limit);
-            $results['scheduled'] = array_merge($results['scheduled'], $scheduledPrograms);
+            if ($includeCancelled) {
+                $cancelledAdv = getCancelledAdvisories($tmiConn, $cancelledHours, $limit);
+                $results['cancelled'] = array_merge($results['cancelled'], $cancelledAdv);
+            }
         }
 
-        if ($includeCancelled) {
-            $cancelledPrograms = getCancelledPrograms($tmiConn, $cancelledHours, $limit);
-            $results['cancelled'] = array_merge($results['cancelled'], $cancelledPrograms);
-        }
-    }
+        // Get active GDT programs (Ground Stops, GDPs)
+        if ($type === 'all' || $type === 'program' || $type === 'programs' || $type === 'gdt') {
+            $activePrograms = getActivePrograms($tmiConn, $limit);
+            $results['active'] = array_merge($results['active'], $activePrograms);
 
-    // Get active reroutes (prefer TMI database, fallback to ADL)
-    // Note: Public routes have been migrated to VATSIM_TMI database
-    $rerouteConn = $tmiConn ?? $adlConn;
-    if (($type === 'all' || $type === 'reroute' || $type === 'reroutes') && $rerouteConn) {
-        $activeReroutes = getActiveReroutes($rerouteConn, $limit);
-        $results['active'] = array_merge($results['active'], $activeReroutes);
+            if ($includeScheduled) {
+                $scheduledPrograms = getScheduledPrograms($tmiConn, $limit);
+                $results['scheduled'] = array_merge($results['scheduled'], $scheduledPrograms);
+            }
 
-        if ($includeScheduled) {
-            $scheduledReroutes = getScheduledReroutes($rerouteConn, $limit);
-            $results['scheduled'] = array_merge($results['scheduled'], $scheduledReroutes);
+            if ($includeCancelled) {
+                $cancelledPrograms = getCancelledPrograms($tmiConn, $cancelledHours, $limit);
+                $results['cancelled'] = array_merge($results['cancelled'], $cancelledPrograms);
+            }
         }
 
-        if ($includeCancelled) {
-            $cancelledReroutes = getCancelledReroutes($rerouteConn, $cancelledHours, $limit);
-            $results['cancelled'] = array_merge($results['cancelled'], $cancelledReroutes);
+        // Get active reroutes (prefer TMI database, fallback to ADL)
+        // Note: Public routes have been migrated to VATSIM_TMI database
+        $rerouteConn = $tmiConn ?? $adlConn;
+        if (($type === 'all' || $type === 'reroute' || $type === 'reroutes') && $rerouteConn) {
+            $activeReroutes = getActiveReroutes($rerouteConn, $limit);
+            $results['active'] = array_merge($results['active'], $activeReroutes);
+
+            if ($includeScheduled) {
+                $scheduledReroutes = getScheduledReroutes($rerouteConn, $limit);
+                $results['scheduled'] = array_merge($results['scheduled'], $scheduledReroutes);
+            }
+
+            if ($includeCancelled) {
+                $cancelledReroutes = getCancelledReroutes($rerouteConn, $cancelledHours, $limit);
+                $results['cancelled'] = array_merge($results['cancelled'], $cancelledReroutes);
+            }
         }
-    }
 
-    // Get active public routes (from tmi_public_routes table)
-    if (($type === 'all' || $type === 'reroute' || $type === 'reroutes' || $type === 'publicroute') && $tmiConn) {
-        $activePublicRoutes = getActivePublicRoutes($tmiConn, $limit);
-        $results['active'] = array_merge($results['active'], $activePublicRoutes);
+        // Get active public routes (from tmi_public_routes table)
+        if (($type === 'all' || $type === 'reroute' || $type === 'reroutes' || $type === 'publicroute') && $tmiConn) {
+            $activePublicRoutes = getActivePublicRoutes($tmiConn, $limit);
+            $results['active'] = array_merge($results['active'], $activePublicRoutes);
 
-        if ($includeScheduled) {
-            $scheduledPublicRoutes = getScheduledPublicRoutes($tmiConn, $limit);
-            $results['scheduled'] = array_merge($results['scheduled'], $scheduledPublicRoutes);
-        }
+            if ($includeScheduled) {
+                $scheduledPublicRoutes = getScheduledPublicRoutes($tmiConn, $limit);
+                $results['scheduled'] = array_merge($results['scheduled'], $scheduledPublicRoutes);
+            }
 
-        if ($includeCancelled) {
-            $cancelledPublicRoutes = getCancelledPublicRoutes($tmiConn, $cancelledHours, $limit);
-            $results['cancelled'] = array_merge($results['cancelled'], $cancelledPublicRoutes);
+            if ($includeCancelled) {
+                $cancelledPublicRoutes = getCancelledPublicRoutes($tmiConn, $cancelledHours, $limit);
+                $results['cancelled'] = array_merge($results['cancelled'], $cancelledPublicRoutes);
+            }
         }
     }
     
@@ -1413,4 +1449,232 @@ function buildPublicRouteSummary($row) {
     }
 
     return implode(' ', $parts) ?: 'Public Route';
+}
+
+// ===========================================
+// Historical Query Functions (Date Filter)
+// ===========================================
+
+/**
+ * Get NTML entries that were active on a specific date
+ */
+function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeStaging = false, $stagingOnly = false) {
+    if (!tableExists($conn, 'tmi_entries')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                entry_id,
+                entry_guid,
+                entry_type,
+                determinant_code,
+                ctl_element,
+                element_type,
+                requesting_facility,
+                providing_facility,
+                restriction_value,
+                restriction_unit,
+                condition_text,
+                qualifiers,
+                exclusions,
+                reason_code,
+                reason_detail,
+                valid_from,
+                valid_until,
+                raw_input,
+                status,
+                discord_message_id,
+                created_at,
+                created_by,
+                created_by_name
+            FROM dbo.tmi_entries
+            WHERE (valid_from <= :dateEnd OR valid_from IS NULL)
+              AND (valid_until >= :dateStart OR valid_until IS NULL)
+              AND created_at <= :dateEnd2
+            ORDER BY valid_from DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':dateStart' => $dateStart,
+            ':dateEnd' => $dateEnd,
+            ':dateEnd2' => $dateEnd
+        ]);
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatNtmlEntry($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get advisories that were active on a specific date
+ */
+function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeStaging = false, $stagingOnly = false) {
+    if (!tableExists($conn, 'tmi_advisories')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                advisory_id,
+                advisory_guid,
+                advisory_type,
+                advisory_number,
+                title,
+                summary,
+                full_text,
+                faa_text,
+                constrained_area,
+                facilities,
+                origin_filter,
+                dest_filter,
+                altitude_filter,
+                affected_traffic,
+                valid_from,
+                valid_until,
+                status,
+                discord_message_id,
+                created_at,
+                created_by
+            FROM dbo.tmi_advisories
+            WHERE (valid_from <= :dateEnd OR valid_from IS NULL)
+              AND (valid_until >= :dateStart OR valid_until IS NULL)
+              AND created_at <= :dateEnd2
+            ORDER BY valid_from DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':dateStart' => $dateStart,
+            ':dateEnd' => $dateEnd,
+            ':dateEnd2' => $dateEnd
+        ]);
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatAdvisory($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get GDT programs that were active on a specific date
+ */
+function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
+    if (!tableExists($conn, 'tmi_programs')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                program_id, program_guid, program_type, ctl_element,
+                scope_airports, scope_centers, scope_routes,
+                issued_utc, start_utc, end_utc, status,
+                parameters, remarks, created_at, created_by
+            FROM dbo.tmi_programs
+            WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
+              AND (end_utc >= :dateStart OR end_utc IS NULL)
+              AND created_at <= :dateEnd2
+            ORDER BY start_utc DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':dateStart' => $dateStart,
+            ':dateEnd' => $dateEnd,
+            ':dateEnd2' => $dateEnd
+        ]);
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatProgram($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get reroutes that were active on a specific date
+ */
+function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
+    if (!tableExists($conn, 'tmi_reroutes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                reroute_id AS id, name, adv_number, status,
+                protected_segment, protected_fixes, avoid_fixes,
+                route_type, origin_airports, origin_centers,
+                dest_airports, dest_centers,
+                impacting_condition, comments, advisory_text,
+                start_utc, end_utc,
+                created_utc, updated_utc, activated_utc, created_by
+            FROM dbo.tmi_reroutes
+            WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
+              AND (end_utc >= :dateStart OR end_utc IS NULL)
+              AND created_utc <= :dateEnd2
+            ORDER BY start_utc DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':dateStart' => $dateStart,
+            ':dateEnd' => $dateEnd,
+            ':dateEnd2' => $dateEnd
+        ]);
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatReroute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get public routes that were active on a specific date
+ */
+function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
+    if (!tableExists($conn, 'tmi_public_routes')) {
+        return [];
+    }
+
+    $sql = "SELECT TOP {$limit}
+                route_id, route_guid, status, name, adv_number,
+                route_string, advisory_text, color, line_weight, line_style,
+                valid_start_utc, valid_end_utc,
+                constrained_area, reason, origin_filter, dest_filter, facilities,
+                created_by, created_at, updated_at
+            FROM dbo.tmi_public_routes
+            WHERE (valid_start_utc <= :dateEnd OR valid_start_utc IS NULL)
+              AND (valid_end_utc >= :dateStart OR valid_end_utc IS NULL)
+              AND created_at <= :dateEnd2
+            ORDER BY valid_start_utc DESC";
+
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':dateStart' => $dateStart,
+            ':dateEnd' => $dateEnd,
+            ':dateEnd2' => $dateEnd
+        ]);
+
+        $entries = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $entries[] = formatPublicRoute($row);
+        }
+        return $entries;
+    } catch (Exception $e) {
+        return [];
+    }
 }

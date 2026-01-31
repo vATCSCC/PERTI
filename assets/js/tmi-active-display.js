@@ -57,7 +57,8 @@
             reqFacilities: [],   // Array for multi-select
             provFacilities: [],  // Array for multi-select
             type: 'ALL',
-            status: 'ACTIVE'
+            status: 'ACTIVE',
+            date: ''             // Date filter (YYYY-MM-DD format, empty = today/current)
         }
     };
 
@@ -433,7 +434,9 @@
                            (savedFilters.type && savedFilters.type !== 'ALL' ? [savedFilters.type] : []),
                     // Migrate status from single to multi-select, default to ACTIVE+SCHEDULED
                     statuses: Array.isArray(savedFilters.statuses) ? savedFilters.statuses :
-                              (savedFilters.status && savedFilters.status !== 'ACTIVE' ? [savedFilters.status] : ['ACTIVE', 'SCHEDULED'])
+                              (savedFilters.status && savedFilters.status !== 'ACTIVE' ? [savedFilters.status] : ['ACTIVE', 'SCHEDULED']),
+                    // Date filter (don't persist - always start with today/current)
+                    date: ''
                 };
             } else {
                 // Default filters for first-time users
@@ -442,11 +445,13 @@
                     reqFacilities: [],
                     provFacilities: [],
                     types: [],
-                    statuses: ['ACTIVE', 'SCHEDULED']
+                    statuses: ['ACTIVE', 'SCHEDULED'],
+                    date: ''
                 };
             }
             // Update UI to reflect saved state
             $('#filterSource').val(state.filters.source);
+            $('#filterDate').val(state.filters.date);
             if ($.fn.select2) {
                 $('#filterReqFac').val(state.filters.reqFacilities).trigger('change.select2');
                 $('#filterProvFac').val(state.filters.provFacilities).trigger('change.select2');
@@ -761,17 +766,23 @@
             </div>
         `);
 
+        // Build API params - include date if filtering by historical date
+        const apiParams = {
+            type: 'all',
+            source: state.filters.source || 'PRODUCTION',
+            include_scheduled: '1',
+            include_cancelled: '1',
+            cancelled_hours: 4,
+            limit: 200
+        };
+        if (state.filters.date) {
+            apiParams.date = state.filters.date;
+        }
+
         $.ajax({
             url: CONFIG.apiEndpoint,
             method: 'GET',
-            data: {
-                type: 'all',
-                source: state.filters.source || 'PRODUCTION',
-                include_scheduled: '1',
-                include_cancelled: '1',
-                cancelled_hours: 4,
-                limit: 200
-            },
+            data: apiParams,
             success: function(response) {
                 console.log('[TMI-Active] Data received:', response);
                 
@@ -1271,19 +1282,27 @@
     // ===========================================
     
     function applyFilters() {
+        const previousDate = state.filters.date;
+
         state.filters.source = $('#filterSource').val() || 'PRODUCTION';
         state.filters.reqFacilities = $('#filterReqFac').val() || [];
         state.filters.provFacilities = $('#filterProvFac').val() || [];
         state.filters.types = $('#filterType').val() || [];
         state.filters.statuses = $('#filterStatus').val() || ['ACTIVE', 'SCHEDULED'];
+        state.filters.date = $('#filterDate').val() || '';
 
         console.log('[TMI-Active] Applying filters:', state.filters);
 
         // Save filters to localStorage for persistence
         saveFilters();
 
-        // Re-render with new filters (no need to reload data)
-        renderDisplay();
+        // If date changed, reload data from API (date changes what data we fetch)
+        if (state.filters.date !== previousDate) {
+            loadActiveTmis();
+        } else {
+            // Re-render with new filters (no need to reload data)
+            renderDisplay();
+        }
     }
 
     function resetFilters() {
@@ -1292,10 +1311,12 @@
             reqFacilities: [],
             provFacilities: [],
             types: [],
-            statuses: ['ACTIVE', 'SCHEDULED']
+            statuses: ['ACTIVE', 'SCHEDULED'],
+            date: ''
         };
 
         $('#filterSource').val('PRODUCTION');
+        $('#filterDate').val('');
         if ($.fn.select2) {
             $('#filterReqFac').val([]).trigger('change.select2');
             $('#filterProvFac').val([]).trigger('change.select2');

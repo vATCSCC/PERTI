@@ -964,6 +964,13 @@ input[type="time"] {
     border-radius: 4px;
 }
 
+/* Date filter input styling */
+#activeTmiFilters #filterDate {
+    height: 31px;
+    font-size: 0.8rem;
+    padding: 2px 8px;
+}
+
 /* All Select2 containers in filter area - consistent sizing */
 #activeTmiFilters .select2-container {
     min-width: 100%;
