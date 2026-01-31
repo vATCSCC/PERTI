@@ -142,14 +142,29 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
                 if end_utc and start_utc and end_utc < start_utc:
                     end_utc = end_utc + timedelta(days=1)
 
-            # Handle destinations
-            dest_list = [dest] if dest and dest.upper() not in ['ALL', 'ANY', 'DEPARTURES'] else destinations
+            # Handle destinations (may be array or comma-separated string)
+            if 'destinations' in pt and isinstance(pt['destinations'], list):
+                dest_list = pt['destinations']
+            elif dest:
+                if ',' in dest:
+                    dest_list = [d.strip() for d in dest.split(',') if d.strip()]
+                elif dest.upper() not in ['ALL', 'ANY', 'DEPARTURES']:
+                    dest_list = [dest]
+                else:
+                    dest_list = destinations
+            else:
+                dest_list = destinations
+
+            # Handle origins (for CFR "X Departures" format)
+            origin = pt.get('origin', '')
+            origins = [origin] if origin else []
 
             tmi = TMI(
                 tmi_id=f'{tmi_type.value}_{fix}_{dest}',
                 tmi_type=tmi_type,
                 fix=fix if fix else None,
                 destinations=dest_list,
+                origins=origins,
                 value=pt.get('value', 0),
                 unit='nm' if tmi_type == TMIType.MIT else 'min',
                 provider=pt.get('provider', ''),

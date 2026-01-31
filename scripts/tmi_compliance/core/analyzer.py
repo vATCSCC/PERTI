@@ -329,6 +329,11 @@ class TMIComplianceAnalyzer:
         if len(crossings) < 2:
             return {
                 'fix': fix,
+                'required': tmi.value,
+                'unit': tmi.unit,
+                'tmi_start': tmi.start_utc.strftime('%H:%MZ') if tmi.start_utc else '',
+                'tmi_end': tmi.get_effective_end().strftime('%H:%MZ') if tmi.end_utc else '',
+                'cancelled': tmi.cancelled_utc is not None,
                 'total_crossings': len(crossings),
                 'valid_crossings': len(crossings),
                 'pairs': 0,
@@ -343,6 +348,11 @@ class TMIComplianceAnalyzer:
         if len(valid_crossings) < 2:
             return {
                 'fix': fix,
+                'required': tmi.value,
+                'unit': tmi.unit,
+                'tmi_start': tmi.start_utc.strftime('%H:%MZ') if tmi.start_utc else '',
+                'tmi_end': tmi.get_effective_end().strftime('%H:%MZ') if tmi.end_utc else '',
+                'cancelled': tmi.cancelled_utc is not None,
                 'total_crossings': len(crossings),
                 'valid_crossings': len(valid_crossings),
                 'pairs': 0,
