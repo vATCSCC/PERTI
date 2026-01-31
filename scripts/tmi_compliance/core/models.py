@@ -111,6 +111,121 @@ class TMI:
         return self.end_utc
 
 
+class DelayType(Enum):
+    """
+    Delay entry types from NTML
+
+    - D/D: Departure Delays - planes on ground waiting to depart
+    - E/D: En Route Delays - flights in air being delayed (holding, vectors, turns)
+    - A/D: Arrival Delays - similar to E/D but specifically for arrivals
+    """
+    DD = 'D/D'    # Departure Delays (ground)
+    ED = 'E/D'    # En Route Delays (airborne)
+    AD = 'A/D'    # Arrival Delays (typically holding before arrival)
+
+
+class DelayTrend(Enum):
+    """Delay trend direction"""
+    INCREASING = 'increasing'
+    DECREASING = 'decreasing'
+    STEADY = 'steady'
+    UNKNOWN = 'unknown'
+
+
+class HoldingStatus(Enum):
+    """Holding pattern status for E/D and A/D entries"""
+    HOLDING = '+Holding'      # Entered holding (started holding planes)
+    NOT_HOLDING = '-Holding'  # Exited holding (planes no longer holding)
+    NONE = 'none'             # No holding info in this entry
+
+
+@dataclass
+class DelayEntry:
+    """
+    Delay entry from NTML (D/D, E/D, A/D lines)
+
+    Delay tracking methodology:
+    - Tracked in 15-minute increments
+    - Logging starts when delays reach 15+ minutes (or +Holding for E/D/A/D)
+    - Logging ends when delays drop below 15 minutes (or -Holding)
+    - Can be increasing, decreasing, or steady
+
+    D/D (Departure Delays):
+        Planes on ground waiting to depart.
+        Example: "31/0153    D/D from BOS +35/0153  VOLUME:VOLUME"
+        - +35 means 35-minute departure delays
+        - /0153 is the time delays started
+
+    E/D (En Route Delays):
+        Flights in the air being delayed via holding, delay vectors, turns, etc.
+        Example: "31/0127    ZBW E/D for BOS +Holding/0147/2 ACFT  FIX/NAVAID:AJJAY VOLUME:VOLUME"
+        - +Holding indicates aircraft are in holding patterns
+        - /0147 is when holding started
+        - 2 ACFT is number currently holding
+        - FIX/NAVAID:AJJAY is the holding fix
+
+    A/D (Arrival Delays):
+        Same as E/D but specifically for arrivals (typically holding before landing).
+    """
+    delay_type: DelayType
+    airport: str                               # Affected airport (BOS, LGA, etc.)
+    facility: str = ''                         # Issuing/reporting facility (ZBW, N90, etc.)
+    timestamp_utc: Optional[datetime] = None   # When this update was posted
+
+    # Delay amount (in minutes, tracked in 15-min increments)
+    delay_minutes: int = 0                     # Current delay amount
+    delay_trend: DelayTrend = DelayTrend.UNKNOWN  # Is delay increasing/decreasing/steady?
+    delay_start_utc: Optional[datetime] = None    # When delays started (from +XX/HHMM)
+
+    # Holding info (primarily for E/D and A/D)
+    holding_status: HoldingStatus = HoldingStatus.NONE
+    holding_fix: str = ''                      # Fix/navaid for holding pattern (AJJAY, etc.)
+    aircraft_holding: int = 0                  # Number of aircraft currently holding
+
+    # Context
+    reason: str = ''                           # VOLUME, WEATHER, etc.
+    raw_line: str = ''                         # Original line for debugging
+
+
+@dataclass
+class AirportConfig:
+    """
+    Airport configuration from NTML
+
+    Example: "30/2328    BOS    VMC    ARR:27/32 DEP:33L    AAR:40 ADR:40"
+    """
+    airport: str                           # Airport code (BOS, LGA, DCA)
+    timestamp_utc: Optional[datetime] = None
+
+    # Weather/visibility
+    conditions: str = 'VMC'                # VMC or IMC
+
+    # Runway configuration
+    arrival_runways: List[str] = field(default_factory=list)   # e.g., ['27', '32']
+    departure_runways: List[str] = field(default_factory=list) # e.g., ['33L']
+
+    # Rates
+    aar: int = 0                           # Arrival Acceptance Rate
+    adr: int = 0                           # Airport Departure Rate
+
+
+@dataclass
+class CancelEntry:
+    """
+    Cancellation entry from NTML
+
+    Examples:
+    - "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
+    - "31/0340    LGA via ALL CANCEL RESTR ZNY,N90:ZBW,ZDC,ZOB"
+    - "31/0350 DCA via JOOLO CANCEL RESTR  ZDC:ZTL"
+    """
+    timestamp_utc: Optional[datetime] = None
+    destination: str = ''                  # Airport being cancelled for (BOS, LGA, DCA)
+    fix: str = ''                          # Fix/route being cancelled (RBV, ALL, JOOLO)
+    requestor: str = ''                    # Facility that requested (ZNY, N90)
+    provider: str = ''                     # Facility providing (ZDC, ZBW)
+
+
 @dataclass
 class EventConfig:
     """Event configuration"""
@@ -120,6 +235,9 @@ class EventConfig:
     destinations: List[str] = field(default_factory=list)
     origins: List[str] = field(default_factory=list)
     tmis: List[TMI] = field(default_factory=list)
+    delays: List[DelayEntry] = field(default_factory=list)
+    airport_configs: List[AirportConfig] = field(default_factory=list)
+    cancellations: List[CancelEntry] = field(default_factory=list)
 
 
 @dataclass
