@@ -946,35 +946,24 @@ class TMIComplianceAnalyzer:
             logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
 
         # 3. For each flight, select the appropriate crossing point
-        # PRIORITY: If TMI specifies a fix, ALWAYS use fix crossing when available
-        # (The TMI measures compliance AT THE FIX, not at an arbitrary boundary point)
-        # Fallback to boundary crossing only if fix crossing not available
+        # TMI structure: Fix defines the STREAM, Provider:Requestor defines the MEASUREMENT POINT
+        # All TMIs must be met by the handoff point (boundary between provider and requestor)
+        # Priority: Use boundary crossing (the actual handoff point) when available
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
-        prefer_fix = bool(fix and fix in self.fix_coords)  # TMI specifies a known fix
 
         for callsign in all_callsigns:
             fix_cx = fix_crossings_map.get(callsign)
             bnd_cx = boundary_crossings_map.get(callsign)
 
-            if fix_cx and bnd_cx:
-                if prefer_fix:
-                    # TMI specifies a fix - always use fix crossing as that's the measurement point
-                    crossings.append(fix_cx)
-                    measurement_stats['fix'] += 1
-                elif fix_cx.crossing_time <= bnd_cx.crossing_time:
-                    # No specific fix - use earlier crossing
-                    crossings.append(fix_cx)
-                    measurement_stats['fix'] += 1
-                else:
-                    crossings.append(bnd_cx)
-                    measurement_stats['boundary'] += 1
-            elif fix_cx:
-                crossings.append(fix_cx)
-                measurement_stats['fix'] += 1
-            elif bnd_cx:
+            # Prefer boundary crossing (actual handoff point) over fix crossing
+            if bnd_cx:
                 crossings.append(bnd_cx)
                 measurement_stats['boundary'] += 1
+            elif fix_cx:
+                # Fallback to fix crossing if boundary not available
+                crossings.append(fix_cx)
+                measurement_stats['fix'] += 1
 
         # Determine overall measurement type based on what was actually used
         if measurement_stats['boundary'] > 0 and measurement_stats['fix'] > 0:
