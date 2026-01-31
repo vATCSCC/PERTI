@@ -7,6 +7,9 @@ const TMICompliance = {
     planId: null,
     results: null,
 
+    // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
+    exemptViewMode: 'scale',
+
     init: function() {
         // Get plan ID from URL
         const uri = window.location.href.split('?');
@@ -345,11 +348,18 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             </div>
         `;
 
-        // MIT Results
-        if (this.results.mit_results && this.results.mit_results.length > 0) {
-            html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT)</h6>';
+        // Event Statistics Section
+        html += this.renderEventStatistics();
 
-            for (const r of this.results.mit_results) {
+        // MIT Results - handle both array and object formats
+        const mitResults = this.results.mit_results || {};
+        const mitResultsArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        if (mitResultsArray.length > 0) {
+            html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT/MINIT)</h6>';
+
+            for (const r of mitResultsArray) {
+                // Skip entries with no data
+                if (r.pairs === 0 && r.message) continue;
                 html += this.renderMitCard(r);
             }
         }
@@ -431,6 +441,29 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         `;
     },
 
+    // Helper: Create spacing bar with required label indicator
+    renderSpacingBarWithLabel: function(spacing, required, unitLabel) {
+        const maxDisplay = required * 2.5; // Scale bar to 250% of required
+        const spacingPct = Math.min((spacing / maxDisplay) * 100, 100);
+        const requiredPct = (required / maxDisplay) * 100;
+        const isUnder = spacing < required;
+        const barColor = isUnder ? '#dc3545' : (spacing <= required * 1.1 ? '#28a745' : '#17a2b8');
+
+        return `
+            <div class="spacing-bar-wrapper">
+                <div class="spacing-bar-container" style="position: relative; height: 24px; background: #e9ecef; border-radius: 3px; overflow: visible;">
+                    <div class="spacing-bar-fill" style="position: absolute; left: 0; top: 0; height: 100%; width: ${spacingPct}%; background: ${barColor}; transition: width 0.3s; border-radius: 3px 0 0 3px;"></div>
+                    <div class="spacing-bar-required" style="position: absolute; left: ${requiredPct}%; top: -4px; height: calc(100% + 8px); width: 2px; background: #000; z-index: 3;" title="Required: ${required}${unitLabel}">
+                        <span class="spacing-required-label" style="position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #666; white-space: nowrap;">${required}</span>
+                    </div>
+                    <div class="spacing-bar-label" style="position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: bold; color: ${isUnder ? '#fff' : '#333'}; z-index: 2;">
+                        <code style="background: transparent;">${spacing.toFixed ? spacing.toFixed(1) : spacing}${unitLabel}</code>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     // Helper: Calculate compliance streaks
     calcComplianceStreaks: function(allPairs) {
         if (!allPairs || allPairs.length === 0) return { longestGood: 0, currentGood: 0, goodPeriods: [] };
@@ -477,33 +510,341 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         return { longestGood, currentGood, goodPeriods };
     },
 
+    // Format TMI in standardized NTML notation
+    formatStandardizedTMI: function(r) {
+        const fix = r.fix || 'FIX';
+        const required = r.required || 0;
+        const unit = r.unit === 'min' ? 'MINIT' : 'MIT';
+        const destinations = r.destinations ? r.destinations.join(',') : '';
+        const origins = r.origins ? r.origins.join(',') : '';
+        const provider = r.provider || '';
+        const requestor = r.requestor || '';
+        const tmiStart = r.tmi_start || '';
+        const tmiEnd = r.tmi_end || '';
+
+        // Format: DEST via FIX XXnm/min MIT REQUESTOR:PROVIDER TTTTZ-TTTTZ
+        let formatted = '';
+        if (destinations) formatted += `${destinations} `;
+        formatted += `via ${fix} `;
+        formatted += `${required}${r.unit === 'min' ? 'MINIT' : 'MIT'} `;
+        if (requestor || provider) formatted += `${requestor}:${provider} `;
+        formatted += `${tmiStart}-${tmiEnd}`;
+
+        return formatted.trim();
+    },
+
+    // Render horizontal spacing diagram (visual timeline)
+    renderSpacingDiagram: function(allPairs, required, unit, diagramId) {
+        if (!allPairs || allPairs.length === 0) return '';
+
+        const unitLabel = unit === 'min' ? 'min' : 'nm';
+        const isMinit = unit === 'min';
+
+        // Calculate total span for scaling
+        const spacings = allPairs.map(p => p.spacing);
+        const maxSpacing = Math.max(...spacings, required * 2);
+        const totalSpan = spacings.reduce((a, b) => a + b, 0);
+
+        // For MINIT, use time-based scale; for MIT, use distance-based scale
+        const scaleBase = isMinit ? totalSpan : totalSpan;
+
+        // Build crossings list (unique flights at their crossing times)
+        const crossings = [];
+        if (allPairs.length > 0) {
+            crossings.push({
+                callsign: allPairs[0].prev_callsign,
+                time: allPairs[0].prev_time,
+                dept: allPairs[0].prev_dept || '',
+                dest: allPairs[0].prev_dest || ''
+            });
+            allPairs.forEach(p => {
+                crossings.push({
+                    callsign: p.curr_callsign,
+                    time: p.curr_time,
+                    dept: p.curr_dept || '',
+                    dest: p.curr_dest || '',
+                    spacingFromPrev: p.spacing,
+                    category: p.spacing_category,
+                    isExempt: p.is_exempt || false
+                });
+            });
+        }
+
+        // Generate SVG-based diagram
+        const diagramWidth = 800;
+        const diagramHeight = 100;
+        const padding = 60;
+        const availableWidth = diagramWidth - (padding * 2);
+
+        let cumulativePos = padding;
+        let svgContent = '';
+
+        // Draw threshold indicator zone
+        const requiredZoneWidth = (required / maxSpacing) * availableWidth * 0.4;
+        svgContent += `
+            <rect x="${padding}" y="35" width="${availableWidth}" height="30" fill="#f8f9fa" rx="4"/>
+        `;
+
+        // Draw each segment
+        crossings.forEach((c, i) => {
+            if (i === 0) {
+                // First flight marker
+                const color = '#6c757d';
+                svgContent += `
+                    <circle cx="${cumulativePos}" cy="50" r="8" fill="${color}" class="flight-marker"
+                            data-callsign="${c.callsign}" data-time="${c.time}" data-dept="${c.dept}" data-dest="${c.dest}"
+                            style="cursor: pointer;" onclick="TMICompliance.showFlightPopup(this)"/>
+                    <text x="${cumulativePos}" y="75" text-anchor="middle" font-size="9" fill="#666">${c.callsign}</text>
+                `;
+            } else {
+                const spacing = c.spacingFromPrev;
+                const segmentWidth = Math.max((spacing / scaleBase) * availableWidth, 30);
+                const nextPos = Math.min(cumulativePos + segmentWidth, diagramWidth - padding);
+
+                // Segment color based on category
+                let segColor = '#6c757d'; // Default gray
+                if (c.category === 'UNDER') segColor = '#dc3545';      // Red
+                else if (c.category === 'WITHIN') segColor = '#28a745'; // Green
+                else if (c.category === 'OVER') segColor = '#17a2b8';   // Blue
+                else if (c.category === 'GAP') segColor = '#ffc107';    // Yellow
+
+                const lineStyle = c.isExempt ? 'stroke-dasharray: 5,5' : '';
+
+                // Draw segment line
+                svgContent += `
+                    <line x1="${cumulativePos}" y1="50" x2="${nextPos}" y2="50"
+                          stroke="${segColor}" stroke-width="4" ${lineStyle}/>
+                `;
+
+                // Draw spacing label on segment (positioned above line)
+                const midX = (cumulativePos + nextPos) / 2;
+                svgContent += `
+                    <text x="${midX}" y="25" text-anchor="middle" font-size="10" font-weight="bold" fill="${segColor}">
+                        ${spacing.toFixed(1)}${unitLabel}
+                    </text>
+                `;
+
+                // Draw flight marker
+                svgContent += `
+                    <circle cx="${nextPos}" cy="50" r="8" fill="${segColor}" class="flight-marker"
+                            data-callsign="${c.callsign}" data-time="${c.time}" data-dept="${c.dept}" data-dest="${c.dest}"
+                            style="cursor: pointer;" onclick="TMICompliance.showFlightPopup(this)"/>
+                    <text x="${nextPos}" y="75" text-anchor="middle" font-size="9" fill="#666">${c.callsign}</text>
+                `;
+
+                cumulativePos = nextPos;
+            }
+        });
+
+        // Draw required threshold reference line
+        const thresholdLabel = `Required: ${required}${unitLabel}`;
+        svgContent += `
+            <line x1="${padding}" y1="90" x2="${padding + 40}" y2="90" stroke="#000" stroke-width="2"/>
+            <text x="${padding + 45}" y="93" font-size="10" fill="#333">${thresholdLabel}</text>
+        `;
+
+        // Legend
+        svgContent += `
+            <g transform="translate(${diagramWidth - 200}, 85)">
+                <rect x="0" y="0" width="12" height="12" fill="#dc3545"/>
+                <text x="15" y="10" font-size="9">Under</text>
+                <rect x="50" y="0" width="12" height="12" fill="#28a745"/>
+                <text x="65" y="10" font-size="9">Within</text>
+                <rect x="105" y="0" width="12" height="12" fill="#17a2b8"/>
+                <text x="120" y="10" font-size="9">Over</text>
+                <rect x="150" y="0" width="12" height="12" fill="#ffc107"/>
+                <text x="165" y="10" font-size="9">Gap</text>
+            </g>
+        `;
+
+        return `
+            <div class="spacing-diagram-container" id="${diagramId}">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small text-muted"><i class="fas fa-chart-line"></i> Spacing Timeline (${isMinit ? 'time-based' : 'distance-based'})</span>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary btn-sm ${this.exemptViewMode === 'scale' ? 'active' : ''}"
+                                onclick="TMICompliance.setExemptViewMode('scale', '${diagramId}')">
+                            <i class="fas fa-ruler"></i> To Scale
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm ${this.exemptViewMode === 'collapsed' ? 'active' : ''}"
+                                onclick="TMICompliance.setExemptViewMode('collapsed', '${diagramId}')">
+                            <i class="fas fa-compress-alt"></i> Collapsed
+                        </button>
+                    </div>
+                </div>
+                <div class="spacing-diagram-svg" style="overflow-x: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px;">
+                    <svg width="${diagramWidth}" height="${diagramHeight}" viewBox="0 0 ${diagramWidth} ${diagramHeight}">
+                        ${svgContent}
+                    </svg>
+                </div>
+            </div>
+        `;
+    },
+
+    // Toggle exempt flight view mode
+    setExemptViewMode: function(mode, diagramId) {
+        this.exemptViewMode = mode;
+        // Re-render the results to update the diagram
+        this.renderResults();
+    },
+
+    // Show flight details popup
+    showFlightPopup: function(element) {
+        const callsign = element.getAttribute('data-callsign');
+        const time = element.getAttribute('data-time');
+        const dept = element.getAttribute('data-dept') || 'N/A';
+        const dest = element.getAttribute('data-dest') || 'N/A';
+        const acftType = element.getAttribute('data-acft') || 'N/A';
+        const dp = element.getAttribute('data-dp') || 'N/A';
+        const star = element.getAttribute('data-star') || 'N/A';
+        const dfix = element.getAttribute('data-dfix') || 'N/A';
+        const afix = element.getAttribute('data-afix') || 'N/A';
+
+        Swal.fire({
+            title: `<code>${callsign}</code>`,
+            html: `
+                <table class="table table-sm table-borderless text-left mb-0" style="font-size: 0.9rem;">
+                    <tr><td class="text-muted" width="40%">Crossing Time</td><td><strong>${time}</strong></td></tr>
+                    <tr><td class="text-muted">Origin</td><td><strong>${dept}</strong></td></tr>
+                    <tr><td class="text-muted">Destination</td><td><strong>${dest}</strong></td></tr>
+                    <tr><td class="text-muted">Aircraft Type</td><td>${acftType}</td></tr>
+                    <tr><td class="text-muted">Departure Fix</td><td>${dfix}</td></tr>
+                    <tr><td class="text-muted">Arrival Fix</td><td>${afix}</td></tr>
+                    <tr><td class="text-muted">DP/SID</td><td>${dp}</td></tr>
+                    <tr><td class="text-muted">STAR</td><td>${star}</td></tr>
+                </table>
+            `,
+            showCloseButton: true,
+            showConfirmButton: false,
+            width: '400px'
+        });
+    },
+
+    // Render event statistics section
+    renderEventStatistics: function() {
+        if (!this.results) return '';
+
+        const summary = this.results.summary || {};
+        const mitResults = this.results.mit_results || {};
+        const gsResults = this.results.gs_results || {};
+
+        // Calculate totals
+        let totalCrossings = 0;
+        let totalPairs = 0;
+        let totalViolations = 0;
+        let uniqueFlights = new Set();
+
+        // Process MIT results (could be object or array)
+        const mitResultsArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        for (const r of mitResultsArray) {
+            totalCrossings += r.total_crossings || r.crossings || 0;
+            totalPairs += r.pairs || 0;
+            if (r.violations?.total) totalViolations += r.violations.total;
+            if (r.all_pairs) {
+                r.all_pairs.forEach(p => {
+                    uniqueFlights.add(p.prev_callsign);
+                    uniqueFlights.add(p.curr_callsign);
+                });
+            }
+        }
+
+        // Process GS results
+        let gsFlights = 0;
+        let gsExempt = 0;
+        let gsViolations = 0;
+        const gsResultsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
+        for (const r of gsResultsArray) {
+            gsFlights += r.total_flights || 0;
+            gsExempt += r.exempt_count || (r.exempt_flights?.length || 0);
+            gsViolations += r.non_compliant_count || (r.non_compliant_flights?.length || 0);
+        }
+
+        return `
+            <div class="event-statistics-card mb-3">
+                <div class="card">
+                    <div class="card-header bg-dark text-white py-2">
+                        <i class="fas fa-chart-bar"></i> Event Statistics
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row text-center">
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-value text-primary">${uniqueFlights.size}</div>
+                                <div class="stat-label text-muted small">Unique Flights</div>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-value text-info">${totalCrossings}</div>
+                                <div class="stat-label text-muted small">Fix Crossings</div>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-value">${totalPairs}</div>
+                                <div class="stat-label text-muted small">Pairs Analyzed</div>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-value text-danger">${totalViolations}</div>
+                                <div class="stat-label text-muted small">MIT Violations</div>
+                            </div>
+                        </div>
+                        ${gsFlights > 0 ? `
+                        <hr class="my-2">
+                        <div class="row text-center">
+                            <div class="col-md-4 col-4">
+                                <div class="stat-value">${gsFlights}</div>
+                                <div class="stat-label text-muted small">GS Flights</div>
+                            </div>
+                            <div class="col-md-4 col-4">
+                                <div class="stat-value text-info">${gsExempt}</div>
+                                <div class="stat-label text-muted small">GS Exempt</div>
+                            </div>
+                            <div class="col-md-4 col-4">
+                                <div class="stat-value text-danger">${gsViolations}</div>
+                                <div class="stat-label text-muted small">GS Violations</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     renderMitCard: function(r) {
         const compPct = r.compliance_pct || 0;
         const compClass = this.getComplianceClass(compPct);
         const detailId = `mit_detail_${++this.detailIdCounter}`;
         const violationId = `mit_violations_${this.detailIdCounter}`;
+        const diagramId = `mit_diagram_${this.detailIdCounter}`;
         const allPairs = r.all_pairs || [];
         const violations = allPairs.filter(p => p.spacing_category === 'UNDER');
         const compliant = allPairs.filter(p => p.spacing_category !== 'UNDER');
         const unitLabel = r.unit === 'min' ? 'min' : 'nm';
         const required = r.required || 0;
+        const tmiType = r.unit === 'min' ? 'MINIT' : 'MIT';
 
         // Calculate streak metrics
         const streaks = this.calcComplianceStreaks(allPairs);
 
+        // Format standardized TMI notation
+        const standardizedTMI = this.formatStandardizedTMI(r);
+
         let html = `
             <div class="tmi-card mit-card">
+                <!-- TMI Header with standardized notation -->
                 <div class="tmi-header">
                     <div>
                         <span class="tmi-fix-name">${r.fix || 'Unknown'}</span>
-                        <span class="text-muted ml-2">${required}${unitLabel} ${r.unit === 'min' ? 'MINIT' : 'MIT'} | ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
+                        <span class="tmi-type-badge ml-2">${required}${unitLabel} ${tmiType}</span>
+                        <span class="text-muted ml-2">| ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
                 </div>
+                <!-- Standardized TMI Notation -->
+                <div class="standardized-tmi mb-2">
+                    <code class="small">${standardizedTMI}</code>
+                </div>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
-                        <div class="tmi-stat-value">${r.crossings || 0}</div>
+                        <div class="tmi-stat-value">${r.crossings || r.total_crossings || 0}</div>
                         <div class="tmi-stat-label">Crossings</div>
                     </div>
                     <div class="tmi-stat">
@@ -511,11 +852,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="tmi-stat-label">Pairs Analyzed</div>
                     </div>
                     <div class="tmi-stat">
-                        <div class="tmi-stat-value">${r.spacing_stats?.avg?.toFixed(1) || 0}${unitLabel}</div>
+                        <div class="tmi-stat-value">${(r.spacing_stats?.avg || r.avg_spacing || 0).toFixed(1)}${unitLabel}</div>
                         <div class="tmi-stat-label">Avg Spacing</div>
                     </div>
                     <div class="tmi-stat">
-                        <div class="tmi-stat-value">${r.spacing_stats?.min?.toFixed(1) || 0}${unitLabel}</div>
+                        <div class="tmi-stat-value">${(r.spacing_stats?.min || r.min_spacing || 0).toFixed(1)}${unitLabel}</div>
                         <div class="tmi-stat-label">Min Spacing</div>
                     </div>
                 </div>
@@ -528,6 +869,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     ${streaks.goodPeriods.length > 0 ? `<span class="text-muted">| ${streaks.goodPeriods.length} compliant periods</span>` : ''}
                 </div>
                 ` : ''}
+
+                <!-- Visual Spacing Diagram -->
+                ${allPairs.length > 0 ? this.renderSpacingDiagram(allPairs, required, r.unit, diagramId) : ''}
         `;
 
         // Violations summary with expand button
@@ -551,7 +895,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                     <th>Lead Aircraft</th>
                                     <th>Trail Aircraft</th>
                                     <th>Gap (mm:ss)</th>
-                                    <th style="min-width: 150px;">Spacing</th>
+                                    <th style="min-width: 180px;">Spacing <span class="badge badge-light ml-1">${required}${unitLabel} req</span></th>
                                     <th>Required</th>
                                     <th>Difference</th>
                                 </tr>
@@ -564,7 +908,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                         <td><code>${v.prev_callsign}</code><br><code class="text-muted small">${v.prev_time}</code></td>
                                         <td><code>${v.curr_callsign}</code><br><code class="text-muted small">${v.curr_time}</code></td>
                                         <td><code>${this.formatTimeGap(v.time_min)}</code></td>
-                                        <td>${this.renderSpacingBar(v.spacing, v.required, unitLabel)}</td>
+                                        <td>${this.renderSpacingBarWithLabel(v.spacing, v.required, unitLabel)}</td>
                                         <td><code>${v.required}${unitLabel}</code></td>
                                         <td class="text-danger"><code><strong>${marginAmt}${unitLabel}</strong> (${v.shortfall_pct > 0 ? '-' : ''}${v.shortfall_pct}%)</code></td>
                                     </tr>
@@ -594,7 +938,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                     <th>Lead</th>
                                     <th>Trail</th>
                                     <th>Gap (mm:ss)</th>
-                                    <th style="min-width: 150px;">Spacing</th>
+                                    <th style="min-width: 180px;">Spacing <span class="badge badge-secondary ml-1">${required}${unitLabel} req</span></th>
                                     <th>Margin</th>
                                     <th>Status</th>
                                 </tr>
@@ -615,7 +959,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td><code>${p.prev_callsign}</code><br><code class="text-muted small">${p.prev_time}</code></td>
                                             <td><code>${p.curr_callsign}</code><br><code class="text-muted small">${p.curr_time}</code></td>
                                             <td><code>${this.formatTimeGap(p.time_min)}</code></td>
-                                            <td>${this.renderSpacingBar(p.spacing, required, unitLabel)}</td>
+                                            <td>${this.renderSpacingBarWithLabel(p.spacing, required, unitLabel)}</td>
                                             <td class="${p.margin_pct < 0 ? 'text-danger' : 'text-success'}"><code>${marginSign}${marginAmt}${unitLabel}</code><br><small>(${p.margin_pct > 0 ? '+' : ''}${p.margin_pct}%)</small></td>
                                             <td>${statusBadge}</td>
                                         </tr>

@@ -503,8 +503,76 @@ include("sessions/handler.php");
         .summary-stat-value.good { color: #28a745; }
         .summary-stat-value.warn { color: #ffc107; }
         .summary-stat-value.bad { color: #dc3545; }
+
+        /* Standardized TMI Display */
+        .standardized-tmi {
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border-left: 3px solid #007bff;
+        }
+        .standardized-tmi code {
+            color: #495057;
+            font-size: 0.85rem;
+        }
+        .tmi-type-badge {
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        /* Spacing Bar Enhancements */
+        .spacing-bar-wrapper {
+            padding-top: 14px;
+        }
+        .spacing-bar-container {
+            position: relative;
+        }
+        .spacing-required-label {
+            background: rgba(255,255,255,0.9);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        /* Visual Spacing Diagram */
+        .spacing-diagram-container {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .spacing-diagram-svg {
+            scrollbar-width: thin;
+        }
+        .spacing-diagram-svg::-webkit-scrollbar {
+            height: 6px;
+        }
+        .spacing-diagram-svg::-webkit-scrollbar-thumb {
+            background: #ced4da;
+            border-radius: 3px;
+        }
+        .flight-marker {
+            transition: transform 0.2s, filter 0.2s;
+        }
+        .flight-marker:hover {
+            transform: scale(1.3);
+            filter: brightness(1.2);
+        }
+
+        /* Event Statistics */
+        .event-statistics-card .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .event-statistics-card .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
     </style>
-    
+
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
