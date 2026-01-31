@@ -154,8 +154,8 @@ class TMIComplianceAnalyzer:
                    c.first_seen_utc, c.last_seen_utc
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
-            WHERE c.first_seen_utc <= ?
-              AND c.last_seen_utc >= ?
+            WHERE c.first_seen_utc <= %s
+              AND c.last_seen_utc >= %s
               {dest_filter}
               {orig_filter}
         """, (
@@ -196,11 +196,11 @@ class TMIComplianceAnalyzer:
                    p.fp_dept_icao, p.fp_dest_icao
             FROM dbo.adl_trajectory_archive t
             INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-            WHERE t.timestamp_utc >= ?
-              AND t.timestamp_utc <= ?
+            WHERE t.timestamp_utc >= %s
+              AND t.timestamp_utc <= %s
               AND t.callsign IN ({callsign_in})
-              AND t.lat BETWEEN ? AND ?
-              AND t.lon BETWEEN ? AND ?
+              AND t.lat BETWEEN %s AND %s
+              AND t.lon BETWEEN %s AND %s
             ORDER BY t.callsign, t.timestamp_utc
         """, (
             tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
@@ -410,8 +410,8 @@ class TMIComplianceAnalyzer:
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             WHERE p.fp_dest_icao IN ({dest_in})
-              AND c.first_seen_utc <= ?
-              AND c.last_seen_utc >= ?
+              AND c.first_seen_utc <= %s
+              AND c.last_seen_utc >= %s
             ORDER BY c.first_seen_utc
         """, (
             self.event.end_utc.strftime('%Y-%m-%d %H:%M:%S'),
