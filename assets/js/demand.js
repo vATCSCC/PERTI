@@ -869,6 +869,15 @@ let DEMAND_STATE = {
     showVatsimAdr: true,
     showRwAar: true,
     showRwAdr: true,
+    // Phase group visibility filters (all checked by default except unknown)
+    phaseGroups: {
+        prefile: true,      // PREFILE - filed but not connected
+        departing: true,    // DEPARTING - taxiing at origin
+        active: true,       // ACTIVE - departed/enroute/descending (airborne)
+        arrived: true,      // ARRIVED - landed at destination
+        disconnected: true, // DISCONNECTED - disconnected mid-flight
+        unknown: false      // UNKNOWN - other/unknown (hidden by default)
+    },
     atisData: null, // Store ATIS data from API
     // Cache management
     cacheTimestamp: null, // When data was last loaded from API
@@ -901,6 +910,28 @@ const FSM_PHASE_LABELS = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : 
     'unknown': 'Unknown'
 };
 
+// Phase group mapping - maps logical UI groups to database phase values
+const PHASE_GROUP_MAP = {
+    prefile: ['prefile'],
+    departing: ['taxiing'],
+    active: ['departed', 'enroute', 'descending'],
+    arrived: ['arrived'],
+    disconnected: ['disconnected'],
+    unknown: ['unknown']
+};
+
+// Reverse lookup - maps database phase to UI group
+const PHASE_TO_GROUP = {
+    prefile: 'prefile',
+    taxiing: 'departing',
+    departed: 'active',
+    enroute: 'active',
+    descending: 'active',
+    arrived: 'arrived',
+    disconnected: 'disconnected',
+    unknown: 'unknown'
+};
+
 // ARTCC colors for origin breakdown visualization
 const ARTCC_COLORS = {
     'ZNY': '#e41a1c', 'ZDC': '#377eb8', 'ZBW': '#4daf4a', 'ZOB': '#984ea3',
@@ -923,6 +954,30 @@ function getARTCCColor(artcc) {
     }
     const hue = Math.abs(hash % 360);
     return `hsl(${hue}, 70%, 50%)`;
+}
+
+/**
+ * Check if a specific phase is enabled based on phase group selections
+ * @param {string} phase - Phase name (e.g., 'enroute', 'taxiing', 'arrived')
+ * @returns {boolean} True if the phase should be displayed
+ */
+function isPhaseEnabled(phase) {
+    const group = PHASE_TO_GROUP[phase];
+    return group ? DEMAND_STATE.phaseGroups[group] : false;
+}
+
+/**
+ * Get array of enabled phases based on phase group selections
+ * @returns {Array} Array of phase strings to include in rendering
+ */
+function getEnabledPhases() {
+    const enabled = [];
+    for (const group in DEMAND_STATE.phaseGroups) {
+        if (DEMAND_STATE.phaseGroups[group] && PHASE_GROUP_MAP[group]) {
+            enabled.push(...PHASE_GROUP_MAP[group]);
+        }
+    }
+    return enabled;
 }
 
 // Format date for datetime-local input (YYYY-MM-DDTHH:MM in local time)
@@ -1372,6 +1427,14 @@ function setupEventHandlers() {
     $('#rate_rw_adr').on('change', function() {
         DEMAND_STATE.showRwAdr = $(this).is(':checked');
         renderCurrentView();
+    });
+
+    // Phase group filter toggles
+    ['prefile', 'departing', 'active', 'arrived', 'disconnected', 'unknown'].forEach(group => {
+        $(`#phase_${group}`).on('change', function() {
+            DEMAND_STATE.phaseGroups[group] = $(this).is(':checked');
+            renderCurrentView();
+        });
     });
 }
 
@@ -2013,8 +2076,10 @@ function renderChart(data) {
 
     // Build series based on direction
     // Phase stacking order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
+    // Filter by enabled phase groups
     const series = [];
-    const phaseOrder = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
 
     if (direction === 'arr' || direction === 'both') {
         // Build arrival series by phase (normalize time bins for lookup)

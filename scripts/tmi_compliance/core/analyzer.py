@@ -7,17 +7,18 @@ Core analysis logic for MIT, MINIT, and Ground Stop compliance.
 
 import math
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Dict, List, Any, Optional
 
 from .models import (
-    TMI, TMIType, EventConfig, CrossingResult, Compliance, SpacingCategory,
-    categorize_spacing, calculate_shortfall_pct, normalize_datetime,
-    normalize_icao_list, CROSSING_RADIUS_NM, MITModifier, TrafficDirection,
-    TrafficFilter
+    TMI, TMIType, EventConfig, CrossingResult, BoundaryCrossing, Compliance,
+    SpacingCategory, MeasurementType, categorize_spacing, calculate_shortfall_pct,
+    normalize_datetime, normalize_icao_list, CROSSING_RADIUS_NM, MITModifier,
+    TrafficDirection, TrafficFilter
 )
 from .database import ADLConnection, GISConnection
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -301,17 +302,257 @@ class TMIComplianceAnalyzer:
 
         return crossings
 
+    def _detect_boundary_crossings(self, provider: str, requestor: str,
+                                    callsigns: List[str], tmi: TMI) -> List[BoundaryCrossing]:
+        """
+        Detect ARTCC boundary crossings using PostGIS for accurate handoff point measurement.
+
+        For a TMI like "ZNY:ZDC via RBV 25MIT":
+        - ZDC is the provider (executes the MIT)
+        - ZNY is the requestor (needs the spacing)
+        - We measure at the ZDC->ZNY boundary crossing
+
+        Uses trajectory data from ADL and PostGIS get_trajectory_artcc_crossings() for
+        precise boundary intersection calculation.
+
+        Args:
+            provider: ARTCC code of the TMI provider (e.g., ZDC)
+            requestor: ARTCC code of the TMI requestor (e.g., ZNY)
+            callsigns: List of flight callsigns to analyze
+            tmi: TMI definition with time window
+
+        Returns:
+            List of BoundaryCrossing objects for flights crossing the provider->requestor boundary
+        """
+        if not self.gis_conn:
+            logger.warning("GIS connection not available for boundary crossing detection")
+            return []
+
+        if not provider or not requestor:
+            logger.warning("Provider and requestor required for boundary crossing detection")
+            return []
+
+        crossings = []
+        cursor = self.adl_conn.cursor()
+        gis_cursor = self.gis_conn.cursor()
+
+        tmi_start = tmi.start_utc
+        tmi_end = tmi.get_effective_end()
+
+        # Normalize ARTCC codes (ZDC -> KZDC for PostGIS matching)
+        provider_codes = self._normalize_artcc_code(provider)
+        requestor_codes = self._normalize_artcc_code(requestor)
+
+        logger.info(f"Detecting boundary crossings: {provider} -> {requestor}")
+        logger.info(f"  Provider codes: {provider_codes}, Requestor codes: {requestor_codes}")
+
+        callsign_in = "'" + "','".join(callsigns) + "'"
+
+        # Get trajectory data for each flight
+        query = self.adl.format_query(f"""
+            SELECT c.callsign, t.flight_uid, t.timestamp_utc,
+                   t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                   p.fp_dept_icao, p.fp_dest_icao
+            FROM dbo.adl_trajectory_archive t
+            INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+            INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+            WHERE t.timestamp_utc >= %s
+              AND t.timestamp_utc <= %s
+              AND c.callsign IN ({callsign_in})
+            ORDER BY c.callsign, t.timestamp_utc
+        """)
+        cursor.execute(query, (
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
+            tmi_end.strftime('%Y-%m-%d %H:%M:%S')
+        ))
+
+        # Group trajectory points by callsign
+        flight_trajectories = defaultdict(list)
+        flight_metadata = {}
+
+        for row in cursor.fetchall():
+            cs, fuid, ts, lat, lon, gs, alt, dept, dest = row
+            flight_trajectories[cs].append({
+                'timestamp': normalize_datetime(ts),
+                'lat': float(lat),
+                'lon': float(lon),
+                'gs': float(gs) if gs and 100 < gs < 600 else 250,
+                'alt': float(alt) if alt else 0
+            })
+            if cs not in flight_metadata:
+                flight_metadata[cs] = {
+                    'flight_uid': fuid,
+                    'dept': dept or 'UNK',
+                    'dest': dest or 'UNK'
+                }
+
+        cursor.close()
+        logger.info(f"  Loaded trajectories for {len(flight_trajectories)} flights")
+
+        # Process each flight through PostGIS
+        for callsign, trajectory in flight_trajectories.items():
+            if len(trajectory) < 2:
+                continue
+
+            # Build waypoints JSON for PostGIS
+            waypoints = [
+                {'lat': pt['lat'], 'lon': pt['lon'], 'sequence_num': i}
+                for i, pt in enumerate(trajectory)
+            ]
+            waypoints_json = json.dumps(waypoints)
+
+            # Call PostGIS to find ARTCC boundary crossings
+            try:
+                gis_cursor.execute('''
+                    SELECT artcc_code, crossing_lat, crossing_lon, crossing_fraction
+                    FROM get_trajectory_artcc_crossings(%s::jsonb)
+                    ORDER BY crossing_fraction
+                ''', (waypoints_json,))
+
+                artcc_crossings = gis_cursor.fetchall()
+
+                # Find the provider->requestor boundary crossing
+                prev_artcc = None
+                for artcc_code, clat, clon, cfrac in artcc_crossings:
+                    # Check if this is the boundary we're looking for
+                    # Provider -> Requestor means exiting provider and entering requestor
+                    if prev_artcc in provider_codes and artcc_code in requestor_codes:
+                        # Found the handoff point!
+                        # Interpolate crossing time from trajectory
+                        crossing_time, crossing_gs, crossing_alt = self._interpolate_crossing_time(
+                            trajectory, cfrac
+                        )
+
+                        if crossing_time:
+                            meta = flight_metadata.get(callsign, {})
+                            crossing = BoundaryCrossing(
+                                callsign=callsign,
+                                flight_uid=meta.get('flight_uid', ''),
+                                crossing_time=crossing_time,
+                                crossing_lat=float(clat),
+                                crossing_lon=float(clon),
+                                from_artcc=prev_artcc,
+                                to_artcc=artcc_code,
+                                groundspeed=crossing_gs,
+                                altitude=crossing_alt,
+                                dept=meta.get('dept', 'UNK'),
+                                dest=meta.get('dest', 'UNK'),
+                                distance_from_origin_nm=cfrac * self._estimate_route_length(trajectory),
+                                crossing_type='ENTRY'
+                            )
+                            crossings.append(crossing)
+                            break  # Only count first crossing
+
+                    prev_artcc = artcc_code
+
+            except Exception as e:
+                logger.warning(f"Error processing trajectory for {callsign}: {e}")
+                continue
+
+        gis_cursor.close()
+        logger.info(f"  Found {len(crossings)} boundary crossings")
+        return crossings
+
+    def _normalize_artcc_code(self, code: str) -> List[str]:
+        """
+        Normalize ARTCC code to match PostGIS database format.
+
+        Returns list of possible codes (e.g., ZDC -> ['ZDC', 'KZDC'])
+        """
+        if not code:
+            return []
+
+        code = code.upper().strip()
+        codes = [code]
+
+        # US ARTCCs in PostGIS often have K prefix
+        if len(code) == 3 and code.startswith('Z'):
+            codes.append('K' + code)
+
+        # Also match sector codes (e.g., ZDC06, ZDC51)
+        # The boundary adjacency shows sector-level data like ZDC06 <-> ZNY25
+        # For ARTCC-level matching, we just need the base codes
+
+        return codes
+
+    def _interpolate_crossing_time(self, trajectory: List[dict], fraction: float) -> tuple:
+        """
+        Interpolate the crossing time from trajectory based on fraction along route.
+
+        Args:
+            trajectory: List of trajectory points with timestamp, lat, lon, gs, alt
+            fraction: Position along route (0.0 to 1.0)
+
+        Returns:
+            Tuple of (crossing_time, groundspeed, altitude) or (None, 0, 0) if interpolation fails
+        """
+        if not trajectory or len(trajectory) < 2:
+            return None, 0, 0
+
+        # Calculate cumulative distances
+        cumulative_dist = [0.0]
+        for i in range(1, len(trajectory)):
+            prev = trajectory[i - 1]
+            curr = trajectory[i]
+            dist = haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
+            cumulative_dist.append(cumulative_dist[-1] + dist)
+
+        total_dist = cumulative_dist[-1]
+        if total_dist <= 0:
+            return None, 0, 0
+
+        # Find target distance
+        target_dist = fraction * total_dist
+
+        # Find the segment containing this distance
+        for i in range(1, len(cumulative_dist)):
+            if cumulative_dist[i] >= target_dist:
+                # Interpolate between points i-1 and i
+                prev = trajectory[i - 1]
+                curr = trajectory[i]
+                seg_start = cumulative_dist[i - 1]
+                seg_len = cumulative_dist[i] - seg_start
+
+                if seg_len > 0:
+                    seg_frac = (target_dist - seg_start) / seg_len
+                else:
+                    seg_frac = 0
+
+                # Interpolate time
+                prev_time = prev['timestamp']
+                curr_time = curr['timestamp']
+                time_diff = (curr_time - prev_time).total_seconds()
+                crossing_time = prev_time + timedelta(seconds=time_diff * seg_frac)
+
+                # Interpolate GS and altitude
+                crossing_gs = prev['gs'] + (curr['gs'] - prev['gs']) * seg_frac
+                crossing_alt = prev['alt'] + (curr['alt'] - prev['alt']) * seg_frac
+
+                return crossing_time, crossing_gs, crossing_alt
+
+        # Default to last point
+        last = trajectory[-1]
+        return last['timestamp'], last['gs'], last['alt']
+
+    def _estimate_route_length(self, trajectory: List[dict]) -> float:
+        """Estimate total route length in nm from trajectory points"""
+        if len(trajectory) < 2:
+            return 0.0
+
+        total = 0.0
+        for i in range(1, len(trajectory)):
+            prev = trajectory[i - 1]
+            curr = trajectory[i]
+            total += haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
+
+        return total
+
     def _analyze_mit_compliance(self, tmi: TMI) -> Optional[Dict]:
         """Analyze MIT/MINIT compliance for a TMI"""
         time_str = f"{tmi.start_utc.strftime('%H:%MZ') if tmi.start_utc else '??'}-{tmi.end_utc.strftime('%H:%MZ') if tmi.end_utc else '??'}"
         logger.info(f"Analyzing {tmi.tmi_type.value}: {tmi.fix} {tmi.value}nm {time_str}")
 
         fix = tmi.fix
-        if fix not in self.fix_coords:
-            logger.warning(f"Fix {fix} not found in coordinates")
-            return None
-
-        coords = self.fix_coords[fix]
         flights = self._get_flights_for_tmi(tmi)
         logger.info(f"  Found {len(flights)} flights matching destination filter")
 
@@ -319,13 +560,59 @@ class TMIComplianceAnalyzer:
             logger.info(f"No flights found for TMI scope")
             return None
 
-        # Detect crossings
-        crossings = self._detect_crossings(
-            fix, coords['lat'], coords['lon'],
-            list(flights.keys()), tmi
-        )
+        # Determine measurement type and detect crossings
+        # Priority: 1) Boundary (if provider/requestor + GIS available)
+        #           2) Fix (fallback)
+        measurement_type = MeasurementType.FIX
+        crossings = []
+        boundary_crossings = []
 
-        logger.info(f"Crossings detected: {len(crossings)}")
+        # Try boundary-based detection first if provider/requestor are specified
+        if tmi.provider and tmi.requestor and self.gis_conn:
+            logger.info(f"  Attempting boundary-based detection: {tmi.provider} -> {tmi.requestor}")
+            boundary_crossings = self._detect_boundary_crossings(
+                tmi.provider, tmi.requestor,
+                list(flights.keys()), tmi
+            )
+            if boundary_crossings:
+                measurement_type = MeasurementType.BOUNDARY
+                # Convert BoundaryCrossing to CrossingResult format for uniform processing
+                crossings = [
+                    CrossingResult(
+                        callsign=bc.callsign,
+                        flight_uid=bc.flight_uid,
+                        crossing_time=bc.crossing_time,
+                        distance_nm=bc.distance_from_origin_nm,
+                        lat=bc.crossing_lat,
+                        lon=bc.crossing_lon,
+                        groundspeed=bc.groundspeed,
+                        altitude=bc.altitude,
+                        dept=bc.dept,
+                        dest=bc.dest
+                    )
+                    for bc in boundary_crossings
+                ]
+                logger.info(f"  Using boundary-based measurement at {tmi.provider}->{tmi.requestor} ({len(crossings)} crossings)")
+
+        # Fall back to fix-based detection if needed
+        if not crossings:
+            if tmi.provider and tmi.requestor:
+                measurement_type = MeasurementType.BOUNDARY_FALLBACK_FIX
+                logger.info(f"  Falling back to fix-based detection (boundary detection returned no results)")
+            else:
+                measurement_type = MeasurementType.FIX
+
+            if fix not in self.fix_coords:
+                logger.warning(f"Fix {fix} not found in coordinates")
+                return None
+
+            coords = self.fix_coords[fix]
+            crossings = self._detect_crossings(
+                fix, coords['lat'], coords['lon'],
+                list(flights.keys()), tmi
+            )
+
+        logger.info(f"Crossings detected: {len(crossings)} (measurement: {measurement_type.value})")
 
         if len(crossings) < 2:
             return {
@@ -339,11 +626,16 @@ class TMIComplianceAnalyzer:
                 'valid_crossings': len(crossings),
                 'pairs': 0,
                 'message': 'Insufficient crossings for analysis',
+                # Measurement metadata
+                'measurement_type': measurement_type.value,
+                'measurement_point': f"{tmi.provider}->{tmi.requestor} boundary" if measurement_type == MeasurementType.BOUNDARY else fix,
                 # Amendment tracking metadata
                 'destinations': tmi.destinations,
                 'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
                 'is_amendment': tmi.supersedes_tmi_id is not None,
                 'was_superseded': tmi.superseded_by_tmi_id is not None,
+                # Facility metadata
+                'is_multiple': tmi.is_multiple,
             }
 
         # Filter to TMI active window
@@ -363,11 +655,16 @@ class TMIComplianceAnalyzer:
                 'valid_crossings': len(valid_crossings),
                 'pairs': 0,
                 'message': 'Insufficient crossings in TMI window',
+                # Measurement metadata
+                'measurement_type': measurement_type.value,
+                'measurement_point': f"{tmi.provider}->{tmi.requestor} boundary" if measurement_type == MeasurementType.BOUNDARY else fix,
                 # Amendment tracking metadata
                 'destinations': tmi.destinations,
                 'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
                 'is_amendment': tmi.supersedes_tmi_id is not None,
                 'was_superseded': tmi.superseded_by_tmi_id is not None,
+                # Facility metadata
+                'is_multiple': tmi.is_multiple,
             }
 
         # Sort by crossing time
@@ -470,6 +767,9 @@ class TMIComplianceAnalyzer:
                 'avg': round(sum(spacings) / len(spacings), 1),
                 'max': round(max(spacings), 1)
             },
+            # Measurement metadata
+            'measurement_type': measurement_type.value,
+            'measurement_point': f"{tmi.provider}->{tmi.requestor} boundary" if measurement_type == MeasurementType.BOUNDARY else fix,
             # Amendment tracking metadata
             'destinations': tmi.destinations,
             'origins': tmi.origins,
@@ -480,6 +780,8 @@ class TMIComplianceAnalyzer:
             'superseded_by_tmi_id': tmi.superseded_by_tmi_id,
             'is_amendment': tmi.supersedes_tmi_id is not None,
             'was_superseded': tmi.superseded_by_tmi_id is not None,
+            # Facility metadata
+            'is_multiple': tmi.is_multiple,
             # Modifier and filter info
             'modifier': tmi.modifier.value if tmi.modifier else None,
             'traffic_direction': tmi.traffic_direction.value if tmi.traffic_direction else None,

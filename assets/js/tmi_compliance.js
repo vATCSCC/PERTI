@@ -809,6 +809,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Format standardized TMI notation
         const standardizedTMI = this.formatStandardizedTMI(r);
 
+        // Measurement type badge
+        const measurementType = r.measurement_type || 'FIX';
+        const measurementPoint = r.measurement_point || r.fix || '';
+        const isBoundary = measurementType === 'BOUNDARY';
+        const measurementBadge = isBoundary
+            ? `<span class="badge badge-info ml-2" title="Measured at ARTCC handoff point"><i class="fas fa-border-all"></i> Boundary</span>`
+            : measurementType === 'BOUNDARY_FALLBACK_FIX'
+            ? `<span class="badge badge-secondary ml-2" title="Boundary unavailable, measured at fix"><i class="fas fa-map-marker-alt"></i> Fix (fallback)</span>`
+            : '';
+
         let html = `
             <div class="tmi-card mit-card">
                 <!-- TMI Header with standardized notation -->
@@ -818,12 +828,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <span class="tmi-type-badge ml-2">${required}${unitLabel} ${tmiType}</span>
                         <span class="text-muted ml-2">| ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
+                        ${measurementBadge}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
                 </div>
                 <!-- Standardized TMI Notation -->
                 <div class="standardized-tmi mb-2">
                     <code class="small">${standardizedTMI}</code>
+                    ${isBoundary ? `<span class="small text-info ml-2"><i class="fas fa-ruler"></i> Measured at: ${measurementPoint}</span>` : ''}
                 </div>
                 <div class="tmi-stats">
                     <div class="tmi-stat">

@@ -279,7 +279,16 @@ function format_results($results) {
                 ],
                 'cancelled' => $r['cancelled'] ?? false,
                 // Include detailed pair data for flight-level analysis
-                'all_pairs' => $r['all_pairs'] ?? []
+                'all_pairs' => $r['all_pairs'] ?? [],
+                // Measurement metadata (boundary vs fix)
+                'measurement_type' => $r['measurement_type'] ?? 'FIX',
+                'measurement_point' => $r['measurement_point'] ?? ($r['fix'] ?? ''),
+                // Additional TMI metadata
+                'destinations' => $r['destinations'] ?? [],
+                'origins' => $r['origins'] ?? [],
+                'provider' => $r['provider'] ?? '',
+                'requestor' => $r['requestor'] ?? '',
+                'is_multiple' => $r['is_multiple'] ?? false
             ];
         }
     }
@@ -327,6 +336,7 @@ function format_results($results) {
                 'post_tmi_flights' => $r['post_tmi_flights'] ?? [],
                 'provider' => $r['provider'] ?? '',
                 'requestor' => $r['requestor'] ?? '',
+                'is_multiple' => $r['is_multiple'] ?? false,
                 'note' => $r['note'] ?? 'APREQ/CFR requires coordination verification'
             ];
         }
