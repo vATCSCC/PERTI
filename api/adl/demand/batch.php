@@ -1085,34 +1085,26 @@ foreach ($viaMonitors as $idx => $m) {
                     $procParams = [$viaValue . '%', $viaValue . '%'];
                 }
 
-                $sql = "WITH TimeBounds AS (
-                            SELECT GETUTCDATE() AS start_time,
-                                   DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
-                        ),
-                        MatchingFlights AS (
-                            SELECT DISTINCT c.flight_uid, t.eta_runway_utc
+                $sql = "WITH MatchingFlights AS (
+                            SELECT DISTINCT c.flight_uid,
+                                   DATEDIFF(MINUTE, GETUTCDATE(), t.eta_runway_utc) / ? AS bucket_num
                             FROM dbo.adl_flight_core c
                             INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                             INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-                            CROSS JOIN TimeBounds tb
                             WHERE $procMatchClause
                               AND c.is_active = 1
                               AND c.phase NOT IN ('arrived', 'disconnected')
-                              AND t.eta_runway_utc >= tb.start_time
-                              AND t.eta_runway_utc < tb.end_time
+                              AND t.eta_runway_utc >= GETUTCDATE()
+                              AND t.eta_runway_utc < DATEADD(HOUR, ?, GETUTCDATE())
                               AND $locationClause
                               $flightFilterClause
-                        ),
-                        BucketCounts AS (
-                            SELECT
-                                DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ? AS bucket_num,
-                                COUNT(*) AS flight_count
-                            FROM MatchingFlights mf
-                            CROSS JOIN TimeBounds tb
-                            GROUP BY DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ?
                         )
-                        SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
-                $params = array_merge([$horizonHours], $procParams, $locationParams, $flightFilterParams, [$bucketMinutes, $bucketMinutes]);
+                        SELECT bucket_num, COUNT(*) AS flight_count
+                        FROM MatchingFlights
+                        WHERE bucket_num >= 0
+                        GROUP BY bucket_num
+                        ORDER BY bucket_num";
+                $params = array_merge([$bucketMinutes], $procParams, [$horizonHours], $locationParams, $flightFilterParams);
             } else {
                 // Standard fix matching (not a procedure name)
                 $sql = "WITH TimeBounds AS (
@@ -1215,33 +1207,25 @@ foreach ($viaMonitors as $idx => $m) {
                 $procParams = [$viaValue . '%', $viaValue . '%'];
             }
 
-            $sql = "WITH TimeBounds AS (
-                        SELECT GETUTCDATE() AS start_time,
-                               DATEADD(HOUR, ?, GETUTCDATE()) AS end_time
-                    ),
-                    MatchingFlights AS (
-                        SELECT DISTINCT c.flight_uid, t.eta_runway_utc
+            $sql = "WITH MatchingFlights AS (
+                        SELECT DISTINCT c.flight_uid,
+                               DATEDIFF(MINUTE, GETUTCDATE(), t.eta_runway_utc) / ? AS bucket_num
                         FROM dbo.adl_flight_core c
                         INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                         INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-                        CROSS JOIN TimeBounds tb
                         WHERE $procMatchClause
                           AND c.is_active = 1
                           AND c.phase NOT IN ('arrived', 'disconnected')
-                          AND t.eta_runway_utc >= tb.start_time
-                          AND t.eta_runway_utc < tb.end_time
+                          AND t.eta_runway_utc >= GETUTCDATE()
+                          AND t.eta_runway_utc < DATEADD(HOUR, ?, GETUTCDATE())
                           AND $locationClause
-                    ),
-                    BucketCounts AS (
-                        SELECT
-                            DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ? AS bucket_num,
-                            COUNT(*) AS flight_count
-                        FROM MatchingFlights mf
-                        CROSS JOIN TimeBounds tb
-                        GROUP BY DATEDIFF(MINUTE, tb.start_time, mf.eta_runway_utc) / ?
                     )
-                    SELECT bucket_num, flight_count FROM BucketCounts ORDER BY bucket_num";
-            $params = array_merge([$horizonHours], $procParams, $locationParams, [$bucketMinutes, $bucketMinutes]);
+                    SELECT bucket_num, COUNT(*) AS flight_count
+                    FROM MatchingFlights
+                    WHERE bucket_num >= 0
+                    GROUP BY bucket_num
+                    ORDER BY bucket_num";
+            $params = array_merge([$bucketMinutes], $procParams, [$horizonHours], $locationParams);
         } else {
             // Use SQL function for standard fixes and airways
             $sql = "SELECT * FROM dbo.fn_ViaDemandBucketed(?, ?, ?, ?, ?, ?, ?, NULL)";
@@ -1267,23 +1251,47 @@ foreach ($viaMonitors as $idx => $m) {
 
     // Look up via fix coordinates (if via_type is 'fix')
     if ($viaType === 'fix') {
-        $fixSql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) = ?";
-        $fixStmt = sqlsrv_query($conn, $fixSql, [$viaValue]);
-        if ($fixStmt && $row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
-            $monitorData[$monitorIdx]['lat'] = (float)$row['lat'];
-            $monitorData[$monitorIdx]['lon'] = (float)$row['lon'];
-        }
-        if ($fixStmt) sqlsrv_free_stmt($fixStmt);
+        // Determine what fix name(s) to look up
+        $lookupNames = [$viaValue];
 
-        // Fallback: try adl_flight_waypoints if nav_fixes doesn't have it
-        if ($monitorData[$monitorIdx]['lat'] === null) {
-            $wpSql = "SELECT TOP 1 lat, lon FROM dbo.adl_flight_waypoints WHERE RTRIM(fix_name) = ? AND lat IS NOT NULL ORDER BY waypoint_id DESC";
-            $wpStmt = sqlsrv_query($conn, $wpSql, [$viaValue]);
-            if ($wpStmt && $row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
+        // If this looks like a procedure name, also try the base name
+        if (isProcedureName($viaValue)) {
+            $baseName = preg_replace('/[0-9][A-Z]?$/', '', $viaValue);
+            $lookupNames[] = $baseName;
+        } elseif (couldBeProcedureBaseName($viaValue)) {
+            // Already a base name, keep as-is
+        }
+
+        // Try each lookup name until we find coordinates
+        foreach ($lookupNames as $lookupName) {
+            $fixSql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE RTRIM(fix_name) = ?";
+            $fixStmt = sqlsrv_query($conn, $fixSql, [$lookupName]);
+            if ($fixStmt && $row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
                 $monitorData[$monitorIdx]['lat'] = (float)$row['lat'];
                 $monitorData[$monitorIdx]['lon'] = (float)$row['lon'];
             }
-            if ($wpStmt) sqlsrv_free_stmt($wpStmt);
+            if ($fixStmt) sqlsrv_free_stmt($fixStmt);
+
+            if ($monitorData[$monitorIdx]['lat'] !== null) {
+                break; // Found coordinates
+            }
+        }
+
+        // Fallback: try adl_flight_waypoints if nav_fixes doesn't have it
+        if ($monitorData[$monitorIdx]['lat'] === null) {
+            foreach ($lookupNames as $lookupName) {
+                $wpSql = "SELECT TOP 1 lat, lon FROM dbo.adl_flight_waypoints WHERE RTRIM(fix_name) = ? AND lat IS NOT NULL ORDER BY waypoint_id DESC";
+                $wpStmt = sqlsrv_query($conn, $wpSql, [$lookupName]);
+                if ($wpStmt && $row = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC)) {
+                    $monitorData[$monitorIdx]['lat'] = (float)$row['lat'];
+                    $monitorData[$monitorIdx]['lon'] = (float)$row['lon'];
+                }
+                if ($wpStmt) sqlsrv_free_stmt($wpStmt);
+
+                if ($monitorData[$monitorIdx]['lat'] !== null) {
+                    break; // Found coordinates
+                }
+            }
         }
     }
 }
@@ -1293,10 +1301,19 @@ foreach ($viaMonitors as $idx => $m) {
 // =========================================================================
 
 // Step 1: Collect all unique fix names needing coordinates
+// Also add base names for procedure-like fix names (e.g., BNFSH3 -> BNFSH)
 $fixesNeedingCoords = [];
+$procedureBaseNames = []; // Maps procedure name to base name
 foreach ($monitorData as $monitor) {
     if ($monitor['type'] === 'fix' && $monitor['lat'] === null) {
-        $fixesNeedingCoords[strtoupper($monitor['fix'])] = true;
+        $fixName = strtoupper($monitor['fix']);
+        $fixesNeedingCoords[$fixName] = true;
+        // Also add base name if this is a procedure
+        if (isProcedureName($fixName)) {
+            $baseName = preg_replace('/[0-9][A-Z]?$/', '', $fixName);
+            $fixesNeedingCoords[$baseName] = true;
+            $procedureBaseNames[$fixName] = $baseName;
+        }
     } else if ($monitor['type'] === 'segment') {
         if ($monitor['from_lat'] === null) {
             $fixesNeedingCoords[strtoupper($monitor['from_fix'])] = true;
@@ -1358,6 +1375,11 @@ foreach ($monitorData as $monitorIdx => &$monitor) {
         if (isset($fixCoords[$key])) {
             $monitor['lat'] = $fixCoords[$key]['lat'];
             $monitor['lon'] = $fixCoords[$key]['lon'];
+        } elseif (isset($procedureBaseNames[$key]) && isset($fixCoords[$procedureBaseNames[$key]])) {
+            // Use base name coordinates for procedures (e.g., BNFSH3 -> BNFSH)
+            $baseName = $procedureBaseNames[$key];
+            $monitor['lat'] = $fixCoords[$baseName]['lat'];
+            $monitor['lon'] = $fixCoords[$baseName]['lon'];
         }
     } else if ($monitor['type'] === 'segment') {
         $fromKey = strtoupper($monitor['from_fix']);
