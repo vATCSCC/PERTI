@@ -180,3 +180,67 @@ def normalize_datetime(dt: datetime) -> datetime:
     if dt.tzinfo is not None:
         return dt.replace(tzinfo=None)
     return dt
+
+
+def normalize_icao(code: str) -> str:
+    """
+    Normalize airport code to ICAO format.
+
+    - 3-letter US codes get K prefix (ATL -> KATL)
+    - 4-letter codes pass through unchanged
+    - Handles common exceptions (Hawaii, Alaska, etc.)
+    """
+    if not code:
+        return code
+
+    code = code.upper().strip()
+
+    # Already 4+ letters, return as-is
+    if len(code) >= 4:
+        return code
+
+    # 3-letter codes - determine region
+    if len(code) == 3:
+        # Alaska airports start with PA
+        alaska_prefixes = ['ANC', 'FAI', 'JNU', 'BET', 'OME', 'OTZ', 'SCC', 'ADQ', 'DLG', 'CDV']
+        if code in alaska_prefixes:
+            return 'P' + code
+
+        # Hawaii airports start with PH
+        hawaii_prefixes = ['HNL', 'OGG', 'LIH', 'KOA', 'ITO', 'MKK', 'LNY']
+        if code in hawaii_prefixes:
+            return 'PH' + code[-2:] if len(code) == 3 else 'P' + code
+
+        # Pacific territories
+        if code in ['GUM', 'SPN']:
+            return 'PG' + code[-2:]
+
+        # Caribbean/Puerto Rico (TJ prefix)
+        caribbean = ['SJU', 'BQN', 'PSE', 'RVR', 'STT', 'STX']
+        if code in caribbean:
+            if code in ['SJU', 'BQN', 'PSE', 'RVR']:
+                return 'TJ' + code[-2:]  # Puerto Rico
+            else:
+                return 'TI' + code[-2:]  # US Virgin Islands
+
+        # Default: CONUS airports get K prefix
+        return 'K' + code
+
+    return code
+
+
+def normalize_icao_list(codes: List[str]) -> List[str]:
+    """Normalize a list of airport codes, keeping both original and ICAO versions"""
+    if not codes:
+        return codes
+
+    result = set()
+    for code in codes:
+        code_upper = code.upper().strip()
+        result.add(code_upper)
+
+        normalized = normalize_icao(code_upper)
+        if normalized != code_upper:
+            result.add(normalized)
+
+    return list(result)
