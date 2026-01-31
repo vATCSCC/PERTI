@@ -1609,6 +1609,8 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
         return [];
     }
 
+    // Note: TMI database uses created_at/updated_at/activated_at (not _utc suffix)
+    // Use aliases to normalize for formatReroute()
     $sql = "SELECT TOP {$limit}
                 reroute_id AS id, name, adv_number, status,
                 protected_segment, protected_fixes, avoid_fixes,
@@ -1616,11 +1618,11 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
                 dest_airports, dest_centers,
                 impacting_condition, comments, advisory_text,
                 start_utc, end_utc,
-                created_utc, updated_utc, activated_utc, created_by
+                created_at AS created_utc, updated_at AS updated_utc, activated_at AS activated_utc, created_by
             FROM dbo.tmi_reroutes
             WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
               AND (end_utc >= :dateStart OR end_utc IS NULL)
-              AND created_utc <= :dateEnd2
+              AND created_at <= :dateEnd2
             ORDER BY start_utc DESC";
 
     try {
