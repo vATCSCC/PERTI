@@ -143,7 +143,7 @@ SPACING_WITHIN_THRESHOLD = 1.10     # 95-110% = WITHIN (ideal)
 SPACING_OVER_THRESHOLD = 2.00       # 110-200% = OVER (acceptable gap)
                                      # > 200% = GAP (excessive)
 
-CROSSING_RADIUS_NM = 10  # Fix crossing detection radius
+CROSSING_RADIUS_NM = 5  # Fix crossing detection radius (reduced from 10nm for accuracy)
 
 
 @dataclass
