@@ -353,6 +353,73 @@ include("load/config.php");
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
         }
+
+        /* Floating Phase Filter Panel */
+        .phase-filter-floating {
+            position: fixed;
+            z-index: 1050;
+            min-width: 160px;
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            display: none;
+        }
+        .phase-filter-floating.visible {
+            display: block;
+        }
+        .phase-filter-floating .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            background: #1a1a2e;
+            color: #fff;
+            border-radius: 6px 6px 0 0;
+            cursor: move;
+            user-select: none;
+        }
+        .phase-filter-floating .panel-header .panel-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .phase-filter-floating .panel-header .panel-controls {
+            display: flex;
+            gap: 6px;
+        }
+        .phase-filter-floating .panel-header .panel-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            padding: 2px 4px;
+            font-size: 0.7rem;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+        .phase-filter-floating .panel-header .panel-btn:hover {
+            color: #fff;
+        }
+        .phase-filter-floating .panel-body {
+            padding: 10px;
+        }
+        .phase-filter-floating.collapsed .panel-body {
+            display: none;
+        }
+        .phase-filter-floating.collapsed {
+            min-width: auto;
+        }
+        .phase-filter-popout-btn {
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 0 4px;
+            font-size: 0.7rem;
+            transition: color 0.15s;
+        }
+        .phase-filter-popout-btn:hover {
+            color: #1a1a2e;
+        }
     </style>
 
 </head>
@@ -659,39 +726,46 @@ include("load/config.php");
                     <hr class="my-2">
 
                     <!-- Flight Status Filter -->
-                    <div class="form-group mb-0">
-                        <label class="demand-label mb-1">Flight Status</label>
-                        <div class="d-flex flex-column" style="gap: 3px;">
-                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
-                                <input type="checkbox" id="phase_prefile" checked style="margin-right: 6px;">
-                                <span style="background:#3b82f6;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                Prefile
-                            </label>
-                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
-                                <input type="checkbox" id="phase_departing" checked style="margin-right: 6px;">
-                                <span style="background:#22c55e;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                Departing
-                            </label>
-                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
-                                <input type="checkbox" id="phase_active" checked style="margin-right: 6px;">
-                                <span style="background:#dc2626;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                Active
-                            </label>
-                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
-                                <input type="checkbox" id="phase_arrived" checked style="margin-right: 6px;">
-                                <span style="background:#1a1a1a;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                Arrived
-                            </label>
-                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
-                                <input type="checkbox" id="phase_disconnected" checked style="margin-right: 6px;">
-                                <span style="background:#f97316;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                Disconnected
-                            </label>
-                            <label class="mb-0 d-flex align-items-center text-muted" style="cursor: pointer; font-size: 0.75rem;">
-                                <input type="checkbox" id="phase_unknown" style="margin-right: 6px;">
-                                <span style="background:#9333ea;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                Unknown
-                            </label>
+                    <div class="form-group mb-0" id="phase-filter-inline-container">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="demand-label mb-0">Flight Status</label>
+                            <button type="button" class="phase-filter-popout-btn" id="phase-filter-popout-btn" title="Pop out to floating panel">
+                                <i class="fas fa-external-link-alt"></i>
+                            </button>
+                        </div>
+                        <div id="phase-filter-checkboxes">
+                            <div class="d-flex flex-column" style="gap: 3px;">
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="phase_prefile" checked style="margin-right: 6px;">
+                                    <span style="background:#3b82f6;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                    Prefile
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="phase_departing" checked style="margin-right: 6px;">
+                                    <span style="background:#22c55e;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                    Departing
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="phase_active" checked style="margin-right: 6px;">
+                                    <span style="background:#dc2626;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                    Active
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="phase_arrived" checked style="margin-right: 6px;">
+                                    <span style="background:#1a1a1a;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                    Arrived
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="phase_disconnected" checked style="margin-right: 6px;">
+                                    <span style="background:#f97316;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                    Disconnected
+                                </label>
+                                <label class="mb-0 d-flex align-items-center text-muted" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="phase_unknown" style="margin-right: 6px;">
+                                    <span style="background:#9333ea;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                    Unknown
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -979,6 +1053,24 @@ include("load/config.php");
     updateDemandClock();
 
 </script>
+
+<!-- Floating Phase Filter Panel -->
+<div class="phase-filter-floating" id="phase-filter-floating">
+    <div class="panel-header">
+        <span class="panel-title"><i class="fas fa-filter mr-1"></i> Flight Status</span>
+        <div class="panel-controls">
+            <button type="button" class="panel-btn" id="phase-filter-collapse-btn" title="Collapse">
+                <i class="fas fa-minus"></i>
+            </button>
+            <button type="button" class="panel-btn" id="phase-filter-close-btn" title="Close (return to sidebar)">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <div class="panel-body" id="phase-filter-floating-body">
+        <!-- Checkboxes will be moved here when popped out -->
+    </div>
+</div>
 
 </body>
 </html>

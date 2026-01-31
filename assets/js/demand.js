@@ -1436,6 +1436,130 @@ function setupEventHandlers() {
             renderCurrentView();
         });
     });
+
+    // Initialize floating phase filter panel
+    initPhaseFilterFloatingPanel();
+}
+
+/**
+ * Initialize floating phase filter panel functionality
+ */
+function initPhaseFilterFloatingPanel() {
+    const $floatingPanel = $('#phase-filter-floating');
+    const $inlineContainer = $('#phase-filter-inline-container');
+    const $checkboxes = $('#phase-filter-checkboxes');
+    const $floatingBody = $('#phase-filter-floating-body');
+    const $popoutBtn = $('#phase-filter-popout-btn');
+    const $collapseBtn = $('#phase-filter-collapse-btn');
+    const $closeBtn = $('#phase-filter-close-btn');
+    const $panelHeader = $floatingPanel.find('.panel-header');
+
+    // Default position (near top-right of chart area)
+    let panelPos = { x: window.innerWidth - 200, y: 200 };
+
+    // Pop out to floating panel
+    $popoutBtn.on('click', function() {
+        // Move checkboxes to floating panel
+        $checkboxes.appendTo($floatingBody);
+
+        // Hide inline container content, show placeholder
+        $inlineContainer.find('.demand-label').parent().hide();
+        $inlineContainer.append('<div id="phase-filter-placeholder" class="text-muted small" style="font-size:0.7rem;"><i class="fas fa-external-link-alt mr-1"></i> Floating panel open</div>');
+
+        // Position and show floating panel
+        $floatingPanel.css({
+            left: panelPos.x + 'px',
+            top: panelPos.y + 'px'
+        }).addClass('visible');
+    });
+
+    // Collapse/expand toggle
+    $collapseBtn.on('click', function() {
+        $floatingPanel.toggleClass('collapsed');
+        const $icon = $(this).find('i');
+        if ($floatingPanel.hasClass('collapsed')) {
+            $icon.removeClass('fa-minus').addClass('fa-plus');
+            $(this).attr('title', 'Expand');
+        } else {
+            $icon.removeClass('fa-plus').addClass('fa-minus');
+            $(this).attr('title', 'Collapse');
+        }
+    });
+
+    // Close and return to inline position
+    $closeBtn.on('click', function() {
+        // Save current position
+        panelPos.x = parseInt($floatingPanel.css('left'));
+        panelPos.y = parseInt($floatingPanel.css('top'));
+
+        // Move checkboxes back to inline container
+        $('#phase-filter-placeholder').remove();
+        $inlineContainer.find('.demand-label').parent().show();
+        $checkboxes.appendTo($inlineContainer);
+
+        // Hide floating panel and reset collapsed state
+        $floatingPanel.removeClass('visible collapsed');
+        $collapseBtn.find('i').removeClass('fa-plus').addClass('fa-minus');
+        $collapseBtn.attr('title', 'Collapse');
+    });
+
+    // Dragging functionality
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+
+    $panelHeader.on('mousedown', function(e) {
+        if ($(e.target).closest('.panel-btn').length) return; // Don't drag when clicking buttons
+        isDragging = true;
+        dragOffset.x = e.clientX - $floatingPanel.offset().left;
+        dragOffset.y = e.clientY - $floatingPanel.offset().top;
+        $('body').css('user-select', 'none');
+    });
+
+    $(document).on('mousemove', function(e) {
+        if (!isDragging) return;
+
+        let newX = e.clientX - dragOffset.x;
+        let newY = e.clientY - dragOffset.y;
+
+        // Keep within viewport bounds
+        const panelWidth = $floatingPanel.outerWidth();
+        const panelHeight = $floatingPanel.outerHeight();
+        newX = Math.max(0, Math.min(newX, window.innerWidth - panelWidth));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - panelHeight));
+
+        $floatingPanel.css({
+            left: newX + 'px',
+            top: newY + 'px'
+        });
+    });
+
+    $(document).on('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            $('body').css('user-select', '');
+            // Save position
+            panelPos.x = parseInt($floatingPanel.css('left'));
+            panelPos.y = parseInt($floatingPanel.css('top'));
+        }
+    });
+
+    // Handle window resize - keep panel in bounds
+    $(window).on('resize', function() {
+        if (!$floatingPanel.hasClass('visible')) return;
+
+        const panelWidth = $floatingPanel.outerWidth();
+        const panelHeight = $floatingPanel.outerHeight();
+        let currentX = parseInt($floatingPanel.css('left'));
+        let currentY = parseInt($floatingPanel.css('top'));
+
+        currentX = Math.max(0, Math.min(currentX, window.innerWidth - panelWidth));
+        currentY = Math.max(0, Math.min(currentY, window.innerHeight - panelHeight));
+
+        $floatingPanel.css({
+            left: currentX + 'px',
+            top: currentY + 'px'
+        });
+    });
 }
 
 /**

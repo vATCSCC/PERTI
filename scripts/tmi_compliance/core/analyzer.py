@@ -33,6 +33,57 @@ def haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * 2 * math.asin(math.sqrt(a))
 
 
+def classify_facility(code: str) -> str:
+    """
+    Classify a facility code as ARTCC, TRACON, or AIRPORT.
+
+    ARTCC codes: 3 letters starting with Z (ZNY, ZDC, ZBW, ZSE, ZLA, ZOA, ZFW, etc.)
+    TRACON codes: Various patterns:
+        - Letter + 2 digits: N90, A90, C90, A80, D10, I90, L30, P80, S56, etc.
+        - 3 letters not starting with Z or K: PCT, SCT, NCT, etc.
+    Airport codes: 3-4 letters starting with K (KJFK, KBOS) or 3-letter (JFK, BOS)
+
+    Args:
+        code: Facility identifier
+
+    Returns:
+        'ARTCC', 'TRACON', or 'AIRPORT'
+    """
+    if not code:
+        return 'UNKNOWN'
+
+    code = code.upper().strip()
+
+    # ARTCC: 3 letters starting with Z
+    if len(code) == 3 and code.startswith('Z'):
+        return 'ARTCC'
+
+    # ARTCC with K prefix: KZNY, KZDC (used in some GIS data)
+    if len(code) == 4 and code.startswith('KZ'):
+        return 'ARTCC'
+
+    # TRACON patterns
+    # Letter + 2 digits: N90, A90, C90, A80, D10, I90, L30, P80, S56
+    if len(code) == 3 and code[0].isalpha() and code[1:].isdigit():
+        return 'TRACON'
+
+    # 3-letter TRACON codes (not starting with Z or K): PCT, SCT, NCT, SDF
+    if len(code) == 3 and code.isalpha() and not code.startswith('Z') and not code.startswith('K'):
+        # Common TRACON identifiers
+        known_tracons = {'PCT', 'SCT', 'NCT', 'SDF', 'MIA', 'DFW', 'ATL', 'ORD', 'DEN', 'PHX', 'SEA', 'MSP', 'DTW', 'CLT', 'BOS', 'LAS', 'SLC', 'IAH', 'DCA'}
+        if code in known_tracons:
+            return 'TRACON'
+        # Could be an airport - will need context
+        return 'AIRPORT'  # Default to airport for 3-letter non-ARTCC
+
+    # Airport: K + 3 letters (KJFK, KBOS)
+    if len(code) == 4 and code.startswith('K') and code[1:].isalpha():
+        return 'AIRPORT'
+
+    # Default: assume airport for short codes
+    return 'AIRPORT'
+
+
 class TMIComplianceAnalyzer:
     """Main analyzer class for TMI compliance"""
 
@@ -305,19 +356,25 @@ class TMIComplianceAnalyzer:
     def _detect_boundary_crossings(self, provider: str, requestor: str,
                                     callsigns: List[str], tmi: TMI) -> List[BoundaryCrossing]:
         """
-        Detect ARTCC boundary crossings using PostGIS for accurate handoff point measurement.
+        Detect facility boundary crossings using PostGIS for accurate handoff point measurement.
+
+        Handles both ARTCC and TRACON boundaries:
+        - ARTCC -> ARTCC: Uses get_trajectory_artcc_crossings()
+        - TRACON -> ARTCC: Uses get_trajectory_all_crossings() to detect TRACON exit
+
+        For a TMI like "P80:ZSE via KRATR 30MIT":
+        - P80 is the provider (TRACON executing the MIT)
+        - ZSE is the requestor (ARTCC needing the spacing)
+        - We measure at the P80 boundary (when flight exits P80 into ZSE)
 
         For a TMI like "ZNY:ZDC via RBV 25MIT":
-        - ZDC is the provider (executes the MIT)
-        - ZNY is the requestor (needs the spacing)
+        - ZDC is the provider (ARTCC executing the MIT)
+        - ZNY is the requestor (ARTCC needing the spacing)
         - We measure at the ZDC->ZNY boundary crossing
 
-        Uses trajectory data from ADL and PostGIS get_trajectory_artcc_crossings() for
-        precise boundary intersection calculation.
-
         Args:
-            provider: ARTCC code of the TMI provider (e.g., ZDC)
-            requestor: ARTCC code of the TMI requestor (e.g., ZNY)
+            provider: Facility code of the TMI provider (ARTCC or TRACON)
+            requestor: Facility code of the TMI requestor (ARTCC or TRACON)
             callsigns: List of flight callsigns to analyze
             tmi: TMI definition with time window
 
@@ -339,11 +396,13 @@ class TMIComplianceAnalyzer:
         tmi_start = tmi.start_utc
         tmi_end = tmi.get_effective_end()
 
-        # Normalize ARTCC codes (ZDC -> KZDC for PostGIS matching)
-        provider_codes = self._normalize_artcc_code(provider)
-        requestor_codes = self._normalize_artcc_code(requestor)
+        # Classify facilities and normalize codes
+        provider_type = classify_facility(provider)
+        requestor_type = classify_facility(requestor)
+        provider_codes = self._normalize_facility_code(provider)
+        requestor_codes = self._normalize_facility_code(requestor)
 
-        logger.info(f"Detecting boundary crossings: {provider} -> {requestor}")
+        logger.info(f"Detecting boundary crossings: {provider} ({provider_type}) -> {requestor} ({requestor_type})")
         logger.info(f"  Provider codes: {provider_codes}, Requestor codes: {requestor_codes}")
 
         callsign_in = "'" + "','".join(callsigns) + "'"
@@ -401,24 +460,59 @@ class TMIComplianceAnalyzer:
             ]
             waypoints_json = json.dumps(waypoints)
 
-            # Call PostGIS to find ARTCC boundary crossings
+            # Try to find boundary crossings using PostGIS
+            # First try get_trajectory_all_crossings (handles ARTCC + TRACON)
+            # Fall back to get_trajectory_artcc_crossings (ARTCC only)
             try:
-                gis_cursor.execute('''
-                    SELECT artcc_code, crossing_lat, crossing_lon, crossing_fraction
-                    FROM get_trajectory_artcc_crossings(%s::jsonb)
-                    ORDER BY crossing_fraction
-                ''', (waypoints_json,))
+                boundary_crossings_data = None
 
-                artcc_crossings = gis_cursor.fetchall()
+                # Try get_trajectory_all_crossings first (includes TRACONs)
+                try:
+                    gis_cursor.execute('''
+                        SELECT facility_code, crossing_lat, crossing_lon, crossing_fraction, facility_type
+                        FROM get_trajectory_all_crossings(%s::jsonb)
+                        ORDER BY crossing_fraction
+                    ''', (waypoints_json,))
+                    boundary_crossings_data = gis_cursor.fetchall()
+                    has_facility_type = True
+                except Exception:
+                    # Function doesn't exist - fall back to ARTCC-only function
+                    gis_cursor.execute('''
+                        SELECT artcc_code, crossing_lat, crossing_lon, crossing_fraction
+                        FROM get_trajectory_artcc_crossings(%s::jsonb)
+                        ORDER BY crossing_fraction
+                    ''', (waypoints_json,))
+                    boundary_crossings_data = [(r[0], r[1], r[2], r[3], 'ARTCC') for r in gis_cursor.fetchall()]
+                    has_facility_type = False
+
+                if not boundary_crossings_data:
+                    continue
 
                 # Find the provider->requestor boundary crossing
-                prev_artcc = None
-                for artcc_code, clat, clon, cfrac in artcc_crossings:
+                # For TRACON->ARTCC (P80->ZSE), we detect when flight exits TRACON
+                # For ARTCC->ARTCC (ZDC->ZNY), we detect when flight crosses boundary
+                prev_facility = None
+                for row in boundary_crossings_data:
+                    facility_code = row[0]
+                    clat, clon, cfrac = row[1], row[2], row[3]
+                    facility_type_col = row[4] if len(row) > 4 else 'ARTCC'
+
                     # Check if this is the boundary we're looking for
                     # Provider -> Requestor means exiting provider and entering requestor
-                    if prev_artcc in provider_codes and artcc_code in requestor_codes:
+                    # Handle case where provider is TRACON (P80) and requestor is ARTCC (ZSE)
+                    is_provider_match = (
+                        prev_facility in provider_codes or
+                        (provider_type == 'TRACON' and prev_facility and
+                         any(prev_facility.startswith(p.rstrip('0123456789')) for p in provider_codes))
+                    )
+                    is_requestor_match = (
+                        facility_code in requestor_codes or
+                        (requestor_type == 'ARTCC' and
+                         any(facility_code.startswith(r.rstrip('0123456789')) for r in requestor_codes))
+                    )
+
+                    if is_provider_match and is_requestor_match:
                         # Found the handoff point!
-                        # Interpolate crossing time from trajectory
                         crossing_time, crossing_gs, crossing_alt = self._interpolate_crossing_time(
                             trajectory, cfrac
                         )
@@ -431,8 +525,8 @@ class TMIComplianceAnalyzer:
                                 crossing_time=crossing_time,
                                 crossing_lat=float(clat),
                                 crossing_lon=float(clon),
-                                from_artcc=prev_artcc,
-                                to_artcc=artcc_code,
+                                from_artcc=prev_facility or provider,
+                                to_artcc=facility_code,
                                 groundspeed=crossing_gs,
                                 altitude=crossing_alt,
                                 dept=meta.get('dept', 'UNK'),
@@ -443,7 +537,7 @@ class TMIComplianceAnalyzer:
                             crossings.append(crossing)
                             break  # Only count first crossing
 
-                    prev_artcc = artcc_code
+                    prev_facility = facility_code
 
             except Exception as e:
                 logger.warning(f"Error processing trajectory for {callsign}: {e}")
@@ -453,11 +547,13 @@ class TMIComplianceAnalyzer:
         logger.info(f"  Found {len(crossings)} boundary crossings")
         return crossings
 
-    def _normalize_artcc_code(self, code: str) -> List[str]:
+    def _normalize_facility_code(self, code: str) -> List[str]:
         """
-        Normalize ARTCC code to match PostGIS database format.
+        Normalize facility code to match PostGIS database formats.
 
-        Returns list of possible codes (e.g., ZDC -> ['ZDC', 'KZDC'])
+        Handles both ARTCCs and TRACONs with various naming conventions.
+
+        Returns list of possible codes for matching.
         """
         if not code:
             return []
@@ -465,15 +561,28 @@ class TMIComplianceAnalyzer:
         code = code.upper().strip()
         codes = [code]
 
-        # US ARTCCs in PostGIS often have K prefix
-        if len(code) == 3 and code.startswith('Z'):
-            codes.append('K' + code)
+        facility_type = classify_facility(code)
 
-        # Also match sector codes (e.g., ZDC06, ZDC51)
-        # The boundary adjacency shows sector-level data like ZDC06 <-> ZNY25
-        # For ARTCC-level matching, we just need the base codes
+        if facility_type == 'ARTCC':
+            # US ARTCCs in PostGIS often have K prefix: ZDC -> KZDC
+            if len(code) == 3 and code.startswith('Z'):
+                codes.append('K' + code)
+            elif len(code) == 4 and code.startswith('KZ'):
+                codes.append(code[1:])  # KZDC -> ZDC
+
+        elif facility_type == 'TRACON':
+            # TRACONs may have K prefix in some datasets
+            if not code.startswith('K'):
+                codes.append('K' + code)
+            # Some TRACONs use airport code (P80 vs KPDX approach)
+            # This is data-dependent - add variations as needed
 
         return codes
+
+    # Backwards compatibility alias
+    def _normalize_artcc_code(self, code: str) -> List[str]:
+        """Legacy alias for _normalize_facility_code"""
+        return self._normalize_facility_code(code)
 
     def _interpolate_crossing_time(self, trajectory: List[dict], fraction: float) -> tuple:
         """
@@ -560,59 +669,89 @@ class TMIComplianceAnalyzer:
             logger.info(f"No flights found for TMI scope")
             return None
 
-        # Determine measurement type and detect crossings
-        # Priority: 1) Boundary (if provider/requestor + GIS available)
-        #           2) Fix (fallback)
-        measurement_type = MeasurementType.FIX
-        crossings = []
-        boundary_crossings = []
+        # Detect BOTH fix and boundary crossings, then use the earlier one per flight
+        # This ensures we measure at the actual handoff point, not just at the fix
+        fix_crossings_map = {}      # callsign -> CrossingResult
+        boundary_crossings_map = {} # callsign -> CrossingResult
+        measurement_stats = {'fix': 0, 'boundary': 0}
 
-        # Try boundary-based detection first if provider/requestor are specified
-        if tmi.provider and tmi.requestor and self.gis_conn:
-            logger.info(f"  Attempting boundary-based detection: {tmi.provider} -> {tmi.requestor}")
-            boundary_crossings = self._detect_boundary_crossings(
-                tmi.provider, tmi.requestor,
-                list(flights.keys()), tmi
-            )
-            if boundary_crossings:
-                measurement_type = MeasurementType.BOUNDARY
-                # Convert BoundaryCrossing to CrossingResult format for uniform processing
-                crossings = [
-                    CrossingResult(
-                        callsign=bc.callsign,
-                        flight_uid=bc.flight_uid,
-                        crossing_time=bc.crossing_time,
-                        distance_nm=bc.distance_from_origin_nm,
-                        lat=bc.crossing_lat,
-                        lon=bc.crossing_lon,
-                        groundspeed=bc.groundspeed,
-                        altitude=bc.altitude,
-                        dept=bc.dept,
-                        dest=bc.dest
-                    )
-                    for bc in boundary_crossings
-                ]
-                logger.info(f"  Using boundary-based measurement at {tmi.provider}->{tmi.requestor} ({len(crossings)} crossings)")
-
-        # Fall back to fix-based detection if needed
-        if not crossings:
-            if tmi.provider and tmi.requestor:
-                measurement_type = MeasurementType.BOUNDARY_FALLBACK_FIX
-                logger.info(f"  Falling back to fix-based detection (boundary detection returned no results)")
-            else:
-                measurement_type = MeasurementType.FIX
-
-            if fix not in self.fix_coords:
-                logger.warning(f"Fix {fix} not found in coordinates")
-                return None
-
+        # 1. Detect fix crossings (if fix is specified and known)
+        if fix and fix in self.fix_coords:
             coords = self.fix_coords[fix]
-            crossings = self._detect_crossings(
+            fix_results = self._detect_crossings(
                 fix, coords['lat'], coords['lon'],
                 list(flights.keys()), tmi
             )
+            for crossing in fix_results:
+                fix_crossings_map[crossing.callsign] = crossing
+            logger.info(f"  Fix crossings ({fix}): {len(fix_crossings_map)}")
 
-        logger.info(f"Crossings detected: {len(crossings)} (measurement: {measurement_type.value})")
+        # 2. Detect boundary crossings (if provider/requestor specified and GIS available)
+        if tmi.provider and tmi.requestor and self.gis_conn:
+            logger.info(f"  Attempting boundary detection: {tmi.provider} -> {tmi.requestor}")
+            boundary_results = self._detect_boundary_crossings(
+                tmi.provider, tmi.requestor,
+                list(flights.keys()), tmi
+            )
+            for bc in boundary_results:
+                # Convert to CrossingResult for uniform handling
+                boundary_crossings_map[bc.callsign] = CrossingResult(
+                    callsign=bc.callsign,
+                    flight_uid=bc.flight_uid,
+                    crossing_time=bc.crossing_time,
+                    distance_nm=bc.distance_from_origin_nm,
+                    lat=bc.crossing_lat,
+                    lon=bc.crossing_lon,
+                    groundspeed=bc.groundspeed,
+                    altitude=bc.altitude,
+                    dept=bc.dept,
+                    dest=bc.dest
+                )
+            logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
+
+        # 3. For each flight, use whichever crossing comes FIRST (earlier in the flight path)
+        # This is the actual handoff/measurement point
+        crossings = []
+        all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
+
+        for callsign in all_callsigns:
+            fix_cx = fix_crossings_map.get(callsign)
+            bnd_cx = boundary_crossings_map.get(callsign)
+
+            if fix_cx and bnd_cx:
+                # Both found - use the earlier one (first in flight path)
+                if fix_cx.crossing_time <= bnd_cx.crossing_time:
+                    crossings.append(fix_cx)
+                    measurement_stats['fix'] += 1
+                else:
+                    crossings.append(bnd_cx)
+                    measurement_stats['boundary'] += 1
+            elif fix_cx:
+                crossings.append(fix_cx)
+                measurement_stats['fix'] += 1
+            elif bnd_cx:
+                crossings.append(bnd_cx)
+                measurement_stats['boundary'] += 1
+
+        # Determine overall measurement type based on what was actually used
+        if measurement_stats['boundary'] > 0 and measurement_stats['fix'] > 0:
+            measurement_type = MeasurementType.BOUNDARY  # Mixed, but boundary-aware
+            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (or {fix} if earlier)"
+        elif measurement_stats['boundary'] > 0:
+            measurement_type = MeasurementType.BOUNDARY
+            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
+        elif measurement_stats['fix'] > 0:
+            if tmi.provider and tmi.requestor:
+                measurement_type = MeasurementType.BOUNDARY_FALLBACK_FIX
+                measurement_point = f"{fix} (boundary unavailable)"
+            else:
+                measurement_type = MeasurementType.FIX
+                measurement_point = fix
+        else:
+            measurement_type = MeasurementType.FIX
+            measurement_point = fix or 'unknown'
+
+        logger.info(f"  Final crossings: {len(crossings)} (fix: {measurement_stats['fix']}, boundary: {measurement_stats['boundary']})")
 
         if len(crossings) < 2:
             return {
@@ -628,7 +767,8 @@ class TMIComplianceAnalyzer:
                 'message': 'Insufficient crossings for analysis',
                 # Measurement metadata
                 'measurement_type': measurement_type.value,
-                'measurement_point': f"{tmi.provider}->{tmi.requestor} boundary" if measurement_type == MeasurementType.BOUNDARY else fix,
+                'measurement_point': measurement_point,
+                'measurement_stats': measurement_stats,
                 # Amendment tracking metadata
                 'destinations': tmi.destinations,
                 'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
@@ -657,7 +797,8 @@ class TMIComplianceAnalyzer:
                 'message': 'Insufficient crossings in TMI window',
                 # Measurement metadata
                 'measurement_type': measurement_type.value,
-                'measurement_point': f"{tmi.provider}->{tmi.requestor} boundary" if measurement_type == MeasurementType.BOUNDARY else fix,
+                'measurement_point': measurement_point,
+                'measurement_stats': measurement_stats,
                 # Amendment tracking metadata
                 'destinations': tmi.destinations,
                 'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
@@ -769,7 +910,8 @@ class TMIComplianceAnalyzer:
             },
             # Measurement metadata
             'measurement_type': measurement_type.value,
-            'measurement_point': f"{tmi.provider}->{tmi.requestor} boundary" if measurement_type == MeasurementType.BOUNDARY else fix,
+            'measurement_point': measurement_point,
+            'measurement_stats': measurement_stats,
             # Amendment tracking metadata
             'destinations': tmi.destinations,
             'origins': tmi.origins,
