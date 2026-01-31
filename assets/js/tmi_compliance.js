@@ -342,7 +342,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 ${summary.mit ? `
                 <div class="mt-3 small">
                     <span class="text-muted">MIT Violations:</span> ${summary.mit.total_violations || 0}/${summary.mit.total_pairs || 0} pairs |
-                    <span class="text-muted">Max Shortfall:</span> ${summary.mit.max_shortfall_pct || 0}%
+                    <span class="text-muted">Max Difference:</span> ${summary.mit.max_shortfall_pct || 0}%
                 </div>
                 ` : ''}
             </div>
