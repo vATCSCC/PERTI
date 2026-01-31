@@ -762,10 +762,18 @@ function getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction) {
                     "origin" => $row['origin'],
                     "destination" => $row['destination'],
                     "origin_artcc" => $row['origin_artcc'],
+                    "dest_artcc" => $row['dest_artcc'] ?? null,
                     "time" => $eta,
                     "direction" => "arrival",
                     "status" => $row['phase'] ?? 'unknown',
-                    "aircraft" => $row['aircraft_type']
+                    "aircraft" => $row['aircraft_type'],
+                    "carrier" => $row['carrier'] ?? null,
+                    "weight_class" => $row['weight_class'] ?? null,
+                    "flight_rules" => $row['flight_rules'] ?? null,
+                    "dfix" => $row['dfix'] ?? null,
+                    "afix" => $row['afix'] ?? null,
+                    "dp_name" => $row['dp_name'] ?? null,
+                    "star_name" => $row['star_name'] ?? null
                 ];
             }
             sqlsrv_free_stmt($stmt);
@@ -788,11 +796,19 @@ function getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction) {
                     "callsign" => $row['callsign'],
                     "origin" => $row['origin'],
                     "destination" => $row['destination'],
+                    "origin_artcc" => $row['origin_artcc'] ?? null,
                     "dest_artcc" => $row['dest_artcc'],
                     "time" => $etd,
                     "direction" => "departure",
                     "status" => $row['phase'] ?? 'unknown',
-                    "aircraft" => $row['aircraft_type']
+                    "aircraft" => $row['aircraft_type'],
+                    "carrier" => $row['carrier'] ?? null,
+                    "weight_class" => $row['weight_class'] ?? null,
+                    "flight_rules" => $row['flight_rules'] ?? null,
+                    "dfix" => $row['dfix'] ?? null,
+                    "afix" => $row['afix'] ?? null,
+                    "dp_name" => $row['dp_name'] ?? null,
+                    "star_name" => $row['star_name'] ?? null
                 ];
             }
             sqlsrv_free_stmt($stmt);

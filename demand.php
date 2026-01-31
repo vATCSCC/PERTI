@@ -721,14 +721,38 @@ include("load/config.php");
                         </div>
                     </div>
                     <hr class="my-2">
-                    <!-- Rate Lines Legend -->
+                    <!-- Rate Lines Toggles -->
                     <div class="legend-group">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
                             <i class="fas fa-minus mr-1"></i> Rate Lines
                         </div>
-                        <div class="d-flex flex-wrap" style="gap: 2px 10px;">
-                            <div class="demand-legend-item"><span style="display: inline-block; width: 16px; height: 2px; background: #fff; border: 1px solid #999; margin-right: 6px; vertical-align: middle;"></span><small>AAR (solid)</small></div>
-                            <div class="demand-legend-item"><span style="display: inline-block; width: 16px; height: 2px; border-top: 2px dashed #888; margin-right: 6px; vertical-align: middle;"></span><small>ADR (dashed)</small></div>
+                        <div class="d-flex flex-column" style="gap: 4px;">
+                            <!-- VATSIM Rates -->
+                            <div class="d-flex align-items-center" style="gap: 8px;">
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="rate_vatsim_aar" checked style="margin-right: 4px;">
+                                    <span style="display: inline-block; width: 16px; height: 2px; background: #000; margin-right: 4px; vertical-align: middle;"></span>
+                                    AAR
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="rate_vatsim_adr" checked style="margin-right: 4px;">
+                                    <span style="display: inline-block; width: 16px; height: 0; border-top: 2px dashed #000; margin-right: 4px; vertical-align: middle;"></span>
+                                    ADR
+                                </label>
+                            </div>
+                            <!-- Real World Rates -->
+                            <div class="d-flex align-items-center" style="gap: 8px;">
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="rate_rw_aar" checked style="margin-right: 4px;">
+                                    <span style="display: inline-block; width: 16px; height: 2px; background: #00FFFF; margin-right: 4px; vertical-align: middle;"></span>
+                                    RW AAR
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="rate_rw_adr" checked style="margin-right: 4px;">
+                                    <span style="display: inline-block; width: 16px; height: 0; border-top: 2px dashed #00FFFF; margin-right: 4px; vertical-align: middle;"></span>
+                                    RW ADR
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
