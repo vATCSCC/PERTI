@@ -14,7 +14,8 @@ from typing import Dict, List, Any, Optional
 from .models import (
     TMI, TMIType, EventConfig, CrossingResult, Compliance, SpacingCategory,
     categorize_spacing, calculate_shortfall_pct, normalize_datetime,
-    normalize_icao_list, CROSSING_RADIUS_NM
+    normalize_icao_list, CROSSING_RADIUS_NM, MITModifier, TrafficDirection,
+    TrafficFilter
 )
 from .database import ADLConnection, GISConnection
 
@@ -337,7 +338,12 @@ class TMIComplianceAnalyzer:
                 'total_crossings': len(crossings),
                 'valid_crossings': len(crossings),
                 'pairs': 0,
-                'message': 'Insufficient crossings for analysis'
+                'message': 'Insufficient crossings for analysis',
+                # Amendment tracking metadata
+                'destinations': tmi.destinations,
+                'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
+                'is_amendment': tmi.supersedes_tmi_id is not None,
+                'was_superseded': tmi.superseded_by_tmi_id is not None,
             }
 
         # Filter to TMI active window
@@ -356,7 +362,12 @@ class TMIComplianceAnalyzer:
                 'total_crossings': len(crossings),
                 'valid_crossings': len(valid_crossings),
                 'pairs': 0,
-                'message': 'Insufficient crossings in TMI window'
+                'message': 'Insufficient crossings in TMI window',
+                # Amendment tracking metadata
+                'destinations': tmi.destinations,
+                'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
+                'is_amendment': tmi.supersedes_tmi_id is not None,
+                'was_superseded': tmi.superseded_by_tmi_id is not None,
             }
 
         # Sort by crossing time
@@ -427,7 +438,8 @@ class TMIComplianceAnalyzer:
         compliant_count = len(pairs) - under_count
         compliance_pct = 100 * compliant_count / len(pairs) if pairs else 0
 
-        return {
+        # Build result with amendment tracking info
+        result = {
             'fix': fix,
             'required': required,
             'unit': tmi.unit,
@@ -457,8 +469,34 @@ class TMIComplianceAnalyzer:
                 'min': round(min(spacings), 1),
                 'avg': round(sum(spacings) / len(spacings), 1),
                 'max': round(max(spacings), 1)
-            }
+            },
+            # Amendment tracking metadata
+            'destinations': tmi.destinations,
+            'origins': tmi.origins,
+            'provider': tmi.provider,
+            'requestor': tmi.requestor,
+            'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
+            'supersedes_tmi_id': tmi.supersedes_tmi_id,
+            'superseded_by_tmi_id': tmi.superseded_by_tmi_id,
+            'is_amendment': tmi.supersedes_tmi_id is not None,
+            'was_superseded': tmi.superseded_by_tmi_id is not None,
+            # Modifier and filter info
+            'modifier': tmi.modifier.value if tmi.modifier else None,
+            'traffic_direction': tmi.traffic_direction.value if tmi.traffic_direction else None,
         }
+
+        # Add traffic filter details if present
+        if tmi.traffic_filter:
+            result['traffic_filter'] = {
+                'aircraft_type': tmi.traffic_filter.aircraft_type.value if tmi.traffic_filter.aircraft_type else None,
+                'speed_op': tmi.traffic_filter.speed_op.value if tmi.traffic_filter.speed_op else None,
+                'speed_value': tmi.traffic_filter.speed_value,
+                'altitude_filter': tmi.traffic_filter.altitude_filter.value if tmi.traffic_filter.altitude_filter else None,
+                'altitude_value': tmi.traffic_filter.altitude_value,
+                'exclusions': tmi.traffic_filter.exclusions
+            }
+
+        return result
 
     def _analyze_gs_compliance(self, tmi: TMI) -> Optional[Dict]:
         """Analyze Ground Stop compliance"""
@@ -555,16 +593,110 @@ class TMIComplianceAnalyzer:
         }
 
     def _track_apreq_flights(self, tmi: TMI) -> Optional[Dict]:
-        """Track APREQ/CFR flights (no compliance assessment)"""
+        """
+        Track APREQ/CFR flights - returns list of affected flights for manual review.
+
+        APREQ/CFR compliance cannot be fully automated since it requires verification
+        that coordination actually occurred. This method identifies:
+        1. Flights that match the TMI scope (destinations, origins, fix)
+        2. Flights that were active during the TMI window
+        3. Flights that would need to request release
+
+        Returns flight list with details for manual compliance review.
+        """
+        logger.info(f"Tracking {tmi.tmi_type.value}: {tmi.fix or 'ALL'} -> {','.join(tmi.destinations)}")
+
         flights = self._get_flights_for_tmi(tmi)
+        logger.info(f"  Found {len(flights)} flights matching scope")
+
+        if not flights:
+            return {
+                'fix': tmi.fix or 'ALL',
+                'destinations': tmi.destinations,
+                'origins': tmi.origins,
+                'tmi_start': tmi.start_utc.strftime('%H:%MZ') if tmi.start_utc else '',
+                'tmi_end': tmi.end_utc.strftime('%H:%MZ') if tmi.end_utc else '',
+                'total_flights': 0,
+                'affected_flights': [],
+                'note': 'No flights found for APREQ/CFR scope'
+            }
+
+        tmi_start = tmi.start_utc
+        tmi_end = tmi.get_effective_end()
+
+        # Categorize flights based on timing relative to APREQ/CFR window
+        exempt_flights = []       # Airborne before TMI issued
+        affected_flights = []     # Need coordination during window
+        post_tmi_flights = []     # Departed after TMI ended
+
+        for callsign, flight_data in flights.items():
+            first_seen = flight_data.get('first_seen')
+            if not first_seen:
+                continue
+
+            flight_info = {
+                'callsign': callsign,
+                'dept': flight_data.get('dept', 'UNK'),
+                'dest': flight_data.get('dest', 'UNK'),
+                'first_seen': first_seen.strftime('%H:%M:%SZ') if first_seen else None,
+            }
+
+            # Check timing
+            tmi_issued = tmi.issued_utc or tmi_start
+
+            if first_seen < tmi_issued:
+                # Airborne before APREQ/CFR was issued - exempt
+                flight_info['status'] = 'EXEMPT'
+                flight_info['reason'] = 'Airborne before issued'
+                exempt_flights.append(flight_info)
+            elif first_seen > tmi_end:
+                # Departed after TMI ended
+                flight_info['status'] = 'POST_TMI'
+                flight_info['reason'] = 'Departed after TMI ended'
+                post_tmi_flights.append(flight_info)
+            else:
+                # Departed during active TMI window - would need coordination
+                flight_info['status'] = 'AFFECTED'
+                flight_info['reason'] = 'Departed during APREQ/CFR window'
+                affected_flights.append(flight_info)
+
+        # If fix is specified, try to detect which affected flights crossed it
+        if tmi.fix and tmi.fix.upper() not in ['ALL', 'ANY'] and affected_flights:
+            if tmi.fix in self.fix_coords:
+                coords = self.fix_coords[tmi.fix]
+                fix_crossings = self._detect_crossings(
+                    tmi.fix, coords['lat'], coords['lon'],
+                    [f['callsign'] for f in affected_flights], tmi
+                )
+                crossing_callsigns = {c.callsign for c in fix_crossings}
+
+                # Mark which affected flights actually crossed the fix
+                for flight in affected_flights:
+                    if flight['callsign'] in crossing_callsigns:
+                        flight['crossed_fix'] = True
+                        flight['reason'] = f'Crossed {tmi.fix} during window'
+                    else:
+                        flight['crossed_fix'] = False
+                        flight['reason'] = f'Did not cross {tmi.fix} (different routing?)'
 
         return {
             'fix': tmi.fix or 'ALL',
             'destinations': tmi.destinations,
+            'origins': tmi.origins,
             'tmi_start': tmi.start_utc.strftime('%H:%MZ') if tmi.start_utc else '',
-            'tmi_end': tmi.end_utc.strftime('%H:%MZ') if tmi.end_utc else '',
+            'tmi_end': tmi.get_effective_end().strftime('%H:%MZ') if tmi.end_utc else '',
+            'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
+            'cancelled': tmi.cancelled_utc is not None,
             'total_flights': len(flights),
-            'note': 'APREQ/CFR compliance requires coordination verification - not automated'
+            'exempt_count': len(exempt_flights),
+            'affected_count': len(affected_flights),
+            'post_tmi_count': len(post_tmi_flights),
+            'exempt_flights': exempt_flights,
+            'affected_flights': affected_flights,
+            'post_tmi_flights': post_tmi_flights,
+            'provider': tmi.provider,
+            'requestor': tmi.requestor,
+            'note': 'APREQ/CFR requires coordination verification - these flights would need release'
         }
 
     def _calculate_summary(self, results: Dict) -> Dict:

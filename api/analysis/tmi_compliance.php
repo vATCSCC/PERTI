@@ -313,10 +313,21 @@ function format_results($results) {
             $formatted['apreq_results'][] = [
                 'fix' => $r['fix'] ?? 'ALL',
                 'destinations' => $r['destinations'] ?? [],
+                'origins' => $r['origins'] ?? [],
                 'tmi_start' => $r['tmi_start'] ?? '',
                 'tmi_end' => $r['tmi_end'] ?? '',
+                'issued_utc' => $r['issued_utc'] ?? null,
+                'cancelled' => $r['cancelled'] ?? false,
                 'total_flights' => $r['total_flights'] ?? 0,
-                'note' => $r['note'] ?? 'No compliance assessment'
+                'exempt_count' => $r['exempt_count'] ?? 0,
+                'affected_count' => $r['affected_count'] ?? 0,
+                'post_tmi_count' => $r['post_tmi_count'] ?? 0,
+                'exempt_flights' => $r['exempt_flights'] ?? [],
+                'affected_flights' => $r['affected_flights'] ?? [],
+                'post_tmi_flights' => $r['post_tmi_flights'] ?? [],
+                'provider' => $r['provider'] ?? '',
+                'requestor' => $r['requestor'] ?? '',
+                'note' => $r['note'] ?? 'APREQ/CFR requires coordination verification'
             ];
         }
     }

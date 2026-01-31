@@ -374,30 +374,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         // APREQ Results
-        if (this.results.apreq_results && this.results.apreq_results.length > 0) {
+        const apreqResults = this.results.apreq_results || {};
+        const apreqResultsArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+        if (apreqResultsArray.length > 0) {
             html += '<h6 class="text-secondary mb-3 mt-4"><i class="fas fa-phone"></i> APREQ/CFR (Tracking Only)</h6>';
 
-            for (const r of this.results.apreq_results) {
-                html += `
-                    <div class="tmi-card apreq-card">
-                        <div class="tmi-header">
-                            <div>
-                                <span class="tmi-fix-name">APREQ/CFR: ${r.fix || 'ALL'}</span>
-                                <span class="text-muted ml-2">
-                                    ${(r.destinations || []).join(', ')} | ${r.tmi_start || ''} - ${r.tmi_end || ''}
-                                </span>
-                            </div>
-                            <span class="badge badge-secondary">TRACKING ONLY</span>
-                        </div>
-                        <div class="alert alert-warning mb-0 small">
-                            <i class="fas fa-info-circle"></i>
-                            ${r.note || 'APREQ/CFR requires human coordination - no compliance assessment'}
-                        </div>
-                        <div class="mt-2">
-                            <strong>${r.total_flights || 0}</strong> flights subject to APREQ/CFR
-                        </div>
-                    </div>
-                `;
+            for (const r of apreqResultsArray) {
+                html += this.renderApreqCard(r);
             }
         }
 
@@ -1102,6 +1085,160 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td><code>${f.callsign}</code></td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    renderApreqCard: function(r) {
+        const detailId = `apreq_detail_${++this.detailIdCounter}`;
+        const exemptFlights = r.exempt_flights || [];
+        const affectedFlights = r.affected_flights || [];
+        const postTmiFlights = r.post_tmi_flights || [];
+        const exemptCount = r.exempt_count || exemptFlights.length;
+        const affectedCount = r.affected_count || affectedFlights.length;
+        const postTmiCount = r.post_tmi_count || postTmiFlights.length;
+
+        // Build standardized notation
+        const origins = (r.origins || []).join(',');
+        const dests = (r.destinations || []).join(',');
+        const notation = `${dests} via ${r.fix || 'ALL'} CFR ${r.requestor || ''}:${r.provider || ''} ${r.tmi_start || ''}-${r.tmi_end || ''}`;
+
+        let html = `
+            <div class="tmi-card apreq-card">
+                <div class="tmi-header">
+                    <div>
+                        <span class="tmi-fix-name">APREQ/CFR: ${r.fix || 'ALL'}</span>
+                        <span class="text-muted ml-2">
+                            ${dests} | ${r.tmi_start || ''} - ${r.tmi_end || ''}
+                        </span>
+                        ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
+                    </div>
+                    <span class="badge badge-secondary">TRACKING ONLY</span>
+                </div>
+                <!-- Standardized TMI Notation -->
+                <div class="standardized-tmi mb-2">
+                    <code class="small">${notation}</code>
+                </div>
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${r.total_flights || 0}</div>
+                        <div class="tmi-stat-label">Total Flights</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-info">${exemptCount}</div>
+                        <div class="tmi-stat-label">Exempt</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-warning">${affectedCount}</div>
+                        <div class="tmi-stat-label">Need Release</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-muted">${postTmiCount}</div>
+                        <div class="tmi-stat-label">Post TMI</div>
+                    </div>
+                </div>
+                <div class="alert alert-info mb-0 small mt-2">
+                    <i class="fas fa-info-circle"></i>
+                    ${r.note || 'APREQ/CFR requires coordination verification - these flights would need release'}
+                </div>
+        `;
+
+        // Show flight details
+        const hasDetails = exemptFlights.length > 0 || affectedFlights.length > 0 || postTmiFlights.length > 0;
+
+        if (hasDetails) {
+            html += `
+                <div class="mt-2 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${detailId}">
+                        <i class="fas fa-plane"></i> Flight Details
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${detailId}">
+                    <div class="row">
+            `;
+
+            // Affected flights (need coordination)
+            if (affectedFlights.length > 0) {
+                html += `
+                    <div class="col-md-4">
+                        <h6 class="text-warning"><i class="fas fa-phone"></i> Need Release (${affectedFlights.length})</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-striped">
+                                <thead class="thead-dark sticky-top">
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dest</th><th>Dept Time</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${affectedFlights.map(f => `
+                                        <tr class="table-warning">
+                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.dept || 'N/A'}</td>
+                                            <td>${f.dest || 'N/A'}</td>
+                                            <td>${f.first_seen || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Exempt flights
+            if (exemptFlights.length > 0) {
+                html += `
+                    <div class="col-md-4">
+                        <h6 class="text-info"><i class="fas fa-check-circle"></i> Exempt (${exemptFlights.length})</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-striped">
+                                <thead class="thead-light sticky-top">
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${exemptFlights.map(f => `
+                                        <tr>
+                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.dept || 'N/A'}</td>
+                                            <td>${f.first_seen || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Post-TMI flights
+            if (postTmiFlights.length > 0) {
+                html += `
+                    <div class="col-md-4">
+                        <h6 class="text-muted"><i class="fas fa-hourglass-end"></i> Post TMI (${postTmiFlights.length})</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-striped">
+                                <thead class="thead-light sticky-top">
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${postTmiFlights.map(f => `
+                                        <tr>
+                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.dept || 'N/A'}</td>
+                                            <td>${f.first_seen || 'N/A'}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
