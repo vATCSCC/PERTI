@@ -1,6 +1,12 @@
 -- ============================================================================
--- sp_ParseRoute.sql (v4.2 - Waypoints JSON Population)
+-- sp_ParseRoute.sql (v4.3 - Enhanced Fix/Runway Extraction)
 -- Full GIS Route Parsing for ADL Normalized Schema
+--
+-- v4.3 Changes (2026-01-31):
+--   - NEW: Extract dep_runway and arr_runway from route tokens (e.g., /07C, /02L)
+--   - NEW: Extract dfix/afix for ALL routes, not just those with SID/STAR
+--   - FIX: Recognize SID/STAR patterns ending with letters (ABTAN2W, DUMEP1T)
+--   - FIX: Strip runway suffixes before SID/STAR pattern matching
 --
 -- v4.2 Changes (2026-01-17):
 --   - FIX: Populate waypoints_json column with on_airway field for FEA filtering
@@ -219,10 +225,17 @@ BEGIN
     END
     
     -- SID/STAR without dot
-    IF LEN(@upper) BETWEEN 4 AND 7 
-       AND @upper LIKE '[A-Z][A-Z][A-Z]%[0-9]' 
-       AND @upper NOT LIKE '%[0-9][0-9]%'
-       AND @upper LIKE '[A-Z][A-Z][A-Z][A-Z0-9]%'
+    -- Pattern: 3+ letters followed by single digit, optionally followed by single letter
+    -- Examples: KRSTA4, WYNDE3, ABTAN2W, DUMEP1T, RAGUL3A
+    IF LEN(@upper) BETWEEN 4 AND 8
+       AND (
+           -- Ends with digit: KRSTA4, PARCH4
+           @upper LIKE '[A-Z][A-Z][A-Z]%[0-9]'
+           -- Ends with digit+letter: ABTAN2W, DUMEP1T, RAGUL3A
+           OR @upper LIKE '[A-Z][A-Z][A-Z]%[0-9][A-Z]'
+       )
+       AND @upper NOT LIKE '%[0-9][0-9]%'  -- No consecutive digits
+       AND @upper LIKE '[A-Z][A-Z][A-Z][A-Z0-9]%'  -- 4th char is alphanumeric
         RETURN 'SID_OR_STAR';
     
     -- Lat/Lon coordinates
@@ -311,7 +324,75 @@ BEGIN
     
     DECLARE @clean_route NVARCHAR(MAX) = UPPER(LTRIM(RTRIM(@route)));
     SET @clean_route = REPLACE(REPLACE(REPLACE(REPLACE(@clean_route, '+', ' '), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' ');
-    
+
+    -- Variables for runway extraction
+    DECLARE @dep_runway NVARCHAR(4) = NULL;
+    DECLARE @arr_runway NVARCHAR(4) = NULL;
+    DECLARE @runway_match NVARCHAR(10);
+    DECLARE @rwy_pos INT;
+
+    -- Extract runway suffixes from route BEFORE stripping them
+    -- Look for patterns like /07C, /02L, /RW26L at token boundaries
+    -- First occurrence = departure runway, last occurrence = arrival runway
+
+    -- Pattern 1: /##L, /##R, /##C, /## (e.g., /07C, /02L, /26)
+    SET @rwy_pos = PATINDEX('%/[0-9][0-9][LRC ]%', @clean_route + ' ');
+    IF @rwy_pos > 0
+    BEGIN
+        SET @runway_match = SUBSTRING(@clean_route, @rwy_pos + 1, 3);
+        SET @runway_match = RTRIM(REPLACE(@runway_match, ' ', ''));
+        SET @dep_runway = @runway_match;
+    END
+
+    -- Find last runway suffix for arrival (search from end)
+    DECLARE @last_rwy_pos INT = 0;
+    DECLARE @search_pos INT = 1;
+    WHILE 1 = 1
+    BEGIN
+        SET @rwy_pos = PATINDEX('%/[0-9][0-9][LRC ]%', SUBSTRING(@clean_route + ' ', @search_pos, LEN(@clean_route) - @search_pos + 2));
+        IF @rwy_pos = 0 BREAK;
+        SET @last_rwy_pos = @search_pos + @rwy_pos - 1;
+        SET @search_pos = @search_pos + @rwy_pos;
+    END
+    IF @last_rwy_pos > 0 AND @last_rwy_pos != PATINDEX('%/[0-9][0-9][LRC ]%', @clean_route + ' ')
+    BEGIN
+        SET @runway_match = SUBSTRING(@clean_route, @last_rwy_pos + 1, 3);
+        SET @runway_match = RTRIM(REPLACE(@runway_match, ' ', ''));
+        SET @arr_runway = @runway_match;
+    END
+
+    -- Also check for /RW## pattern (e.g., /RW26L)
+    IF PATINDEX('%/RW[0-9][0-9]%', @clean_route) > 0
+    BEGIN
+        SET @rwy_pos = PATINDEX('%/RW[0-9][0-9]%', @clean_route);
+        SET @runway_match = SUBSTRING(@clean_route, @rwy_pos + 3, 3);  -- Skip /RW
+        SET @runway_match = REPLACE(REPLACE(@runway_match, ' ', ''), '/', '');
+        IF LEN(@runway_match) >= 2
+            SET @arr_runway = LEFT(@runway_match, CASE WHEN LEN(@runway_match) > 3 THEN 3 ELSE LEN(@runway_match) END);
+    END
+
+    -- Strip runway suffixes from route (e.g., TEBUN1A/02L -> TEBUN1A)
+    -- Pattern: /##L, /##R, /##C, /##
+    WHILE PATINDEX('%/[0-9][0-9][LRC]%', @clean_route) > 0
+    BEGIN
+        SET @rwy_pos = PATINDEX('%/[0-9][0-9][LRC]%', @clean_route);
+        SET @clean_route = LEFT(@clean_route, @rwy_pos - 1) + SUBSTRING(@clean_route, @rwy_pos + 4, LEN(@clean_route));
+    END
+    WHILE PATINDEX('%/[0-9][0-9] %', @clean_route + ' ') > 0
+    BEGIN
+        SET @rwy_pos = PATINDEX('%/[0-9][0-9] %', @clean_route + ' ');
+        SET @clean_route = LEFT(@clean_route, @rwy_pos - 1) + SUBSTRING(@clean_route, @rwy_pos + 3, LEN(@clean_route));
+    END
+    -- Pattern: /RW##L, /RW##R, /RW##C, /RW##
+    WHILE PATINDEX('%/RW[0-9][0-9]%', @clean_route) > 0
+    BEGIN
+        SET @rwy_pos = PATINDEX('%/RW[0-9][0-9]%', @clean_route);
+        DECLARE @rwy_end INT = @rwy_pos + 5;  -- /RW## = 5 chars minimum
+        IF @rwy_end <= LEN(@clean_route) AND SUBSTRING(@clean_route, @rwy_end, 1) LIKE '[LRC]'
+            SET @rwy_end = @rwy_end + 1;
+        SET @clean_route = LEFT(@clean_route, @rwy_pos - 1) + SUBSTRING(@clean_route, @rwy_end, LEN(@clean_route));
+    END
+
     -- Strip speed/altitude suffixes from fix names (e.g., ERGOM/N0481F330 -> ERGOM)
     -- Pattern: FIX/N0xxxFxxx or FIX/MxxxFxxx
     WHILE PATINDEX('%[A-Z]/[NMK]0[0-9][0-9][0-9]%', @clean_route) > 0
@@ -626,6 +707,39 @@ BEGIN
         VALUES (@dest_icao, 'AIRPORT', 'DESTINATION', @dest_icao);
     END
 
+    -- ========================================================================
+    -- Fallback: Extract dfix/afix for routes WITHOUT SID/STAR
+    -- This ensures the demand chart filters work even for direct routes
+    -- ========================================================================
+
+    -- If no dfix was captured (no SID found), use first waypoint after departure
+    IF @dfix IS NULL
+    BEGIN
+        SELECT TOP 1 @dfix = fix_name
+        FROM @waypoints
+        WHERE source NOT IN ('ORIGIN', 'DESTINATION', 'SID')
+          AND fix_type IN ('WAYPOINT', 'FIX')
+          AND LEN(fix_name) BETWEEN 2 AND 5  -- Standard fix names
+        ORDER BY seq;
+
+        IF @debug = 1 AND @dfix IS NOT NULL
+            PRINT 'Fallback dfix (first route fix): ' + @dfix;
+    END
+
+    -- If no afix was captured (no STAR found), use last waypoint before destination
+    IF @afix IS NULL
+    BEGIN
+        SELECT TOP 1 @afix = fix_name
+        FROM @waypoints
+        WHERE source NOT IN ('ORIGIN', 'DESTINATION', 'STAR')
+          AND fix_type IN ('WAYPOINT', 'FIX')
+          AND LEN(fix_name) BETWEEN 2 AND 5  -- Standard fix names
+        ORDER BY seq DESC;
+
+        IF @debug = 1 AND @afix IS NOT NULL
+            PRINT 'Fallback afix (last route fix): ' + @afix;
+    END
+
     -- Remove consecutive duplicates
     ;WITH numbered AS (
         SELECT seq, fix_name, LAG(fix_name) OVER (ORDER BY seq) AS prev_fix
@@ -893,6 +1007,11 @@ BEGIN
         star_name = COALESCE(@star_name, star_name),
         afix = COALESCE(@afix, afix),
         strsn = COALESCE(@strsn, strsn),
+        -- Runway extraction from route (v4.3)
+        dep_runway = COALESCE(@dep_runway, dep_runway),
+        dep_runway_source = CASE WHEN @dep_runway IS NOT NULL AND dep_runway IS NULL THEN 'ROUTE' ELSE dep_runway_source END,
+        arr_runway = COALESCE(@arr_runway, arr_runway),
+        arr_runway_source = CASE WHEN @arr_runway IS NOT NULL AND arr_runway IS NULL THEN 'ROUTE' ELSE arr_runway_source END,
         waypoint_count = @point_count,
         -- Populate waypoints_json for FEA filtering (includes on_airway for airway-based monitors)
         waypoints_json = (
@@ -1043,13 +1162,15 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_ParseRoute v4.2 created - Waypoints JSON population';
+PRINT 'sp_ParseRoute v4.3 created - Enhanced Fix/Runway Extraction';
 PRINT '';
 PRINT 'Key improvements:';
+PRINT '  - v4.3: Extract dep_runway/arr_runway from route (e.g., TEBUN1A/02L)';
+PRINT '  - v4.3: Extract dfix/afix for ALL routes (fallback for direct routes)';
+PRINT '  - v4.3: Recognize SID/STAR patterns ending with letters (ABTAN2W)';
 PRINT '  - v4.2: Populate waypoints_json with on_airway for FEA filtering';
 PRINT '  - v4.1: Added dfix (departure fix) population';
 PRINT '  - ONE database query for all candidate fixes';
 PRINT '  - Sequential proximity resolution (each fix uses previous)';
 PRINT '  - Airway-aware: prefers fixes actually on the airway';
-PRINT '  - Fixes zigzag problem with duplicate fix names';
 GO

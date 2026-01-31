@@ -1283,13 +1283,19 @@ $perm = true;
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
+                        <label class="small text-muted mb-0">Date</label>
+                        <input type="date" class="form-control form-control-sm" id="filterDate" placeholder="Today">
+                    </div>
+                    <div class="col-md-1 col-6 mb-2">
+                        <label class="small text-muted mb-0">&nbsp;</label>
                         <button class="btn btn-sm btn-primary btn-block" id="applyFilters">
-                            <i class="fas fa-filter"></i> Apply
+                            <i class="fas fa-filter"></i>
                         </button>
                     </div>
-                    <div class="col-md-2 col-6 mb-2">
+                    <div class="col-md-1 col-6 mb-2">
+                        <label class="small text-muted mb-0">&nbsp;</label>
                         <button class="btn btn-sm btn-outline-secondary btn-block" id="resetFilters">
-                            <i class="fas fa-undo"></i> Reset
+                            <i class="fas fa-undo"></i>
                         </button>
                     </div>
                 </div>
