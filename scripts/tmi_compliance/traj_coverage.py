@@ -12,99 +12,87 @@ def main():
     )
     cursor = conn.cursor()
 
-    event_start = '2025-01-16 23:59:00'
-    event_end = '2025-01-17 04:00:00'
-
     print('='*80)
-    print('TRAJECTORY DATA COVERAGE ANALYSIS')
+    print('DATA RANGE ANALYSIS')
     print('='*80)
-    print(f'Event Window: {event_start} to {event_end}')
-    print()
 
-    # 1. Total flights to KATL
+    # Check trajectory archive date range
     cursor.execute("""
-        SELECT COUNT(DISTINCT c.callsign)
+        SELECT MIN(timestamp_utc), MAX(timestamp_utc), COUNT(*)
+        FROM dbo.adl_trajectory_archive
+    """)
+    row = cursor.fetchone()
+    print(f'TRAJECTORY_ARCHIVE:')
+    print(f'  Earliest: {row[0]}')
+    print(f'  Latest:   {row[1]}')
+    print(f'  Total records: {row[2]:,}')
+
+    # Check flight_core date range
+    cursor.execute("""
+        SELECT MIN(first_seen_utc), MAX(first_seen_utc), COUNT(*)
+        FROM dbo.adl_flight_core
+    """)
+    row = cursor.fetchone()
+    print(f'FLIGHT_CORE:')
+    print(f'  Earliest: {row[0]}')
+    print(f'  Latest:   {row[1]}')
+    print(f'  Total records: {row[2]:,}')
+
+    # Check KATL flights specifically
+    cursor.execute("""
+        SELECT MIN(c.first_seen_utc), MAX(c.first_seen_utc), COUNT(*)
         FROM dbo.adl_flight_core c
         INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
         WHERE p.fp_dest_icao = 'KATL'
-          AND c.first_seen_utc <= %s
-          AND c.last_seen_utc >= %s
-    """, (event_end, event_start))
-    total = cursor.fetchone()[0]
-    print(f'1. TOTAL FLIGHTS TO KATL: {total}')
+    """)
+    row = cursor.fetchone()
+    print(f'KATL FLIGHTS:')
+    print(f'  Earliest: {row[0]}')
+    print(f'  Latest:   {row[1]}')
+    print(f'  Total records: {row[2]:,}')
 
-    # 2. Flights with ANY trajectory data
-    cursor.execute("""
-        SELECT COUNT(DISTINCT c.callsign)
-        FROM dbo.adl_flight_core c
-        INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
-        WHERE p.fp_dest_icao = 'KATL'
-          AND c.first_seen_utc <= %s
-          AND c.last_seen_utc >= %s
-          AND EXISTS (SELECT 1 FROM dbo.adl_trajectory_archive t WHERE t.flight_uid = c.flight_uid)
-    """, (event_end, event_start))
-    with_traj = cursor.fetchone()[0]
-    print(f'2. FLIGHTS WITH TRAJECTORY: {with_traj} ({100*with_traj/total:.1f}%)')
-
-    # 3. Total trajectory points in event window
-    cursor.execute("""
-        SELECT COUNT(*) FROM dbo.adl_trajectory_archive t
-        WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
-    """, (event_start, event_end))
-    total_pts = cursor.fetchone()[0]
-    print(f'3. TOTAL TRAJ POINTS IN WINDOW: {total_pts}')
-
-    # 4. KATL trajectory points
-    cursor.execute("""
-        SELECT COUNT(*) FROM dbo.adl_trajectory_archive t
-        INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-        WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
-          AND p.fp_dest_icao = 'KATL'
-    """, (event_start, event_end))
-    katl_pts = cursor.fetchone()[0]
-    print(f'4. KATL TRAJ POINTS: {katl_pts}')
-
+    # Check around Jan 16-17 2025
     print()
     print('='*80)
-    print('TOP FLIGHTS BY TRAJECTORY POINTS')
+    print('JAN 16-17 2025 EVENT WINDOW CHECK')
     print('='*80)
-    cursor.execute("""
-        SELECT TOP 15 c.callsign, p.fp_dept_icao,
-               CONVERT(VARCHAR, c.first_seen_utc, 120) as first_seen,
-               CONVERT(VARCHAR, c.last_seen_utc, 120) as last_seen,
-               (SELECT COUNT(*) FROM dbo.adl_trajectory_archive t WHERE t.flight_uid = c.flight_uid) as pts
-        FROM dbo.adl_flight_core c
-        INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
-        WHERE p.fp_dest_icao = 'KATL'
-          AND c.first_seen_utc <= %s
-          AND c.last_seen_utc >= %s
-        ORDER BY pts DESC
-    """, (event_end, event_start))
-    print(f'{"Callsign":<12} {"Origin":<6} {"First Seen":<22} {"Last Seen":<22} {"Pts":<6}')
-    print('-'*75)
-    for r in cursor.fetchall():
-        print(f'{r[0]:<12} {r[1]:<6} {r[2]:<22} {r[3]:<22} {r[4]:<6}')
 
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM dbo.adl_flight_core c
+        WHERE c.first_seen_utc >= '2025-01-16 00:00:00'
+          AND c.first_seen_utc <= '2025-01-18 00:00:00'
+    """)
+    row = cursor.fetchone()
+    print(f'All flights Jan 16-18 2025: {row[0]}')
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM dbo.adl_trajectory_archive t
+        WHERE t.timestamp_utc >= '2025-01-16 00:00:00'
+          AND t.timestamp_utc <= '2025-01-18 00:00:00'
+    """)
+    row = cursor.fetchone()
+    print(f'Trajectory points Jan 16-18 2025: {row[0]}')
+
+    # Check trajectory data for each month
     print()
     print('='*80)
-    print('FLIGHTS WITH ZERO TRAJECTORY POINTS')
+    print('MONTHLY TRAJECTORY DATA BREAKDOWN')
     print('='*80)
     cursor.execute("""
-        SELECT TOP 15 c.callsign, p.fp_dept_icao,
-               CONVERT(VARCHAR, c.first_seen_utc, 120) as first_seen,
-               CONVERT(VARCHAR, c.last_seen_utc, 120) as last_seen
-        FROM dbo.adl_flight_core c
-        INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
-        WHERE p.fp_dest_icao = 'KATL'
-          AND c.first_seen_utc <= %s
-          AND c.last_seen_utc >= %s
-          AND NOT EXISTS (SELECT 1 FROM dbo.adl_trajectory_archive t WHERE t.flight_uid = c.flight_uid)
-        ORDER BY c.first_seen_utc
-    """, (event_end, event_start))
-    print(f'{"Callsign":<12} {"Origin":<6} {"First Seen":<22} {"Last Seen":<22}')
-    print('-'*65)
-    for r in cursor.fetchall():
-        print(f'{r[0]:<12} {r[1]:<6} {r[2]:<22} {r[3]:<22}')
+        SELECT
+            YEAR(timestamp_utc) as yr,
+            MONTH(timestamp_utc) as mo,
+            COUNT(*) as cnt
+        FROM dbo.adl_trajectory_archive
+        GROUP BY YEAR(timestamp_utc), MONTH(timestamp_utc)
+        ORDER BY yr DESC, mo DESC
+    """)
+    print(f'{"Year":<6} {"Month":<6} {"Count":>15}')
+    print('-'*30)
+    for row in cursor.fetchall():
+        print(f'{row[0]:<6} {row[1]:<6} {row[2]:>15,}')
 
     conn.close()
 
