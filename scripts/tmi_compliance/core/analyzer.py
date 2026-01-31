@@ -102,18 +102,21 @@ class TMIComplianceAnalyzer:
         self._low_quality_flights = set()  # Flights with insufficient trajectory data
 
     # Trajectory quality thresholds
-    MIN_ENROUTE_POINTS = 5       # Minimum points with gs > 0
-    MIN_UNIQUE_POSITIONS = 3    # Minimum unique lat/lon positions
-    MAX_POSITION_GAP_NM = 100   # Max distance between consecutive points
-    MAX_TIME_GAP_MINUTES = 30   # Max time gap between consecutive points
+    MIN_ENROUTE_POINTS = 5       # Minimum points with gs > 50 (enroute, not ground)
+    MIN_UNIQUE_POSITIONS = 3    # Minimum unique lat/lon positions (~1nm precision)
+    MIN_IMPLIED_SPEED_KTS = 100 # Minimum implied speed when checking gaps (catches SFO->LAS jumps)
 
     def _validate_trajectory_quality(self, callsign: str, trajectory: List[dict]) -> tuple:
         """
         Validate trajectory data quality for reliable boundary crossing detection.
 
         Flights with sparse or incomplete trajectory data (e.g., only departure/arrival
-        positions) produce unreliable interpolated crossings. This validation identifies
-        such flights so they can be flagged or skipped.
+        positions with no enroute data) produce unreliable interpolated boundary crossings.
+
+        Key checks:
+        1. Enroute points: Must have actual position updates while flying (gs > 50)
+        2. Unique positions: Must have geographic spread (not just sitting at airports)
+        3. Implied speed: Large position jumps must have reasonable implied speed
 
         Returns:
             Tuple of (is_valid, reason_if_invalid)
@@ -122,6 +125,7 @@ class TMIComplianceAnalyzer:
             return False, "insufficient_points"
 
         # Count points with meaningful groundspeed (enroute, not on ground)
+        # This is the PRIMARY check - flights with only ground positions are invalid
         enroute_points = [p for p in trajectory if p.get('gs', 0) > 50]
         if len(enroute_points) < self.MIN_ENROUTE_POINTS:
             return False, f"only_{len(enroute_points)}_enroute_points"
@@ -136,26 +140,23 @@ class TMIComplianceAnalyzer:
         if len(unique_positions) < self.MIN_UNIQUE_POSITIONS:
             return False, f"only_{len(unique_positions)}_unique_positions"
 
-        # Check for large gaps (missing data)
+        # Check for suspicious position jumps (e.g., SFO->LAS direct with no intermediate data)
+        # This catches flights that have some gs>0 points at arrival but no enroute tracking
         sorted_traj = sorted(trajectory, key=lambda p: p['timestamp'])
-        large_gaps = []
         for i in range(1, len(sorted_traj)):
             prev = sorted_traj[i - 1]
             curr = sorted_traj[i]
 
-            # Time gap
-            time_gap_min = (curr['timestamp'] - prev['timestamp']).total_seconds() / 60
-            if time_gap_min > self.MAX_TIME_GAP_MINUTES:
-                large_gaps.append(('time', time_gap_min))
-
-            # Distance gap
-            dist_gap = haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
-            if dist_gap > self.MAX_POSITION_GAP_NM:
-                large_gaps.append(('distance', dist_gap))
-
-        if large_gaps:
-            gap_type, gap_val = large_gaps[0]  # Report first gap
-            return False, f"large_{gap_type}_gap_{gap_val:.0f}"
+            time_diff_hr = (curr['timestamp'] - prev['timestamp']).total_seconds() / 3600
+            if time_diff_hr > 0.05:  # Only check gaps > 3 minutes
+                dist_nm = haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
+                if dist_nm > 50:  # Only check significant position changes
+                    implied_speed = dist_nm / time_diff_hr
+                    # SFO->LAS is ~350nm in ~150min = ~140 kts - but this would mean NO intermediate data
+                    # A real flight would have ~400 kts average with intermediate points
+                    # Only flag if implied speed is suspiciously low (missing data) or very high (corrupt data)
+                    if implied_speed < self.MIN_IMPLIED_SPEED_KTS:
+                        return False, f"suspicious_jump_{dist_nm:.0f}nm_in_{time_diff_hr*60:.0f}min"
 
         return True, None
 
@@ -671,10 +672,13 @@ class TMIComplianceAnalyzer:
 
         # Filter out flights with low-quality trajectory data
         original_count = len(callsigns)
+        low_quality_in_list = [cs for cs in callsigns if cs in self._low_quality_flights]
         callsigns = [cs for cs in callsigns if cs not in self._low_quality_flights]
         skipped_count = original_count - len(callsigns)
         if skipped_count > 0:
             logger.info(f"  Skipped {skipped_count} flights with low-quality trajectory data")
+            if low_quality_in_list and len(low_quality_in_list) <= 10:
+                logger.debug(f"    Low quality flights: {low_quality_in_list}")
 
         # Classify facilities and normalize codes
         provider_type = classify_facility(provider)
