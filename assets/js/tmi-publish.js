@@ -6851,6 +6851,8 @@
             // Basic info
             $('#rr_facility').val(adv.facility || 'DCC');
             $('#rr_name').val(adv.name || '');
+            $('#rr_route_type').val(adv.routeType || 'ROUTE');
+            $('#rr_compliance').val(adv.compliance || 'RQD');
             $('#rr_constrained_area').val(adv.constrainedArea || '');
             $('#rr_reason').val(adv.reason || 'WEATHER');
             $('#rr_include_traffic').val(adv.includeTraffic || '');
@@ -7594,6 +7596,8 @@
                 advisory_number: $('#rr_adv_number').val() || '001',
                 facility: $('#rr_facility').val() || 'DCC',
                 name: $('#rr_name').val() || '',
+                route_type: $('#rr_route_type').val() || 'ROUTE',
+                compliance: $('#rr_compliance').val() || 'RQD',
                 constrained_area: $('#rr_constrained_area').val() || '',
                 reason: $('#rr_reason').val() || 'WEATHER',
                 include_traffic: $('#rr_include_traffic').val() || '',
@@ -7696,7 +7700,9 @@
             };
 
             let lines = [];
-            lines.push(`vATCSCC ADVZY ${params.advisory_number} ${params.facility} ${headerDate} ROUTE RQD`);
+            const routeType = params.route_type || 'ROUTE';
+            const compliance = params.compliance || 'RQD';
+            lines.push(`vATCSCC ADVZY ${params.advisory_number} ${params.facility} ${headerDate} ${routeType} ${compliance}`);
             addLabeledField(lines, 'NAME', params.name);
             addLabeledField(lines, 'CONSTRAINED AREA', params.constrained_area);
             addLabeledField(lines, 'REASON', params.reason);
@@ -8629,6 +8635,8 @@
                 advisory: {
                     facility: $('#rr_facility').val() || 'DCC',
                     name: $('#rr_name').val() || '',
+                    routeType: $('#rr_route_type').val() || 'ROUTE',
+                    compliance: $('#rr_compliance').val() || 'RQD',
                     constrainedArea: $('#rr_constrained_area').val() || '',
                     reason: $('#rr_reason').val() || 'WEATHER',
                     includeTraffic: $('#rr_include_traffic').val() || '',

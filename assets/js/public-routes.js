@@ -88,7 +88,7 @@ window.PublicRoutes = (function() {
                 // Auto-hide past routes more than 2 days old (on first load only)
                 if (!state.initialAutoHideDone) {
                     state.routes.forEach(function(route) {
-                        const status = route.computed_status || getTimeStatus(route);
+                        const status = getTimeStatus(route);
                         if (status === 'past' && isOldPastRoute(route, 2)) {
                             state.hiddenRouteIds.add(route.id);
                         }
@@ -126,8 +126,9 @@ window.PublicRoutes = (function() {
             // Check if individually hidden
             if (state.hiddenRouteIds.has(route.id)) return false;
 
-            // Real-time time status check - getTimeStatus compares valid_end_utc against now
-            const status = route.computed_status || getTimeStatus(route);
+            // Real-time time status check - always use getTimeStatus for accurate filtering
+            // (computed_status from API may be stale if page has been open for a while)
+            const status = getTimeStatus(route);
             if (status === 'active' && state.showActive) return true;
             if (status === 'future' && state.showFuture) return true;
             if (status === 'past' && state.showPast) return true;
@@ -141,7 +142,7 @@ window.PublicRoutes = (function() {
      */
     function getCategoryFilteredRoutes() {
         return state.routes.filter(function(route) {
-            const status = route.computed_status || getTimeStatus(route);
+            const status = getTimeStatus(route);
             if (status === 'active' && state.showActive) return true;
             if (status === 'future' && state.showFuture) return true;
             if (status === 'past' && state.showPast) return true;
@@ -323,10 +324,10 @@ window.PublicRoutes = (function() {
         const $indicator = $('#public_routes_indicator');
         if (!$indicator.length) return;
         
-        // Count routes by status
+        // Count routes by status (always use real-time calculation)
         const counts = { active: 0, future: 0, past: 0 };
         state.routes.forEach(r => {
-            const status = r.computed_status || getTimeStatus(r);
+            const status = getTimeStatus(r);
             if (counts[status] !== undefined) counts[status]++;
         });
         
@@ -376,11 +377,11 @@ window.PublicRoutes = (function() {
         if (!$list.length) return;
         
         $list.empty();
-        
-        // Count routes by status
+
+        // Count routes by status (always use real-time calculation)
         const counts = { active: 0, future: 0, past: 0 };
         state.routes.forEach(function(route) {
-            const status = route.computed_status || getTimeStatus(route);
+            const status = getTimeStatus(route);
             if (counts[status] !== undefined) counts[status]++;
         });
         
@@ -482,7 +483,7 @@ window.PublicRoutes = (function() {
         categoryRoutes.forEach(function(route) {
             const validStart = formatTime(route.valid_start_utc);
             const validEnd = formatTime(route.valid_end_utc);
-            const timeStatus = route.time_status || getTimeStatus(route);
+            const timeStatus = getTimeStatus(route);
             const timeInfo = getTimeStatusInfo(route);
             const isHidden = state.hiddenRouteIds.has(route.id);
             
@@ -672,7 +673,7 @@ window.PublicRoutes = (function() {
         
         const validStart = formatTime(route.valid_start_utc);
         const validEnd = formatTime(route.valid_end_utc);
-        const timeStatus = route.time_status || getTimeStatus(route);
+        const timeStatus = getTimeStatus(route);
         const timeInfo = getTimeStatusInfo(route);
         const expInfo = getExpirationInfo(route.valid_end_utc);
         
@@ -1721,7 +1722,7 @@ window.PublicRoutes = (function() {
      * Get time status info for display (text, icon, class, title)
      */
     function getTimeStatusInfo(route) {
-        const timeStatus = route.time_status || getTimeStatus(route);
+        const timeStatus = getTimeStatus(route);
         
         if (timeStatus === 'future') {
             // Calculate time until start

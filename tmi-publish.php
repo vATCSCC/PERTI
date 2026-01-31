@@ -548,19 +548,39 @@ $perm = true;
                         </div>
                         <div class="card-body">
                             <div class="form-row">
-                                <div class="form-group col-md-3">
+                                <div class="form-group col-md-2">
                                     <label class="tmi-label mb-0">Advisory #</label>
                                     <input type="text" class="form-control" id="rr_adv_number"
                                            placeholder="Auto" readonly style="background: #f8f9fa;">
                                 </div>
-                                <div class="form-group col-md-3">
+                                <div class="form-group col-md-2">
                                     <label class="tmi-label mb-0">Facility</label>
                                     <input type="text" class="form-control" id="rr_facility" value="DCC">
                                 </div>
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-4">
                                     <label class="tmi-label mb-0">Route Name</label>
                                     <input type="text" class="form-control" id="rr_name"
-                                           placeholder="e.g., GOLDDR, ZNY_WEST_SWAP">
+                                           placeholder="e.g., FEA:N90_TO_MIA_ARS">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label class="tmi-label mb-0">Type</label>
+                                    <select class="form-control" id="rr_route_type">
+                                        <option value="ROUTE" selected>ROUTE</option>
+                                        <option value="FEA">FEA</option>
+                                        <option value="FCA">FCA</option>
+                                        <option value="ICR">ICR</option>
+                                        <option value="CTOP">CTOP</option>
+                                        <option value="TOS">TOS</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label class="tmi-label mb-0">Compliance</label>
+                                    <select class="form-control" id="rr_compliance">
+                                        <option value="RQD" selected>RQD</option>
+                                        <option value="RMD">RMD</option>
+                                        <option value="PLN">PLN</option>
+                                        <option value="FYI">FYI</option>
+                                    </select>
                                 </div>
                             </div>
 
