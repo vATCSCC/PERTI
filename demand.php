@@ -357,7 +357,7 @@ include("load/config.php");
         /* Floating Phase Filter Panel */
         .phase-filter-floating {
             position: fixed;
-            z-index: 1050;
+            z-index: 9999;
             min-width: 160px;
             background: #fff;
             border-radius: 6px;
