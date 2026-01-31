@@ -3,10 +3,11 @@
  * TMI Compliance Analysis API
  *
  * Retrieves and manages TMI compliance analysis results for PERTI reviews.
+ * Analysis is performed by local Python script (scripts/tmi_compliance/run.py).
  *
  * Endpoints:
- *   GET  ?p_id={plan_id}           - Get compliance results for a plan
- *   GET  ?p_id={plan_id}&run=true  - Run analysis via Azure Function and return results
+ *   GET  ?p_id={plan_id}           - Get cached compliance results for a plan
+ *   GET  ?p_id={plan_id}&run=true  - Run analysis and return results
  *   POST                           - Save compliance results for a plan
  */
 
@@ -135,51 +136,84 @@ try {
 }
 
 /**
- * Call Azure Function to run TMI compliance analysis
+ * Run TMI compliance analysis via local Python script
  */
 function call_azure_function($plan_id) {
-    // Check if constants are defined (may not be in older configs)
-    $function_url = defined('AZURE_FUNCTION_TMI_URL') ? AZURE_FUNCTION_TMI_URL : '';
-    $function_key = defined('AZURE_FUNCTION_TMI_KEY') ? AZURE_FUNCTION_TMI_KEY : '';
+    // Path to Python script (relative to web root)
+    $script_dir = realpath(__DIR__ . '/../../scripts/tmi_compliance');
+    $script_path = $script_dir . '/run.py';
 
-    // Check if Azure Function is configured
-    if (empty($function_url)) {
+    if (!file_exists($script_path)) {
         return [
             'success' => false,
-            'error' => 'TMI Analysis Azure Function not configured. Run analysis locally using: python C:\\temp\\tmi_compliance_analyzer.py --plan ' . $plan_id
+            'error' => "TMI Analysis script not found at: $script_path"
         ];
     }
 
-    $url = $function_url . '?plan_id=' . $plan_id;
+    // Set environment variables for database connections
+    $env_vars = [
+        'ADL_SQL_HOST' => defined('ADL_SQL_HOST') ? ADL_SQL_HOST : 'vatsim.database.windows.net',
+        'ADL_SQL_DATABASE' => defined('ADL_SQL_DATABASE') ? ADL_SQL_DATABASE : 'VATSIM_ADL',
+        'ADL_SQL_USERNAME' => defined('ADL_SQL_USERNAME') ? ADL_SQL_USERNAME : 'adl_api_user',
+        'ADL_SQL_PASSWORD' => defined('ADL_SQL_PASSWORD') ? ADL_SQL_PASSWORD : '',
+        'GIS_SQL_HOST' => defined('GIS_SQL_HOST') ? GIS_SQL_HOST : 'vatcscc-gis.postgres.database.azure.com',
+        'GIS_SQL_DATABASE' => defined('GIS_SQL_DATABASE') ? GIS_SQL_DATABASE : 'VATSIM_GIS',
+        'GIS_SQL_USERNAME' => defined('GIS_SQL_USERNAME') ? GIS_SQL_USERNAME : 'GIS_admin',
+        'GIS_SQL_PASSWORD' => defined('GIS_SQL_PASSWORD') ? GIS_SQL_PASSWORD : '',
+        'PERTI_API_URL' => 'https://perti.vatcscc.org/api'
+    ];
 
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 180, // 3 minute timeout for analysis
-        CURLOPT_HTTPHEADER => array_filter([
-            'Content-Type: application/json',
-            $function_key ? 'x-functions-key: ' . $function_key : null
-        ])
-    ]);
-
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_error = curl_error($ch);
-    curl_close($ch);
-
-    if ($curl_error) {
-        return ['success' => false, 'error' => "Connection error: $curl_error"];
+    // Build environment string for command
+    $env_prefix = '';
+    foreach ($env_vars as $key => $value) {
+        putenv("$key=$value");
     }
 
-    if ($http_code !== 200) {
-        $error_data = json_decode($response, true);
-        $error_msg = $error_data['error'] ?? "HTTP $http_code error";
-        return ['success' => false, 'error' => $error_msg];
+    // Find Python executable
+    $python = 'python3';
+    if (PHP_OS_FAMILY === 'Windows') {
+        $python = 'python';
     }
 
-    $data = json_decode($response, true);
+    // Build command
+    $cmd = sprintf(
+        '%s %s --plan_id %d 2>&1',
+        escapeshellcmd($python),
+        escapeshellarg($script_path),
+        intval($plan_id)
+    );
+
+    // Execute with timeout
+    $output = [];
+    $return_code = 0;
+    exec($cmd, $output, $return_code);
+
+    $json_output = implode("\n", $output);
+
+    // Try to extract JSON from output (skip log lines)
+    $lines = explode("\n", $json_output);
+    $json_line = '';
+    foreach (array_reverse($lines) as $line) {
+        $line = trim($line);
+        if (str_starts_with($line, '{') || str_starts_with($line, '[')) {
+            $json_line = $line;
+            break;
+        }
+    }
+
+    if (empty($json_line)) {
+        return [
+            'success' => false,
+            'error' => "No JSON output from Python script. Output: " . substr($json_output, 0, 500)
+        ];
+    }
+
+    $data = json_decode($json_line, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        return ['success' => false, 'error' => 'Invalid JSON response from Azure Function'];
+        return [
+            'success' => false,
+            'error' => 'Invalid JSON from Python: ' . json_last_error_msg() . '. Output: ' . substr($json_line, 0, 200)
+        ];
     }
 
     if (isset($data['error'])) {

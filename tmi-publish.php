@@ -1279,6 +1279,7 @@ $perm = true;
                             <option value="ACTIVE" selected>Active</option>
                             <option value="SCHEDULED" selected>Scheduled</option>
                             <option value="CANCELLED">Cancelled</option>
+                            <option value="EXPIRED">Expired</option>
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">

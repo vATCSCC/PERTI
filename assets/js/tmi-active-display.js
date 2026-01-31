@@ -47,6 +47,7 @@
         reroutes: [],       // Reroutes
         scheduled: [],
         cancelled: [],
+        expired: [],        // Expired TMIs (end time passed)
         lastRefresh: null,
         refreshTimer: null,
         countdownTimer: null,
@@ -801,6 +802,7 @@
         state.reroutes = [];
         state.scheduled = [];
         state.cancelled = [];
+        state.expired = [];
 
         // Process active items
         allActive.forEach(item => {
@@ -822,9 +824,13 @@
             state.scheduled.push(item);
         });
 
-        // Process cancelled
+        // Process cancelled/expired - separate by status field
         allCancelled.forEach(item => {
-            state.cancelled.push(item);
+            if (item.status === 'EXPIRED') {
+                state.expired.push(item);
+            } else {
+                state.cancelled.push(item);
+            }
         });
 
         console.log('[TMI-Active] Processed:', {
@@ -833,7 +839,8 @@
             programs: state.programs.length,
             reroutes: state.reroutes.length,
             scheduled: state.scheduled.length,
-            cancelled: state.cancelled.length
+            cancelled: state.cancelled.length,
+            expired: state.expired.length
         });
     }
 
@@ -1319,6 +1326,9 @@
         if (showAll || statuses.includes('CANCELLED')) {
             items = items.concat(state.cancelled.filter(i => i.entityType !== 'ADVISORY' && i.entityType !== 'REROUTE'));
         }
+        if (showAll || statuses.includes('EXPIRED')) {
+            items = items.concat(state.expired.filter(i => i.entityType !== 'ADVISORY' && i.entityType !== 'REROUTE'));
+        }
 
         // Apply requesting facility filter with hierarchy expansion
         if (state.filters.reqFacilities && state.filters.reqFacilities.length > 0) {
@@ -1404,6 +1414,10 @@
             // Include both ADVISORY and REROUTE cancelled items
             items = items.concat(state.cancelled.filter(i => i.entityType === 'ADVISORY' || i.entityType === 'REROUTE'));
         }
+        if (showAll || statuses.includes('EXPIRED')) {
+            // Include both ADVISORY and REROUTE expired items
+            items = items.concat(state.expired.filter(i => i.entityType === 'ADVISORY' || i.entityType === 'REROUTE'));
+        }
 
         return items;
     }
@@ -1415,7 +1429,7 @@
     function showRestrictionDetails(id, type) {
         // Find the item - also check programs and reroutes
         // Use type parameter to ensure we find the correct item (avoid ID collisions between entity types)
-        const allItems = [...state.restrictions, ...state.programs, ...state.reroutes, ...state.advisories, ...state.scheduled, ...state.cancelled];
+        const allItems = [...state.restrictions, ...state.programs, ...state.reroutes, ...state.advisories, ...state.scheduled, ...state.cancelled, ...state.expired];
 
         // Map display type to entity type
         const entityTypeMap = {

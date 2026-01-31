@@ -1029,14 +1029,16 @@ input[type="time"] {
 /* Remove button on tags */
 #activeTmiFilters .select2-container .select2-selection__choice__remove {
     color: rgba(255, 255, 255, 0.7);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: normal;
     margin-right: 0;
-    margin-left: 0;
+    margin-left: 2px;
     padding: 0 2px;
     border: none;
     background: transparent;
     order: 1;
+    position: static;
+    float: none;
 }
 
 #activeTmiFilters .select2-container .select2-selection__choice__remove:hover {
@@ -1071,6 +1073,11 @@ input[type="time"] {
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Cancelled"],
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="CANCELLED"] {
     background-color: #dc3545;
+}
+
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Expired"],
+#activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="EXPIRED"] {
+    background-color: #6c757d;
 }
 
 /* Type filter colors */
