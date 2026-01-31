@@ -31,6 +31,7 @@ if (!defined("TMI_SQL_HOST") || !defined("TMI_SQL_DATABASE") ||
 $airport = isset($_GET['airport']) ? strtoupper(trim($_GET['airport'])) : '';
 $start = isset($_GET['start']) ? trim($_GET['start']) : '';
 $end = isset($_GET['end']) ? trim($_GET['end']) : '';
+$includeProposed = isset($_GET['include_proposed']) && $_GET['include_proposed'] === 'true';
 
 // Validate airport
 if (empty($airport)) {
@@ -85,6 +86,11 @@ try {
 // Query for GS and GDP programs overlapping the time range
 // Use cumulative_start/cumulative_end if available (for tracking full program history)
 // Fall back to start_utc/end_utc
+// By default, only show ACTIVE/COMPLETED programs (not PROPOSED models)
+$statusFilter = $includeProposed
+    ? ""  // Show all statuses
+    : "AND (status IN ('ACTIVE', 'COMPLETED') OR is_active = 1 OR activated_at IS NOT NULL)";
+
 $sql = "
     SELECT
         program_id,
@@ -112,6 +118,7 @@ $sql = "
           (cumulative_start IS NOT NULL AND cumulative_start < :range_end AND (cumulative_end IS NULL OR cumulative_end > :range_start))
           OR (cumulative_start IS NULL AND start_utc < :range_end2 AND (end_utc IS NULL OR end_utc > :range_start2))
       )
+      $statusFilter
     ORDER BY COALESCE(cumulative_start, start_utc) ASC
 ";
 
@@ -186,6 +193,7 @@ try {
         "airport_icao" => $airportNormalized,
         "programs" => $programs,
         "count" => count($programs),
+        "include_proposed" => $includeProposed,
         "query_range" => [
             "start" => $startDt->format('Y-m-d\TH:i:s\Z'),
             "end" => $endDt->format('Y-m-d\TH:i:s\Z')

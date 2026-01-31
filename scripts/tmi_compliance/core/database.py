@@ -20,6 +20,7 @@ class ADLConnection:
 
     def __init__(self):
         self.conn = None
+        self.driver = None  # 'pymssql' or 'pyodbc'
 
     def __enter__(self):
         self.connect()
@@ -27,6 +28,25 @@ class ADLConnection:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    @property
+    def param_style(self) -> str:
+        """Return parameter placeholder style for the current driver.
+
+        - pymssql uses %s (pyformat)
+        - pyodbc uses ? (qmark)
+        """
+        return '%s' if self.driver == 'pymssql' else '?'
+
+    def format_query(self, query: str) -> str:
+        """Convert query with %s placeholders to the correct format for current driver.
+
+        All queries should be written with %s placeholders. This method converts
+        them to ? for pyodbc when necessary.
+        """
+        if self.driver == 'pyodbc':
+            return query.replace('%s', '?')
+        return query
 
     def connect(self):
         """Establish database connection using pymssql (or pyodbc fallback)"""
@@ -51,6 +71,7 @@ class ADLConnection:
                 login_timeout=30,
                 as_dict=False
             )
+            self.driver = 'pymssql'
             logger.info("Connected to VATSIM_ADL via pymssql")
             return self.conn
         except ImportError:
@@ -69,6 +90,7 @@ class ADLConnection:
             f"Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30"
         )
         self.conn = pyodbc.connect(conn_str)
+        self.driver = 'pyodbc'
         logger.info("Connected to VATSIM_ADL via pyodbc")
         return self.conn
 
