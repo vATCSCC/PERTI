@@ -632,6 +632,19 @@ window.DemandChartCore = (function() {
                                 }
                             });
                             tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ' + total + '</strong>';
+                            // Add rate information if available
+                            if (state.rateData && state.rateData.rates) {
+                                var rates = state.rateData.rates;
+                                var proRateFactor = getGranularityMinutes(state.granularity) / 60;
+                                var aar = rates.vatsim_aar ? Math.round(rates.vatsim_aar * proRateFactor) : null;
+                                var adr = rates.vatsim_adr ? Math.round(rates.vatsim_adr * proRateFactor) : null;
+                                if (aar || adr) {
+                                    tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/>';
+                                    if (aar) tooltip += '<span style="color:#000;">AAR: <strong>' + aar + '</strong></span>';
+                                    if (aar && adr) tooltip += ' / ';
+                                    if (adr) tooltip += '<span style="color:#000;">ADR: <strong>' + adr + '</strong></span>';
+                                }
+                            }
                             return tooltip;
                         }
                     },
@@ -2861,6 +2874,14 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                     }
                 });
                 tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
+                // Add rate information if available
+                const rates = getRatesForTimestamp(timestamp);
+                if (rates && (rates.aar || rates.adr)) {
+                    tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/>`;
+                    if (rates.aar) tooltip += `<span style="color:#000;">AAR: <strong>${rates.aar}</strong></span>`;
+                    if (rates.aar && rates.adr) tooltip += ` / `;
+                    if (rates.adr) tooltip += `<span style="color:#000;">ADR: <strong>${rates.adr}</strong></span>`;
+                }
                 return tooltip;
             }
         },

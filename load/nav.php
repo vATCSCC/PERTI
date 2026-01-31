@@ -128,13 +128,16 @@ if (!function_exists('render_standalone_link')) {
 }
 
 if (!function_exists('render_dropdown')) {
-    function render_dropdown($key, $group, $filepath) {
+    function render_dropdown($key, $group, $filepath, $perm = false) {
         $html = '<li class="nav-item dropdown">';
         $html .= '<a class="nav-link dropdown-toggle" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
         $html .= $group['label'];
         $html .= '</a>';
         $html .= '<div class="dropdown-menu" aria-labelledby="nav-' . $key . '">';
         foreach ($group['items'] as $item) {
+            // Check item-level permission
+            $item_requires_perm = isset($item['perm']) && $item['perm'];
+            if ($item_requires_perm && !$perm) continue;
             $html .= render_nav_item($item, $filepath);
         }
         $html .= '</div>';
@@ -173,7 +176,7 @@ if (!function_exists('render_dropdown')) {
 
                 // Render as dropdown or standalone link
                 if (isset($group['items'])) {
-                    echo render_dropdown($key, $group, $filepath);
+                    echo render_dropdown($key, $group, $filepath, $perm);
                 } else {
                     echo render_standalone_link($group, $filepath);
                 }
