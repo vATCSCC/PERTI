@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import requests
-from core.models import EventConfig
+from core.models import EventConfig, TMI, TMIType
 from core.ntml_parser import parse_ntml_to_tmis
 from core.analyzer import TMIComplianceAnalyzer
 
@@ -79,6 +79,16 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
                 continue
         raise ValueError(f"Could not parse datetime: {dt_str}")
 
+    def parse_time_window(time_str: str, base_date) -> datetime:
+        """Parse HHMM time and combine with base date"""
+        time_str = time_str.replace(':', '').replace('Z', '').strip()
+        if len(time_str) >= 4:
+            hour = int(time_str[:2])
+            minute = int(time_str[2:4])
+            result = datetime(base_date.year, base_date.month, base_date.day, hour, minute)
+            return result
+        return None
+
     event_start = parse_datetime(event_start_str)
     event_end = parse_datetime(event_end_str)
 
@@ -90,12 +100,66 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
         destinations=destinations
     )
 
-    # Parse NTML text into TMIs
-    ntml_text = config.get('ntml_text', '')
-    if ntml_text:
-        tmis = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
+    # Use pre-parsed TMIs from API if available
+    parsed_tmis = config.get('parsed_tmis', [])
+    if parsed_tmis:
+        tmis = []
+        for pt in parsed_tmis:
+            tmi_type_str = pt.get('type', 'MIT').upper()
+            tmi_type = TMIType.MIT  # default
+            if tmi_type_str == 'MINIT':
+                tmi_type = TMIType.MINIT
+            elif tmi_type_str == 'GS':
+                tmi_type = TMIType.GS
+            elif tmi_type_str == 'APREQ':
+                tmi_type = TMIType.APREQ
+            elif tmi_type_str == 'CFR':
+                tmi_type = TMIType.CFR
+
+            fix = pt.get('fix', '')
+            dest = pt.get('dest', '')
+
+            # Parse time window from raw text (format: "HHMM-HHMM")
+            raw = pt.get('raw', '')
+            start_utc = event_start
+            end_utc = event_end
+
+            # Extract time window from raw text (e.g., "0045-0320")
+            import re
+            time_match = re.search(r'(\d{4})-(\d{4})', raw)
+            if time_match:
+                start_utc = parse_time_window(time_match.group(1), event_start.date())
+                end_utc = parse_time_window(time_match.group(2), event_start.date())
+                # Handle overnight (if end < start, end is next day)
+                if end_utc and start_utc and end_utc < start_utc:
+                    end_utc = end_utc + timedelta(days=1)
+
+            # Handle destinations
+            dest_list = [dest] if dest and dest.upper() not in ['ALL', 'ANY', 'DEPARTURES'] else destinations
+
+            tmi = TMI(
+                tmi_id=f'{tmi_type.value}_{fix}_{dest}',
+                tmi_type=tmi_type,
+                fix=fix if fix else None,
+                destinations=dest_list,
+                value=pt.get('value', 0),
+                unit='nm' if tmi_type == TMIType.MIT else 'min',
+                provider=pt.get('provider', ''),
+                requestor=pt.get('requestor', ''),
+                start_utc=start_utc,
+                end_utc=end_utc
+            )
+            tmis.append(tmi)
+
         event.tmis = tmis
-        logger.info(f"Parsed {len(tmis)} TMIs from NTML")
+        logger.info(f"Loaded {len(tmis)} pre-parsed TMIs from API")
+    else:
+        # Fallback: try to parse NTML text directly
+        ntml_text = config.get('ntml_text', '')
+        if ntml_text:
+            tmis = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
+            event.tmis = tmis
+            logger.info(f"Parsed {len(tmis)} TMIs from NTML text")
 
     return event
 
