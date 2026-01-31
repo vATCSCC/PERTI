@@ -4,12 +4,11 @@ TMI Compliance Analyzer - Database Connections
 
 Database connection handlers for Azure SQL (ADL) and PostGIS (GIS).
 Uses environment variables for credentials.
-
-NOTE: pyodbc and psycopg2 are imported lazily in connect() methods
-to avoid import failures at module load time on Azure Functions.
 """
 
 import os
+import pyodbc
+import psycopg2
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,8 +29,6 @@ class ADLConnection:
 
     def connect(self):
         """Establish database connection"""
-        import pyodbc  # Lazy import
-
         host = os.environ.get('ADL_SQL_HOST', 'vatsim.database.windows.net')
         database = os.environ.get('ADL_SQL_DATABASE', 'VATSIM_ADL')
         username = os.environ.get('ADL_SQL_USERNAME', 'adl_api_user')
@@ -77,8 +74,6 @@ class GISConnection:
 
     def connect(self):
         """Establish database connection"""
-        import psycopg2  # Lazy import
-
         host = os.environ.get('GIS_SQL_HOST', 'vatcscc-gis.postgres.database.azure.com')
         port = int(os.environ.get('GIS_SQL_PORT', '5432'))
         database = os.environ.get('GIS_SQL_DATABASE', 'VATSIM_GIS')

@@ -127,13 +127,6 @@ class TMIComplianceAnalyzer:
 
         cursor.close()
 
-    def _normalize_icao(self, code: str) -> List[str]:
-        """Convert FAA codes to ICAO codes (add K prefix for US)"""
-        code = code.upper().strip()
-        if len(code) == 3:
-            return [f'K{code}', code]  # Include both KLAS and LAS
-        return [code]
-
     def _get_flights_for_tmi(self, tmi: TMI) -> Dict[str, Any]:
         """Get flights affected by a TMI based on its scope"""
         cursor = self.adl_conn.cursor()
@@ -143,18 +136,11 @@ class TMIComplianceAnalyzer:
         orig_filter = ""
 
         if tmi.destinations:
-            # Handle FAA vs ICAO codes (LAS vs KLAS)
-            all_dests = []
-            for d in tmi.destinations:
-                all_dests.extend(self._normalize_icao(d))
-            dest_in = "'" + "','".join(all_dests) + "'"
+            dest_in = "'" + "','".join(tmi.destinations) + "'"
             dest_filter = f"AND p.fp_dest_icao IN ({dest_in})"
 
         if tmi.origins:
-            all_origs = []
-            for o in tmi.origins:
-                all_origs.extend(self._normalize_icao(o))
-            orig_in = "'" + "','".join(all_origs) + "'"
+            orig_in = "'" + "','".join(tmi.origins) + "'"
             orig_filter = f"AND p.fp_dept_icao IN ({orig_in})"
 
         # Use WIDEST window
@@ -189,22 +175,6 @@ class TMIComplianceAnalyzer:
         cursor.close()
         return flights
 
-    def _get_trajectory_table(self, event_time: datetime) -> str:
-        """
-        Determine which trajectory table to use based on event age.
-        - adl_flight_trajectory: hot tier (<24 hours old)
-        - adl_trajectory_archive: warm tier (>24 hours old)
-        """
-        now = datetime.utcnow()
-        hours_old = (now - event_time).total_seconds() / 3600
-
-        if hours_old < 24:
-            logger.info(f"Event is {hours_old:.1f}h old - using hot tier (adl_flight_trajectory)")
-            return "dbo.adl_flight_trajectory"
-        else:
-            logger.info(f"Event is {hours_old:.1f}h old - using archive tier (adl_trajectory_archive)")
-            return "dbo.adl_trajectory_archive"
-
     def _detect_crossings(self, fix_name: str, fix_lat: float, fix_lon: float,
                           callsigns: List[str], tmi: TMI) -> List[CrossingResult]:
         """Detect fix crossings using trajectory data"""
@@ -213,9 +183,6 @@ class TMIComplianceAnalyzer:
 
         tmi_start = tmi.start_utc
         tmi_end = tmi.get_effective_end()
-
-        # Determine which trajectory table to use based on event age
-        trajectory_table = self._get_trajectory_table(tmi_start)
 
         # Bounding box filter
         lat_margin = 0.18  # ~11nm
@@ -227,7 +194,7 @@ class TMIComplianceAnalyzer:
             SELECT t.callsign, t.flight_uid, t.timestamp_utc,
                    t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
                    p.fp_dept_icao, p.fp_dest_icao
-            FROM {trajectory_table} t
+            FROM dbo.adl_trajectory_archive t
             INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
             WHERE t.timestamp_utc >= ?
               AND t.timestamp_utc <= ?
@@ -435,11 +402,7 @@ class TMIComplianceAnalyzer:
         cursor = self.adl_conn.cursor()
 
         # Get flights from affected origins to destinations
-        # Handle FAA vs ICAO codes (LAS vs KLAS)
-        all_dests = []
-        for d in (tmi.destinations or []):
-            all_dests.extend(self._normalize_icao(d))
-        dest_in = "'" + "','".join(all_dests) + "'" if all_dests else "''"
+        dest_in = "'" + "','".join(tmi.destinations) + "'" if tmi.destinations else "''"
 
         # For GS, get ALL flights to destination during event window
         cursor.execute(f"""

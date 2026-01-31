@@ -567,6 +567,14 @@ def parse_runway_assignments(atis_text: str, atis_type: str = None) -> tuple[set
         runways = _extract_runway_numbers(match.group(1))
         landing_runways.update(runways)
 
+    # Pattern 19: "[approach type] RWY XX APCH/APPROACH" format
+    # Handles ATIS formats where approach type precedes runway and is followed by APCH/APPROACH
+    # Examples: "ILS RWY 27 APCH", "RNAV RWY 32 APCH IN USE", "GPS RUNWAY 04L APPROACH"
+    apch_suffix_pattern = rf'(?:{APPROACH_TYPES})\s+(?:RWY|RY|RUNWAY)\s*([0-3]?\d[LRC]?)\s*(?:APCH|APPROACH)'
+    for match in re.finditer(apch_suffix_pattern, text, re.IGNORECASE):
+        runways = _extract_runway_numbers(match.group(1))
+        landing_runways.update(runways)
+
     return landing_runways, departing_runways
 
 
