@@ -823,6 +823,9 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             type_counts[line_type] = type_counts.get(line_type, 0) + 1
         logger.info(f"Skipped {len(skipped_lines)} non-TMI lines: {type_counts}")
 
+    # Link TMI amendments (without cancellations - use parse_ntml_full for full processing)
+    tmis = link_tmi_amendments(tmis)
+
     logger.info(f"Parsed {len(tmis)} TMIs from NTML text")
     return tmis
 
@@ -1156,6 +1159,9 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
 
     # Detect delay trends by comparing sequential entries
     delays = detect_delay_trends(delays)
+
+    # Link TMI amendments and apply cancellations
+    tmis = link_tmi_amendments(tmis, cancellations)
 
     # Log summary
     logger.info(f"NTML parse complete: {len(tmis)} TMIs, {len(delays)} delays, "

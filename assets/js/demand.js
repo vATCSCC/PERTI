@@ -3967,9 +3967,8 @@ function buildTimeBoundedRateMarkLines() {
                     : `AAR ${rates.vatsim_aar}`;
 
                 const showLabel = isLastGap && !vatsimAarLabeled;
-                const verticalOffset = showLabel ? labelIndex * 20 : 0;
+                const verticalOffset = showLabel ? getLabelOffset(gap.end, proRatedValue, true) : 0;
                 if (showLabel) {
-                    labelIndex++;
                     vatsimAarLabeled = true;
                 }
 
@@ -4012,9 +4011,8 @@ function buildTimeBoundedRateMarkLines() {
                     : `ADR ${rates.vatsim_adr}`;
 
                 const showLabel = isLastGap && !vatsimAdrLabeled;
-                const verticalOffset = showLabel ? labelIndex * 20 : 0;
+                const verticalOffset = showLabel ? getLabelOffset(gap.end, proRatedValue, false) : 0;
                 if (showLabel) {
-                    labelIndex++;
                     vatsimAdrLabeled = true;
                 }
 
