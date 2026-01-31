@@ -359,6 +359,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             </div>
         `;
 
+        // TMI Gantt Chart (Timeline)
+        html += this.renderGanttChart();
+
         // Event Statistics Section
         html += this.renderEventStatistics();
 
@@ -953,6 +956,234 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
             </div>
         `;
+    },
+
+    // Render TMI Gantt Chart (Timeline visualization)
+    renderGanttChart: function() {
+        if (!this.results) return '';
+
+        // Collect all TMIs for the timeline
+        const allTmis = [];
+
+        // MIT/MINIT results
+        const mitResults = this.results.mit_results || {};
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        mitArray.forEach((r, i) => {
+            if (r.pairs > 0 || r.crossings > 0 || r.total_crossings > 0) {
+                allTmis.push({
+                    type: 'MIT',
+                    label: r.fix || r.destinations?.join(',') || 'MIT',
+                    sublabel: `${r.required || 0}${r.unit === 'min' ? 'min' : 'nm'}`,
+                    start: r.tmi_start,
+                    end: r.tmi_end,
+                    compliance: r.compliance_pct || 0,
+                    cardId: `mit_detail_${i + 1}`,
+                    cancelled: r.cancelled || false
+                });
+            }
+        });
+
+        // Ground Stop results
+        const gsResults = this.results.gs_results || [];
+        gsResults.forEach((r, i) => {
+            allTmis.push({
+                type: 'GS',
+                label: (r.destinations || []).join(',') || 'GS',
+                sublabel: 'Ground Stop',
+                start: r.gs_start,
+                end: r.gs_end,
+                compliance: r.compliance_pct || 0,
+                cardId: `gs_detail_${mitArray.length + i + 1}`,
+                cancelled: false
+            });
+        });
+
+        // APREQ results
+        const apreqResults = this.results.apreq_results || {};
+        const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+        apreqArray.forEach((r, i) => {
+            allTmis.push({
+                type: 'APREQ',
+                label: r.fix || r.destinations?.join(',') || 'APREQ',
+                sublabel: 'CFR',
+                start: r.tmi_start,
+                end: r.tmi_end,
+                compliance: null, // APREQ is tracking only
+                cardId: `apreq_detail_${mitArray.length + gsResults.length + i + 1}`,
+                cancelled: r.cancelled || false
+            });
+        });
+
+        if (allTmis.length === 0) return '';
+
+        // Parse event start/end times
+        const eventStart = this.parseEventTime(this.results.event_start);
+        const eventEnd = this.parseEventTime(this.results.event_end);
+
+        if (!eventStart || !eventEnd) return '';
+
+        const eventDurationMs = eventEnd - eventStart;
+        const eventDurationHours = eventDurationMs / (1000 * 60 * 60);
+
+        // Chart dimensions
+        const chartWidth = 800;
+        const leftMargin = 120;  // Space for labels
+        const rightMargin = 20;
+        const timelineWidth = chartWidth - leftMargin - rightMargin;
+        const rowHeight = 32;
+        const headerHeight = 40;
+        const chartHeight = headerHeight + (allTmis.length * rowHeight) + 20;
+
+        // Build SVG
+        let svg = '';
+
+        // Background
+        svg += `<rect x="0" y="0" width="${chartWidth}" height="${chartHeight}" fill="#f8f9fa"/>`;
+
+        // Draw time axis
+        const hoursToShow = Math.ceil(eventDurationHours);
+        const pixelsPerHour = timelineWidth / eventDurationHours;
+
+        // Hour grid lines and labels
+        for (let h = 0; h <= hoursToShow; h++) {
+            const x = leftMargin + (h * pixelsPerHour);
+            const hourTime = new Date(eventStart.getTime() + (h * 60 * 60 * 1000));
+            const hourLabel = hourTime.getUTCHours().toString().padStart(2, '0') + ':00Z';
+
+            // Grid line
+            svg += `<line x1="${x}" y1="${headerHeight}" x2="${x}" y2="${chartHeight - 10}" stroke="#dee2e6" stroke-width="1"/>`;
+
+            // Hour label
+            svg += `<text x="${x}" y="${headerHeight - 10}" text-anchor="middle" font-size="10" fill="#666">${hourLabel}</text>`;
+        }
+
+        // Draw TMI bars
+        allTmis.forEach((tmi, i) => {
+            const y = headerHeight + (i * rowHeight) + 4;
+            const barHeight = rowHeight - 8;
+
+            // Parse TMI times (format: "HH:MMZ" or similar)
+            const tmiStart = this.parseTmiTime(tmi.start, eventStart);
+            const tmiEnd = this.parseTmiTime(tmi.end, eventStart);
+
+            if (!tmiStart || !tmiEnd) return;
+
+            // Calculate bar position
+            const startOffset = Math.max(0, (tmiStart - eventStart) / eventDurationMs);
+            const endOffset = Math.min(1, (tmiEnd - eventStart) / eventDurationMs);
+            const barX = leftMargin + (startOffset * timelineWidth);
+            const barWidth = Math.max(10, (endOffset - startOffset) * timelineWidth);
+
+            // Determine color based on type
+            let barColor = '#007bff'; // MIT default blue
+            if (tmi.type === 'GS') barColor = '#dc3545'; // Red for ground stop
+            else if (tmi.type === 'APREQ') barColor = '#17a2b8'; // Cyan for APREQ
+
+            // Compliance-based styling
+            let opacity = 1;
+            let pattern = '';
+            if (tmi.cancelled) {
+                pattern = ' stroke-dasharray="5,5"';
+                opacity = 0.5;
+            } else if (tmi.compliance !== null && tmi.compliance < 75) {
+                opacity = 0.7;
+            }
+
+            // TMI label (left side)
+            svg += `<text x="${leftMargin - 5}" y="${y + barHeight/2 + 4}" text-anchor="end" font-size="11" fill="#333" font-weight="bold">${tmi.label}</text>`;
+
+            // TMI bar
+            svg += `<rect x="${barX}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${barColor}" opacity="${opacity}" rx="3"${pattern}
+                         class="gantt-bar" data-tmi-index="${i}" style="cursor:pointer;"
+                         onclick="TMICompliance.scrollToTmiCard(${i})"/>`;
+
+            // Sublabel inside bar (if room)
+            if (barWidth > 50) {
+                svg += `<text x="${barX + 5}" y="${y + barHeight/2 + 4}" font-size="9" fill="#fff">${tmi.sublabel}</text>`;
+            }
+
+            // Compliance badge (right of bar)
+            if (tmi.compliance !== null) {
+                const badgeX = barX + barWidth + 5;
+                const compClass = tmi.compliance >= 90 ? '#28a745' : (tmi.compliance >= 75 ? '#ffc107' : '#dc3545');
+                svg += `<text x="${badgeX}" y="${y + barHeight/2 + 4}" font-size="9" fill="${compClass}" font-weight="bold">${tmi.compliance.toFixed(0)}%</text>`;
+            } else {
+                const badgeX = barX + barWidth + 5;
+                svg += `<text x="${badgeX}" y="${y + barHeight/2 + 4}" font-size="9" fill="#6c757d" font-style="italic">track</text>`;
+            }
+        });
+
+        // Legend
+        const legendY = 8;
+        const legendHtml = `
+            <div class="gantt-legend d-flex align-items-center small text-muted">
+                <span class="mr-3"><span class="legend-box" style="background:#007bff;"></span> MIT/MINIT</span>
+                <span class="mr-3"><span class="legend-box" style="background:#dc3545;"></span> Ground Stop</span>
+                <span class="mr-3"><span class="legend-box" style="background:#17a2b8;"></span> APREQ/CFR</span>
+                <span class="mr-3"><span class="legend-line legend-dashed"></span> Cancelled</span>
+            </div>
+        `;
+
+        return `
+            <div class="tmi-gantt-chart card mb-3">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-stream"></i> TMI Timeline</span>
+                    ${legendHtml}
+                </div>
+                <div class="card-body p-2">
+                    <div class="gantt-container" style="overflow-x:auto;">
+                        <svg width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" style="min-width:${chartWidth}px;">
+                            ${svg}
+                        </svg>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        <i class="fas fa-info-circle"></i> Click on a TMI bar to scroll to its detailed analysis below.
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    // Parse event time string (format: "2026-01-18T00:00:00" or "2026-01-18 00:00")
+    parseEventTime: function(timeStr) {
+        if (!timeStr) return null;
+        const d = new Date(timeStr);
+        return isNaN(d.getTime()) ? null : d;
+    },
+
+    // Parse TMI time string (format: "HH:MMZ" or "HHMM") relative to event date
+    parseTmiTime: function(timeStr, eventStart) {
+        if (!timeStr || !eventStart) return null;
+
+        // Extract hours and minutes from various formats
+        let match = timeStr.match(/(\d{2}):?(\d{2})Z?/);
+        if (!match) return null;
+
+        const hours = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+
+        // Create date based on event start date
+        const result = new Date(eventStart);
+        result.setUTCHours(hours, minutes, 0, 0);
+
+        // Handle wrap-around (e.g., 23:59Z to 04:00Z)
+        if (result < eventStart) {
+            result.setUTCDate(result.getUTCDate() + 1);
+        }
+
+        return result;
+    },
+
+    // Scroll to TMI detail card when clicking gantt bar
+    scrollToTmiCard: function(index) {
+        // Find all TMI cards and scroll to the one at this index
+        const cards = document.querySelectorAll('.tmi-card');
+        if (cards[index]) {
+            cards[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Flash highlight
+            cards[index].classList.add('highlight-flash');
+            setTimeout(() => cards[index].classList.remove('highlight-flash'), 1500);
+        }
     },
 
     renderMitCard: function(r) {

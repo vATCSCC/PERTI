@@ -627,6 +627,63 @@ include("sessions/handler.php");
         .tmi-filters .gap-2 {
             gap: 0.5rem !important;
         }
+
+        /* TMI Gantt Chart (Timeline) */
+        .tmi-gantt-chart {
+            border: 1px solid #dee2e6;
+        }
+        .tmi-gantt-chart .card-header {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .gantt-container {
+            scrollbar-width: thin;
+        }
+        .gantt-container::-webkit-scrollbar {
+            height: 6px;
+        }
+        .gantt-container::-webkit-scrollbar-thumb {
+            background: #ced4da;
+            border-radius: 3px;
+        }
+        .gantt-bar {
+            transition: opacity 0.2s ease, filter 0.2s ease;
+        }
+        .gantt-bar:hover {
+            filter: brightness(1.15);
+            opacity: 1 !important;
+        }
+        .gantt-legend {
+            font-size: 11px;
+        }
+        .gantt-legend .legend-box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 3px;
+        }
+        .gantt-legend .legend-line {
+            width: 20px;
+            height: 3px;
+            display: inline-block;
+            border-radius: 1px;
+            vertical-align: middle;
+            margin-right: 3px;
+        }
+        .gantt-legend .legend-dashed {
+            background: repeating-linear-gradient(90deg, #6c757d 0, #6c757d 4px, transparent 4px, transparent 8px);
+        }
+        /* Highlight flash animation for scrollToTmiCard */
+        .tmi-card.highlight-flash {
+            animation: highlightPulse 1.5s ease-out;
+        }
+        @keyframes highlightPulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+        }
     </style>
 
     <!-- Chart.js CDN -->
