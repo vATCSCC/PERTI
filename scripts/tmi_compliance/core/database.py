@@ -140,7 +140,10 @@ class GISConnection:
             password=password,
             sslmode='require'
         )
-        logger.info("Connected to VATSIM_GIS (PostGIS)")
+        # Enable autocommit to prevent transaction state issues
+        # This ensures each query runs in its own transaction
+        self.conn.autocommit = True
+        logger.info("Connected to VATSIM_GIS (PostGIS) with autocommit=True")
         return self.conn
 
     def cursor(self):
