@@ -817,8 +817,11 @@ window.DemandChart = {
 let DEMAND_STATE = {
     selectedAirport: null,
     granularity: 'hourly',
-    timeRangeStart: -2, // hours before now
-    timeRangeEnd: 14,   // hours after now
+    timeRangeStart: -2, // hours before now (null if custom)
+    timeRangeEnd: 14,   // hours after now (null if custom)
+    timeRangeMode: 'preset', // 'preset' or 'custom'
+    customStart: null,  // ISO datetime string for custom start
+    customEnd: null,    // ISO datetime string for custom end
     direction: 'both',
     category: 'all',
     artcc: '',
@@ -903,6 +906,16 @@ function getARTCCColor(artcc) {
     return `hsl(${hue}, 70%, 50%)`;
 }
 
+// Format date for datetime-local input (YYYY-MM-DDTHH:MM in local time)
+function formatDateTimeLocal(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 // Time range options (from design document)
 const TIME_RANGE_OPTIONS = [
     { value: 'T-2/+14', label: 'T-2H/T+14H', start: -2, end: 14 },
@@ -910,7 +923,8 @@ const TIME_RANGE_OPTIONS = [
     { value: 'T-3/+6', label: 'T-3H/T+6H', start: -3, end: 6 },
     { value: 'T-6/+6', label: '+/- 6H', start: -6, end: 6 },
     { value: 'T-12/+12', label: '+/- 12H', start: -12, end: 12 },
-    { value: 'T-24/+24', label: '+/- 24H', start: -24, end: 24 }
+    { value: 'T-24/+24', label: '+/- 24H', start: -24, end: 24 },
+    { value: 'custom', label: 'Custom...', start: null, end: null }
 ];
 
 // ARTCC tier data (loaded from JSON)
@@ -1175,9 +1189,60 @@ function setupEventHandlers() {
     // Time range - invalidates cache as time window changes
     $('#demand_time_range').on('change', function() {
         const $selected = $(this).find(':selected');
-        DEMAND_STATE.timeRangeStart = parseInt($selected.data('start'));
-        DEMAND_STATE.timeRangeEnd = parseInt($selected.data('end'));
-        invalidateCache(); // Time range changes require fresh data
+        const value = $selected.val();
+
+        if (value === 'custom') {
+            // Show custom time range inputs
+            $('#custom_time_range_container').show();
+            DEMAND_STATE.timeRangeMode = 'custom';
+
+            // Initialize with current calculated range as default
+            const now = new Date();
+            const defaultStart = new Date(now.getTime() - 2 * 60 * 60 * 1000); // T-2H
+            const defaultEnd = new Date(now.getTime() + 14 * 60 * 60 * 1000);  // T+14H
+
+            // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+            $('#demand_custom_start').val(formatDateTimeLocal(defaultStart));
+            $('#demand_custom_end').val(formatDateTimeLocal(defaultEnd));
+        } else {
+            // Hide custom inputs, use preset
+            $('#custom_time_range_container').hide();
+            DEMAND_STATE.timeRangeMode = 'preset';
+            DEMAND_STATE.timeRangeStart = parseInt($selected.data('start'));
+            DEMAND_STATE.timeRangeEnd = parseInt($selected.data('end'));
+            DEMAND_STATE.customStart = null;
+            DEMAND_STATE.customEnd = null;
+            invalidateCache(); // Time range changes require fresh data
+            if (DEMAND_STATE.selectedAirport) {
+                loadDemandData();
+            }
+        }
+    });
+
+    // Apply custom time range button
+    $('#apply_custom_range').on('click', function() {
+        const startVal = $('#demand_custom_start').val();
+        const endVal = $('#demand_custom_end').val();
+
+        if (!startVal || !endVal) {
+            showError('Please select both start and end times');
+            return;
+        }
+
+        const startDate = new Date(startVal);
+        const endDate = new Date(endVal);
+
+        if (endDate <= startDate) {
+            showError('End time must be after start time');
+            return;
+        }
+
+        // Store as ISO strings
+        DEMAND_STATE.customStart = startDate.toISOString();
+        DEMAND_STATE.customEnd = endDate.toISOString();
+        DEMAND_STATE.timeRangeMode = 'custom';
+
+        invalidateCache();
         if (DEMAND_STATE.selectedAirport) {
             loadDemandData();
         }
@@ -1333,10 +1398,18 @@ function loadDemandData() {
     $('#demand_empty_state').hide();
     $('#demand_chart').show();
 
-    // Calculate time range using asymmetric start/end offsets
-    const now = new Date();
-    const start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 60 * 60 * 1000);
-    const end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 60 * 60 * 1000);
+    // Calculate time range - use custom values or preset offsets
+    let start, end;
+    if (DEMAND_STATE.timeRangeMode === 'custom' && DEMAND_STATE.customStart && DEMAND_STATE.customEnd) {
+        // Use custom time range
+        start = new Date(DEMAND_STATE.customStart);
+        end = new Date(DEMAND_STATE.customEnd);
+    } else {
+        // Use preset offset from current time
+        const now = new Date();
+        start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 60 * 60 * 1000);
+        end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 60 * 60 * 1000);
+    }
 
     const params = new URLSearchParams({
         airport: airport,
@@ -3771,9 +3844,16 @@ function formatTimeLabel(isoString) {
  * This ensures the x-axis shows all time slots, not just those with data
  */
 function generateAllTimeBins() {
-    const now = new Date();
-    const start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 60 * 60 * 1000);
-    const end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 60 * 60 * 1000);
+    // Calculate time range - use custom values or preset offsets
+    let start, end;
+    if (DEMAND_STATE.timeRangeMode === 'custom' && DEMAND_STATE.customStart && DEMAND_STATE.customEnd) {
+        start = new Date(DEMAND_STATE.customStart);
+        end = new Date(DEMAND_STATE.customEnd);
+    } else {
+        const now = new Date();
+        start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 60 * 60 * 1000);
+        end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 60 * 60 * 1000);
+    }
 
     // Round start down and end up to nearest interval
     const intervalMinutes = getGranularityMinutes();

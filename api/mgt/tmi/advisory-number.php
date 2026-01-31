@@ -2,12 +2,13 @@
 /**
  * TMI Advisory Number API
  *
- * Returns the next advisory number for today.
+ * Returns advisory number information for today.
  *
  * GET /api/mgt/tmi/advisory-number.php
  * Query params:
  *   - peek=1: Return next number without consuming it (default)
  *   - reserve=1: Reserve the number (increments counter)
+ *   - all=1: Return previous, current, and next numbers
  *
  * Response:
  * {
@@ -15,13 +16,15 @@
  *   "advisory_number": "ADVZY 001",
  *   "sequence": 1,
  *   "date": "2026-01-30",
- *   "reserved": false
+ *   "reserved": false,
+ *   "previous": 0,          // Only with all=1
+ *   "current": 0            // Only with all=1
  * }
  *
  * @package PERTI
  * @subpackage API/TMI
- * @version 1.0.0
- * @date 2026-01-30
+ * @version 2.0.0
+ * @date 2026-01-31
  */
 
 header('Content-Type: application/json');
@@ -46,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 // Load dependencies
 try {
     require_once __DIR__ . '/../../../load/config.php';
+    require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Config load error']);
@@ -54,6 +58,7 @@ try {
 
 // Parse query params
 $reserve = isset($_GET['reserve']) && $_GET['reserve'] == '1';
+$all = isset($_GET['all']) && $_GET['all'] == '1';
 
 // Connect to TMI database
 $tmiConn = null;
@@ -79,53 +84,45 @@ if (!$tmiConn) {
 }
 
 try {
-    $todayUtc = gmdate('Y-m-d');
-    $advisoryNumber = null;
-    $sequence = null;
-    $reserved = false;
+    $advNum = new AdvisoryNumber($tmiConn, 'pdo');
 
-    if ($reserve) {
-        // Reserve mode: Call stored procedure to get and increment
-        $stmt = $tmiConn->prepare("DECLARE @num NVARCHAR(16); EXEC dbo.sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS num;");
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $advisoryNumber = $row['num'] ?? null;
-        $reserved = true;
-
-        // Extract sequence number from advisory number (e.g., "ADVZY 001" -> 1)
-        if ($advisoryNumber && preg_match('/ADVZY\s*(\d+)/', $advisoryNumber, $matches)) {
-            $sequence = intval($matches[1]);
-        }
+    if ($all) {
+        // Return all info: previous, current, next
+        $info = $advNum->getAll($reserve);
+        echo json_encode([
+            'success' => true,
+            'advisory_number' => $info['next'],
+            'sequence' => $info['next_raw'],
+            'date' => $info['date'],
+            'reserved' => $info['reserved'],
+            'previous' => $info['previous'],
+            'previous_formatted' => $info['previous_formatted'],
+            'current' => $info['current'],
+            'current_formatted' => $info['current_formatted']
+        ]);
+    } else if ($reserve) {
+        // Reserve mode: Get and increment
+        $advisoryNumber = $advNum->reserve();
+        $sequence = $advNum->parse($advisoryNumber) ?? 1;
+        echo json_encode([
+            'success' => true,
+            'advisory_number' => $advisoryNumber,
+            'sequence' => $sequence,
+            'date' => gmdate('Y-m-d'),
+            'reserved' => true
+        ]);
     } else {
-        // Peek mode: Just read current sequence and calculate next without incrementing
-        $stmt = $tmiConn->prepare("SELECT seq_number FROM dbo.tmi_advisory_sequences WHERE seq_date = :today");
-        $stmt->execute([':today' => $todayUtc]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($row) {
-            // Next number is current + 1
-            $sequence = intval($row['seq_number']) + 1;
-        } else {
-            // No sequence for today yet, next would be 1
-            $sequence = 1;
-        }
-
-        $advisoryNumber = 'ADVZY ' . str_pad($sequence, 3, '0', STR_PAD_LEFT);
+        // Peek mode: Just read without incrementing
+        $advisoryNumber = $advNum->peek();
+        $sequence = $advNum->parse($advisoryNumber) ?? 1;
+        echo json_encode([
+            'success' => true,
+            'advisory_number' => $advisoryNumber,
+            'sequence' => $sequence,
+            'date' => gmdate('Y-m-d'),
+            'reserved' => false
+        ]);
     }
-
-    // Fallback if something went wrong
-    if (!$advisoryNumber) {
-        $advisoryNumber = 'ADVZY 001';
-        $sequence = 1;
-    }
-
-    echo json_encode([
-        'success' => true,
-        'advisory_number' => $advisoryNumber,
-        'sequence' => $sequence,
-        'date' => $todayUtc,
-        'reserved' => $reserved
-    ]);
 
 } catch (Exception $e) {
     http_response_code(500);
