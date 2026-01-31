@@ -326,7 +326,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Summary card
         const summary = this.results.summary || {};
         const mitCompliance = summary.mit?.compliance_pct || 0;
-        const gsCompliance = summary.gs?.compliance_pct || 100;
+        const gsResults = this.results.gs_results || {};
+        const hasGroundStops = Object.keys(gsResults).length > 0 || (Array.isArray(gsResults) && gsResults.length > 0);
+        const gsCompliance = hasGroundStops ? (summary.gs?.compliance_pct ?? 100) : null;
         const overall = summary.overall_compliance_pct || 0;
 
         html += `
@@ -342,7 +344,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="tmi-stat-label">MIT/MINIT Compliance</div>
                     </div>
                     <div class="summary-stat">
-                        <div class="summary-stat-value ${this.getComplianceClass(gsCompliance)}">${gsCompliance.toFixed(1)}%</div>
+                        <div class="summary-stat-value ${gsCompliance !== null ? this.getComplianceClass(gsCompliance) : 'text-muted'}">${gsCompliance !== null ? gsCompliance.toFixed(1) + '%' : 'N/A'}</div>
                         <div class="tmi-stat-label">Ground Stop Compliance</div>
                     </div>
                     <div class="summary-stat">
@@ -438,11 +440,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
         }
 
-        // Ground Stop Results
-        if (this.results.gs_results && this.results.gs_results.length > 0) {
+        // Ground Stop Results - handle both array and object formats
+        const gsResultsForCards = this.results.gs_results || {};
+        const gsResultsArray = Array.isArray(gsResultsForCards) ? gsResultsForCards : Object.values(gsResultsForCards);
+        if (gsResultsArray.length > 0) {
             html += '<h6 class="text-danger mb-3 mt-4"><i class="fas fa-ban"></i> Ground Stops</h6>';
 
-            for (const r of this.results.gs_results) {
+            for (const r of gsResultsArray) {
                 html += this.renderGsCard(r);
             }
         }
@@ -970,31 +974,39 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
         mitArray.forEach((r, i) => {
             if (r.pairs > 0 || r.crossings > 0 || r.total_crossings > 0) {
+                const crossings = r.crossings || r.total_crossings || 0;
+                const hasPairs = (r.pairs || 0) > 0 || crossings >= 2;
                 allTmis.push({
                     type: 'MIT',
                     label: r.fix || r.destinations?.join(',') || 'MIT',
                     sublabel: `${r.required || 0}${r.unit === 'min' ? 'min' : 'nm'}`,
                     start: r.tmi_start,
                     end: r.tmi_end,
-                    compliance: r.compliance_pct || 0,
+                    compliance: hasPairs ? (r.compliance_pct || 0) : null,
                     cardId: `mit_detail_${i + 1}`,
                     cancelled: r.cancelled || false
                 });
             }
         });
 
-        // Ground Stop results
-        const gsResults = this.results.gs_results || [];
-        gsResults.forEach((r, i) => {
+        // Ground Stop results - handle both array and object formats
+        const gsResultsData = this.results.gs_results || {};
+        const gsEntries = Array.isArray(gsResultsData)
+            ? gsResultsData.map((r, i) => [`gs_${i}`, r])
+            : Object.entries(gsResultsData);
+        gsEntries.forEach(([key, r], i) => {
+            // Extract airport from key (format: GS_NCT_KLAS_ALL -> LAS)
+            const keyParts = key.split('_');
+            const airportCode = keyParts.length >= 3 ? keyParts[2].replace(/^K/, '') : 'GS';
             allTmis.push({
                 type: 'GS',
-                label: (r.destinations || []).join(',') || 'GS',
+                label: r.destination || airportCode,
                 sublabel: 'Ground Stop',
                 start: r.gs_start,
                 end: r.gs_end,
-                compliance: r.compliance_pct || 0,
+                compliance: r.compliance_pct,
                 cardId: `gs_detail_${mitArray.length + i + 1}`,
-                cancelled: false
+                cancelled: r.cancelled || false
             });
         });
 
@@ -1025,11 +1037,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const eventDurationMs = eventEnd - eventStart;
         const eventDurationHours = eventDurationMs / (1000 * 60 * 60);
 
-        // Chart dimensions
-        const chartWidth = 800;
+        // Chart dimensions - calculate width based on event duration
         const leftMargin = 120;  // Space for labels
-        const rightMargin = 20;
-        const timelineWidth = chartWidth - leftMargin - rightMargin;
+        const rightMargin = 60;  // Space for compliance percentages
+        const pixelsPerHour = 130;  // Fixed scale
+        const hoursToShow = Math.ceil(eventDurationHours);
+        const timelineWidth = hoursToShow * pixelsPerHour;
+        const chartWidth = leftMargin + timelineWidth + rightMargin;
         const rowHeight = 32;
         const headerHeight = 40;
         const chartHeight = headerHeight + (allTmis.length * rowHeight) + 20;
@@ -1039,10 +1053,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Background
         svg += `<rect x="0" y="0" width="${chartWidth}" height="${chartHeight}" fill="#f8f9fa"/>`;
-
-        // Draw time axis
-        const hoursToShow = Math.ceil(eventDurationHours);
-        const pixelsPerHour = timelineWidth / eventDurationHours;
 
         // Hour grid lines and labels
         for (let h = 0; h <= hoursToShow; h++) {
@@ -1107,7 +1117,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 svg += `<text x="${badgeX}" y="${y + barHeight/2 + 4}" font-size="9" fill="${compClass}" font-weight="bold">${tmi.compliance.toFixed(0)}%</text>`;
             } else {
                 const badgeX = barX + barWidth + 5;
-                svg += `<text x="${badgeX}" y="${y + barHeight/2 + 4}" font-size="9" fill="#6c757d" font-style="italic">track</text>`;
+                // APREQ shows "track", MIT/GS with no pairs shows "N/A"
+                const nullLabel = tmi.type === 'APREQ' ? 'track' : 'N/A';
+                svg += `<text x="${badgeX}" y="${y + barHeight/2 + 4}" font-size="9" fill="#6c757d" font-style="italic">${nullLabel}</text>`;
             }
         });
 
@@ -1190,8 +1202,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     renderMitCard: function(r) {
-        const compPct = r.compliance_pct || 0;
-        const compClass = this.getComplianceClass(compPct);
+        const crossings = r.crossings || r.total_crossings || 0;
+        const pairs = r.pairs || 0;
+        const hasPairs = pairs > 0 || crossings >= 2;
+        const compPct = hasPairs ? (r.compliance_pct || 0) : null;
+        const compClass = compPct !== null ? this.getComplianceClass(compPct) : 'text-muted';
         const detailId = `mit_detail_${++this.detailIdCounter}`;
         const violationId = `mit_violations_${this.detailIdCounter}`;
         const diagramId = `mit_diagram_${this.detailIdCounter}`;
@@ -1233,7 +1248,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
                         ${measurementBadge}
                     </div>
-                    <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
+                    <div class="compliance-badge ${compClass}">${compPct !== null ? compPct.toFixed(1) + '%' : 'N/A'}</div>
                 </div>
                 <!-- Standardized TMI Notation -->
                 <div class="standardized-tmi mb-2">
@@ -1379,12 +1394,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const compClass = this.getComplianceClass(compPct);
         const detailId = `gs_detail_${++this.detailIdCounter}`;
 
-        const exemptFlights = r.exempt_flights || [];
-        const compliantFlights = r.compliant_flights || [];
-        const nonCompliantFlights = r.non_compliant_flights || [];
+        // Handle both naming conventions (exempt_flights OR exempt)
+        const exemptFlights = r.exempt_flights || r.exempt || [];
+        const compliantFlights = r.compliant_flights || r.compliant || [];
+        const nonCompliantFlights = r.non_compliant_flights || r.non_compliant || [];
         const exemptCount = r.exempt_count || exemptFlights.length;
         const compliantCount = r.compliant_count || compliantFlights.length;
-        const nonCompliantCount = r.non_compliant_count || nonCompliantFlights.length;
+        const nonCompliantCount = r.non_compliant_count || r.violations?.total || nonCompliantFlights.length;
 
         let html = `
             <div class="tmi-card gs-card">
