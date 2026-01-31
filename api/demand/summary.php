@@ -140,22 +140,7 @@ if ($debugStmt !== false) {
 
 // If time_bin is specified, return detailed flight list for that bin
 if ($timeBin !== null) {
-    // Debug: Log the query parameters
-    $response['_debug_time_bin'] = [
-        'raw_time_bin' => $timeBin,
-        'granularity' => $granularity,
-        'direction' => $direction
-    ];
     $response['flights'] = getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction, $granularity);
-    if (isset($GLOBALS['_debug_computed_range'])) {
-        $response['_debug_computed_range'] = $GLOBALS['_debug_computed_range'];
-    }
-    if (isset($GLOBALS['_debug_arr_query'])) {
-        $response['_debug_arr_query'] = $GLOBALS['_debug_arr_query'];
-    }
-    if (isset($GLOBALS['_debug_arr_errors'])) {
-        $response['_debug_arr_errors'] = $GLOBALS['_debug_arr_errors'];
-    }
 } else {
     // Return summary data
     $response['top_origins'] = getTopOrigins($conn, $helper, $airport, $startSQL, $endSQL);
@@ -765,28 +750,12 @@ function getFlightsForTimeBin($conn, $helper, $airport, $timeBin, $direction, $g
     $binStartSQL = $binStart->format('Y-m-d H:i:s');
     $binEndSQL = $binEnd->format('Y-m-d H:i:s');
 
-    // Debug: Store computed time range (will be added to response via global)
-    $GLOBALS['_debug_computed_range'] = [
-        'bin_start' => $binStartSQL,
-        'bin_end' => $binEndSQL
-    ];
-
     $flights = [];
 
     // Get arrivals
     if ($direction === 'arr' || $direction === 'both') {
         $query = $helper->buildFlightsForTimeBinQuery($airport, $binStartSQL, $binEndSQL, 'arr');
-
-        // Debug: Store query info
-        $GLOBALS['_debug_arr_query'] = [
-            'params' => $query['params']
-        ];
-
         $stmt = sqlsrv_query($conn, $query['sql'], $query['params']);
-
-        if ($stmt === false) {
-            $GLOBALS['_debug_arr_errors'] = sqlsrv_errors(SQLSRV_ERR_ALL);
-        }
 
         if ($stmt !== false) {
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {

@@ -1698,6 +1698,8 @@ class AdlQueryHelper {
                 ";
             }
         } else {
+            // Normalized tables - derive carrier from callsign prefix
+            // Note: weight_class not available in normalized tables (cross-db join not supported)
             if ($direction === 'arr') {
                 $sql = "
                     SELECT
@@ -1710,8 +1712,8 @@ class AdlQueryHelper {
                         c.phase,
                         c.is_active,
                         fp.aircraft_type,
-                        fp.airline_icao AS carrier,
-                        fp.weight_class,
+                        LEFT(c.callsign, 3) AS carrier,
+                        NULL AS weight_class,
                         fp.fp_rule AS flight_rules,
                         fp.dfix,
                         fp.afix,
@@ -1737,8 +1739,8 @@ class AdlQueryHelper {
                         c.phase,
                         c.is_active,
                         fp.aircraft_type,
-                        fp.airline_icao AS carrier,
-                        fp.weight_class,
+                        LEFT(c.callsign, 3) AS carrier,
+                        NULL AS weight_class,
                         fp.fp_rule AS flight_rules,
                         fp.dfix,
                         fp.afix,
