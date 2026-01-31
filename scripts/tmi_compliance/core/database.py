@@ -33,7 +33,10 @@ class ADLConnection:
         host = os.environ.get('ADL_SQL_HOST', 'vatsim.database.windows.net')
         database = os.environ.get('ADL_SQL_DATABASE', 'VATSIM_ADL')
         username = os.environ.get('ADL_SQL_USERNAME', 'adl_api_user')
-        password = os.environ.get('ADL_SQL_PASSWORD', '***REMOVED***')
+        password = os.environ.get('ADL_SQL_PASSWORD')
+
+        if not password:
+            raise ValueError("ADL_SQL_PASSWORD environment variable is required")
 
         logger.info(f"Connecting to ADL database at {host}")
 
@@ -101,7 +104,10 @@ class GISConnection:
         port = int(os.environ.get('GIS_SQL_PORT', '5432'))
         database = os.environ.get('GIS_SQL_DATABASE', 'VATSIM_GIS')
         username = os.environ.get('GIS_SQL_USERNAME', 'GIS_admin')
-        password = os.environ.get('GIS_SQL_PASSWORD', '***REMOVED***')
+        password = os.environ.get('GIS_SQL_PASSWORD')
+
+        if not password:
+            raise ValueError("GIS_SQL_PASSWORD environment variable is required")
 
         logger.info(f"Connecting to GIS database at {host}")
         self.conn = psycopg2.connect(
