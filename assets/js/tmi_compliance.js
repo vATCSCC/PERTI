@@ -523,14 +523,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const unitLabel = unit === 'min' ? 'min' : 'nm';
         const isMinit = unit === 'min';
 
-        // Calculate total span for scaling
-        const spacings = allPairs.map(p => p.spacing);
-        const maxSpacing = Math.max(...spacings, required * 2);
-        const totalSpan = spacings.reduce((a, b) => a + b, 0);
-
-        // For MINIT, use time-based scale; for MIT, use distance-based scale
-        const scaleBase = isMinit ? totalSpan : totalSpan;
-
         // Build crossings list (unique flights at their crossing times)
         const crossings = [];
         if (allPairs.length > 0) {
@@ -553,36 +545,48 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
-        // Generate SVG-based diagram
-        const diagramWidth = 800;
-        const diagramHeight = 100;
-        const padding = 60;
-        const availableWidth = diagramWidth - (padding * 2);
+        // Calculate diagram dimensions based on content
+        // Use fixed segment width per flight for consistent spacing (avoids jumpy scaling)
+        const minSegmentWidth = 60; // Minimum pixels per segment
+        const segmentWidth = Math.max(minSegmentWidth, 80); // Fixed width per segment
+        const padding = 80;
+        const numCrossings = crossings.length;
+        const diagramWidth = Math.max(800, padding * 2 + (numCrossings - 1) * segmentWidth + 100);
+        const diagramHeight = 120; // Increased height for staggered labels
 
         let cumulativePos = padding;
         let svgContent = '';
 
-        // Draw threshold indicator zone
-        const requiredZoneWidth = (required / maxSpacing) * availableWidth * 0.4;
+        // Draw background track
+        const trackEndX = padding + (numCrossings - 1) * segmentWidth;
         svgContent += `
-            <rect x="${padding}" y="35" width="${availableWidth}" height="30" fill="#f8f9fa" rx="4"/>
+            <rect x="${padding}" y="45" width="${trackEndX - padding}" height="30" fill="#f8f9fa" rx="4"/>
         `;
+
+        // Track positions for label collision detection
+        const spacingLabelPositions = [];
+        const callsignLabelPositions = [];
 
         // Draw each segment
         crossings.forEach((c, i) => {
+            // Stagger callsign labels: alternate between top row (y=95) and bottom row (y=110)
+            const labelRow = i % 2;
+            const labelY = labelRow === 0 ? 95 : 110;
+
             if (i === 0) {
                 // First flight marker
                 const color = '#6c757d';
                 svgContent += `
-                    <circle cx="${cumulativePos}" cy="50" r="8" fill="${color}" class="flight-marker"
+                    <circle cx="${cumulativePos}" cy="60" r="8" fill="${color}" class="flight-marker"
                             data-callsign="${c.callsign}" data-time="${c.time}" data-dept="${c.dept}" data-dest="${c.dest}"
                             style="cursor: pointer;" onclick="TMICompliance.showFlightPopup(this)"/>
-                    <text x="${cumulativePos}" y="75" text-anchor="middle" font-size="9" fill="#666">${c.callsign}</text>
+                    <text x="${cumulativePos}" y="${labelY}" text-anchor="middle" font-size="9" fill="#666"
+                          class="callsign-label">${c.callsign}</text>
                 `;
+                callsignLabelPositions.push({ x: cumulativePos, y: labelY });
             } else {
                 const spacing = c.spacingFromPrev;
-                const segmentWidth = Math.max((spacing / scaleBase) * availableWidth, 30);
-                const nextPos = Math.min(cumulativePos + segmentWidth, diagramWidth - padding);
+                const nextPos = cumulativePos + segmentWidth;
 
                 // Segment color based on category
                 let segColor = '#6c757d'; // Default gray
@@ -595,55 +599,63 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                 // Draw segment line
                 svgContent += `
-                    <line x1="${cumulativePos}" y1="50" x2="${nextPos}" y2="50"
+                    <line x1="${cumulativePos}" y1="60" x2="${nextPos}" y2="60"
                           stroke="${segColor}" stroke-width="4" ${lineStyle}/>
                 `;
 
                 // Draw spacing label on segment (positioned above line)
+                // Stagger vertically to avoid overlaps: alternate between y=20 and y=35
+                const spacingLabelRow = (i - 1) % 2;
+                const spacingY = spacingLabelRow === 0 ? 25 : 38;
                 const midX = (cumulativePos + nextPos) / 2;
+
                 svgContent += `
-                    <text x="${midX}" y="25" text-anchor="middle" font-size="10" font-weight="bold" fill="${segColor}">
-                        ${spacing.toFixed(1)}${unitLabel}
-                    </text>
+                    <text x="${midX}" y="${spacingY}" text-anchor="middle" font-size="10" font-weight="bold" fill="${segColor}"
+                          class="spacing-label">${spacing.toFixed(1)}${unitLabel}</text>
                 `;
+                spacingLabelPositions.push({ x: midX, y: spacingY });
 
                 // Draw flight marker
                 svgContent += `
-                    <circle cx="${nextPos}" cy="50" r="8" fill="${segColor}" class="flight-marker"
+                    <circle cx="${nextPos}" cy="60" r="8" fill="${segColor}" class="flight-marker"
                             data-callsign="${c.callsign}" data-time="${c.time}" data-dept="${c.dept}" data-dest="${c.dest}"
                             style="cursor: pointer;" onclick="TMICompliance.showFlightPopup(this)"/>
-                    <text x="${nextPos}" y="75" text-anchor="middle" font-size="9" fill="#666">${c.callsign}</text>
+                    <text x="${nextPos}" y="${labelY}" text-anchor="middle" font-size="9" fill="#666"
+                          class="callsign-label">${c.callsign}</text>
                 `;
+                callsignLabelPositions.push({ x: nextPos, y: labelY });
 
                 cumulativePos = nextPos;
             }
         });
 
-        // Draw required threshold reference line
-        const thresholdLabel = `Required: ${required}${unitLabel}`;
-        svgContent += `
-            <line x1="${padding}" y1="90" x2="${padding + 40}" y2="90" stroke="#000" stroke-width="2"/>
-            <text x="${padding + 45}" y="93" font-size="10" fill="#333">${thresholdLabel}</text>
-        `;
+        // Draw required threshold reference line (in legend area)
+        const legendX = Math.max(padding, cumulativePos + 30);
+        const thresholdLabel = `Req: ${required}${unitLabel}`;
 
-        // Legend
+        // Legend area (fixed position at right side)
         svgContent += `
-            <g transform="translate(${diagramWidth - 200}, 85)">
-                <rect x="0" y="0" width="12" height="12" fill="#dc3545"/>
-                <text x="15" y="10" font-size="9">Under</text>
-                <rect x="50" y="0" width="12" height="12" fill="#28a745"/>
-                <text x="65" y="10" font-size="9">Within</text>
-                <rect x="105" y="0" width="12" height="12" fill="#17a2b8"/>
-                <text x="120" y="10" font-size="9">Over</text>
-                <rect x="150" y="0" width="12" height="12" fill="#ffc107"/>
-                <text x="165" y="10" font-size="9">Gap</text>
+            <g class="diagram-legend" transform="translate(${diagramWidth - 220}, 5)">
+                <rect x="-5" y="-5" width="215" height="45" fill="#fff" stroke="#dee2e6" rx="4" opacity="0.9"/>
+                <line x1="0" y1="10" x2="25" y2="10" stroke="#000" stroke-width="2"/>
+                <text x="30" y="13" font-size="9" fill="#333">${thresholdLabel}</text>
+                <rect x="85" y="3" width="12" height="12" fill="#dc3545"/>
+                <text x="100" y="12" font-size="8">Under</text>
+                <rect x="135" y="3" width="12" height="12" fill="#28a745"/>
+                <text x="150" y="12" font-size="8">OK</text>
+                <rect x="170" y="3" width="12" height="12" fill="#17a2b8"/>
+                <text x="185" y="12" font-size="8">Over</text>
+                <rect x="85" y="22" width="12" height="12" fill="#ffc107"/>
+                <text x="100" y="31" font-size="8">Gap</text>
+                <line x1="135" y1="28" x2="165" y2="28" stroke="#6c757d" stroke-width="2" stroke-dasharray="5,5"/>
+                <text x="170" y="31" font-size="8">Exempt</text>
             </g>
         `;
 
         return `
             <div class="spacing-diagram-container" id="${diagramId}">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="small text-muted"><i class="fas fa-chart-line"></i> Spacing Timeline (${isMinit ? 'time-based' : 'distance-based'})</span>
+                    <span class="small text-muted"><i class="fas fa-chart-line"></i> Spacing Timeline (${isMinit ? 'time-based' : 'distance-based'}) - ${crossings.length} flights</span>
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-secondary btn-sm ${this.exemptViewMode === 'scale' ? 'active' : ''}"
                                 onclick="TMICompliance.setExemptViewMode('scale', '${diagramId}')">
@@ -656,7 +668,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     </div>
                 </div>
                 <div class="spacing-diagram-svg" style="overflow-x: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px;">
-                    <svg width="${diagramWidth}" height="${diagramHeight}" viewBox="0 0 ${diagramWidth} ${diagramHeight}">
+                    <svg width="${diagramWidth}" height="${diagramHeight}" viewBox="0 0 ${diagramWidth} ${diagramHeight}"
+                         style="min-width: ${diagramWidth}px;">
                         ${svgContent}
                     </svg>
                 </div>
