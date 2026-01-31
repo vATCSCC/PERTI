@@ -162,6 +162,122 @@ def classify_line(line: str) -> Tuple[str, Optional[dict]]:
     return ("unknown", {"line": line})
 
 
+def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datetime, event_end: datetime,
+                            destinations: List[str]) -> Tuple[Optional[TMI], int]:
+    """
+    Parse an ADVZY Ground Stop block starting at the given index.
+
+    ADVZY Ground Stop format:
+        vATCSCC ADVZY 001 LAS/ZLA 01/18/2026 CDM GROUND STOP
+        CTL ELEMENT: LAS
+        ELEMENT TYPE: APT
+        ADL TIME: 0244Z
+        GROUND STOP PERIOD: 18/0230Z – 18/0315Z
+        DEP FACILITIES INCLUDED: (Manual) ZOA
+        ...
+
+    Returns:
+        Tuple of (TMI or None, number of lines consumed)
+    """
+    if start_idx >= len(lines):
+        return (None, 0)
+
+    header_line = lines[start_idx]
+
+    # Verify this is a Ground Stop ADVZY
+    if 'GROUND STOP' not in header_line.upper():
+        return (None, 0)
+
+    # Extract airport from header (format: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026 CDM GROUND STOP")
+    header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', header_line, re.IGNORECASE)
+    dest_from_header = header_match.group(1).upper() if header_match else None
+
+    # Parse subsequent lines to extract fields
+    dest = dest_from_header
+    gs_start = None
+    gs_end = None
+    issued_time = None
+    provider = None
+    lines_consumed = 1  # Start with the header line
+
+    event_date = event_start.date()
+
+    def parse_time(time_str: str) -> Optional[datetime]:
+        """Parse HHMM or HH:MMZ format time"""
+        if not time_str:
+            return None
+        time_str = time_str.replace(':', '').replace('Z', '').strip()
+        if len(time_str) >= 4:
+            try:
+                hour = int(time_str[:2])
+                minute = int(time_str[2:4])
+                result = datetime(event_date.year, event_date.month, event_date.day, hour, minute)
+                if result < event_start - timedelta(hours=2):
+                    result = result + timedelta(days=1)
+                return result
+            except ValueError:
+                return None
+        return None
+
+    # Scan subsequent lines for ADVZY fields
+    for i in range(start_idx + 1, min(start_idx + 15, len(lines))):  # Look at most 15 lines ahead
+        line = lines[i].strip()
+        if not line:
+            lines_consumed += 1
+            continue
+
+        # Check if we've hit another TMI or ADVZY (end of this block)
+        if re.match(r'^\d{2}/\d{4}\s+', line) or re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+            break
+
+        lines_consumed += 1
+
+        # CTL ELEMENT: LAS
+        ctl_match = re.match(r'^CTL\s+ELEMENT:\s*(\w+)', line, re.IGNORECASE)
+        if ctl_match:
+            dest = ctl_match.group(1).upper()
+            continue
+
+        # GROUND STOP PERIOD: 18/0230Z – 18/0315Z
+        # Handle various dash types (– — -)
+        gs_period_match = re.search(r'GROUND\s+STOP\s+PERIOD:\s*\d{2}/(\d{4})Z?\s*[-–—]\s*\d{2}/(\d{4})Z?',
+                                    line, re.IGNORECASE)
+        if gs_period_match:
+            gs_start = parse_time(gs_period_match.group(1))
+            gs_end = parse_time(gs_period_match.group(2))
+            continue
+
+        # ADL TIME: 0244Z (issued time)
+        adl_match = re.match(r'^ADL\s+TIME:\s*(\d{4})Z?', line, re.IGNORECASE)
+        if adl_match:
+            issued_time = parse_time(adl_match.group(1))
+            continue
+
+        # DEP FACILITIES INCLUDED: (Manual) ZOA
+        dep_fac_match = re.search(r'DEP\s+FACILITIES\s+INCLUDED:.*?([A-Z]{3})', line, re.IGNORECASE)
+        if dep_fac_match:
+            provider = dep_fac_match.group(1).upper()
+            continue
+
+    # Create TMI if we have enough info
+    if dest and (gs_start or gs_end):
+        tmi = TMI(
+            tmi_id=f'GS_ADVZY_{dest}_{provider or "ALL"}',
+            tmi_type=TMIType.GS,
+            destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+            origins=[],
+            provider=provider or 'ALL',
+            requestor=dest,
+            start_utc=gs_start or event_start,
+            end_utc=gs_end or event_end,
+            issued_utc=issued_time,
+            reason=f'ADVZY Ground Stop'
+        )
+        return (tmi, lines_consumed)
+
+    return (None, lines_consumed)
+
+
 def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> List[TMI]:
     """
     Parse NTML text into TMI objects.
@@ -232,6 +348,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         - Simple: "N90:ZNY", "ZDC:ZBW"
         - Multiple facilities: "ZNY,N90:ZBW,ZDC,ZOB"
         - With (MULTIPLE) suffix: "ZNY:ZDC(MULTIPLE)"
+        - With trailing TMI ID: "ZOA:ZSE $ 05B01E"
 
         Returns: (requestor, provider, is_multiple)
         """
@@ -242,12 +359,30 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             is_multiple = True
             clean_text = re.sub(r'\(MULTIPLE\)\s*$', '', text, flags=re.IGNORECASE).strip()
 
-        # Facility pattern: ARTCC (Z followed by 2 letters), TRACON (N90, A90, C90, PCT, etc),
-        # or Airport (K + 3 letters, or 3 letters). Allow comma-separated lists.
-        # Match pattern like "ZNY,N90:ZDC,ZBW" at end of cleaned line
-        match = re.search(r'([A-Z0-9,]+):([A-Z0-9,]+)\s*$', clean_text)
-        if match:
-            return (match.group(1), match.group(2), is_multiple)
+        # Strip trailing TMI ID codes (format: "$ DDCDDL" where D=digit, C=[ABCDEXO], L=optional letter)
+        # Pattern: 2 digits + [ABCDEXO] + 2 digits + optional letter
+        clean_text = re.sub(r'\s*\$\s*\d{2}[ABCDEXO]\d{2}[A-Za-z]?\s*$', '', clean_text).strip()
+
+        # Find ALL facility pairs in the line (pattern: FACILITY:FACILITY)
+        # We want the LAST one that looks like a real facility pair (not EXCL:NONE, VOLUME:VOLUME, etc.)
+        # Real facility codes: Z** (ARTCC), *## (TRACON like N90, A80), 3-4 letter codes
+        all_matches = re.findall(r'([A-Z][A-Z0-9,]+):([A-Z][A-Z0-9,]+)', clean_text)
+
+        # Filter out known non-facility patterns
+        non_facility_patterns = {'EXCL', 'NONE', 'VOLUME', 'TYPE', 'SPD', 'ALT', 'STREAM'}
+
+        for requestor, provider in reversed(all_matches):
+            # Check if either part looks like a non-facility keyword
+            req_parts = requestor.split(',')
+            prov_parts = provider.split(',')
+
+            # Skip if any part is a known non-facility keyword
+            if any(p.upper() in non_facility_patterns for p in req_parts + prov_parts):
+                continue
+
+            # This looks like a valid facility pair
+            return (requestor, provider, is_multiple)
+
         return ('', '', False)
 
     def parse_ntml_timestamp(line: str, base_date) -> Optional[datetime]:
