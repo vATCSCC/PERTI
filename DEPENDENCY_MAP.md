@@ -1,7 +1,7 @@
 # PERTI Codebase Dependency Map
 
-> Generated: 2026-01-31
-> Total PHP API Files: 368 | Frontend Pages: 20+ | Scripts: 50+
+> Generated: 2026-01-31 | Verified: 2026-01-31
+> Total PHP API Files: 368 | Frontend Pages: 20+ | JS Files: 43 | Scripts: 50+
 
 ---
 
@@ -90,9 +90,9 @@ Depth 3: API Endpoint (requires connect.php)
 
 | File | Depth | Dependencies | Provides | Used By |
 |------|-------|--------------|----------|---------|
-| `load/config.php` | 0 | None | `env()`, DB constants, Discord config | ~95% of PHP files |
 | `load/input.php` | 0 | None | Input sanitization functions | All API endpoints with user input |
-| `load/connect.php` | 1 | config.php, input.php | Database connections (6 databases) | All database-dependent files |
+| `load/config.php` | 1 | input.php (optional) | `env()`, DB constants, Discord config | ~95% of PHP files |
+| `load/connect.php` | 2 | config.php, input.php | Database connections (5 lazy + 1 eager) | All database-dependent files |
 
 ---
 
@@ -291,11 +291,12 @@ jatoc.php (JATOC Integration)
 │   ├── gs/ (10 files)        → Ground stop operations
 │   └── ...
 │
-├── gdt/ (17 files)           → Ground Delay Tool
+├── gdt/ (18 files)           → Ground Delay Tool
 │   ├── programs/ (13 files)  → GDT program lifecycle
 │   ├── flights/ (1 file)
 │   ├── demand/ (1 file)
-│   └── slots/ (1 file)
+│   ├── slots/ (1 file)
+│   └── common.php, index.php (2 files)
 │
 ├── swim/v1/ (32 files)       → SWIM API
 │   ├── ingest/ (6 files)     → Data ingestion
@@ -317,7 +318,8 @@ jatoc.php (JATOC Integration)
 ├── weather/ (3 files)        → Weather data
 ├── gis/ (1 file)             → GIS boundaries
 ├── user/ (4 files)           → User preferences
-└── ... (remaining endpoints)
+├── event-aar/ (1 file)       → Event AAR rates
+└── cron.php                  → Scheduled task endpoints
 ```
 
 ### 4.2 API → Shared Library Dependencies
@@ -433,6 +435,9 @@ api/splits/*.php
 | `DiscordAPI` | load/discord/DiscordAPI.php | None | Discord REST client | TMIDiscord, MultiDiscord |
 | `MultiDiscordAPI` | load/discord/MultiDiscordAPI.php | DiscordAPI | Multi-org posting | TMIDiscord |
 | `TMIDiscord` | load/discord/TMIDiscord.php | DiscordAPI, Multi | TMI message formatting | TMI publishing |
+| `DiscordMessageParser` | load/discord/DiscordMessageParser.php | None | Parse Discord messages | Webhook handlers |
+| `DiscordWebhookHandler` | load/discord/DiscordWebhookHandler.php | DiscordAPI | Webhook processing | Discord bot integration |
+| `tmi_init()` | api/tmi/helpers.php | connect.php | API init, auth check | All TMI endpoints |
 
 ---
 
@@ -496,7 +501,9 @@ VATSIM_GIS (PostgreSQL)
 
 VATSIM_STATS (Azure SQL)
 ├── api/stats/*.php (subset)
-└── Total: ~8 endpoints
+├── Note: Many stats endpoints query VATSIM_ADL tables
+│   for real-time data (adl_flight_core, etc.)
+└── Total: ~8 endpoints (4 use STATS_SQL_DSN directly)
 ```
 
 ---
@@ -725,10 +732,10 @@ User views NOD map on nod.php
 | Metric | Count |
 |--------|-------|
 | **Frontend Pages** | 20+ |
-| **JavaScript Files** | 35+ |
+| **JavaScript Files** | 43 |
 | **API Endpoints** | 368 |
-| **Shared Libraries** | 15 |
-| **Database Connections** | 6 |
+| **Shared Libraries** | 18 |
+| **Database Connections** | 6 (5 lazy + 1 eager) |
 | **Daemon Scripts** | 8 |
 | **Scheduled Tasks** | 10+ |
 | **Migration Files** | 100+ |
