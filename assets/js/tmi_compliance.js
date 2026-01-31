@@ -1093,9 +1093,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             svg += `<text x="${leftMargin - 5}" y="${y + barHeight/2 + 4}" text-anchor="end" font-size="11" fill="#333" font-weight="bold">${tmi.label}</text>`;
 
             // TMI bar
-            svg += `<rect x="${barX}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${barColor}" opacity="${opacity}" rx="3"${pattern}
-                         class="gantt-bar" data-tmi-index="${i}" style="cursor:pointer;"
-                         onclick="TMICompliance.scrollToTmiCard(${i})"/>`;
+            svg += `<rect x="${barX}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${barColor}" opacity="${opacity}" rx="3"${pattern} class="gantt-bar" data-tmi-index="${i}" style="cursor:pointer;" onclick="TMICompliance.scrollToTmiCard(${i})"/>`;
 
             // Sublabel inside bar (if room)
             if (barWidth > 50) {
