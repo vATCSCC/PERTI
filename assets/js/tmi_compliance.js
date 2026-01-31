@@ -10,6 +10,17 @@ const TMICompliance = {
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
 
+    // Filters for TMI results
+    filters: {
+        requestor: '',      // Filter by requestor facility
+        provider: '',       // Filter by provider facility
+        minValue: '',       // Min MIT/MINIT value
+        maxValue: '',       // Max MIT/MINIT value
+        hourStart: '',      // Start hour (0-23)
+        hourEnd: '',        // End hour (0-23)
+        tmiType: ''         // 'MIT', 'MINIT', or '' for all
+    },
+
     init: function() {
         // Get plan ID from URL
         const uri = window.location.href.split('?');
@@ -355,12 +366,72 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const mitResults = this.results.mit_results || {};
         const mitResultsArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
         if (mitResultsArray.length > 0) {
+            // Collect unique values for filter dropdowns
+            const uniqueRequestors = new Set();
+            const uniqueProviders = new Set();
+            const uniqueValues = new Set();
+            mitResultsArray.forEach(r => {
+                if (r.requestor) uniqueRequestors.add(r.requestor);
+                if (r.provider) uniqueProviders.add(r.provider);
+                if (r.required) uniqueValues.add(r.required);
+            });
+
+            // Filter controls
+            html += `
+                <div class="tmi-filters card card-body bg-light mb-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="text-muted mr-2"><i class="fas fa-filter"></i> Filter:</span>
+                        <select id="tmi_filter_requestor" class="form-control form-control-sm" style="width:auto;min-width:100px;">
+                            <option value="">All Requestors</option>
+                            ${[...uniqueRequestors].sort().map(r => `<option value="${r}" ${this.filters.requestor===r?'selected':''}>${r}</option>`).join('')}
+                        </select>
+                        <select id="tmi_filter_provider" class="form-control form-control-sm" style="width:auto;min-width:100px;">
+                            <option value="">All Providers</option>
+                            ${[...uniqueProviders].sort().map(p => `<option value="${p}" ${this.filters.provider===p?'selected':''}>${p}</option>`).join('')}
+                        </select>
+                        <select id="tmi_filter_type" class="form-control form-control-sm" style="width:auto;">
+                            <option value="">MIT/MINIT</option>
+                            <option value="MIT" ${this.filters.tmiType==='MIT'?'selected':''}>MIT only</option>
+                            <option value="MINIT" ${this.filters.tmiType==='MINIT'?'selected':''}>MINIT only</option>
+                        </select>
+                        <div class="input-group input-group-sm" style="width:auto;">
+                            <div class="input-group-prepend"><span class="input-group-text">Value</span></div>
+                            <input type="number" id="tmi_filter_min_value" class="form-control" style="width:60px;" placeholder="Min" value="${this.filters.minValue}">
+                            <input type="number" id="tmi_filter_max_value" class="form-control" style="width:60px;" placeholder="Max" value="${this.filters.maxValue}">
+                        </div>
+                        <div class="input-group input-group-sm" style="width:auto;">
+                            <div class="input-group-prepend"><span class="input-group-text">Hour (Z)</span></div>
+                            <input type="number" id="tmi_filter_hour_start" class="form-control" style="width:55px;" placeholder="00" min="0" max="23" value="${this.filters.hourStart}">
+                            <div class="input-group-prepend input-group-append"><span class="input-group-text">-</span></div>
+                            <input type="number" id="tmi_filter_hour_end" class="form-control" style="width:55px;" placeholder="23" min="0" max="23" value="${this.filters.hourEnd}">
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.clearFilters()"><i class="fas fa-times"></i> Clear</button>
+                    </div>
+                </div>
+            `;
+
             html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT/MINIT)</h6>';
 
+            // Apply filters and render
+            let visibleCount = 0;
+            let filteredCount = 0;
             for (const r of mitResultsArray) {
                 // Skip entries with no data
                 if (r.pairs === 0 && r.message) continue;
+
+                // Apply filters
+                if (!this.matchesFilters(r)) {
+                    filteredCount++;
+                    continue;
+                }
+
+                visibleCount++;
                 html += this.renderMitCard(r);
+            }
+
+            // Show filter status if some are hidden
+            if (filteredCount > 0) {
+                html += `<div class="text-muted small mb-3"><i class="fas fa-info-circle"></i> Showing ${visibleCount} TMIs (${filteredCount} filtered out)</div>`;
             }
         }
 
@@ -390,6 +461,109 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         $('#tmi_results_container').html(html);
+
+        // Bind filter events after rendering
+        this.bindFilterEvents();
+    },
+
+    // Check if a TMI result matches current filters
+    matchesFilters: function(r) {
+        const f = this.filters;
+
+        // Requestor filter
+        if (f.requestor && r.requestor !== f.requestor) {
+            return false;
+        }
+
+        // Provider filter
+        if (f.provider && r.provider !== f.provider) {
+            return false;
+        }
+
+        // TMI type filter
+        if (f.tmiType) {
+            const isMINIT = r.unit === 'min';
+            if (f.tmiType === 'MIT' && isMINIT) return false;
+            if (f.tmiType === 'MINIT' && !isMINIT) return false;
+        }
+
+        // Value filter
+        const value = r.required || 0;
+        if (f.minValue !== '' && value < parseFloat(f.minValue)) {
+            return false;
+        }
+        if (f.maxValue !== '' && value > parseFloat(f.maxValue)) {
+            return false;
+        }
+
+        // Hour filter - check if TMI time range overlaps with filter range
+        if (f.hourStart !== '' || f.hourEnd !== '') {
+            const filterStart = f.hourStart !== '' ? parseInt(f.hourStart) : 0;
+            const filterEnd = f.hourEnd !== '' ? parseInt(f.hourEnd) : 23;
+
+            // Extract hours from tmi_start and tmi_end (format: "HH:MMZ")
+            const tmiStartMatch = (r.tmi_start || '').match(/^(\d{2})/);
+            const tmiEndMatch = (r.tmi_end || '').match(/^(\d{2})/);
+
+            if (tmiStartMatch && tmiEndMatch) {
+                const tmiStartHour = parseInt(tmiStartMatch[1]);
+                const tmiEndHour = parseInt(tmiEndMatch[1]);
+
+                // Check for overlap - TMI must have some overlap with filter range
+                // Handle wrap-around (e.g., 23Z-04Z)
+                if (filterEnd >= filterStart) {
+                    // Normal range (e.g., 02Z-06Z)
+                    if (tmiEndHour < filterStart || tmiStartHour > filterEnd) {
+                        return false;
+                    }
+                } else {
+                    // Wrapped range (e.g., 22Z-04Z)
+                    if (tmiEndHour < filterStart && tmiStartHour > filterEnd) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    },
+
+    // Clear all filters
+    clearFilters: function() {
+        this.filters = {
+            requestor: '',
+            provider: '',
+            minValue: '',
+            maxValue: '',
+            hourStart: '',
+            hourEnd: '',
+            tmiType: ''
+        };
+        this.renderResults();
+    },
+
+    // Bind filter change events
+    bindFilterEvents: function() {
+        const self = this;
+        const updateFilter = () => {
+            self.filters.requestor = $('#tmi_filter_requestor').val() || '';
+            self.filters.provider = $('#tmi_filter_provider').val() || '';
+            self.filters.tmiType = $('#tmi_filter_type').val() || '';
+            self.filters.minValue = $('#tmi_filter_min_value').val() || '';
+            self.filters.maxValue = $('#tmi_filter_max_value').val() || '';
+            self.filters.hourStart = $('#tmi_filter_hour_start').val() || '';
+            self.filters.hourEnd = $('#tmi_filter_hour_end').val() || '';
+            self.renderResults();
+        };
+
+        // Use .off() to prevent duplicate bindings
+        $('#tmi_filter_requestor, #tmi_filter_provider, #tmi_filter_type').off('change').on('change', updateFilter);
+        $('#tmi_filter_min_value, #tmi_filter_max_value, #tmi_filter_hour_start, #tmi_filter_hour_end')
+            .off('change keyup').on('change keyup', function() {
+                // Debounce for typing
+                clearTimeout(self._filterDebounce);
+                self._filterDebounce = setTimeout(updateFilter, 300);
+            });
     },
 
     // Helper: Convert decimal minutes to mm:ss format

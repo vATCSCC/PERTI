@@ -612,6 +612,21 @@ include("sessions/handler.php");
             font-size: 0.75rem;
             text-transform: uppercase;
         }
+
+        /* TMI Filter Controls */
+        .tmi-filters {
+            border: 1px solid #dee2e6;
+        }
+        .tmi-filters .form-control-sm {
+            font-size: 0.8rem;
+        }
+        .tmi-filters .input-group-text {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .tmi-filters .gap-2 {
+            gap: 0.5rem !important;
+        }
     </style>
 
     <!-- Chart.js CDN -->
