@@ -12,37 +12,11 @@
         include("load/header.php");
     ?>
 
-    <!-- Map Library Selection (Feature Flag) -->
-    <script>
-        // Feature flag: Check localStorage or URL param for MapLibre
-        window.PERTI_USE_MAPLIBRE = (localStorage.getItem('useMapLibre') === 'true') || 
-                                    (new URLSearchParams(window.location.search).get('maplibre') === 'true');
-        
-        // Write appropriate CSS based on selection
-        if (window.PERTI_USE_MAPLIBRE) {
-            document.write('<link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />');
-        } else {
-            document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>');
-        }
-    </script>
-    
-    <!-- MapLibre GL JS (loaded conditionally) -->
-    <script>
-        if (window.PERTI_USE_MAPLIBRE) {
-            document.write('<script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"><\/script>');
-            document.write('<script src="https://unpkg.com/@turf/turf@6/turf.min.js"><\/script>');
-        }
-    </script>
-    
-    <!-- Leaflet (loaded conditionally) --> 
-    <script>
-        if (!window.PERTI_USE_MAPLIBRE) {
-            document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""><\/script>');
-            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-omnivore/0.3.4/leaflet-omnivore.min.js"><\/script>');
-            document.write('<script src="assets/js/leaflet.textpath.js"><\/script>');
-            document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet.geodesic"><\/script>');
-        }
-    </script>
+    <!-- MapLibre GL JS -->
+    <script>window.PERTI_USE_MAPLIBRE = true;</script>
+    <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
     <style>
         .Incon {
@@ -2283,14 +2257,7 @@ include('load/footer.php');
 <?php endif; ?>
 <script src="assets/js/public-routes.js"></script>
 <script src="assets/js/playbook-cdr-search.js"></script>
-<script>
-    // Load appropriate map library based on feature flag
-    if (window.PERTI_USE_MAPLIBRE) {
-        document.write('<script src="assets/js/route-maplibre.js?v=20260130b"><\/script>');
-    } else {
-        document.write('<script src="assets/js/route.js?v=20260130a"><\/script>');
-    }
-</script>
+<script src="assets/js/route-maplibre.js?v=20260201"></script>
 
 <!-- Simple JS to toggle Plot Routes help panel -->
 <script>
@@ -2807,59 +2774,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // Initial load and refresh every 15 seconds
         updateFlightStats();
         setInterval(updateFlightStats, 15000);
-    }
-})();
-</script>
-
-<!-- Map Library Toggle (Leaflet/MapLibre) -->
-<div id="map_library_toggle" style="
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    z-index: 9999;
-    background: rgba(0,0,0,0.7);
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    color: #fff;
-    font-family: monospace;
-">
-    <span id="map_library_indicator" style="margin-right: 8px;"></span>
-    <button id="map_library_switch_btn" style="
-        background: #239BCD;
-        border: none;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 3px;
-        cursor: pointer;
-        font-size: 10px;
-    ">Switch</button>
-</div>
-<script>
-(function() {
-    var isMapLibre = window.PERTI_USE_MAPLIBRE;
-    var indicator = document.getElementById('map_library_indicator');
-    var switchBtn = document.getElementById('map_library_switch_btn');
-    
-    if (indicator) {
-        indicator.innerHTML = isMapLibre 
-            ? '<span style="color:#2ecc71;">●</span> MapLibre GL (WebGL)' 
-            : '<span style="color:#f39c12;">●</span> Leaflet (Canvas)';
-    }
-    
-    if (switchBtn) {
-        switchBtn.addEventListener('click', function() {
-            var current = localStorage.getItem('useMapLibre') === 'true';
-            localStorage.setItem('useMapLibre', current ? 'false' : 'true');
-            
-            // Show confirmation and reload
-            if (confirm('Switch to ' + (current ? 'Leaflet' : 'MapLibre GL JS') + '?\n\nThe page will reload.')) {
-                window.location.reload();
-            } else {
-                // Revert if cancelled
-                localStorage.setItem('useMapLibre', current ? 'true' : 'false');
-            }
-        });
     }
 })();
 </script>

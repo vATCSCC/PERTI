@@ -1073,20 +1073,16 @@ foreach ($viaMonitors as $idx => $m) {
             $isBaseName = couldBeProcedureBaseName($viaValue);
 
             if ($isProcedure || $isBaseName) {
-                // Use procedure-aware matching: check waypoints OR star_name OR dp_name
-                // For arrivals, primarily check star_name; for departures, check dp_name
-                $procMatchClause = "w.fix_name = ?";
-                $procParams = [$viaValue];
-
+                // Use procedure-aware matching on star_name/dp_name
                 if ($isProcedure) {
                     // Full procedure name like SNFLD3 - exact match or base match
                     $baseName = preg_replace('/[0-9][A-Z]?$/', '', $viaValue);
-                    $procMatchClause = "(w.fix_name = ? OR fp.star_name = ? OR fp.star_name LIKE ? OR fp.dp_name = ? OR fp.dp_name LIKE ?)";
-                    $procParams = [$viaValue, $viaValue, $baseName . '%', $viaValue, $baseName . '%'];
+                    $procMatchClause = "(fp.star_name = ? OR fp.star_name LIKE ? OR fp.dp_name = ? OR fp.dp_name LIKE ?)";
+                    $procParams = [$viaValue, $baseName . '%', $viaValue, $baseName . '%'];
                 } else {
                     // Base name like SNFLD - prefix match on star_name/dp_name
-                    $procMatchClause = "(w.fix_name = ? OR fp.star_name LIKE ? OR fp.dp_name LIKE ?)";
-                    $procParams = [$viaValue, $viaValue . '%', $viaValue . '%'];
+                    $procMatchClause = "(fp.star_name LIKE ? OR fp.dp_name LIKE ?)";
+                    $procParams = [$viaValue . '%', $viaValue . '%'];
                 }
 
                 $sql = "WITH TimeBounds AS (
@@ -1209,14 +1205,14 @@ foreach ($viaMonitors as $idx => $m) {
             }
             $locationParams = ($direction === 'both') ? [$locationFilterCode, $locationFilterCode] : [$locationFilterCode];
 
-            // Build procedure match clause
+            // Build procedure match clause (no waypoint check - matching on procedure names directly)
             if ($isProcedure) {
                 $baseName = preg_replace('/[0-9][A-Z]?$/', '', $viaValue);
-                $procMatchClause = "(w.fix_name = ? OR fp.star_name = ? OR fp.star_name LIKE ? OR fp.dp_name = ? OR fp.dp_name LIKE ?)";
-                $procParams = [$viaValue, $viaValue, $baseName . '%', $viaValue, $baseName . '%'];
+                $procMatchClause = "(fp.star_name = ? OR fp.star_name LIKE ? OR fp.dp_name = ? OR fp.dp_name LIKE ?)";
+                $procParams = [$viaValue, $baseName . '%', $viaValue, $baseName . '%'];
             } else {
-                $procMatchClause = "(w.fix_name = ? OR fp.star_name LIKE ? OR fp.dp_name LIKE ?)";
-                $procParams = [$viaValue, $viaValue . '%', $viaValue . '%'];
+                $procMatchClause = "(fp.star_name LIKE ? OR fp.dp_name LIKE ?)";
+                $procParams = [$viaValue . '%', $viaValue . '%'];
             }
 
             $sql = "WITH TimeBounds AS (
