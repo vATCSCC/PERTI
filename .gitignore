@@ -47,6 +47,10 @@ Thumbs.db
 # Reference PDFs (FAA documentation)
 docs/*.pdf
 
+# TMI Compliance runtime data (saved via web UI, not from repo)
+data/tmi_compliance/*.json
+data/tmi_compliance/*.html
+
 # Python build artifacts
 __pycache__/
 *.egg-info/

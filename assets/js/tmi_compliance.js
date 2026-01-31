@@ -396,14 +396,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         </select>
                         <div class="input-group input-group-sm" style="width:auto;">
                             <div class="input-group-prepend"><span class="input-group-text">Value</span></div>
-                            <input type="number" id="tmi_filter_min_value" class="form-control" style="width:60px;" placeholder="Min" value="${this.filters.minValue}">
-                            <input type="number" id="tmi_filter_max_value" class="form-control" style="width:60px;" placeholder="Max" value="${this.filters.maxValue}">
+                            <input type="number" id="tmi_filter_min_value" class="form-control" style="width:70px;" placeholder="Min" title="Minimum MIT/MINIT value" value="${this.filters.minValue}">
+                            <input type="number" id="tmi_filter_max_value" class="form-control" style="width:70px;" placeholder="Max" title="Maximum MIT/MINIT value" value="${this.filters.maxValue}">
                         </div>
                         <div class="input-group input-group-sm" style="width:auto;">
                             <div class="input-group-prepend"><span class="input-group-text">Hour (Z)</span></div>
-                            <input type="number" id="tmi_filter_hour_start" class="form-control" style="width:55px;" placeholder="00" min="0" max="23" value="${this.filters.hourStart}">
+                            <input type="number" id="tmi_filter_hour_start" class="form-control" style="width:65px;" placeholder="00" title="Start hour (0-23 Zulu)" min="0" max="23" value="${this.filters.hourStart}">
                             <div class="input-group-prepend input-group-append"><span class="input-group-text">-</span></div>
-                            <input type="number" id="tmi_filter_hour_end" class="form-control" style="width:55px;" placeholder="23" min="0" max="23" value="${this.filters.hourEnd}">
+                            <input type="number" id="tmi_filter_hour_end" class="form-control" style="width:65px;" placeholder="23" title="End hour (0-23 Zulu)" min="0" max="23" value="${this.filters.hourEnd}">
                         </div>
                         <button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.clearFilters()"><i class="fas fa-times"></i> Clear</button>
                     </div>
@@ -448,7 +448,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const apreqResults = this.results.apreq_results || {};
         const apreqResultsArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
         if (apreqResultsArray.length > 0) {
-            html += '<h6 class="text-secondary mb-3 mt-4"><i class="fas fa-phone"></i> APREQ/CFR (Tracking Only)</h6>';
+            html += '<h6 class="text-info mb-3 mt-4" style="color:#17a2b8 !important;"><i class="fas fa-phone"></i> APREQ/CFR (Tracking Only)</h6>';
 
             for (const r of apreqResultsArray) {
                 html += this.renderApreqCard(r);
