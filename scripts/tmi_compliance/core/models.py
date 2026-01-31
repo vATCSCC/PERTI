@@ -21,6 +21,27 @@ class TMIType(Enum):
     REROUTE = 'REROUTE'   # Reroute/Playbook
     APREQ = 'APREQ'       # Approval Request (Call For Release)
     CFR = 'CFR'           # Call For Release (alias for APREQ)
+    ED = 'E/D'            # En Route Delay (holding in air)
+    DD = 'D/D'            # Departure Delay (ground delay)
+    AD = 'A/D'            # Arrival Delay (holding for arrival)
+
+
+class MITModifier(Enum):
+    """
+    MIT Modifier types - how MIT applies to multiple streams/routes
+
+    STANDARD: Default - each stream/fix gets its own MIT (explicit or implied)
+    AS_ONE: All traffic from provider treated as single stream regardless of origin
+            e.g., "30MIT AS ONE" means JFK-LGA-FRG-JFK all in same stream
+    PER_STREAM: Each fix in "FIX1/FIX2" gets its own MIT stream
+            e.g., "35MIT PER STREAM" with "AUDIL/MEMMS" = separate MIT per fix
+    PER_ROUTE: Each route to destination gets its own MIT stream
+            e.g., "50MIT PER ROUTE" = if 3 streams, each gets 50MIT
+    """
+    STANDARD = 'STANDARD'     # Default behavior
+    AS_ONE = 'AS_ONE'         # All origins merged into one stream
+    PER_STREAM = 'PER_STREAM' # Each fix gets separate MIT analysis
+    PER_ROUTE = 'PER_ROUTE'   # Each route gets separate MIT analysis
 
 
 class Compliance(Enum):
@@ -82,9 +103,16 @@ class TMI:
     issued_utc: Optional[datetime] = None
     cancelled_utc: Optional[datetime] = None  # None if not cancelled
 
+    # MIT Modifiers (how MIT applies to multiple streams)
+    modifier: 'MITModifier' = None  # AS_ONE, PER_STREAM, PER_ROUTE
+
     # Metadata
     reason: str = ''
     notes: str = ''
+
+    # For tracking amendments (same dest/fix with different values over time)
+    supersedes_tmi_id: Optional[str] = None  # ID of TMI this one supersedes
+    superseded_by_tmi_id: Optional[str] = None  # ID of TMI that supersedes this one
 
     def is_active_at(self, check_time: datetime) -> bool:
         """Check if TMI is active at a given time (considering cancellation)"""

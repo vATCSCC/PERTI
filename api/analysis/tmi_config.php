@@ -141,13 +141,93 @@ function parse_ntml($ntml_text) {
                 $tmi['issued_time'] = $issuedMatch[1];
             }
         }
-        // APREQ/CFR pattern
+        // APREQ/CFR pattern - enhanced to handle multi-destination, origins, cancellations
+        // Formats:
+        //   "30/2300 JFK via ALL CFR VOLUME:VOLUME 0000-0400 ZDC:PCT"
+        //   "30/2353 JFK, LGA, BOS via CLT Departures CFR VOLUME:VOLUME 0000-0400 ZDC:ZTL"
+        //   "31/0332  JFK, LGA, BOS via CLT Departures CFR VOLUME:VOLUME CANCEL RESTR ZDC:ZTL"
         elseif (preg_match('/(APREQ|CFR)/i', $line)) {
             $tmi['type'] = 'APREQ';
-            // Further parsing can be added
+
+            // Check if this is a cancellation
+            if (preg_match('/CANCEL\s+RESTR/i', $line)) {
+                $tmi['cancelled'] = true;
+            }
+
+            // Extract destinations (may be comma-separated before "via")
+            // Pattern: "JFK, LGA, BOS via ..." or "JFK via ..."
+            if (preg_match('/^\d+\/\d+\s+([A-Z, ]+)\s+via\s+/i', $line, $destMatch)) {
+                $dest_str = trim($destMatch[1]);
+                // Split by comma and clean up
+                $dests = array_map('trim', explode(',', $dest_str));
+                $dests = array_filter($dests); // Remove empty entries
+
+                if (count($dests) > 1) {
+                    $tmi['destinations'] = $dests;
+                    $tmi['dest'] = implode(',', $dests);
+                } else {
+                    $tmi['dest'] = strtoupper($dests[0] ?? '');
+                }
+            }
+
+            // Extract fix/origin (after "via")
+            // Pattern: "via ALL CFR" or "via CLT Departures CFR"
+            if (preg_match('/via\s+([A-Z0-9]+(?:\s+Departures)?)\s+(APREQ|CFR)/i', $line, $fixMatch)) {
+                $fix_str = trim($fixMatch[1]);
+
+                // Check if this specifies origin (e.g., "CLT Departures")
+                if (preg_match('/([A-Z]{3})\s+Departures/i', $fix_str, $origMatch)) {
+                    $tmi['origin'] = strtoupper($origMatch[1]);
+                    $tmi['fix'] = 'ALL';  // CFR applies to all fixes from this origin
+                } else {
+                    $tmi['fix'] = strtoupper($fix_str);
+                }
+            }
+
+            // Parse requestor:provider (facility pair)
+            // Pattern at end: "ZDC:ZTL" or "ZDC:PCT"
+            if (preg_match('/\b(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90):(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90)\b/i', $line, $facMatches)) {
+                $tmi['requestor'] = strtoupper($facMatches[1]);
+                $tmi['provider'] = strtoupper($facMatches[2]);
+            }
+
+            // Parse time window (HHMM-HHMM format, with or without Z)
+            if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
+                $tmi['start_time'] = $timeMatches[1];
+                $tmi['end_time'] = $timeMatches[2];
+            }
         }
-        // Cancelled pattern
+        // Cancelled pattern - handles both "CXLD 0123Z" and "CANCEL RESTR" formats
+        // e.g., "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
+        elseif (preg_match('/CANCEL\s+RESTR/i', $line)) {
+            $tmi['type'] = 'CANCEL';
+            $tmi['cancelled'] = true;
+
+            // Extract what's being cancelled (dest via fix)
+            if (preg_match('/^\d+\/\d+\s+([A-Z, ]+)\s+via\s+([A-Z0-9]+)/i', $line, $cxlMatch)) {
+                $dest_str = trim($cxlMatch[1]);
+                $dests = array_map('trim', explode(',', $dest_str));
+                $dests = array_filter($dests);
+
+                if (count($dests) > 1) {
+                    $tmi['destinations'] = $dests;
+                    $tmi['dest'] = implode(',', $dests);
+                } else {
+                    $tmi['dest'] = strtoupper($dests[0] ?? '');
+                }
+
+                $tmi['fix'] = strtoupper($cxlMatch[2]);
+            }
+
+            // Parse requestor:provider for cancellation
+            if (preg_match('/\b(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90)(?:,[A-Z0-9]+)*:(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90)(?:,[A-Z0-9]+)*/i', $line, $facMatches)) {
+                $tmi['requestor'] = strtoupper($facMatches[1]);
+                $tmi['provider'] = strtoupper($facMatches[2]);
+            }
+        }
+        // Legacy cancelled pattern: "CXLD 0123Z"
         elseif (preg_match('/CXLD?\s+(\d{4})Z/i', $line, $cxlMatch)) {
+            $tmi['type'] = 'CANCEL';
             $tmi['cancelled'] = true;
             $tmi['cancelled_time'] = $cxlMatch[1];
         }

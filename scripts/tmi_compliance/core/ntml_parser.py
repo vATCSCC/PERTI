@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from typing import List, Tuple, Optional
 
 from .models import (
-    TMI, TMIType, DelayEntry, DelayType, DelayTrend, HoldingStatus,
+    TMI, TMIType, MITModifier, DelayEntry, DelayType, DelayTrend, HoldingStatus,
     AirportConfig, CancelEntry
 )
 
@@ -230,6 +230,54 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             return (match.group(1), match.group(2))
         return ('', '')
 
+    def parse_ntml_timestamp(line: str, base_date) -> Optional[datetime]:
+        """
+        Parse NTML timestamp prefix (DD/HHMM format).
+        Example: "30/2100" = day 30, 21:00Z
+
+        Returns datetime when this NTML entry was issued/posted.
+        Used for tracking MIT amendments (multiple entries updating same restriction).
+        """
+        match = re.match(r'^(\d{2})/(\d{4})\s+', line)
+        if match:
+            day = int(match.group(1))
+            time_str = match.group(2)
+            try:
+                hour = int(time_str[:2])
+                minute = int(time_str[2:])
+
+                # Start with base date's year and month
+                result = datetime(base_date.year, base_date.month, day, hour, minute)
+
+                # If result is way before event, it might be next month
+                if result < event_start - timedelta(days=7):
+                    # Try next month
+                    if base_date.month == 12:
+                        result = datetime(base_date.year + 1, 1, day, hour, minute)
+                    else:
+                        result = datetime(base_date.year, base_date.month + 1, day, hour, minute)
+
+                return result
+            except ValueError:
+                return None
+        return None
+
+    def parse_mit_modifier(line: str) -> MITModifier:
+        """
+        Parse MIT modifier from line.
+
+        AS ONE: All traffic from provider as single stream regardless of origin
+        PER STREAM: Each fix in "FIX1/FIX2" gets its own MIT
+        PER ROUTE: Each route to destination gets its own MIT
+        """
+        if re.search(r'\bAS\s+ONE\b', line, re.IGNORECASE):
+            return MITModifier.AS_ONE
+        elif re.search(r'\bPER\s+STREAM\b', line, re.IGNORECASE):
+            return MITModifier.PER_STREAM
+        elif re.search(r'\bPER\s+ROUTE\b', line, re.IGNORECASE):
+            return MITModifier.PER_ROUTE
+        return MITModifier.STANDARD
+
     skipped_lines = []
 
     for line in lines:
@@ -297,7 +345,11 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         # Format: "30/2100    LGA via BEUTY 25 MIT VOLUME:VOLUME 2330-0400 N90:ZNY"
         # Also handles: "LGA via VALRE/NOBBI 20 MIT AS ONE VOLUME:VOLUME 2330-0400 N90:ZBW"
         # Also handles: "BOS via AUDIL/MEMMS 35 MIT PER STREAM VOLUME:VOLUME 2330-0400 ZBW:ZOB"
+        # Also handles: "JFK via ALL 60 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZID"
         elif line_type == 'mit':
+            # Parse NTML timestamp prefix as issued_utc
+            issued_utc = parse_ntml_timestamp(line, event_date)
+
             # Remove leading timestamp if present
             clean_line = re.sub(r'^\d{2}/\d{4}\s+', '', line).strip()
 
@@ -307,41 +359,65 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             )
             if mit_match:
                 dest = mit_match.group(1).upper()
-                fix = mit_match.group(2).upper()
+                fix_str = mit_match.group(2).upper()
                 value = int(mit_match.group(3))
                 start_time, end_time = parse_ntml_time_range(line, event_date)
                 requestor, provider = parse_facilities(line)
 
-                # Check for modifiers
-                as_one = bool(re.search(r'\bAS\s+ONE\b', line, re.IGNORECASE))
-                per_stream = bool(re.search(r'\bPER\s+STREAM\b', line, re.IGNORECASE))
-                per_route = bool(re.search(r'\bPER\s+ROUTE\b', line, re.IGNORECASE))
+                # Parse modifier (AS ONE, PER STREAM, PER ROUTE)
+                modifier = parse_mit_modifier(line)
 
-                modifier = ''
-                if as_one:
-                    modifier = 'AS ONE'
-                elif per_stream:
-                    modifier = 'PER STREAM'
-                elif per_route:
-                    modifier = 'PER ROUTE'
+                # Handle multi-fix entries (e.g., "AUDIL/MEMMS" for PER STREAM)
+                # For PER STREAM, split into separate TMIs per fix
+                if '/' in fix_str and modifier == MITModifier.PER_STREAM:
+                    fixes = [f.strip() for f in fix_str.split('/') if f.strip()]
+                    for fix in fixes:
+                        tmi = TMI(
+                            tmi_id=f'MIT_{fix}_{dest}',
+                            tmi_type=TMIType.MIT,
+                            fix=fix,
+                            fixes=[fix],  # Single fix for PER STREAM
+                            destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                            value=value,
+                            unit='nm',
+                            provider=provider,
+                            requestor=requestor,
+                            start_utc=start_time or event_start,
+                            end_utc=end_time or event_end,
+                            issued_utc=issued_utc,
+                            cancelled_utc=cancelled_utc,
+                            modifier=modifier,
+                            notes=f'Part of multi-fix entry: {fix_str}'
+                        )
+                        tmis.append(tmi)
+                    # Skip to next line since we added multiple TMIs
+                    continue
+                else:
+                    # For ALL fix or single fix entries
+                    fixes = [fix_str] if fix_str not in ['ALL', 'ANY'] else []
 
-                tmi = TMI(
-                    tmi_id=f'MIT_{fix}_{dest}',
-                    tmi_type=TMIType.MIT,
-                    fix=fix,
-                    destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
-                    value=value,
-                    unit='nm',
-                    provider=provider,
-                    requestor=requestor,
-                    start_utc=start_time or event_start,
-                    end_utc=end_time or event_end,
-                    cancelled_utc=cancelled_utc,
-                    reason=modifier if modifier else None
-                )
+                    tmi = TMI(
+                        tmi_id=f'MIT_{fix_str}_{dest}',
+                        tmi_type=TMIType.MIT,
+                        fix=fix_str if fix_str not in ['ALL', 'ANY'] else None,
+                        fixes=fixes,
+                        destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                        value=value,
+                        unit='nm',
+                        provider=provider,
+                        requestor=requestor,
+                        start_utc=start_time or event_start,
+                        end_utc=end_time or event_end,
+                        issued_utc=issued_utc,
+                        cancelled_utc=cancelled_utc,
+                        modifier=modifier
+                    )
 
         # Parse MINIT restriction
         elif line_type == 'minit':
+            # Parse NTML timestamp prefix as issued_utc
+            issued_utc = parse_ntml_timestamp(line, event_date)
+
             clean_line = re.sub(r'^\d{2}/\d{4}\s+', '', line).strip()
 
             minit_match = re.match(
@@ -350,51 +426,103 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             )
             if minit_match:
                 dest = minit_match.group(1).upper()
-                fix = minit_match.group(2).upper()
+                fix_str = minit_match.group(2).upper()
                 value = int(minit_match.group(3))
                 start_time, end_time = parse_ntml_time_range(line, event_date)
                 requestor, provider = parse_facilities(line)
 
-                tmi = TMI(
-                    tmi_id=f'MINIT_{fix}_{dest}',
-                    tmi_type=TMIType.MINIT,
-                    fix=fix,
-                    destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
-                    value=value,
-                    unit='min',
-                    provider=provider,
-                    requestor=requestor,
-                    start_utc=start_time or event_start,
-                    end_utc=end_time or event_end,
-                    cancelled_utc=cancelled_utc
-                )
+                # Parse modifier
+                modifier = parse_mit_modifier(line)
+
+                # Handle multi-fix for PER STREAM
+                if '/' in fix_str and modifier == MITModifier.PER_STREAM:
+                    fixes = [f.strip() for f in fix_str.split('/') if f.strip()]
+                    for fix in fixes:
+                        tmi = TMI(
+                            tmi_id=f'MINIT_{fix}_{dest}',
+                            tmi_type=TMIType.MINIT,
+                            fix=fix,
+                            fixes=[fix],
+                            destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                            value=value,
+                            unit='min',
+                            provider=provider,
+                            requestor=requestor,
+                            start_utc=start_time or event_start,
+                            end_utc=end_time or event_end,
+                            issued_utc=issued_utc,
+                            cancelled_utc=cancelled_utc,
+                            modifier=modifier,
+                            notes=f'Part of multi-fix entry: {fix_str}'
+                        )
+                        tmis.append(tmi)
+                    continue
+                else:
+                    tmi = TMI(
+                        tmi_id=f'MINIT_{fix_str}_{dest}',
+                        tmi_type=TMIType.MINIT,
+                        fix=fix_str if fix_str not in ['ALL', 'ANY'] else None,
+                        fixes=[fix_str] if fix_str not in ['ALL', 'ANY'] else [],
+                        destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                        value=value,
+                        unit='min',
+                        provider=provider,
+                        requestor=requestor,
+                        start_utc=start_time or event_start,
+                        end_utc=end_time or event_end,
+                        issued_utc=issued_utc,
+                        cancelled_utc=cancelled_utc,
+                        modifier=modifier
+                    )
 
         # Parse CFR restriction
-        # Format: "JFK via ALL CFR VOLUME:VOLUME 0000-0400 ZDC:PCT"
+        # Formats:
+        # - "JFK via ALL CFR VOLUME:VOLUME 0000-0400 ZDC:PCT"
+        # - "30/2353 JFK, LGA, BOS via CLT Departures CFR VOLUME:VOLUME 0000-0400 ZDC:ZTL"
+        # - "BOS via ALL CFR VOLUME:VOLUME 0000-0400 ZDC:PCT"
         elif line_type == 'cfr':
             clean_line = re.sub(r'^\d{2}/\d{4}\s+', '', line).strip()
 
+            # Try enhanced pattern first: "JFK, LGA, BOS via CLT Departures CFR"
+            # This captures comma-separated destinations and optional "X Departures" origin
             cfr_match = re.match(
-                r'(\S+)\s+via\s+(\S+)\s+CFR\b',
+                r'([A-Z0-9,\s]+)\s+via\s+(.+?)\s+CFR\b',
                 clean_line, re.IGNORECASE
             )
             if cfr_match:
-                dest = cfr_match.group(1).upper()
-                fix = cfr_match.group(2).upper()
+                dest_str = cfr_match.group(1).strip().upper()
+                via_part = cfr_match.group(2).strip().upper()
+
                 start_time, end_time = parse_ntml_time_range(line, event_date)
                 requestor, provider = parse_facilities(line)
 
-                # Handle multi-destination format like "JFK, LGA, BOS via CLT"
-                if ',' in dest:
-                    dests = [d.strip().upper() for d in dest.split(',')]
+                # Parse destinations (may be comma-separated)
+                if ',' in dest_str:
+                    dests = [d.strip() for d in dest_str.split(',') if d.strip()]
                 else:
-                    dests = [dest] if dest not in ['ALL', 'ANY'] else destinations
+                    dests = [dest_str] if dest_str not in ['ALL', 'ANY'] else destinations
+
+                # Parse fix/origin from via part
+                # Check for "X Departures" format (indicates origin)
+                fix = None
+                origins = []
+                departures_match = re.match(r'([A-Z]{3})\s+DEPARTURES', via_part, re.IGNORECASE)
+                if departures_match:
+                    # "CLT Departures" means origin is CLT
+                    origin_code = departures_match.group(1)
+                    origins = [origin_code]
+                    fix = 'ALL'  # CFR applies to all fixes from this origin
+                elif via_part in ['ALL', 'ANY']:
+                    fix = None  # No specific fix
+                else:
+                    fix = via_part
 
                 tmi = TMI(
-                    tmi_id=f'CFR_{fix}',
+                    tmi_id=f'CFR_{fix or "ALL"}_{",".join(dests[:2])}',
                     tmi_type=TMIType.CFR,
-                    fix=fix if fix not in ['ALL', 'ANY'] else None,
+                    fix=fix,
                     destinations=dests,
+                    origins=origins,
                     provider=provider,
                     requestor=requestor,
                     start_utc=start_time or event_start,
