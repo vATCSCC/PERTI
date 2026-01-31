@@ -31,17 +31,95 @@ class MITModifier(Enum):
     MIT Modifier types - how MIT applies to multiple streams/routes
 
     STANDARD: Default - each stream/fix gets its own MIT (explicit or implied)
-    AS_ONE: All traffic from provider treated as single stream regardless of origin
-            e.g., "30MIT AS ONE" means JFK-LGA-FRG-JFK all in same stream
-    PER_STREAM: Each fix in "FIX1/FIX2" gets its own MIT stream
+
+    AS_ONE / SINGLE_STREAM: Provider must provide 1 stream/flow to requestor
+            by handoff point (not multiple streams/handoff points). All traffic
+            merged into single stream regardless of origin.
+            e.g., "30MIT AS ONE" means JFK-LGA-FRG traffic all in same stream
+
+    PER_STREAM / PER_FIX / PER_ROUTE / EACH: Each fix/route gets separate MIT
+            These are all equivalent for analysis purposes.
             e.g., "35MIT PER STREAM" with "AUDIL/MEMMS" = separate MIT per fix
-    PER_ROUTE: Each route to destination gets its own MIT stream
-            e.g., "50MIT PER ROUTE" = if 3 streams, each gets 50MIT
+
+    PER_AIRPORT: Each origin/destination airport gets its own MIT
+            e.g., "15MIT PER AIRPORT" for EWR,LGA departures = separate per airport
+
+    NO_STACKS: Don't send over planes that overlap each other (no vertical stacking).
+            Provider cannot stack aircraft vertically to meet demand.
+
+    EVERY_OTHER: TMI applies to alternating flights only.
+            For flow A-B-C-D-E-F, TMI applies only to/between A, C, E (odd positions).
+
+    RALT: Regardless of altitude - MIT applies to all altitudes, no altitude filtering.
     """
-    STANDARD = 'STANDARD'     # Default behavior
-    AS_ONE = 'AS_ONE'         # All origins merged into one stream
-    PER_STREAM = 'PER_STREAM' # Each fix gets separate MIT analysis
-    PER_ROUTE = 'PER_ROUTE'   # Each route gets separate MIT analysis
+    STANDARD = 'STANDARD'         # Default behavior
+    AS_ONE = 'AS_ONE'             # All origins merged into one stream
+    SINGLE_STREAM = 'SINGLE_STREAM'  # Alias for AS_ONE
+    PER_STREAM = 'PER_STREAM'     # Each fix gets separate MIT analysis
+    PER_FIX = 'PER_FIX'           # Alias for PER_STREAM
+    PER_ROUTE = 'PER_ROUTE'       # Each route gets separate MIT analysis
+    EACH = 'EACH'                 # Alias for PER_STREAM/PER_ROUTE
+    PER_AIRPORT = 'PER_AIRPORT'   # Each airport gets separate MIT
+    NO_STACKS = 'NO_STACKS'       # No vertical stacking of aircraft
+    EVERY_OTHER = 'EVERY_OTHER'   # Alternating traffic (A, C, E not B, D, F)
+    RALT = 'RALT'                 # Regardless of altitude
+
+
+class TrafficDirection(Enum):
+    """Traffic direction for arrival/departure restrictions"""
+    ARRIVALS = 'arrivals'       # Traffic arriving at destination
+    DEPARTURES = 'departures'   # Traffic departing from origin
+    BOTH = 'both'               # Both directions (default)
+
+
+class AircraftType(Enum):
+    """Aircraft type filters"""
+    ALL = 'ALL'
+    JET = 'JET'
+    PROP = 'PROP'
+    TURBOPROP = 'TURBOPROP'
+
+
+class AltitudeFilter(Enum):
+    """Altitude filter types"""
+    AT = 'AT'       # At specific altitude
+    AOB = 'AOB'     # At or below
+    AOA = 'AOA'     # At or above (alias: LOA = Level or Above)
+
+
+class ComparisonOp(Enum):
+    """Comparison operators for speed/altitude filters"""
+    AT = '='        # At/equal to (default when no operator)
+    LT = '<'        # Less than
+    LE = '<='       # Less than or equal (also ≤, S prefix)
+    GT = '>'        # Greater than
+    GE = '>='       # Greater than or equal (also ≥)
+
+
+@dataclass
+class TrafficFilter:
+    """
+    Traffic filter specifications from NTML
+
+    Examples:
+    - TYPE:ALL - All aircraft types
+    - TYPE:JET - Jets only
+    - SPD:S210 or SPD:<=210 - Speed <= 210 knots
+    - SPD:210 or SPD:=210 - Speed AT 210 knots
+    - SPD:>210 - Speed > 210 knots
+    - ALT:AOB090 - At or below FL090
+    - EXCL:PHL - Exclude PHL traffic
+
+    SPD format: SPD:[<=, ≤, <, =, >, ≥, >=, S]<value>[KT|KTS]
+    - If no operator, means AT specified speed
+    - S prefix (e.g., S210) means <= (at or below)
+    """
+    aircraft_type: Optional[AircraftType] = None  # TYPE:ALL/JET/PROP/TURBOPROP
+    speed_op: Optional[ComparisonOp] = None       # Comparison operator for speed
+    speed_value: Optional[int] = None             # Speed value in knots
+    altitude_filter: Optional[AltitudeFilter] = None  # AT/AOB/AOA
+    altitude_value: Optional[int] = None          # FL or altitude in 100s ft
+    exclusions: List[str] = field(default_factory=list)  # EXCL:PHL,EWR
 
 
 class Compliance(Enum):
@@ -78,6 +156,16 @@ class TMI:
     In NTML notation "ZME:ZID", the format is REQUESTOR:PROVIDER, meaning:
     - ZME is the REQUESTOR (they need traffic managed to their destination)
     - ZID is the PROVIDER (they implement/execute the TMI)
+
+    TRAFFIC SPECIFICATION:
+    ======================
+    NTML entries specify WHICH traffic is affected using:
+    - arrivals/departures: Direction of traffic (JFK arrivals, EWR departures)
+    - via FIX: Routing fix (via CAMRN, via BIGGY)
+    - TYPE: Aircraft type filter (TYPE:JET, TYPE:ALL)
+    - SPD: Speed filter (SPD:S210 = max 210 knots)
+    - ALT: Altitude filter (ALT:AOB090 = at or below FL090)
+    - EXCL: Exclusions (EXCL:PHL = exclude PHL traffic)
     """
     tmi_id: str
     tmi_type: TMIType
@@ -88,6 +176,12 @@ class TMI:
     destinations: List[str] = field(default_factory=list)
     origins: List[str] = field(default_factory=list)
     artccs: List[str] = field(default_factory=list)  # Affected ARTCCs
+
+    # Traffic direction (arrivals/departures/both)
+    traffic_direction: 'TrafficDirection' = None  # arrivals, departures, or both
+
+    # Traffic filters
+    traffic_filter: 'TrafficFilter' = None  # TYPE, SPD, ALT, EXCL filters
 
     # Value
     value: float = 0                       # Required spacing (nm) or delay (min)
@@ -104,7 +198,7 @@ class TMI:
     cancelled_utc: Optional[datetime] = None  # None if not cancelled
 
     # MIT Modifiers (how MIT applies to multiple streams)
-    modifier: 'MITModifier' = None  # AS_ONE, PER_STREAM, PER_ROUTE
+    modifier: 'MITModifier' = None  # AS_ONE, PER_STREAM, PER_ROUTE, etc.
 
     # Metadata
     reason: str = ''
@@ -388,5 +482,59 @@ def normalize_icao_list(codes: List[str]) -> List[str]:
         normalized = normalize_icao(code_upper)
         if normalized != code_upper:
             result.add(normalized)
+
+    return list(result)
+
+
+# Facility alias mappings (NTML shorthand -> official identifier)
+# Used for cross-border and special facility references
+FACILITY_ALIASES = {
+    # Canadian FIRs (ZYZ pattern used in NTML for Canadian centers)
+    'ZYZ': 'CZYZ',     # Toronto ACC
+    'ZEG': 'CZEG',     # Edmonton FIR
+    'ZWG': 'CZWG',     # Winnipeg FIR
+    'ZQM': 'CZQM',     # Moncton FIR
+    'ZQX': 'CZQX',     # Gander FIR
+    'ZUL': 'CZUL',     # Montreal FIR
+    'ZVR': 'CZVR',     # Vancouver FIR
+
+    # Common TRACON aliases
+    'N90': 'N90',      # New York TRACON
+    'PCT': 'PCT',      # Potomac TRACON
+    'A90': 'A90',      # Boston TRACON
+    'C90': 'C90',      # Chicago TRACON
+    'NCT': 'NCT',      # NorCal TRACON
+    'SCT': 'SCT',      # SoCal TRACON
+}
+
+
+def resolve_facility_alias(facility: str) -> str:
+    """
+    Resolve facility alias to official identifier.
+
+    Examples:
+    - ZYZ -> CZYZ (Toronto ACC)
+    - N90 -> N90 (no change, already correct)
+    """
+    if not facility:
+        return facility
+
+    facility_upper = facility.upper().strip()
+    return FACILITY_ALIASES.get(facility_upper, facility_upper)
+
+
+def resolve_facility_list(facilities: List[str]) -> List[str]:
+    """Resolve a list of facility codes, keeping both original and resolved versions"""
+    if not facilities:
+        return facilities
+
+    result = set()
+    for fac in facilities:
+        fac_upper = fac.upper().strip()
+        result.add(fac_upper)
+
+        resolved = resolve_facility_alias(fac_upper)
+        if resolved != fac_upper:
+            result.add(resolved)
 
     return list(result)

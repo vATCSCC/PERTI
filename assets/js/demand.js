@@ -3751,7 +3751,17 @@ function buildTimeBoundedRateMarkLines() {
     // Labels with similar Y values need to be offset to avoid overlap
     const LABEL_HEIGHT = 24;  // Approximate label height in pixels
     const X_PROXIMITY_MS = 30 * 60 * 1000;  // 30 minutes in ms - labels closer than this are grouped
-    const Y_PROXIMITY_THRESHOLD = 5;  // Rate values within 5 units are considered "close"
+
+    // Calculate dynamic Y proximity threshold based on max rate value (~12% of max)
+    // This adapts to different Y-axis scales
+    const rateValues = DEMAND_STATE.rateData?.rates || {};
+    const allRateValues = [
+        ...configs.map(c => c.aar).filter(v => v),
+        ...configs.map(c => c.adr).filter(v => v),
+        rateValues.vatsim_aar, rateValues.vatsim_adr, rateValues.rw_aar, rateValues.rw_adr
+    ].filter(v => v && !isNaN(v));
+    const maxRateValue = allRateValues.length > 0 ? Math.max(...allRateValues) : 50;
+    const Y_PROXIMITY_THRESHOLD = Math.max(3, Math.round(maxRateValue * 0.12));  // 12% of max, min 3
 
     // Track labels at each X position: Map<xEndRounded, Array<{yValue, offset, isAar}>>
     const labelsByX = new Map();

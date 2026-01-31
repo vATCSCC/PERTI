@@ -14,7 +14,8 @@ from typing import List, Tuple, Optional
 
 from .models import (
     TMI, TMIType, MITModifier, DelayEntry, DelayType, DelayTrend, HoldingStatus,
-    AirportConfig, CancelEntry
+    AirportConfig, CancelEntry, TrafficDirection, TrafficFilter, AircraftType, AltitudeFilter,
+    ComparisonOp
 )
 
 logger = logging.getLogger(__name__)
@@ -266,17 +267,150 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         """
         Parse MIT modifier from line.
 
-        AS ONE: All traffic from provider as single stream regardless of origin
-        PER STREAM: Each fix in "FIX1/FIX2" gets its own MIT
-        PER ROUTE: Each route to destination gets its own MIT
+        AS_ONE / SINGLE_STREAM: Provider must provide 1 stream/flow to requestor
+            by handoff point (not multiple streams/handoff points). All traffic
+            merged into single stream regardless of origin.
+        PER_STREAM / PER_FIX / PER_ROUTE / EACH: Each fix/route gets separate MIT
+            e.g., "35MIT PER STREAM" with "AUDIL/MEMMS" = separate MIT per fix
+        PER_AIRPORT: Each origin/destination airport gets its own MIT
+        NO_STACKS: Don't send over planes that overlap each other (no vertical stacking)
+        EVERY_OTHER: TMI applies to alternating flights (A, C, E but not B, D, F)
+        RALT: Regardless of altitude - MIT applies to all altitudes
         """
+        # Check for compound modifiers (can have multiple)
+        # Priority: specific modifiers first, then general
+
+        # AS ONE / SINGLE STREAM
         if re.search(r'\bAS\s+ONE\b', line, re.IGNORECASE):
             return MITModifier.AS_ONE
-        elif re.search(r'\bPER\s+STREAM\b', line, re.IGNORECASE):
+        if re.search(r'\bSINGLE\s+STREAM\b', line, re.IGNORECASE):
+            return MITModifier.SINGLE_STREAM
+
+        # PER variants (all equivalent for analysis purposes)
+        if re.search(r'\bPER\s+STREAM\b', line, re.IGNORECASE):
             return MITModifier.PER_STREAM
-        elif re.search(r'\bPER\s+ROUTE\b', line, re.IGNORECASE):
+        if re.search(r'\bPER\s+FIX\b', line, re.IGNORECASE):
+            return MITModifier.PER_FIX
+        if re.search(r'\bPER\s+ROUTE\b', line, re.IGNORECASE):
             return MITModifier.PER_ROUTE
+        if re.search(r'\bPER\s+STRAT\b', line, re.IGNORECASE):  # Per stratum
+            return MITModifier.PER_STREAM
+        if re.search(r'\bPER\s+AIRPORT\b', line, re.IGNORECASE):
+            return MITModifier.PER_AIRPORT
+        if re.search(r'\bEACH\b', line, re.IGNORECASE):
+            return MITModifier.EACH
+
+        # Special modifiers
+        if re.search(r'\bNO\s+STACKS?\b', line, re.IGNORECASE):
+            return MITModifier.NO_STACKS
+        if re.search(r'\bEVERY\s+OTHER\b', line, re.IGNORECASE):
+            return MITModifier.EVERY_OTHER
+        if re.search(r'\bRALT\b', line, re.IGNORECASE):
+            return MITModifier.RALT
+
         return MITModifier.STANDARD
+
+    def parse_traffic_filter(line: str) -> Optional[TrafficFilter]:
+        """
+        Parse traffic filter specifications from NTML line.
+
+        Examples:
+        - TYPE:ALL - All aircraft types
+        - TYPE:JET - Jets only
+        - SPD:S210 or SPD:<=210 - Speed <= 210 knots
+        - SPD:210 or SPD:=210 - Speed AT 210 knots
+        - SPD:>210 - Speed > 210 knots
+        - ALT:AOB090 - At or below FL090
+        - EXCL:PHL - Exclude PHL traffic
+
+        SPD format: SPD:[<=, ≤, <, =, >, ≥, >=, S]<value>[KT|KTS]
+        - If no operator, means AT specified speed
+        - S prefix (e.g., S210) means <= (at or below)
+        """
+        filter_obj = TrafficFilter()
+        has_filter = False
+
+        # Parse TYPE filter (TYPE:ALL, TYPE:JET, TYPE:PROP, TYPE:TURBOPROP)
+        type_match = re.search(r'\bTYPE:\s*(ALL|JET|PROP|TURBOPROP)\b', line, re.IGNORECASE)
+        if type_match:
+            type_str = type_match.group(1).upper()
+            filter_obj.aircraft_type = AircraftType[type_str]
+            has_filter = True
+
+        # Parse SPD filter with full operator support
+        # Pattern: SPD:[op]<value>[KT|KTS]
+        # Operators: <=, ≤, <, =, >, ≥, >=, S (S = <=)
+        spd_match = re.search(
+            r'\bSPD:\s*(<=|≤|<|=|>=|≥|>|S)?(\d+)(?:KTS?)?',
+            line, re.IGNORECASE
+        )
+        if spd_match:
+            op_str = spd_match.group(1) or ''
+            speed_val = int(spd_match.group(2))
+
+            # Map operator string to ComparisonOp
+            op_str_upper = op_str.upper() if op_str else ''
+            if op_str_upper in ['<=', '≤', 'S']:
+                filter_obj.speed_op = ComparisonOp.LE
+            elif op_str_upper == '<':
+                filter_obj.speed_op = ComparisonOp.LT
+            elif op_str_upper in ['>=', '≥']:
+                filter_obj.speed_op = ComparisonOp.GE
+            elif op_str_upper == '>':
+                filter_obj.speed_op = ComparisonOp.GT
+            else:
+                # No operator or '=' means AT
+                filter_obj.speed_op = ComparisonOp.AT
+
+            filter_obj.speed_value = speed_val
+            has_filter = True
+
+        # Parse ALT filter (ALT:AOB090, ALT:AOA180, ALT:AT350)
+        alt_match = re.search(r'\bALT:\s*(AT|AOB|AOA|LOA)(\d+)\b', line, re.IGNORECASE)
+        if alt_match:
+            alt_type = alt_match.group(1).upper()
+            # LOA = Level or Above = AOA
+            if alt_type == 'LOA':
+                alt_type = 'AOA'
+            filter_obj.altitude_filter = AltitudeFilter[alt_type]
+            filter_obj.altitude_value = int(alt_match.group(2))
+            has_filter = True
+
+        # Parse EXCL filter (EXCL:PHL, EXCL:EWR,LGA, EXCL:NONE)
+        excl_match = re.search(r'\bEXCL:\s*([A-Z0-9,]+)\b', line, re.IGNORECASE)
+        if excl_match:
+            excl_str = excl_match.group(1).upper()
+            if excl_str != 'NONE':
+                filter_obj.exclusions = [e.strip() for e in excl_str.split(',') if e.strip()]
+                has_filter = True
+
+        return filter_obj if has_filter else None
+
+    def parse_traffic_direction(line: str) -> TrafficDirection:
+        """
+        Parse traffic direction from NTML line.
+
+        Patterns:
+        - "JFK arrivals via CAMRN" -> ARRIVALS
+        - "EWR,LGA departures via BIGGY" -> DEPARTURES
+        - "JFK via CAMRN" (no direction specified) -> BOTH
+        - Variants: ARVL, ARVLS, ARR, ARRS, DEP, DEPS, DEPT, DEPTS
+        """
+        # Check for arrivals keywords
+        if re.search(r'\b(arrivals?|arvls?|arrs?)\b', line, re.IGNORECASE):
+            return TrafficDirection.ARRIVALS
+
+        # Check for departures keywords
+        if re.search(r'\b(departures?|deps?|depts?)\b', line, re.IGNORECASE):
+            return TrafficDirection.DEPARTURES
+
+        # Check for LTFC (Landing Traffic) and DTFC (Departing Traffic)
+        if re.search(r'\bLTFC\b', line, re.IGNORECASE):
+            return TrafficDirection.ARRIVALS
+        if re.search(r'\bDTFC\b', line, re.IGNORECASE):
+            return TrafficDirection.DEPARTURES
+
+        return TrafficDirection.BOTH
 
     skipped_lines = []
 
@@ -346,6 +480,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         # Also handles: "LGA via VALRE/NOBBI 20 MIT AS ONE VOLUME:VOLUME 2330-0400 N90:ZBW"
         # Also handles: "BOS via AUDIL/MEMMS 35 MIT PER STREAM VOLUME:VOLUME 2330-0400 ZBW:ZOB"
         # Also handles: "JFK via ALL 60 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZID"
+        # Also handles: "JFK arrivals via CAMRN 20MIT NO STACKS TYPE:ALL SPD:S210"
+        # Also handles: "EWR,LGA departures via BIGGY 15MIT PER AIRPORT TYPE:JET"
         elif line_type == 'mit':
             # Parse NTML timestamp prefix as issued_utc
             issued_utc = parse_ntml_timestamp(line, event_date)
@@ -353,31 +489,58 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             # Remove leading timestamp if present
             clean_line = re.sub(r'^\d{2}/\d{4}\s+', '', line).strip()
 
+            # Enhanced pattern to capture arrivals/departures and multi-airport specs
+            # Pattern: "JFK arrivals via CAMRN 20MIT" or "EWR,LGA departures via BIGGY 15MIT"
             mit_match = re.match(
-                r'(\w+)\s+via\s+(\S+)\s+(\d+)\s*MIT\b',
+                r'([A-Z0-9,\s]+?)(?:\s+(arrivals?|departures?|arvls?|deps?|depts?))?\s+via\s+(\S+)\s+(\d+)\s*MIT\b',
                 clean_line, re.IGNORECASE
             )
             if mit_match:
-                dest = mit_match.group(1).upper()
-                fix_str = mit_match.group(2).upper()
-                value = int(mit_match.group(3))
+                airport_str = mit_match.group(1).strip().upper()
+                direction_word = mit_match.group(2)  # May be None
+                fix_str = mit_match.group(3).upper()
+                value = int(mit_match.group(4))
                 start_time, end_time = parse_ntml_time_range(line, event_date)
                 requestor, provider = parse_facilities(line)
 
-                # Parse modifier (AS ONE, PER STREAM, PER ROUTE)
+                # Parse modifier (AS ONE, PER STREAM, PER ROUTE, etc.)
                 modifier = parse_mit_modifier(line)
+
+                # Parse traffic filter (TYPE, SPD, ALT, EXCL)
+                traffic_filter = parse_traffic_filter(line)
+
+                # Parse traffic direction from the full line
+                traffic_direction = parse_traffic_direction(line)
+
+                # Parse destinations/origins from airport_str
+                # May be comma-separated: "EWR,LGA" or single: "JFK"
+                if ',' in airport_str:
+                    airports = [a.strip() for a in airport_str.split(',') if a.strip()]
+                else:
+                    airports = [airport_str] if airport_str not in ['ALL', 'ANY'] else destinations
+
+                # Determine if these are destinations or origins based on direction
+                if traffic_direction == TrafficDirection.DEPARTURES:
+                    dest_list = destinations  # Using event destinations
+                    origin_list = airports
+                else:
+                    dest_list = airports
+                    origin_list = []
 
                 # Handle multi-fix entries (e.g., "AUDIL/MEMMS" for PER STREAM)
                 # For PER STREAM, split into separate TMIs per fix
-                if '/' in fix_str and modifier == MITModifier.PER_STREAM:
+                if '/' in fix_str and modifier in [MITModifier.PER_STREAM, MITModifier.PER_FIX, MITModifier.EACH]:
                     fixes = [f.strip() for f in fix_str.split('/') if f.strip()]
                     for fix in fixes:
                         tmi = TMI(
-                            tmi_id=f'MIT_{fix}_{dest}',
+                            tmi_id=f'MIT_{fix}_{airport_str}',
                             tmi_type=TMIType.MIT,
                             fix=fix,
                             fixes=[fix],  # Single fix for PER STREAM
-                            destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                            destinations=dest_list,
+                            origins=origin_list,
+                            traffic_direction=traffic_direction,
+                            traffic_filter=traffic_filter,
                             value=value,
                             unit='nm',
                             provider=provider,
@@ -397,11 +560,14 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     fixes = [fix_str] if fix_str not in ['ALL', 'ANY'] else []
 
                     tmi = TMI(
-                        tmi_id=f'MIT_{fix_str}_{dest}',
+                        tmi_id=f'MIT_{fix_str}_{airport_str}',
                         tmi_type=TMIType.MIT,
                         fix=fix_str if fix_str not in ['ALL', 'ANY'] else None,
                         fixes=fixes,
-                        destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                        destinations=dest_list,
+                        origins=origin_list,
+                        traffic_direction=traffic_direction,
+                        traffic_filter=traffic_filter,
                         value=value,
                         unit='nm',
                         provider=provider,
@@ -414,36 +580,62 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     )
 
         # Parse MINIT restriction
+        # Similar patterns to MIT but with time-based spacing
         elif line_type == 'minit':
             # Parse NTML timestamp prefix as issued_utc
             issued_utc = parse_ntml_timestamp(line, event_date)
 
             clean_line = re.sub(r'^\d{2}/\d{4}\s+', '', line).strip()
 
+            # Enhanced pattern to capture arrivals/departures and multi-airport specs
             minit_match = re.match(
-                r'(\w+)\s+via\s+(\S+)\s+(\d+)\s*MINIT\b',
+                r'([A-Z0-9,\s]+?)(?:\s+(arrivals?|departures?|arvls?|deps?|depts?))?\s+via\s+(\S+)\s+(\d+)\s*MINIT\b',
                 clean_line, re.IGNORECASE
             )
             if minit_match:
-                dest = minit_match.group(1).upper()
-                fix_str = minit_match.group(2).upper()
-                value = int(minit_match.group(3))
+                airport_str = minit_match.group(1).strip().upper()
+                direction_word = minit_match.group(2)  # May be None
+                fix_str = minit_match.group(3).upper()
+                value = int(minit_match.group(4))
                 start_time, end_time = parse_ntml_time_range(line, event_date)
                 requestor, provider = parse_facilities(line)
 
                 # Parse modifier
                 modifier = parse_mit_modifier(line)
 
+                # Parse traffic filter (TYPE, SPD, ALT, EXCL)
+                traffic_filter = parse_traffic_filter(line)
+
+                # Parse traffic direction
+                traffic_direction = parse_traffic_direction(line)
+
+                # Parse destinations/origins from airport_str
+                if ',' in airport_str:
+                    airports = [a.strip() for a in airport_str.split(',') if a.strip()]
+                else:
+                    airports = [airport_str] if airport_str not in ['ALL', 'ANY'] else destinations
+
+                # Determine if these are destinations or origins based on direction
+                if traffic_direction == TrafficDirection.DEPARTURES:
+                    dest_list = destinations
+                    origin_list = airports
+                else:
+                    dest_list = airports
+                    origin_list = []
+
                 # Handle multi-fix for PER STREAM
-                if '/' in fix_str and modifier == MITModifier.PER_STREAM:
+                if '/' in fix_str and modifier in [MITModifier.PER_STREAM, MITModifier.PER_FIX, MITModifier.EACH]:
                     fixes = [f.strip() for f in fix_str.split('/') if f.strip()]
                     for fix in fixes:
                         tmi = TMI(
-                            tmi_id=f'MINIT_{fix}_{dest}',
+                            tmi_id=f'MINIT_{fix}_{airport_str}',
                             tmi_type=TMIType.MINIT,
                             fix=fix,
                             fixes=[fix],
-                            destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                            destinations=dest_list,
+                            origins=origin_list,
+                            traffic_direction=traffic_direction,
+                            traffic_filter=traffic_filter,
                             value=value,
                             unit='min',
                             provider=provider,
@@ -459,11 +651,14 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     continue
                 else:
                     tmi = TMI(
-                        tmi_id=f'MINIT_{fix_str}_{dest}',
+                        tmi_id=f'MINIT_{fix_str}_{airport_str}',
                         tmi_type=TMIType.MINIT,
                         fix=fix_str if fix_str not in ['ALL', 'ANY'] else None,
                         fixes=[fix_str] if fix_str not in ['ALL', 'ANY'] else [],
-                        destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                        destinations=dest_list,
+                        origins=origin_list,
+                        traffic_direction=traffic_direction,
+                        traffic_filter=traffic_filter,
                         value=value,
                         unit='min',
                         provider=provider,
@@ -974,6 +1169,179 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
         cancellations=cancellations,
         unparsed_lines=unparsed_lines
     )
+
+
+def link_tmi_amendments(tmis: List[TMI], cancellations: List['CancelEntry'] = None) -> List[TMI]:
+    """
+    Link TMI amendments to track value changes over time.
+
+    When the same dest/fix combination has multiple NTML entries with different
+    issued times, the later ones supersede the earlier ones. This function:
+    1. Groups TMIs by (destinations, fix, tmi_type)
+    2. Sorts each group by issued_utc (oldest first)
+    3. Links earlier TMIs to later ones via supersedes_tmi_id/superseded_by_tmi_id
+    4. Adjusts effective end times - superseded TMI ends when successor is issued
+    5. Applies cancellations from CancelEntry list
+
+    Example: BOS via RBV 25MIT @ 21:00, then 20MIT @ 22:30, then 15MIT @ 23:00
+    Result:
+    - TMI1 (25MIT): effective 21:00-22:30, superseded_by=TMI2
+    - TMI2 (20MIT): effective 22:30-23:00, supersedes=TMI1, superseded_by=TMI3
+    - TMI3 (15MIT): effective 23:00-end, supersedes=TMI2
+
+    Args:
+        tmis: List of parsed TMI objects
+        cancellations: Optional list of CancelEntry objects
+
+    Returns:
+        Updated list of TMIs with amendment links
+    """
+    if not tmis:
+        return tmis
+
+    from collections import defaultdict
+
+    # Group TMIs by destination set + fix + type
+    # Use frozenset of destinations for hashable key
+    def make_group_key(tmi: TMI) -> tuple:
+        """Create grouping key for TMI amendments"""
+        dest_key = frozenset(d.upper() for d in (tmi.destinations or []))
+        fix_key = (tmi.fix or 'ALL').upper()
+        type_key = tmi.tmi_type.value if tmi.tmi_type else 'MIT'
+        return (dest_key, fix_key, type_key)
+
+    groups: dict[tuple, List[TMI]] = defaultdict(list)
+    for tmi in tmis:
+        key = make_group_key(tmi)
+        groups[key].append(tmi)
+
+    # Process each group
+    linked_tmis = []
+    for key, group in groups.items():
+        # Filter to only those with issued_utc for proper ordering
+        with_issued = [t for t in group if t.issued_utc is not None]
+        without_issued = [t for t in group if t.issued_utc is None]
+
+        if len(with_issued) <= 1:
+            # No amendments to link - just add all TMIs
+            linked_tmis.extend(group)
+            continue
+
+        # Sort by issued_utc (oldest first)
+        with_issued.sort(key=lambda t: t.issued_utc)
+
+        # Link each to the next
+        for i, tmi in enumerate(with_issued):
+            if i > 0:
+                # This TMI supersedes the previous one
+                prev_tmi = with_issued[i - 1]
+                tmi.supersedes_tmi_id = prev_tmi.tmi_id
+                prev_tmi.superseded_by_tmi_id = tmi.tmi_id
+
+                # Adjust previous TMI's effective end time
+                # It ends when this one was issued
+                prev_tmi.end_utc = tmi.issued_utc
+
+                # Log the amendment
+                logger.debug(
+                    f"TMI amendment: {prev_tmi.fix} {prev_tmi.value}{prev_tmi.unit} "
+                    f"({prev_tmi.issued_utc.strftime('%H:%M') if prev_tmi.issued_utc else '?'}) -> "
+                    f"{tmi.value}{tmi.unit} ({tmi.issued_utc.strftime('%H:%M') if tmi.issued_utc else '?'})"
+                )
+
+        linked_tmis.extend(with_issued)
+        linked_tmis.extend(without_issued)
+
+    # Apply cancellations
+    if cancellations:
+        for cancel in cancellations:
+            if not cancel.destination or not cancel.fix:
+                continue
+
+            # Find matching TMI(s) to mark as cancelled
+            for tmi in linked_tmis:
+                # Check if this TMI matches the cancellation
+                dest_match = (
+                    cancel.destination.upper() in [d.upper() for d in (tmi.destinations or [])] or
+                    cancel.destination.upper() == 'ALL'
+                )
+                fix_match = (
+                    (tmi.fix or '').upper() == cancel.fix.upper() or
+                    cancel.fix.upper() == 'ALL'
+                )
+
+                if dest_match and fix_match:
+                    # Only cancel if this TMI hasn't been superseded by another
+                    # (cancellation applies to the active TMI)
+                    if not tmi.superseded_by_tmi_id:
+                        tmi.cancelled_utc = cancel.timestamp_utc
+                        if cancel.timestamp_utc and tmi.end_utc:
+                            # Cancellation ends the TMI at the cancel time
+                            if cancel.timestamp_utc < tmi.end_utc:
+                                tmi.end_utc = cancel.timestamp_utc
+                        logger.debug(
+                            f"TMI cancelled: {tmi.fix} {tmi.value}{tmi.unit} "
+                            f"at {cancel.timestamp_utc.strftime('%H:%M') if cancel.timestamp_utc else '?'}"
+                        )
+
+    # Log summary
+    amendment_count = sum(1 for t in linked_tmis if t.supersedes_tmi_id)
+    cancel_count = sum(1 for t in linked_tmis if t.cancelled_utc)
+    if amendment_count or cancel_count:
+        logger.info(f"TMI amendments linked: {amendment_count} supersedes, {cancel_count} cancellations")
+
+    return linked_tmis
+
+
+def get_effective_tmi_value(tmis: List[TMI], dest: str, fix: str,
+                            tmi_type: TMIType, at_time: datetime) -> Optional[TMI]:
+    """
+    Get the effective TMI value at a specific time.
+
+    When multiple TMIs exist for the same dest/fix due to amendments,
+    this returns the one that was in effect at the given time.
+
+    Args:
+        tmis: List of TMI objects (should be already linked via link_tmi_amendments)
+        dest: Destination airport code
+        fix: Control fix
+        tmi_type: Type of TMI (MIT, MINIT, etc.)
+        at_time: Time to check
+
+    Returns:
+        The TMI that was in effect at at_time, or None if no matching TMI
+    """
+    matching = []
+
+    for tmi in tmis:
+        # Check type match
+        if tmi.tmi_type != tmi_type:
+            continue
+
+        # Check fix match
+        if (tmi.fix or 'ALL').upper() != fix.upper():
+            continue
+
+        # Check destination match
+        if dest.upper() not in [d.upper() for d in (tmi.destinations or [])]:
+            continue
+
+        # Check if cancelled before at_time
+        if tmi.cancelled_utc and tmi.cancelled_utc <= at_time:
+            continue
+
+        # Check time range
+        start = tmi.start_utc or datetime.min
+        end = tmi.end_utc or datetime.max
+        if start <= at_time <= end:
+            matching.append(tmi)
+
+    if not matching:
+        return None
+
+    # If multiple match (shouldn't happen if properly linked), return most recently issued
+    matching.sort(key=lambda t: t.issued_utc or datetime.min, reverse=True)
+    return matching[0]
 
 
 def detect_delay_trends(delays: List[DelayEntry]) -> List[DelayEntry]:
