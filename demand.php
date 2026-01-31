@@ -420,6 +420,48 @@ include("load/config.php");
         .phase-filter-popout-btn:hover {
             color: #1a1a2e;
         }
+
+        /* Chart Loading Overlay */
+        .chart-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            border-radius: 4px;
+        }
+        .chart-loading-overlay.visible {
+            display: flex;
+        }
+        .chart-loading-content {
+            text-align: center;
+            color: #1a1a2e;
+        }
+        .chart-loading-content .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #1a1a2e;
+            border-radius: 50%;
+            animation: chart-spin 0.8s linear infinite;
+        }
+        .chart-loading-content .loading-text {
+            margin-top: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #6c757d;
+        }
+        @keyframes chart-spin {
+            to { transform: rotate(360deg); }
+        }
+        .demand-chart-wrapper {
+            position: relative;
+        }
     </style>
 
 </head>
@@ -928,7 +970,15 @@ include("load/config.php");
                     </div>
 
                     <!-- Chart Container (hidden initially) -->
-                    <div id="demand_chart" class="demand-chart-container" style="display: none;"></div>
+                    <div class="demand-chart-wrapper">
+                        <div id="demand_chart" class="demand-chart-container" style="display: none;"></div>
+                        <div class="chart-loading-overlay" id="chart_loading_overlay">
+                            <div class="chart-loading-content">
+                                <div class="spinner"></div>
+                                <div class="loading-text">Updating chart...</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
