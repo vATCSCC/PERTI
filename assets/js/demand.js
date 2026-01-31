@@ -849,6 +849,7 @@ let DEMAND_STATE = {
     rateData: null, // Store rate suggestion data from API
     tmiConfig: null, // Store active TMI CONFIG entry if any
     scheduledConfigs: null, // Store all scheduled TMI CONFIG entries for time-bounded rate lines
+    tmiPrograms: null, // Store GS/GDP programs for vertical markers
     showRateLines: true, // Toggle for rate line visibility
     atisData: null, // Store ATIS data from API
     // Cache management
@@ -1449,10 +1450,11 @@ function loadDemandData() {
     const atisPromise = $.getJSON(`api/demand/atis.php?airport=${encodeURIComponent(airport)}`);
     const tmiConfigPromise = $.getJSON(`api/demand/active_config.php?airport=${encodeURIComponent(airport)}`);
     const scheduledConfigsPromise = $.getJSON(`api/demand/scheduled_configs.php?airport=${encodeURIComponent(airport)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
+    const tmiProgramsPromise = $.getJSON(`api/demand/tmi_programs.php?airport=${encodeURIComponent(airport)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
 
-    Promise.allSettled([demandPromise, ratesPromise, atisPromise, tmiConfigPromise, scheduledConfigsPromise])
+    Promise.allSettled([demandPromise, ratesPromise, atisPromise, tmiConfigPromise, scheduledConfigsPromise, tmiProgramsPromise])
         .then(function(results) {
-            const [demandResult, ratesResult, atisResult, tmiConfigResult, scheduledConfigsResult] = results;
+            const [demandResult, ratesResult, atisResult, tmiConfigResult, scheduledConfigsResult, tmiProgramsResult] = results;
 
             // Handle demand data (required)
             if (demandResult.status === 'rejected') {
@@ -1532,6 +1534,18 @@ function loadDemandData() {
                 DEMAND_STATE.scheduledConfigs = null;
                 if (scheduledConfigsResult.status === 'rejected') {
                     console.warn('Scheduled configs API unavailable:', scheduledConfigsResult.reason);
+                }
+            }
+
+            // Handle TMI programs (GS/GDP) - optional, for vertical markers
+            if (tmiProgramsResult.status === 'fulfilled' && tmiProgramsResult.value &&
+                tmiProgramsResult.value.success && tmiProgramsResult.value.programs) {
+                DEMAND_STATE.tmiPrograms = tmiProgramsResult.value.programs;
+                console.log('[Demand] Loaded', tmiProgramsResult.value.programs.length, 'GS/GDP programs for chart markers');
+            } else {
+                DEMAND_STATE.tmiPrograms = null;
+                if (tmiProgramsResult.status === 'rejected') {
+                    console.warn('TMI Programs API unavailable:', tmiProgramsResult.reason);
                 }
             }
 
@@ -1991,14 +2005,20 @@ function renderChart(data) {
         });
     }
 
-    // Add current time marker and rate lines to first series
+    // Add current time marker, rate lines, and TMI program markers to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
         ? buildTimeBoundedRateMarkLines()
         : buildRateMarkLinesForChart();
+    const tmiProgramMarkLines = buildTmiProgramMarkLines();
 
     if (series.length > 0) {
         const markLineData = [];
+
+        // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
+        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) {
+            markLineData.push(...tmiProgramMarkLines);
+        }
 
         // Add time marker (now returns a single data item with embedded label)
         if (timeMarkLineData) {
@@ -2133,6 +2153,14 @@ function renderChart(data) {
                     }
                 });
                 tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
+                // Add rate information if available
+                const rates = getRatesForTimestamp(timestamp);
+                if (rates && (rates.aar || rates.adr)) {
+                    tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/>`;
+                    if (rates.aar) tooltip += `<span style="color:#000;">AAR: <strong>${rates.aar}</strong></span>`;
+                    if (rates.aar && rates.adr) tooltip += ` / `;
+                    if (rates.adr) tooltip += `<span style="color:#000;">ADR: <strong>${rates.adr}</strong></span>`;
+                }
                 return tooltip;
             }
         },
@@ -2381,14 +2409,17 @@ function renderOriginChart() {
         };
     });
 
-    // Add current time marker and rate lines to first series
+    // Add current time marker, rate lines, and TMI program markers to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
         ? buildTimeBoundedRateMarkLines()
         : buildRateMarkLinesForChart();
+    const tmiProgramMarkLines = buildTmiProgramMarkLines();
 
     if (series.length > 0) {
         const markLineData = [];
+        // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
+        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) markLineData.push(...tmiProgramMarkLines);
         if (timeMarkLineData) markLineData.push(timeMarkLineData);
         if (rateMarkLines && rateMarkLines.length > 0) markLineData.push(...rateMarkLines);
 
@@ -2465,6 +2496,14 @@ function renderOriginChart() {
                     }
                 });
                 tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
+                // Add rate information if available
+                const rates = getRatesForTimestamp(timestamp);
+                if (rates && (rates.aar || rates.adr)) {
+                    tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/>`;
+                    if (rates.aar) tooltip += `<span style="color:#000;">AAR: <strong>${rates.aar}</strong></span>`;
+                    if (rates.aar && rates.adr) tooltip += ` / `;
+                    if (rates.adr) tooltip += `<span style="color:#000;">ADR: <strong>${rates.adr}</strong></span>`;
+                }
                 return tooltip;
             }
         },
@@ -2711,14 +2750,17 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         };
     });
 
-    // Add time marker and rate lines
+    // Add time marker, rate lines, and TMI program markers
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
         ? buildTimeBoundedRateMarkLines()
         : buildRateMarkLinesForChart();
+    const tmiProgramMarkLines = buildTmiProgramMarkLines();
 
     if (series.length > 0) {
         const markLineData = [];
+        // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
+        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) markLineData.push(...tmiProgramMarkLines);
         if (timeMarkLineData) markLineData.push(timeMarkLineData);
         if (rateMarkLines && rateMarkLines.length > 0) markLineData.push(...rateMarkLines);
 
@@ -3422,6 +3464,47 @@ function getCurrentTimeMarkLineForTimeAxis() {
 }
 
 /**
+ * Get applicable AAR/ADR rates for a specific timestamp
+ * Checks scheduled configs first, falls back to current rateData
+ * @param {number} timestamp - Milliseconds since epoch
+ * @returns {Object|null} { aar, adr, source } with pro-rated values, or null if no rates
+ */
+function getRatesForTimestamp(timestamp) {
+    const granularityMinutes = getGranularityMinutes();
+    const proRateFactor = granularityMinutes / 60;
+
+    // Try to find matching scheduled config first
+    if (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0) {
+        for (const config of DEMAND_STATE.scheduledConfigs) {
+            const configStart = config.valid_from ? new Date(config.valid_from).getTime() : 0;
+            const configEnd = config.valid_until ? new Date(config.valid_until).getTime() : Infinity;
+
+            if (timestamp >= configStart && timestamp < configEnd) {
+                return {
+                    aar: config.aar ? Math.round(config.aar * proRateFactor) : null,
+                    adr: config.adr ? Math.round(config.adr * proRateFactor) : null,
+                    weather: config.weather || null,
+                    source: 'TMI'
+                };
+            }
+        }
+    }
+
+    // Fall back to current rate data (VATSIM rates)
+    if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
+        const rates = DEMAND_STATE.rateData.rates;
+        return {
+            aar: rates.vatsim_aar ? Math.round(rates.vatsim_aar * proRateFactor) : null,
+            adr: rates.vatsim_adr ? Math.round(rates.vatsim_adr * proRateFactor) : null,
+            weather: DEMAND_STATE.rateData.weather || null,
+            source: 'VATSIM'
+        };
+    }
+
+    return null;
+}
+
+/**
  * Build rate mark lines for the demand chart
  * Uses RATE_LINE_CONFIG from rate-colors.js for styling
  * Pro-rates hourly rates for sub-hourly granularities (30-min, 15-min)
@@ -3471,9 +3554,9 @@ function buildRateMarkLinesForChart() {
         }
     };
 
-    // Determine style: custom (override), suggested, or active
-    const isCustom = rateData.has_override;
-    const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
+    // Always use 'active' style - consistent symbology regardless of override/suggested status
+    // VATSIM = black, RW = cyan, AAR = solid, ADR = dashed
+    const styleKey = 'active';
 
     // Track label index for vertical stacking
     let labelIndex = 0;
@@ -3487,9 +3570,8 @@ function buildRateMarkLinesForChart() {
         const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
 
         const sourceStyle = cfg[styleKey][source];
-        // Use dotted line style for custom/dynamic rates
-        const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
-        const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
+        // Always use standard line style (solid for AAR, dashed for ADR)
+        const lineTypeStyle = cfg.lineStyle[rateType];
 
         // Show pro-rated label (e.g., "AAR 15" for 15-min at 60/hr, or "AAR 60/hr" for hourly)
         const labelText = proRateFactor < 1
@@ -3707,12 +3789,13 @@ function buildTimeBoundedRateMarkLines() {
         }
     });
 
-    // === FALLBACK: Fill gaps with rate data from other sources ===
-    // When CONFIG entries don't cover the full chart range, use DEMAND_STATE.rateData
+    // === FALLBACK: Fill gaps with VATSIM rate data from DEMAND_STATE.rateData ===
+    // When CONFIG entries don't cover the full chart range, use fallback VATSIM rates
+    // Use same symbology as scheduled configs: solid black AAR, dashed black ADR
     if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates) {
         const rates = DEMAND_STATE.rateData.rates;
-        const fallbackStyle = cfg.suggested?.vatsim || { color: '#6b7280' };
-        const fallbackTextColor = getContrastTextColor(fallbackStyle.color);
+        const vatsimStyle = cfg.active?.vatsim || { color: '#000000' };
+        const vatsimTextColor = getContrastTextColor(vatsimStyle.color);
 
         // Build list of covered periods from configs
         const coveredPeriods = [];
@@ -3745,9 +3828,9 @@ function buildTimeBoundedRateMarkLines() {
             gaps.push({ start: cursor, end: chartEnd });
         }
 
-        // Add fallback rate lines for each gap
+        // Add fallback VATSIM rate lines for each gap (same symbology as active)
         gaps.forEach((gap, gapIndex) => {
-            // AAR fallback
+            // VATSIM AAR fallback - solid black
             if ((direction === 'both' || direction === 'arr') && rates.vatsim_aar) {
                 const proRatedValue = Math.round(rates.vatsim_aar * proRateFactor * 10) / 10;
                 const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
@@ -3761,9 +3844,9 @@ function buildTimeBoundedRateMarkLines() {
                         xAxis: gap.end,
                         yAxis: proRatedValue,
                         lineStyle: {
-                            color: fallbackStyle.color,
+                            color: vatsimStyle.color,
                             width: 2,
-                            type: 'dotted'  // Dotted to indicate fallback/suggested
+                            type: 'solid'  // Solid for AAR
                         },
                         label: {
                             show: gapIndex === gaps.length - 1,  // Only label the last gap
@@ -3771,21 +3854,21 @@ function buildTimeBoundedRateMarkLines() {
                             position: 'end',
                             distance: 5,
                             offset: [0, 0],
-                            color: fallbackTextColor,
+                            color: vatsimTextColor,
                             fontSize: cfg.label?.fontSize || 10,
                             fontWeight: cfg.label?.fontWeight || 'bold',
                             fontFamily: '"Roboto Mono", monospace',
-                            backgroundColor: fallbackStyle.color,
+                            backgroundColor: vatsimStyle.color,
                             padding: [2, 6],
                             borderRadius: 3,
-                            borderColor: 'rgba(0,0,0,0.2)',
+                            borderColor: 'rgba(255,255,255,0.3)',
                             borderWidth: 1
                         }
                     }
                 ]);
             }
 
-            // ADR fallback
+            // VATSIM ADR fallback - dashed black
             if ((direction === 'both' || direction === 'dep') && rates.vatsim_adr) {
                 const proRatedValue = Math.round(rates.vatsim_adr * proRateFactor * 10) / 10;
                 const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
@@ -3799,9 +3882,9 @@ function buildTimeBoundedRateMarkLines() {
                         xAxis: gap.end,
                         yAxis: proRatedValue,
                         lineStyle: {
-                            color: fallbackStyle.color,
+                            color: vatsimStyle.color,
                             width: 2,
-                            type: 'dotted'  // Dotted to indicate fallback/suggested
+                            type: 'dashed'  // Dashed for ADR
                         },
                         label: {
                             show: gapIndex === gaps.length - 1,  // Only label the last gap
@@ -3809,21 +3892,212 @@ function buildTimeBoundedRateMarkLines() {
                             position: 'end',
                             distance: 5,
                             offset: [0, 20],
-                            color: fallbackTextColor,
+                            color: vatsimTextColor,
                             fontSize: cfg.label?.fontSize || 10,
                             fontWeight: cfg.label?.fontWeight || 'bold',
                             fontFamily: '"Roboto Mono", monospace',
-                            backgroundColor: fallbackStyle.color,
+                            backgroundColor: vatsimStyle.color,
                             padding: [2, 6],
                             borderRadius: 3,
-                            borderColor: 'rgba(0,0,0,0.2)',
+                            borderColor: 'rgba(255,255,255,0.3)',
                             borderWidth: 1
                         }
                     }
                 ]);
             }
         });
+
+        // === Add Real World (RW) rates as full-width lines ===
+        // RW rates are not time-bounded by TMI CONFIGs, so show them across full chart
+        const rwStyle = cfg.active?.rw || { color: '#00FFFF' };
+        const rwTextColor = getContrastTextColor(rwStyle.color);
+
+        // RW AAR - solid cyan across full chart
+        if ((direction === 'both' || direction === 'arr') && rates.rw_aar) {
+            const proRatedValue = Math.round(rates.rw_aar * proRateFactor * 10) / 10;
+            const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
+            const labelText = proRateFactor < 1
+                ? `RW AAR ${displayValue}`
+                : `RW AAR ${rates.rw_aar}`;
+
+            lines.push([
+                { xAxis: chartStart, yAxis: proRatedValue },
+                {
+                    xAxis: chartEnd,
+                    yAxis: proRatedValue,
+                    lineStyle: {
+                        color: rwStyle.color,
+                        width: 2,
+                        type: 'solid'  // Solid for AAR
+                    },
+                    label: {
+                        show: true,
+                        formatter: labelText,
+                        position: 'end',
+                        distance: 5,
+                        offset: [0, 40],  // Offset below VATSIM labels
+                        color: rwTextColor,
+                        fontSize: cfg.label?.fontSize || 10,
+                        fontWeight: cfg.label?.fontWeight || 'bold',
+                        fontFamily: '"Roboto Mono", monospace',
+                        backgroundColor: rwStyle.color,
+                        padding: [2, 6],
+                        borderRadius: 3,
+                        borderColor: 'rgba(0,0,0,0.2)',
+                        borderWidth: 1
+                    }
+                }
+            ]);
+        }
+
+        // RW ADR - dashed cyan across full chart
+        if ((direction === 'both' || direction === 'dep') && rates.rw_adr) {
+            const proRatedValue = Math.round(rates.rw_adr * proRateFactor * 10) / 10;
+            const displayValue = proRatedValue % 1 === 0 ? proRatedValue.toFixed(0) : proRatedValue.toFixed(1);
+            const labelText = proRateFactor < 1
+                ? `RW ADR ${displayValue}`
+                : `RW ADR ${rates.rw_adr}`;
+
+            lines.push([
+                { xAxis: chartStart, yAxis: proRatedValue },
+                {
+                    xAxis: chartEnd,
+                    yAxis: proRatedValue,
+                    lineStyle: {
+                        color: rwStyle.color,
+                        width: 2,
+                        type: 'dashed'  // Dashed for ADR
+                    },
+                    label: {
+                        show: true,
+                        formatter: labelText,
+                        position: 'end',
+                        distance: 5,
+                        offset: [0, 60],  // Offset below other labels
+                        color: rwTextColor,
+                        fontSize: cfg.label?.fontSize || 10,
+                        fontWeight: cfg.label?.fontWeight || 'bold',
+                        fontFamily: '"Roboto Mono", monospace',
+                        backgroundColor: rwStyle.color,
+                        padding: [2, 6],
+                        borderRadius: 3,
+                        borderColor: 'rgba(0,0,0,0.2)',
+                        borderWidth: 1
+                    }
+                }
+            ]);
+        }
     }
+
+    return lines;
+}
+
+/**
+ * Build vertical marker lines for GS (Ground Stop) and GDP programs
+ * GS = Yellow vertical lines, GDP = Brown vertical lines
+ * Markers: Start (solid), Update (dashed), CNX/End (solid)
+ *
+ * @returns {Array} Array of markLine data items for ECharts
+ */
+function buildTmiProgramMarkLines() {
+    if (!DEMAND_STATE.tmiPrograms || DEMAND_STATE.tmiPrograms.length === 0) {
+        return [];
+    }
+
+    const lines = [];
+
+    // Color definitions
+    const GS_COLOR = '#fbbf24';   // Yellow/Amber for Ground Stops
+    const GDP_COLOR = '#92400e';  // Brown for Ground Delay Programs
+
+    // Helper to format time as HHMMZ
+    const formatTimeZ = (isoString) => {
+        if (!isoString) return '';
+        const d = new Date(isoString);
+        return d.getUTCHours().toString().padStart(2, '0') +
+               d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+    };
+
+    // Helper to create a vertical marker line
+    const addVerticalMarker = (timestamp, label, color, isDashed = false) => {
+        if (!timestamp) return;
+
+        const timeMs = new Date(timestamp).getTime();
+        const chartStart = new Date(DEMAND_STATE.currentStart).getTime();
+        const chartEnd = new Date(DEMAND_STATE.currentEnd).getTime();
+
+        // Skip if outside visible range
+        if (timeMs < chartStart || timeMs > chartEnd) return;
+
+        lines.push({
+            xAxis: timeMs,
+            lineStyle: {
+                color: color,
+                width: 2,
+                type: isDashed ? 'dashed' : 'solid'
+            },
+            label: {
+                show: true,
+                formatter: label,
+                position: 'end',
+                color: '#000000',  // Black text for readability
+                fontWeight: 'bold',
+                fontSize: 10,
+                fontFamily: '"Inconsolata", monospace',
+                backgroundColor: color,
+                padding: [2, 6],
+                borderRadius: 2,
+                borderColor: 'rgba(0,0,0,0.3)',
+                borderWidth: 1
+            }
+        });
+    };
+
+    // Process each program
+    DEMAND_STATE.tmiPrograms.forEach(program => {
+        const isGS = program.program_type === 'GS';
+        const color = isGS ? GS_COLOR : GDP_COLOR;
+        const prefix = isGS ? 'GS' : 'GDP';
+
+        // Start marker (solid line)
+        if (program.start_utc) {
+            addVerticalMarker(
+                program.start_utc,
+                `${prefix} Start: ${formatTimeZ(program.start_utc)}`,
+                color,
+                false  // solid
+            );
+        }
+
+        // Update marker (dashed line) - only if was_updated is true
+        if (program.was_updated && program.updated_at) {
+            addVerticalMarker(
+                program.updated_at,
+                `${prefix} Update: ${formatTimeZ(program.updated_at)}`,
+                color,
+                true  // dashed
+            );
+        }
+
+        // End marker - check status
+        if (program.status === 'PURGED' && program.purged_at) {
+            // Cancelled/Purged - use CNX label
+            addVerticalMarker(
+                program.purged_at,
+                `${prefix} CNX: ${formatTimeZ(program.purged_at)}`,
+                color,
+                false  // solid
+            );
+        } else if (program.end_utc) {
+            // Normal end
+            addVerticalMarker(
+                program.end_utc,
+                `${prefix} End: ${formatTimeZ(program.end_utc)}`,
+                color,
+                false  // solid
+            );
+        }
+    });
 
     return lines;
 }
