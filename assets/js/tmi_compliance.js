@@ -495,7 +495,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     // Format TMI in standardized NTML notation
     formatStandardizedTMI: function(r) {
-        const fix = r.fix || 'FIX';
+        const fix = r.fix || '';
         const required = r.required || 0;
         const unit = r.unit === 'min' ? 'MINIT' : 'MIT';
         const destinations = r.destinations ? r.destinations.join(',') : '';
@@ -505,10 +505,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const tmiStart = r.tmi_start || '';
         const tmiEnd = r.tmi_end || '';
 
+        // Check if fix is a real navaid (not ALL/ANY/empty)
+        const isRealFix = fix && !['ALL', 'ANY', ''].includes(fix.toUpperCase());
+
         // Format: DEST via FIX XXnm/min MIT REQUESTOR:PROVIDER TTTTZ-TTTTZ
+        // (skip "via FIX" if fix is ALL/ANY - just means all flows)
         let formatted = '';
         if (destinations) formatted += `${destinations} `;
-        formatted += `via ${fix} `;
+        if (isRealFix) formatted += `via ${fix} `;
         formatted += `${required}${r.unit === 'min' ? 'MINIT' : 'MIT'} `;
         if (requestor || provider) formatted += `${requestor}:${provider} `;
         formatted += `${tmiStart}-${tmiEnd}`;
@@ -800,12 +804,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             ? `<span class="badge badge-secondary ml-2" title="Boundary unavailable, measured at fix"><i class="fas fa-map-marker-alt"></i> Fix (fallback)</span>`
             : '';
 
+        // Determine display name: use fix if real, otherwise use destination(s)
+        const isRealFix = r.fix && !['ALL', 'ANY', ''].includes((r.fix || '').toUpperCase());
+        const displayName = isRealFix ? r.fix : (r.destinations?.join(',') || 'Unknown');
+
         let html = `
             <div class="tmi-card mit-card">
                 <!-- TMI Header with standardized notation -->
                 <div class="tmi-header">
                     <div>
-                        <span class="tmi-fix-name">${r.fix || 'Unknown'}</span>
+                        <span class="tmi-fix-name">${displayName}</span>
                         <span class="tmi-type-badge ml-2">${required}${unitLabel} ${tmiType}</span>
                         <span class="text-muted ml-2">| ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
@@ -1109,15 +1117,18 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Build standardized notation
         const origins = (r.origins || []).join(',');
         const dests = (r.destinations || []).join(',');
-        const notation = `${dests} via ${r.fix || 'ALL'} CFR ${r.requestor || ''}:${r.provider || ''} ${r.tmi_start || ''}-${r.tmi_end || ''}`;
+        const isRealFix = r.fix && !['ALL', 'ANY', ''].includes((r.fix || '').toUpperCase());
+        const viaPart = isRealFix ? `via ${r.fix} ` : '';
+        const notation = `${dests} ${viaPart}CFR ${r.requestor || ''}:${r.provider || ''} ${r.tmi_start || ''}-${r.tmi_end || ''}`;
+        const displayName = isRealFix ? r.fix : dests;
 
         let html = `
             <div class="tmi-card apreq-card">
                 <div class="tmi-header">
                     <div>
-                        <span class="tmi-fix-name">APREQ/CFR: ${r.fix || 'ALL'}</span>
+                        <span class="tmi-fix-name">APREQ/CFR: ${displayName}</span>
                         <span class="text-muted ml-2">
-                            ${dests} | ${r.tmi_start || ''} - ${r.tmi_end || ''}
+                            ${isRealFix ? dests + ' | ' : ''}${r.tmi_start || ''} - ${r.tmi_end || ''}
                         </span>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
                     </div>
