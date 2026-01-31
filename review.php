@@ -561,6 +561,16 @@ include("sessions/handler.php");
             transform: scale(1.3);
             filter: brightness(1.2);
         }
+        .callsign-label {
+            font-family: 'Consolas', 'Monaco', monospace;
+            pointer-events: none;
+        }
+        .spacing-label {
+            pointer-events: none;
+        }
+        .diagram-legend {
+            pointer-events: none;
+        }
 
         /* Event Statistics */
         .event-statistics-card .stat-value {
