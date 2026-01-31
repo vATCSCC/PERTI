@@ -386,12 +386,21 @@ class TMIComplianceAnalyzer:
         logger.info(f"  Cached boundary crossings for {len(self._crossing_cache)} flights")
 
     def _get_flights_for_tmi(self, tmi: TMI) -> Dict[str, Any]:
-        """Get flights affected by a TMI based on its scope"""
+        """
+        Get flights affected by a TMI based on its scope.
+
+        Filters by:
+        - Destination airports (from TMI destinations)
+        - Origin airports (from TMI origins, if specified)
+        - Route fix (from TMI fix, if specified) - ensures flight is routed via the fix
+        - Time window (flights active during TMI period)
+        """
         cursor = self.adl_conn.cursor()
         flights = {}
 
         dest_filter = ""
         orig_filter = ""
+        route_filter = ""
 
         if tmi.destinations:
             # Normalize airport codes (ATL -> both ATL and KATL)
@@ -405,6 +414,14 @@ class TMIComplianceAnalyzer:
             orig_in = "'" + "','".join(normalized_origs) + "'"
             orig_filter = f"AND p.fp_dept_icao IN ({orig_in})"
 
+        # CRITICAL: Filter by route fix to ensure flights are actually routed via the TMI fix
+        # This prevents including flights on parallel routes that happen to pass near the fix
+        if tmi.fix:
+            # Check both fp_route_expanded (space-delimited fixes) and afix (arrival fix)
+            # Use space-bounded search to avoid partial matches (e.g., "FLCHR" not matching "FLCHRS")
+            route_filter = f"AND (p.fp_route_expanded LIKE '% {tmi.fix} %' OR p.fp_route_expanded LIKE '{tmi.fix} %' OR p.fp_route_expanded LIKE '% {tmi.fix}' OR p.afix = '{tmi.fix}')"
+            logger.info(f"Route filter: flights via {tmi.fix}")
+
         # Use WIDEST window
         tmi_start = tmi.start_utc
         tmi_end = tmi.get_effective_end()
@@ -412,15 +429,17 @@ class TMIComplianceAnalyzer:
         query_end = max(self.event.end_utc, tmi_end)
 
         # Format query for current driver (pymssql uses %s, pyodbc uses ?)
+        # Include route_expanded and afix for debugging
         query = self.adl.format_query(f"""
             SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
-                   c.first_seen_utc, c.last_seen_utc
+                   c.first_seen_utc, c.last_seen_utc, p.fp_route_expanded, p.afix
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             WHERE c.first_seen_utc <= %s
               AND c.last_seen_utc >= %s
               {dest_filter}
               {orig_filter}
+              {route_filter}
         """)
         cursor.execute(query, (
             query_end.strftime('%Y-%m-%d %H:%M:%S'),
@@ -433,10 +452,13 @@ class TMIComplianceAnalyzer:
                 'dept': row[2],
                 'dest': row[3],
                 'first_seen': normalize_datetime(row[4]),
-                'last_seen': normalize_datetime(row[5])
+                'last_seen': normalize_datetime(row[5]),
+                'route_expanded': row[6] if len(row) > 6 else None,
+                'afix': row[7] if len(row) > 7 else None
             }
 
         cursor.close()
+        logger.info(f"  Found {len(flights)} flights matching route filter")
         return flights
 
     def _detect_crossings(self, fix_name: str, fix_lat: float, fix_lon: float,
@@ -923,18 +945,25 @@ class TMIComplianceAnalyzer:
                 )
             logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
 
-        # 3. For each flight, use whichever crossing comes FIRST (earlier in the flight path)
-        # This is the actual handoff/measurement point
+        # 3. For each flight, select the appropriate crossing point
+        # PRIORITY: If TMI specifies a fix, ALWAYS use fix crossing when available
+        # (The TMI measures compliance AT THE FIX, not at an arbitrary boundary point)
+        # Fallback to boundary crossing only if fix crossing not available
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
+        prefer_fix = bool(fix and fix in self.fix_coords)  # TMI specifies a known fix
 
         for callsign in all_callsigns:
             fix_cx = fix_crossings_map.get(callsign)
             bnd_cx = boundary_crossings_map.get(callsign)
 
             if fix_cx and bnd_cx:
-                # Both found - use the earlier one (first in flight path)
-                if fix_cx.crossing_time <= bnd_cx.crossing_time:
+                if prefer_fix:
+                    # TMI specifies a fix - always use fix crossing as that's the measurement point
+                    crossings.append(fix_cx)
+                    measurement_stats['fix'] += 1
+                elif fix_cx.crossing_time <= bnd_cx.crossing_time:
+                    # No specific fix - use earlier crossing
                     crossings.append(fix_cx)
                     measurement_stats['fix'] += 1
                 else:
@@ -1025,8 +1054,13 @@ class TMIComplianceAnalyzer:
         # Sort by crossing time
         sorted_crossings = sorted(valid_crossings, key=lambda c: c.crossing_time)
 
-        # Analyze consecutive pairs
+        # Maximum distance between crossing points for valid pairing
+        # If two crossings are too far apart, they may not be in the same traffic stream
+        MAX_CROSSING_SEPARATION_NM = 15.0
+
+        # Analyze consecutive pairs with stream validation
         pairs = []
+        skipped_pairs = []
         required = tmi.value
 
         for i in range(1, len(sorted_crossings)):
@@ -1039,11 +1073,25 @@ class TMIComplianceAnalyzer:
             if time_diff_sec <= 0:
                 continue
 
+            # STREAM VALIDATION: Check that both crossings are at similar locations
+            # This ensures we're measuring spacing in the same traffic stream
+            crossing_separation = haversine_nm(prev.lat, prev.lon, curr.lat, curr.lon)
+            if crossing_separation > MAX_CROSSING_SEPARATION_NM:
+                skipped_pairs.append({
+                    'prev': prev.callsign,
+                    'curr': curr.callsign,
+                    'reason': f'crossing separation {crossing_separation:.1f}nm > {MAX_CROSSING_SEPARATION_NM}nm'
+                })
+                logger.debug(f"  Skipping pair {prev.callsign}->{curr.callsign}: crossing points {crossing_separation:.1f}nm apart")
+                continue
+
             # Calculate spacing based on TMI type
             if tmi.tmi_type == TMIType.MINIT:
                 actual = time_diff_min
             else:
-                actual = (time_diff_min * curr.groundspeed) / 60
+                # Use average of both groundspeeds for better accuracy
+                avg_gs = (prev.groundspeed + curr.groundspeed) / 2 if prev.groundspeed > 0 else curr.groundspeed
+                actual = (time_diff_min * avg_gs) / 60
 
             spacing_cat = categorize_spacing(actual, required)
 
@@ -1068,9 +1116,18 @@ class TMIComplianceAnalyzer:
                 'spacing_category': spacing_cat.value,
                 'compliance': compliance.value,
                 'shortfall_pct': shortfall_pct,
-                'gs': curr.groundspeed
+                'gs': curr.groundspeed,
+                # Include crossing location data for verification
+                'prev_crossing_lat': round(prev.lat, 4),
+                'prev_crossing_lon': round(prev.lon, 4),
+                'curr_crossing_lat': round(curr.lat, 4),
+                'curr_crossing_lon': round(curr.lon, 4),
+                'crossing_separation_nm': round(crossing_separation, 1)
             }
             pairs.append(pair)
+
+        if skipped_pairs:
+            logger.info(f"  Skipped {len(skipped_pairs)} pairs due to stream validation")
 
         if not pairs:
             return None
