@@ -228,12 +228,11 @@ if (!defined("SQL_USERNAME")) {
     define("SWIM_PUBLIC_ROUTES_KEY", "");  // API key for public routes UI writes
 
     // =====================================================================
-    // AZURE FUNCTIONS (TMI Compliance Analysis)
+    // TMI COMPLIANCE ANALYSIS
     // =====================================================================
-    // TMI Compliance Analysis Azure Function
-    // Deploy the function from azure-functions/tmi-compliance/ and configure:
-    define("AZURE_FUNCTION_TMI_URL", "");  // e.g., https://vatcscc-functions.azurewebsites.net/api/tmi_compliance
-    define("AZURE_FUNCTION_TMI_KEY", "");  // Function key from Azure Portal
+    // TMI Compliance runs via local Python script: scripts/tmi_compliance/run.py
+    // Ensure Python 3.x is installed with requirements: pip install -r scripts/tmi_compliance/requirements.txt
+    // The script uses ADL and GIS database credentials defined above.
 
     // =====================================================================
     // FEATURE FLAGS
