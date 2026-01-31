@@ -575,6 +575,25 @@ def parse_runway_assignments(atis_text: str, atis_type: str = None) -> tuple[set
         runways = _extract_runway_numbers(match.group(1))
         landing_runways.update(runways)
 
+    # Pattern 20: Comma-separated runway list after approach type
+    # "ARRIVALS EXPECT ILS RWY 26L, RWY 27, RWY 30" or "EXPECT ILS RWY 26L, RWY 27, RWY 30"
+    # Captures initial runway then continues to pick up subsequent "RWY XX" items
+    comma_list_pattern = rf'(?:ARRIVALS?\s+)?EXPECT\s+(?:{APPROACH_TYPES})?\s*(?:RWY|RUNWAY)\s+([0-3]?\d[LRC]?)(?:\s*[,.]?\s*(?:RWY|RUNWAY)\s+([0-3]?\d[LRC]?))*'
+    for match in re.finditer(comma_list_pattern, text, re.IGNORECASE):
+        # Get all runway numbers from the full match text
+        full_match = match.group(0)
+        rwy_numbers = re.findall(r'(?:RWY|RUNWAY)\s+([0-3]?\d[LRC]?)', full_match, re.IGNORECASE)
+        for rwy in rwy_numbers:
+            runways = _extract_runway_numbers(rwy)
+            landing_runways.update(runways)
+
+    # Pattern 21: Approach types joined by OR with APCH suffix
+    # "RNAV OR GPS APCH RWY 26R", "ILS OR RNAV APPROACH RWY 27L"
+    or_approach_pattern = rf'(?:{APPROACH_TYPES})\s+OR\s+(?:{APPROACH_TYPES})\s+(?:APCH|APPROACH)\s+(?:RWY|RUNWAY)\s+([0-3]?\d[LRC]?)'
+    for match in re.finditer(or_approach_pattern, text, re.IGNORECASE):
+        runways = _extract_runway_numbers(match.group(1))
+        landing_runways.update(runways)
+
     return landing_runways, departing_runways
 
 
