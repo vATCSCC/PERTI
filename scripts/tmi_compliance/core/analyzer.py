@@ -14,7 +14,7 @@ from typing import Dict, List, Any, Optional
 from .models import (
     TMI, TMIType, EventConfig, CrossingResult, Compliance, SpacingCategory,
     categorize_spacing, calculate_shortfall_pct, normalize_datetime,
-    CROSSING_RADIUS_NM
+    normalize_icao_list, CROSSING_RADIUS_NM
 )
 from .database import ADLConnection, GISConnection
 
@@ -136,11 +136,15 @@ class TMIComplianceAnalyzer:
         orig_filter = ""
 
         if tmi.destinations:
-            dest_in = "'" + "','".join(tmi.destinations) + "'"
+            # Normalize airport codes (ATL -> both ATL and KATL)
+            normalized_dests = normalize_icao_list(tmi.destinations)
+            dest_in = "'" + "','".join(normalized_dests) + "'"
             dest_filter = f"AND p.fp_dest_icao IN ({dest_in})"
+            logger.debug(f"Destination filter: {dest_in}")
 
         if tmi.origins:
-            orig_in = "'" + "','".join(tmi.origins) + "'"
+            normalized_origs = normalize_icao_list(tmi.origins)
+            orig_in = "'" + "','".join(normalized_origs) + "'"
             orig_filter = f"AND p.fp_dept_icao IN ({orig_in})"
 
         # Use WIDEST window
@@ -402,7 +406,9 @@ class TMIComplianceAnalyzer:
         cursor = self.adl_conn.cursor()
 
         # Get flights from affected origins to destinations
-        dest_in = "'" + "','".join(tmi.destinations) + "'" if tmi.destinations else "''"
+        # Normalize airport codes (ATL -> both ATL and KATL)
+        normalized_dests = normalize_icao_list(tmi.destinations) if tmi.destinations else []
+        dest_in = "'" + "','".join(normalized_dests) + "'" if normalized_dests else "''"
 
         # For GS, get ALL flights to destination during event window
         cursor.execute(f"""
