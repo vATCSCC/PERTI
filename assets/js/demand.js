@@ -4807,7 +4807,8 @@ function showFlightDetails(timeBin, clickedSeries) {
     const params = new URLSearchParams({
         airport: airport,
         time_bin: actualTimeBin,
-        direction: DEMAND_STATE.direction
+        direction: DEMAND_STATE.direction,
+        granularity: getGranularityMinutes()
     });
 
     // Show loading in modal
