@@ -30,7 +30,7 @@ from collections import defaultdict
 
 # Configuration
 NOMADS_BASE = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
-FORECAST_HOURS = [0, 6, 12, 24]
+FORECAST_HOURS = [0, 6, 12, 18, 24]
 
 # Pressure levels by altitude floor
 PRESSURE_LEVELS_BY_ALTITUDE = {

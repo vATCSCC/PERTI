@@ -36,7 +36,8 @@ class TMIComplianceAnalyzer:
 
     def __init__(self, event: EventConfig):
         self.event = event
-        self.adl_conn = None
+        self.adl = None          # ADLConnection wrapper (for format_query)
+        self.adl_conn = None     # Raw database connection
         self.gis_conn = None
         self.fix_coords = {}
         self.flight_data = {}
@@ -58,9 +59,21 @@ class TMIComplianceAnalyzer:
 
         # Connect to databases
         try:
-            with ADLConnection() as adl, GISConnection() as gis:
-                self.adl_conn = adl.conn
-                self.gis_conn = gis.conn
+            # GIS connection is optional - only ADL is required for trajectory analysis
+            with ADLConnection() as adl:
+                self.adl = adl                # Keep wrapper for format_query
+                self.adl_conn = adl.conn      # Raw connection for cursor
+                logger.info(f"ADL driver: {adl.driver}, param style: {adl.param_style}")
+
+                # Try to connect to GIS (optional, for future spatial queries)
+                try:
+                    gis = GISConnection()
+                    gis.connect()
+                    self.gis_conn = gis.conn
+                    logger.info("GIS connection established (optional)")
+                except Exception as gis_err:
+                    logger.warning(f"GIS connection unavailable (not required): {gis_err}")
+                    self.gis_conn = None
 
                 # Load fix coordinates for all TMIs
                 all_fixes = set()
@@ -155,7 +168,8 @@ class TMIComplianceAnalyzer:
         query_start = min(self.event.start_utc, tmi_start)
         query_end = max(self.event.end_utc, tmi_end)
 
-        cursor.execute(f"""
+        # Format query for current driver (pymssql uses %s, pyodbc uses ?)
+        query = self.adl.format_query(f"""
             SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
                    c.first_seen_utc, c.last_seen_utc
             FROM dbo.adl_flight_core c
@@ -164,7 +178,8 @@ class TMIComplianceAnalyzer:
               AND c.last_seen_utc >= %s
               {dest_filter}
               {orig_filter}
-        """, (
+        """)
+        cursor.execute(query, (
             query_end.strftime('%Y-%m-%d %H:%M:%S'),
             query_start.strftime('%Y-%m-%d %H:%M:%S')
         ))
@@ -196,7 +211,8 @@ class TMIComplianceAnalyzer:
 
         callsign_in = "'" + "','".join(callsigns) + "'"
 
-        cursor.execute(f"""
+        # Format query for current driver (pymssql uses %s, pyodbc uses ?)
+        query = self.adl.format_query(f"""
             SELECT t.callsign, t.flight_uid, t.timestamp_utc,
                    t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
                    p.fp_dept_icao, p.fp_dest_icao
@@ -208,7 +224,8 @@ class TMIComplianceAnalyzer:
               AND t.lat BETWEEN %s AND %s
               AND t.lon BETWEEN %s AND %s
             ORDER BY t.callsign, t.timestamp_utc
-        """, (
+        """)
+        cursor.execute(query, (
             tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
             tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
             fix_lat - lat_margin, fix_lat + lat_margin,
@@ -417,7 +434,8 @@ class TMIComplianceAnalyzer:
         dest_in = "'" + "','".join(normalized_dests) + "'" if normalized_dests else "''"
 
         # For GS, get ALL flights to destination during event window
-        cursor.execute(f"""
+        # Format query for current driver (pymssql uses %s, pyodbc uses ?)
+        query = self.adl.format_query(f"""
             SELECT c.callsign, p.fp_dept_icao, c.first_seen_utc, c.last_seen_utc
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
@@ -425,7 +443,8 @@ class TMIComplianceAnalyzer:
               AND c.first_seen_utc <= %s
               AND c.last_seen_utc >= %s
             ORDER BY c.first_seen_utc
-        """, (
+        """)
+        cursor.execute(query, (
             self.event.end_utc.strftime('%Y-%m-%d %H:%M:%S'),
             self.event.start_utc.strftime('%Y-%m-%d %H:%M:%S')
         ))
