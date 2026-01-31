@@ -1143,8 +1143,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     // Parse event time string (format: "2026-01-18T00:00:00" or "2026-01-18 00:00")
+    // IMPORTANT: Treat as UTC - append Z if no timezone indicator present
     parseEventTime: function(timeStr) {
         if (!timeStr) return null;
+        // If no timezone indicator (Z, +, or -), append Z to parse as UTC
+        if (!timeStr.endsWith('Z') && !timeStr.includes('+') && !/T\d{2}:\d{2}:\d{2}-/.test(timeStr)) {
+            timeStr += 'Z';
+        }
         const d = new Date(timeStr);
         return isNaN(d.getTime()) ? null : d;
     },
