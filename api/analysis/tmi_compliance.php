@@ -150,7 +150,7 @@ function call_azure_function($plan_id) {
         ];
     }
 
-    // Set environment variables for database connections
+    // Set environment variables for database connections and Python path
     $env_vars = [
         'ADL_SQL_HOST' => defined('ADL_SQL_HOST') ? ADL_SQL_HOST : 'vatsim.database.windows.net',
         'ADL_SQL_DATABASE' => defined('ADL_SQL_DATABASE') ? ADL_SQL_DATABASE : 'VATSIM_ADL',
@@ -160,7 +160,11 @@ function call_azure_function($plan_id) {
         'GIS_SQL_DATABASE' => defined('GIS_SQL_DATABASE') ? GIS_SQL_DATABASE : 'VATSIM_GIS',
         'GIS_SQL_USERNAME' => defined('GIS_SQL_USERNAME') ? GIS_SQL_USERNAME : 'GIS_admin',
         'GIS_SQL_PASSWORD' => defined('GIS_SQL_PASSWORD') ? GIS_SQL_PASSWORD : '',
-        'PERTI_API_URL' => 'https://perti.vatcscc.org/api'
+        'PERTI_API_URL' => 'https://perti.vatcscc.org/api',
+        // Include user site-packages where pip installed dependencies
+        'PYTHONUSERBASE' => '/home/.local',
+        'PYTHONPATH' => '/home/.local/lib/python3.9/site-packages',
+        'PATH' => '/home/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     ];
 
     // Build environment string for command
