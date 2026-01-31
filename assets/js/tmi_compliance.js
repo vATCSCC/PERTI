@@ -1129,8 +1129,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     ${legendHtml}
                 </div>
                 <div class="card-body p-2">
-                    <div class="gantt-container" style="overflow-x:auto;">
-                        <svg width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" style="min-width:${chartWidth}px;">
+                    <div class="gantt-container">
+                        <svg width="100%" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" preserveAspectRatio="xMinYMin meet">
                             ${svg}
                         </svg>
                     </div>
