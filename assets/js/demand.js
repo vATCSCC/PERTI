@@ -2944,14 +2944,28 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     const intervalMs = getGranularityMinutes() * 60 * 1000;
     const halfInterval = intervalMs / 2;
 
-    // Build series
+    // Build series with phase filtering
+    const enabledPhases = getEnabledPhases();
     const series = categoryList.map(category => {
         const seriesData = timeBins.map(bin => {
             // Try hourly lookup first (breakdown data is always hourly), then exact match
             const hourlyBin = roundToHour(bin);
             const binData = breakdown[hourlyBin] || breakdown[normalizeTimeBin(bin)] || [];
             const catEntry = Array.isArray(binData) ? binData.find(item => item[categoryKey] === category) : null;
-            const value = catEntry ? catEntry.count : 0;
+
+            // Calculate value based on enabled phases
+            let value = 0;
+            if (catEntry) {
+                if (catEntry.phases) {
+                    // Use phase-filtered count
+                    enabledPhases.forEach(phase => {
+                        value += catEntry.phases[phase] || 0;
+                    });
+                } else {
+                    // Fallback for data without phase breakdown
+                    value = catEntry.count;
+                }
+            }
             return [new Date(bin).getTime() + halfInterval, value];
         });
 
