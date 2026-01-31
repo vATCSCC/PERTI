@@ -130,7 +130,15 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             if time_match:
                 start_utc = parse_time_window(time_match.group(1), event_start.date())
                 end_utc = parse_time_window(time_match.group(2), event_start.date())
-                # Handle overnight (if end < start, end is next day)
+
+                # Handle overnight events: if parsed times are before event start,
+                # shift them to the next day. This handles events like 23:59-04:00
+                # where TMI times like "0045" should be on the next calendar day.
+                if start_utc and start_utc < event_start - timedelta(hours=2):
+                    start_utc = start_utc + timedelta(days=1)
+                    end_utc = end_utc + timedelta(days=1) if end_utc else None
+
+                # Also handle case where end < start (e.g., 2300-0100)
                 if end_utc and start_utc and end_utc < start_utc:
                     end_utc = end_utc + timedelta(days=1)
 
