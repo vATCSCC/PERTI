@@ -1021,7 +1021,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 start: r.tmi_start,
                 end: r.tmi_end,
                 compliance: null, // APREQ is tracking only
-                cardId: `apreq_detail_${mitArray.length + gsResults.length + i + 1}`,
+                cardId: `apreq_detail_${mitArray.length + gsEntries.length + i + 1}`,
                 cancelled: r.cancelled || false
             });
         });
