@@ -188,8 +188,10 @@ class TMI:
     unit: str = 'nm'                       # 'nm', 'min'
 
     # Parties (NTML format: REQUESTOR:PROVIDER)
-    provider: str = ''                     # ARTCC executing/providing the TMI
-    requestor: str = ''                    # ARTCC requesting the TMI
+    # Can be comma-separated for multiple facilities: "ZNY,N90:ZDC,ZBW"
+    provider: str = ''                     # ARTCC/TRACON/Airport executing/providing the TMI
+    requestor: str = ''                    # ARTCC/TRACON/Airport requesting the TMI
+    is_multiple: bool = False              # (MULTIPLE) suffix - applies to multiple handoff points
 
     # Timing
     start_utc: Optional[datetime] = None
@@ -346,6 +348,7 @@ class CancelEntry:
     fix: str = ''                          # Fix/route being cancelled (RBV, ALL, JOOLO)
     requestor: str = ''                    # Facility that requested (ZNY, N90)
     provider: str = ''                     # Facility providing (ZDC, ZBW)
+    is_multiple: bool = False              # (MULTIPLE) suffix - applies to multiple handoff points
 
 
 @dataclass
@@ -362,6 +365,25 @@ class EventConfig:
     cancellations: List[CancelEntry] = field(default_factory=list)
 
 
+class MeasurementType(Enum):
+    """
+    Where MIT compliance is measured
+
+    FIX: Measure spacing at a specified fix (legacy approach)
+         e.g., "via CAMRN" - measure at CAMRN fix
+
+    BOUNDARY: Measure spacing at ARTCC handoff point (preferred)
+              e.g., "ZNY:ZDC" - measure at the ZNY/ZDC boundary
+              The fix indicates routing, but measurement is at boundary
+
+    BOUNDARY_FALLBACK_FIX: Boundary was attempted but fell back to fix
+                          (e.g., GIS unavailable, no boundary data)
+    """
+    FIX = 'FIX'
+    BOUNDARY = 'BOUNDARY'
+    BOUNDARY_FALLBACK_FIX = 'BOUNDARY_FALLBACK_FIX'
+
+
 @dataclass
 class CrossingResult:
     """Result of a fix crossing detection"""
@@ -375,6 +397,29 @@ class CrossingResult:
     altitude: float
     dept: str
     dest: str
+
+
+@dataclass
+class BoundaryCrossing:
+    """
+    Result of an ARTCC boundary crossing detection (from PostGIS)
+
+    Used for boundary-aware MIT compliance analysis where spacing
+    is measured at the handoff point rather than a specified fix.
+    """
+    callsign: str
+    flight_uid: str
+    crossing_time: datetime     # Interpolated time at boundary crossing
+    crossing_lat: float
+    crossing_lon: float
+    from_artcc: str             # ARTCC being exited (e.g., ZDC = provider)
+    to_artcc: str               # ARTCC being entered (e.g., ZNY = requestor)
+    groundspeed: float          # GS at crossing (interpolated)
+    altitude: float             # Altitude at crossing
+    dept: str
+    dest: str
+    distance_from_origin_nm: float = 0  # Distance from route start to crossing
+    crossing_type: str = 'ENTRY'        # ENTRY or EXIT relative to to_artcc
 
 
 @dataclass

@@ -93,6 +93,38 @@ try {
 }
 
 /**
+ * Parse facility pair from line, handling various formats:
+ * - Simple: "ZNY:ZDC"
+ * - Multiple facilities: "ZNY,N90:ZDC,ZBW"
+ * - With (MULTIPLE) suffix: "ZNY:ZDC(MULTIPLE)"
+ *
+ * Handles ARTCC (ZNY, ZDC), TRACON (N90, A90, C90, PCT, SCT), and Airport codes.
+ *
+ * @param string $line The line to parse
+ * @return array ['requestor' => string, 'provider' => string, 'is_multiple' => bool]
+ */
+function parseFacilities($line) {
+    $result = ['requestor' => '', 'provider' => '', 'is_multiple' => false];
+
+    // Check for and strip (MULTIPLE) suffix
+    $cleanLine = $line;
+    if (preg_match('/\(MULTIPLE\)\s*$/i', $line)) {
+        $result['is_multiple'] = true;
+        $cleanLine = preg_replace('/\(MULTIPLE\)\s*$/i', '', $line);
+    }
+
+    // Parse facility pair at end of line
+    // Pattern matches: FACILITY(,FACILITY)*:FACILITY(,FACILITY)*
+    // Handles: ZNY:ZDC, N90:ZNY, ZNY,N90:ZDC,ZBW, KJFK:ZNY
+    if (preg_match('/\b([A-Z0-9]+(?:,[A-Z0-9]+)*):([A-Z0-9]+(?:,[A-Z0-9]+)*)\s*$/i', $cleanLine, $matches)) {
+        $result['requestor'] = strtoupper($matches[1]);
+        $result['provider'] = strtoupper($matches[2]);
+    }
+
+    return $result;
+}
+
+/**
  * Parse NTML text into structured TMI entries
  */
 function parse_ntml($ntml_text) {
@@ -112,11 +144,11 @@ function parse_ntml($ntml_text) {
             $tmi['fix'] = strtoupper($matches[2]);
             $tmi['value'] = intval($matches[3]);
 
-            // Parse provider:requestor
-            if (preg_match('/(\w+):(\w+)/', $line, $facMatches)) {
-                $tmi['requestor'] = $facMatches[1];
-                $tmi['provider'] = $facMatches[2];
-            }
+            // Parse provider:requestor with (MULTIPLE) support
+            $facilities = parseFacilities($line);
+            $tmi['requestor'] = $facilities['requestor'];
+            $tmi['provider'] = $facilities['provider'];
+            $tmi['is_multiple'] = $facilities['is_multiple'];
 
             // Parse time window
             if (preg_match('/(\d{4})Z\s*-\s*(\d{4})Z/', $line, $timeMatches)) {
@@ -184,12 +216,11 @@ function parse_ntml($ntml_text) {
                 }
             }
 
-            // Parse requestor:provider (facility pair)
-            // Pattern at end: "ZDC:ZTL" or "ZDC:PCT"
-            if (preg_match('/\b(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90):(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90)\b/i', $line, $facMatches)) {
-                $tmi['requestor'] = strtoupper($facMatches[1]);
-                $tmi['provider'] = strtoupper($facMatches[2]);
-            }
+            // Parse requestor:provider (facility pair) with (MULTIPLE) support
+            $facilities = parseFacilities($line);
+            $tmi['requestor'] = $facilities['requestor'];
+            $tmi['provider'] = $facilities['provider'];
+            $tmi['is_multiple'] = $facilities['is_multiple'];
 
             // Parse time window (HHMM-HHMM format, with or without Z)
             if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
@@ -219,11 +250,11 @@ function parse_ntml($ntml_text) {
                 $tmi['fix'] = strtoupper($cxlMatch[2]);
             }
 
-            // Parse requestor:provider for cancellation
-            if (preg_match('/\b(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90)(?:,[A-Z0-9]+)*:(Z[A-Z]{2}|[A-Z]{3}|PCT|N90|A90|C90)(?:,[A-Z0-9]+)*/i', $line, $facMatches)) {
-                $tmi['requestor'] = strtoupper($facMatches[1]);
-                $tmi['provider'] = strtoupper($facMatches[2]);
-            }
+            // Parse requestor:provider for cancellation with (MULTIPLE) support
+            $facilities = parseFacilities($line);
+            $tmi['requestor'] = $facilities['requestor'];
+            $tmi['provider'] = $facilities['provider'];
+            $tmi['is_multiple'] = $facilities['is_multiple'];
         }
         // Legacy cancelled pattern: "CXLD 0123Z"
         elseif (preg_match('/CXLD?\s+(\d{4})Z/i', $line, $cxlMatch)) {

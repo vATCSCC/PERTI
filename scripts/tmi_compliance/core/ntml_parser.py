@@ -219,17 +219,36 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             return (start, end)
         return (None, None)
 
-    def parse_facilities(text: str) -> Tuple[str, str]:
+    def parse_facilities(text: str) -> Tuple[str, str, bool]:
         """
         Parse requestor:provider facility pair.
-        Handles: "N90:ZNY", "ZDC:ZBW", "ZNY,N90:ZBW,ZDC,ZOB"
-        Returns: (requestor, provider)
+
+        Handles various facility types and formats:
+        - ARTCC: ZNY, ZDC, ZBW (3-letter starting with Z)
+        - TRACON: N90, A90, C90, PCT, SCT (2-4 chars)
+        - Airport: KJFK, KBOS, JFK (3-4 chars)
+
+        Formats supported:
+        - Simple: "N90:ZNY", "ZDC:ZBW"
+        - Multiple facilities: "ZNY,N90:ZBW,ZDC,ZOB"
+        - With (MULTIPLE) suffix: "ZNY:ZDC(MULTIPLE)"
+
+        Returns: (requestor, provider, is_multiple)
         """
-        # Look for FACILITY:FACILITY pattern at end of line
-        match = re.search(r'([A-Z0-9,]+):([A-Z0-9,]+)\s*$', text)
+        # Check for and strip (MULTIPLE) suffix
+        is_multiple = False
+        clean_text = text
+        if re.search(r'\(MULTIPLE\)\s*$', text, re.IGNORECASE):
+            is_multiple = True
+            clean_text = re.sub(r'\(MULTIPLE\)\s*$', '', text, flags=re.IGNORECASE).strip()
+
+        # Facility pattern: ARTCC (Z followed by 2 letters), TRACON (N90, A90, C90, PCT, etc),
+        # or Airport (K + 3 letters, or 3 letters). Allow comma-separated lists.
+        # Match pattern like "ZNY,N90:ZDC,ZBW" at end of cleaned line
+        match = re.search(r'([A-Z0-9,]+):([A-Z0-9,]+)\s*$', clean_text)
         if match:
-            return (match.group(1), match.group(2))
-        return ('', '')
+            return (match.group(1), match.group(2), is_multiple)
+        return ('', '', False)
 
     def parse_ntml_timestamp(line: str, base_date) -> Optional[datetime]:
         """
@@ -460,7 +479,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 dest = stop_match.group(1).upper()
                 fix = stop_match.group(2).upper()
                 start_time, end_time = parse_ntml_time_range(line, event_date)
-                requestor, provider = parse_facilities(line)
+                requestor, provider, is_multiple = parse_facilities(line)
 
                 tmi = TMI(
                     tmi_id=f'STOP_{fix}_{dest}',
@@ -469,6 +488,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
                     provider=provider,
                     requestor=requestor,
+                    is_multiple=is_multiple,
                     start_utc=start_time or event_start,
                     end_utc=end_time or event_end,
                     cancelled_utc=cancelled_utc,
@@ -501,7 +521,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 fix_str = mit_match.group(3).upper()
                 value = int(mit_match.group(4))
                 start_time, end_time = parse_ntml_time_range(line, event_date)
-                requestor, provider = parse_facilities(line)
+                requestor, provider, is_multiple = parse_facilities(line)
 
                 # Parse modifier (AS ONE, PER STREAM, PER ROUTE, etc.)
                 modifier = parse_mit_modifier(line)
@@ -545,6 +565,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                             unit='nm',
                             provider=provider,
                             requestor=requestor,
+                            is_multiple=is_multiple,
                             start_utc=start_time or event_start,
                             end_utc=end_time or event_end,
                             issued_utc=issued_utc,
@@ -572,6 +593,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         unit='nm',
                         provider=provider,
                         requestor=requestor,
+                        is_multiple=is_multiple,
                         start_utc=start_time or event_start,
                         end_utc=end_time or event_end,
                         issued_utc=issued_utc,
@@ -598,7 +620,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 fix_str = minit_match.group(3).upper()
                 value = int(minit_match.group(4))
                 start_time, end_time = parse_ntml_time_range(line, event_date)
-                requestor, provider = parse_facilities(line)
+                requestor, provider, is_multiple = parse_facilities(line)
 
                 # Parse modifier
                 modifier = parse_mit_modifier(line)
@@ -640,6 +662,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                             unit='min',
                             provider=provider,
                             requestor=requestor,
+                            is_multiple=is_multiple,
                             start_utc=start_time or event_start,
                             end_utc=end_time or event_end,
                             issued_utc=issued_utc,
@@ -663,6 +686,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         unit='min',
                         provider=provider,
                         requestor=requestor,
+                        is_multiple=is_multiple,
                         start_utc=start_time or event_start,
                         end_utc=end_time or event_end,
                         issued_utc=issued_utc,
@@ -689,7 +713,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 via_part = cfr_match.group(2).strip().upper()
 
                 start_time, end_time = parse_ntml_time_range(line, event_date)
-                requestor, provider = parse_facilities(line)
+                requestor, provider, is_multiple = parse_facilities(line)
 
                 # Parse destinations (may be comma-separated)
                 if ',' in dest_str:
@@ -720,6 +744,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     origins=origins,
                     provider=provider,
                     requestor=requestor,
+                    is_multiple=is_multiple,
                     start_utc=start_time or event_start,
                     end_utc=end_time or event_end,
                     cancelled_utc=cancelled_utc
@@ -756,7 +781,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             # Old MIT/MINIT pattern: "DEST via FIX 20MIT REQ:PROV 2359Z-0400Z"
             if not tmi:
                 mit_match = re.match(
-                    r'(\w+)\s+via\s+(\w+)\s+(\d+)\s*(MIT|MINIT)\s*(?:AS\s+ONE\s+)?(\w+)?:?(\w+)?\s*(\d{4})Z?\s*-\s*(\d{4})Z?',
+                    r'(\w+)\s+via\s+(\w+)\s+(\d+)\s*(MIT|MINIT)\s*(?:AS\s+ONE\s+)?',
                     line, re.IGNORECASE
                 )
                 if mit_match:
@@ -764,10 +789,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     fix = mit_match.group(2).upper()
                     value = int(mit_match.group(3))
                     tmi_type = TMIType.MIT if mit_match.group(4).upper() == 'MIT' else TMIType.MINIT
-                    requestor = mit_match.group(5) or ''
-                    provider = mit_match.group(6) or ''
-                    start_time = parse_time(mit_match.group(7), event_date)
-                    end_time = parse_time(mit_match.group(8), event_date)
+                    start_time, end_time = parse_ntml_time_range(line, event_date)
+                    requestor, provider, is_multiple = parse_facilities(line)
 
                     tmi = TMI(
                         tmi_id=f'{tmi_type.value}_{fix}_{fix}',
@@ -778,6 +801,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         unit='nm' if tmi_type == TMIType.MIT else 'min',
                         provider=provider,
                         requestor=requestor,
+                        is_multiple=is_multiple,
                         start_utc=start_time,
                         end_utc=end_time,
                         cancelled_utc=cancelled_utc
@@ -786,7 +810,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             # Old APREQ/CFR pattern: "DEST via FIX CFR 2359-0400 REQ:PROV"
             if not tmi:
                 apreq_match = re.match(
-                    r'(\w+)\s+via\s+(\w+)\s+(APREQ|CFR)\s*(\d{4})Z?\s*-\s*(\d{4})Z?\s*(\w+)?:?(\w+)?',
+                    r'(\w+)\s+via\s+(\w+)\s+(APREQ|CFR)\s*(\d{4})Z?\s*-\s*(\d{4})Z?',
                     line, re.IGNORECASE
                 )
                 if apreq_match:
@@ -795,8 +819,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     tmi_type = TMIType.APREQ if apreq_match.group(3).upper() == 'APREQ' else TMIType.CFR
                     start_time = parse_time(apreq_match.group(4), event_date)
                     end_time = parse_time(apreq_match.group(5), event_date)
-                    requestor = apreq_match.group(6) or ''
-                    provider = apreq_match.group(7) or ''
+                    requestor, provider, is_multiple = parse_facilities(line)
 
                     tmi = TMI(
                         tmi_id=f'{tmi_type.value}_{fix}',
@@ -805,6 +828,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
                         provider=provider,
                         requestor=requestor,
+                        is_multiple=is_multiple,
                         start_utc=start_time,
                         end_utc=end_time,
                         cancelled_utc=cancelled_utc
@@ -1137,10 +1161,19 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
                 dest = via_match.group(1).upper()
                 fix = via_match.group(2).upper()
 
-            # Extract facilities (requestor:provider)
+            # Extract facilities (requestor:provider) with optional (MULTIPLE) suffix
             requestor = ''
             provider = ''
-            facilities_match = re.search(r'([A-Z0-9,]+):([A-Z0-9,]+)\s*$', line.upper())
+            is_multiple = False
+
+            # Check for (MULTIPLE) suffix
+            if re.search(r'\(MULTIPLE\)\s*$', line.upper()):
+                is_multiple = True
+                clean_fac_line = re.sub(r'\(MULTIPLE\)\s*$', '', line.upper()).strip()
+            else:
+                clean_fac_line = line.upper()
+
+            facilities_match = re.search(r'([A-Z0-9,]+):([A-Z0-9,]+)\s*$', clean_fac_line)
             if facilities_match:
                 requestor = facilities_match.group(1)
                 provider = facilities_match.group(2)
@@ -1150,7 +1183,8 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
                 destination=dest,
                 fix=fix,
                 requestor=requestor,
-                provider=provider
+                provider=provider,
+                is_multiple=is_multiple
             ))
 
         # Track unparsed lines

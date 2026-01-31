@@ -641,7 +641,7 @@ include("load/config.php");
                     </div>
 
                     <!-- Direction Toggle -->
-                    <div class="form-group mb-0">
+                    <div class="form-group mb-2">
                         <label class="demand-label mb-1">Direction</label>
                         <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group w-100" data-toggle="buttons" role="group">
                             <label class="btn btn-outline-secondary active">
@@ -652,6 +652,45 @@ include("load/config.php");
                             </label>
                             <label class="btn btn-outline-secondary">
                                 <input type="radio" name="demand_direction" id="direction_dep" value="dep" autocomplete="off"> Dep
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr class="my-2">
+
+                    <!-- Flight Status Filter -->
+                    <div class="form-group mb-0">
+                        <label class="demand-label mb-1">Flight Status</label>
+                        <div class="d-flex flex-column" style="gap: 3px;">
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="phase_prefile" checked style="margin-right: 6px;">
+                                <span style="background:#3b82f6;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                Prefile
+                            </label>
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="phase_departing" checked style="margin-right: 6px;">
+                                <span style="background:#22c55e;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                Departing
+                            </label>
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="phase_active" checked style="margin-right: 6px;">
+                                <span style="background:#dc2626;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                Active
+                            </label>
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="phase_arrived" checked style="margin-right: 6px;">
+                                <span style="background:#1a1a1a;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                Arrived
+                            </label>
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="phase_disconnected" checked style="margin-right: 6px;">
+                                <span style="background:#f97316;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                Disconnected
+                            </label>
+                            <label class="mb-0 d-flex align-items-center text-muted" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="phase_unknown" style="margin-right: 6px;">
+                                <span style="background:#9333ea;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                Unknown
                             </label>
                         </div>
                     </div>
