@@ -99,6 +99,65 @@ class TMIComplianceAnalyzer:
         self._trajectory_metadata = {}   # callsign -> {flight_uid, dept, dest}
         self._crossing_cache = {}        # callsign -> list of PostGIS boundary crossings
         self._trajectory_cache_loaded = False
+        self._low_quality_flights = set()  # Flights with insufficient trajectory data
+
+    # Trajectory quality thresholds
+    MIN_ENROUTE_POINTS = 5       # Minimum points with gs > 0
+    MIN_UNIQUE_POSITIONS = 3    # Minimum unique lat/lon positions
+    MAX_POSITION_GAP_NM = 100   # Max distance between consecutive points
+    MAX_TIME_GAP_MINUTES = 30   # Max time gap between consecutive points
+
+    def _validate_trajectory_quality(self, callsign: str, trajectory: List[dict]) -> tuple:
+        """
+        Validate trajectory data quality for reliable boundary crossing detection.
+
+        Flights with sparse or incomplete trajectory data (e.g., only departure/arrival
+        positions) produce unreliable interpolated crossings. This validation identifies
+        such flights so they can be flagged or skipped.
+
+        Returns:
+            Tuple of (is_valid, reason_if_invalid)
+        """
+        if not trajectory or len(trajectory) < 2:
+            return False, "insufficient_points"
+
+        # Count points with meaningful groundspeed (enroute, not on ground)
+        enroute_points = [p for p in trajectory if p.get('gs', 0) > 50]
+        if len(enroute_points) < self.MIN_ENROUTE_POINTS:
+            return False, f"only_{len(enroute_points)}_enroute_points"
+
+        # Check for unique positions (not just sitting at airport)
+        unique_positions = set()
+        for p in trajectory:
+            # Round to ~1nm precision to identify truly different positions
+            pos_key = (round(p['lat'], 2), round(p['lon'], 2))
+            unique_positions.add(pos_key)
+
+        if len(unique_positions) < self.MIN_UNIQUE_POSITIONS:
+            return False, f"only_{len(unique_positions)}_unique_positions"
+
+        # Check for large gaps (missing data)
+        sorted_traj = sorted(trajectory, key=lambda p: p['timestamp'])
+        large_gaps = []
+        for i in range(1, len(sorted_traj)):
+            prev = sorted_traj[i - 1]
+            curr = sorted_traj[i]
+
+            # Time gap
+            time_gap_min = (curr['timestamp'] - prev['timestamp']).total_seconds() / 60
+            if time_gap_min > self.MAX_TIME_GAP_MINUTES:
+                large_gaps.append(('time', time_gap_min))
+
+            # Distance gap
+            dist_gap = haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
+            if dist_gap > self.MAX_POSITION_GAP_NM:
+                large_gaps.append(('distance', dist_gap))
+
+        if large_gaps:
+            gap_type, gap_val = large_gaps[0]  # Report first gap
+            return False, f"large_{gap_type}_gap_{gap_val:.0f}"
+
+        return True, None
 
     def analyze(self) -> Dict:
         """Run full compliance analysis"""
@@ -311,18 +370,31 @@ class TMIComplianceAnalyzer:
 
         This is the expensive operation - calling PostGIS for each flight.
         By doing it once upfront, we avoid re-computing for each TMI.
+
+        Flights with low-quality trajectory data (sparse, missing enroute positions)
+        are flagged and excluded from boundary crossing analysis to prevent
+        unreliable interpolated results.
         """
         if not self.gis_conn:
             return
 
         gis_cursor = self.gis_conn.cursor()
         processed = 0
+        skipped_quality = 0
         total = len(self._trajectory_cache)
 
         logger.info(f"Pre-computing boundary crossings for {total} flights...")
 
         for callsign, trajectory in self._trajectory_cache.items():
             if len(trajectory) < 2:
+                continue
+
+            # Validate trajectory quality before computing crossings
+            is_valid, reason = self._validate_trajectory_quality(callsign, trajectory)
+            if not is_valid:
+                self._low_quality_flights.add(callsign)
+                skipped_quality += 1
+                logger.debug(f"  Skipping {callsign}: low quality trajectory ({reason})")
                 continue
 
             # Build waypoints JSON for PostGIS
@@ -384,6 +456,8 @@ class TMIComplianceAnalyzer:
 
         gis_cursor.close()
         logger.info(f"  Cached boundary crossings for {len(self._crossing_cache)} flights")
+        if skipped_quality > 0:
+            logger.warning(f"  Skipped {skipped_quality} flights with low-quality trajectory data")
 
     def _get_flights_for_tmi(self, tmi: TMI) -> Dict[str, Any]:
         """
@@ -466,6 +540,9 @@ class TMIComplianceAnalyzer:
         """Detect fix crossings using trajectory data from both live and archive tables"""
         crossings = []
         cursor = self.adl_conn.cursor()
+
+        # Filter out flights with low-quality trajectory data
+        callsigns = [cs for cs in callsigns if cs not in self._low_quality_flights]
 
         tmi_start = tmi.start_utc
         tmi_end = tmi.get_effective_end()
@@ -591,6 +668,13 @@ class TMIComplianceAnalyzer:
             return []
 
         crossings = []
+
+        # Filter out flights with low-quality trajectory data
+        original_count = len(callsigns)
+        callsigns = [cs for cs in callsigns if cs not in self._low_quality_flights]
+        skipped_count = original_count - len(callsigns)
+        if skipped_count > 0:
+            logger.info(f"  Skipped {skipped_count} flights with low-quality trajectory data")
 
         # Classify facilities and normalize codes
         provider_type = classify_facility(provider)
