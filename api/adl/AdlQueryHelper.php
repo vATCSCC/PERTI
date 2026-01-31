@@ -47,6 +47,25 @@ class AdlQueryHelper {
         return $this->source;
     }
 
+    /**
+     * Generate SQL phase aggregation columns for breakdown queries
+     * Returns SUM(CASE WHEN...) expressions for each phase
+     *
+     * @param string $phaseCol The column/expression containing phase (e.g., 'phase' or 'c.phase')
+     * @return string SQL fragment with phase aggregation columns
+     */
+    protected function getPhaseAggregationSQL($phaseCol = 'phase') {
+        return "
+            SUM(CASE WHEN {$phaseCol} = 'arrived' THEN 1 ELSE 0 END) AS phase_arrived,
+            SUM(CASE WHEN {$phaseCol} = 'disconnected' THEN 1 ELSE 0 END) AS phase_disconnected,
+            SUM(CASE WHEN {$phaseCol} = 'descending' THEN 1 ELSE 0 END) AS phase_descending,
+            SUM(CASE WHEN {$phaseCol} = 'enroute' THEN 1 ELSE 0 END) AS phase_enroute,
+            SUM(CASE WHEN {$phaseCol} = 'departed' THEN 1 ELSE 0 END) AS phase_departed,
+            SUM(CASE WHEN {$phaseCol} = 'taxiing' THEN 1 ELSE 0 END) AS phase_taxiing,
+            SUM(CASE WHEN {$phaseCol} = 'prefile' THEN 1 ELSE 0 END) AS phase_prefile,
+            SUM(CASE WHEN {$phaseCol} NOT IN ('arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR {$phaseCol} IS NULL THEN 1 ELSE 0 END) AS phase_unknown";
+    }
+
     // =========================================================================
     // CURRENT FLIGHTS QUERY (api/adl/current.php)
     // Tables: core + position + plan + aircraft + times
@@ -1032,14 +1051,16 @@ class AdlQueryHelper {
      * Build query for carrier/airline breakdown by time bin (top N + other)
      */
     public function buildCarrierBreakdownQuery($airport, $direction, $startSQL, $endSQL, $topN = 10) {
+        $phaseAgg = $this->getPhaseAggregationSQL('phase');
+
         if ($this->source === self::SOURCE_VIEW) {
             if ($direction === 'both') {
                 $sql = "
                     WITH Combined AS (
-                        SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, airline_icao
+                        SELECT COALESCE(eta_runway_utc, eta_utc) AS op_time, airline_icao, phase
                         FROM dbo.vw_adl_flights WHERE fp_dest_icao = ?
                         UNION ALL
-                        SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, airline_icao
+                        SELECT COALESCE(etd_runway_utc, etd_utc) AS op_time, airline_icao, phase
                         FROM dbo.vw_adl_flights WHERE fp_dept_icao = ?
                     ),
                     TopCarriers AS (
@@ -1053,7 +1074,8 @@ class AdlQueryHelper {
                     SELECT
                         DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
                         CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END AS carrier,
-                        COUNT(*) AS count
+                        COUNT(*) AS count,
+                        {$phaseAgg}
                     FROM Combined
                     WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
                     GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0),
@@ -1075,10 +1097,8 @@ class AdlQueryHelper {
                         GROUP BY airline_icao
                         ORDER BY COUNT(*) DESC
                     )
-                    SELECT
-                        DATEADD(HOUR, DATEDIFF(HOUR, 0, $timeCol), 0) AS time_bin,
-                        CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END AS carrier,
-                        COUNT(*) AS count
+                        COUNT(*) AS count,
+                        {$phaseAgg}
                     FROM dbo.vw_adl_flights
                     WHERE $airportCol = ?
                       AND $timeCol IS NOT NULL
@@ -1091,17 +1111,18 @@ class AdlQueryHelper {
                 return ['sql' => $sql, 'params' => [$airport, $startSQL, $endSQL, $airport, $startSQL, $endSQL]];
             }
         } else {
+            $phaseAggNorm = $this->getPhaseAggregationSQL('c.phase');
             if ($direction === 'both') {
                 $sql = "
                     WITH Combined AS (
-                        SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, a.airline_icao
+                        SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, a.airline_icao, c.phase
                         FROM dbo.adl_flight_core c
                         INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                         LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
                         LEFT JOIN dbo.adl_flight_aircraft a ON a.flight_uid = c.flight_uid
                         WHERE fp.fp_dest_icao = ?
                         UNION ALL
-                        SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, a.airline_icao
+                        SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, a.airline_icao, c.phase
                         FROM dbo.adl_flight_core c
                         INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                         LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
@@ -1119,7 +1140,8 @@ class AdlQueryHelper {
                     SELECT
                         DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0) AS time_bin,
                         CASE WHEN airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN airline_icao ELSE 'OTHER' END AS carrier,
-                        COUNT(*) AS count
+                        COUNT(*) AS count,
+                        {$this->getPhaseAggregationSQL('phase')}
                     FROM Combined
                     WHERE op_time IS NOT NULL AND op_time >= ? AND op_time < ?
                     GROUP BY DATEADD(HOUR, DATEDIFF(HOUR, 0, op_time), 0),
@@ -1147,7 +1169,8 @@ class AdlQueryHelper {
                     SELECT
                         DATEADD(HOUR, DATEDIFF(HOUR, 0, $tTimeCol), 0) AS time_bin,
                         CASE WHEN a.airline_icao IN (SELECT airline_icao FROM TopCarriers) THEN a.airline_icao ELSE 'OTHER' END AS carrier,
-                        COUNT(*) AS count
+                        COUNT(*) AS count,
+                        {$phaseAggNorm}
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
