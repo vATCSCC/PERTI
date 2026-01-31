@@ -1,5 +1,5 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Normalized V8.9.12 - Disable Waypoint ETA (moved to daemon)
+-- sp_Adl_RefreshFromVatsim_Normalized V8.9.13 - Improved arrival detection (touchdown_utc + 10nm)
 --
 -- Changes from V8.9.11:
 --   - DISABLED Step 8c (Waypoint ETA) - moved to waypoint_eta_daemon.php
@@ -868,40 +868,67 @@ BEGIN
 
     -- ========================================================================
     -- Step 7: Mark inactive flights - distinguish arrived vs disconnected
-    -- Fix: Only mark as 'arrived' with ATA if actually near destination (<50nm)
-    -- Flights that disconnect far from destination are marked 'disconnected' without ATA
+    -- V8.9.13: Improved arrival detection
+    --   Priority 1: touchdown_utc exists (zone detection confirmed landing)
+    --   Priority 2: dist_to_dest_nm < 10nm (reduced from 50nm)
+    --   Otherwise: disconnected (mid-flight disconnect)
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
-    -- 7a. Flights near destination (<50nm) - mark as actually arrived with ATA
+    -- 7a. Flights with touchdown_utc - DEFINITIVE arrivals (zone detection caught landing)
+    UPDATE t
+    SET t.ata_utc = COALESCE(t.touchdown_utc, t.on_utc, c.last_seen_utc),
+        t.ata_runway_utc = COALESCE(t.ata_runway_utc, t.touchdown_utc),
+        t.eta_prefix = 'A',  -- Mark as Actual
+        t.times_updated_utc = @now
+    FROM dbo.adl_flight_times t
+    INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+    WHERE c.is_active = 1
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND t.touchdown_utc IS NOT NULL;
+
+    UPDATE c
+    SET c.is_active = 0, c.phase = 'arrived'
+    FROM dbo.adl_flight_core c
+    INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+    WHERE c.is_active = 1
+      AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
+      AND t.touchdown_utc IS NOT NULL;
+
+    -- 7b. Flights near destination (<10nm) without touchdown - PROBABLE arrivals
     UPDATE t
     SET t.ata_utc = c.last_seen_utc,
         t.ata_runway_utc = c.last_seen_utc,
-        t.eta_prefix = 'A',  -- Mark as Actual
+        t.eta_prefix = 'A',
         t.times_updated_utc = @now
     FROM dbo.adl_flight_times t
     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
     INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     WHERE c.is_active = 1
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
-      AND p.dist_to_dest_nm < 50;  -- Actually near destination
+      AND t.touchdown_utc IS NULL
+      AND p.dist_to_dest_nm < 10;
 
     UPDATE c
     SET c.is_active = 0, c.phase = 'arrived'
     FROM dbo.adl_flight_core c
     INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
     WHERE c.is_active = 1
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
-      AND p.dist_to_dest_nm < 50;
+      AND (t.touchdown_utc IS NULL OR t.flight_uid IS NULL)
+      AND p.dist_to_dest_nm < 10;
 
-    -- 7b. Flights far from destination (>=50nm) - mark as disconnected, no ATA
+    -- 7c. Flights far from destination (>=10nm) without touchdown - DISCONNECTED
     UPDATE c
     SET c.is_active = 0, c.phase = 'disconnected'
     FROM dbo.adl_flight_core c
     LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
+    LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
     WHERE c.is_active = 1
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
-      AND (p.dist_to_dest_nm >= 50 OR p.dist_to_dest_nm IS NULL);
+      AND (t.touchdown_utc IS NULL OR t.flight_uid IS NULL)
+      AND (p.dist_to_dest_nm >= 10 OR p.dist_to_dest_nm IS NULL);
 
     SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
@@ -1086,7 +1113,7 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.12 created successfully';
-PRINT 'V8.9.12: Disabled Step 8c (Waypoint ETA) - moved to waypoint_eta_daemon.php';
+PRINT 'sp_Adl_RefreshFromVatsim_Normalized V8.9.13 created successfully';
+PRINT 'V8.9.13: Improved arrival detection - prioritize touchdown_utc, reduce fallback to 10nm';
 PRINT 'Steps 1-8b, 8d, 9, 12-13 active, target <5s performance';
 GO
