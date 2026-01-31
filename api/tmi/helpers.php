@@ -353,23 +353,71 @@ function tmi_log_event($entity_type, $entity_id, $event_type, $options = []) {
 }
 
 /**
- * Generate next advisory number
+ * Generate next advisory number (RESERVES - increments the counter)
+ * @return string|null Advisory number like "ADVZY 001" or null on failure
  */
 function tmi_next_advisory_number() {
     global $conn_tmi;
-    
+
     if (!$conn_tmi) return null;
-    
-    $sql = "DECLARE @num NVARCHAR(16); 
-            EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; 
-            SELECT @num AS adv_num;";
-    
-    $result = sqlsrv_query($conn_tmi, $sql);
-    if ($result && ($row = sqlsrv_fetch_array($result, SQLSRV_FETCH_ASSOC))) {
-        return $row['adv_num'];
+
+    require_once __DIR__ . '/AdvisoryNumber.php';
+    $advNum = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+    return $advNum->reserve();
+}
+
+/**
+ * Peek at next advisory number (does NOT increment)
+ * @return string Advisory number like "ADVZY 001"
+ */
+function tmi_peek_advisory_number() {
+    global $conn_tmi;
+
+    if (!$conn_tmi) return 'ADVZY 001';
+
+    require_once __DIR__ . '/AdvisoryNumber.php';
+    $advNum = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+    return $advNum->peek();
+}
+
+/**
+ * Get current (last used) advisory number for today
+ * @return int Sequence number (0 if none used today)
+ */
+function tmi_current_advisory_number() {
+    global $conn_tmi;
+
+    if (!$conn_tmi) return 0;
+
+    require_once __DIR__ . '/AdvisoryNumber.php';
+    $advNum = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+    return $advNum->current();
+}
+
+/**
+ * Get all advisory number info (previous, current, next)
+ * @param bool $reserve If true, reserves the next number
+ * @return array ['previous' => int, 'current' => int, 'next' => string, ...]
+ */
+function tmi_advisory_number_info($reserve = false) {
+    global $conn_tmi;
+
+    if (!$conn_tmi) {
+        return [
+            'previous' => 0,
+            'previous_formatted' => null,
+            'current' => 0,
+            'current_formatted' => null,
+            'next' => 'ADVZY 001',
+            'next_raw' => 1,
+            'date' => gmdate('Y-m-d'),
+            'reserved' => false
+        ];
     }
-    
-    return null;
+
+    require_once __DIR__ . '/AdvisoryNumber.php';
+    $advNum = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+    return $advNum->getAll($reserve);
 }
 
 /**

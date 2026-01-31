@@ -41,6 +41,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../tmi/AdvisoryNumber.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -145,21 +146,8 @@ if ($dcc_override) {
 // Get Next Advisory Number for ACTUAL advisory
 // ============================================================================
 
-$advisory_number = null;
-$adv_stmt = sqlsrv_query($conn_tmi,
-    "DECLARE @num NVARCHAR(16); EXEC dbo.sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS adv_num;");
-
-if ($adv_stmt !== false) {
-    $row = sqlsrv_fetch_array($adv_stmt, SQLSRV_FETCH_ASSOC);
-    if ($row && isset($row['adv_num'])) {
-        $advisory_number = $row['adv_num'];
-    }
-    sqlsrv_free_stmt($adv_stmt);
-}
-
-if (!$advisory_number) {
-    $advisory_number = 'ADVZY 001';
-}
+$advNumHelper = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+$advisory_number = $advNumHelper->reserve();
 
 // ============================================================================
 // Regenerate Flight List (if requested)

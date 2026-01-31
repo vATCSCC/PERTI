@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../../../load/config.php';
 require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
 require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
+require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
 
 // =============================================================================
 // CONSTANTS
@@ -2475,16 +2476,36 @@ function activateProposal($conn, $proposalId) {
             $log("Processing REROUTE proposal, reroute_id: " . ($rerouteId ?: 'UNKNOWN'));
 
             if ($rerouteId) {
-                // Update reroute status to ACTIVE (2)
+                // Get next advisory number using centralized AdvisoryNumber class
+                $advNum = new AdvisoryNumber($conn, 'pdo');
+                $advNumber = $advNum->reserve();
+                $advNumberDigits = str_pad($advNum->parse($advNumber) ?? 1, 3, '0', STR_PAD_LEFT);
+                $log("Reserved advisory number for reroute: $advNumber (digits: $advNumberDigits)");
+
+                // Update reroute status to ACTIVE (2) AND set the advisory number
                 // Note: TMI database uses _at suffix for date columns
                 $updateRerouteSql = "UPDATE dbo.tmi_reroutes SET
                                          status = 2,
+                                         adv_number = :adv_number,
                                          activated_at = SYSUTCDATETIME(),
                                          updated_at = SYSUTCDATETIME()
                                      WHERE reroute_id = :reroute_id";
                 $updateRerouteStmt = $conn->prepare($updateRerouteSql);
-                $updateRerouteStmt->execute([':reroute_id' => $rerouteId]);
-                $log("Reroute status set to ACTIVE (2) for reroute_id: $rerouteId");
+                $updateRerouteStmt->execute([
+                    ':reroute_id' => $rerouteId,
+                    ':adv_number' => $advNumberDigits
+                ]);
+                $log("Reroute status set to ACTIVE (2) with adv_number: $advNumberDigits for reroute_id: $rerouteId");
+
+                // Update the rawText with the actual reserved advisory number
+                // Replace patterns like "ADVZY 004" or "RRDCC004" with the real number
+                if ($advNumberDigits) {
+                    // Replace ADVZY header pattern
+                    $rawText = preg_replace('/ADVZY\s*\d{3}/', 'ADVZY ' . $advNumberDigits, $rawText);
+                    // Replace TMI ID pattern (e.g., RRDCC004 -> RRDCCxxx)
+                    $rawText = preg_replace('/RR([A-Z]{2,5})\d{3}/', 'RR$1' . $advNumberDigits, $rawText);
+                    $log("Updated rawText with advisory number: $advNumberDigits");
+                }
 
                 // Publish to Discord advisories channel if not scheduled for later
                 if (!$shouldSchedule) {
@@ -2534,17 +2555,10 @@ function activateProposal($conn, $proposalId) {
             $log("Processing {$entryType} proposal, program_id: " . ($programId ?: 'UNKNOWN'));
 
             if ($programId) {
-                // Get next advisory number for ACTUAL advisory
-                $advNumber = null;
-                try {
-                    $advSql = "DECLARE @num NVARCHAR(16); EXEC dbo.sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS adv_num;";
-                    $advStmt = $conn->query($advSql);
-                    $advRow = $advStmt->fetch(PDO::FETCH_ASSOC);
-                    $advNumber = $advRow['adv_num'] ?? 'ADVZY 001';
-                } catch (Exception $e) {
-                    $advNumber = 'ADVZY 001';
-                    $log("Failed to get advisory number: " . $e->getMessage());
-                }
+                // Get next advisory number using centralized AdvisoryNumber class
+                $advNum = new AdvisoryNumber($conn, 'pdo');
+                $advNumber = $advNum->reserve();
+                $log("Reserved advisory number for program: $advNumber");
 
                 // Activate the program
                 try {

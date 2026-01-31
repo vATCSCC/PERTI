@@ -45,6 +45,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../tmi/AdvisoryNumber.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -129,27 +130,11 @@ $deadline = clone $now;
 $deadline->add(new DateInterval('PT' . $deadline_minutes . 'M'));
 
 // ============================================================================
-// Get Next Advisory Number
+// Get Next Advisory Number (peek for proposal, will reserve later if IMMEDIATE)
 // ============================================================================
 
-$advisory_number = null;
-$adv_sql = "EXEC dbo.sp_GetNextAdvisoryNumber @next_number = ? OUTPUT";
-$adv_output = null;
-$adv_stmt = sqlsrv_query($conn_tmi,
-    "DECLARE @num NVARCHAR(16); EXEC dbo.sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS adv_num;");
-
-if ($adv_stmt !== false) {
-    $row = sqlsrv_fetch_array($adv_stmt, SQLSRV_FETCH_ASSOC);
-    if ($row && isset($row['adv_num'])) {
-        $advisory_number = $row['adv_num'];
-    }
-    sqlsrv_free_stmt($adv_stmt);
-}
-
-if (!$advisory_number) {
-    // Fallback if SP fails
-    $advisory_number = 'ADVZY 001';
-}
+$advNumHelper = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+$advisory_number = $advNumHelper->peek();
 
 // ============================================================================
 // Handle IMMEDIATE Mode - Skip Coordination
@@ -159,17 +144,8 @@ if ($coordination_mode === 'IMMEDIATE') {
     // For GS: Default to immediate (skip coordination)
     // For GDP: Immediate is optional
 
-    // Get ACTUAL advisory number
-    $actual_adv_stmt = sqlsrv_query($conn_tmi,
-        "DECLARE @num NVARCHAR(16); EXEC dbo.sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS adv_num;");
-    $actual_adv_number = $advisory_number; // Use same if SP fails
-    if ($actual_adv_stmt !== false) {
-        $row = sqlsrv_fetch_array($actual_adv_stmt, SQLSRV_FETCH_ASSOC);
-        if ($row && isset($row['adv_num'])) {
-            $actual_adv_number = $row['adv_num'];
-        }
-        sqlsrv_free_stmt($actual_adv_stmt);
-    }
+    // Reserve ACTUAL advisory number using centralized class
+    $actual_adv_number = $advNumHelper->reserve();
 
     // Activate program directly
     $activate_sql = "EXEC dbo.sp_TMI_ActivateProgram @program_id = ?, @activated_by = ?";

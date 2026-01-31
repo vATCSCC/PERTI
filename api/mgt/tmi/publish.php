@@ -101,6 +101,7 @@ try {
     require_once __DIR__ . '/../../../load/config.php';
     require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
     require_once __DIR__ . '/../../../load/coordination_log.php';
+    require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
     
     // Check if MultiDiscordAPI exists
     $multiDiscordPath = __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
@@ -765,21 +766,10 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
     // ALWAYS get advisory number from database at publish time (ignore client-side number)
     // This prevents race conditions when multiple users publish advisories simultaneously
     $clientNumber = $data['number'] ?? null;
-    $advisoryNumber = null;
 
-    try {
-        $stmt = $conn->prepare("DECLARE @num NVARCHAR(16); EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS num;");
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $advisoryNumber = $row['num'] ?? null;
-    } catch (Exception $e) {
-        tmi_debug_log('Failed to get advisory number from database', ['error' => $e->getMessage()]);
-    }
-
-    // Fallback if stored procedure failed
-    if (empty($advisoryNumber)) {
-        $advisoryNumber = 'ADVZY ' . date('His');
-    }
+    // Use centralized AdvisoryNumber class
+    $advNum = new AdvisoryNumber($conn, 'pdo');
+    $advisoryNumber = $advNum->reserve();
 
     // Replace the client-side advisory number in the body text with the server-assigned number
     if (!empty($clientNumber) && $clientNumber !== $advisoryNumber) {

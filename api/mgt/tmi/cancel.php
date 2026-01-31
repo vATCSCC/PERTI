@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Load dependencies
 try {
     require_once __DIR__ . '/../../../load/config.php';
+    require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Config load error']);
@@ -338,39 +339,11 @@ try {
 
 /**
  * Get next advisory number from database sequence
+ * Uses centralized AdvisoryNumber class
  */
 function getNextAdvisoryNumber($conn) {
-    try {
-        // Try using the stored procedure via PDO
-        $sql = "DECLARE @num NVARCHAR(16);
-                EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT;
-                SELECT @num AS adv_num;";
-
-        $stmt = $conn->query($sql);
-        if ($stmt && ($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
-            return $row['adv_num'];
-        }
-    } catch (Exception $e) {
-        error_log("Failed to get next advisory number via SP: " . $e->getMessage());
-    }
-
-    // Fallback: query max advisory number + 1 for today
-    try {
-        $todayPrefix = gmdate('md');
-        $sql = "SELECT MAX(CAST(SUBSTRING(adv_number, 5, 10) AS INT)) AS max_num
-                FROM dbo.tmi_advisories
-                WHERE adv_number LIKE '{$todayPrefix}%'";
-        $stmt = $conn->query($sql);
-        if ($stmt && ($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
-            $nextNum = ($row['max_num'] ?? 0) + 1;
-            return $todayPrefix . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
-        }
-    } catch (Exception $e) {
-        error_log("Failed to get next advisory number via query: " . $e->getMessage());
-    }
-
-    // Ultimate fallback: date-based number
-    return gmdate('dHi');
+    $advNum = new AdvisoryNumber($conn, 'pdo');
+    return $advNum->reserve();
 }
 
 /**

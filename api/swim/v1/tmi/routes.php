@@ -17,6 +17,7 @@
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../../../../load/services/GISService.php';
+require_once __DIR__ . '/../../../../api/tmi/AdvisoryNumber.php';
 
 // Discord coordination
 define('DISCORD_COORDINATION_CHANNEL', '1466013550450577491');
@@ -426,23 +427,11 @@ function handleCreate() {
     }
 
     // Generate advisory number from database (auto-increment with all advisories)
+    // Uses centralized AdvisoryNumber class
     $clientAdvNumber = $body['adv_number'] ?? null;
-    $serverAdvNumber = null;
 
-    try {
-        $advSql = "DECLARE @num NVARCHAR(16); EXEC sp_GetNextAdvisoryNumber @next_number = @num OUTPUT; SELECT @num AS adv_num;";
-        $advStmt = sqlsrv_query($conn_tmi, $advSql);
-        if ($advStmt && ($advRow = sqlsrv_fetch_array($advStmt, SQLSRV_FETCH_ASSOC))) {
-            $serverAdvNumber = $advRow['adv_num'];
-        }
-        if ($advStmt) sqlsrv_free_stmt($advStmt);
-    } catch (Exception $e) {
-        // Log error but continue - will use client number as fallback
-        error_log('Failed to get advisory number: ' . $e->getMessage());
-    }
-
-    // Use server-assigned number, fall back to client number if stored procedure failed
-    $advNumber = $serverAdvNumber ?? $clientAdvNumber ?? ('ADV' . date('His'));
+    $advNumHelper = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+    $advNumber = $advNumHelper->reserve();
 
     // Extract the 3-digit number from the server-assigned advisory number
     // Format may be "ADVZY 047" or just "047" or "47"
