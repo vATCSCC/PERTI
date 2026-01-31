@@ -568,19 +568,31 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
 
     skipped_lines = []
 
-    for line in lines:
-        line = line.strip()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
         if not line:
+            i += 1
             continue
 
         line_type, metadata = classify_line(line)
         tmi = None
 
-        # Skip non-TMI lines but log them
+        # Handle ADVZY Ground Stops (multi-line format)
+        if line_type == 'advzy_header' and 'GROUND STOP' in line.upper():
+            gs_tmi, lines_consumed = parse_advzy_ground_stop(lines, i, event_start, event_end, destinations)
+            if gs_tmi:
+                tmis.append(gs_tmi)
+                logger.debug(f"Parsed ADVZY Ground Stop: {gs_tmi.destinations} from {gs_tmi.provider}")
+            i += lines_consumed
+            continue
+
+        # Skip other non-TMI lines but log them
         if line_type in ('advzy_header', 'advzy_field', 'airport_config', 'ed_delay',
                          'ad_delay', 'dd_delay', 'route_header', 'route_entry', 'tmi_id',
                          'timestamp', 'empty'):
             skipped_lines.append((line_type, line))
+            i += 1
             continue
 
         # Handle CANCEL RESTR - these cancel existing TMIs, not create new ones
@@ -589,6 +601,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             # Format: "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
             logger.debug(f"Cancellation line (not creating TMI): {line}")
             skipped_lines.append((line_type, line))
+            i += 1
             continue
 
         cancelled_utc = None
@@ -974,6 +987,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             logger.debug(f"Parsed TMI: {tmi.tmi_type.value} via {tmi.fix} for {tmi.destinations}")
         elif line_type == 'unknown':
             skipped_lines.append(('unparsed', line))
+
+        i += 1
 
     # Log summary of skipped lines
     if skipped_lines:
