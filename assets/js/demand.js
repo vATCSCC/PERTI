@@ -268,7 +268,7 @@ window.DemandChartCore = (function() {
             },
             label: {
                 show: true,
-                formatter: `${hours}${minutes}z`,
+                formatter: `${hours}${minutes}Z`,
                 position: 'end',
                 color: markerColor,
                 fontWeight: 'bold',
@@ -689,7 +689,7 @@ window.DemandChartCore = (function() {
                             fontFamily: '"Inconsolata", "SF Mono", monospace',
                             formatter: function(value) {
                                 var d = new Date(value);
-                                return d.getUTCHours().toString().padStart(2, '0') + d.getUTCMinutes().toString().padStart(2, '0') + 'z';
+                                return d.getUTCHours().toString().padStart(2, '0') + d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
                             }
                         },
                         splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
@@ -2220,8 +2220,8 @@ function renderChart(data) {
                     const d = new Date(value);
                     const h = d.getUTCHours().toString().padStart(2, '0');
                     const m = d.getUTCMinutes().toString().padStart(2, '0');
-                    // AADC style: "1200z", "1300z", etc.
-                    return h + m + 'z';
+                    // AADC style: "1200Z", "1300Z", etc.
+                    return h + m + 'Z';
                 }
             },
             splitLine: {
@@ -2527,8 +2527,8 @@ function renderOriginChart() {
                     const d = new Date(value);
                     const h = d.getUTCHours().toString().padStart(2, '0');
                     const m = d.getUTCMinutes().toString().padStart(2, '0');
-                    // AADC style: "1200z", "1300z", etc.
-                    return h + m + 'z';
+                    // AADC style: "1200Z", "1300Z", etc.
+                    return h + m + 'Z';
                 }
             },
             splitLine: {
@@ -2866,7 +2866,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                     const d = new Date(value);
                     const h = d.getUTCHours().toString().padStart(2, '0');
                     const m = d.getUTCMinutes().toString().padStart(2, '0');
-                    return h + m + 'z';
+                    return h + m + 'Z';
                 }
             },
             splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
@@ -3406,7 +3406,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
         },
         label: {
             show: true,
-            formatter: `${hours}${minutes}z`,
+            formatter: `${hours}${minutes}Z`,
             position: 'end',
             color: markerColor,
             fontWeight: 'bold',
@@ -4082,7 +4082,7 @@ function getDataZoomConfig() {
             labelFormatter: function(value) {
                 const d = new Date(value);
                 return d.getUTCHours().toString().padStart(2, '0') +
-                       d.getUTCMinutes().toString().padStart(2, '0') + 'z';
+                       d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
             },
             brushSelect: false,
             zLevel: 10                    // Ensure slider is above other elements
