@@ -8,10 +8,14 @@ Handles raw Discord-pasted content with usernames, timestamps, and Unicode forma
 
 import re
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional
 
-from .models import TMI, TMIType
+from .models import (
+    TMI, TMIType, DelayEntry, DelayType, DelayTrend, HoldingStatus,
+    AirportConfig, CancelEntry
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,16 +91,27 @@ def classify_line(line: str) -> Tuple[str, Optional[dict]]:
     if re.search(r'\b(VMC|IMC)\b.*\bARR:', line) or re.search(r'\bAAR:\d+\s+ADR:\d+', line):
         return ("airport_config", {"line": line})
 
-    # E/D (Expect Delays with holding): "31/0127    ZBW E/D for BOS +Holding/0147/2 ACFT"
-    if re.search(r'\bE/D\b.*\+Holding', line, re.IGNORECASE):
-        return ("ed_hold", {"line": line})
+    # E/D (En Route Delays): "31/0127    ZBW E/D for BOS +Holding/0147/2 ACFT"
+    # Can have +Holding (start holding), -Holding (stop holding), or delay amounts
+    if re.search(r'\bE/D\b', line, re.IGNORECASE):
+        return ("ed_delay", {"line": line})
+
+    # A/D (Arrival Delays): Similar format to E/D
+    if re.search(r'\bA/D\b', line, re.IGNORECASE):
+        return ("ad_delay", {"line": line})
 
     # D/D (Departure Delays): "31/0153    D/D from BOS +35/0153"
-    if re.search(r'\bD/D\b.*from\s+\w+\s+\+\d+', line, re.IGNORECASE):
+    # Typically ground delays, measured in 15-min increments
+    if re.search(r'\bD/D\b', line, re.IGNORECASE):
         return ("dd_delay", {"line": line})
 
-    # CANCEL RESTR: "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
-    if re.search(r'\bCANCEL\s+RESTR\b', line, re.IGNORECASE):
+    # CANCEL patterns - be flexible with variations:
+    # - "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
+    # - "BOS via ALL CANCEL RESTR ZBW:ZNY,ZOB"
+    # - "CANCEL RESTR" anywhere in line
+    # - "CNCL" abbreviation
+    # - Just "CANCEL" followed by facility info
+    if re.search(r'\bCANCEL\b', line, re.IGNORECASE) or re.search(r'\bCNCL\b', line, re.IGNORECASE):
         return ("cancel", {"line": line})
 
     # STOP restriction: "BOS via Q133 STOP" or "30/2327    BOS via HNK STOP VOLUME:VOLUME 2330-0400 ZBW:ZNY"
@@ -226,8 +241,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         tmi = None
 
         # Skip non-TMI lines but log them
-        if line_type in ('advzy_header', 'advzy_field', 'airport_config', 'ed_hold',
-                         'dd_delay', 'route_header', 'route_entry', 'tmi_id',
+        if line_type in ('advzy_header', 'advzy_field', 'airport_config', 'ed_delay',
+                         'ad_delay', 'dd_delay', 'route_header', 'route_entry', 'tmi_id',
                          'timestamp', 'empty'):
             skipped_lines.append((line_type, line))
             continue
@@ -487,3 +502,443 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
 
     logger.info(f"Parsed {len(tmis)} TMIs from NTML text")
     return tmis
+
+
+@dataclass
+class NTMLParseResult:
+    """Complete result from parsing NTML text"""
+    tmis: List[TMI]
+    delays: List[DelayEntry]
+    airport_configs: List[AirportConfig]
+    cancellations: List[CancelEntry]
+    unparsed_lines: List[str]
+
+
+def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> NTMLParseResult:
+    """
+    Comprehensive NTML parser that extracts all entry types.
+
+    Returns:
+        NTMLParseResult containing:
+        - tmis: List of TMI restrictions
+        - delays: List of E/D, A/D, D/D entries
+        - airport_configs: List of airport configuration updates
+        - cancellations: List of CANCEL entries
+        - unparsed_lines: Lines that couldn't be classified
+    """
+    # Start with TMIs from the existing parser
+    tmis = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
+
+    delays = []
+    airport_configs = []
+    cancellations = []
+    unparsed_lines = []
+
+    # Clean and process lines
+    cleaned_text = clean_discord_text(ntml_text)
+    lines = cleaned_text.strip().split('\n')
+    event_date = event_start.date()
+
+    def parse_time_from_ntml(time_str: str, base_date) -> Optional[datetime]:
+        """Parse HHMM time string"""
+        if not time_str:
+            return None
+        time_str = time_str.replace(':', '').replace('Z', '').strip()
+        if len(time_str) == 4:
+            try:
+                hour = int(time_str[:2])
+                minute = int(time_str[2:])
+                result = datetime(base_date.year, base_date.month, base_date.day, hour, minute)
+                if result < event_start - timedelta(hours=2):
+                    result = result + timedelta(days=1)
+                return result
+            except ValueError:
+                return None
+        return None
+
+    def parse_ntml_timestamp(line: str, base_date) -> Optional[datetime]:
+        """Parse the DD/HHMM timestamp from start of NTML line"""
+        match = re.match(r'^(\d{2})/(\d{4})\s+', line)
+        if match:
+            day = int(match.group(1))
+            time_str = match.group(2)
+            try:
+                hour = int(time_str[:2])
+                minute = int(time_str[2:])
+                # Use event date's month/year, adjust day
+                result = datetime(base_date.year, base_date.month, day, hour, minute)
+                # Handle month rollover
+                if result < event_start - timedelta(days=2):
+                    # Probably next month
+                    if base_date.month == 12:
+                        result = result.replace(year=base_date.year + 1, month=1)
+                    else:
+                        result = result.replace(month=base_date.month + 1)
+                return result
+            except ValueError:
+                return None
+        return None
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        line_type, _ = classify_line(line)
+        timestamp = parse_ntml_timestamp(line, event_date)
+
+        # Parse E/D (En Route Delays)
+        # Format: "31/0127    ZBW E/D for BOS +Holding/0147/2 ACFT  FIX/NAVAID:AJJAY VOLUME:VOLUME"
+        # Can also be: "ZBW E/D for BOS +30/0147" (30 min delay starting at 0147)
+        # Or: "ZBW E/D for BOS -Holding" (no longer holding)
+        if line_type == 'ed_delay':
+            ed_match = re.search(r'(\w+)\s+E/D\s+for\s+(\w+)', line, re.IGNORECASE)
+            if ed_match:
+                facility = ed_match.group(1).upper()
+                airport = ed_match.group(2).upper()
+
+                # Determine holding status
+                holding_status = HoldingStatus.NONE
+                if re.search(r'\+Holding\b', line, re.IGNORECASE):
+                    holding_status = HoldingStatus.HOLDING
+                elif re.search(r'-Holding\b', line, re.IGNORECASE):
+                    holding_status = HoldingStatus.NOT_HOLDING
+
+                # Extract holding fix from "FIX/NAVAID:AJJAY"
+                holding_fix = ''
+                fix_match = re.search(r'FIX/NAVAID:(\w+)', line, re.IGNORECASE)
+                if fix_match:
+                    holding_fix = fix_match.group(1).upper()
+
+                # Extract aircraft count from "2 ACFT"
+                aircraft_holding = 0
+                acft_match = re.search(r'(\d+)\s*ACFT', line, re.IGNORECASE)
+                if acft_match:
+                    aircraft_holding = int(acft_match.group(1))
+
+                # Extract delay minutes and start time
+                # Format: +Holding/0147 or +30/0147
+                delay_minutes = 0
+                delay_start = None
+                delay_match = re.search(r'\+(\w+)/(\d{4})', line)
+                if delay_match:
+                    value = delay_match.group(1)
+                    if value.isdigit():
+                        delay_minutes = int(value)
+                    delay_start = parse_time_from_ntml(delay_match.group(2), event_date)
+
+                # Determine delay trend (would need previous entries to be accurate)
+                delay_trend = DelayTrend.UNKNOWN
+
+                delays.append(DelayEntry(
+                    delay_type=DelayType.ED,
+                    airport=airport,
+                    facility=facility,
+                    timestamp_utc=timestamp,
+                    delay_minutes=delay_minutes,
+                    delay_trend=delay_trend,
+                    delay_start_utc=delay_start,
+                    holding_status=holding_status,
+                    holding_fix=holding_fix,
+                    aircraft_holding=aircraft_holding,
+                    reason='VOLUME' if 'VOLUME' in line.upper() else '',
+                    raw_line=line
+                ))
+
+        # Parse A/D (Arrival Delays) - same structure as E/D
+        elif line_type == 'ad_delay':
+            ad_match = re.search(r'(\w+)\s+A/D\s+for\s+(\w+)', line, re.IGNORECASE)
+            if ad_match:
+                facility = ad_match.group(1).upper()
+                airport = ad_match.group(2).upper()
+
+                # Holding status
+                holding_status = HoldingStatus.NONE
+                if re.search(r'\+Holding\b', line, re.IGNORECASE):
+                    holding_status = HoldingStatus.HOLDING
+                elif re.search(r'-Holding\b', line, re.IGNORECASE):
+                    holding_status = HoldingStatus.NOT_HOLDING
+
+                # Holding fix
+                holding_fix = ''
+                fix_match = re.search(r'FIX/NAVAID:(\w+)', line, re.IGNORECASE)
+                if fix_match:
+                    holding_fix = fix_match.group(1).upper()
+
+                # Aircraft count
+                aircraft_holding = 0
+                acft_match = re.search(r'(\d+)\s*ACFT', line, re.IGNORECASE)
+                if acft_match:
+                    aircraft_holding = int(acft_match.group(1))
+
+                # Delay amount and start
+                delay_minutes = 0
+                delay_start = None
+                delay_match = re.search(r'\+(\w+)/(\d{4})', line)
+                if delay_match:
+                    value = delay_match.group(1)
+                    if value.isdigit():
+                        delay_minutes = int(value)
+                    delay_start = parse_time_from_ntml(delay_match.group(2), event_date)
+                else:
+                    # Try simple +NN format
+                    simple_match = re.search(r'\+(\d+)\b', line)
+                    if simple_match:
+                        delay_minutes = int(simple_match.group(1))
+
+                delays.append(DelayEntry(
+                    delay_type=DelayType.AD,
+                    airport=airport,
+                    facility=facility,
+                    timestamp_utc=timestamp,
+                    delay_minutes=delay_minutes,
+                    delay_trend=DelayTrend.UNKNOWN,
+                    delay_start_utc=delay_start,
+                    holding_status=holding_status,
+                    holding_fix=holding_fix,
+                    aircraft_holding=aircraft_holding,
+                    reason='VOLUME' if 'VOLUME' in line.upper() else '',
+                    raw_line=line
+                ))
+
+        # Parse D/D (Departure Delays)
+        # Format: "31/0153    D/D from BOS +35/0153  VOLUME:VOLUME"
+        # +35 means 35-minute delays, /0153 is when delays started
+        elif line_type == 'dd_delay':
+            dd_match = re.search(r'D/D\s+from\s+(\w+)', line, re.IGNORECASE)
+            if dd_match:
+                airport = dd_match.group(1).upper()
+
+                # Extract delay amount and start time
+                # Format: +35/0153 (35 min delay starting at 0153)
+                delay_minutes = 0
+                delay_start = None
+                delay_match = re.search(r'\+(\d+)/(\d{4})', line)
+                if delay_match:
+                    delay_minutes = int(delay_match.group(1))
+                    delay_start = parse_time_from_ntml(delay_match.group(2), event_date)
+                else:
+                    # Try simple +NN format
+                    simple_match = re.search(r'\+(\d+)\b', line)
+                    if simple_match:
+                        delay_minutes = int(simple_match.group(1))
+
+                # D/D can rarely have holding (plane departs then holds)
+                holding_status = HoldingStatus.NONE
+                if re.search(r'\+Holding\b', line, re.IGNORECASE):
+                    holding_status = HoldingStatus.HOLDING
+                elif re.search(r'-Holding\b', line, re.IGNORECASE):
+                    holding_status = HoldingStatus.NOT_HOLDING
+
+                delays.append(DelayEntry(
+                    delay_type=DelayType.DD,
+                    airport=airport,
+                    facility='',  # D/D typically doesn't specify facility
+                    timestamp_utc=timestamp,
+                    delay_minutes=delay_minutes,
+                    delay_trend=DelayTrend.UNKNOWN,
+                    delay_start_utc=delay_start,
+                    holding_status=holding_status,
+                    holding_fix='',
+                    aircraft_holding=0,
+                    reason='VOLUME' if 'VOLUME' in line.upper() else '',
+                    raw_line=line
+                ))
+
+        # Parse Airport Configuration
+        # Format: "30/2328    BOS    VMC    ARR:27/32 DEP:33L    AAR:40 ADR:40"
+        elif line_type == 'airport_config':
+            # Extract airport code (3-letter code following timestamp)
+            airport_match = re.search(r'^\d{2}/\d{4}\s+(\w{3})\s+', line)
+            if not airport_match:
+                # Try without timestamp
+                airport_match = re.match(r'^(\w{3})\s+', line)
+
+            if airport_match:
+                airport = airport_match.group(1).upper()
+
+                # Extract conditions (VMC/IMC)
+                conditions = 'VMC' if 'VMC' in line.upper() else ('IMC' if 'IMC' in line.upper() else '')
+
+                # Extract arrival runways (ARR:27/32)
+                arr_runways = []
+                arr_match = re.search(r'ARR:([^\s]+)', line, re.IGNORECASE)
+                if arr_match:
+                    arr_runways = [r.strip() for r in arr_match.group(1).split('/')]
+
+                # Extract departure runways (DEP:33L)
+                dep_runways = []
+                dep_match = re.search(r'DEP:([^\s]+)', line, re.IGNORECASE)
+                if dep_match:
+                    dep_runways = [r.strip() for r in dep_match.group(1).split('/')]
+
+                # Extract AAR and ADR
+                aar = 0
+                adr = 0
+                aar_match = re.search(r'AAR:(\d+)', line, re.IGNORECASE)
+                if aar_match:
+                    aar = int(aar_match.group(1))
+                adr_match = re.search(r'ADR:(\d+)', line, re.IGNORECASE)
+                if adr_match:
+                    adr = int(adr_match.group(1))
+
+                airport_configs.append(AirportConfig(
+                    airport=airport,
+                    timestamp_utc=timestamp,
+                    conditions=conditions,
+                    arrival_runways=arr_runways,
+                    departure_runways=dep_runways,
+                    aar=aar,
+                    adr=adr
+                ))
+
+        # Parse Cancellations
+        # Various formats:
+        # - "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
+        # - "BOS via ALL CANCEL RESTR ZBW:ZNY,ZOB"
+        # - "JFK, LGA, BOS via CLT Departures CFR VOLUME:VOLUME CANCEL RESTR ZDC:ZTL"
+        elif line_type == 'cancel':
+            # Remove timestamp prefix if present
+            clean_line = re.sub(r'^\d{2}/\d{4}\s+', '', line).strip()
+
+            # Try to extract destination and fix
+            dest = ''
+            fix = ''
+
+            # Pattern 1: "DEST via FIX CANCEL"
+            via_match = re.search(r'(\S+)\s+via\s+(\S+).*CANCEL', clean_line, re.IGNORECASE)
+            if via_match:
+                dest = via_match.group(1).upper()
+                fix = via_match.group(2).upper()
+
+            # Extract facilities (requestor:provider)
+            requestor = ''
+            provider = ''
+            facilities_match = re.search(r'([A-Z0-9,]+):([A-Z0-9,]+)\s*$', line.upper())
+            if facilities_match:
+                requestor = facilities_match.group(1)
+                provider = facilities_match.group(2)
+
+            cancellations.append(CancelEntry(
+                timestamp_utc=timestamp,
+                destination=dest,
+                fix=fix,
+                requestor=requestor,
+                provider=provider
+            ))
+
+        # Track unparsed lines
+        elif line_type == 'unknown':
+            unparsed_lines.append(line)
+
+    # Detect delay trends by comparing sequential entries
+    delays = detect_delay_trends(delays)
+
+    # Log summary
+    logger.info(f"NTML parse complete: {len(tmis)} TMIs, {len(delays)} delays, "
+                f"{len(airport_configs)} configs, {len(cancellations)} cancellations, "
+                f"{len(unparsed_lines)} unparsed")
+
+    return NTMLParseResult(
+        tmis=tmis,
+        delays=delays,
+        airport_configs=airport_configs,
+        cancellations=cancellations,
+        unparsed_lines=unparsed_lines
+    )
+
+
+def detect_delay_trends(delays: List[DelayEntry]) -> List[DelayEntry]:
+    """
+    Detect delay trends by comparing sequential entries for the same airport/type.
+
+    Trend logic:
+    - INCREASING: Current delay_minutes > previous delay_minutes, or +Holding entered
+    - DECREASING: Current delay_minutes < previous delay_minutes, or -Holding exited
+    - STEADY: Same delay_minutes as previous entry
+    - UNKNOWN: First entry for this airport/type, or can't determine
+
+    Entries are processed in timestamp order (oldest first).
+    """
+    if not delays:
+        return delays
+
+    # Sort by timestamp (oldest first) to process chronologically
+    sorted_delays = sorted(delays, key=lambda d: d.timestamp_utc or datetime.min)
+
+    # Track last entry per airport/type combination
+    last_entry: dict[tuple[str, DelayType], DelayEntry] = {}
+
+    updated_delays = []
+
+    for delay in sorted_delays:
+        key = (delay.airport, delay.delay_type)
+        prev = last_entry.get(key)
+
+        # Determine trend
+        trend = DelayTrend.UNKNOWN
+
+        if prev is None:
+            # First entry for this airport/type
+            if delay.holding_status == HoldingStatus.HOLDING:
+                trend = DelayTrend.INCREASING  # Entering holding = delays starting
+            elif delay.delay_minutes > 0:
+                trend = DelayTrend.INCREASING  # First delay report = delays starting
+            # else UNKNOWN
+        else:
+            # Compare to previous entry
+            prev_minutes = prev.delay_minutes
+            curr_minutes = delay.delay_minutes
+
+            # Handle holding transitions
+            if delay.holding_status == HoldingStatus.HOLDING and prev.holding_status != HoldingStatus.HOLDING:
+                # Entered holding
+                trend = DelayTrend.INCREASING
+            elif delay.holding_status == HoldingStatus.NOT_HOLDING and prev.holding_status == HoldingStatus.HOLDING:
+                # Exited holding
+                trend = DelayTrend.DECREASING
+            elif delay.holding_status == HoldingStatus.HOLDING and prev.holding_status == HoldingStatus.HOLDING:
+                # Still in holding - compare aircraft count or just mark steady
+                if delay.aircraft_holding > prev.aircraft_holding:
+                    trend = DelayTrend.INCREASING
+                elif delay.aircraft_holding < prev.aircraft_holding:
+                    trend = DelayTrend.DECREASING
+                else:
+                    trend = DelayTrend.STEADY
+            else:
+                # Compare delay minutes
+                if curr_minutes > prev_minutes:
+                    trend = DelayTrend.INCREASING
+                elif curr_minutes < prev_minutes:
+                    trend = DelayTrend.DECREASING
+                elif curr_minutes == prev_minutes and curr_minutes > 0:
+                    trend = DelayTrend.STEADY
+                # If both are 0, keep UNKNOWN
+
+        # Create updated entry with trend
+        updated_delay = DelayEntry(
+            delay_type=delay.delay_type,
+            airport=delay.airport,
+            facility=delay.facility,
+            timestamp_utc=delay.timestamp_utc,
+            delay_minutes=delay.delay_minutes,
+            delay_trend=trend,
+            delay_start_utc=delay.delay_start_utc,
+            holding_status=delay.holding_status,
+            holding_fix=delay.holding_fix,
+            aircraft_holding=delay.aircraft_holding,
+            reason=delay.reason,
+            raw_line=delay.raw_line
+        )
+
+        updated_delays.append(updated_delay)
+        last_entry[key] = updated_delay
+
+    # Log trend summary
+    trend_counts = {}
+    for d in updated_delays:
+        trend_counts[d.delay_trend.value] = trend_counts.get(d.delay_trend.value, 0) + 1
+    if trend_counts:
+        logger.debug(f"Delay trends detected: {trend_counts}")
+
+    return updated_delays
