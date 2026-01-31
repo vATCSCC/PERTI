@@ -980,6 +980,40 @@ function getEnabledPhases() {
     return enabled;
 }
 
+/**
+ * Show chart loading overlay for filter changes
+ */
+function showChartLoading() {
+    $('#chart_loading_overlay').addClass('visible');
+}
+
+/**
+ * Hide chart loading overlay
+ */
+function hideChartLoading() {
+    $('#chart_loading_overlay').removeClass('visible');
+}
+
+/**
+ * Render current view with loading indicator
+ * Shows a brief loading state to provide visual feedback on filter changes
+ */
+function renderWithLoading() {
+    if (!DEMAND_STATE.lastDemandData) return;
+
+    showChartLoading();
+
+    // Use requestAnimationFrame to ensure the loading indicator is painted
+    // before starting the potentially heavy render operation
+    requestAnimationFrame(() => {
+        // Small timeout to ensure overlay is visible before render blocks
+        setTimeout(() => {
+            renderCurrentView();
+            hideChartLoading();
+        }, 50);
+    });
+}
+
 // Format date for datetime-local input (YYYY-MM-DDTHH:MM in local time)
 /**
  * Format a Date object for datetime-local input in UTC
@@ -1397,8 +1431,8 @@ function setupEventHandlers() {
                 // Load summary data and then render
                 loadFlightSummary(true);
             } else {
-                // Use cached data - render immediately without API call
-                renderCurrentView();
+                // Use cached data - show loading indicator during render
+                renderWithLoading();
             }
         }
     });
@@ -1411,29 +1445,29 @@ function setupEventHandlers() {
     // Rate line visibility toggles
     $('#rate_vatsim_aar').on('change', function() {
         DEMAND_STATE.showVatsimAar = $(this).is(':checked');
-        renderCurrentView();
+        renderWithLoading();
     });
 
     $('#rate_vatsim_adr').on('change', function() {
         DEMAND_STATE.showVatsimAdr = $(this).is(':checked');
-        renderCurrentView();
+        renderWithLoading();
     });
 
     $('#rate_rw_aar').on('change', function() {
         DEMAND_STATE.showRwAar = $(this).is(':checked');
-        renderCurrentView();
+        renderWithLoading();
     });
 
     $('#rate_rw_adr').on('change', function() {
         DEMAND_STATE.showRwAdr = $(this).is(':checked');
-        renderCurrentView();
+        renderWithLoading();
     });
 
     // Phase group filter toggles
     ['prefile', 'departing', 'active', 'arrived', 'disconnected', 'unknown'].forEach(group => {
         $(`#phase_${group}`).on('change', function() {
             DEMAND_STATE.phaseGroups[group] = $(this).is(':checked');
-            renderCurrentView();
+            renderWithLoading();
         });
     });
 
