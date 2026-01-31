@@ -555,11 +555,12 @@ include("sessions/handler.php");
             border-radius: 3px;
         }
         .flight-marker {
-            transition: transform 0.2s, filter 0.2s;
+            transition: r 0.15s ease-out, filter 0.15s ease-out;
+            transform-box: fill-box;
+            transform-origin: center;
         }
         .flight-marker:hover {
-            transform: scale(1.3);
-            filter: brightness(1.2);
+            filter: brightness(1.2) drop-shadow(0 0 3px currentColor);
         }
         .callsign-label {
             font-family: 'Consolas', 'Monaco', monospace;
@@ -568,8 +569,38 @@ include("sessions/handler.php");
         .spacing-label {
             pointer-events: none;
         }
-        .diagram-legend {
-            pointer-events: none;
+        /* Spacing diagram legend (outside SVG, always visible) */
+        .spacing-diagram-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            align-items: center;
+            font-size: 11px;
+            background: #f8f9fa;
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .spacing-diagram-legend .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        .spacing-diagram-legend .legend-box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+        .spacing-diagram-legend .legend-line {
+            width: 20px;
+            height: 3px;
+            display: inline-block;
+            border-radius: 1px;
+        }
+        .spacing-diagram-legend .legend-dashed {
+            background: repeating-linear-gradient(90deg, #6c757d 0, #6c757d 4px, transparent 4px, transparent 8px);
         }
 
         /* Event Statistics */
