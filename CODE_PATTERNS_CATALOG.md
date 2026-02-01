@@ -1,6 +1,7 @@
 # PERTI Code Patterns Catalog
 
 **Generated:** February 2026
+**Last Updated:** February 1, 2026
 **Purpose:** Comprehensive inventory of all code patterns, configurations, and inconsistencies across the PERTI codebase
 
 ---
@@ -19,12 +20,24 @@
 10. [CORS Inconsistencies](#10-cors-inconsistencies)
 11. [Magic Numbers](#11-magic-numbers)
 12. [Hardcoded References](#12-hardcoded-references)
+13. [Error Handling Issues](#13-error-handling-issues)
+14. [Security Issues](#14-security-issues)
+15. [Code Quality Issues](#15-code-quality-issues)
 
 ---
 
 ## 1. Color Definitions
 
-### 1.1 JavaScript Config Files
+### 1.1 Summary Statistics
+
+| Category | Count | Location |
+|----------|-------|----------|
+| **Total hardcoded colors** | 500+ | 30 JS files |
+| **Centralized config files** | 3 | filter-colors.js, phase-colors.js, rate-colors.js |
+| **Bootstrap overrides** | 4 | perti_theme.css |
+| **Inline hex in JS** | 400+ | Scattered across assets/js/ |
+
+### 1.2 JavaScript Config Files
 
 #### `/assets/js/config/filter-colors.js` (Lines 7-402)
 
@@ -103,18 +116,33 @@
 | LIMC | `#ef4444` | Red - Low IMC |
 | VLIMC | `#dc2626` | Dark Red - Very Low IMC |
 
-### 1.2 CSS Theme Colors
+### 1.3 Files with Extensive Hardcoded Colors
+
+| File | Approx Count | Key Colors |
+|------|--------------|------------|
+| `nod.js` | 50+ | `#ffffff`, `#000000`, `#28a745`, `#6f42c1`, `#4a9eff` |
+| `demand.js` | 40+ | `#2d2d44`, `#4dabf7`, `#228be6`, `#51cf66` |
+| `tmi_compliance.js` | 35+ | `#007bff`, `#dc3545`, `#17a2b8`, `#6c757d` |
+| `splits.js` | 30+ | 12-color palette, MapLibre layer colors |
+| `gdt.js` | 25+ | Airport palette (10 vibrant colors) |
+| `weather_radar.js` | 20+ | dBZ scale (15 colors) |
+| `route-maplibre.js` | 20+ | SUA/Airspace type colors |
+| `statsim_rates.js` | 20+ | Chart styling colors |
+| `tmi-publish.js` | 15+ | SweetAlert2 button colors |
+| `tmi-active-display.js` | 15+ | Region and status colors |
+
+### 1.4 CSS Theme Colors
 
 #### `/assets/css/perti_theme.css` (Lines 230-339)
 
-**Semantic Text Colors:**
-| Class | Hex | Notes |
-|-------|-----|-------|
-| `.text-success` | `#43ac6a` | **Inconsistent** with Bootstrap `#28a745` |
-| `.text-danger` | `#F04124` | **Inconsistent** with Bootstrap `#dc3545` |
-| `.text-warning` | `#E99002` | **Inconsistent** with Bootstrap `#fd7e14` |
-| `.text-info` | `#239BCD` | **Inconsistent** with Bootstrap `#17a2b8` |
-| `.text-primary` | `#332e7a` | Custom purple |
+**Semantic Text Colors (Bootstrap Overrides):**
+| Class | Custom Hex | Bootstrap Hex | Status |
+|-------|------------|---------------|--------|
+| `.text-success` | `#43ac6a` | `#28a745` | **INCONSISTENT** |
+| `.text-danger` | `#F04124` | `#dc3545` | **INCONSISTENT** |
+| `.text-warning` | `#E99002` | `#fd7e14` | **INCONSISTENT** |
+| `.text-info` | `#239BCD` | `#17a2b8` | **INCONSISTENT** |
+| `.text-primary` | `#332e7a` | `#007bff` | Custom purple |
 
 **Badge Colors:**
 | Class | Hex |
@@ -124,7 +152,7 @@
 | `.badge-primary` | `#332e7a` |
 | `.badge-dark` | `#1c1946` |
 
-### 1.3 Weather Radar Colors
+### 1.5 Weather Radar Colors
 
 #### `/assets/js/weather_radar.js` (Lines 128-173)
 
@@ -138,21 +166,20 @@
 | 50 | `#fd0000` | Extreme |
 | 65 | `#f800fd` | Hail |
 
-### 1.4 UI Pages Using Colors
-
-| Page | File | Color Usage Location |
-|------|------|---------------------|
-| Demand Dashboard | `/demand.php` | Info bar cards, phase badges |
-| TMI Publisher | `/tmi-publish.php` | Status badges, advisory headers |
-| NOD | `/nod.php` | Flight markers, phase indicators |
-| GDT | `/gdt.php` | Program status, delay indicators |
-| Weather Radar | `/route.php` | Radar legend, hazard indicators |
-
 ---
 
 ## 2. Date/Time Formats
 
-### 2.1 JavaScript Patterns
+### 2.1 Summary Statistics
+
+| Issue | Count | Severity |
+|-------|-------|----------|
+| **Deprecated `.substr()` usage** | 37 | P2 |
+| **PHP `date()` instead of `gmdate()`** | 13 files | P1 |
+| **`strtotime()` without UTC context** | 14+ | P2 |
+| **Mixed timestamp formats** | Multiple | P3 |
+
+### 2.2 JavaScript Patterns
 
 #### ISO String Patterns
 
@@ -164,10 +191,16 @@
 | `.toISOString().substr(11, 8)` | nod.js | 265 | `15:30:45` |
 | `.toISOString().substr(11, 5) + 'Z'` | adl-service.js | 265 | `15:30Z` |
 
-**DEPRECATED:** Files using `.substr()` instead of `.slice()`:
-- `assets/js/nod.js` - Lines 265, 3612, 5668, 5678
-- `assets/js/tmi-publish.js` - Lines 294, 5183
-- `assets/js/adl-service.js` - Line 265
+#### **DEPRECATED:** Files using `.substr()` instead of `.slice()` (37 instances)
+
+| File | Lines |
+|------|-------|
+| `nod.js` | 265, 3612, 5668, 5678, + more |
+| `tmi-publish.js` | 294, 5183, + more |
+| `adl-service.js` | 265 |
+| `gdt.js` | Multiple instances |
+| `demand.js` | Multiple instances |
+| `splits.js` | Multiple instances |
 
 #### Custom Format Functions
 
@@ -179,46 +212,45 @@
 | `formatTimeDDHHMM(date)` | advisory-templates.js:83 | `DDHHMM` |
 | `formatDateMMDDYYYY(date)` | advisory-templates.js:72 | `MM/DD/YYYY` |
 
-#### UI Clock Displays
+### 2.3 PHP Patterns
 
-| Element ID | File | Format | Page |
-|------------|------|--------|------|
-| `#utc_clock` | tmi-publish.js:295 | `HH:MM:SSZ` | TMI Publisher |
-| `#utcTime` | nod.js:266 | `HH:MM:SSZ` | NOD |
-| `#jatoc_utc_clock` | jatoc.js:463 | `HH:MM:SSZ` | JATOC |
-| `.adl-last-update` | adl-service.js:265 | `HH:MMZ` | Demand, NOD |
-| `.tmi-last-refresh` | tmi-active-display.js:2562 | `HH:MM:SS UTC` | TMI Panels |
+#### `date()` vs `gmdate()` Issues (13 files)
 
-### 2.2 PHP Patterns
+| File | Lines | Issue |
+|------|-------|-------|
+| `api/tmi/gdp_apply.php` | 94 | Uses `date()` instead of `gmdate()` |
+| `api/tmi/gdp_simulate.php` | 257 | Uses `date()` instead of `gmdate()` |
+| `api/tmi/helpers.php` | 432, 464 | Uses `date()` instead of `gmdate()` |
+| `api/tmi/gs/activate.php` | 193, 194 | Uses `date()` instead of `gmdate()` |
+| `api/tmi/gs/common.php` | 266 | Uses `date()` instead of `gmdate()` |
+| `cron/process_tmi_proposals.php` | Multiple | Mixed usage |
+| `api/weather/refresh.php` | Multiple | Uses `date()` for logging |
+| + 6 more files | - | Various date() calls |
 
-#### `date()` vs `gmdate()` Usage
+#### `strtotime()` Without UTC Context (14+ locations)
 
-| Pattern | Files | Purpose |
-|---------|-------|---------|
-| `gmdate('Y-m-d H:i:s')` | All TMI API files | UTC database timestamps |
-| `gmdate('Y-m-d\TH:i:s\Z')` | weather import | ISO 8601 with Z |
-| `date('Y-m-d H:i:s')` | cron scripts | Local time logging |
-
-**Files using `gmdate()` correctly:**
-- `api/tmi/advisories.php` - Lines 274, 284, 287, 357, 359
-- `api/tmi/entries.php` - Lines 282, 348, 350
-- `api/tmi/programs.php` - Lines 277, 288, 292, 391, 392
-- `api/tmi/reroutes.php` - Lines 373, 416, 483, 535
-- `api/tmi/public-routes.php` - Lines 300, 379
-
-#### DateTime Class Usage
-
-| Pattern | File | Purpose |
-|---------|------|---------|
-| `new DateTime('now', new DateTimeZone('UTC'))` | cron/process_tmi_proposals.php | UTC timestamp |
-| `DateTime::createFromFormat('m/d/Y', $date)` | import_procedures.php | Parse US date |
-| `$dt->format('Y-m-d\TH:i:s\Z')` | api/weather/impact.php | ISO 8601 output |
+Files using `strtotime()` without explicit timezone:
+- `api/tmi/helpers.php`
+- `api/tmi/programs.php`
+- `api/mgt/tmi/publish.php`
+- `api/gdt/programs/publish.php`
+- Multiple cron scripts
 
 ---
 
 ## 3. API Response Formats
 
-### 3.1 Pattern A: TmiResponse Class
+### 3.1 Summary Statistics
+
+| Pattern | Files Using | Consistency |
+|---------|-------------|-------------|
+| TmiResponse class | 8 files | Good |
+| SwimResponse class | 3 files | Good |
+| GDT respond_json | 3 files | Medium |
+| Raw JSON (no wrapper) | 20+ files | **INCONSISTENT** |
+| Mixed success/status keys | 15+ files | **INCONSISTENT** |
+
+### 3.2 Pattern A: TmiResponse Class
 
 **Used in:** `/api/tmi/`, `/api/mgt/tmi/`
 
@@ -243,17 +275,7 @@
 }
 ```
 
-**Files using this pattern:**
-- `api/tmi/advisories.php`
-- `api/tmi/entries.php`
-- `api/tmi/programs.php`
-- `api/tmi/reroutes.php`
-- `api/tmi/public-routes.php`
-- `api/mgt/tmi/publish.php`
-- `api/mgt/tmi/cancel.php`
-- `api/mgt/tmi/coordinate.php`
-
-### 3.2 Pattern B: SwimResponse Class
+### 3.3 Pattern B: SwimResponse Class
 
 **Used in:** `/api/swim/v1/`
 
@@ -262,12 +284,7 @@ Same structure as TmiResponse but with:
 - `ETag` support
 - `Content-Encoding: gzip` support
 
-**Files using this pattern:**
-- `api/swim/v1/tmi/routes.php`
-- `api/swim/v1/flights.php`
-- `api/swim/v1/flight.php`
-
-### 3.3 Pattern C: GDT respond_json
+### 3.4 Pattern C: GDT respond_json
 
 **Used in:** `/api/gdt/`
 
@@ -279,14 +296,7 @@ Same structure as TmiResponse but with:
 }
 ```
 
-**Files using this pattern:**
-- `api/gdt/programs/publish.php`
-- `api/gdt/programs/cancel.php`
-- `api/gdt/programs/submit_proposal.php`
-
-### 3.4 Pattern D: Raw JSON (No Wrapper)
-
-**Inconsistent:** Various structures across files
+### 3.5 Pattern D: Raw JSON (No Wrapper) - **INCONSISTENT**
 
 | File | Structure |
 |------|-----------|
@@ -294,59 +304,94 @@ Same structure as TmiResponse but with:
 | `api/adl/flight.php` | `{error}` or raw flight object |
 | `api/data/sua.php` | GeoJSON FeatureCollection |
 | `api/demand/summary.php` | `{success, timestamp, time_range, data}` |
+| `api/stats/*.php` | Various structures |
+
+### 3.6 Inconsistent Response Keys
+
+| Key Pattern | Files Using | Notes |
+|-------------|-------------|-------|
+| `success: true/false` | TmiResponse, SwimResponse | Preferred |
+| `status: 'ok'/'error'` | GDT files | Alternative |
+| `error: true` + message | Some endpoints | Inconsistent |
+| `ok: true/false` | 2 files | Rare |
 
 ---
 
 ## 4. Configuration Patterns
 
-### 4.1 PHP Configuration
+### 4.1 Summary Statistics
 
-#### `/load/config.php` (via config.example.php)
+| Issue | Count | Severity |
+|-------|-------|----------|
+| **Hardcoded passwords in code** | 2 files | **P0 CRITICAL** |
+| **Duplicate config definitions** | 5+ files | P2 |
+| **Mixed config access patterns** | 3 patterns | P3 |
+| **Inconsistent env var names** | 4 schemes | P3 |
 
-**Pattern:** `define()` constants with `env()` helper fallback
+### 4.2 PHP Configuration Methods
 
+#### Pattern 1: `define()` with `env()` helper (Preferred)
+
+**File:** `/load/config.php`
 ```php
 define("SQL_HOST", env("SQL_HOST", "default"));
 ```
 
-**Categories:**
-| Category | Constants | Lines |
-|----------|-----------|-------|
-| Database | SQL_*, ADL_SQL_*, TMI_SQL_*, etc. | 28-79 |
-| OAuth | CONNECT_* | 87-91 |
-| Discord | DISCORD_* | 96-139 |
-| Features | *_ENABLED flags | 141-147 |
+#### Pattern 2: Direct `getenv()` calls
 
-#### `/load/swim_config.php`
+**Files:** Various API files
+```php
+$apiKey = getenv('SIMTRAFFIC_API_KEY');
+```
 
-**Pattern:** Global arrays (`$SWIM_*`) + helper functions
+#### Pattern 3: Laravel-style `env()` function
 
-| Variable | Lines | Purpose |
-|----------|-------|---------|
-| `$SWIM_RATE_LIMITS` | 37-42 | API rate limits by tier |
-| `$SWIM_KEY_PREFIXES` | 47-52 | API key prefix patterns |
-| `$SWIM_DATA_SOURCES` | 65-106 | Known data sources |
-| `$SWIM_DATA_AUTHORITY` | 118-150 | Field authority rules |
-| `$SWIM_SOURCE_PRIORITY` | 164-268 | Source priority rankings |
-| `$SWIM_FIELD_MERGE_BEHAVIOR` | 283-351 | Merge conflict resolution |
-| `$SWIM_CACHE_TTL` | 446-469 | Cache duration by endpoint |
-| `$SWIM_CORS_ORIGINS` | 540-546 | Allowed CORS origins |
+**File:** `/integrations/virtual-airlines/phpvms7/Config/config.php`
+```php
+'api_key' => env('VATSWIM_API_KEY', ''),
+```
 
-### 4.2 JavaScript Configuration
+### 4.3 Environment Variable Naming Inconsistencies
 
-#### `/assets/js/config/` Directory
+**Database credentials use 4 different naming schemes:**
 
-| File | Pattern | Contents |
-|------|---------|----------|
-| `phase-colors.js` | Multiple const objects | PHASE_COLORS, PHASE_LABELS, PHASE_STACK_ORDER |
-| `filter-colors.js` | Single nested FILTER_CONFIG | Weight, carrier, ARTCC colors |
-| `rate-colors.js` | Nested RATE_LINE_CONFIG | Rate display styling |
+| Scheme | Files Using | Variables |
+|--------|-------------|-----------|
+| Scheme 1 | config.php | `SQL_USERNAME`, `SQL_PASSWORD`, `SQL_HOST`, `SQL_DATABASE` |
+| Scheme 2 | adl/php/import_wind_data.php | `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASS` |
+| Scheme 3 | adl/php/import_weather_alerts.php | `SQL_USER`, `SQL_PASS` |
+| Scheme 4 | api/swim/v1/health.php | `SWIM_DB_SERVER`, `SWIM_DB_NAME`, `SWIM_DB_USER`, `SWIM_DB_PASS` |
+
+### 4.4 Duplicate Configuration Definitions
+
+| Config Value | Files Containing |
+|--------------|------------------|
+| `CRON_KEY` default | `cron/process_tmi_proposals.php:23`, `api/scheduler.php:277` |
+| `VATSWIM_BASE_URL` | 5 integration files |
+| Database connection code | 4 files (should use connect.php) |
+
+### 4.5 **CRITICAL:** Hardcoded Passwords in Code
+
+| File | Line | Issue |
+|------|------|-------|
+| `scripts/migrate_division_events.php` | 26 | `'pass' => getenv('DB_PASS') ?: '***REMOVED***'` |
+| `api/stats/config_stats.php` | 41 | `define('STATS_SQL_PASSWORD', env_stats('STATS_SQL_PASSWORD', '***REMOVED***'))` |
+
+**Recommendation:** Remove hardcoded passwords immediately, require environment variables.
 
 ---
 
 ## 5. CSS Classes/Naming/Usage
 
-### 5.1 Custom Prefix Patterns
+### 5.1 Summary Statistics
+
+| Category | Count | Notes |
+|----------|-------|-------|
+| **Custom prefixes** | 6 | .perti-, .dcccp-, .ntml-, .tmi-, .advisory-, .cs- |
+| **Inline styles in PHP** | 985 instances | Should use CSS classes |
+| **Bootstrap overrides** | 4 classes | Inconsistent with Bootstrap |
+
+### 5.2 Custom Prefix Patterns
 
 #### `.perti-` Prefix (Info Bar)
 
@@ -361,12 +406,6 @@ define("SQL_HOST", env("SQL_HOST", "default"));
 | `.perti-stat-value` | 220-235 | Monospace stat display |
 | `.perti-clock-display-*` | 55-75 | Clock sizes (lg/md/sm) |
 
-**Pages using:**
-- `/demand.php` (Lines 491-650)
-- `/route.php`
-- `/gdt.php`
-- `/nod.php`
-
 #### `.dcccp-` Prefix (Initiative Timeline)
 
 **File:** `/assets/css/initiative_timeline.css`
@@ -378,45 +417,35 @@ define("SQL_HOST", env("SQL_HOST", "default"));
 | `.dcccp-item.level-*` | Level variants (CDW, Possible, etc.) |
 | `.dcccp-now-line` | Current time indicator |
 
-**Pages using:**
-- `/advisory-builder.php` (Modal)
-
 #### `.ntml-`, `.tmi-`, `.advisory-` Prefixes
 
 **File:** `/assets/css/tmi-publish.css`
 
-**Pages using:**
-- `/tmi-publish.php`
+**Pages using:** `/tmi-publish.php`
 
-### 5.2 Bootstrap Overrides
+### 5.3 Inline Styles in PHP (985 instances)
 
-| Bootstrap Class | Override Location | Custom Value |
-|-----------------|-------------------|--------------|
-| `.text-success` | perti_theme.css:235 | `#43ac6a` (not `#28a745`) |
-| `.text-danger` | perti_theme.css:248 | `#F04124` (not `#dc3545`) |
-| `.badge-success` | perti_theme.css:255 | `#63BD49` |
-| `.btn-primary` | perti_theme.css:315 | `#222d5c` |
-
-### 5.3 CSS Variables
-
-**File:** `/assets/css/info-bar.css` (Lines 11-26)
-
-```css
---info-utc-color: #3b82f6;
---info-utc-bg: linear-gradient(135deg, #eff6ff, #dbeafe);
---info-airport-color: #0891b2;
---info-config-color: #7c3aed;
---info-atis-color: #059669;
---info-arr-color: #16a34a;
---info-dep-color: #ea580c;
---info-refresh-color: #64748b;
-```
+Files with most inline styles:
+- `demand.php` - Heavy use of inline color/spacing
+- `gdt.php` - Inline table styling
+- `nod.php` - Marker styling
+- `tmi-publish.php` - Modal styling
 
 ---
 
 ## 6. JavaScript Patterns
 
-### 6.1 Module Patterns
+### 6.1 Summary Statistics
+
+| Issue | Count | Severity |
+|-------|-------|----------|
+| **`var` declarations** | 97 | P2 |
+| **`document.write()` usage** | 24 | P2 |
+| **jQuery instead of fetch** | 12 files | P3 |
+| **Silent catch blocks** | 24 | P1 |
+| **Console.log in production** | 180+ | P3 |
+
+### 6.2 Module Patterns
 
 | Pattern | Files Using | Percentage |
 |---------|-------------|------------|
@@ -425,15 +454,39 @@ define("SQL_HOST", env("SQL_HOST", "default"));
 | ES6 class | 1 file (initiative_timeline.js) | 2% |
 | ES6 modules | 1 file (route-maplibre.js) | 2% |
 
-**IIFE Example:**
-```javascript
-(function() {
-    'use strict';
-    window.FIR_INTEGRATION = { ... };
-})();
-```
+### 6.3 Variable Declaration Issues (97 `var` declarations)
 
-### 6.2 AJAX Patterns
+| Should Be | Count | Examples |
+|-----------|-------|----------|
+| `const` | 82 | Loop invariants, config objects |
+| `let` | 15 | Loop counters, reassigned values |
+
+Files with most `var` usage:
+- `gdt.js`
+- `demand.js`
+- `splits.js`
+- `nod.js`
+
+### 6.4 `document.write()` Usage (24 instances)
+
+**File:** `gdt.js` (print functionality)
+
+All instances are in print-related functions. Consider replacing with DOM manipulation or print stylesheets.
+
+### 6.5 Console Statements in Production (180+ instances)
+
+| File | Count | Assessment |
+|------|-------|------------|
+| `demand.js` | 35+ | **Extensive debug logging** |
+| `adl-service.js` | 14+ | Debug logging |
+| `adl-refresh-utils.js` | 11+ | Debug logging |
+| Utility scripts | 50+ | Appropriate for CLI |
+| Discord bot | 25+ | Appropriate for server |
+| Simulator engine | 20+ | Appropriate for server |
+
+**Recommendation:** Implement conditional logging based on DEBUG environment variable for frontend files.
+
+### 6.6 AJAX Patterns
 
 | Pattern | Files | Recommendation |
 |---------|-------|----------------|
@@ -442,33 +495,26 @@ define("SQL_HOST", env("SQL_HOST", "default"));
 | jQuery Deferred (`.done()`) | 9 files | Migrate to async/await |
 
 **Files needing migration:**
-- `assets/js/plan.js` - Heavy jQuery usage
-- `assets/js/demand.js` - Uses `$.getJSON()`
-- `assets/js/review.js`
-- `assets/js/sheet.js`
-
-### 6.3 Error Handling Issues
-
-**Silent catch blocks found:**
-| File | Line | Issue |
-|------|------|-------|
-| `gdt.js` | 2579, 2714 | `catch(e) {}` - no logging |
-| `reroute.js` | 94 | `catch(e) { /* optional */ }` |
-| `tmi-publish.js` | 5486 | `catch(e) {}` - silent failure |
-
-### 6.4 Event Handling
-
-| Pattern | Files | Notes |
-|---------|-------|-------|
-| `addEventListener` | 37 files | Preferred pattern |
-| jQuery `.on()` | 24 files | Mixed with vanilla |
-| MapLibre `.on()` | 2 files | Library-specific |
+- `plan.js` - Heavy jQuery usage
+- `demand.js` - Uses `$.getJSON()`
+- `review.js`
+- `sheet.js`
 
 ---
 
 ## 7. Database Schemas
 
-### 7.1 Timestamp Naming Conventions
+### 7.1 Summary Statistics
+
+| Issue | Count | Notes |
+|-------|-------|-------|
+| **SELECT * usage** | 17+ | Should use explicit columns |
+| **Mixed timestamp conventions** | 2 patterns | `_utc` vs `_at` suffix |
+| **Inconsistent status types** | 3 types | NVARCHAR, TINYINT, BIT |
+| **Mixed JOIN syntax** | Common | `JOIN` vs `INNER JOIN` |
+| **Mixed date functions** | 2 | `GETUTCDATE()` vs `SYSUTCDATETIME()` |
+
+### 7.2 Timestamp Naming Conventions
 
 | Convention | Tables Using | Example |
 |------------|--------------|---------|
@@ -478,7 +524,7 @@ define("SQL_HOST", env("SQL_HOST", "default"));
 
 **INCONSISTENCY:** Mixed `_utc` and `_at` in same tables (e.g., `tmi_programs`)
 
-### 7.2 Status Column Types
+### 7.3 Status Column Types
 
 | Type | Tables | Example Values |
 |------|--------|----------------|
@@ -488,27 +534,29 @@ define("SQL_HOST", env("SQL_HOST", "default"));
 
 **CRITICAL INCONSISTENCY:** Same concept (status) uses different types
 
-### 7.3 Primary Key Naming
+### 7.4 SELECT * Usage (17+ instances)
 
-| Pattern | Tables Using | Example |
-|---------|--------------|---------|
-| `{table}_id` | Most tables | `program_id`, `advisory_id` |
-| `{table}_uid` | ADL core entities | `flight_uid` |
-| `id` only | Some tables | Generic identity |
+Files using `SELECT *`:
+- `api/data/configs.php`
+- `api/data/routes.php`
+- `api/user/*.php`
+- `api/mgt/*.php`
 
-### 7.4 Timestamp Precision
-
-| Precision | Tables | Usage |
-|-----------|--------|-------|
-| `DATETIME2(0)` | Most ADL/TMI | Standard precision |
-| `DATETIME2(3)` | Detail/changelog | Sub-second precision |
-| `DATETIME2(7)` | SWIM tables | Default precision |
+**Recommendation:** Use explicit column lists for security and performance.
 
 ---
 
 ## 8. PHP Templates
 
-### 8.1 Include Patterns
+### 8.1 Summary Statistics
+
+| Issue | Count | Notes |
+|-------|-------|-------|
+| **Mixed include patterns** | 3 types | include, include_once, require_once |
+| **Files without guards** | Multiple | Risk of double-include |
+| **Duplicate connection code** | 4 files | Should use connect.php |
+
+### 8.2 Include Patterns
 
 | Pattern | Files Using | Recommended? |
 |---------|-------------|--------------|
@@ -528,44 +576,28 @@ define('NAV_PHP_LOADED', true);
 - `load/input.php` (Lines 10-13)
 - `sessions/handler.php` (Lines 20-23)
 
-### 8.2 Session Handling
+### 8.3 Duplicate Database Connection Functions
 
-**Standard Pattern:**
-```php
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-    ob_start();
-}
-```
-
-**Files following standard:**
-- `/index.php` (Lines 5-8)
-- `/airport_config.php` (Lines 5-8)
-- `/tmi-publish.php` (Lines 28-30)
-
-### 8.3 Authorization Patterns
-
-**Pattern 1: DEV Mode Override**
-```php
-if (!defined('DEV')) {
-    // Check session CID against users table
-} else {
-    $perm = true;
-}
-```
-
-**Pattern 2: Page-Level Gating**
-```php
-<?php if ($perm == true) { ?>
-    <button>Admin Action</button>
-<?php } ?>
-```
+| File | Function | Issue |
+|------|----------|-------|
+| `api/adl/demand/summary.php` | `get_adl_conn()` | Duplicates connect.php |
+| `api/adl/demand/batch.php` | `get_adl_conn()` | Duplicates connect.php |
+| `api/stats/config_stats.php` | Custom connection | Duplicates connect.php |
+| `scripts/migrate_division_events.php` | Inline connection | Duplicates connect.php |
 
 ---
 
 ## 9. SQL Vulnerabilities
 
-### 9.1 Critical Vulnerabilities (HIGH Severity)
+### 9.1 Summary Statistics
+
+| Severity | Count | Description |
+|----------|-------|-------------|
+| **HIGH (SQL Injection)** | 100+ files | Direct variable interpolation |
+| **MEDIUM (Session Variable)** | 10+ files | Session values in queries |
+| **MEDIUM (LIKE Injection)** | 5+ files | Unsanitized LIKE patterns |
+
+### 9.2 Critical Vulnerabilities (HIGH Severity)
 
 #### Direct String Interpolation in UPDATE
 
@@ -588,7 +620,7 @@ if (!defined('DEV')) {
 | `api/data/routes.php` | 35 | `LIKE '%$search%'` |
 | `api/data/reroutes.php` | 35 | `LIKE '%$search%'` |
 
-### 9.2 Session Variable Injection (MEDIUM Severity)
+### 9.3 Session Variable Injection (MEDIUM Severity)
 
 | File | Line | Vulnerable Code |
 |------|------|-----------------|
@@ -597,7 +629,7 @@ if (!defined('DEV')) {
 | `tmi-publish.php` | 50 | `WHERE cid='$userCid'` |
 | `swim-keys.php` | 33 | `WHERE cid='$cid'` |
 
-### 9.3 Remediation Pattern
+### 9.4 Remediation Pattern
 
 ```php
 // BEFORE (VULNERABLE):
@@ -613,38 +645,49 @@ $stmt->execute();
 
 ## 10. CORS Inconsistencies
 
-### 10.1 Secure Implementations
+### 10.1 Summary Statistics
 
-| Component | File | Method |
-|-----------|------|--------|
-| TmiResponse | api/tmi/helpers.php | Whitelist + localhost pattern |
-| SwimAuth | api/swim/v1/auth.php | Whitelist with fallback |
-| Config | load/swim_config.php | Static whitelist |
+| Category | Count | Risk |
+|----------|-------|------|
+| **Wildcard CORS (`*`)** | 77 files | Variable |
+| **Wildcard on write ops** | 15+ files | **HIGH** |
+| **Dynamic origin whitelist** | 2 files | Secure |
+| **No CORS headers** | 50+ files | Internal only |
 
-**Whitelist Origins:**
+### 10.2 CORS Patterns Found
+
+#### Pattern 1: Simple Wildcard (77 files)
+
 ```php
-$SWIM_CORS_ORIGINS = [
+header('Access-Control-Allow-Origin: *');
+```
+
+Used by most public-facing API endpoints.
+
+#### Pattern 2: Wildcard with Methods (36 files)
+
+```php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+```
+
+#### Pattern 3: Dynamic Origin with Whitelist (2 files)
+
+**File:** `/api/tmi/helpers.php` (Lines 115-134)
+
+```php
+$allowed_origins = [
     'https://perti.vatcscc.org',
-    'https://vatcscc.org',
-    'https://swim.vatcscc.org',
-    'http://localhost:3000',
+    'https://vatcscc.azurewebsites.net',
+    'http://localhost',
     'http://localhost:8080'
 ];
 ```
 
-### 10.2 Insecure Implementations (Wildcard)
+#### Pattern 4: **CRITICAL** Wildcard Fallback
 
-| File | Line | Methods | Risk |
-|------|------|---------|------|
-| `api/weather/refresh.php` | 13 | GET | LOW |
-| `api/weather/impact.php` | 22 | GET | LOW |
-| `api/adl/demand/monitors.php` | 46 | GET, POST, DELETE | **HIGH** |
-| `api/mgt/tmi/reroutes/update_geojson.php` | 23 | POST | MEDIUM |
-| `api/gis/boundaries.php` | 19 | GET, POST | MEDIUM |
-
-### 10.3 Critical Issue: SwimAuth Fallback
-
-**File:** `/api/swim/v1/auth.php` (Line 467)
+**File:** `/api/swim/v1/auth.php` (Lines 467, 939)
 
 ```php
 } else {
@@ -652,7 +695,15 @@ $SWIM_CORS_ORIGINS = [
 }
 ```
 
-**Recommendation:** Remove wildcard fallback
+### 10.3 High-Risk Wildcard Endpoints
+
+| File | Methods | Risk |
+|------|---------|------|
+| `api/adl/demand/monitors.php` | GET, POST, DELETE | **HIGH** |
+| `api/mgt/tmi/reroutes/update_geojson.php` | POST | **MEDIUM** |
+| `api/gis/boundaries.php` | GET, POST | **MEDIUM** |
+| `api/mgt/tmi/cancel.php` | POST | **MEDIUM** |
+| `api/mgt/tmi/publish.php` | POST | **MEDIUM** |
 
 ---
 
@@ -696,6 +747,17 @@ $SWIM_CORS_ORIGINS = [
 | parse_aixm_sua.php | 49 | `64` | `CIRCLE_POLYGON_POINTS` |
 | rate_history.php | 23 | `30` | `RATE_HISTORY_DEFAULT_DAYS` |
 
+### 11.3 Cache TTL Inconsistencies
+
+| Location | TTL | Usage |
+|----------|-----|-------|
+| NOD demand | 2 min | Demand data |
+| TMI compliance | 10 min | Compliance checks |
+| Weather radar | 5 min | Radar tiles |
+| ADL refresh | 60 sec | Flight positions |
+| SWIM cache | 300 sec | API responses |
+| Rate history | 60 sec | Rate data |
+
 ---
 
 ## 12. Hardcoded References
@@ -718,6 +780,7 @@ $SWIM_CORS_ORIGINS = [
 | `https://api.simtraffic.net/v1/flight/` | api/tmi/simtraffic_flight.php | SimTraffic API |
 | `https://tfr.faa.gov` | api/data/tfr.php | TFR data |
 | `https://mesonet.agron.iastate.edu` | api/data/weather.php | Weather tiles |
+| `https://perti.vatcscc.org/api` | api/analysis/tmi_compliance.php | Self-reference |
 
 ### 12.3 ARTCC/Facility Lists
 
@@ -749,46 +812,154 @@ NTML_QUALIFIERS = {
 }
 ```
 
-### 12.5 Internal API Keys
+---
 
-| Key | File | Purpose |
-|-----|------|---------|
-| `swim_sys_vatcscc_internal_001` | api/admin/run_migration_*.php | Internal migration scripts |
+## 13. Error Handling Issues
 
-**Recommendation:** Move to environment variables
+### 13.1 Silent Catch Blocks (24 instances)
+
+| File | Lines | Context |
+|------|-------|---------|
+| `gdt.js` | 2579, 2714, 4898, 6748, 6865, 7025, 7038, 7116 | Date parsing, cache updates |
+| `route-maplibre.js` | 2328, 7106, 7113, 7218, 7226, 8362 | Turf.js, GeoJSON parsing |
+| `sua.js` | 1156, 1203, 1251, 1304 | JSON response parsing |
+| `tmi-publish.js` | 5486, 5504, 5570 | localStorage profile parsing |
+| `reroute.js` | 94, 109 | Optional data loading |
+
+### 13.2 `http_response_code()` with String Arguments (8 instances)
+
+| File | Line | Code |
+|------|------|------|
+| `api/user/term_staffing/update.php` | Multiple | `http_response_code('500')` |
+| `api/user/enroute_staffing/update.php` | Multiple | `http_response_code('500')` |
+| `api/user/dcc/update.php` | Multiple | `http_response_code('500')` |
+| `api/user/configs/update.php` | Multiple | `http_response_code('500')` |
+
+**Issue:** Should use integer `500` not string `'500'`.
+
+### 13.3 Missing Error Logging
+
+Many catch blocks lack proper error logging:
+- No consistent logging destination
+- No error prefixes for grep/search
+- Mixed console.error, console.warn, and silent suppression
+
+---
+
+## 14. Security Issues
+
+### 14.1 Priority Summary
+
+| Priority | Issue | Count | Status |
+|----------|-------|-------|--------|
+| **P0** | SQL Injection | 100+ files | Needs fix |
+| **P0** | Hardcoded passwords | 2 files | **CRITICAL** |
+| **P0** | CORS wildcard fallback | 2 locations | Needs fix |
+| **P1** | DEV mode auth bypass | 1 pattern | Review |
+| **P1** | Session key inconsistency | 2 keys | Review |
+
+### 14.2 Authentication Patterns
+
+#### DEV Mode Override
+
+```php
+if (!defined('DEV')) {
+    // Check session CID against users table
+} else {
+    $perm = true;  // All auth bypassed in DEV
+}
+```
+
+#### Inconsistent Session Keys
+
+| Key | Files Using |
+|-----|-------------|
+| `$_SESSION['VATSIM_CID']` | Most files |
+| `$_SESSION['cid']` | Some files |
+
+---
+
+## 15. Code Quality Issues
+
+### 15.1 Function Naming Inconsistencies
+
+| Pattern | Examples | Recommendation |
+|---------|----------|----------------|
+| `get*` | getFlights, getData | For synchronous returns |
+| `fetch*` | fetchFlights, fetchData | For async API calls |
+| `load*` | loadConfig, loadData | For file/resource loading |
+
+**Inconsistent usage found in 15+ locations.**
+
+### 15.2 Boolean Naming
+
+| Found | Should Be |
+|-------|-----------|
+| `active` | `isActive` |
+| `proposed` | `isProposed` |
+| `has_data` | `hasData` |
+
+### 15.3 Commented-Out Code
+
+| File | Lines | Content |
+|------|-------|---------|
+| `api/tmi/advisories.php` | Multiple | Discord posting code |
+| `api/tmi/gs_apply_ctd.php` | Multiple | Debug logging |
 
 ---
 
 ## Summary Statistics
 
-| Category | Total Items | Issues Found |
-|----------|-------------|--------------|
-| Color Definitions | 200+ | 4 inconsistencies with Bootstrap |
-| Date/Time Formats | 25+ patterns | 3 deprecated `.substr()` usages |
-| API Response Formats | 4 patterns | Pattern D needs standardization |
-| Configuration Patterns | 8 files | Good, but needs consolidation |
-| CSS Classes | 150+ custom | 3 class conflicts identified |
-| JavaScript Patterns | 44 files | 12 files need jQuery migration |
-| Database Schemas | 60+ tables | Critical naming inconsistencies |
-| PHP Templates | 30+ files | Mixed include patterns |
-| SQL Vulnerabilities | 38 found | **25 HIGH severity** |
-| CORS Inconsistencies | 15 endpoints | 1 critical wildcard fallback |
-| Magic Numbers | 100+ | Should be in constants files |
-| Hardcoded References | 50+ | Discord IDs, URLs, lists |
+| Category | Total Items | Issues Found | Priority |
+|----------|-------------|--------------|----------|
+| Color Definitions | 500+ | Bootstrap inconsistencies | P2 |
+| Date/Time Formats | 25+ patterns | 37 deprecated `.substr()`, 13 `date()` bugs | P1-P2 |
+| API Response Formats | 5+ patterns | Inconsistent structures | P3 |
+| Configuration Patterns | 8 files | 2 hardcoded passwords | **P0** |
+| CSS Classes | 150+ custom | 985 inline styles | P3 |
+| JavaScript Patterns | 44 files | 97 `var`, 24 silent catch, 180+ console.log | P1-P3 |
+| Database Schemas | 60+ tables | Mixed conventions | P3 |
+| PHP Templates | 30+ files | Mixed include patterns | P3 |
+| SQL Vulnerabilities | 100+ files | Direct interpolation | **P0** |
+| CORS Inconsistencies | 77 wildcard | 2 critical fallbacks | **P0** |
+| Magic Numbers | 100+ | Should be constants | P3 |
+| Hardcoded References | 50+ | Discord IDs, URLs, lists | P3 |
+| Error Handling | 24 silent catch | Missing logging | P1 |
+| Security Issues | Multiple | Auth bypass, SQL injection | **P0** |
 
 ---
 
 ## Priority Actions
 
-1. **P0 - CRITICAL:** Fix 25 SQL injection vulnerabilities
-2. **P0 - CRITICAL:** Remove SwimAuth wildcard CORS fallback
-3. **P1 - HIGH:** Standardize color values (Bootstrap consistency)
-4. **P1 - HIGH:** Create centralized constants files
-5. **P2 - MEDIUM:** Migrate jQuery AJAX to fetch()
-6. **P2 - MEDIUM:** Standardize API response formats
-7. **P3 - LOW:** Consolidate date/time formatting utilities
-8. **P3 - LOW:** Externalize hardcoded lists to config/database
+### P0 - CRITICAL (Fix Immediately)
+
+1. **Remove hardcoded passwords** from `scripts/migrate_division_events.php` and `api/stats/config_stats.php`
+2. **Fix SQL injection vulnerabilities** in 100+ files using prepared statements
+3. **Remove CORS wildcard fallback** in `api/swim/v1/auth.php` (lines 467, 939)
+
+### P1 - HIGH (Fix Soon)
+
+4. **Fix PHP `date()` calls** - Change to `gmdate()` in 13 files
+5. **Add error logging** to 24 silent catch blocks
+6. **Fix `http_response_code()` string args** in 8 files
+7. **Standardize session keys** - Use `$_SESSION['VATSIM_CID']` consistently
+
+### P2 - MEDIUM (Plan to Fix)
+
+8. **Replace deprecated `.substr()`** with `.slice()` (37 instances)
+9. **Convert `var` to `const`/`let`** (97 instances)
+10. **Centralize hardcoded colors** to config files (500+ values)
+11. **Replace `SELECT *`** with explicit column lists (17+ files)
+
+### P3 - LOW (Address When Convenient)
+
+12. **Migrate jQuery AJAX** to fetch() (12 files)
+13. **Remove debug console.log** from production files (180+ statements)
+14. **Standardize API response formats** across all endpoints
+15. **Extract magic numbers** to constants files
+16. **Consolidate date/time formatting** utilities
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: February 1, 2026*
+*Crawl Rounds Completed: 4*

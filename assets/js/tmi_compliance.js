@@ -2122,7 +2122,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
-                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+                glyphs: 'https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf',
                 sources: {
                     'carto-dark': {
                         type: 'raster',
@@ -2187,7 +2187,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'facilities',
                     layout: {
                         'text-field': ['get', 'code'],
-                        'text-font': ['Open Sans Regular'],
+                        'text-font': ['Noto Sans Regular'],
                         'text-size': 12,
                         'text-anchor': 'center'
                     },
@@ -2256,7 +2256,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'fixes',
                     layout: {
                         'text-field': ['get', 'name'],
-                        'text-font': ['Open Sans Regular'],
+                        'text-font': ['Noto Sans Regular'],
                         'text-size': 11,
                         'text-offset': [0, 1.5],
                         'text-anchor': 'top'
@@ -2297,7 +2297,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'airports',
                     layout: {
                         'text-field': ['get', 'code'],
-                        'text-font': ['Open Sans Regular'],
+                        'text-font': ['Noto Sans Regular'],
                         'text-size': 10,
                         'text-offset': [0, -1.2],
                         'text-anchor': 'bottom'
@@ -2310,44 +2310,89 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 });
             }
 
-            // Add flight trajectories (smoothed curves)
+            // Add flight trajectories with gap visualization
             const trajectories = TMICompliance.trajectoryCache[mapId];
             if (trajectories && Object.keys(trajectories).length > 0) {
-                const features = [];
+                const solidFeatures = [];  // Normal segments (gaps <= 5 min)
+                const dashedFeatures = []; // Sparse data segments (gaps > 5 min, <= 15 min)
+
+                const GAP_DASHED = 5 * 60;  // 5 minutes in seconds
+                const GAP_BREAK = 15 * 60;  // 15 minutes in seconds
+
                 Object.entries(trajectories).forEach(([callsign, traj]) => {
-                    if (traj.coordinates && traj.coordinates.length >= 2) {
-                        // Apply Catmull-Rom spline smoothing
-                        const smoothed = TMICompliance.smoothTrajectory(traj.coordinates);
-                        features.push({
-                            type: 'Feature',
-                            properties: {
-                                callsign: callsign,
-                                dept: traj.properties?.dept || '',
-                                dest: traj.properties?.dest || ''
-                            },
-                            geometry: {
-                                type: 'LineString',
-                                coordinates: smoothed
+                    if (!traj.coordinates || traj.coordinates.length < 2) return;
+
+                    const props = {
+                        callsign: callsign,
+                        dept: traj.properties?.dept || '',
+                        dest: traj.properties?.dest || ''
+                    };
+
+                    // Split trajectory into segments based on time gaps
+                    let currentSolid = [traj.coordinates[0]];
+
+                    for (let i = 1; i < traj.coordinates.length; i++) {
+                        const prev = traj.coordinates[i - 1];
+                        const curr = traj.coordinates[i];
+
+                        // Check if coordinates include timestamp (3rd element)
+                        const hasTimestamps = prev.length >= 3 && curr.length >= 3;
+                        const gap = hasTimestamps ? (curr[2] - prev[2]) : 0;
+
+                        if (gap > GAP_BREAK) {
+                            // Gap > 15 min: end current segment, start new one (no connecting line)
+                            if (currentSolid.length >= 2) {
+                                solidFeatures.push({
+                                    type: 'Feature',
+                                    properties: props,
+                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) }
+                                });
                             }
+                            currentSolid = [curr];
+                        } else if (gap > GAP_DASHED) {
+                            // Gap > 5 min: end solid segment, add dashed connector, start new solid
+                            if (currentSolid.length >= 2) {
+                                solidFeatures.push({
+                                    type: 'Feature',
+                                    properties: props,
+                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) }
+                                });
+                            }
+                            // Add dashed line between last solid point and current
+                            dashedFeatures.push({
+                                type: 'Feature',
+                                properties: props,
+                                geometry: { type: 'LineString', coordinates: [[prev[0], prev[1]], [curr[0], curr[1]]] }
+                            });
+                            currentSolid = [curr];
+                        } else {
+                            // Normal gap: continue solid segment
+                            currentSolid.push(curr);
+                        }
+                    }
+
+                    // Add final solid segment
+                    if (currentSolid.length >= 2) {
+                        solidFeatures.push({
+                            type: 'Feature',
+                            properties: props,
+                            geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) }
                         });
                     }
                 });
 
-                if (features.length > 0) {
-                    map.addSource('flight-tracks', {
+                // Add solid flight tracks
+                if (solidFeatures.length > 0) {
+                    map.addSource('flight-tracks-solid', {
                         type: 'geojson',
-                        data: { type: 'FeatureCollection', features: features }
+                        data: { type: 'FeatureCollection', features: solidFeatures }
                     });
 
-                    // Add glow effect layer (below main line)
                     map.addLayer({
-                        id: 'flight-tracks-glow',
+                        id: 'flight-tracks-solid-glow',
                         type: 'line',
-                        source: 'flight-tracks',
-                        layout: {
-                            'line-cap': 'round',
-                            'line-join': 'round'
-                        },
+                        source: 'flight-tracks-solid',
+                        layout: { 'line-cap': 'round', 'line-join': 'round' },
                         paint: {
                             'line-color': '#4dabf7',
                             'line-width': 4,
@@ -2356,24 +2401,41 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         }
                     });
 
-                    // Main flight track line
                     map.addLayer({
-                        id: 'flight-tracks',
+                        id: 'flight-tracks-solid',
                         type: 'line',
-                        source: 'flight-tracks',
-                        layout: {
-                            'line-cap': 'round',
-                            'line-join': 'round'
-                        },
+                        source: 'flight-tracks-solid',
+                        layout: { 'line-cap': 'round', 'line-join': 'round' },
                         paint: {
                             'line-color': '#74c0fc',
                             'line-width': 1.5,
                             'line-opacity': 0.8
                         }
                     });
-
-                    console.log(`Added ${features.length} flight tracks to map`);
                 }
+
+                // Add dashed flight tracks (data gaps > 5 min)
+                if (dashedFeatures.length > 0) {
+                    map.addSource('flight-tracks-dashed', {
+                        type: 'geojson',
+                        data: { type: 'FeatureCollection', features: dashedFeatures }
+                    });
+
+                    map.addLayer({
+                        id: 'flight-tracks-dashed',
+                        type: 'line',
+                        source: 'flight-tracks-dashed',
+                        layout: { 'line-cap': 'round', 'line-join': 'round' },
+                        paint: {
+                            'line-color': '#74c0fc',
+                            'line-width': 1.5,
+                            'line-opacity': 0.5,
+                            'line-dasharray': [4, 4]
+                        }
+                    });
+                }
+
+                console.log(`Added flight tracks: ${solidFeatures.length} solid, ${dashedFeatures.length} dashed segments`);
             }
 
             // Fit bounds
