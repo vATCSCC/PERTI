@@ -1487,8 +1487,17 @@ class TMIComplianceAnalyzer:
             if callsign not in trajectories and callsign in self._trajectory_cache:
                 traj_points = self._trajectory_cache[callsign]
                 if traj_points:
-                    # Convert to GeoJSON-compatible coordinates [lon, lat]
-                    coords = [[round(p['lon'], 4), round(p['lat'], 4)] for p in traj_points]
+                    # Convert to GeoJSON-compatible coordinates [lon, lat, timestamp]
+                    # Timestamp included for gap detection in frontend rendering
+                    coords = []
+                    for p in traj_points:
+                        ts = p['timestamp']
+                        # Convert timestamp to epoch seconds for JS
+                        if hasattr(ts, 'timestamp'):
+                            epoch = int(ts.timestamp())
+                        else:
+                            epoch = int(ts)
+                        coords.append([round(p['lon'], 4), round(p['lat'], 4), epoch])
                     trajectories[callsign] = {
                         'type': 'LineString',
                         'coordinates': coords,
