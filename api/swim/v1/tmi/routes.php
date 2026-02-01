@@ -198,7 +198,7 @@ function getActiveReroutesForDisplay($conn, $filter = 'active') {
             rr.reroute_id, rr.name, rr.adv_number, rr.status,
             rr.start_utc, rr.end_utc,
             rr.impacting_condition AS reason,
-            rr.advisory_text,
+            rr.advisory_text, rr.color,
             rr.created_by, rr.created_at, rr.updated_at,
             rr.discord_message_id, rr.discord_channel_id
         FROM dbo.tmi_reroutes rr
@@ -310,7 +310,7 @@ function formatRerouteAsPublicRoute($routeRow, $parentReroute) {
         ],
 
         'display' => [
-            'color' => '#f39c12', // Orange for reroutes
+            'color' => $parentReroute['color'] ?? '#f39c12', // Use saved color or default orange
             'weight' => 4,
             'style' => 'dashed'
         ],
@@ -355,7 +355,7 @@ function formatRerouteAsPublicRoute($routeRow, $parentReroute) {
         'status' => (int)$parentReroute['status'],
         'route_string' => $routeRow['route_string'],
         'advisory_text' => $parentReroute['advisory_text'],
-        'color' => '#f39c12',
+        'color' => $parentReroute['color'] ?? '#f39c12',
         'line_weight' => 4,
         'line_style' => 'dashed',
         'valid_start_utc' => formatDT($parentReroute['start_utc']),
@@ -621,7 +621,13 @@ function handleUpdate($id) {
         SwimResponse::error('Request body required', 400, 'MISSING_BODY');
     }
 
-    // Check route exists
+    // Check if this is a reroute route (ID starts with "RR")
+    if (is_string($id) && strpos($id, 'RR') === 0) {
+        handleUpdateReroute($id, $body);
+        return;
+    }
+
+    // Check route exists in public_routes
     $check = sqlsrv_query($conn_tmi, "SELECT route_id FROM dbo.tmi_public_routes WHERE route_id = ?", [$id]);
     if (!$check || !sqlsrv_fetch_array($check, SQLSRV_FETCH_ASSOC)) {
         SwimResponse::error('Route not found', 404, 'NOT_FOUND');
@@ -674,6 +680,77 @@ function handleUpdate($id) {
     sqlsrv_free_stmt($stmt);
 
     SwimResponse::success(formatRoute($updated), 'Route updated');
+}
+
+// ============================================================================
+// PUT - Update Reroute Route (handles RR* IDs)
+// ============================================================================
+function handleUpdateReroute($id, $body) {
+    global $conn_tmi;
+
+    // Parse the reroute route ID format: "RR<route_id>"
+    $routeId = (int) substr($id, 2);
+    if ($routeId <= 0) {
+        SwimResponse::error('Invalid reroute route ID', 400, 'INVALID_ID');
+    }
+
+    // Find the parent reroute for this route
+    $sql = "SELECT rr.reroute_id, rr.name, rr.color
+            FROM dbo.tmi_reroute_routes r
+            INNER JOIN dbo.tmi_reroutes rr ON r.reroute_id = rr.reroute_id
+            WHERE r.route_id = ?";
+    $check = sqlsrv_query($conn_tmi, $sql, [$routeId]);
+    if (!$check) {
+        SwimResponse::error('Database error', 500, 'DB_ERROR');
+    }
+    $route = sqlsrv_fetch_array($check, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($check);
+
+    if (!$route) {
+        SwimResponse::error('Reroute route not found', 404, 'NOT_FOUND');
+    }
+
+    $rerouteId = $route['reroute_id'];
+
+    // Build update for tmi_reroutes (color and other shared properties)
+    $updates = ['updated_utc = GETUTCDATE()'];
+    $params = [];
+
+    // Fields that can be updated on the parent reroute
+    $allowedReroute = ['name', 'color', 'impacting_condition'];
+
+    // Map body fields to reroute fields
+    $fieldMap = [
+        'name' => 'name',
+        'color' => 'color',
+        'reason' => 'impacting_condition'
+    ];
+
+    foreach ($fieldMap as $bodyField => $dbField) {
+        if (isset($body[$bodyField])) {
+            $updates[] = "$dbField = ?";
+            $params[] = $body[$bodyField];
+        }
+    }
+
+    if (count($updates) > 1) {  // More than just updated_utc
+        $params[] = $rerouteId;
+        $sql = "UPDATE dbo.tmi_reroutes SET " . implode(', ', $updates) . " WHERE reroute_id = ?";
+        $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            SwimResponse::error('Failed to update reroute: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Return success with the updated reroute info
+    SwimResponse::success([
+        'id' => $id,
+        'reroute_id' => $rerouteId,
+        'color' => $body['color'] ?? $route['color'] ?? '#f39c12'
+    ], 'Reroute updated');
 }
 
 // ============================================================================
