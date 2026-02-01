@@ -5,6 +5,21 @@
  * Integrates with backend API for global configuration sharing.
  */
 
+// Defensive fallbacks for PERTIColors.airspace (in case colors.js is cached)
+const _airspaceColors = (typeof PERTIColors !== 'undefined' && PERTIColors.airspace) || {};
+const AIRSPACE_COLORS = {
+    low: _airspaceColors.low || '#228B22',
+    high: _airspaceColors.high || '#FF6347',
+    superhigh: _airspaceColors.superhigh || '#9932CC',
+    artcc: _airspaceColors.artcc || '#4682B4',
+    tracon: _airspaceColors.tracon || '#20B2AA',
+    sectorLine: _airspaceColors.sectorLine || '#505050',
+    sectorLineDark: _airspaceColors.sectorLineDark || '#303030',
+    artccLine: _airspaceColors.artccLine || '#515151',
+    unassigned: _airspaceColors.unassigned || '#444444',
+    unassignedLabel: _airspaceColors.unassignedLabel || '#666666',
+};
+
 const SplitsController = {
     // ═══════════════════════════════════════════════════════════════════
     // STATE
@@ -357,7 +372,7 @@ const SplitsController = {
                     type: 'fill',
                     source: 'high-source',
                     paint: {
-                        'fill-color': PERTIColors.airspace.high,
+                        'fill-color': AIRSPACE_COLORS.high,
                         'fill-opacity': 0.5,
                     },
                     layout: { visibility: 'none' },
@@ -368,7 +383,7 @@ const SplitsController = {
                     type: 'line',
                     source: 'high-source',
                     paint: {
-                        'line-color': PERTIColors.airspace.high,
+                        'line-color': AIRSPACE_COLORS.high,
                         'line-width': 1,
                         'line-opacity': 0.5,
                     },
@@ -388,7 +403,7 @@ const SplitsController = {
                         'visibility': 'none',
                     },
                     paint: {
-                        'text-color': PERTIColors.airspace.high,
+                        'text-color': AIRSPACE_COLORS.high,
                         'text-halo-color': '#000',
                         'text-halo-width': 1.5,
                     },
@@ -422,7 +437,7 @@ const SplitsController = {
                     type: 'fill',
                     source: 'low-source',
                     paint: {
-                        'fill-color': PERTIColors.airspace.low,
+                        'fill-color': AIRSPACE_COLORS.low,
                         'fill-opacity': 0.5,
                     },
                     layout: { visibility: 'none' },
@@ -433,7 +448,7 @@ const SplitsController = {
                     type: 'line',
                     source: 'low-source',
                     paint: {
-                        'line-color': PERTIColors.airspace.low,
+                        'line-color': AIRSPACE_COLORS.low,
                         'line-width': 1,
                         'line-opacity': 0.5,
                     },
@@ -453,7 +468,7 @@ const SplitsController = {
                         'visibility': 'none',
                     },
                     paint: {
-                        'text-color': PERTIColors.airspace.low,
+                        'text-color': AIRSPACE_COLORS.low,
                         'text-halo-color': '#000',
                         'text-halo-width': 1.5,
                     },
@@ -487,7 +502,7 @@ const SplitsController = {
                     type: 'fill',
                     source: 'superhigh-source',
                     paint: {
-                        'fill-color': PERTIColors.airspace.superhigh,
+                        'fill-color': AIRSPACE_COLORS.superhigh,
                         'fill-opacity': 0.5,
                     },
                     layout: { visibility: 'none' },
@@ -498,7 +513,7 @@ const SplitsController = {
                     type: 'line',
                     source: 'superhigh-source',
                     paint: {
-                        'line-color': PERTIColors.airspace.superhigh,
+                        'line-color': AIRSPACE_COLORS.superhigh,
                         'line-width': 1,
                         'line-opacity': 0.5,
                     },
@@ -518,7 +533,7 @@ const SplitsController = {
                         'visibility': 'none',
                     },
                     paint: {
-                        'text-color': PERTIColors.airspace.superhigh,
+                        'text-color': AIRSPACE_COLORS.superhigh,
                         'text-halo-color': '#000',
                         'text-halo-width': 1.5,
                     },
@@ -1723,7 +1738,7 @@ const SplitsController = {
                 ${features.map((item, index) => {
         const isSelected = currentlySelected.has(item.sectorId);
         const typeName = { 'high': 'High', 'low': 'Low', 'superhigh': 'Super High' }[item.layerType] || item.layerType;
-        const typeColor = { 'high': PERTIColors.airspace.high, 'low': PERTIColors.airspace.low, 'superhigh': PERTIColors.airspace.superhigh }[item.layerType] || '#888';
+        const typeColor = { 'high': AIRSPACE_COLORS.high, 'low': AIRSPACE_COLORS.low, 'superhigh': AIRSPACE_COLORS.superhigh }[item.layerType] || '#888';
         return `
                         <div class="layer-select-item sector-select-item ${isSelected ? 'is-selected' : ''}" 
                              data-index="${index}" data-sector="${item.sectorId}" data-type="${item.layerType}">
@@ -2037,11 +2052,11 @@ const SplitsController = {
 
         // Color map for layer types
         const typeColors = {
-            'high': PERTIColors.airspace.high,
-            'low': PERTIColors.airspace.low,
-            'superhigh': PERTIColors.airspace.superhigh,
-            'artcc': PERTIColors.airspace.artcc,
-            'tracon': PERTIColors.airspace.tracon,
+            'high': AIRSPACE_COLORS.high,
+            'low': AIRSPACE_COLORS.low,
+            'superhigh': AIRSPACE_COLORS.superhigh,
+            'artcc': AIRSPACE_COLORS.artcc,
+            'tracon': AIRSPACE_COLORS.tracon,
             'areas': '#a855f7',
             'presets': '#f59e0b',
             'active': '#e63946',
@@ -2250,7 +2265,7 @@ const SplitsController = {
     buildSectorPopup(props, type) {
         const isHigh = type === 'high';
         const isSuperhigh = type === 'superhigh';
-        const color = isSuperhigh ? PERTIColors.airspace.superhigh : (isHigh ? PERTIColors.airspace.high : PERTIColors.airspace.low);
+        const color = isSuperhigh ? AIRSPACE_COLORS.superhigh : (isHigh ? AIRSPACE_COLORS.high : AIRSPACE_COLORS.low);
         const levelName = isSuperhigh ? 'Superhigh' : (isHigh ? 'High' : 'Low');
 
         const artcc = (props.artcc || '').toUpperCase();
@@ -3016,7 +3031,7 @@ const SplitsController = {
 
         container.innerHTML = sectors.map(s => {
             const isSelected = selectedSectors.includes(s.id);
-            const typeColor = s.type === 'superhigh' ? PERTIColors.airspace.superhigh : (s.type === 'high' ? PERTIColors.airspace.high : PERTIColors.airspace.low);
+            const typeColor = s.type === 'superhigh' ? AIRSPACE_COLORS.superhigh : (s.type === 'high' ? AIRSPACE_COLORS.high : AIRSPACE_COLORS.low);
             return `<div class="sector-chip ${isSelected ? 'selected' : ''}" data-sector="${s.id}" data-type="${s.type}">
                 <span class="sector-type-dot" style="background:${typeColor}"></span>${s.name}
             </div>`;
@@ -3803,14 +3818,14 @@ const SplitsController = {
                     // Strata is disabled for this position - show as unassigned
                     features.push({
                         type: 'Feature',
-                        properties: { sector_id: sector.id, color: PERTIColors.airspace.unassigned, selected: false },
+                        properties: { sector_id: sector.id, color: AIRSPACE_COLORS.unassigned, selected: false },
                         geometry: sectorGeom.geometry,
                     });
                     return;
                 }
             }
 
-            const color = assigned ? assigned.color : PERTIColors.airspace.unassigned;
+            const color = assigned ? assigned.color : AIRSPACE_COLORS.unassigned;
 
             features.push({
                 type: 'Feature',
@@ -3821,7 +3836,7 @@ const SplitsController = {
             if (sectorGeom.centroid) {
                 labelFeatures.push({
                     type: 'Feature',
-                    properties: { label: assigned ? assigned.name : sector.name, color: assigned ? assigned.color : PERTIColors.airspace.unassignedLabel },
+                    properties: { label: assigned ? assigned.name : sector.name, color: assigned ? assigned.color : AIRSPACE_COLORS.unassignedLabel },
                     geometry: { type: 'Point', coordinates: sectorGeom.centroid },
                 });
             }
@@ -3879,15 +3894,15 @@ const SplitsController = {
                         <span class="text-muted mr-1">Strata:</span>
                         <label class="mr-2 mb-0" style="cursor: pointer;">
                             <input type="checkbox" class="pos-strata-toggle" data-index="${i}" data-strata="low" ${sf.low !== false ? 'checked' : ''}>
-                            <span style="background:${PERTIColors.airspace.low}; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+                            <span style="background:${AIRSPACE_COLORS.low}; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
                         </label>
                         <label class="mr-2 mb-0" style="cursor: pointer;">
                             <input type="checkbox" class="pos-strata-toggle" data-index="${i}" data-strata="high" ${sf.high !== false ? 'checked' : ''}>
-                            <span style="background:${PERTIColors.airspace.high}; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+                            <span style="background:${AIRSPACE_COLORS.high}; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
                         </label>
                         <label class="mb-0" style="cursor: pointer;">
                             <input type="checkbox" class="pos-strata-toggle" data-index="${i}" data-strata="superhigh" ${sf.superhigh !== false ? 'checked' : ''}>
-                            <span style="background:${PERTIColors.airspace.superhigh}; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+                            <span style="background:${AIRSPACE_COLORS.superhigh}; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
                         </label>
                     </div>
                 </div>`;
@@ -4144,7 +4159,7 @@ const SplitsController = {
         container.innerHTML = sectors.map(s => {
             const isAssigned = assignedByOthers.has(s.id);
             const isSelected = currentSectors.has(s.id);
-            const typeColor = s.type === 'superhigh' ? PERTIColors.airspace.superhigh : (s.type === 'high' ? PERTIColors.airspace.high : PERTIColors.airspace.low);
+            const typeColor = s.type === 'superhigh' ? AIRSPACE_COLORS.superhigh : (s.type === 'high' ? AIRSPACE_COLORS.high : AIRSPACE_COLORS.low);
             let classes = 'sector-chip';
             if (isSelected) {classes += ' selected';}
             if (isAssigned) {classes += ' assigned';}
@@ -4648,7 +4663,7 @@ const SplitsController = {
         container.innerHTML = sectors.map(s => {
             const isAssigned = assignedSectors.has(s.id) && !currentSplitSectors.has(s.id);
             const isSelected = currentSplitSectors.has(s.id);
-            const typeColor = s.type === 'superhigh' ? PERTIColors.airspace.superhigh : (s.type === 'high' ? PERTIColors.airspace.high : PERTIColors.airspace.low);
+            const typeColor = s.type === 'superhigh' ? AIRSPACE_COLORS.superhigh : (s.type === 'high' ? AIRSPACE_COLORS.high : AIRSPACE_COLORS.low);
             return `
                 <div class="sector-chip ${isSelected ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}" 
                      data-sector="${s.id}" data-type="${s.type}" ${isAssigned ? 'title="Assigned to another split"' : ''}>
@@ -6779,7 +6794,7 @@ const SplitsController = {
             if (!sectorGeom) {return;}
 
             const assigned = assignedSectors.get(sector.id);
-            const color = assigned ? assigned.color : PERTIColors.airspace.unassigned;
+            const color = assigned ? assigned.color : AIRSPACE_COLORS.unassigned;
 
             features.push({
                 type: 'Feature',
@@ -6798,7 +6813,7 @@ const SplitsController = {
                     type: 'Feature',
                     properties: {
                         label: assigned ? assigned.name : sector.name,
-                        color: assigned ? assigned.color : PERTIColors.airspace.unassignedLabel,
+                        color: assigned ? assigned.color : AIRSPACE_COLORS.unassignedLabel,
                     },
                     geometry: { type: 'Point', coordinates: sectorGeom.centroid },
                 });

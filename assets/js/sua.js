@@ -568,12 +568,18 @@ const boundaryLayersVisible = {
 
 // Load boundary layers (ARTCC, superhigh, high, low, TRACON)
 function loadBoundaryLayers() {
+    // Defensive fallbacks for PERTIColors.airspace (in case colors.js is cached)
+    const airspaceColors = (typeof PERTIColors !== 'undefined' && PERTIColors.airspace) || {};
+    const artccLine = airspaceColors.artccLine || '#515151';
+    const sectorLineDark = airspaceColors.sectorLineDark || '#303030';
+    const sectorLine = airspaceColors.sectorLine || '#505050';
+
     const boundaryConfigs = [
-        { id: 'artcc', url: 'assets/geojson/artcc.json', color: PERTIColors.airspace.artccLine, weight: 1.5, visible: boundaryLayersVisible.artcc },
-        { id: 'superhigh', url: 'assets/geojson/superhigh.json', color: PERTIColors.airspace.sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.superhigh },
-        { id: 'high', url: 'assets/geojson/high.json', color: PERTIColors.airspace.sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.high },
-        { id: 'low', url: 'assets/geojson/low.json', color: PERTIColors.airspace.sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.low },
-        { id: 'tracon', url: 'assets/geojson/tracon.json', color: PERTIColors.airspace.sectorLine, weight: 1.0, visible: boundaryLayersVisible.tracon },
+        { id: 'artcc', url: 'assets/geojson/artcc.json', color: artccLine, weight: 1.5, visible: boundaryLayersVisible.artcc },
+        { id: 'superhigh', url: 'assets/geojson/superhigh.json', color: sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.superhigh },
+        { id: 'high', url: 'assets/geojson/high.json', color: sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.high },
+        { id: 'low', url: 'assets/geojson/low.json', color: sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.low },
+        { id: 'tracon', url: 'assets/geojson/tracon.json', color: sectorLine, weight: 1.0, visible: boundaryLayersVisible.tracon },
     ];
 
     boundaryConfigs.forEach(function(config) {
