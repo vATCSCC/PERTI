@@ -1,0 +1,143 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true,
+        "node": true
+    },
+    "ignorePatterns": [
+        "node_modules/**",
+        "**/node_modules/**",
+        "assets/js/plugins/**",
+        "assets/vendor/**"
+    ],
+    "extends": "eslint:recommended",
+    "parserOptions": {
+        "ecmaVersion": 2021,
+        "sourceType": "script"
+    },
+    "globals": {
+        "PERTIDateTime": "readonly",
+        "PERTILogger": "readonly",
+        "PERTIColors": "readonly",
+        "$": "readonly",
+        "jQuery": "readonly",
+        "maplibregl": "readonly",
+        "turf": "readonly",
+        "Swal": "readonly",
+        "bootstrap": "readonly",
+        "Chart": "readonly",
+        "echarts": "readonly",
+        "d3": "readonly",
+        "L": "readonly",
+        "Chartist": "readonly",
+        "flatpickr": "readonly",
+        "rangePlugin": "readonly",
+        "Cleave": "readonly",
+        "noUiSlider": "readonly",
+        "lightGallery": "readonly",
+        "imagesLoaded": "readonly",
+        "Parallax": "readonly",
+        "Shuffle": "readonly",
+        "tns": "readonly",
+        "bsCustomFileInput": "readonly",
+        "MapboxDraw": "readonly",
+        "FILTER_CONFIG": "readonly",
+        "PHASE_COLORS": "readonly",
+        "PHASE_LABELS": "readonly",
+        "RATE_LINE_CONFIG": "readonly",
+        "FSM_STATUS_COLORS": "readonly",
+        "TMI_TIER_INFO": "readonly",
+        "AdvisoryConfig": "readonly",
+        "FacilityHierarchy": "readonly",
+        "FH": "readonly",
+        "NOD": "readonly",
+        "NODDemandLayer": "readonly",
+        "JATOC": "readonly",
+        "JATOC_CONFIG": "readonly",
+        "ADLService": "readonly",
+        "WeatherRadar": "readonly",
+        "RouteSymbology": "readonly",
+        "getContrastTextColor": "readonly",
+        "buildAdvisory": "readonly",
+        "populateScopeSelector": "readonly",
+        "expandRouteProcedures": "readonly",
+        "preprocessRouteProcedures": "readonly",
+        "parseCsvWithQuotes": "readonly",
+        "exportToGPKGNative": "readonly",
+        "awys": "readonly",
+        "navFixes": "readonly",
+        "procs": "readonly",
+        "dpAllRootNames": "readonly",
+        "starAllRootNames": "readonly",
+        "map": "readonly",
+        "tooltips": "readonly",
+        "PERTI_EVENT_DATE": "readonly",
+        "PERTI_EVENT_END_DATE": "readonly",
+        "PERTI_EVENT_END_TIME": "readonly",
+        "PERTI_EVENT_NAME": "readonly",
+        "PERTI_EVENT_START": "readonly",
+        "PERTI_OPLEVEL": "readonly",
+        "PERTI_PLAN_ID": "readonly",
+        "define": "readonly",
+        "InvalidCharacterError": "readonly"
+    },
+    "rules": {
+        "no-var": "error",
+        "prefer-const": "warn",
+        "no-console": ["warn", {
+            "allow": ["warn", "error"]
+        }],
+        "no-empty": ["error", {
+            "allowEmptyCatch": true
+        }],
+        "eqeqeq": ["warn", "always", {
+            "null": "ignore"
+        }],
+        "no-unused-vars": ["warn", {
+            "args": "none",
+            "varsIgnorePattern": "^_"
+        }],
+        "no-undef": "error",
+        "no-redeclare": "error",
+        "no-shadow": "warn",
+        "no-implicit-globals": "error",
+        "no-eval": "error",
+        "no-implied-eval": "error",
+        "no-new-func": "error",
+        "no-script-url": "error",
+        "no-alert": "warn",
+        "no-debugger": "error",
+        "no-unreachable": "error",
+        "no-constant-condition": "warn",
+        "curly": ["warn", "all"],
+        "semi": ["warn", "always"],
+        "quotes": ["warn", "single", {
+            "avoidEscape": true,
+            "allowTemplateLiterals": true
+        }],
+        "indent": ["warn", 4, {
+            "SwitchCase": 1
+        }],
+        "no-trailing-spaces": "warn",
+        "comma-dangle": ["warn", "always-multiline"],
+        "no-multiple-empty-lines": ["warn", {
+            "max": 2
+        }]
+    },
+    "overrides": [
+        {
+            "files": ["discord-bot/**/*.js", "simulator/**/*.js", "scripts/**/*.js", "assets/js/lib/logger.js"],
+            "rules": {
+                "no-console": "off"
+            }
+        },
+        {
+            "files": ["assets/js/plugins/**/*.js"],
+            "rules": {
+                "no-var": "off",
+                "prefer-const": "off",
+                "no-unused-vars": "off"
+            }
+        }
+    ]
+}

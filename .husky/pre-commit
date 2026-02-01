@@ -1,0 +1,127 @@
+#!/bin/sh
+# PERTI Pre-commit Hook
+#
+# Install husky:
+#   npm install husky --save-dev
+#   npx husky install
+#   npx husky add .husky/pre-commit "sh .husky/pre-commit"
+
+echo "Running pre-commit checks..."
+
+# Get list of staged files
+STAGED_JS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.js$' | grep -v 'node_modules' | grep -v 'vendor')
+STAGED_PHP=$(git diff --cached --name-only --diff-filter=ACM | grep '\.php$' | grep -v 'vendor')
+
+# Track if any checks fail
+FAILED=0
+
+# ========================================
+# JavaScript Checks
+# ========================================
+if [ -n "$STAGED_JS" ]; then
+    echo "\n=== Checking JavaScript files ==="
+
+    # Run ESLint on staged JS files
+    if command -v npx >/dev/null 2>&1; then
+        echo "$STAGED_JS" | xargs npx eslint --max-warnings=0
+        if [ $? -ne 0 ]; then
+            echo "ESLint found errors. Fix them before committing."
+            FAILED=1
+        fi
+    fi
+
+    # Check for forbidden patterns
+    for file in $STAGED_JS; do
+        # Check for .substr() usage
+        if grep -n '\.substr(' "$file" >/dev/null 2>&1; then
+            echo "ERROR: $file contains .substr() - use .slice() instead"
+            grep -n '\.substr(' "$file"
+            FAILED=1
+        fi
+
+        # Check for console.log in production files
+        if echo "$file" | grep -qv 'discord-bot\|simulator\|scripts/'; then
+            if grep -n 'console\.log(' "$file" >/dev/null 2>&1; then
+                echo "WARNING: $file contains console.log() - use PERTILogger"
+                grep -n 'console\.log(' "$file"
+            fi
+        fi
+
+        # Check for hardcoded passwords
+        if grep -nE "(password|pass|secret|api_key)\s*[:=]\s*['\"][^'\"]+['\"]" "$file" >/dev/null 2>&1; then
+            echo "ERROR: $file may contain hardcoded credentials"
+            grep -nE "(password|pass|secret|api_key)\s*[:=]\s*['\"][^'\"]+['\"]" "$file"
+            FAILED=1
+        fi
+    done
+fi
+
+# ========================================
+# PHP Checks
+# ========================================
+if [ -n "$STAGED_PHP" ]; then
+    echo "\n=== Checking PHP files ==="
+
+    # Run PHP syntax check
+    for file in $STAGED_PHP; do
+        php -l "$file" >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "ERROR: PHP syntax error in $file"
+            php -l "$file"
+            FAILED=1
+        fi
+    done
+
+    # Run PHP-CS-Fixer if available
+    if [ -f vendor/bin/php-cs-fixer ]; then
+        echo "$STAGED_PHP" | xargs vendor/bin/php-cs-fixer fix --dry-run --diff
+        if [ $? -ne 0 ]; then
+            echo "PHP-CS-Fixer found style issues. Run 'vendor/bin/php-cs-fixer fix' to fix them."
+            FAILED=1
+        fi
+    fi
+
+    # Check for forbidden patterns
+    for file in $STAGED_PHP; do
+        # Check for SQL injection patterns
+        if grep -nE '\$conn.*->query\([^)]*\$[a-zA-Z_]+' "$file" >/dev/null 2>&1; then
+            echo "ERROR: $file may contain SQL injection vulnerability"
+            grep -nE '\$conn.*->query\([^)]*\$[a-zA-Z_]+' "$file"
+            FAILED=1
+        fi
+
+        # Check for date() instead of gmdate()
+        if grep -nE "[^g]date\s*\(\s*['\"]" "$file" >/dev/null 2>&1; then
+            echo "WARNING: $file uses date() - consider gmdate() for UTC"
+            grep -nE "[^g]date\s*\(\s*['\"]" "$file"
+        fi
+
+        # Check for CORS wildcard
+        if grep -n "Access-Control-Allow-Origin.*\*" "$file" >/dev/null 2>&1; then
+            echo "WARNING: $file uses CORS wildcard - ensure this is intentional"
+            grep -n "Access-Control-Allow-Origin.*\*" "$file"
+        fi
+
+        # Check for hardcoded credentials
+        if grep -nE "(\?:\s*['\"][A-Za-z0-9@!]+['\"])" "$file" >/dev/null 2>&1; then
+            if grep -nE "getenv.*\?:" "$file" >/dev/null 2>&1; then
+                echo "ERROR: $file contains hardcoded credential fallback"
+                grep -nE "getenv.*\?:" "$file"
+                FAILED=1
+            fi
+        fi
+    done
+fi
+
+# ========================================
+# Summary
+# ========================================
+if [ $FAILED -ne 0 ]; then
+    echo "\n=== PRE-COMMIT FAILED ==="
+    echo "Fix the errors above before committing."
+    echo "To bypass (not recommended): git commit --no-verify"
+    exit 1
+fi
+
+echo "\n=== All checks passed ==="
+exit 0
