@@ -1773,27 +1773,27 @@ window.PublicRoutes = (function() {
      * Render routes on the map - this is a placeholder that gets overridden
      * by the Leaflet or MapLibre integration
      */
-    function renderRoutes() {
+    let renderRoutes = function() {
         const visibleRoutes = getVisibleRoutes();
         console.log('[PublicRoutes] renderRoutes() - rendering', visibleRoutes.length, 'of', state.routes.length, 'routes');
         $(document).trigger('publicRoutes:render', [visibleRoutes]);
-    }
+    };
 
     /**
      * Zoom to a specific route - placeholder
      */
-    function zoomToRoute(route) {
+    let zoomToRoute = function(route) {
         console.log('[PublicRoutes] zoomToRoute() - override this in integration');
         $(document).trigger('publicRoutes:zoom', [route]);
-    }
+    };
 
     /**
      * Clear route display - placeholder
      */
-    function clearRoutes() {
+    let clearRoutes = function() {
         console.log('[PublicRoutes] clearRoutes() - override this in integration');
         $(document).trigger('publicRoutes:clear');
-    }
+    };
 
     // ─────────────────────────────────────────────────────────────────────
     // ENABLE / DISABLE

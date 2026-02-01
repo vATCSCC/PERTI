@@ -775,93 +775,6 @@ function deleteTerminalInit(id) {
     });
 }
 
-// FUNC: createTermTime [id:]
-function createTermTime(init_id, time) {
-    $.ajax({
-        type:   'POST',
-        url:    'api/mgt/terminal_inits/times/post',
-        data:   {init_id: init_id, time: time},
-        success:function(data) {
-            Swal.fire({
-                toast:      true,
-                position:   'bottom-right',
-                icon:       'success',
-                title:      'Successfully Created',
-                text:       'You have successfully created an entry of terminal initiatives for this plan.',
-                timer:      3000,
-                showConfirmButton: false,
-            });
-
-            loadTermInits();
-        },
-        error:function(data) {
-            Swal.fire({
-                icon:   'error',
-                title:  'Not Created',
-                text:   'There was an error in creating an entry of terminal initiatives for this plan.',
-            });
-        },
-    });
-}
-
-// FUNC: changeTermTime [id:]
-function changeTermTime(id, prob) {
-    $.ajax({
-        type:   'POST',
-        url:    'api/mgt/terminal_inits/times/update',
-        data:   {id: id, probability: prob},
-        success:function(data) {
-            Swal.fire({
-                toast:      true,
-                position:   'bottom-right',
-                icon:       'success',
-                title:      'Successfully Updated',
-                text:       'You have successfully updated an entry of terminal initiatives for this plan.',
-                timer:      3000,
-                showConfirmButton: false,
-            });
-
-            loadTermInits();
-        },
-        error:function(data) {
-            Swal.fire({
-                icon:   'error',
-                title:  'Not Updated',
-                text:   'There was an error in updating an entry of terminal initiatives for this plan.',
-            });
-        },
-    });
-}
-
-// FUNC: deleteTermTime [id:]
-function deleteTermTime(id) {
-    $.ajax({
-        type:   'POST',
-        url:    'api/mgt/terminal_inits/times/delete',
-        data:   {id: id},
-        success:function(data) {
-            Swal.fire({
-                toast:      true,
-                position:   'bottom-right',
-                icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an entry of terminal initiatives for this plan.',
-                timer:      3000,
-                showConfirmButton: false,
-            });
-
-            loadTermInits();
-        },
-        error:function(data) {
-            Swal.fire({
-                icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of terminal initiatives for this plan.',
-            });
-        },
-    });
-}
-
 // AJAX: #addtermstaffing POST
 $('#addtermstaffing').submit(function(e) {
     e.preventDefault();
@@ -1141,7 +1054,7 @@ function autoConfig(id, aar, adr) {
 // Cache for loaded configs by airport
 const configCache = {};
 let addconfigSelectedConfig = null;
-var editconfigSelectedConfig = null;
+let editconfigSelectedConfig = null;
 
 // Fetch configs for airport from ADL
 function fetchAirportConfigs(airport, callback) {
@@ -1696,93 +1609,6 @@ function deleteEnrouteInit(id) {
                 icon:   'error',
                 title:  'Not Deleted',
                 text:   'There was an error in deleting an enroute initiative for this plan.',
-            });
-        },
-    });
-}
-
-// FUNC: createEnrouteTime [id:]
-function createEnrouteTime(init_id, time) {
-    $.ajax({
-        type:   'POST',
-        url:    'api/mgt/enroute_initializations/times/post',
-        data:   {init_id: init_id, time: time},
-        success:function(data) {
-            Swal.fire({
-                toast:      true,
-                position:   'bottom-right',
-                icon:       'success',
-                title:      'Successfully Created',
-                text:       'You have successfully created an entry of enroute initiatives for this plan.',
-                timer:      3000,
-                showConfirmButton: false,
-            });
-
-            loadEnrouteInits();
-        },
-        error:function(data) {
-            Swal.fire({
-                icon:   'error',
-                title:  'Not Created',
-                text:   'There was an error in creating an entry of enroute initiatives for this plan.',
-            });
-        },
-    });
-}
-
-// FUNC: changeEnrouteTime [id:]
-function changeEnrouteTime(id, prob) {
-    $.ajax({
-        type:   'POST',
-        url:    'api/mgt/enroute_initializations/times/update',
-        data:   {id: id, probability: prob},
-        success:function(data) {
-            Swal.fire({
-                toast:      true,
-                position:   'bottom-right',
-                icon:       'success',
-                title:      'Successfully Updated',
-                text:       'You have successfully updated an entry of enroute initiatives for this plan.',
-                timer:      3000,
-                showConfirmButton: false,
-            });
-
-            loadEnrouteInits();
-        },
-        error:function(data) {
-            Swal.fire({
-                icon:   'error',
-                title:  'Not Updated',
-                text:   'There was an error in updating an entry of enroute initiatives for this plan.',
-            });
-        },
-    });
-}
-
-// FUNC: deleteEnrouteTime [id:]
-function deleteEnrouteTime(id) {
-    $.ajax({
-        type:   'POST',
-        url:    'api/mgt/enroute_initializations/times/delete',
-        data:   {id: id},
-        success:function(data) {
-            Swal.fire({
-                toast:      true,
-                position:   'bottom-right',
-                icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an entry of enroute initiatives for this plan.',
-                timer:      3000,
-                showConfirmButton: false,
-            });
-
-            loadEnrouteInits();
-        },
-        error:function(data) {
-            Swal.fire({
-                icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of enroute initiatives for this plan.',
             });
         },
     });
@@ -3019,7 +2845,7 @@ function opsPlanUpdateMessage() {
     termConstraintLines.push('TERMINAL CONSTRAINTS:');
 
     // Get terminal constraints from timeline
-    var termTimelineData = (window.termInitTimeline && window.termInitTimeline.data) ? window.termInitTimeline.data : [];
+    const termTimelineData = (window.termInitTimeline && window.termInitTimeline.data) ? window.termInitTimeline.data : [];
     const termConstraints = termTimelineData.filter(function(item) {
         return item.level === 'Constraint_Terminal';
     });
@@ -3053,7 +2879,7 @@ function opsPlanUpdateMessage() {
     enrouteConstraintLines.push('EN ROUTE CONSTRAINTS:');
 
     // Get enroute constraints from timeline
-    var enrouteTimelineData = (window.enrouteInitTimeline && window.enrouteInitTimeline.data) ? window.enrouteInitTimeline.data : [];
+    const enrouteTimelineData = (window.enrouteInitTimeline && window.enrouteInitTimeline.data) ? window.enrouteInitTimeline.data : [];
     const enrouteConstraints = enrouteTimelineData.filter(function(item) {
         return item.level === 'Constraint_EnRoute';
     });
@@ -3232,9 +3058,7 @@ function opsPlanUpdateMessage() {
         return result;
     }
 
-    // Get timeline data from the timeline objects
-    var termTimelineData = (window.termInitTimeline && window.termInitTimeline.data) ? window.termInitTimeline.data : [];
-    var enrouteTimelineData = (window.enrouteInitTimeline && window.enrouteInitTimeline.data) ? window.enrouteInitTimeline.data : [];
+    // Get timeline data from the timeline objects (both termTimelineData and enrouteTimelineData declared above)
 
     // TERMINAL ACTIVE
     const termActiveLines = [];
@@ -3571,7 +3395,7 @@ function pertiUpdateMessage() {
 
     const facilitiesText = ($('#advFacilities').val() || '').trim();
     if (facilitiesText) {
-        const parts = facilitiesText.split(/[\/\s,]+/);
+        const parts = facilitiesText.split(/[/\s,]+/);
         const codes = [];
         parts.forEach(function(p) {
             p = (p || '').trim();

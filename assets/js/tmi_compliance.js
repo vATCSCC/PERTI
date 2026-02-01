@@ -10,6 +10,9 @@ const TMICompliance = {
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
 
+    // Number of spacing reference guides to show on diagram (minimum 1)
+    spacingGuideCount: 3,
+
     // Filters for TMI results
     filters: {
         requestor: '',      // Filter by requestor facility
@@ -788,11 +791,33 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     // Render horizontal spacing diagram (visual timeline)
-    renderSpacingDiagram: function(allPairs, required, unit, diagramId) {
+    renderSpacingDiagram: function(allPairs, required, unit, diagramId, tmiStart, tmiEnd) {
         if (!allPairs || allPairs.length === 0) {return '';}
 
         const unitLabel = unit === 'min' ? 'min' : 'nm';
         const isMinit = unit === 'min';
+
+        // Check for data gaps in this TMI window
+        const gapOverlap = this.checkTMIGapOverlap(tmiStart, tmiEnd);
+        const gapHours = new Set();
+        if (gapOverlap?.gaps) {
+            // Extract individual hours from each gap
+            gapOverlap.gaps.forEach(gap => {
+                for (let h = gap.start_hour; h <= gap.end_hour; h++) {
+                    gapHours.add(h);
+                }
+            });
+        }
+
+        // Helper to check if a time falls in a gap hour
+        const isInGapHour = (timeStr) => {
+            if (!timeStr || gapHours.size === 0) {return false;}
+            const match = timeStr.match(/(\d{2}):?(\d{2})/);
+            if (match) {
+                return gapHours.has(parseInt(match[1]));
+            }
+            return false;
+        };
 
         // Build crossings list (unique flights at their crossing times)
         const crossings = [];
@@ -803,6 +828,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 dept: allPairs[0].prev_dept || '',
                 dest: allPairs[0].prev_dest || '',
                 color: '#6c757d',
+                inGap: isInGapHour(allPairs[0].prev_time),
             });
             allPairs.forEach(p => {
                 // Determine color based on category
@@ -821,6 +847,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     category: p.spacing_category,
                     isExempt: p.is_exempt || false,
                     color: color,
+                    inGap: isInGapHour(p.curr_time),
                 });
             });
         }
@@ -848,16 +875,59 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         const diagramWidth = Math.max(600, currentX + padding);
         const diagramHeight = 120;
+        const hasGaps = gapHours.size > 0;
 
-        // Build SVG content in layers: background -> lines -> labels -> dots (on top)
+        // Build SVG content in layers: defs -> background -> guides -> gap markers -> lines -> labels -> dots (on top)
+        let defsContent = '';
         let bgContent = '';
+        let guideContent = '';
+        let gapContent = '';
         let lineContent = '';
         let labelContent = '';
         let dotContent = '';
 
+        // Add hatched pattern for data gaps
+        if (hasGaps) {
+            defsContent = `
+                <defs>
+                    <pattern id="gap-hatch-${diagramId}" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+                        <line x1="0" y1="0" x2="0" y2="8" stroke="#f59f00" stroke-width="2" stroke-opacity="0.4"/>
+                    </pattern>
+                </defs>
+            `;
+        }
+
         // Background track
         const trackEndX = positions[positions.length - 1] || padding;
         bgContent += `<rect x="${padding}" y="45" width="${trackEndX - padding}" height="30" fill="#f8f9fa" rx="4"/>`;
+
+        // Draw spacing reference guides (vertical lines at required spacing intervals)
+        const guideCount = Math.max(1, this.spacingGuideCount || 3);
+        const guideSpacingPx = required * pixelsPerUnit;
+        const isWideInterval = guideSpacingPx >= 80; // Wide enough for 3 labels
+
+        if (guideSpacingPx > 20) { // Only show guides if they'd be visible
+            for (let g = 1; g <= guideCount; g++) {
+                const guideX = padding + (g * guideSpacingPx);
+                const prevGuideX = padding + ((g - 1) * guideSpacingPx);
+
+                if (guideX < trackEndX + 20) {
+                    // Vertical dashed line (above the track to avoid overlapping the flow)
+                    guideContent += `<line x1="${guideX}" y1="10" x2="${guideX}" y2="40" stroke="#adb5bd" stroke-width="1" stroke-dasharray="3,3" opacity="0.7"/>`;
+
+                    if (isWideInterval) {
+                        // Wide interval: show 3 labels (start edge, midpoint, end edge)
+                        const midX = (prevGuideX + guideX) / 2;
+                        guideContent += `<text x="${prevGuideX + 5}" y="8" text-anchor="start" font-size="8" fill="#868e96">${(g - 1) * required}${unitLabel}</text>`;
+                        guideContent += `<text x="${midX}" y="8" text-anchor="middle" font-size="8" fill="#adb5bd">${((g - 0.5) * required).toFixed(1)}${unitLabel}</text>`;
+                        guideContent += `<text x="${guideX - 5}" y="8" text-anchor="end" font-size="8" fill="#868e96">${g * required}${unitLabel}</text>`;
+                    } else {
+                        // Thin interval: single label at the guide line
+                        guideContent += `<text x="${guideX}" y="8" text-anchor="middle" font-size="8" fill="#868e96">${g * required}${unitLabel}</text>`;
+                    }
+                }
+            }
+        }
 
         // Draw segments and collect dot info
         crossings.forEach((c, i) => {
@@ -868,6 +938,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (i > 0) {
                 const prevX = positions[i - 1];
                 const lineStyle = c.isExempt ? 'stroke-dasharray: 5,5' : '';
+                const prevCrossing = crossings[i - 1];
+
+                // Draw gap marker behind segment if either endpoint is in a gap hour
+                if (hasGaps && (c.inGap || prevCrossing.inGap)) {
+                    gapContent += `<rect x="${prevX}" y="45" width="${x - prevX}" height="30" fill="url(#gap-hatch-${diagramId})" rx="2"/>`;
+                }
 
                 // Line segment (drawn first, under dots)
                 lineContent += `<line x1="${prevX}" y1="60" x2="${x}" y2="60" stroke="${c.color}" stroke-width="4" ${lineStyle}/>`;
@@ -882,14 +958,39 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             // Callsign label (staggered between y=95 and y=110)
             labelContent += `<text x="${x}" y="${labelY}" text-anchor="middle" font-size="9" fill="#666" class="callsign-label">${c.callsign}</text>`;
 
+            // Format crossing time as HHMMZ for tooltip
+            const formatCrossingTime = (timeStr) => {
+                if (!timeStr) {return '';}
+                const match = timeStr.match(/(\d{2}):?(\d{2})/);
+                if (match) {
+                    return `${match[1]}${match[2]}Z`;
+                }
+                return timeStr;
+            };
+            const crossingTimeLabel = formatCrossingTime(c.time);
+
             // Dot (flight marker) - drawn LAST so it's on top of lines
-            dotContent += `<circle cx="${x}" cy="60" r="8" fill="${c.color}" class="flight-marker" data-callsign="${c.callsign}" data-time="${c.time}" data-dept="${c.dept}" data-dest="${c.dest}" style="cursor: pointer;" onclick="TMICompliance.showFlightPopup(this)"/>`;
+            // Uses group with title for native browser tooltip showing crossing time
+            dotContent += `<g class="flight-marker-group" style="cursor: pointer;" onclick="TMICompliance.showFlightPopup(this.querySelector('circle'))">
+                <title>Crossing: ${crossingTimeLabel}</title>
+                <circle cx="${x}" cy="60" r="8" fill="${c.color}" class="flight-marker" data-callsign="${c.callsign}" data-time="${c.time}" data-dept="${c.dept}" data-dest="${c.dest}"/>
+            </g>`;
         });
 
-        // Assemble SVG: background, lines, labels, then dots on top (no legend inside SVG)
-        const svgContent = bgContent + lineContent + labelContent + dotContent;
+        // Assemble SVG: defs, background, guides, gap markers, lines, labels, then dots on top
+        const svgContent = defsContent + bgContent + guideContent + gapContent + lineContent + labelContent + dotContent;
 
         // Legend as HTML element outside SVG (sticky positioned)
+        const gapLegendItem = hasGaps
+            ? `<span class="legend-item"><span class="legend-box" style="background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(245,159,0,0.4) 2px, rgba(245,159,0,0.4) 4px);"></span> Data Gap</span>`
+            : '';
+        const guideControlHtml = `
+            <span class="legend-item ml-2" style="border-left: 1px solid #dee2e6; padding-left: 8px;">
+                Guides: <select onchange="TMICompliance.setGuideCount(parseInt(this.value))" style="font-size: 11px; padding: 1px 4px; border: 1px solid #ced4da; border-radius: 3px;">
+                    ${[1,2,3,4,5].map(n => `<option value="${n}" ${n === guideCount ? 'selected' : ''}>${n}</option>`).join('')}
+                </select>
+            </span>
+        `;
         const legendHtml = `
             <div class="spacing-diagram-legend">
                 <span class="legend-item"><span class="legend-line" style="background:#000;"></span> Req: ${required}${unitLabel}</span>
@@ -898,13 +999,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <span class="legend-item"><span class="legend-box" style="background:#17a2b8;"></span> Over</span>
                 <span class="legend-item"><span class="legend-box" style="background:#ffc107;"></span> Gap</span>
                 <span class="legend-item"><span class="legend-line legend-dashed"></span> Exempt</span>
+                ${gapLegendItem}
+                ${guideControlHtml}
             </div>
         `;
 
         return `
             <div class="spacing-diagram-container" id="${diagramId}">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="small text-muted"><i class="fas fa-chart-line"></i> Spacing Timeline (${isMinit ? 'time-based' : 'distance-based'}) - ${crossings.length} flights</span>
+                    <span class="small text-muted">Spacing Timeline (${isMinit ? 'time-based' : 'distance-based'}) - ${crossings.length} flights</span>
                     ${legendHtml}
                 </div>
                 <div class="spacing-diagram-svg" style="overflow-x: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px;">
@@ -920,6 +1023,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     setExemptViewMode: function(mode, diagramId) {
         this.exemptViewMode = mode;
         // Re-render the results to update the diagram
+        this.renderResults();
+    },
+
+    // Set number of spacing reference guides (minimum 1)
+    setGuideCount: function(count) {
+        this.spacingGuideCount = Math.max(1, count || 1);
         this.renderResults();
     },
 
@@ -1368,7 +1477,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 ` : ''}
 
                 <!-- Visual Spacing Diagram -->
-                ${allPairs.length > 0 ? this.renderSpacingDiagram(allPairs, required, r.unit, diagramId) : ''}
+                ${allPairs.length > 0 ? this.renderSpacingDiagram(allPairs, required, r.unit, diagramId, r.tmi_start, r.tmi_end) : ''}
         `;
 
         // Violations summary with expand button
@@ -2039,6 +2148,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <span class="layer-divider">|</span>
                         <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Tracks</button>
                         <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
+                        <span class="layer-divider">|</span>
+                        <span class="cone-legend" style="display: flex; align-items: center; gap: 8px; font-size: 11px;">
+                            <span style="display: flex; align-items: center; gap: 3px;"><span style="width: 12px; height: 12px; background: rgba(255,212,59,0.3); border: 1px solid #ffd43b; border-radius: 2px;"></span> 75%</span>
+                            <span style="display: flex; align-items: center; gap: 3px;"><span style="width: 12px; height: 12px; background: rgba(255,146,43,0.3); border: 1px solid #ff922b; border-radius: 2px;"></span> 90%</span>
+                        </span>
                     </div>
                     <div class="tmi-map-container mt-2" id="${mapId}_container">
                         <div class="d-flex align-items-center justify-content-center h-100" style="color: var(--dark-text-subtle);">
@@ -2651,6 +2765,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
                     };
 
+                    // Compute point at given bearing and distance from origin
+                    const pointAtBearing = (lon, lat, bearingDeg, distNm) => {
+                        const R = 3440.065; // Earth radius in nm
+                        const bearing = bearingDeg * Math.PI / 180;
+                        const lat1 = lat * Math.PI / 180;
+                        const lon1 = lon * Math.PI / 180;
+                        const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distNm / R) +
+                            Math.cos(lat1) * Math.sin(distNm / R) * Math.cos(bearing));
+                        const lon2 = lon1 + Math.atan2(
+                            Math.sin(bearing) * Math.sin(distNm / R) * Math.cos(lat1),
+                            Math.cos(distNm / R) - Math.sin(lat1) * Math.sin(lat2)
+                        );
+                        return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
+                    };
+
                     // Collect approach bearings for all trajectories
                     const approachBearings = [];
 
@@ -2731,17 +2860,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                         // Cache the computed sector data (use TMI metadata for spacing)
                         const tmiMeta = TMICompliance.tmiMetadataCache?.[mapId] || {};
+                        const requiredSpacing = tmiMeta.required || 15;
+
+                        // Offset measurement point upstream by 1 interval (required spacing)
+                        // medianBearing points toward upstream (where traffic came from)
+                        const [upstreamLon, upstreamLat] = pointAtBearing(fixLon, fixLat, medianBearing, requiredSpacing);
+
                         TMICompliance.trafficSectorCache = TMICompliance.trafficSectorCache || {};
                         TMICompliance.trafficSectorCache[mapId] = {
-                            measurement_point: [fixLon, fixLat],
+                            measurement_point: [upstreamLon, upstreamLat], // 1 interval upstream from fix
+                            fix_point: [fixLon, fixLat], // Original fix location
                             sector_75: sector75,
                             sector_90: sector90,
                             track_count: approachBearings.length,
-                            required_spacing: tmiMeta.required || 15,
+                            required_spacing: requiredSpacing,
                             unit: tmiMeta.unit || 'nm',
                         };
 
-                        console.log(`Computed traffic sector from ${approachBearings.length} tracks: 75% (${width75.toFixed(1)}°), 90% (${width90.toFixed(1)}°), median bearing: ${medianBearing.toFixed(1)}°`);
+                        console.log(`Computed traffic sector from ${approachBearings.length} tracks: 75% (${width75.toFixed(1)}°), 90% (${width90.toFixed(1)}°), median bearing: ${medianBearing.toFixed(1)}°, measurement ${requiredSpacing}nm upstream`);
                     }
                 }
             }
@@ -3602,7 +3738,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         return `<span class="badge badge-warning ml-2"
                       title="Data gap during TMI window: ${overlap.summary} (${overlap.totalHours}h missing). Traffic counts may be incomplete."
                       style="cursor: help;">
-                    <i class="fas fa-exclamation-triangle"></i> Data Gap
+                    Data Gap
                 </span>`;
     },
 
@@ -3695,27 +3831,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return '';
         }
 
-        // Format large numbers with commas
+        // Format numbers
         const formatNum = (n) => n.toLocaleString();
+        const streamFlights = detectedFlights || 0;
+        const trajFlights = counts.uniqueFlights || 0;
 
-        // Determine if there's a significant discrepancy
-        const flightDiff = counts.uniqueFlights - (detectedFlights || 0);
-        const discrepancyClass = flightDiff > 10 ? 'text-warning' : 'text-muted';
-        const discrepancyNote = flightDiff > 10
-            ? ` <span class="badge badge-warning badge-sm" title="Trajectory data shows more flights than detected. Some may not have crossed the fix/filter area.">+${flightDiff} in area</span>`
-            : '';
+        // Calculate coverage percentage
+        const coveragePct = streamFlights > 0 ? Math.round((trajFlights / streamFlights) * 100) : 0;
+        const coverageClass = coveragePct >= 90 ? 'text-success' : coveragePct >= 70 ? 'text-warning' : 'text-danger';
 
         return `
             <div class="tmi-trajectory-counts small text-muted mt-1" style="border-top: 1px dashed #dee2e6; padding-top: 0.5rem;">
-                <i class="fas fa-satellite text-info"></i>
-                <span title="Trajectory data points recorded during TMI window">
-                    <strong>${formatNum(counts.trajPoints)}</strong> traj points
+                <span title="Flights matching TMI stream definition (origin/dest/fix)">
+                    <strong>${formatNum(streamFlights)}</strong> stream flights
                 </span>
                 <span class="mx-2">|</span>
-                <span title="Unique flights with trajectory data in database during TMI hours">
-                    <strong>${formatNum(counts.uniqueFlights)}</strong> flights in DB
+                <span title="Flights with trajectory data available during TMI window">
+                    <strong>${formatNum(trajFlights)}</strong> w/ trajectories
                 </span>
-                ${discrepancyNote}
                 <span class="mx-2">|</span>
                 <span title="Hours covered by this TMI">
                     ${counts.hours}h window
