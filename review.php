@@ -707,7 +707,7 @@ include("sessions/handler.php");
         /* TMI Context Map Styles */
         .tmi-map-container {
             width: 100%;
-            height: 400px;
+            height: 800px;
             border-radius: 4px;
             overflow: hidden;
             background: #1a1a2e;

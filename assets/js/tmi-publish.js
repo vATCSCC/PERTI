@@ -5602,23 +5602,6 @@
         return CONFIG.userFacility || '';
     }
 
-    function getUserOI() {
-        // Use configured OI if available
-        if (CONFIG.userOI && CONFIG.userOI.length >= 2) {
-            return CONFIG.userOI.toUpperCase();
-        }
-
-        // Extract initials from userName (first letter of each word)
-        const userName = CONFIG.userName || 'XX';
-        const parts = userName.trim().split(/\s+/);
-        if (parts.length >= 2) {
-            // First letter of first and last word
-            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        }
-        // Single word - use first 2 characters
-        return userName.substr(0, 2).toUpperCase();
-    }
-
     // ===========================================
     // Coordination Proposals
     // ===========================================
@@ -7510,8 +7493,8 @@
                 (r.destAirports || []).forEach(apt => allAirports.add(apt.toUpperCase()));
                 (r.destArtccs || []).forEach(fir => allFIRs.add(fir.toUpperCase()));
                 // Also check origin/destination strings for codes
-                const origTokens = (r.origin || '').toUpperCase().split(/[\s\/]+/).filter(Boolean);
-                const destTokens = (r.destination || '').toUpperCase().split(/[\s\/]+/).filter(Boolean);
+                const origTokens = (r.origin || '').toUpperCase().split(/[\s/]+/).filter(Boolean);
+                const destTokens = (r.destination || '').toUpperCase().split(/[\s/]+/).filter(Boolean);
                 [...origTokens, ...destTokens].forEach(t => {
                     if (/^[A-Z]{4}$/.test(t)) {allAirports.add(t);}
                     if (/^[A-Z]{2,4}$/.test(t) && (t.startsWith('Z') || t.startsWith('CZ') || t.startsWith('MM'))) {
@@ -7788,8 +7771,8 @@
 
                 // Handle multi-item origins/dests (space or "/" separated)
                 // Split on "/" or whitespace to handle both "KJFK KLGA" and "KJFK/KLGA" formats
-                const origItems = orig.trim() ? orig.trim().split(/[\s\/]+/).filter(Boolean) : [];
-                const destItems = dest.trim() ? dest.trim().split(/[\s\/]+/).filter(Boolean) : [];
+                const origItems = orig.trim() ? orig.trim().split(/[\s/]+/).filter(Boolean) : [];
+                const destItems = dest.trim() ? dest.trim().split(/[\s/]+/).filter(Boolean) : [];
 
                 // Chunk items to fit in column (using "/" separator for compact display)
                 const chunkItemsToFit = (items, maxLen, sep = '/') => {
@@ -8122,7 +8105,7 @@
                 routeText = (routeText || '').toUpperCase().trim();
 
                 // Split label on "/" or whitespace to handle "KJFK/KLGA" and "KJFK KLGA" formats
-                const labelWords = label.split(/[\s\/]+/).filter(Boolean);
+                const labelWords = label.split(/[\s/]+/).filter(Boolean);
                 const routeWords = routeText.split(/\s+/).filter(Boolean);
 
                 const lines = [];
@@ -8308,7 +8291,7 @@
                 routeText = (routeText || '').toUpperCase().trim();
 
                 // Split label on "/" or whitespace to handle "KJFK/KLGA" and "KJFK KLGA" formats
-                const labelWords = label.split(/[\s\/]+/).filter(Boolean);
+                const labelWords = label.split(/[\s/]+/).filter(Boolean);
                 const routeWords = routeText.split(/\s+/).filter(Boolean);
 
                 const lines = [];

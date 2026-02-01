@@ -1369,31 +1369,6 @@ const NODDemandLayer = (function() {
     }
 
     /**
-     * Get human-readable label for a monitor
-     */
-    function getMonitorLabel(monitor) {
-        switch (monitor.type) {
-            case 'fix':
-                return monitor.fix;
-            case 'segment':
-                return `${monitor.from}-${monitor.to}`;
-            case 'airway':
-                return monitor.airway;
-            case 'airway_segment':
-                return `${monitor.from} ${monitor.airway} ${monitor.to}`;
-            case 'via_fix':
-                if (monitor.filter) {
-                    const dir = monitor.filter.direction === 'arr' ? '↓' :
-                        monitor.filter.direction === 'dep' ? '↑' : '↕';
-                    return `${monitor.filter.code}${dir} via ${monitor.via}`;
-                }
-                return monitor.via;
-            default:
-                return monitor.id || 'Unknown';
-        }
-    }
-
-    /**
      * Save state to localStorage (as fallback/cache)
      */
     function saveToLocalStorage() {
@@ -1698,10 +1673,11 @@ const NODDemandLayer = (function() {
                 return monitor.airway;
             case 'airway_segment':
                 return `${monitor.from} ${monitor.airway} ${monitor.to}`;
-            case 'via_fix':
+            case 'via_fix': {
                 const dir = monitor.filter.direction === 'arr' ? '↓' :
                     monitor.filter.direction === 'dep' ? '↑' : '↕';
                 return `${monitor.filter.code}${dir} via ${monitor.via}`;
+            }
             default:
                 return JSON.stringify(monitor);
         }
@@ -2175,7 +2151,7 @@ const NODDemandLayer = (function() {
         const waypointAirways = waypoints.flatMap(w => (w.on_airway || '').toUpperCase().split(',').filter(a => a));
 
         switch (monitor.type) {
-            case 'fix':
+            case 'fix': {
                 // Check if any waypoint matches the fix name
                 const fixName = (monitor.fix || '').toUpperCase();
 
@@ -2215,21 +2191,24 @@ const NODDemandLayer = (function() {
                 }
 
                 return false;
+            }
 
-            case 'segment':
+            case 'segment': {
                 // Check if waypoints contain both from and to fixes
                 const fromFix = (monitor.from || '').toUpperCase();
                 const toFix = (monitor.to || '').toUpperCase();
                 const hasFrom = waypointNames.includes(fromFix);
                 const hasTo = waypointNames.includes(toFix);
                 return hasFrom && hasTo;
+            }
 
-            case 'airway':
+            case 'airway': {
                 // Check if any waypoint is on this airway (handles comma-separated values)
                 const airwayName = (monitor.airway || '').toUpperCase();
                 return waypointAirways.includes(airwayName);
+            }
 
-            case 'airway_segment':
+            case 'airway_segment': {
                 // Check if flight has both endpoint fixes
                 // Note: on_airway field is often not populated for entry/exit fixes,
                 // so we match if both fixes are present in the route
@@ -2240,8 +2219,9 @@ const NODDemandLayer = (function() {
                 const hasToFix = waypointNames.includes(to);
                 // Match if both fixes are present - the airway is implied by the segment definition
                 return hasFromFix && hasToFix;
+            }
 
-            case 'via_fix':
+            case 'via_fix': {
                 // Check via fix/airway and apply origin/destination filters
                 const viaValue = (monitor.via || '').toUpperCase();
                 const viaType = (monitor.via_type || 'fix').toLowerCase();
@@ -2322,6 +2302,7 @@ const NODDemandLayer = (function() {
                 }
 
                 return true;
+            }
 
             default:
                 return false;
