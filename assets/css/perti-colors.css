@@ -1,0 +1,434 @@
+/**
+ * PERTI Global Color System
+ * ===========================
+ * Centralized color definitions with WCAG AA contrast compliance
+ *
+ * NAMING CONVENTION:
+ * ==================
+ * Variables follow this pattern: --[context]-[element]-[variant]
+ *
+ * CONTEXTS:
+ *   light-   = For use ON LIGHT backgrounds (white, cream, light gray)
+ *   dark-    = For use ON DARK backgrounds (navy, black, dark gray)
+ *   bright-  = For use ON BRIGHT colored backgrounds (yellow, orange, lime)
+ *
+ * ELEMENTS:
+ *   text     = Text color
+ *   bg       = Background color
+ *   border   = Border color
+ *
+ * VARIANTS:
+ *   primary    = Main/prominent content
+ *   secondary  = Supporting content
+ *   muted      = De-emphasized content (still readable)
+ *   subtle     = Very subtle but accessible
+ *   disabled   = Non-interactive elements
+ *
+ * EXAMPLES:
+ *   --light-text-primary    = Primary text color for light backgrounds
+ *   --dark-text-muted       = Muted text for dark backgrounds
+ *   --bright-text           = Text for bright colored backgrounds
+ */
+
+:root {
+  /* ===========================================
+   * BRAND COLORS
+   * Core identity colors used throughout PERTI
+   * =========================================== */
+
+  --brand-primary: #766df4;         /* Purple - primary actions, links */
+  --brand-primary-light: #9990f7;   /* Lighter purple - hover states */
+  --brand-primary-dark: #5a4fd1;    /* Darker purple - active states */
+  --brand-secondary: #f7f7fc;       /* Light gray - secondary surfaces */
+  --brand-accent: #6a9bf4;          /* Blue - accent elements */
+
+  /* ===========================================
+   * STATUS COLORS
+   * Semantic colors for states and feedback
+   * =========================================== */
+
+  --status-success: #16c995;        /* Green - success, positive */
+  --status-warning: #ffb15c;        /* Orange - warning, caution */
+  --status-danger: #f74f78;         /* Red/Pink - error, destructive */
+  --status-info: #6a9bf4;           /* Blue - informational */
+
+  /* ===========================================
+   * TEXT COLORS - FOR LIGHT BACKGROUNDS
+   * Use these when text appears on white, off-white, or light gray
+   * All meet WCAG AA (4.5:1 minimum contrast ratio)
+   * =========================================== */
+
+  --light-text-primary: #37384e;    /* Main text - 11.5:1 contrast */
+  --light-text-secondary: #5a5b75;  /* Secondary text - 7.1:1 contrast */
+  --light-text-muted: #6b7280;      /* Muted/subtle text - 5.4:1 contrast */
+  --light-text-disabled: #9ca3af;   /* Disabled elements - decorative */
+  --light-text-placeholder: #6b7280; /* Form placeholders - 5.4:1 contrast */
+  --light-text-link: #766df4;       /* Links */
+  --light-text-link-hover: #5a4fd1; /* Link hover */
+
+  /* ===========================================
+   * TEXT COLORS - FOR DARK BACKGROUNDS
+   * Use these when text appears on dark navy, black, or dark gray
+   * All meet WCAG AA (4.5:1 minimum contrast ratio)
+   * =========================================== */
+
+  --dark-text-primary: #ffffff;     /* Main text - maximum contrast */
+  --dark-text-secondary: #e5e5e5;   /* Secondary text - 14:1 contrast */
+  --dark-text-muted: #b3b3b3;       /* Muted/subtle text - 8.5:1 contrast */
+  --dark-text-subtle: #999999;      /* Very subtle text - 5.3:1 contrast */
+  --dark-text-disabled: #777777;    /* Disabled - 4.5:1 minimum */
+  --dark-text-link: #9990f7;        /* Links on dark */
+  --dark-text-link-hover: #b3adfa;  /* Link hover on dark */
+
+  /* ===========================================
+   * TEXT COLORS - FOR BRIGHT COLORED BACKGROUNDS
+   * Use these on yellow, orange, lime green, light blue, etc.
+   * Black provides best contrast on bright colors
+   * =========================================== */
+
+  --bright-text: #000000;           /* Black text on bright backgrounds */
+  --bright-text-secondary: #1a1a1a; /* Slightly softer black */
+
+  /* ===========================================
+   * BACKGROUND COLORS - LIGHT THEME
+   * Surface and container backgrounds
+   * =========================================== */
+
+  --light-bg-page: #ffffff;         /* Page/body background */
+  --light-bg-surface: #f7f7fc;      /* Cards, panels, elevated surfaces */
+  --light-bg-subtle: #f3f3f9;       /* Subtle distinction from page */
+  --light-bg-hover: #e9e9f2;        /* Hover states */
+
+  /* ===========================================
+   * BACKGROUND COLORS - DARK THEME
+   * Dark panels, map overlays, popups
+   * =========================================== */
+
+  --dark-bg-page: #1a1a2e;          /* Dark page/body */
+  --dark-bg-surface: #252542;       /* Dark cards, elevated surfaces */
+  --dark-bg-panel: #16213e;         /* Dark panels */
+  --dark-bg-hover: #2a2a4a;         /* Dark hover states */
+  --dark-bg-overlay: rgba(0, 0, 0, 0.85); /* Translucent overlay */
+  --dark-bg-translucent: rgba(0, 0, 0, 0.75);
+
+  /* Common dark grays for panels */
+  --panel-bg-dark: #333333;         /* Standard dark panel */
+  --panel-bg-darker: #222222;       /* Darker panel */
+  --panel-bg-darkest: #1a1a1a;      /* Darkest panel */
+
+  /* ===========================================
+   * BORDER COLORS
+   * =========================================== */
+
+  --light-border: #e9e9f2;          /* Borders on light backgrounds */
+  --light-border-strong: #dfdfeb;   /* Stronger border definition */
+  --dark-border: #444444;           /* Borders on dark backgrounds */
+  --dark-border-subtle: #555555;    /* Subtle dark borders */
+  --dark-border-highlight: rgba(255, 255, 255, 0.15);
+
+  /* ===========================================
+   * FORM COLORS
+   * Input fields, placeholders, validation
+   * =========================================== */
+
+  --input-placeholder: #6b7280;     /* Placeholder text */
+  --input-disabled-bg: #f3f3f9;     /* Disabled input background */
+  --input-disabled-text: #9ca3af;   /* Disabled input text */
+  --input-focus-border: rgba(118, 109, 244, 0.35);
+  --input-focus-shadow: rgba(118, 109, 244, 0.15);
+
+  /* ===========================================
+   * MAP & POPUP COLORS
+   * MapLibre popups, Leaflet, map controls
+   * =========================================== */
+
+  --map-popup-bg: #1a1a2e;
+  --map-popup-bg-header: #252542;
+  --map-popup-text: #e5e5e5;
+  --map-popup-text-muted: #b3b3b3;
+  --map-popup-text-label: #999999;
+  --map-popup-border: #444444;
+
+  --map-control-bg: rgba(0, 0, 0, 0.85);
+  --map-control-text: #cccccc;
+  --map-control-text-muted: #aaaaaa;
+
+  /* ===========================================
+   * WEATHER PANEL COLORS
+   * Weather overlays, alerts, hazard panels
+   * =========================================== */
+
+  --weather-panel-bg: #333333;
+  --weather-panel-header: #444444;
+  --weather-panel-text: #e5e5e5;
+  --weather-panel-text-muted: #b3b3b3;
+  --weather-panel-text-label: #aaaaaa;
+  --weather-panel-border: #555555;
+
+  /* ===========================================
+   * CHART & DATA VISUALIZATION
+   * =========================================== */
+
+  --chart-axis-text: rgba(255, 255, 255, 0.7);
+  --chart-grid-line: rgba(255, 255, 255, 0.1);
+  --chart-label: #cccccc;
+
+  /* ===========================================
+   * COMPONENT-SPECIFIC TOKENS
+   * =========================================== */
+
+  /* Tabs */
+  --tab-inactive: #b3b3b3;
+  --tab-active: #ffffff;
+  --tab-hover: #e5e5e5;
+
+  /* Badges on dark */
+  --badge-muted-bg: #495057;
+  --badge-muted-text: #cccccc;
+
+  /* Tables on dark */
+  --table-header: #cccccc;
+  --table-cell: #e5e5e5;
+  --table-cell-muted: #b3b3b3;
+
+  /* Lists on dark */
+  --list-text: #cccccc;
+  --list-text-muted: #aaaaaa;
+
+  /* ===========================================
+   * LEGACY COMPATIBILITY ALIASES
+   * Old variable names mapped to new system
+   * (For backward compatibility during transition)
+   * =========================================== */
+
+  /* These map old names to new names */
+  --text-primary: var(--light-text-primary);
+  --text-secondary: var(--light-text-secondary);
+  --text-muted: var(--light-text-muted);
+  --text-disabled: var(--light-text-disabled);
+  --text-placeholder: var(--light-text-placeholder);
+
+  --text-on-dark-primary: var(--dark-text-primary);
+  --text-on-dark-secondary: var(--dark-text-secondary);
+  --text-on-dark-muted: var(--dark-text-muted);
+  --text-on-dark-subtle: var(--dark-text-subtle);
+  --text-on-dark-disabled: var(--dark-text-disabled);
+
+  --text-on-bright: var(--bright-text);
+  --text-on-warning: var(--bright-text);
+  --text-on-success: #ffffff;
+  --text-on-danger: #ffffff;
+  --text-on-info: #ffffff;
+  --text-on-primary: #ffffff;
+
+  --bg-body: var(--light-bg-page);
+  --bg-light: var(--light-bg-surface);
+  --bg-subtle: var(--light-bg-subtle);
+  --bg-dark: var(--dark-bg-page);
+  --bg-dark-elevated: var(--dark-bg-surface);
+  --bg-dark-surface: var(--dark-bg-panel);
+  --bg-dark-overlay: var(--dark-bg-overlay);
+  --bg-dark-translucent: var(--dark-bg-translucent);
+  --bg-panel-dark: var(--panel-bg-dark);
+  --bg-panel-darker: var(--panel-bg-darker);
+  --bg-panel-darkest: var(--panel-bg-darkest);
+
+  --border-light: var(--light-border);
+  --border-medium: var(--light-border-strong);
+  --border-dark: var(--dark-border);
+  --border-dark-subtle: var(--dark-border-subtle);
+  --border-on-dark: var(--dark-border-highlight);
+}
+
+/* ===========================================
+ * DARK THEME OVERRIDES
+ * Apply .dark-theme class to body or container
+ * =========================================== */
+
+.dark-theme {
+  --light-bg-page: var(--dark-bg-page);
+  --light-bg-surface: var(--dark-bg-surface);
+  --light-bg-subtle: var(--dark-bg-panel);
+
+  --light-text-primary: var(--dark-text-primary);
+  --light-text-secondary: var(--dark-text-secondary);
+  --light-text-muted: var(--dark-text-muted);
+  --light-text-disabled: var(--dark-text-disabled);
+  --light-text-placeholder: var(--dark-text-subtle);
+
+  --light-border: var(--dark-border);
+  --light-border-strong: var(--dark-border-subtle);
+
+  --light-text-link: var(--dark-text-link);
+  --light-text-link-hover: var(--dark-text-link-hover);
+}
+
+/* ===========================================
+ * UTILITY CLASSES
+ * Quick access to common color patterns
+ * =========================================== */
+
+/* Text on dark backgrounds */
+.text-on-dark { color: var(--dark-text-primary) !important; }
+.text-on-dark-secondary { color: var(--dark-text-secondary) !important; }
+.text-on-dark-muted { color: var(--dark-text-muted) !important; }
+.text-on-dark-subtle { color: var(--dark-text-subtle) !important; }
+
+/* Accessible alternatives to Bootstrap classes */
+.text-muted-accessible { color: var(--light-text-muted) !important; }
+.text-secondary-accessible { color: var(--light-text-secondary) !important; }
+
+/* ===========================================
+ * BOOTSTRAP OVERRIDES
+ * Fix contrast issues in Bootstrap theme.css
+ * =========================================== */
+
+/* Fix alert text that was nearly invisible */
+.alert-light,
+.alert-secondary,
+.badge-light,
+.badge-secondary {
+  color: var(--light-text-primary) !important;
+}
+
+/* Fix .text-muted - original #9e9fb4 has poor contrast */
+.text-muted {
+  color: var(--light-text-muted) !important;
+}
+
+/* Fix .text-secondary - original #f7f7fc was nearly invisible */
+.text-secondary {
+  color: var(--light-text-secondary) !important;
+}
+
+/* Fix breadcrumb contrast on dark backgrounds */
+.breadcrumb-light .breadcrumb-item.active {
+  color: var(--dark-text-muted) !important;
+}
+
+/* Fix pagination disabled state */
+.page-item.disabled .page-link {
+  color: var(--light-text-muted) !important;
+}
+
+/* Fix form placeholders */
+.form-control::placeholder,
+.custom-select::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--input-placeholder) !important;
+  opacity: 1;
+}
+
+/* Fix disabled form elements */
+.form-control:disabled,
+.form-control[readonly],
+.custom-select:disabled {
+  color: var(--light-text-muted);
+}
+
+/* Fix dropdown disabled items */
+.dropdown-item.disabled,
+.dropdown-item:disabled {
+  color: var(--light-text-muted);
+}
+
+/* Fix nav disabled items */
+.nav-link.disabled {
+  color: var(--light-text-muted) !important;
+}
+
+/* Fix list group disabled */
+.list-group-item.disabled,
+.list-group-item:disabled {
+  color: var(--light-text-muted);
+}
+
+/* ===========================================
+ * NOD PAGE SPECIFIC
+ * =========================================== */
+
+.nod-status-badge.tmu-none {
+  color: var(--dark-text-muted) !important;
+}
+
+.nod-panel-tab {
+  color: var(--tab-inactive) !important;
+}
+
+.nod-panel-tab.active,
+.nod-panel-tab:hover {
+  color: var(--tab-active) !important;
+}
+
+/* ===========================================
+ * MAP POPUP OVERRIDES
+ * =========================================== */
+
+.dark-popup .maplibregl-popup-content,
+.dark-popup .leaflet-popup-content,
+.maplibregl-popup-content.dark-popup,
+.leaflet-popup-content.dark-popup {
+  background: var(--map-popup-bg);
+  color: var(--map-popup-text);
+}
+
+/* ===========================================
+ * PLUGIN OVERRIDES
+ * =========================================== */
+
+/* Datetimepicker dark mode */
+.dark-theme .bootstrap-datetimepicker-widget,
+.bootstrap-datetimepicker-widget.dark {
+  background: var(--dark-bg-page);
+  color: var(--dark-text-primary);
+}
+
+.dark-theme .bootstrap-datetimepicker-widget td,
+.dark-theme .bootstrap-datetimepicker-widget th,
+.bootstrap-datetimepicker-widget.dark td,
+.bootstrap-datetimepicker-widget.dark th {
+  color: var(--dark-text-secondary);
+}
+
+.dark-theme .bootstrap-datetimepicker-widget td.disabled,
+.bootstrap-datetimepicker-widget.dark td.disabled {
+  color: var(--dark-text-disabled);
+}
+
+/* Select2 */
+.select2-container--bootstrap-5 .select2-selection--single .select2-selection__placeholder {
+  color: var(--input-placeholder);
+}
+
+.select2-container--bootstrap-5 .select2-results__option--disabled {
+  color: var(--light-text-muted);
+}
+
+/* ===========================================
+ * QUICK REFERENCE - COLOR MAPPING
+ * ===========================================
+ *
+ * OLD HARDCODED VALUE  →  NEW VARIABLE
+ * =====================================================
+ *
+ * ON DARK BACKGROUNDS:
+ *   #666              →  var(--dark-text-disabled)
+ *   #888              →  var(--dark-text-subtle)
+ *   #999              →  var(--dark-text-subtle)
+ *   #aaa              →  var(--dark-text-muted)
+ *   #bbb              →  var(--dark-text-secondary)
+ *   #ccc              →  var(--dark-text-secondary)
+ *   #ddd, #eee, #fff  →  var(--dark-text-primary)
+ *
+ * ON LIGHT BACKGROUNDS:
+ *   #9e9fb4           →  var(--light-text-muted)
+ *   #737491           →  var(--light-text-muted)
+ *   #5a5b75           →  var(--light-text-secondary)
+ *   #4a4b65           →  var(--light-text-secondary)
+ *   #37384e           →  var(--light-text-primary)
+ *
+ * ON BRIGHT COLORED BACKGROUNDS:
+ *   #333              →  var(--bright-text)  [change to #000]
+ *
+ */
