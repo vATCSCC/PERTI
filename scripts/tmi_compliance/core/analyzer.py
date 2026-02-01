@@ -106,6 +106,89 @@ class TMIComplianceAnalyzer:
     MIN_UNIQUE_POSITIONS = 3    # Minimum unique lat/lon positions (~1nm precision)
     MIN_IMPLIED_SPEED_KTS = 100 # Minimum implied speed when checking gaps (catches SFO->LAS jumps)
 
+    def _get_widest_time_window(self) -> tuple:
+        """
+        Calculate the widest time window from all TMIs + event times.
+
+        Returns:
+            Tuple of (earliest_start, latest_end) as datetime objects
+        """
+        earliest = self.event.start_utc
+        latest = self.event.end_utc
+
+        for tmi in self.event.tmis:
+            if tmi.start_utc and tmi.start_utc < earliest:
+                earliest = tmi.start_utc
+            tmi_end = tmi.get_effective_end()
+            if tmi_end and tmi_end > latest:
+                latest = tmi_end
+
+        return earliest, latest
+
+    def _get_all_featured_flights(self) -> Dict[str, Any]:
+        """
+        Get ALL flights departing from or arriving at featured facilities.
+
+        This is the primary flight gathering method - captures all flights
+        that could potentially be affected by TMIs, without pre-filtering
+        by route. Let the trajectory analysis determine actual crossings.
+
+        Uses the widest time window from all TMIs + event times.
+
+        Returns:
+            Dict mapping callsign -> flight metadata
+        """
+        cursor = self.adl_conn.cursor()
+        flights = {}
+
+        # Get featured facilities from event config
+        featured = self.event.destinations if self.event.destinations else []
+        if not featured:
+            logger.warning("No featured facilities defined - cannot gather flights")
+            return flights
+
+        # Normalize airport codes (ATL -> both ATL and KATL)
+        normalized = normalize_icao_list(featured)
+        facility_in = "'" + "','".join(normalized) + "'"
+
+        # Calculate widest time window
+        earliest, latest = self._get_widest_time_window()
+
+        logger.info(f"Gathering flights for featured facilities: {featured}")
+        logger.info(f"  Time window: {earliest.strftime('%Y-%m-%d %H:%MZ')} to {latest.strftime('%Y-%m-%d %H:%MZ')}")
+
+        # Get ALL flights departing from OR arriving at featured facilities
+        query = self.adl.format_query(f"""
+            SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
+                   c.first_seen_utc, c.last_seen_utc, p.fp_route, p.fp_route_expanded, p.afix
+            FROM dbo.adl_flight_core c
+            INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
+            WHERE c.first_seen_utc <= %s
+              AND c.last_seen_utc >= %s
+              AND (p.fp_dept_icao IN ({facility_in}) OR p.fp_dest_icao IN ({facility_in}))
+        """)
+        cursor.execute(query, (
+            latest.strftime('%Y-%m-%d %H:%M:%S'),
+            earliest.strftime('%Y-%m-%d %H:%M:%S')
+        ))
+
+        for row in cursor.fetchall():
+            callsign = row[0]
+            flights[callsign] = {
+                'flight_uid': row[1],
+                'dept': row[2],
+                'dest': row[3],
+                'first_seen': normalize_datetime(row[4]),
+                'last_seen': normalize_datetime(row[5]),
+                'fp_route': row[6] if len(row) > 6 else None,
+                'route_expanded': row[7] if len(row) > 7 else None,
+                'afix': row[8] if len(row) > 8 else None
+            }
+
+        cursor.close()
+        logger.info(f"  Found {len(flights)} flights to/from featured facilities")
+        return flights
+
     def _validate_trajectory_quality(self, callsign: str, trajectory: List[dict]) -> tuple:
         """
         Validate trajectory data quality for reliable boundary crossing detection.
@@ -206,16 +289,14 @@ class TMIComplianceAnalyzer:
                 if all_fixes:
                     self._load_fix_coordinates(list(all_fixes))
 
-                # Pre-load all flights and trajectories for the event
-                # This caches trajectory data and PostGIS boundary crossings once
-                # instead of re-computing for each TMI (major performance optimization)
-                all_flights_for_preload = set()
-                for tmi in self.event.tmis:
-                    flights = self._get_flights_for_tmi(tmi)
-                    all_flights_for_preload.update(flights.keys())
+                # Pre-load ALL flights to/from featured facilities
+                # This is the comprehensive approach - gather all flights that could
+                # potentially be affected by TMIs, then let trajectory analysis
+                # determine actual crossings
+                self.flight_data = self._get_all_featured_flights()
 
-                if all_flights_for_preload:
-                    self._preload_trajectories(list(all_flights_for_preload))
+                if self.flight_data:
+                    self._preload_trajectories(list(self.flight_data.keys()))
 
                 # Analyze by TMI type
                 mit_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.MIT, TMIType.MINIT)]
@@ -303,13 +384,15 @@ class TMIComplianceAnalyzer:
 
         cursor = self.adl_conn.cursor()
 
-        # Use event window for trajectory query
-        query_start = self.event.start_utc - timedelta(hours=1)  # Buffer before
-        query_end = self.event.end_utc + timedelta(hours=1)      # Buffer after
+        # Use widest time window from all TMIs + event times, plus buffer
+        earliest, latest = self._get_widest_time_window()
+        query_start = earliest - timedelta(hours=1)  # Buffer before
+        query_end = latest + timedelta(hours=1)      # Buffer after
 
         callsign_in = "'" + "','".join(callsigns) + "'"
 
         logger.info(f"Pre-loading trajectories for {len(callsigns)} flights...")
+        logger.info(f"  Trajectory window: {query_start.strftime('%Y-%m-%d %H:%MZ')} to {query_end.strftime('%Y-%m-%d %H:%MZ')}")
 
         # Load from both archive and live tables
         query = self.adl.format_query(f"""
@@ -472,6 +555,45 @@ class TMIComplianceAnalyzer:
         logger.info(f"  Cached boundary crossings for {len(self._crossing_cache)} flights")
         if skipped_quality > 0:
             logger.warning(f"  Skipped {skipped_quality} flights with low-quality trajectory data")
+
+    def _filter_flights_by_scope(self, tmi: TMI) -> Dict[str, Any]:
+        """
+        Filter the comprehensive flight set by TMI scope (destination/origin only).
+
+        NO route filtering - let trajectory analysis determine actual crossings.
+        This ensures we don't miss flights due to missing fp_route_expanded data.
+
+        Args:
+            tmi: TMI object with destinations/origins to filter by
+
+        Returns:
+            Dict mapping callsign -> flight metadata
+        """
+        if not self.flight_data:
+            logger.warning("No flight data loaded - call _get_all_featured_flights() first")
+            return {}
+
+        # Normalize destination/origin codes for matching
+        normalized_dests = set(normalize_icao_list(tmi.destinations)) if tmi.destinations else set()
+        normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else set()
+
+        filtered = {}
+        for callsign, flight in self.flight_data.items():
+            dest = flight.get('dest', '')
+            dept = flight.get('dept', '')
+
+            # Check destination filter (if specified)
+            if normalized_dests and dest not in normalized_dests:
+                continue
+
+            # Check origin filter (if specified)
+            if normalized_origs and dept not in normalized_origs:
+                continue
+
+            filtered[callsign] = flight
+
+        logger.debug(f"  Filtered to {len(filtered)} flights (dest={tmi.destinations}, orig={tmi.origins})")
+        return filtered
 
     def _get_flights_for_tmi(self, tmi: TMI) -> Dict[str, Any]:
         """
@@ -1009,13 +1131,25 @@ class TMIComplianceAnalyzer:
         return total
 
     def _analyze_mit_compliance(self, tmi: TMI) -> Optional[Dict]:
-        """Analyze MIT/MINIT compliance for a TMI"""
+        """
+        Analyze MIT/MINIT compliance for a TMI.
+
+        Stream identification uses TMI details:
+        - destinations/origins: Filter to relevant traffic flows
+        - provider/requestor: Boundary crossing identifies handoff point
+        - fix: Crossing detection confirms route
+
+        TMI scope (destinations/origins) defines the stream; trajectory analysis
+        determines actual crossings within that stream.
+        """
         time_str = f"{tmi.start_utc.strftime('%H:%MZ') if tmi.start_utc else '??'}-{tmi.end_utc.strftime('%H:%MZ') if tmi.end_utc else '??'}"
         logger.info(f"Analyzing {tmi.tmi_type.value}: {tmi.fix} {tmi.value}nm {time_str}")
 
         fix = tmi.fix
-        flights = self._get_flights_for_tmi(tmi)
-        logger.info(f"  Found {len(flights)} flights matching destination filter")
+        # Filter by TMI scope (destinations/origins) - this is the stream definition
+        # Trajectory analysis then determines which of these crossed the fix/boundary
+        flights = self._filter_flights_by_scope(tmi)
+        logger.info(f"  Filtered to {len(flights)} flights in stream scope")
 
         if not flights:
             logger.info(f"No flights found for TMI scope")
@@ -1322,31 +1456,9 @@ class TMIComplianceAnalyzer:
         """Analyze Ground Stop compliance"""
         logger.info(f"Analyzing GS: {','.join(tmi.destinations)}")
 
-        cursor = self.adl_conn.cursor()
-
-        # Get flights from affected origins to destinations
-        # Normalize airport codes (ATL -> both ATL and KATL)
-        normalized_dests = normalize_icao_list(tmi.destinations) if tmi.destinations else []
-        dest_in = "'" + "','".join(normalized_dests) + "'" if normalized_dests else "''"
-
-        # For GS, get ALL flights to destination during event window
-        # Format query for current driver (pymssql uses %s, pyodbc uses ?)
-        query = self.adl.format_query(f"""
-            SELECT c.callsign, p.fp_dept_icao, c.first_seen_utc, c.last_seen_utc
-            FROM dbo.adl_flight_core c
-            INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
-            WHERE p.fp_dest_icao IN ({dest_in})
-              AND c.first_seen_utc <= %s
-              AND c.last_seen_utc >= %s
-            ORDER BY c.first_seen_utc
-        """)
-        cursor.execute(query, (
-            self.event.end_utc.strftime('%Y-%m-%d %H:%M:%S'),
-            self.event.start_utc.strftime('%Y-%m-%d %H:%M:%S')
-        ))
-
-        flights = cursor.fetchall()
-        cursor.close()
+        # Use comprehensive flight set filtered by scope
+        flights = self._filter_flights_by_scope(tmi)
+        logger.info(f"  Found {len(flights)} flights to/from featured facilities")
 
         if not flights:
             return None
@@ -1359,12 +1471,13 @@ class TMIComplianceAnalyzer:
         compliant = []
         non_compliant = []
 
-        for row in flights:
-            callsign, dept, first_seen, last_seen = row
-            first_seen = normalize_datetime(first_seen)
+        for callsign, flight in flights.items():
+            dept = flight.get('dept', 'UNK')
+            first_seen = flight.get('first_seen')
 
             # Skip if no origin filter or origin doesn't match
-            if tmi.origins and dept not in tmi.origins:
+            normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else set()
+            if normalized_origs and dept not in normalized_origs:
                 continue
 
             flight_info = {
@@ -1433,44 +1546,41 @@ class TMIComplianceAnalyzer:
         logger.info(f"  Origins: {tmi.origins}, Destinations: {tmi.destinations}")
         logger.info(f"  Mandatory: {tmi.reroute_mandatory}, Routes: {len(tmi.reroute_routes)}")
 
-        cursor = self.adl_conn.cursor()
+        # Use comprehensive flight set filtered by scope
+        flights_dict = self._filter_flights_by_scope(tmi)
+        logger.info(f"  Found {len(flights_dict)} flights to/from featured facilities")
 
-        # Normalize airport codes
-        normalized_origs = normalize_icao_list(tmi.origins) if tmi.origins else []
-        normalized_dests = normalize_icao_list(tmi.destinations) if tmi.destinations else []
+        # Normalize airport codes for additional filtering
+        normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else set()
+        normalized_dests = set(normalize_icao_list(tmi.destinations)) if tmi.destinations else set()
 
         if not normalized_origs or not normalized_dests:
             logger.warning(f"  Skipping reroute - missing origins or destinations")
             return None
 
-        orig_in = "'" + "','".join(normalized_origs) + "'"
-        dest_in = "'" + "','".join(normalized_dests) + "'"
+        # Filter to flights within the reroute time window
+        flights = []
+        for callsign, flight in flights_dict.items():
+            first_seen = flight.get('first_seen')
+            if not first_seen:
+                continue
 
-        # Get flights from origins to destinations during reroute window
-        # time_type determines whether we check ETA (arrival) or ETD (departure)
-        time_field = 'first_seen_utc'  # Use departure time (ETD) by default
+            # Check if departure is within reroute window
+            if first_seen >= tmi.start_utc and first_seen <= tmi.end_utc:
+                dept = flight.get('dept', '')
+                dest = flight.get('dest', '')
+                # Additional check: must be from origin to destination
+                if dept in normalized_origs and dest in normalized_dests:
+                    flights.append((
+                        callsign,
+                        dept,
+                        dest,
+                        flight.get('fp_route', ''),
+                        first_seen,
+                        flight.get('last_seen')
+                    ))
 
-        query = self.adl.format_query(f"""
-            SELECT c.callsign, p.fp_dept_icao, p.fp_dest_icao, p.fp_route,
-                   c.first_seen_utc, c.last_seen_utc
-            FROM dbo.adl_flight_core c
-            INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
-            WHERE p.fp_dept_icao IN ({orig_in})
-              AND p.fp_dest_icao IN ({dest_in})
-              AND c.{time_field} >= %s
-              AND c.{time_field} <= %s
-            ORDER BY c.first_seen_utc
-        """)
-
-        cursor.execute(query, (
-            tmi.start_utc.strftime('%Y-%m-%d %H:%M:%S'),
-            tmi.end_utc.strftime('%Y-%m-%d %H:%M:%S')
-        ))
-
-        flights = cursor.fetchall()
-        cursor.close()
-
-        logger.info(f"  Found {len(flights)} flights in scope")
+        logger.info(f"  Filtered to {len(flights)} flights in reroute time window")
 
         if not flights:
             return {
