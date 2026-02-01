@@ -279,7 +279,7 @@ function updateEntry($id) {
     }
     
     // Build update data (only update provided fields)
-    $data = ['updated_at' => date('Y-m-d H:i:s')];
+    $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
     $allowed_fields = [
         'determinant_code', 'protocol_type', 'entry_type',
@@ -345,9 +345,9 @@ function deleteEntry($id) {
     $data = [
         'status' => 'CANCELLED',
         'cancelled_by' => $auth->getUserId(),
-        'cancelled_at' => date('Y-m-d H:i:s'),
+        'cancelled_at' => gmdate('Y-m-d H:i:s'),
         'cancel_reason' => $cancel_reason,
-        'updated_at' => date('Y-m-d H:i:s')
+        'updated_at' => gmdate('Y-m-d H:i:s')
     ];
     
     $rows = tmi_update('tmi_entries', $data, 'entry_id = ?', [$id]);

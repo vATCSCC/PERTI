@@ -271,7 +271,7 @@ function updateAdvisory($id) {
         TmiResponse::error('Advisory not found', 404);
     }
     
-    $data = ['updated_at' => date('Y-m-d H:i:s')];
+    $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
     // Handle status changes specially
     if (isset($body['status'])) {
@@ -281,10 +281,10 @@ function updateAdvisory($id) {
         if ($new_status === 'ACTIVE') {
             $data['is_proposed'] = 0;
             $data['approved_by'] = $auth->getUserId();
-            $data['approved_at'] = date('Y-m-d H:i:s');
+            $data['approved_at'] = gmdate('Y-m-d H:i:s');
         } elseif ($new_status === 'CANCELLED') {
             $data['cancelled_by'] = $auth->getUserId();
-            $data['cancelled_at'] = date('Y-m-d H:i:s');
+            $data['cancelled_at'] = gmdate('Y-m-d H:i:s');
             $data['cancel_reason'] = $body['cancel_reason'] ?? 'Cancelled via API';
         }
     }
@@ -354,9 +354,9 @@ function deleteAdvisory($id) {
     $data = [
         'status' => 'CANCELLED',
         'cancelled_by' => $auth->getUserId(),
-        'cancelled_at' => date('Y-m-d H:i:s'),
+        'cancelled_at' => gmdate('Y-m-d H:i:s'),
         'cancel_reason' => $cancel_reason,
-        'updated_at' => date('Y-m-d H:i:s')
+        'updated_at' => gmdate('Y-m-d H:i:s')
     ];
     
     $rows = tmi_update('tmi_advisories', $data, 'advisory_id = ?', [$id]);

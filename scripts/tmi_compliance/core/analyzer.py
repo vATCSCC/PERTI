@@ -173,6 +173,7 @@ class TMIComplianceAnalyzer:
             'summary': {},
             'mit_results': {},
             'gs_results': {},
+            'reroute_results': {},
             'apreq_results': {},
             'delay_results': []
         }
@@ -219,6 +220,7 @@ class TMIComplianceAnalyzer:
                 # Analyze by TMI type
                 mit_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.MIT, TMIType.MINIT)]
                 gs_tmis = [t for t in self.event.tmis if t.tmi_type == TMIType.GS]
+                reroute_tmis = [t for t in self.event.tmis if t.tmi_type == TMIType.REROUTE]
                 apreq_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.APREQ, TMIType.CFR)]
 
                 # MIT/MINIT Analysis
@@ -236,6 +238,13 @@ class TMIComplianceAnalyzer:
                     if result:
                         key = f"GS_{tmi.provider}_{','.join(tmi.destinations)}_ALL"
                         results['gs_results'][key] = result
+
+                # Reroute Analysis
+                for tmi in reroute_tmis:
+                    result = self._analyze_reroute_compliance(tmi)
+                    if result:
+                        key = tmi.reroute_name or f"REROUTE_{','.join(tmi.origins[:2])}_{','.join(tmi.destinations[:2])}"
+                        results['reroute_results'][key] = result
 
                 # APREQ Tracking (just count flights, no compliance assessment)
                 for tmi in apreq_tmis:
@@ -1403,6 +1412,149 @@ class TMIComplianceAnalyzer:
             'origins': tmi.origins
         }
 
+    def _analyze_reroute_compliance(self, tmi: TMI) -> Optional[Dict]:
+        """
+        Analyze Reroute/Playbook compliance.
+
+        Checks if flights from affected origins to destinations are using
+        the specified route segments during the reroute validity window.
+
+        For ROUTE RQD (mandatory): Flights must use the specified route.
+        For FEA FYI (informational): Track usage but no compliance assessment.
+        """
+        name = tmi.reroute_name or 'Unknown Reroute'
+        logger.info(f"Analyzing REROUTE: {name}")
+        logger.info(f"  Origins: {tmi.origins}, Destinations: {tmi.destinations}")
+        logger.info(f"  Mandatory: {tmi.reroute_mandatory}, Routes: {len(tmi.reroute_routes)}")
+
+        cursor = self.adl_conn.cursor()
+
+        # Normalize airport codes
+        normalized_origs = normalize_icao_list(tmi.origins) if tmi.origins else []
+        normalized_dests = normalize_icao_list(tmi.destinations) if tmi.destinations else []
+
+        if not normalized_origs or not normalized_dests:
+            logger.warning(f"  Skipping reroute - missing origins or destinations")
+            return None
+
+        orig_in = "'" + "','".join(normalized_origs) + "'"
+        dest_in = "'" + "','".join(normalized_dests) + "'"
+
+        # Get flights from origins to destinations during reroute window
+        # time_type determines whether we check ETA (arrival) or ETD (departure)
+        time_field = 'first_seen_utc'  # Use departure time (ETD) by default
+
+        query = self.adl.format_query(f"""
+            SELECT c.callsign, p.fp_dept_icao, p.fp_dest_icao, p.fp_route,
+                   c.first_seen_utc, c.last_seen_utc
+            FROM dbo.adl_flight_core c
+            INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
+            WHERE p.fp_dept_icao IN ({orig_in})
+              AND p.fp_dest_icao IN ({dest_in})
+              AND c.{time_field} >= %s
+              AND c.{time_field} <= %s
+            ORDER BY c.first_seen_utc
+        """)
+
+        cursor.execute(query, (
+            tmi.start_utc.strftime('%Y-%m-%d %H:%M:%S'),
+            tmi.end_utc.strftime('%Y-%m-%d %H:%M:%S')
+        ))
+
+        flights = cursor.fetchall()
+        cursor.close()
+
+        logger.info(f"  Found {len(flights)} flights in scope")
+
+        if not flights:
+            return {
+                'name': name,
+                'mandatory': tmi.reroute_mandatory,
+                'time_type': tmi.time_type,
+                'start': tmi.start_utc.strftime('%H:%MZ'),
+                'end': tmi.end_utc.strftime('%H:%MZ'),
+                'origins': tmi.origins,
+                'destinations': tmi.destinations,
+                'required_routes': tmi.reroute_routes,
+                'total_flights': 0,
+                'using_route': [],
+                'not_using_route': [],
+                'compliance_pct': 100,
+                'note': 'No flights found for reroute scope'
+            }
+
+        # Build route check patterns from reroute_routes
+        # Extract key fixes from required routes (marked with > <)
+        required_fixes = []
+        for route_spec in tmi.reroute_routes:
+            route_str = route_spec.get('route', '')
+            # Extract fixes between > and < markers
+            import re
+            marked = re.findall(r'>([^<]+)<', route_str)
+            if marked:
+                for segment in marked:
+                    fixes = re.findall(r'[A-Z]{3,5}', segment)
+                    required_fixes.extend(fixes)
+            else:
+                # No markers - use all fixes
+                fixes = re.findall(r'[A-Z]{3,5}', route_str)
+                required_fixes.extend(fixes)
+
+        required_fixes = list(set(required_fixes))  # Deduplicate
+        logger.info(f"  Required route fixes: {required_fixes}")
+
+        using_route = []
+        not_using_route = []
+
+        for row in flights:
+            callsign, dept, dest, fp_route, first_seen, last_seen = row
+            first_seen = normalize_datetime(first_seen)
+            fp_route = fp_route or ''
+
+            # Check if flight route contains required fixes
+            route_upper = fp_route.upper()
+            matched_fixes = [f for f in required_fixes if f in route_upper]
+            match_pct = len(matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+
+            flight_info = {
+                'callsign': callsign,
+                'dept': dept,
+                'dest': dest,
+                'dept_time': first_seen.strftime('%H:%M:%SZ') if first_seen else None,
+                'filed_route': fp_route[:100] + ('...' if len(fp_route) > 100 else ''),
+                'matched_fixes': matched_fixes,
+                'match_pct': round(match_pct, 1)
+            }
+
+            # Consider compliant if at least 50% of required fixes are in the route
+            if match_pct >= 50:
+                flight_info['status'] = 'USING_ROUTE'
+                using_route.append(flight_info)
+            else:
+                flight_info['status'] = 'NOT_USING_ROUTE'
+                not_using_route.append(flight_info)
+
+        total_applicable = len(using_route) + len(not_using_route)
+        compliance_pct = round(100 * len(using_route) / total_applicable, 1) if total_applicable > 0 else 100
+
+        return {
+            'name': name,
+            'mandatory': tmi.reroute_mandatory,
+            'time_type': tmi.time_type,
+            'start': tmi.start_utc.strftime('%H:%MZ'),
+            'end': tmi.end_utc.strftime('%H:%MZ'),
+            'origins': tmi.origins,
+            'destinations': tmi.destinations,
+            'required_routes': tmi.reroute_routes,
+            'required_fixes': required_fixes,
+            'total_flights': len(flights),
+            'using_route': using_route,
+            'not_using_route': not_using_route,
+            'compliance_pct': compliance_pct,
+            'reason': tmi.reason,
+            'facilities': tmi.artccs
+        }
+
     def _track_apreq_flights(self, tmi: TMI) -> Optional[Dict]:
         """
         Track APREQ/CFR flights - returns list of affected flights for manual review.
@@ -1557,6 +1709,13 @@ class TMIComplianceAnalyzer:
                 'violations': 0,
                 'compliance_pct': 100
             },
+            'reroute': {
+                'total_reroutes': 0,
+                'mandatory_count': 0,
+                'total_flights': 0,
+                'not_using_route': 0,
+                'compliance_pct': 100
+            },
             'overall_compliance_pct': 100.0
         }
 
@@ -1592,9 +1751,30 @@ class TMIComplianceAnalyzer:
         summary['gs']['violations'] = total_gs_violations
         summary['gs']['compliance_pct'] = round(100 * (total_applicable - total_gs_violations) / total_applicable, 1) if total_applicable > 0 else 100
 
-        # Overall
-        total_items = total_pairs + total_applicable
-        total_issues = total_violations + total_gs_violations
+        # Reroute summary
+        total_reroute_flights = 0
+        total_not_using = 0
+        mandatory_count = 0
+
+        for key, rr in results.get('reroute_results', {}).items():
+            flights = rr.get('total_flights', 0)
+            not_using = len(rr.get('not_using_route', []))
+            total_reroute_flights += flights
+            if rr.get('mandatory', False):
+                mandatory_count += 1
+                total_not_using += not_using  # Only count non-compliance for mandatory reroutes
+
+        summary['reroute'] = {
+            'total_reroutes': len(results.get('reroute_results', {})),
+            'mandatory_count': mandatory_count,
+            'total_flights': total_reroute_flights,
+            'not_using_route': total_not_using,
+            'compliance_pct': round(100 * (total_reroute_flights - total_not_using) / total_reroute_flights, 1) if total_reroute_flights > 0 else 100
+        }
+
+        # Overall (including mandatory reroutes)
+        total_items = total_pairs + total_applicable + total_reroute_flights
+        total_issues = total_violations + total_gs_violations + total_not_using
         summary['overall_compliance_pct'] = round(100 * (total_items - total_issues) / total_items, 1) if total_items > 0 else 100
 
         return summary

@@ -370,7 +370,7 @@ function createReroute() {
     
     // Set activated_at if status is active
     if ($data['status'] == REROUTE_STATUS_ACTIVE) {
-        $data['activated_at'] = date('Y-m-d H:i:s');
+        $data['activated_at'] = gmdate('Y-m-d H:i:s');
     }
     
     $id = tmi_insert('tmi_reroutes', $data);
@@ -413,7 +413,7 @@ function updateReroute($id) {
     }
     
     // Build update data (only update provided fields)
-    $data = ['updated_at' => date('Y-m-d H:i:s')];
+    $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
     // Simple fields that can be directly updated
     $simple_fields = ['name', 'comments', 'impacting_condition', 'advisory_text', 
@@ -480,7 +480,7 @@ function updateReroute($id) {
             
             // Set activated_at when going active
             if ($new_status == REROUTE_STATUS_ACTIVE && $old_status != REROUTE_STATUS_ACTIVE) {
-                $data['activated_at'] = date('Y-m-d H:i:s');
+                $data['activated_at'] = gmdate('Y-m-d H:i:s');
             }
         }
     }
@@ -532,7 +532,7 @@ function deleteReroute($id) {
     // Soft delete - mark as cancelled
     $data = [
         'status' => REROUTE_STATUS_CANCELLED,
-        'updated_at' => date('Y-m-d H:i:s')
+        'updated_at' => gmdate('Y-m-d H:i:s')
     ];
     
     $rows = tmi_update('tmi_reroutes', $data, 'reroute_id = ?', [$id]);

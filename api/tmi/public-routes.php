@@ -297,7 +297,7 @@ function updateRoute($id) {
         TmiResponse::error('Route not found', 404);
     }
     
-    $data = ['updated_at' => date('Y-m-d H:i:s')];
+    $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
     // Update allowed fields
     $allowed_fields = [
@@ -376,7 +376,7 @@ function deleteRoute($id) {
         // Soft delete - mark as expired
         $data = [
             'status' => 2, // expired
-            'updated_at' => date('Y-m-d H:i:s')
+            'updated_at' => gmdate('Y-m-d H:i:s')
         ];
         $rows = tmi_update('tmi_public_routes', $data, 'route_id = ?', [$id]);
         $message = 'Route expired';

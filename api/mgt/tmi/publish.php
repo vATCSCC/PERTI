@@ -38,7 +38,7 @@ function tmi_debug_log($message, $data = null) {
     if (!is_dir('/home/LogFiles')) {
         $logFile = __DIR__ . '/tmi_publish_debug.log';
     }
-    $timestamp = date('Y-m-d H:i:s');
+    $timestamp = gmdate('Y-m-d H:i:s');
     $entry = "[$timestamp] $message";
     if ($data !== null) {
         $entry .= " | " . json_encode($data, JSON_UNESCAPED_SLASHES);

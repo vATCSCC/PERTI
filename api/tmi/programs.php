@@ -274,7 +274,7 @@ function updateProgram($id) {
         TmiResponse::error('Program not found', 404);
     }
     
-    $data = ['updated_at' => date('Y-m-d H:i:s')];
+    $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
     // Handle status changes specially
     if (isset($body['status'])) {
@@ -285,11 +285,11 @@ function updateProgram($id) {
             $data['is_active'] = 1;
             $data['is_proposed'] = 0;
             $data['activated_by'] = $auth->getUserId();
-            $data['activated_at'] = date('Y-m-d H:i:s');
+            $data['activated_at'] = gmdate('Y-m-d H:i:s');
         } elseif ($new_status === 'PURGED') {
             $data['is_active'] = 0;
             $data['purged_by'] = $auth->getUserId();
-            $data['purged_at'] = date('Y-m-d H:i:s');
+            $data['purged_at'] = gmdate('Y-m-d H:i:s');
         } elseif ($new_status === 'COMPLETED') {
             $data['is_active'] = 0;
         }
@@ -388,8 +388,8 @@ function deleteProgram($id) {
         'status' => 'PURGED',
         'is_active' => 0,
         'purged_by' => $auth->getUserId(),
-        'purged_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s')
+        'purged_at' => gmdate('Y-m-d H:i:s'),
+        'updated_at' => gmdate('Y-m-d H:i:s')
     ];
     
     $rows = tmi_update('tmi_programs', $data, 'program_id = ?', [$id]);
