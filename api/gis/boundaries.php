@@ -1176,6 +1176,159 @@ try {
             break;
 
         // =====================================================================
+        // Facility Boundary GeoJSON (single facility)
+        // =====================================================================
+        case 'facility_boundary':
+        case 'boundary_geojson':
+            $facilityType = strtoupper($_GET['type'] ?? 'ARTCC');
+            $facilityCode = strtoupper($_GET['code'] ?? '');
+
+            if (!$facilityCode) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required param: code',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $feature = $gis->getFacilityBoundaryGeoJSON($facilityType, $facilityCode);
+
+            if (!$feature) {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Facility boundary not found',
+                    'error_code' => 'NOT_FOUND',
+                    'facility_type' => $facilityType,
+                    'facility_code' => $facilityCode
+                ]);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'facility_type' => $facilityType,
+                'facility_code' => $facilityCode,
+                'feature' => $feature
+            ]);
+            break;
+
+        // =====================================================================
+        // Multiple Facility Boundaries GeoJSON
+        // =====================================================================
+        case 'facility_boundaries':
+        case 'boundaries_geojson':
+            $facilities = null;
+
+            if (isset($_GET['facilities'])) {
+                $facilities = json_decode($_GET['facilities'], true);
+            }
+
+            if (!$facilities && $_SERVER['REQUEST_METHOD'] === 'POST') {
+                $body = json_decode(file_get_contents('php://input'), true);
+                $facilities = $body['facilities'] ?? null;
+            }
+
+            if (!$facilities || !is_array($facilities)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing facilities parameter',
+                    'error_code' => 'MISSING_PARAMS',
+                    'hint' => 'Provide facilities as JSON array: [{"type":"ARTCC","code":"ZNY"}, {"type":"TRACON","code":"N90"}]'
+                ]);
+                exit;
+            }
+
+            $collection = $gis->getFacilityBoundariesGeoJSON($facilities);
+
+            echo json_encode([
+                'success' => true,
+                'collection' => $collection,
+                'count' => count($collection['features'])
+            ]);
+            break;
+
+        // =====================================================================
+        // TMI Context Map Data (facilities + fixes + airports + shared boundary)
+        // =====================================================================
+        case 'tmi_map':
+        case 'tmi_context':
+            $requestor = strtoupper($_GET['requestor'] ?? '');
+            $provider = strtoupper($_GET['provider'] ?? '');
+            $fixes = isset($_GET['fixes']) ? json_decode($_GET['fixes'], true) : [];
+            $origins = isset($_GET['origins']) ? json_decode($_GET['origins'], true) : null;
+            $destinations = isset($_GET['destinations']) ? json_decode($_GET['destinations'], true) : null;
+
+            // Also support POST
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $body = json_decode(file_get_contents('php://input'), true);
+                $requestor = strtoupper($body['requestor'] ?? $requestor);
+                $provider = strtoupper($body['provider'] ?? $provider);
+                $fixes = $body['fixes'] ?? $fixes;
+                $origins = $body['origins'] ?? $origins;
+                $destinations = $body['destinations'] ?? $destinations;
+            }
+
+            // Handle single fix string
+            if (is_string($fixes) && !empty($fixes)) {
+                $fixes = [$fixes];
+            }
+
+            if (!$requestor && !$provider) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'At least one of requestor or provider required',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $mapData = $gis->getTMIMapData($requestor, $provider, $fixes ?? [], $origins, $destinations);
+
+            echo json_encode([
+                'success' => true,
+                'requestor' => $requestor,
+                'provider' => $provider,
+                'map_data' => $mapData
+            ]);
+            break;
+
+        // =====================================================================
+        // Shared boundary between two facilities (handoff boundary)
+        // =====================================================================
+        case 'shared_boundary':
+        case 'handoff_boundary':
+            $type1 = strtoupper($_GET['type1'] ?? 'ARTCC');
+            $code1 = strtoupper($_GET['code1'] ?? '');
+            $type2 = strtoupper($_GET['type2'] ?? 'ARTCC');
+            $code2 = strtoupper($_GET['code2'] ?? '');
+
+            if (!$code1 || !$code2) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing required params: code1, code2',
+                    'error_code' => 'MISSING_PARAMS'
+                ]);
+                exit;
+            }
+
+            $sharedBoundary = $gis->getSharedBoundary($type1, $code1, $type2, $code2);
+
+            echo json_encode([
+                'success' => true,
+                'facility1' => ['type' => $type1, 'code' => $code1],
+                'facility2' => ['type' => $type2, 'code' => $code2],
+                'has_shared_boundary' => $sharedBoundary !== null,
+                'shared_boundary' => $sharedBoundary
+            ]);
+            break;
+
+        // =====================================================================
         // Health check
         // =====================================================================
         case 'health':

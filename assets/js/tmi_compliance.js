@@ -1385,6 +1385,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             `;
         }
 
+        // Add context map section
+        const mapId = `mit_map_${this.detailIdCounter}`;
+        html += this.renderMapSection(r, mapId);
+
         html += '</div>';
         return html;
     },
@@ -1844,6 +1848,337 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (pct >= 90) return 'good';
         if (pct >= 75) return 'warn';
         return 'bad';
+    },
+
+    // =========================================================================
+    // TMI CONTEXT MAP RENDERING
+    // =========================================================================
+
+    // Cache for map data (keyed by requestor_provider_fix)
+    mapDataCache: {},
+
+    // Track active maps for cleanup
+    activeMaps: {},
+
+    /**
+     * Render a collapsible map section for a TMI
+     */
+    renderMapSection: function(r, mapId) {
+        const requestor = r.requestor || '';
+        const provider = r.provider || '';
+        const fix = r.fix || '';
+        const destinations = r.destinations || [];
+        const origins = r.origins || [];
+
+        if (!requestor && !provider) {
+            return ''; // No facilities to show
+        }
+
+        return `
+            <div class="tmi-map-section mt-3">
+                <div class="tmi-map-toggle collapsed" data-toggle="collapse" data-target="#${mapId}" onclick="TMICompliance.toggleMap('${mapId}', '${requestor}', '${provider}', '${fix}', ${JSON.stringify(destinations)}, ${JSON.stringify(origins)})">
+                    <i class="fas fa-chevron-down"></i>
+                    <span><i class="fas fa-map-marked-alt mr-1"></i> View Context Map</span>
+                    <span class="small text-muted ml-2">(${requestor}${provider ? ' → ' + provider : ''})</span>
+                </div>
+                <div class="collapse mt-2" id="${mapId}">
+                    <div class="tmi-map-container" id="${mapId}_container">
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading map...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Toggle map visibility and load data
+     */
+    toggleMap: function(mapId, requestor, provider, fix, destinations, origins) {
+        const toggle = $(`.tmi-map-toggle[data-target="#${mapId}"]`);
+        toggle.toggleClass('collapsed');
+
+        // Only load map when opening
+        if (!toggle.hasClass('collapsed') && !this.activeMaps[mapId]) {
+            this.loadMapData(mapId, requestor, provider, fix, destinations, origins);
+        }
+    },
+
+    /**
+     * Load map data from API and render
+     */
+    loadMapData: function(mapId, requestor, provider, fix, destinations, origins) {
+        const cacheKey = `${requestor}_${provider}_${fix}`;
+
+        // Check cache first
+        if (this.mapDataCache[cacheKey]) {
+            this.renderMap(mapId, this.mapDataCache[cacheKey]);
+            return;
+        }
+
+        // Fetch from API
+        const params = new URLSearchParams({
+            action: 'tmi_map',
+            requestor: requestor,
+            provider: provider,
+            fixes: JSON.stringify(fix ? [fix] : []),
+            destinations: JSON.stringify(destinations || []),
+            origins: JSON.stringify(origins || [])
+        });
+
+        fetch(`/api/gis/boundaries.php?${params}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.map_data) {
+                    // Cache the data
+                    this.mapDataCache[cacheKey] = data.map_data;
+                    this.renderMap(mapId, data.map_data);
+                } else {
+                    this.showMapError(mapId, 'Failed to load map data');
+                }
+            })
+            .catch(err => {
+                console.error('Map data fetch error:', err);
+                this.showMapError(mapId, 'Error loading map');
+            });
+    },
+
+    /**
+     * Render MapLibre map with TMI context
+     */
+    renderMap: function(mapId, mapData) {
+        const container = document.getElementById(`${mapId}_container`);
+        if (!container) return;
+
+        // Clear loading state
+        container.innerHTML = '';
+
+        // Check if we have any data to show
+        if (!mapData.facilities?.length && !mapData.fixes?.length) {
+            container.innerHTML = '<div class="text-center text-muted py-4">No boundary data available</div>';
+            return;
+        }
+
+        // Calculate center and bounds
+        let center = mapData.center || [-95, 38];
+        let zoom = 5;
+
+        if (mapData.bounds) {
+            const [minLon, minLat, maxLon, maxLat] = mapData.bounds;
+            center = [(minLon + maxLon) / 2, (minLat + maxLat) / 2];
+            const latDiff = maxLat - minLat;
+            const lonDiff = maxLon - minLon;
+            const maxDiff = Math.max(latDiff, lonDiff);
+            zoom = maxDiff > 20 ? 3 : maxDiff > 10 ? 4 : maxDiff > 5 ? 5 : 6;
+        }
+
+        // Create map
+        const map = new maplibregl.Map({
+            container: container,
+            style: {
+                version: 8,
+                sources: {
+                    'carto-dark': {
+                        type: 'raster',
+                        tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '&copy; OpenStreetMap contributors'
+                    }
+                },
+                layers: [{
+                    id: 'carto-dark-layer',
+                    type: 'raster',
+                    source: 'carto-dark',
+                    minzoom: 0,
+                    maxzoom: 19
+                }]
+            },
+            center: center,
+            zoom: zoom,
+            attributionControl: false
+        });
+
+        this.activeMaps[mapId] = map;
+
+        map.on('load', () => {
+            // Add facility boundaries
+            if (mapData.facilities?.length) {
+                map.addSource('facilities', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: mapData.facilities }
+                });
+
+                map.addLayer({
+                    id: 'facilities-fill',
+                    type: 'fill',
+                    source: 'facilities',
+                    paint: {
+                        'fill-color': ['case',
+                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
+                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
+                            '#888888'],
+                        'fill-opacity': 0.15
+                    }
+                });
+
+                map.addLayer({
+                    id: 'facilities-outline',
+                    type: 'line',
+                    source: 'facilities',
+                    paint: {
+                        'line-color': ['case',
+                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
+                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
+                            '#888888'],
+                        'line-width': 2,
+                        'line-opacity': 0.8
+                    }
+                });
+
+                map.addLayer({
+                    id: 'facilities-labels',
+                    type: 'symbol',
+                    source: 'facilities',
+                    layout: {
+                        'text-field': ['get', 'code'],
+                        'text-size': 12,
+                        'text-anchor': 'center'
+                    },
+                    paint: {
+                        'text-color': '#ffffff',
+                        'text-halo-color': '#000000',
+                        'text-halo-width': 1
+                    }
+                });
+            }
+
+            // Add shared boundary (handoff line) - emphasized
+            if (mapData.shared_boundary) {
+                map.addSource('shared-boundary', {
+                    type: 'geojson',
+                    data: mapData.shared_boundary
+                });
+
+                map.addLayer({
+                    id: 'shared-boundary-glow',
+                    type: 'line',
+                    source: 'shared-boundary',
+                    paint: {
+                        'line-color': '#ffd43b',
+                        'line-width': 8,
+                        'line-opacity': 0.3,
+                        'line-blur': 2
+                    }
+                });
+
+                map.addLayer({
+                    id: 'shared-boundary-line',
+                    type: 'line',
+                    source: 'shared-boundary',
+                    paint: {
+                        'line-color': '#ffd43b',
+                        'line-width': 4,
+                        'line-opacity': 1,
+                        'line-dasharray': [2, 1]
+                    }
+                });
+            }
+
+            // Add fixes
+            if (mapData.fixes?.length) {
+                map.addSource('fixes', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: mapData.fixes }
+                });
+
+                map.addLayer({
+                    id: 'fixes-circles',
+                    type: 'circle',
+                    source: 'fixes',
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': '#51cf66',
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
+
+                map.addLayer({
+                    id: 'fixes-labels',
+                    type: 'symbol',
+                    source: 'fixes',
+                    layout: {
+                        'text-field': ['get', 'name'],
+                        'text-size': 11,
+                        'text-offset': [0, 1.5],
+                        'text-anchor': 'top'
+                    },
+                    paint: {
+                        'text-color': '#51cf66',
+                        'text-halo-color': '#000000',
+                        'text-halo-width': 1
+                    }
+                });
+            }
+
+            // Add airports
+            if (mapData.airports?.length) {
+                map.addSource('airports', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: mapData.airports }
+                });
+
+                map.addLayer({
+                    id: 'airports-icons',
+                    type: 'circle',
+                    source: 'airports',
+                    paint: {
+                        'circle-radius': 5,
+                        'circle-color': ['case',
+                            ['==', ['get', 'role'], 'origin'], '#f783ac',
+                            ['==', ['get', 'role'], 'destination'], '#74c0fc',
+                            '#d0bfff'],
+                        'circle-stroke-width': 1,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
+
+                map.addLayer({
+                    id: 'airports-labels',
+                    type: 'symbol',
+                    source: 'airports',
+                    layout: {
+                        'text-field': ['get', 'code'],
+                        'text-size': 10,
+                        'text-offset': [0, -1.2],
+                        'text-anchor': 'bottom'
+                    },
+                    paint: {
+                        'text-color': '#ffffff',
+                        'text-halo-color': '#000000',
+                        'text-halo-width': 1
+                    }
+                });
+            }
+
+            // Fit bounds
+            if (mapData.bounds) {
+                map.fitBounds(mapData.bounds, { padding: 30, maxZoom: 8 });
+            }
+        });
+    },
+
+    showMapError: function(mapId, message) {
+        const container = document.getElementById(`${mapId}_container`);
+        if (container) {
+            container.innerHTML = `<div class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle mr-2"></i>${message}</div>`;
+        }
+    },
+
+    cleanupMaps: function() {
+        Object.values(this.activeMaps).forEach(map => { if (map) map.remove(); });
+        this.activeMaps = {};
     },
 
     showNoData: function() {
