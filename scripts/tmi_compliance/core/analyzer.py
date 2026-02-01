@@ -248,6 +248,13 @@ class TMIComplianceAnalyzer:
         """Run full compliance analysis"""
         logger.info(f"Starting analysis for: {self.event.name}")
 
+        # Merge user-defined TMIs with auto-parsed TMIs
+        if self.event.user_defined_tmis:
+            for user_def in self.event.user_defined_tmis:
+                user_tmi = user_def.to_tmi(self.event.start_utc, self.event.end_utc)
+                self.event.tmis.append(user_tmi)
+            logger.info(f"Merged {len(self.event.user_defined_tmis)} user-defined TMIs")
+
         results = {
             'event': self.event.name,
             'event_start': self.event.start_utc.isoformat(),
@@ -258,7 +265,9 @@ class TMIComplianceAnalyzer:
             'gs_results': {},
             'reroute_results': {},
             'apreq_results': {},
-            'delay_results': []
+            'delay_results': [],
+            'skipped_lines': [],  # Lines parser could not handle (for user override)
+            'user_defined_tmis': []  # User overrides that were applied
         }
 
         # Connect to databases
@@ -345,6 +354,34 @@ class TMIComplianceAnalyzer:
 
         # Calculate summary
         results['summary'] = self._calculate_summary(results)
+
+        # Include skipped lines for user to potentially define
+        if self.event.skipped_lines:
+            results['skipped_lines'] = [
+                {
+                    'line': sl.line,
+                    'line_number': sl.line_number,
+                    'reason': sl.reason
+                }
+                for sl in self.event.skipped_lines
+            ]
+            logger.info(f"Included {len(self.event.skipped_lines)} skipped lines for user review")
+
+        # Include user-defined TMIs that were applied
+        if self.event.user_defined_tmis:
+            results['user_defined_tmis'] = [
+                {
+                    'original_line': ud.original_line,
+                    'definition_id': ud.definition_id,
+                    'tmi_type': ud.tmi_type.value if ud.tmi_type else None,
+                    'fix': ud.fix,
+                    'destinations': ud.destinations,
+                    'origins': ud.origins,
+                    'value': ud.value,
+                    'notes': ud.notes
+                }
+                for ud in self.event.user_defined_tmis
+            ]
 
         return results
 

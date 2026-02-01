@@ -228,7 +228,9 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             event.delays = parse_result.delays
             event.airport_configs = parse_result.airport_configs
             event.cancellations = parse_result.cancellations
-            logger.info(f"Parsed {len(parse_result.tmis)} TMIs, {len(parse_result.delays)} delays from NTML text")
+            event.skipped_lines = parse_result.skipped_lines
+            logger.info(f"Parsed {len(parse_result.tmis)} TMIs, {len(parse_result.delays)} delays, "
+                       f"{len(parse_result.skipped_lines)} skipped from NTML text")
 
     return event
 

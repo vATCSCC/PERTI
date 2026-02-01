@@ -176,9 +176,13 @@ class TMI:
     destinations: List[str] = field(default_factory=list)
     origins: List[str] = field(default_factory=list)
     artccs: List[str] = field(default_factory=list)  # Affected ARTCCs
+    thru: Optional['ThruFilter'] = None    # Thru facility filter (e.g., "thru ZAU")
 
     # Traffic direction (arrivals/departures/both)
     traffic_direction: 'TrafficDirection' = None  # arrivals, departures, or both
+
+    # Scope logic - how to combine origin/dest/thru filters
+    scope_logic: Optional['ScopeLogic'] = None  # Determined by NTML pattern
 
     # Traffic filters
     traffic_filter: 'TrafficFilter' = None  # TYPE, SPD, ALT, EXCL filters
@@ -205,6 +209,8 @@ class TMI:
     # Metadata
     reason: str = ''
     notes: str = ''
+    raw_text: str = ''                         # Original NTML text
+    is_user_defined: bool = False              # True if user-provided (not auto-parsed)
 
     # Reroute-specific fields
     reroute_name: Optional[str] = None         # Playbook/route advisory name
@@ -369,6 +375,8 @@ class EventConfig:
     delays: List[DelayEntry] = field(default_factory=list)
     airport_configs: List[AirportConfig] = field(default_factory=list)
     cancellations: List[CancelEntry] = field(default_factory=list)
+    skipped_lines: List['SkippedLine'] = field(default_factory=list)  # Lines parser could not handle
+    user_defined_tmis: List['UserTMIDefinition'] = field(default_factory=list)  # User overrides
 
 
 class MeasurementType(Enum):
@@ -388,6 +396,181 @@ class MeasurementType(Enum):
     FIX = 'FIX'
     BOUNDARY = 'BOUNDARY'
     BOUNDARY_FALLBACK_FIX = 'BOUNDARY_FALLBACK_FIX'
+
+
+class ThruType(Enum):
+    """
+    Type of facility/construct for 'thru' filter in TMI scope
+
+    NTML can specify flights passing through various airspace constructs:
+    - "thru ZAU" - ARTCC
+    - "thru ZNY66" - Sector
+    - "thru N90" - TRACON
+    - "thru FCAA07" - Flow Constrained Area
+    - "thru J60" - Airway (global - J/Q/V/T/A/B/G/R routes)
+    - "thru MERIT" - Waypoint
+
+    Each type requires different transit detection logic:
+    - ARTCC/SECTOR/TRACON: Polygon → ST_Intersects
+    - FCA/FEA: Can be Polygon, Line, or Point
+      - Polygon: ST_Intersects
+      - Line: ST_Crosses (trajectory crosses the line)
+      - Point: ST_DWithin (within radius of point)
+    - AIRWAY: Line → ST_Crosses or route string contains (global, all types)
+    - ROUTE: Check route string for DP/STAR/preferred route
+    - WAYPOINT: Any named point (fix, navaid, ICAO lat/lon, ARINC 424)
+      - Check route string or ST_DWithin for coordinates
+    """
+    ARTCC = 'artcc'        # ARTCC/FIR (ZAU, ZNY, CZYZ) - Polygon
+    SECTOR = 'sector'      # Sector within ARTCC (ZNY66, ZLA_HIGH_31) - Polygon
+    TRACON = 'tracon'      # TRACON (N90, SCT, A80) - Polygon
+    FCA = 'fca'            # Flow Constrained Area - Polygon/Line/Point
+    FEA = 'fea'            # Flow Evaluation Area - Polygon/Line/Point
+    AFP = 'afp'            # Airspace Flow Program (look up associated FCA)
+    ROUTE = 'route'        # Preferred route, DP, STAR - route string check
+    AIRWAY = 'airway'      # Global airways: J/Q/V/T/A/B/G/R-routes - Line
+    WAYPOINT = 'waypoint'  # Any named point: fix, navaid, ICAO lat/lon, ARINC 424 - Point
+    UNKNOWN = 'unknown'
+
+
+class ScopeLogic(Enum):
+    """
+    How to combine origin/destination/thru filters in TMI scope matching
+
+    Derived from NTML text patterns to determine correct AND/OR logic:
+    - "JFK departures" → DEPARTURES_ONLY (check origins only)
+    - "JFK arrivals" → ARRIVALS_ONLY (check destinations only)
+    - "JFK via ALL" → ANY_TRAFFIC (match either origin OR destination)
+    - "JFK to LAX" → OD_PAIR (must match BOTH origin AND destination)
+    - "ZNY overflights" → OVERFLIGHTS (transit but NOT origin/dest)
+    - "thru ZAU" (no origin/dest) → THRU_ONLY (only check thru facility)
+    """
+    DEPARTURES_ONLY = 'departures'      # Check origins only
+    ARRIVALS_ONLY = 'arrivals'          # Check destinations only
+    OD_PAIR = 'od_pair'                 # Check both (AND logic)
+    ANY_TRAFFIC = 'any'                 # Check either (OR logic)
+    OVERFLIGHTS = 'overflights'         # Transit but not origin/dest
+    THRU_ONLY = 'thru'                  # Only check thru facility
+
+
+@dataclass
+class ThruFilter:
+    """
+    Thru facility filter for TMI scope
+
+    Examples:
+    - "JFK to LAX thru ZAU" → ThruFilter(value='ZAU', thru_type=ThruType.ARTCC)
+    - "OAK via ALL thru ZLC" → ThruFilter(value='ZLC', thru_type=ThruType.ARTCC)
+    - "thru J60" → ThruFilter(value='J60', thru_type=ThruType.AIRWAY)
+    """
+    value: str                          # Facility/construct identifier
+    thru_type: ThruType                 # What type of thing this is
+
+
+@dataclass
+class StreamMatchInfo:
+    """
+    Debug information for stream/scope matching
+
+    Captures why a flight was included or excluded from TMI scope,
+    plus all boundary crossings for human interpretation (especially
+    useful for airspace shelf edge cases where altitude limits are unknown).
+    """
+    callsign: str
+    matched: bool = False
+    match_reasons: List[str] = field(default_factory=list)   # Why it matched
+    fail_reasons: List[str] = field(default_factory=list)    # Why it was excluded
+    all_crossings: List[dict] = field(default_factory=list)  # Full crossing breakdown
+    relevant_crossings: List[dict] = field(default_factory=list)  # Crossings for TMI facilities
+
+
+@dataclass
+class SkippedLine:
+    """
+    An NTML line that couldn't be parsed automatically.
+
+    Returned by parse_ntml_to_tmis() so the UI can show unparsed lines
+    and allow users to define them manually.
+    """
+    line: str                    # Original NTML text
+    line_number: int             # Line number in the input (1-based)
+    reason: str = ''             # Why it couldn't be parsed
+    context: str = ''            # Surrounding context (e.g., provider:requestor)
+
+
+@dataclass
+class UserTMIDefinition:
+    """
+    User-provided TMI definition for unparsed NTML lines.
+
+    When the parser can't recognize an NTML pattern, users can manually
+    specify the TMI fields. These are merged with parsed TMIs during analysis.
+
+    Example usage:
+        user_def = UserTMIDefinition(
+            original_line="ZDC:ZNY SOMETHING WEIRD 15MIT",
+            tmi_type=TMIType.MIT,
+            fix="MERIT",
+            destinations=["KJFK", "KEWR"],
+            value=15
+        )
+    """
+    # Original text (for reference/matching)
+    original_line: str
+    definition_id: str = ''         # Unique ID for this definition (auto-generated if empty)
+
+    # TMI type (required)
+    tmi_type: TMIType = TMIType.MIT
+
+    # Scope
+    fix: Optional[str] = None       # Control fix (for MIT/MINIT)
+    fixes: List[str] = field(default_factory=list)  # Multiple fixes
+    destinations: List[str] = field(default_factory=list)
+    origins: List[str] = field(default_factory=list)
+    thru: Optional['ThruFilter'] = None
+    scope_logic: 'ScopeLogic' = None
+    traffic_direction: 'TrafficDirection' = None
+    traffic_filter: Optional['TrafficFilter'] = None
+
+    # Value
+    value: float = 0                # Required spacing (nm) or delay (min)
+    unit: str = 'nm'                # 'nm', 'min'
+
+    # Parties
+    provider: str = ''
+    requestor: str = ''
+
+    # Time window (inherited from event if not specified)
+    start_utc: Optional[datetime] = None
+    end_utc: Optional[datetime] = None
+
+    # Metadata
+    created_by: str = ''            # Username who created this definition
+    created_at: Optional[datetime] = None
+    notes: str = ''                 # User notes explaining interpretation
+
+    def to_tmi(self, event_start: datetime = None, event_end: datetime = None) -> 'TMI':
+        """Convert this user definition to a TMI object"""
+        return TMI(
+            tmi_id=self.definition_id or f'USER_{self.tmi_type.value}_{self.fix or "ALL"}',
+            tmi_type=self.tmi_type,
+            fix=self.fix,
+            fixes=self.fixes,
+            destinations=self.destinations,
+            origins=self.origins,
+            thru=self.thru,
+            traffic_direction=self.traffic_direction or TrafficDirection.BOTH,
+            scope_logic=self.scope_logic or ScopeLogic.ANY_TRAFFIC,
+            traffic_filter=self.traffic_filter,
+            value=self.value,
+            unit=self.unit,
+            provider=self.provider,
+            requestor=self.requestor,
+            start_utc=self.start_utc or event_start,
+            end_utc=self.end_utc or event_end,
+            raw_text=self.original_line,
+            is_user_defined=True,
+        )
 
 
 @dataclass
@@ -589,3 +772,136 @@ def resolve_facility_list(facilities: List[str]) -> List[str]:
             result.add(resolved)
 
     return list(result)
+
+
+# Known AFP names (for AFP → FCA lookup)
+KNOWN_AFPS = {
+    'MIT', 'SWAP', 'EWR_VOLUME',  # Add as needed
+}
+
+# Known FCA names (for direct FCA matching)
+KNOWN_FCAS = {
+    'FCAA07', 'FCAA08', 'FCA_EAST', 'FCA_WEST',  # Add as needed
+}
+
+
+def detect_thru_type(value: str) -> ThruType:
+    """
+    Detect the type of a thru facility/construct from its identifier.
+
+    Uses facility hierarchy cache when available, falls back to pattern matching.
+
+    Examples:
+    - ZAU → ARTCC
+    - ZNY66 → SECTOR
+    - N90 → TRACON
+    - FCAA07 → FCA
+    - J60, A123, B456 → AIRWAY (global, all route types)
+    - MERIT → WAYPOINT
+    """
+    import re
+
+    if not value:
+        return ThruType.UNKNOWN
+
+    value = value.upper().strip()
+
+    # Try facility hierarchy cache first
+    try:
+        from .facility_hierarchy import is_known_tracon, is_known_artcc, get_facility_cache
+        cache = get_facility_cache()
+        if cache._loaded:
+            if cache.is_artcc(value):
+                return ThruType.ARTCC
+            if cache.is_tracon(value):
+                return ThruType.TRACON
+            if cache.is_sector(value):
+                return ThruType.SECTOR
+    except ImportError:
+        pass  # Fall back to pattern matching
+
+    # ARTCC: 3-letter starting with Z (US) or 4-letter ICAO FIR
+    if re.match(r'^Z[A-Z]{2}$', value):  # ZNY, ZAU, ZLA
+        return ThruType.ARTCC
+    if re.match(r'^CZ[A-Z]{2}$', value):  # CZYZ, CZUL (Canadian)
+        return ThruType.ARTCC
+    # International FIRs (4-letter ICAO)
+    if re.match(r'^[A-Z]{4}$', value) and value[0] not in ['K', 'P', 'T']:
+        # Could be international FIR - check if it looks like one
+        # Most FIRs end in specific patterns
+        return ThruType.ARTCC
+
+    # Sector: ARTCC code + number (ZNY66) or with type (ZLA_HIGH_31)
+    if re.match(r'^Z[A-Z]{2}\d+$', value):  # ZNY66, ZAU32
+        return ThruType.SECTOR
+    if re.match(r'^Z[A-Z]{2}_(HIGH|LOW|SUPERHIGH)_\d+$', value):  # ZLA_HIGH_31
+        return ThruType.SECTOR
+
+    # TRACON: Pattern matching (letter + 2 digits like A80, N90)
+    # Use facility hierarchy if available
+    try:
+        from .facility_hierarchy import is_known_tracon
+        if is_known_tracon(value):
+            return ThruType.TRACON
+    except ImportError:
+        pass
+
+    if re.match(r'^[A-Z]\d{2}$', value):  # A80, N90, C90
+        return ThruType.TRACON
+
+    # FCA: Usually FCA prefix or known FCA names
+    if value.startswith('FCA') or value in KNOWN_FCAS:
+        return ThruType.FCA
+
+    # FEA: Flow Evaluation Area
+    if value.startswith('FEA'):
+        return ThruType.FEA
+
+    # AFP: Known AFP names
+    if value in KNOWN_AFPS:
+        return ThruType.AFP
+
+    # Airway: Global route types
+    # J-routes (US jet), Q-routes (RNAV), V-routes (US VOR), T-routes (US RNAV low)
+    # A-routes (Pacific/international), B-routes (Pacific), G-routes (international)
+    # R-routes (Russian), L-routes, M-routes, N-routes, etc.
+    if re.match(r'^[JQVTABGRLMNUW]\d+[A-Z]?$', value):
+        return ThruType.AIRWAY
+
+    # Route: DPs, STARs (usually alphanumeric ending in digit)
+    # e.g., CAMRN4, ROBUC3, PHLBO1
+    if re.match(r'^[A-Z]{3,5}\d$', value):
+        return ThruType.ROUTE
+
+    # Waypoint: 5-letter identifier (MERIT, CAMRN, BIGGY) - named fixes
+    if re.match(r'^[A-Z]{5}$', value):
+        return ThruType.WAYPOINT
+
+    # 3-letter could be navaid (VOR/NDB) or airport
+    if re.match(r'^[A-Z]{3}$', value):
+        return ThruType.WAYPOINT
+
+    # 2-letter navaids (some NDBs)
+    if re.match(r'^[A-Z]{2}$', value):
+        return ThruType.WAYPOINT
+
+    # ARINC 424 format: lat/lon encoded (e.g., 4000N07500W)
+    if re.match(r'^\d{4}[NS]\d{5}[EW]$', value):
+        return ThruType.WAYPOINT
+
+    return ThruType.UNKNOWN
+
+
+def create_thru_filter(value: str) -> Optional[ThruFilter]:
+    """
+    Create a ThruFilter from a facility/construct identifier.
+
+    Returns None if the value is empty or invalid.
+    """
+    if not value:
+        return None
+
+    value = value.upper().strip()
+    thru_type = detect_thru_type(value)
+
+    return ThruFilter(value=value, thru_type=thru_type)

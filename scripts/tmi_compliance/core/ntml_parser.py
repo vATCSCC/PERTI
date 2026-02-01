@@ -15,10 +15,30 @@ from typing import List, Tuple, Optional
 from .models import (
     TMI, TMIType, MITModifier, DelayEntry, DelayType, DelayTrend, HoldingStatus,
     AirportConfig, CancelEntry, TrafficDirection, TrafficFilter, AircraftType, AltitudeFilter,
-    ComparisonOp
+    ComparisonOp, ThruType, ThruFilter, ScopeLogic, create_thru_filter, SkippedLine
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ParseResult:
+    """
+    Result of parsing NTML text.
+
+    Contains both successfully parsed TMIs and lines that couldn't be parsed.
+    Skipped lines can be displayed to users for manual definition.
+    """
+    tmis: List[TMI]
+    skipped_lines: List[SkippedLine]
+
+    def __iter__(self):
+        """Allow unpacking: tmis, skipped = parse_result"""
+        return iter([self.tmis, self.skipped_lines])
+
+    def __len__(self):
+        """Return number of parsed TMIs (for backward compat)"""
+        return len(self.tmis)
 
 
 def clean_discord_text(text: str) -> str:
@@ -278,7 +298,7 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
     return (None, lines_consumed)
 
 
-def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> List[TMI]:
+def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> ParseResult:
     """
     Parse NTML text into TMI objects.
 
@@ -295,6 +315,12 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
     - GS: "LAS GS (NCT) 0230Z-0315Z issued 0244Z"
     - Cancel: "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
     - Cancellations (old format): "CXLD 0330Z" at end of line
+
+    Returns:
+        ParseResult with:
+        - tmis: List of successfully parsed TMI objects
+        - skipped_lines: List of SkippedLine objects for lines that couldn't be parsed
+                        (type='unparsed' are candidates for user definition)
     """
     tmis = []
 
@@ -566,6 +592,100 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
 
         return TrafficDirection.BOTH
 
+    def parse_thru_clause(line: str) -> Optional[ThruFilter]:
+        """
+        Parse thru/through clause from NTML line.
+
+        Patterns:
+        - "JFK to LAX thru ZAU 75MIT" -> ThruFilter(value='ZAU', thru_type=ThruType.ARTCC)
+        - "OAK via ALL through ZLC 20MIT" -> ThruFilter(value='ZLC', thru_type=ThruType.ARTCC)
+        - "ZNY overflights thru ZNY66 20MIT" -> ThruFilter(value='ZNY66', thru_type=ThruType.SECTOR)
+        - "...thru J60 15MIT" -> ThruFilter(value='J60', thru_type=ThruType.AIRWAY)
+
+        Returns:
+            ThruFilter if thru clause found, None otherwise
+        """
+        # Match "thru" or "through" followed by facility code
+        # The facility code is typically followed by MIT value, time range, or end of relevant portion
+        thru_match = re.search(
+            r'\b(?:thru|through)\s+([A-Z0-9_]+)\b',
+            line, re.IGNORECASE
+        )
+        if thru_match:
+            thru_value = thru_match.group(1).upper()
+            return create_thru_filter(thru_value)
+        return None
+
+    def determine_scope_logic(
+        line: str,
+        has_origins: bool,
+        has_destinations: bool,
+        has_thru: bool,
+        traffic_direction: TrafficDirection
+    ) -> ScopeLogic:
+        """
+        Determine the appropriate ScopeLogic based on NTML patterns.
+
+        Logic:
+        - "JFK departures..." → DEPARTURES_ONLY (check origins only)
+        - "arrivals to JFK..." → ARRIVALS_ONLY (check destinations only)
+        - "JFK to LAX..." → OD_PAIR (must match BOTH origin AND destination)
+        - "JFK via ALL" → ANY_TRAFFIC (match either origin OR destination)
+        - "ZNY overflights..." → OVERFLIGHTS (transit but NOT origin/dest)
+        - "...thru ZAU" (no origin/dest) → THRU_ONLY (only check thru facility)
+
+        Args:
+            line: Original NTML line
+            has_origins: Whether origins list is populated
+            has_destinations: Whether destinations list is populated
+            has_thru: Whether thru clause was found
+            traffic_direction: Parsed traffic direction
+
+        Returns:
+            ScopeLogic enum value
+        """
+        line_upper = line.upper()
+
+        # Check for "overflights" keyword
+        if re.search(r'\boverflights?\b', line, re.IGNORECASE):
+            return ScopeLogic.OVERFLIGHTS
+
+        # Check for explicit OD pair pattern: "XXX to YYY" (not "to" as part of word)
+        # e.g., "JFK to LAX", "BOS to MIA"
+        if re.search(r'\b[A-Z]{3,4}\s+to\s+[A-Z]{3,4}\b', line, re.IGNORECASE):
+            return ScopeLogic.OD_PAIR
+
+        # If only thru is specified (no origins/destinations from airport pattern)
+        if has_thru and not has_origins and not has_destinations:
+            return ScopeLogic.THRU_ONLY
+
+        # Based on explicit traffic direction
+        if traffic_direction == TrafficDirection.DEPARTURES:
+            return ScopeLogic.DEPARTURES_ONLY
+
+        if traffic_direction == TrafficDirection.ARRIVALS:
+            return ScopeLogic.ARRIVALS_ONLY
+
+        # "via ALL" patterns typically mean any traffic to/from the airport
+        # e.g., "JFK via ALL" means all JFK traffic (departures OR arrivals)
+        if re.search(r'\bvia\s+ALL\b', line, re.IGNORECASE):
+            if has_origins or has_destinations:
+                return ScopeLogic.ANY_TRAFFIC
+
+        # Default: if we have destinations but no origins, it's arrivals-focused
+        # If we have origins but no destinations, it's departures-focused
+        if has_destinations and not has_origins:
+            return ScopeLogic.ARRIVALS_ONLY
+        if has_origins and not has_destinations:
+            return ScopeLogic.DEPARTURES_ONLY
+
+        # If we have both, default to ANY_TRAFFIC (OR logic)
+        if has_origins and has_destinations:
+            return ScopeLogic.ANY_TRAFFIC
+
+        # Fallback to ANY_TRAFFIC
+        return ScopeLogic.ANY_TRAFFIC
+
     skipped_lines = []
 
     i = 0
@@ -587,11 +707,19 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             i += lines_consumed
             continue
 
-        # Skip other non-TMI lines but log them
-        if line_type in ('advzy_header', 'advzy_field', 'airport_config', 'ed_delay',
-                         'ad_delay', 'dd_delay', 'route_header', 'route_entry', 'tmi_id',
+        # Skip non-TMI informational lines (not candidates for user override)
+        if line_type in ('advzy_header', 'advzy_field', 'airport_config',
+                         'route_header', 'route_entry', 'tmi_id',
                          'timestamp', 'empty'):
-            skipped_lines.append((line_type, line))
+            skipped_lines.append((line_type, line, i + 1))  # i+1 for 1-based line number
+            i += 1
+            continue
+
+        # Delay entries (E/D, D/D, A/D) are parsed by parse_ntml_full() into DelayEntry objects
+        # They're not "skipped" - they're just handled separately from spacing TMIs
+        if line_type in ('ed_delay', 'ad_delay', 'dd_delay'):
+            # Don't add to skipped_lines - these ARE parsed, just not as TMI objects
+            logger.debug(f"Delay entry (parsed via parse_ntml_full): {line[:60]}...")
             i += 1
             continue
 
@@ -600,7 +728,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             # Log cancellation but don't create TMI
             # Format: "31/0326    BOS via RBV CANCEL RESTR ZNY:ZDC"
             logger.debug(f"Cancellation line (not creating TMI): {line}")
-            skipped_lines.append((line_type, line))
+            skipped_lines.append((line_type, line, i + 1))
             i += 1
             continue
 
@@ -682,6 +810,9 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 # Parse traffic direction from the full line
                 traffic_direction = parse_traffic_direction(line)
 
+                # Parse thru clause (e.g., "thru ZAU", "through ZLC")
+                thru_filter = parse_thru_clause(line)
+
                 # Parse destinations/origins from airport_str
                 # May be comma-separated: "EWR,LGA" or single: "JFK"
                 if ',' in airport_str:
@@ -697,6 +828,15 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     dest_list = airports
                     origin_list = []
 
+                # Determine scope logic based on pattern analysis
+                scope_logic = determine_scope_logic(
+                    line,
+                    has_origins=bool(origin_list),
+                    has_destinations=bool(dest_list),
+                    has_thru=thru_filter is not None,
+                    traffic_direction=traffic_direction
+                )
+
                 # Handle multi-fix entries (e.g., "AUDIL/MEMMS" for PER STREAM)
                 # For PER STREAM, split into separate TMIs per fix
                 if '/' in fix_str and modifier in [MITModifier.PER_STREAM, MITModifier.PER_FIX, MITModifier.EACH]:
@@ -709,7 +849,9 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                             fixes=[fix],  # Single fix for PER STREAM
                             destinations=dest_list,
                             origins=origin_list,
+                            thru=thru_filter,
                             traffic_direction=traffic_direction,
+                            scope_logic=scope_logic,
                             traffic_filter=traffic_filter,
                             value=value,
                             unit='nm',
@@ -737,7 +879,9 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         fixes=fixes,
                         destinations=dest_list,
                         origins=origin_list,
+                        thru=thru_filter,
                         traffic_direction=traffic_direction,
+                        scope_logic=scope_logic,
                         traffic_filter=traffic_filter,
                         value=value,
                         unit='nm',
@@ -781,6 +925,9 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 # Parse traffic direction
                 traffic_direction = parse_traffic_direction(line)
 
+                # Parse thru clause
+                thru_filter = parse_thru_clause(line)
+
                 # Parse destinations/origins from airport_str
                 if ',' in airport_str:
                     airports = [a.strip() for a in airport_str.split(',') if a.strip()]
@@ -795,6 +942,15 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                     dest_list = airports
                     origin_list = []
 
+                # Determine scope logic
+                scope_logic = determine_scope_logic(
+                    line,
+                    has_origins=bool(origin_list),
+                    has_destinations=bool(dest_list),
+                    has_thru=thru_filter is not None,
+                    traffic_direction=traffic_direction
+                )
+
                 # Handle multi-fix for PER STREAM
                 if '/' in fix_str and modifier in [MITModifier.PER_STREAM, MITModifier.PER_FIX, MITModifier.EACH]:
                     fixes = [f.strip() for f in fix_str.split('/') if f.strip()]
@@ -806,7 +962,9 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                             fixes=[fix],
                             destinations=dest_list,
                             origins=origin_list,
+                            thru=thru_filter,
                             traffic_direction=traffic_direction,
+                            scope_logic=scope_logic,
                             traffic_filter=traffic_filter,
                             value=value,
                             unit='min',
@@ -830,7 +988,9 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         fixes=[fix_str] if fix_str not in ['ALL', 'ANY'] else [],
                         destinations=dest_list,
                         origins=origin_list,
+                        thru=thru_filter,
                         traffic_direction=traffic_direction,
+                        scope_logic=scope_logic,
                         traffic_filter=traffic_filter,
                         value=value,
                         unit='min',
@@ -902,31 +1062,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
 
         # Fallback: Try old-style patterns for backwards compatibility
         if not tmi and line_type == 'unknown':
-            # Ground Stop pattern: "DEST GS (SCOPE) 0230Z-0315Z issued 0244Z"
-            gs_match = re.match(
-                r'(\w+)\s+GS\s*\(([^)]+)\)\s*(\d{4})Z?\s*-\s*(\d{4})Z?(?:\s*issued\s*(\d{4})Z?)?',
-                line, re.IGNORECASE
-            )
-            if gs_match:
-                dest = gs_match.group(1).upper()
-                scope = gs_match.group(2).strip()
-                start_time = parse_time(gs_match.group(3), event_date)
-                end_time = parse_time(gs_match.group(4), event_date)
-                issued_time = parse_time(gs_match.group(5), event_date) if gs_match.group(5) else start_time
-
-                tmi = TMI(
-                    tmi_id=f'GS_{scope}_{dest}_ALL',
-                    tmi_type=TMIType.GS,
-                    destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
-                    origins=[],
-                    provider=scope,
-                    requestor=dest,
-                    start_utc=start_time,
-                    end_utc=end_time,
-                    issued_utc=issued_time,
-                    cancelled_utc=cancelled_utc,
-                    reason=f'Ground Stop from {scope}'
-                )
+            # NOTE: GS (Ground Stop) is NOT parsed from NTML lines - GS only comes from ADVZY blocks
+            # The parse_advzy_ground_stop() function handles ADVZY Ground Stops correctly
 
             # Old MIT/MINIT pattern: "DEST via FIX 20MIT REQ:PROV 2359Z-0400Z"
             if not tmi:
@@ -988,22 +1125,34 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
             tmis.append(tmi)
             logger.debug(f"Parsed TMI: {tmi.tmi_type.value} via {tmi.fix} for {tmi.destinations}")
         elif line_type == 'unknown':
-            skipped_lines.append(('unparsed', line))
+            skipped_lines.append(('unparsed', line, i + 1))
 
         i += 1
 
     # Log summary of skipped lines
     if skipped_lines:
         type_counts = {}
-        for line_type, _ in skipped_lines:
+        for line_type, _, _ in skipped_lines:
             type_counts[line_type] = type_counts.get(line_type, 0) + 1
         logger.info(f"Skipped {len(skipped_lines)} non-TMI lines: {type_counts}")
 
     # Link TMI amendments (without cancellations - use parse_ntml_full for full processing)
     tmis = link_tmi_amendments(tmis)
 
-    logger.info(f"Parsed {len(tmis)} TMIs from NTML text")
-    return tmis
+    # Convert internal skipped_lines to SkippedLine objects
+    # Only include 'unparsed' lines as candidates for user definition
+    skipped_line_objects = [
+        SkippedLine(
+            line=line_text,
+            line_number=line_num,
+            reason='No pattern match' if line_type == 'unparsed' else f'Skipped: {line_type}'
+        )
+        for line_type, line_text, line_num in skipped_lines
+        if line_type == 'unparsed'  # Only unparsed lines need user definition
+    ]
+
+    logger.info(f"Parsed {len(tmis)} TMIs from NTML text, {len(skipped_line_objects)} unparsed lines")
+    return ParseResult(tmis=tmis, skipped_lines=skipped_line_objects)
 
 
 @dataclass
@@ -1013,7 +1162,7 @@ class NTMLParseResult:
     delays: List[DelayEntry]
     airport_configs: List[AirportConfig]
     cancellations: List[CancelEntry]
-    unparsed_lines: List[str]
+    skipped_lines: List[SkippedLine]  # Lines that couldn't be parsed (for user override)
 
 
 def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> NTMLParseResult:
@@ -1026,15 +1175,18 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
         - delays: List of E/D, A/D, D/D entries
         - airport_configs: List of airport configuration updates
         - cancellations: List of CANCEL entries
-        - unparsed_lines: Lines that couldn't be classified
+        - skipped_lines: SkippedLine objects for lines that couldn't be parsed
+                        (candidates for user-defined TMI override)
     """
     # Start with TMIs from the existing parser
-    tmis = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
+    parse_result = parse_ntml_to_tmis(ntml_text, event_start, event_end, destinations)
+    tmis = parse_result.tmis
+    # Start with skipped lines from TMI parser (these are unparsed TMI-like lines)
+    skipped_lines = list(parse_result.skipped_lines)
 
     delays = []
     airport_configs = []
     cancellations = []
-    unparsed_lines = []
 
     # Clean and process lines
     cleaned_text = clean_discord_text(ntml_text)
@@ -1339,9 +1491,16 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
                 is_multiple=is_multiple
             ))
 
-        # Track unparsed lines
+        # Track unparsed lines (from this pass - delays/configs/cancels that failed to parse)
+        # Note: TMI-like unparsed lines are already captured from parse_ntml_to_tmis
         elif line_type == 'unknown':
-            unparsed_lines.append(line)
+            # Check if already in skipped_lines from TMI parser
+            if not any(sl.line == line for sl in skipped_lines):
+                skipped_lines.append(SkippedLine(
+                    line=line,
+                    line_number=0,  # We don't track line numbers in this pass
+                    reason='No pattern match (full parser)'
+                ))
 
     # Detect delay trends by comparing sequential entries
     delays = detect_delay_trends(delays)
@@ -1352,14 +1511,14 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
     # Log summary
     logger.info(f"NTML parse complete: {len(tmis)} TMIs, {len(delays)} delays, "
                 f"{len(airport_configs)} configs, {len(cancellations)} cancellations, "
-                f"{len(unparsed_lines)} unparsed")
+                f"{len(skipped_lines)} unparsed")
 
     return NTMLParseResult(
         tmis=tmis,
         delays=delays,
         airport_configs=airport_configs,
         cancellations=cancellations,
-        unparsed_lines=unparsed_lines
+        skipped_lines=skipped_lines
     )
 
 
