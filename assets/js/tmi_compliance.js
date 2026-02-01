@@ -2649,9 +2649,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 }
                             }
 
-                            // Calculate bearing from approach point toward the fix
+                            // Calculate bearing FROM the fix looking back toward where traffic came from
                             const [aLon, aLat] = traj.coordinates[approachIdx];
-                            const bearing = bearingTo(aLon, aLat, fixLon, fixLat);
+                            const bearing = bearingTo(fixLon, fixLat, aLon, aLat);
                             approachBearings.push({ callsign, bearing });
                         }
                     });
@@ -2677,21 +2677,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         const p75IdxLow = Math.floor(normalized.length * 0.125);
                         const p90IdxLow = Math.floor(normalized.length * 0.05);
 
-                        const width75 = (normalized[p75Idx] - normalized[p75IdxLow]) || 30;
-                        const width90 = (normalized[p90Idx] - normalized[p90IdxLow]) || 45;
+                        const rawWidth75 = (normalized[p75Idx] - normalized[p75IdxLow]) || 30;
+                        const rawWidth90 = (normalized[p90Idx] - normalized[p90IdxLow]) || 45;
+                        const minArcAngle = 5;
+                        const width75 = Math.max(minArcAngle, rawWidth75);
+                        const width90 = Math.max(minArcAngle, rawWidth90);
 
-                        // Convert back to absolute bearings
+                        // Compute center of each sector and apply minimum width symmetrically
                         const center75 = (normalized[p75IdxLow] + normalized[p75Idx]) / 2;
                         const center90 = (normalized[p90IdxLow] + normalized[p90Idx]) / 2;
 
                         const sector75 = {
-                            start_bearing: ((medianBearing + normalized[p75IdxLow]) + 360) % 360,
-                            end_bearing: ((medianBearing + normalized[p75Idx]) + 360) % 360,
+                            start_bearing: ((medianBearing + center75 - width75 / 2) + 360) % 360,
+                            end_bearing: ((medianBearing + center75 + width75 / 2) + 360) % 360,
                             width_deg: width75,
                         };
                         const sector90 = {
-                            start_bearing: ((medianBearing + normalized[p90IdxLow]) + 360) % 360,
-                            end_bearing: ((medianBearing + normalized[p90Idx]) + 360) % 360,
+                            start_bearing: ((medianBearing + center90 - width90 / 2) + 360) % 360,
+                            end_bearing: ((medianBearing + center90 + width90 / 2) + 360) % 360,
                             width_deg: width90,
                         };
 
@@ -2716,9 +2719,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const sectorData = TMICompliance.trafficSectorCache?.[mapId];
             if (sectorData) {
                 const sectorFeatures = [];
-                // Sector radius: at least 30nm, or enough to show 2-3 spacing arcs
+                // Sector radius: at least 30nm, or enough to show 3 spacing arcs
                 const spacing = sectorData.required_spacing || 15;
-                const SECTOR_RADIUS_NM = Math.max(30, spacing * 2.5);
+                const SECTOR_RADIUS_NM = Math.max(30, spacing * 3);
 
                 // Helper: compute point at given bearing and distance from origin
                 const pointAtBearing = (lon, lat, bearingDeg, distanceNm) => {
@@ -2805,30 +2808,50 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Add spacing arcs within the 90% sector
                 if (sectorData.required_spacing && sectorData.required_spacing > 0 && sectorData.unit === 'nm') {
                     const arcFeatures = [];
+                    const labelFeatures = [];
                     const [originLon, originLat] = sectorData.measurement_point;
                     const sector = sectorData.sector_90;
 
-                    // Build arc at given radius
+                    // Build arc at given radius, return coords and label points (start, mid, end)
                     const buildArc = (radius) => {
                         const coords = [];
                         const startBearing = sector.start_bearing;
                         let endBearing = sector.end_bearing;
-                        if (endBearing < startBearing) {endBearing += 360;}
+                        if (endBearing < startBearing) endBearing += 360;
 
                         const arcPoints = Math.max(10, Math.ceil(sector.width_deg / 3));
                         for (let i = 0; i <= arcPoints; i++) {
                             const bearing = startBearing + (endBearing - startBearing) * i / arcPoints;
                             coords.push(pointAtBearing(originLon, originLat, bearing % 360, radius));
                         }
-                        return coords;
+
+                        // Compute label positions: start, midpoint, end
+                        const midBearing = (startBearing + endBearing) / 2;
+                        const startPt = pointAtBearing(originLon, originLat, startBearing % 360, radius);
+                        const midPt = pointAtBearing(originLon, originLat, midBearing % 360, radius);
+                        const endPt = pointAtBearing(originLon, originLat, endBearing % 360, radius);
+
+                        return { coords, labelPoints: [startPt, midPt, endPt] };
                     };
 
-                    // Generate arcs at spacing intervals (up to sector radius)
-                    for (let dist = spacing; dist <= SECTOR_RADIUS_NM; dist += spacing) {
+                    // Generate arcs at spacing intervals (up to sector radius, at least 3)
+                    const minArcs = 3;
+                    const maxDist = Math.max(SECTOR_RADIUS_NM, spacing * minArcs);
+                    for (let dist = spacing; dist <= maxDist; dist += spacing) {
+                        const { coords, labelPoints } = buildArc(dist);
                         arcFeatures.push({
                             type: 'Feature',
                             properties: { distance: dist },
-                            geometry: { type: 'LineString', coordinates: buildArc(dist) },
+                            geometry: { type: 'LineString', coordinates: coords },
+                        });
+
+                        // Add label points at start, middle, and end of arc
+                        labelPoints.forEach(pt => {
+                            labelFeatures.push({
+                                type: 'Feature',
+                                properties: { label: `${dist}nm` },
+                                geometry: { type: 'Point', coordinates: pt },
+                            });
                         });
                     }
 
@@ -2850,7 +2873,30 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             },
                         }, beforeLayer);
 
-                        console.log(`Added ${arcFeatures.length} spacing arcs at ${spacing}nm intervals`);
+                        // Add spacing arc labels
+                        map.addSource('spacing-arc-labels', {
+                            type: 'geojson',
+                            data: { type: 'FeatureCollection', features: labelFeatures },
+                        });
+
+                        map.addLayer({
+                            id: 'spacing-arc-labels',
+                            type: 'symbol',
+                            source: 'spacing-arc-labels',
+                            layout: {
+                                'text-field': ['get', 'label'],
+                                'text-size': 11,
+                                'text-anchor': 'center',
+                                'text-allow-overlap': true,
+                            },
+                            paint: {
+                                'text-color': '#ffffff',
+                                'text-halo-color': '#000000',
+                                'text-halo-width': 1.5,
+                            },
+                        }, beforeLayer);
+
+                        console.log(`Added ${arcFeatures.length} spacing arcs at ${spacing}nm intervals with labels`);
                     }
                 }
 
@@ -3218,7 +3264,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             'sectors-high': ['sectors-high-fill', 'sectors-high-outline', 'sectors-high-labels'],
             'sectors-superhigh': ['sectors-superhigh-fill', 'sectors-superhigh-outline', 'sectors-superhigh-labels'],
             'tracks': ['flight-tracks-solid-glow', 'flight-tracks-solid', 'flight-tracks-dashed'],
-            'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs'],
+            'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs', 'spacing-arc-labels'],
         };
 
         // Handle ARTCC/TRACON specially since they share the facilities source

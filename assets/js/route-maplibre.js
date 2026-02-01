@@ -979,6 +979,11 @@ $(document).ready(function() {
     function addStaticLayers() {
         const emptyGeoJSON = { type: 'FeatureCollection', features: [] };
 
+        // Defensive fallbacks for PERTIColors.airspace (in case colors.js is cached)
+        const airspaceColors = (typeof PERTIColors !== 'undefined' && PERTIColors.airspace) || {};
+        const sectorLineDark = airspaceColors.sectorLineDark || '#303030';
+        const artccLine = airspaceColors.artccLine || '#515151';
+
         // Helper to load GeoJSON data into an existing source
         function loadGeoJsonData(sourceId, url) {
             fetch(url)
@@ -1021,7 +1026,7 @@ $(document).ready(function() {
         graphic_map.addSource('tracon', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'tracon-lines', type: 'line', source: 'tracon',
-            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            paint: { 'line-color': sectorLineDark, 'line-width': 1.5 },
             layout: { 'visibility': 'none' },
         });
 
@@ -1029,21 +1034,21 @@ $(document).ready(function() {
         graphic_map.addSource('high-splits', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'high-splits-lines', type: 'line', source: 'high-splits',
-            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            paint: { 'line-color': sectorLineDark, 'line-width': 1.5 },
             layout: { 'visibility': 'none' },
         });
 
         graphic_map.addSource('low-splits', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'low-splits-lines', type: 'line', source: 'low-splits',
-            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            paint: { 'line-color': sectorLineDark, 'line-width': 1.5 },
             layout: { 'visibility': 'none' },
         });
 
         graphic_map.addSource('superhigh-splits', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'superhigh-splits-lines', type: 'line', source: 'superhigh-splits',
-            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            paint: { 'line-color': sectorLineDark, 'line-width': 1.5 },
             layout: { 'visibility': 'none' },
         });
 
@@ -1051,7 +1056,7 @@ $(document).ready(function() {
         graphic_map.addSource('artcc', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'artcc-lines', type: 'line', source: 'artcc',
-            paint: { 'line-color': PERTIColors.airspace.artccLine, 'line-width': 1.5 },
+            paint: { 'line-color': artccLine, 'line-width': 1.5 },
         });
 
         // 5. SIGMETs
@@ -1853,6 +1858,12 @@ $(document).ready(function() {
     function processAndDisplayRoutes() {
         if (!mapReady || !graphic_map) {
             console.warn('[MAPLIBRE] processAndDisplayRoutes called but map not ready');
+            return;
+        }
+
+        // Verify required sources exist
+        if (!graphic_map.getSource('routes')) {
+            console.error('[MAPLIBRE] Required source "routes" not found - map may not have initialized correctly');
             return;
         }
 
