@@ -12,8 +12,10 @@ Airports: KMIA, KMCO, KTPA (and their majors: FLL, PBI, SRQ, RSW, etc.)
 import pyodbc
 import json
 import os
-from datetime import datetime
+import sys
+from datetime import datetime, timezone
 from decimal import Decimal
+from collections import defaultdict
 
 # Database connection - uses environment variables or defaults
 DB_SERVER = os.environ.get("ADL_DB_SERVER", "vatsim.database.windows.net")
@@ -55,133 +57,146 @@ def decimal_default(obj):
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
-def fetch_flights(conn):
-    """Fetch all flights to/from Florida airports during the event window."""
+def fetch_all_data(conn):
+    """Fetch all flight data in bulk queries for efficiency."""
     airports_list = ",".join([f"'{a}'" for a in FLORIDA_AIRPORTS])
 
-    query = f"""
-    SELECT DISTINCT
-        c.flight_uid,
-        c.flight_key,
-        c.cid,
-        c.callsign,
-        c.phase,
-        c.first_seen_utc,
-        c.last_seen_utc
-    FROM adl_flight_core c
-    INNER JOIN adl_flight_plan p ON c.flight_uid = p.flight_uid
-    WHERE (p.fp_dept_icao IN ({airports_list}) OR p.fp_dest_icao IN ({airports_list}))
-      AND c.first_seen_utc <= '{EVENT_END}'
-      AND c.last_seen_utc >= '{EVENT_START}'
-    ORDER BY c.first_seen_utc
-    """
-
+    print("  Fetching flight cores...", flush=True)
+    # 1. Core flight data
     cursor = conn.cursor()
-    cursor.execute(query)
+    cursor.execute(f"""
+        SELECT DISTINCT
+            c.flight_uid, c.flight_key, c.cid, c.callsign, c.phase,
+            c.first_seen_utc, c.last_seen_utc
+        FROM adl_flight_core c
+        INNER JOIN adl_flight_plan p ON c.flight_uid = p.flight_uid
+        WHERE (p.fp_dept_icao IN ({airports_list}) OR p.fp_dest_icao IN ({airports_list}))
+          AND c.first_seen_utc <= '{EVENT_END}'
+          AND c.last_seen_utc >= '{EVENT_START}'
+        ORDER BY c.first_seen_utc
+    """)
 
-    flights = []
+    flights = {}
+    flight_uids = []
     for row in cursor.fetchall():
-        flights.append({
-            'flight_uid': row.flight_uid,
-            'flight_key': row.flight_key,
-            'cid': row.cid,
-            'callsign': row.callsign,
-            'phase': row.phase,
-            'first_seen_utc': row.first_seen_utc,
-            'last_seen_utc': row.last_seen_utc,
-        })
+        uid = row.flight_uid
+        flight_uids.append(uid)
+        flights[uid] = {
+            'core': {
+                'flight_uid': uid,
+                'flight_key': row.flight_key,
+                'cid': row.cid,
+                'callsign': row.callsign,
+                'phase': row.phase,
+                'first_seen_utc': row.first_seen_utc,
+                'last_seen_utc': row.last_seen_utc,
+            },
+            'plan': None,
+            'aircraft': None,
+            'position': None,
+            'times': None,
+            'trajectory': []
+        }
+
+    if not flight_uids:
+        return flights
+
+    uid_list = ",".join(str(uid) for uid in flight_uids)
+    print(f"  Found {len(flight_uids)} flights", flush=True)
+
+    # 2. Flight plans
+    print("  Fetching flight plans...", flush=True)
+    cursor.execute(f"""
+        SELECT flight_uid, fp_rule, fp_dept_icao, fp_dest_icao, fp_alt_icao,
+               fp_route, fp_route_expanded, dp_name, star_name, approach, runway,
+               dfix, afix, fp_altitude_ft, fp_tas_kts, fp_enroute_minutes,
+               fp_remarks, aircraft_type, aircraft_equip, gcd_nm,
+               waypoints_json, artccs_traversed, tracons_traversed
+        FROM adl_flight_plan WHERE flight_uid IN ({uid_list})
+    """)
+    for row in cursor.fetchall():
+        flights[row.flight_uid]['plan'] = row
+
+    # 3. Aircraft info
+    print("  Fetching aircraft info...", flush=True)
+    cursor.execute(f"""
+        SELECT flight_uid, aircraft_icao, weight_class, engine_type,
+               engine_count, wake_category, airline_icao, airline_name
+        FROM adl_flight_aircraft WHERE flight_uid IN ({uid_list})
+    """)
+    for row in cursor.fetchall():
+        flights[row.flight_uid]['aircraft'] = row
+
+    # 4. Positions
+    print("  Fetching positions...", flush=True)
+    cursor.execute(f"""
+        SELECT flight_uid, lat, lon, altitude_ft, groundspeed_kts,
+               vertical_rate_fpm, heading_deg, track_deg,
+               dist_to_dest_nm, pct_complete, position_updated_utc
+        FROM adl_flight_position WHERE flight_uid IN ({uid_list})
+    """)
+    for row in cursor.fetchall():
+        flights[row.flight_uid]['position'] = row
+
+    # 5. Times
+    print("  Fetching times...", flush=True)
+    cursor.execute(f"""
+        SELECT flight_uid, std_utc, etd_utc, atd_utc, sta_utc, eta_utc, ata_utc,
+               ctd_utc, cta_utc, edct_utc, ete_minutes, ate_minutes, delay_minutes
+        FROM adl_flight_times WHERE flight_uid IN ({uid_list})
+    """)
+    for row in cursor.fetchall():
+        flights[row.flight_uid]['times'] = row
+
+    # 6. Trajectories (bulk fetch, then group)
+    print("  Fetching trajectories (this may take a moment)...", flush=True)
+    cursor.execute(f"""
+        SELECT flight_uid, recorded_utc, lat, lon, altitude_ft,
+               groundspeed_kts, vertical_rate_fpm, heading_deg, track_deg
+        FROM adl_flight_trajectory
+        WHERE flight_uid IN ({uid_list})
+          AND recorded_utc >= '{EVENT_START}'
+          AND recorded_utc <= '{EVENT_END}'
+        ORDER BY flight_uid, recorded_utc
+    """)
+
+    traj_count = 0
+    for row in cursor.fetchall():
+        if row.flight_uid in flights:
+            flights[row.flight_uid]['trajectory'].append(row)
+            traj_count += 1
+
+    print(f"  Loaded {traj_count} trajectory points", flush=True)
 
     return flights
 
 
-def fetch_flight_plan(conn, flight_uid):
-    """Fetch flight plan data with FIXM field mapping."""
-    query = """
-    SELECT
-        fp_rule,
-        fp_dept_icao,
-        fp_dest_icao,
-        fp_alt_icao,
-        fp_route,
-        fp_route_expanded,
-        dp_name,
-        star_name,
-        approach,
-        runway,
-        dfix,
-        afix,
-        fp_altitude_ft,
-        fp_tas_kts,
-        fp_enroute_minutes,
-        fp_remarks,
-        aircraft_type,
-        aircraft_equip,
-        gcd_nm,
-        waypoints_json,
-        artccs_traversed,
-        tracons_traversed
-    FROM adl_flight_plan
-    WHERE flight_uid = ?
-    """
-
-    cursor = conn.cursor()
-    cursor.execute(query, flight_uid)
-    row = cursor.fetchone()
-
+def format_flight_plan(row):
+    """Format flight plan row as FIXM."""
     if not row:
         return None
 
-    # Map to FIXM field names
     return {
-        # FIXM: FlightRules
         "flightRulesCategory": row.fp_rule,
-
-        # FIXM: Departure/Arrival
-        "departureAerodrome": {
-            "icaoId": row.fp_dept_icao
-        },
-        "arrivalAerodrome": {
-            "icaoId": row.fp_dest_icao
-        },
-        "alternateAerodrome": {
-            "icaoId": row.fp_alt_icao
-        } if row.fp_alt_icao else None,
-
-        # FIXM: Route
+        "departureAerodrome": {"icaoId": row.fp_dept_icao},
+        "arrivalAerodrome": {"icaoId": row.fp_dest_icao},
+        "alternateAerodrome": {"icaoId": row.fp_alt_icao} if row.fp_alt_icao else None,
         "filedRoute": {
             "routeText": row.fp_route,
             "expandedRoute": row.fp_route_expanded,
         },
-
-        # FIXM: Procedures
         "standardInstrumentDeparture": row.dp_name,
         "standardInstrumentArrival": row.star_name,
         "approachProcedure": row.approach,
         "arrivalRunway": row.runway,
-
-        # FIXM: Route points
         "departurePoint": row.dfix,
         "arrivalPoint": row.afix,
-
-        # FIXM: Performance
-        "cruisingAltitude": {
-            "altitude": row.fp_altitude_ft,
-            "uom": "FT"
-        } if row.fp_altitude_ft else None,
-        "cruisingSpeed": {
-            "speed": row.fp_tas_kts,
-            "uom": "KT"
-        } if row.fp_tas_kts else None,
+        "cruisingAltitude": {"altitude": row.fp_altitude_ft, "uom": "FT"} if row.fp_altitude_ft else None,
+        "cruisingSpeed": {"speed": row.fp_tas_kts, "uom": "KT"} if row.fp_tas_kts else None,
         "estimatedElapsedTime": row.fp_enroute_minutes,
-
-        # FIXM: Remarks
         "remarks": row.fp_remarks,
-
-        # FIXM: Aircraft
         "aircraftType": row.aircraft_type,
         "equipmentQualifier": row.aircraft_equip,
-
-        # FIXM Extension: Route analysis
         "routeExtent": {
             "greatCircleDistanceNm": float(row.gcd_nm) if row.gcd_nm else None,
             "routeWaypoints": json.loads(row.waypoints_json) if row.waypoints_json else None,
@@ -191,37 +206,17 @@ def fetch_flight_plan(conn, flight_uid):
     }
 
 
-def fetch_aircraft_info(conn, flight_uid):
-    """Fetch aircraft info with FIXM field mapping."""
-    query = """
-    SELECT
-        aircraft_icao,
-        weight_class,
-        engine_type,
-        engine_count,
-        wake_category,
-        airline_icao,
-        airline_name
-    FROM adl_flight_aircraft
-    WHERE flight_uid = ?
-    """
-
-    cursor = conn.cursor()
-    cursor.execute(query, flight_uid)
-    row = cursor.fetchone()
-
+def format_aircraft(row):
+    """Format aircraft row as FIXM."""
     if not row:
         return None
 
     return {
-        # FIXM: Aircraft description
         "aircraftType": row.aircraft_icao,
         "wakeTurbulenceCategory": row.weight_class,
         "engineType": row.engine_type,
         "engineCount": row.engine_count,
         "wakeCategory": row.wake_category,
-
-        # FIXM: Operator
         "operator": {
             "icaoDesignator": row.airline_icao,
             "operatorName": row.airline_name
@@ -229,98 +224,33 @@ def fetch_aircraft_info(conn, flight_uid):
     }
 
 
-def fetch_current_position(conn, flight_uid):
-    """Fetch current position data with FIXM field mapping."""
-    query = """
-    SELECT
-        lat,
-        lon,
-        altitude_ft,
-        groundspeed_kts,
-        vertical_rate_fpm,
-        heading_deg,
-        track_deg,
-        dist_to_dest_nm,
-        pct_complete,
-        position_updated_utc
-    FROM adl_flight_position
-    WHERE flight_uid = ?
-    """
-
-    cursor = conn.cursor()
-    cursor.execute(query, flight_uid)
-    row = cursor.fetchone()
-
+def format_position(row):
+    """Format position row as FIXM."""
     if not row:
         return None
 
     return {
-        # FIXM: Position
         "position": {
             "latitude": float(row.lat) if row.lat else None,
             "longitude": float(row.lon) if row.lon else None,
         } if row.lat and row.lon else None,
-
-        # FIXM: Altitude
-        "altitude": {
-            "altitude": row.altitude_ft,
-            "uom": "FT"
-        } if row.altitude_ft else None,
-
-        # FIXM: Speed
-        "groundSpeed": {
-            "speed": row.groundspeed_kts,
-            "uom": "KT"
-        } if row.groundspeed_kts else None,
-
-        # FIXM: Vertical rate
-        "verticalRate": {
-            "rate": row.vertical_rate_fpm,
-            "uom": "FT_MIN"
-        } if row.vertical_rate_fpm else None,
-
-        # FIXM: Heading/Track
+        "altitude": {"altitude": row.altitude_ft, "uom": "FT"} if row.altitude_ft else None,
+        "groundSpeed": {"speed": row.groundspeed_kts, "uom": "KT"} if row.groundspeed_kts else None,
+        "verticalRate": {"rate": row.vertical_rate_fpm, "uom": "FT_MIN"} if row.vertical_rate_fpm else None,
         "heading": row.heading_deg,
         "track": row.track_deg,
-
-        # Extension
         "distanceToDestinationNm": float(row.dist_to_dest_nm) if row.dist_to_dest_nm else None,
         "percentComplete": float(row.pct_complete) if row.pct_complete else None,
-
-        # Timestamp
         "positionTime": row.position_updated_utc
     }
 
 
-def fetch_flight_times(conn, flight_uid):
-    """Fetch flight times with FIXM field mapping."""
-    query = """
-    SELECT
-        std_utc,
-        etd_utc,
-        atd_utc,
-        sta_utc,
-        eta_utc,
-        ata_utc,
-        ctd_utc,
-        cta_utc,
-        edct_utc,
-        ete_minutes,
-        ate_minutes,
-        delay_minutes
-    FROM adl_flight_times
-    WHERE flight_uid = ?
-    """
-
-    cursor = conn.cursor()
-    cursor.execute(query, flight_uid)
-    row = cursor.fetchone()
-
+def format_times(row):
+    """Format times row as FIXM."""
     if not row:
         return None
 
     return {
-        # FIXM: Departure times
         "departure": {
             "scheduledOffBlockTime": row.std_utc,
             "estimatedOffBlockTime": row.etd_utc,
@@ -328,65 +258,31 @@ def fetch_flight_times(conn, flight_uid):
             "controlledOffBlockTime": row.ctd_utc,
             "expectedDepartureClearanceTime": row.edct_utc,
         },
-
-        # FIXM: Arrival times
         "arrival": {
             "scheduledInBlockTime": row.sta_utc,
             "estimatedInBlockTime": row.eta_utc,
             "actualInBlockTime": row.ata_utc,
             "controlledInBlockTime": row.cta_utc,
         },
-
-        # FIXM: Elapsed times
         "estimatedElapsedTime": row.ete_minutes,
         "actualElapsedTime": row.ate_minutes,
         "totalDelay": row.delay_minutes,
     }
 
 
-def fetch_trajectory(conn, flight_uid):
-    """Fetch trajectory (position history) with FIXM field mapping."""
-    query = """
-    SELECT
-        recorded_utc,
-        lat,
-        lon,
-        altitude_ft,
-        groundspeed_kts,
-        vertical_rate_fpm,
-        heading_deg,
-        track_deg
-    FROM adl_flight_trajectory
-    WHERE flight_uid = ?
-      AND recorded_utc >= ?
-      AND recorded_utc <= ?
-    ORDER BY recorded_utc
-    """
-
-    cursor = conn.cursor()
-    cursor.execute(query, flight_uid, EVENT_START, EVENT_END)
-
+def format_trajectory(rows):
+    """Format trajectory rows as FIXM."""
     points = []
-    for row in cursor.fetchall():
+    for row in rows:
         points.append({
-            # FIXM: Point4D
             "pointTime": row.recorded_utc,
             "position": {
                 "latitude": float(row.lat),
                 "longitude": float(row.lon),
             },
-            "altitude": {
-                "altitude": row.altitude_ft,
-                "uom": "FT"
-            } if row.altitude_ft else None,
-            "groundSpeed": {
-                "speed": row.groundspeed_kts,
-                "uom": "KT"
-            } if row.groundspeed_kts else None,
-            "verticalRate": {
-                "rate": row.vertical_rate_fpm,
-                "uom": "FT_MIN"
-            } if row.vertical_rate_fpm else None,
+            "altitude": {"altitude": row.altitude_ft, "uom": "FT"} if row.altitude_ft else None,
+            "groundSpeed": {"speed": row.groundspeed_kts, "uom": "KT"} if row.groundspeed_kts else None,
+            "verticalRate": {"rate": row.vertical_rate_fpm, "uom": "FT_MIN"} if row.vertical_rate_fpm else None,
             "heading": row.heading_deg,
             "track": row.track_deg,
         })
@@ -397,41 +293,28 @@ def fetch_trajectory(conn, flight_uid):
     }
 
 
-def build_fixm_flight(conn, flight_info):
+def build_fixm_flight(flight_data):
     """Build complete FIXM-formatted flight object."""
-    flight_uid = flight_info['flight_uid']
+    core = flight_data['core']
 
     return {
-        # FIXM: Flight identification
         "flightIdentification": {
-            "gufi": flight_info['flight_key'],  # Global Unique Flight Identifier
-            "aircraftIdentification": flight_info['callsign'],
-            "vatsimCid": flight_info['cid'],
+            "gufi": core['flight_key'],
+            "aircraftIdentification": core['callsign'],
+            "vatsimCid": core['cid'],
         },
-
-        # FIXM: Flight status
         "flightStatus": {
-            "airborneState": flight_info['phase'],
-            "firstContact": flight_info['first_seen_utc'],
-            "lastContact": flight_info['last_seen_utc'],
+            "airborneState": core['phase'],
+            "firstContact": core['first_seen_utc'],
+            "lastContact": core['last_seen_utc'],
         },
-
-        # FIXM: Flight plan filed
-        "flightPlanFiled": fetch_flight_plan(conn, flight_uid),
-
-        # FIXM: Aircraft description
-        "aircraft": fetch_aircraft_info(conn, flight_uid),
-
-        # FIXM: Current position
+        "flightPlanFiled": format_flight_plan(flight_data['plan']),
+        "aircraft": format_aircraft(flight_data['aircraft']),
         "enRoute": {
-            "currentPosition": fetch_current_position(conn, flight_uid),
+            "currentPosition": format_position(flight_data['position']),
         },
-
-        # FIXM: Times
-        "flightTimes": fetch_flight_times(conn, flight_uid),
-
-        # FIXM: Trajectory (4D path)
-        "trajectory": fetch_trajectory(conn, flight_uid),
+        "flightTimes": format_times(flight_data['times']),
+        "trajectory": format_trajectory(flight_data['trajectory']),
     }
 
 
@@ -450,24 +333,22 @@ def main():
 
     conn = get_connection()
     print("Connected to database.")
+    print()
 
-    # Fetch flights
-    print("Fetching flights...")
-    flights = fetch_flights(conn)
-    print(f"Found {len(flights)} flights.")
+    # Fetch all data in bulk
+    print("Fetching data...")
+    flights_data = fetch_all_data(conn)
+    conn.close()
 
-    if not flights:
-        print("No flights found for the specified criteria.")
-        conn.close()
-        return
+    print()
+    print(f"Processing {len(flights_data)} flights...")
 
     # Build FIXM output
-    print("Building FIXM output...")
     fixm_output = {
         "messageMetadata": {
             "messageType": "FlightDataCollection",
             "source": "VATSWIM",
-            "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "event": {
                 "name": "All Aboard the Brightline SNO",
                 "startTime": EVENT_START.replace(" ", "T") + "Z",
@@ -476,27 +357,26 @@ def main():
             "airports": FLORIDA_AIRPORTS,
         },
         "flightCollection": {
-            "flightCount": len(flights),
+            "flightCount": len(flights_data),
             "flights": []
         }
     }
 
-    for i, flight_info in enumerate(flights, 1):
-        if i % 10 == 0:
-            print(f"  Processing flight {i}/{len(flights)}...")
-        fixm_flight = build_fixm_flight(conn, flight_info)
+    for i, (uid, flight_data) in enumerate(flights_data.items(), 1):
+        if i % 100 == 0:
+            print(f"  Formatted {i}/{len(flights_data)} flights...", flush=True)
+        fixm_flight = build_fixm_flight(flight_data)
         fixm_output["flightCollection"]["flights"].append(fixm_flight)
-
-    conn.close()
 
     # Write output
     output_file = "brightline_sno_flights.json"
+    print(f"\nWriting {output_file}...")
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(fixm_output, f, indent=2, default=decimal_default)
 
     print()
     print(f"Export complete: {output_file}")
-    print(f"Total flights: {len(flights)}")
+    print(f"Total flights: {len(flights_data)}")
 
     # Summary stats
     dept_counts = {}
