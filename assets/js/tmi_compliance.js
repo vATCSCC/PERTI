@@ -1939,10 +1939,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const destinations = r.destinations || [];
         const origins = r.origins || [];
 
-        // Cache trajectories if available (for smooth flight track rendering)
+        // Cache trajectories if available (for flight track rendering)
         if (r.trajectories && Object.keys(r.trajectories).length > 0) {
             this.trajectoryCache[mapId] = r.trajectories;
             console.log(`Cached ${Object.keys(r.trajectories).length} trajectories for ${mapId}`);
+        }
+
+        // Cache traffic sector data if available (include required spacing for arc rendering)
+        if (r.traffic_sector) {
+            this.trafficSectorCache = this.trafficSectorCache || {};
+            this.trafficSectorCache[mapId] = {
+                ...r.traffic_sector,
+                required_spacing: r.required || 0,
+                unit: r.unit || 'nm'
+            };
+            console.log(`Cached traffic sector for ${mapId}: ${r.traffic_sector.track_count} tracks, ${r.traffic_sector.sector_75.width_deg}° (75%), ${r.traffic_sector.sector_90.width_deg}° (90%), ${r.required}${r.unit} spacing`);
         }
 
         if (!requestor && !provider) {
@@ -2070,12 +2081,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 }
                 return response.json();
             })
-            .then(data => {
+            .then(async data => {
                 console.log('Map API response:', data);
                 if (data.success && data.map_data) {
+                    let mapData = data.map_data;
+
+                    // If facilities are empty, load from local GeoJSON files
+                    if (!mapData.facilities?.length && (requestor || provider)) {
+                        console.log('Loading facility boundaries from local GeoJSON...');
+                        const localFacilities = await this.loadLocalFacilityBoundaries(requestor, provider);
+                        if (localFacilities.length > 0) {
+                            mapData.facilities = localFacilities;
+                            // Recalculate bounds to include facilities
+                            mapData.bounds = this.calculateBounds(mapData);
+                            console.log(`Loaded ${localFacilities.length} facilities from local GeoJSON`);
+                        }
+                    }
+
                     // Cache the data
-                    this.mapDataCache[cacheKey] = data.map_data;
-                    this.renderMap(mapId, data.map_data);
+                    this.mapDataCache[cacheKey] = mapData;
+                    this.renderMap(mapId, mapData);
                 } else {
                     const errMsg = data.error || 'Failed to load map data';
                     console.error('Map API error:', errMsg);
@@ -2098,8 +2123,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Clear loading state
         container.innerHTML = '';
 
-        // Check if we have any data to show
-        if (!mapData.facilities?.length && !mapData.fixes?.length) {
+        // Check if we have any data to show (facilities, fixes, airports, or trajectories)
+        const hasData = mapData.facilities?.length || mapData.fixes?.length ||
+                        mapData.airports?.length || this.trajectoryCache[mapId];
+        if (!hasData) {
             container.innerHTML = '<div class="text-center text-muted py-4">No boundary data available</div>';
             return;
         }
@@ -2147,7 +2174,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         this.activeMaps[mapId] = map;
 
         map.on('load', () => {
-            // Add facility boundaries
+            // Add facility boundaries (provider emphasized as it manages the stream)
             if (mapData.facilities?.length) {
                 map.addSource('facilities', {
                     type: 'geojson',
@@ -2160,10 +2187,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'facilities',
                     paint: {
                         'fill-color': ['case',
-                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
                             ['==', ['get', 'role'], 'provider'], '#4dabf7',
+                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
                             '#888888'],
-                        'fill-opacity': 0.15
+                        // Provider is emphasized (manages the traffic stream/MIT)
+                        'fill-opacity': ['case',
+                            ['==', ['get', 'role'], 'provider'], 0.25,
+                            0.1]
                     }
                 });
 
@@ -2173,11 +2203,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'facilities',
                     paint: {
                         'line-color': ['case',
-                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
                             ['==', ['get', 'role'], 'provider'], '#4dabf7',
+                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
                             '#888888'],
-                        'line-width': 2,
-                        'line-opacity': 0.8
+                        // Thicker line for provider (manages the stream)
+                        'line-width': ['case',
+                            ['==', ['get', 'role'], 'provider'], 3,
+                            1.5],
+                        'line-opacity': ['case',
+                            ['==', ['get', 'role'], 'provider'], 1,
+                            0.6]
                     }
                 });
 
@@ -2197,6 +2232,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'text-halo-width': 1
                     }
                 });
+
+                console.log(`Added ${mapData.facilities.length} facility boundaries to map`);
             }
 
             // Add shared boundary (handoff line) - emphasized
@@ -2438,6 +2475,151 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 console.log(`Added flight tracks: ${solidFeatures.length} solid, ${dashedFeatures.length} dashed segments`);
             }
 
+            // Add traffic flow sectors (75% and 90% capture zones)
+            const sectorData = TMICompliance.trafficSectorCache?.[mapId];
+            if (sectorData) {
+                const sectorFeatures = [];
+                // Sector radius: at least 30nm, or enough to show 2-3 spacing arcs
+                const spacing = sectorData.required_spacing || 15;
+                const SECTOR_RADIUS_NM = Math.max(30, spacing * 2.5);
+
+                // Helper: compute point at given bearing and distance from origin
+                const pointAtBearing = (lon, lat, bearingDeg, distanceNm) => {
+                    const R = 3440.065; // Earth radius in nm
+                    const bearing = bearingDeg * Math.PI / 180;
+                    const lat1 = lat * Math.PI / 180;
+                    const lon1 = lon * Math.PI / 180;
+                    const d = distanceNm / R;
+
+                    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(bearing));
+                    const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(d) * Math.cos(lat1),
+                                                    Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+
+                    return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
+                };
+
+                // Build sector polygon: vertex + arc points
+                const buildSectorPolygon = (sector, radius) => {
+                    const [originLon, originLat] = sectorData.measurement_point;
+                    const coords = [[originLon, originLat]]; // Start at vertex
+
+                    // Generate arc points from start to end bearing
+                    let startBearing = sector.start_bearing;
+                    let endBearing = sector.end_bearing;
+
+                    // Handle wrap-around
+                    if (endBearing < startBearing) endBearing += 360;
+
+                    const arcPoints = Math.max(10, Math.ceil(sector.width_deg / 3)); // ~3 degrees per point
+                    for (let i = 0; i <= arcPoints; i++) {
+                        const bearing = startBearing + (endBearing - startBearing) * i / arcPoints;
+                        coords.push(pointAtBearing(originLon, originLat, bearing % 360, radius));
+                    }
+
+                    coords.push([originLon, originLat]); // Close polygon back to vertex
+                    return coords;
+                };
+
+                // 90% sector (larger, more transparent)
+                sectorFeatures.push({
+                    type: 'Feature',
+                    properties: { pct: 90 },
+                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] }
+                });
+
+                // 75% sector (smaller, more visible)
+                sectorFeatures.push({
+                    type: 'Feature',
+                    properties: { pct: 75 },
+                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM * 0.8)] }
+                });
+
+                map.addSource('traffic-sectors', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: sectorFeatures }
+                });
+
+                // Insert below flight tracks if they exist
+                const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
+
+                // Sector fills
+                map.addLayer({
+                    id: 'traffic-sectors-fill',
+                    type: 'fill',
+                    source: 'traffic-sectors',
+                    paint: {
+                        'fill-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
+                        'fill-opacity': ['case', ['==', ['get', 'pct'], 75], 0.25, 0.15]
+                    }
+                }, beforeLayer);
+
+                // Sector outlines
+                map.addLayer({
+                    id: 'traffic-sectors-outline',
+                    type: 'line',
+                    source: 'traffic-sectors',
+                    paint: {
+                        'line-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
+                        'line-width': ['case', ['==', ['get', 'pct'], 75], 2, 1],
+                        'line-opacity': 0.8
+                    }
+                }, beforeLayer);
+
+                // Add spacing arcs within the 90% sector
+                if (sectorData.required_spacing && sectorData.required_spacing > 0 && sectorData.unit === 'nm') {
+                    const arcFeatures = [];
+                    const [originLon, originLat] = sectorData.measurement_point;
+                    const sector = sectorData.sector_90;
+
+                    // Build arc at given radius
+                    const buildArc = (radius) => {
+                        const coords = [];
+                        let startBearing = sector.start_bearing;
+                        let endBearing = sector.end_bearing;
+                        if (endBearing < startBearing) endBearing += 360;
+
+                        const arcPoints = Math.max(10, Math.ceil(sector.width_deg / 3));
+                        for (let i = 0; i <= arcPoints; i++) {
+                            const bearing = startBearing + (endBearing - startBearing) * i / arcPoints;
+                            coords.push(pointAtBearing(originLon, originLat, bearing % 360, radius));
+                        }
+                        return coords;
+                    };
+
+                    // Generate arcs at spacing intervals (up to sector radius)
+                    for (let dist = spacing; dist <= SECTOR_RADIUS_NM; dist += spacing) {
+                        arcFeatures.push({
+                            type: 'Feature',
+                            properties: { distance: dist },
+                            geometry: { type: 'LineString', coordinates: buildArc(dist) }
+                        });
+                    }
+
+                    if (arcFeatures.length > 0) {
+                        map.addSource('spacing-arcs', {
+                            type: 'geojson',
+                            data: { type: 'FeatureCollection', features: arcFeatures }
+                        });
+
+                        map.addLayer({
+                            id: 'spacing-arcs',
+                            type: 'line',
+                            source: 'spacing-arcs',
+                            paint: {
+                                'line-color': '#ffffff',
+                                'line-width': 1,
+                                'line-opacity': 0.5,
+                                'line-dasharray': [2, 2]
+                            }
+                        }, beforeLayer);
+
+                        console.log(`Added ${arcFeatures.length} spacing arcs at ${spacing}nm intervals`);
+                    }
+                }
+
+                console.log(`Added traffic sectors: 75% (${sectorData.sector_75.width_deg}°), 90% (${sectorData.sector_90.width_deg}°)`);
+            }
+
             // Fit bounds
             if (mapData.bounds) {
                 map.fitBounds(mapData.bounds, { padding: 30, maxZoom: 8 });
@@ -2491,6 +2673,147 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         return result;
+    },
+
+    /**
+     * Load facility boundaries from local GeoJSON files
+     * Fallback when GIS API doesn't have boundary data
+     */
+    loadLocalFacilityBoundaries: async function(requestor, provider) {
+        const facilities = [];
+
+        // Detect facility type from code
+        const detectType = (code) => {
+            if (!code) return null;
+            // ARTCC codes start with Z (ZNY, ZDC, ZBW, etc.)
+            if (/^Z[A-Z]{2}$/.test(code)) return 'ARTCC';
+            // TRACON codes: letter + 2 digits (N90, A80, etc.) or 3 letters (PCT, SCT)
+            if (/^[A-Z]\d{2}$/.test(code) || /^[A-Z]{3}$/.test(code)) return 'TRACON';
+            return null;
+        };
+
+        const requestorType = detectType(requestor);
+        const providerType = detectType(provider);
+
+        try {
+            // Load ARTCC boundaries if needed
+            if (requestorType === 'ARTCC' || providerType === 'ARTCC') {
+                const artccResponse = await fetch('assets/geojson/artcc.json');
+                if (artccResponse.ok) {
+                    const artccData = await artccResponse.json();
+                    const artccCodes = [];
+                    if (requestorType === 'ARTCC') artccCodes.push({ code: requestor, role: 'requestor' });
+                    if (providerType === 'ARTCC' && provider !== requestor) artccCodes.push({ code: provider, role: 'provider' });
+
+                    for (const { code, role } of artccCodes) {
+                        // ARTCC GeoJSON uses ICAO codes (KZNY instead of ZNY)
+                        const icaoCode = 'K' + code;
+                        const feature = artccData.features.find(f =>
+                            f.properties.ICAOCODE === icaoCode || f.properties.ICAOCODE === code
+                        );
+                        if (feature) {
+                            facilities.push({
+                                type: 'Feature',
+                                properties: {
+                                    code: code,
+                                    name: feature.properties.FIRname || code,
+                                    type: 'ARTCC',
+                                    role: role
+                                },
+                                geometry: feature.geometry
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Load TRACON boundaries if needed
+            if (requestorType === 'TRACON' || providerType === 'TRACON') {
+                const traconResponse = await fetch('assets/geojson/tracon.json');
+                if (traconResponse.ok) {
+                    const traconData = await traconResponse.json();
+                    const traconCodes = [];
+                    if (requestorType === 'TRACON') traconCodes.push({ code: requestor, role: 'requestor' });
+                    if (providerType === 'TRACON' && provider !== requestor) traconCodes.push({ code: provider, role: 'provider' });
+
+                    for (const { code, role } of traconCodes) {
+                        // TRACON GeoJSON may have multiple features per sector (altitude layers)
+                        // Collect all and merge into MultiPolygon
+                        const features = traconData.features.filter(f => f.properties.sector === code);
+                        if (features.length > 0) {
+                            // Merge all geometries into one MultiPolygon
+                            const allCoords = [];
+                            features.forEach(f => {
+                                if (f.geometry.type === 'Polygon') {
+                                    allCoords.push(f.geometry.coordinates);
+                                } else if (f.geometry.type === 'MultiPolygon') {
+                                    allCoords.push(...f.geometry.coordinates);
+                                }
+                            });
+                            facilities.push({
+                                type: 'Feature',
+                                properties: {
+                                    code: code,
+                                    name: features[0].properties.label || code,
+                                    type: 'TRACON',
+                                    role: role,
+                                    label_lat: features[0].properties.label_lat,
+                                    label_lon: features[0].properties.label_lon
+                                },
+                                geometry: {
+                                    type: 'MultiPolygon',
+                                    coordinates: allCoords
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Error loading local facility boundaries:', err);
+        }
+
+        return facilities;
+    },
+
+    /**
+     * Calculate bounding box from map data (facilities, fixes, airports)
+     */
+    calculateBounds: function(mapData) {
+        let minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+        let hasData = false;
+
+        const expandBounds = (coords) => {
+            if (Array.isArray(coords[0])) {
+                coords.forEach(c => expandBounds(c));
+            } else {
+                const [lon, lat] = coords;
+                if (typeof lon === 'number' && typeof lat === 'number') {
+                    minLon = Math.min(minLon, lon);
+                    maxLon = Math.max(maxLon, lon);
+                    minLat = Math.min(minLat, lat);
+                    maxLat = Math.max(maxLat, lat);
+                    hasData = true;
+                }
+            }
+        };
+
+        // Include facilities
+        (mapData.facilities || []).forEach(f => {
+            if (f.geometry?.coordinates) expandBounds(f.geometry.coordinates);
+        });
+
+        // Include fixes
+        (mapData.fixes || []).forEach(f => {
+            if (f.geometry?.coordinates) expandBounds(f.geometry.coordinates);
+        });
+
+        // Include airports
+        (mapData.airports || []).forEach(f => {
+            if (f.geometry?.coordinates) expandBounds(f.geometry.coordinates);
+        });
+
+        return hasData ? [minLon, minLat, maxLon, maxLat] : null;
     },
 
     showMapError: function(mapId, message) {

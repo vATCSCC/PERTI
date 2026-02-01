@@ -33,6 +33,142 @@ def haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * 2 * math.asin(math.sqrt(a))
 
 
+def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate initial bearing from point 1 to point 2 in degrees (0-360)"""
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2 - lon1
+    x = math.sin(dlon) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+    bearing = math.atan2(x, y)
+    return (math.degrees(bearing) + 360) % 360
+
+
+def compute_traffic_sector(crossings: List, trajectory_cache: dict,
+                           measurement_lat: float, measurement_lon: float) -> Optional[dict]:
+    """
+    Compute angular sectors capturing 75% and 90% of traffic flow at measurement point.
+
+    For each flight, determines the track heading as it passes the measurement point,
+    then finds the smallest angular sector containing the specified percentages of traffic.
+
+    Args:
+        crossings: List of CrossingResult objects
+        trajectory_cache: Dict of callsign -> trajectory points
+        measurement_lat: Latitude of measurement point
+        measurement_lon: Longitude of measurement point
+
+    Returns:
+        Dict with sector data for map rendering, or None if insufficient data
+    """
+    if len(crossings) < 3:
+        return None
+
+    # Collect track headings at measurement point
+    headings = []
+
+    for crossing in crossings:
+        callsign = crossing.callsign
+        if callsign not in trajectory_cache:
+            continue
+
+        trajectory = trajectory_cache[callsign]
+        if len(trajectory) < 2:
+            continue
+
+        # Find the segment closest to measurement point
+        min_dist = float('inf')
+        best_idx = 0
+
+        for i, pt in enumerate(trajectory):
+            dist = haversine_nm(pt['lat'], pt['lon'], measurement_lat, measurement_lon)
+            if dist < min_dist:
+                min_dist = dist
+                best_idx = i
+
+        # Calculate heading from trajectory segment around closest point
+        if best_idx == 0:
+            # Use first two points
+            p1, p2 = trajectory[0], trajectory[1]
+        elif best_idx >= len(trajectory) - 1:
+            # Use last two points
+            p1, p2 = trajectory[-2], trajectory[-1]
+        else:
+            # Use point before and after
+            p1, p2 = trajectory[best_idx - 1], trajectory[best_idx + 1]
+
+        heading = calculate_bearing(p1['lat'], p1['lon'], p2['lat'], p2['lon'])
+        headings.append(heading)
+
+    if len(headings) < 3:
+        return None
+
+    # Find the median heading (central direction of traffic flow)
+    # Use circular statistics to handle wrap-around at 360°
+    sin_sum = sum(math.sin(math.radians(h)) for h in headings)
+    cos_sum = sum(math.cos(math.radians(h)) for h in headings)
+    median_heading = (math.degrees(math.atan2(sin_sum, cos_sum)) + 360) % 360
+
+    # Convert headings to angular offsets from median (-180 to +180)
+    offsets = []
+    for h in headings:
+        offset = h - median_heading
+        if offset > 180:
+            offset -= 360
+        elif offset < -180:
+            offset += 360
+        offsets.append(offset)
+
+    # Sort offsets to find percentile bounds
+    offsets.sort()
+    n = len(offsets)
+
+    # Find smallest sector containing X% of tracks
+    def find_sector_bounds(target_pct):
+        target_count = int(math.ceil(n * target_pct))
+        if target_count >= n:
+            return offsets[0], offsets[-1]
+
+        # Sliding window to find smallest angular range
+        min_range = 360
+        best_start = 0
+        best_end = 0
+
+        for i in range(n - target_count + 1):
+            range_size = offsets[i + target_count - 1] - offsets[i]
+            if range_size < min_range:
+                min_range = range_size
+                best_start = offsets[i]
+                best_end = offsets[i + target_count - 1]
+
+        return best_start, best_end
+
+    # Compute 75% and 90% sectors
+    start_75, end_75 = find_sector_bounds(0.75)
+    start_90, end_90 = find_sector_bounds(0.90)
+
+    # Convert back to absolute bearings
+    bearing_start_75 = (median_heading + start_75 + 360) % 360
+    bearing_end_75 = (median_heading + end_75 + 360) % 360
+    bearing_start_90 = (median_heading + start_90 + 360) % 360
+    bearing_end_90 = (median_heading + end_90 + 360) % 360
+
+    return {
+        'measurement_point': [round(measurement_lon, 4), round(measurement_lat, 4)],
+        'median_heading': round(median_heading, 1),
+        'track_count': len(headings),
+        'sector_75': {
+            'start_bearing': round(bearing_start_75, 1),
+            'end_bearing': round(bearing_end_75, 1),
+            'width_deg': round(end_75 - start_75, 1)
+        },
+        'sector_90': {
+            'start_bearing': round(bearing_start_90, 1),
+            'end_bearing': round(bearing_end_90, 1),
+            'width_deg': round(end_90 - start_90, 1)
+        }
+    }
+
+
 def classify_facility(code: str) -> str:
     """
     Classify a facility code as ARTCC, TRACON, or AIRPORT.
@@ -1508,6 +1644,21 @@ class TMIComplianceAnalyzer:
                         }
                     }
         result['trajectories'] = trajectories
+
+        # Compute traffic flow sectors (angular distribution at measurement point)
+        if len(sorted_crossings) >= 3:
+            # Use centroid of crossing locations as measurement point
+            avg_lat = sum(c.lat for c in sorted_crossings) / len(sorted_crossings)
+            avg_lon = sum(c.lon for c in sorted_crossings) / len(sorted_crossings)
+
+            traffic_sector = compute_traffic_sector(
+                sorted_crossings,
+                self._trajectory_cache,
+                avg_lat,
+                avg_lon
+            )
+            if traffic_sector:
+                result['traffic_sector'] = traffic_sector
 
         # Add traffic filter details if present
         if tmi.traffic_filter:

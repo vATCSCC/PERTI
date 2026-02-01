@@ -57,6 +57,13 @@ if (!defined("SQL_USERNAME")) {
     define("GIS_SQL_USERNAME", "GIS_admin");
     define("GIS_SQL_PASSWORD", "");  // Default: GIS_Admin_2026!
 
+    // VATSIM_STATS - Statistics & Analytics Database
+    // Uses same server as ADL, different database
+    define("STATS_SQL_HOST", "your-server.database.windows.net");
+    define("STATS_SQL_DATABASE", "VATSIM_STATS");
+    define("STATS_SQL_USERNAME", "");
+    define("STATS_SQL_PASSWORD", "");
+
     // =====================================================================
     // SITE INFORMATION
     // =====================================================================
