@@ -35,6 +35,8 @@
 - [[TMI API]]
 - [[GIS API]]
 - [[JATOC API]]
+- [[Simulator API]]
+- [[NOD Discord API]]
 
 ---
 
