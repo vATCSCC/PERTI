@@ -2182,7 +2182,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
-                glyphs: 'https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf',
+                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
                 sources: {
                     'carto-dark': {
                         type: 'raster',
@@ -2223,10 +2223,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ['==', ['get', 'role'], 'provider'], '#4dabf7',
                             ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
                             '#888888'],
-                        // Provider is emphasized (manages the traffic stream/MIT)
-                        'fill-opacity': ['case',
-                            ['==', ['get', 'role'], 'provider'], 0.25,
-                            0.1],
+                        'fill-opacity': 0.1,
                     },
                 });
 
@@ -2243,9 +2240,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-width': ['case',
                             ['==', ['get', 'role'], 'provider'], 3,
                             1.5],
-                        'line-opacity': ['case',
-                            ['==', ['get', 'role'], 'provider'], 1,
-                            0.6],
+                        'line-opacity': 0.6,
                     },
                 });
 
@@ -2304,7 +2299,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         },
                         paint: {
                             'fill-color': colors.fill,
-                            'fill-opacity': ['case', ['==', ['get', 'role'], 'provider'], 0.08, 0.04],
+                            'fill-opacity': 0.05,
                         },
                     }, insertBefore);
 
@@ -2789,7 +2784,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'traffic-sectors',
                     paint: {
                         'fill-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
-                        'fill-opacity': ['case', ['==', ['get', 'pct'], 75], 0.25, 0.15],
+                        'fill-opacity': ['case', ['==', ['get', 'pct'], 75], 0.15, 0.1],
                     },
                 }, beforeLayer);
 
@@ -2801,7 +2796,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     paint: {
                         'line-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
                         'line-width': ['case', ['==', ['get', 'pct'], 75], 2, 1],
-                        'line-opacity': 0.8,
+                        'line-opacity': 0.6,
                     },
                 }, beforeLayer);
 
@@ -2868,7 +2863,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             paint: {
                                 'line-color': '#ffffff',
                                 'line-width': 1,
-                                'line-opacity': 0.5,
+                                'line-opacity': 0.6,
                                 'line-dasharray': [2, 2],
                             },
                         }, beforeLayer);

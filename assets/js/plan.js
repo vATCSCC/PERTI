@@ -3565,7 +3565,7 @@ function pertiUpdateMessage() {
     lines.push('[PERTI Active Splits](https://perti.vatcscc.org/splits)');
     lines.push('[PERTI Ground Delay Tool (GDT)](https://perti.vatcscc.org/gdt)');
     lines.push('[PERTI Route Mapper](https://perti.vatcscc.org/route)');
-    lines.push('[Field Configs (VATSIM-applied AAR)](https://perti.vatcscc.org/configs)');
+    lines.push('[Field Configs (VATSIM-applied AAR)](https://perti.vatcscc.org/airport_config)');
     lines.push('[DCC Dashboard](https://docs.google.com/spreadsheets/d/1sps5ggCvSnsORlChliWsPsYD4Tl0yhUJfsTLynHq3TY/edit?usp=sharing)');
     lines.push('');
 
