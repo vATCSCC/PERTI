@@ -158,6 +158,31 @@ nohup php "${WWWROOT}/scripts/event_sync_daemon.php" --loop --interval=21600 >> 
 EVENT_SYNC_PID=$!
 echo "  event_sync_daemon.php started (PID: $EVENT_SYNC_PID)"
 
+# Run codebase/database indexer once at startup (generates agent_context.md for AI tools)
+# Uses lock file to prevent concurrent runs during rapid deployments
+# Runs in background with 30s delay to let daemons stabilize first
+echo "Scheduling indexer run (30s delay, background)..."
+(
+    sleep 30
+    LOCK_FILE="/tmp/perti_indexer.lock"
+    if [ -f "$LOCK_FILE" ]; then
+        # Check if lock is stale (older than 15 minutes)
+        LOCK_AGE=$(($(date +%s) - $(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0)))
+        if [ "$LOCK_AGE" -lt 900 ]; then
+            echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Indexer skipped - already running" >> /home/LogFiles/indexer.log
+            exit 0
+        fi
+        rm -f "$LOCK_FILE"
+    fi
+    touch "$LOCK_FILE"
+    echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Starting indexer (startup trigger)" >> /home/LogFiles/indexer.log
+    php "${WWWROOT}/scripts/indexer/run_indexer.php" >> /home/LogFiles/indexer.log 2>&1
+    rm -f "$LOCK_FILE"
+    echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Indexer complete" >> /home/LogFiles/indexer.log
+) &
+INDEXER_PID=$!
+echo "  Indexer scheduled (PID: $INDEXER_PID, will run after 30s)"
+
 echo "========================================"
 echo "All daemons started:"
 echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
@@ -166,6 +191,7 @@ echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
 echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
 echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
 echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
+echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
 echo "========================================"
 
 # Configure PHP-FPM for higher concurrency

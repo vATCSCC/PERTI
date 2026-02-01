@@ -241,33 +241,33 @@
 
 .weather-alert-item .alert-expires {
     font-size: 10px;
-    color: #999;
+    color: var(--text-on-dark-subtle);
 }
 
 .weather-alert-item .alert-info {
     font-size: 11px;
-    color: #aaa;
+    color: var(--text-on-dark-muted);
 }
 
 .weather-panel-footer {
     padding: 8px 12px;
-    background: #2a2a2a;
-    border-top: 1px solid #444;
+    background: var(--bg-dark-elevated);
+    border-top: 1px solid var(--border-dark);
     font-size: 10px;
-    color: #888;
+    color: var(--text-on-dark-subtle);
     text-align: center;
 }
 
 .weather-panel-empty {
     text-align: center;
     padding: 30px 20px;
-    color: #888;
+    color: var(--text-on-dark-subtle);
 }
 
 .weather-panel-empty i {
     font-size: 32px;
     margin-bottom: 10px;
-    color: #666;
+    color: var(--text-on-dark-disabled);
 }
 
 /* =========================================================================

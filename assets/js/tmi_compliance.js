@@ -2098,6 +2098,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         }
                     }
 
+                    // Load sector boundaries for any ARTCC facilities
+                    const artccCodes = [];
+                    if (requestor && /^Z[A-Z]{2}$/.test(requestor)) artccCodes.push(requestor);
+                    if (provider && /^Z[A-Z]{2}$/.test(provider) && provider !== requestor) artccCodes.push(provider);
+                    if (artccCodes.length > 0) {
+                        console.log('Loading sector boundaries for ARTCCs:', artccCodes.join(', '));
+                        const sectors = await this.loadLocalSectorBoundaries(artccCodes, provider);
+                        if (sectors.length > 0) {
+                            mapData.sectors = sectors;
+                            console.log(`Loaded ${sectors.length} sector boundaries`);
+                        }
+                    }
+
                     // Cache the data
                     this.mapDataCache[cacheKey] = mapData;
                     this.renderMap(mapId, mapData);
@@ -2234,6 +2247,69 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 });
 
                 console.log(`Added ${mapData.facilities.length} facility boundaries to map`);
+            }
+
+            // Add sector boundaries (less prominent than facility boundaries)
+            if (mapData.sectors?.length) {
+                map.addSource('sectors', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: mapData.sectors }
+                });
+
+                // Insert below facilities if they exist
+                const insertBefore = mapData.facilities?.length ? 'facilities-fill' : undefined;
+
+                // Sector fills - very subtle
+                map.addLayer({
+                    id: 'sectors-fill',
+                    type: 'fill',
+                    source: 'sectors',
+                    paint: {
+                        'fill-color': ['case',
+                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
+                            '#888888'],
+                        'fill-opacity': 0.05
+                    }
+                }, insertBefore);
+
+                // Sector outlines - thin dashed lines
+                map.addLayer({
+                    id: 'sectors-outline',
+                    type: 'line',
+                    source: 'sectors',
+                    paint: {
+                        'line-color': ['case',
+                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
+                            '#888888'],
+                        'line-width': 0.75,
+                        'line-opacity': 0.5,
+                        'line-dasharray': [3, 2]
+                    }
+                }, insertBefore);
+
+                // Sector labels - only show at higher zoom levels
+                map.addLayer({
+                    id: 'sectors-labels',
+                    type: 'symbol',
+                    source: 'sectors',
+                    minzoom: 6,  // Only show labels when zoomed in
+                    layout: {
+                        'text-field': ['get', 'code'],
+                        'text-font': ['Noto Sans Regular'],
+                        'text-size': 10,
+                        'text-anchor': 'center',
+                        'text-allow-overlap': false,
+                        'symbol-placement': 'point'
+                    },
+                    paint: {
+                        'text-color': '#adb5bd',
+                        'text-halo-color': '#000000',
+                        'text-halo-width': 1,
+                        'text-opacity': 0.7
+                    }
+                });
+
+                console.log(`Added ${mapData.sectors.length} sector boundaries to map`);
             }
 
             // Add shared boundary (handoff line) - emphasized
@@ -2774,6 +2850,64 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         return facilities;
+    },
+
+    /**
+     * Load sector boundaries from local GeoJSON files (high.json and low.json)
+     * Returns sectors for the specified ARTCC codes
+     */
+    loadLocalSectorBoundaries: async function(artccCodes, providerCode) {
+        const sectors = [];
+        if (!artccCodes || artccCodes.length === 0) return sectors;
+
+        // Normalize codes to lowercase for matching
+        const normalizedCodes = artccCodes.map(c => c.toLowerCase());
+        const providerLower = providerCode ? providerCode.toLowerCase() : null;
+
+        try {
+            // Load both high and low altitude sector files
+            const [highResponse, lowResponse] = await Promise.all([
+                fetch('assets/geojson/high.json').catch(() => null),
+                fetch('assets/geojson/low.json').catch(() => null)
+            ]);
+
+            const processFile = async (response, altitudeType) => {
+                if (!response || !response.ok) return;
+                const data = await response.json();
+
+                for (const feature of data.features) {
+                    const artcc = feature.properties.artcc;
+                    if (!artcc || !normalizedCodes.includes(artcc.toLowerCase())) continue;
+
+                    // Determine if this sector belongs to provider
+                    const isProvider = providerLower && artcc.toLowerCase() === providerLower;
+
+                    sectors.push({
+                        type: 'Feature',
+                        properties: {
+                            code: feature.properties.label || `${artcc.toUpperCase()}${feature.properties.sector}`,
+                            sector: feature.properties.sector,
+                            artcc: artcc.toUpperCase(),
+                            type: 'SECTOR',
+                            altitude: altitudeType,
+                            role: isProvider ? 'provider' : 'other'
+                        },
+                        geometry: feature.geometry
+                    });
+                }
+            };
+
+            await Promise.all([
+                processFile(highResponse, 'high'),
+                processFile(lowResponse, 'low')
+            ]);
+
+            console.log(`Loaded ${sectors.length} sectors for ARTCCs: ${artccCodes.join(', ')}`);
+        } catch (err) {
+            console.error('Error loading sector boundaries:', err);
+        }
+
+        return sectors;
     },
 
     /**
