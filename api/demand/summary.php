@@ -183,7 +183,7 @@ echo json_encode($response);
  * Helper function to extract phase breakdown from a row
  */
 function extractPhases($row) {
-    return [
+    $phases = [
         "arrived" => (int)($row['phase_arrived'] ?? 0),
         "disconnected" => (int)($row['phase_disconnected'] ?? 0),
         "descending" => (int)($row['phase_descending'] ?? 0),
@@ -193,6 +193,9 @@ function extractPhases($row) {
         "prefile" => (int)($row['phase_prefile'] ?? 0),
         "unknown" => (int)($row['phase_unknown'] ?? 0)
     ];
+    // Debug: Add phase sum to verify it matches count
+    $phases['_sum'] = array_sum($phases);
+    return $phases;
 }
 
 /**

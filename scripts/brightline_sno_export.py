@@ -35,7 +35,7 @@ FLORIDA_AIRPORTS = [
 def get_connection():
     """Create database connection."""
     conn_str = (
-        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
         f"SERVER={DB_SERVER};"
         f"DATABASE={DB_NAME};"
         f"UID={DB_USER};"
@@ -348,7 +348,7 @@ def fetch_trajectory(conn, flight_uid):
     """Fetch trajectory (position history) with FIXM field mapping."""
     query = """
     SELECT
-        timestamp_utc,
+        recorded_utc,
         lat,
         lon,
         altitude_ft,
@@ -358,9 +358,9 @@ def fetch_trajectory(conn, flight_uid):
         track_deg
     FROM adl_flight_trajectory
     WHERE flight_uid = ?
-      AND timestamp_utc >= ?
-      AND timestamp_utc <= ?
-    ORDER BY timestamp_utc
+      AND recorded_utc >= ?
+      AND recorded_utc <= ?
+    ORDER BY recorded_utc
     """
 
     cursor = conn.cursor()
@@ -370,7 +370,7 @@ def fetch_trajectory(conn, flight_uid):
     for row in cursor.fetchall():
         points.append({
             # FIXM: Point4D
-            "pointTime": row.timestamp_utc,
+            "pointTime": row.recorded_utc,
             "position": {
                 "latitude": float(row.lat),
                 "longitude": float(row.lon),
