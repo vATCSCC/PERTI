@@ -119,28 +119,43 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             fix = pt.get('fix', '')
             dest = pt.get('dest', '')
 
-            # Parse time window from raw text (format: "HHMM-HHMM")
+            # Parse time window - prefer explicit fields, fall back to parsing raw text
             raw = pt.get('raw', '')
             start_utc = event_start
             end_utc = event_end
+            issued_utc = None
 
-            # Extract time window from raw text (e.g., "0045-0320" or "2359Z-0400Z")
+            # Try explicit start_time/end_time fields first (from PHP parser)
+            start_time_str = pt.get('start_time', '')
+            end_time_str = pt.get('end_time', '')
+            issued_time_str = pt.get('issued_time', '')
+
             import re
-            time_match = re.search(r'(\d{4})Z?-(\d{4})Z?', raw)
-            if time_match:
-                start_utc = parse_time_window(time_match.group(1), event_start.date())
-                end_utc = parse_time_window(time_match.group(2), event_start.date())
+            if start_time_str and end_time_str:
+                start_utc = parse_time_window(start_time_str, event_start.date())
+                end_utc = parse_time_window(end_time_str, event_start.date())
+            else:
+                # Fall back to extracting from raw text (e.g., "0045-0320" or "2359Z-0400Z")
+                time_match = re.search(r'(\d{4})Z?-(\d{4})Z?', raw)
+                if time_match:
+                    start_utc = parse_time_window(time_match.group(1), event_start.date())
+                    end_utc = parse_time_window(time_match.group(2), event_start.date())
 
-                # Handle overnight events: if parsed times are before event start,
-                # shift them to the next day. This handles events like 23:59-04:00
-                # where TMI times like "0045" should be on the next calendar day.
-                if start_utc and start_utc < event_start - timedelta(hours=2):
-                    start_utc = start_utc + timedelta(days=1)
-                    end_utc = end_utc + timedelta(days=1) if end_utc else None
+            # Parse issued time for GS
+            if issued_time_str:
+                issued_utc = parse_time_window(issued_time_str, event_start.date())
 
-                # Also handle case where end < start (e.g., 2300-0100)
-                if end_utc and start_utc and end_utc < start_utc:
-                    end_utc = end_utc + timedelta(days=1)
+            # Handle overnight events: if parsed times are before event start,
+            # shift them to the next day. This handles events like 23:59-04:00
+            # where TMI times like "0045" should be on the next calendar day.
+            if start_utc and start_utc < event_start - timedelta(hours=2):
+                start_utc = start_utc + timedelta(days=1)
+                end_utc = end_utc + timedelta(days=1) if end_utc else None
+                issued_utc = issued_utc + timedelta(days=1) if issued_utc else None
+
+            # Also handle case where end < start (e.g., 2300-0100)
+            if end_utc and start_utc and end_utc < start_utc:
+                end_utc = end_utc + timedelta(days=1)
 
             # Handle destinations (may be array or comma-separated string)
             if 'destinations' in pt and isinstance(pt['destinations'], list):
@@ -170,7 +185,8 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
                 provider=pt.get('provider', ''),
                 requestor=pt.get('requestor', ''),
                 start_utc=start_utc,
-                end_utc=end_utc
+                end_utc=end_utc,
+                issued_utc=issued_utc
             )
             tmis.append(tmi)
 
