@@ -956,6 +956,96 @@ function getARTCCColor(artcc) {
     return `hsl(${hue}, 70%, 50%)`;
 }
 
+// Aircraft manufacturer groupings for equipment chart legend
+// Order: Boeing, Airbus, Embraer, Bombardier/Canadair, McDonnell Douglas, ATR/De Havilland, Other
+const AIRCRAFT_MANUFACTURERS = {
+    'Boeing': {
+        order: 1,
+        prefixes: ['B7', 'B3'],  // B737, B747, B757, B767, B777, B787, B38M, etc.
+        types: ['B712', 'B717', 'B721', 'B722', 'B727', 'B731', 'B732', 'B733', 'B734', 'B735', 'B736', 'B737', 'B738', 'B739',
+                'B37M', 'B38M', 'B39M', 'B3XM', 'B741', 'B742', 'B743', 'B744', 'B748', 'B74D', 'B74R', 'B74S',
+                'B752', 'B753', 'B762', 'B763', 'B764', 'B772', 'B773', 'B77L', 'B77W', 'B788', 'B789', 'B78X']
+    },
+    'Airbus': {
+        order: 2,
+        prefixes: ['A1', 'A2', 'A3', 'A4'],  // All Airbus start with A followed by digit
+        types: ['A124', 'A148', 'A158', 'A19N', 'A20N', 'A21N', 'A22X', 'A225',
+                'A306', 'A30B', 'A310', 'A318', 'A319', 'A320', 'A321', 'A332', 'A333', 'A337', 'A338', 'A339',
+                'A342', 'A343', 'A345', 'A346', 'A359', 'A35K', 'A388', 'A3ST']
+    },
+    'Embraer': {
+        order: 3,
+        prefixes: ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E9'],
+        types: ['E110', 'E120', 'E121', 'E135', 'E145', 'E170', 'E175', 'E190', 'E195', 'E290', 'E295',
+                'E35L', 'E50P', 'E55P', 'EGRT', 'LEGH', 'LJ35', 'PHNM', 'PHPR']
+    },
+    'Bombardier': {
+        order: 4,
+        prefixes: ['CRJ', 'CL', 'GL', 'BD', 'CH'],
+        types: ['BD10', 'BD70', 'CL30', 'CL35', 'CL60', 'CRJ1', 'CRJ2', 'CRJ7', 'CRJ9', 'CRJX',
+                'GL5T', 'GL7T', 'GLEX', 'GLXS', 'CH30', 'CH35', 'C25A', 'C25B', 'C25C', 'C500', 'C510',
+                'C525', 'C550', 'C560', 'C56X', 'C650', 'C680', 'C68A', 'C750']
+    },
+    'McDonnell Douglas': {
+        order: 5,
+        prefixes: ['MD', 'DC'],
+        types: ['DC10', 'DC3', 'DC6', 'DC85', 'DC86', 'DC87', 'DC9', 'DC93', 'DC94', 'DC95',
+                'MD10', 'MD11', 'MD80', 'MD81', 'MD82', 'MD83', 'MD87', 'MD88', 'MD90']
+    },
+    'ATR/De Havilland': {
+        order: 6,
+        prefixes: ['AT', 'DH', 'DHC'],
+        types: ['AT43', 'AT44', 'AT45', 'AT46', 'AT72', 'AT73', 'AT75', 'AT76',
+                'DH8A', 'DH8B', 'DH8C', 'DH8D', 'DHC2', 'DHC3', 'DHC4', 'DHC5', 'DHC6', 'DHC7']
+    },
+    'Chinese': {
+        order: 7,
+        prefixes: ['C9', 'ARJ'],
+        types: ['ARJ2', 'ARJ21', 'C919', 'MA60', 'Y12']
+    },
+    'Russian': {
+        order: 8,
+        prefixes: ['IL', 'TU', 'AN', 'SSJ', 'SU', 'YK'],
+        types: ['AN12', 'AN24', 'AN26', 'AN28', 'AN30', 'AN32', 'AN72', 'AN74', 'AN12', 'AN14', 'AN22', 'AN22', 'A124', 'A225',
+                'IL14', 'IL18', 'IL62', 'IL76', 'IL86', 'IL96', 'SSJ1', 'SU95', 'TU14', 'TU15', 'TU16', 'TU20', 'TU22', 'TU34',
+                'TU54', 'T134', 'T144', 'T154', 'T204', 'T214', 'YK40', 'YK42']
+    },
+    'Concorde': {
+        order: 9,
+        prefixes: ['CONC'],
+        types: ['CONC']
+    }
+};
+
+// Get manufacturer for an aircraft type
+function getAircraftManufacturer(acType) {
+    if (!acType) return 'Other';
+    const upper = acType.toUpperCase();
+
+    // Check exact type matches first
+    for (const [mfr, data] of Object.entries(AIRCRAFT_MANUFACTURERS)) {
+        if (data.types.includes(upper)) {
+            return mfr;
+        }
+    }
+
+    // Check prefix matches
+    for (const [mfr, data] of Object.entries(AIRCRAFT_MANUFACTURERS)) {
+        for (const prefix of data.prefixes) {
+            if (upper.startsWith(prefix)) {
+                return mfr;
+            }
+        }
+    }
+
+    return 'Other';
+}
+
+// Get manufacturer order for sorting
+function getManufacturerOrder(mfr) {
+    return AIRCRAFT_MANUFACTURERS[mfr]?.order || 99;
+}
+
 /**
  * Get DCC region color for an ARTCC
  * Uses FacilityHierarchy regional color scheme:
@@ -1013,6 +1103,46 @@ function getDCCRegionColor(artcc) {
     }
     const hue = Math.abs(hash % 360);
     return `hsl(${hue}, 70%, 50%)`;
+}
+
+// DCC Region display order for legend grouping
+// Uses FacilityHierarchy.DCC_REGIONS for actual mappings
+const DCC_REGION_ORDER = {
+    'NORTHEAST': 1,
+    'SOUTHEAST': 2,
+    'SOUTH_CENTRAL': 3,
+    'MIDWEST': 4,
+    'WEST': 5,
+    'CANADA': 6,
+    'MEXICO': 7,
+    'CARIBBEAN': 8,
+    'Other': 99
+};
+
+// Get DCC region name for an ARTCC (uses global FacilityHierarchy if available)
+function getARTCCRegion(artcc) {
+    if (!artcc) return 'Other';
+
+    // Use global FacilityHierarchy if available
+    if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegion) {
+        const region = FacilityHierarchy.getRegion(artcc);
+        if (region) return region;
+    }
+
+    return 'Other';
+}
+
+// Get region display name
+function getRegionDisplayName(regionKey) {
+    if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.DCC_REGIONS && FacilityHierarchy.DCC_REGIONS[regionKey]) {
+        return FacilityHierarchy.DCC_REGIONS[regionKey].name;
+    }
+    return regionKey;
+}
+
+// Get region order for sorting
+function getRegionOrder(region) {
+    return DCC_REGION_ORDER[region] || 99;
 }
 
 /**
@@ -1600,11 +1730,28 @@ function initPhaseFilterFloatingPanel() {
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
 
+    // Helper to restore normal state after drag ends
+    function endDrag() {
+        if (isDragging) {
+            isDragging = false;
+            $('body').css('user-select', '');
+            // Re-enable pointer events on chart
+            $('#demand_chart').css('pointer-events', '');
+            // Save position
+            panelPos.x = parseInt($floatingPanel.css('left')) || 0;
+            panelPos.y = parseInt($floatingPanel.css('top')) || 0;
+        }
+    }
+
     $panelHeader.on('mousedown', function(e) {
         if ($(e.target).closest('.panel-btn').length) return; // Don't drag when clicking buttons
         isDragging = true;
-        dragOffset.x = e.clientX - $floatingPanel.offset().left;
-        dragOffset.y = e.clientY - $floatingPanel.offset().top;
+        // For position:fixed elements, use CSS left/top values (viewport-relative)
+        // to match e.clientX/clientY (also viewport-relative)
+        const currentLeft = parseInt($floatingPanel.css('left')) || 0;
+        const currentTop = parseInt($floatingPanel.css('top')) || 0;
+        dragOffset.x = e.clientX - currentLeft;
+        dragOffset.y = e.clientY - currentTop;
         $('body').css('user-select', 'none');
         // Disable pointer events on chart so drag works over it
         $('#demand_chart').css('pointer-events', 'none');
@@ -1628,17 +1775,11 @@ function initPhaseFilterFloatingPanel() {
         });
     });
 
-    $(document).on('mouseup', function() {
-        if (isDragging) {
-            isDragging = false;
-            $('body').css('user-select', '');
-            // Re-enable pointer events on chart
-            $('#demand_chart').css('pointer-events', '');
-            // Save position
-            panelPos.x = parseInt($floatingPanel.css('left'));
-            panelPos.y = parseInt($floatingPanel.css('top'));
-        }
-    });
+    // End drag on mouseup
+    $(document).on('mouseup', endDrag);
+
+    // Also end drag if mouse leaves window (prevents stuck state)
+    $(document).on('mouseleave', endDrag);
 
     // Handle window resize - keep panel in bounds
     $(window).on('resize', function() {
@@ -2452,9 +2593,12 @@ function renderChart(data) {
         },
         tooltip: {
             trigger: 'axis',
+            confine: true,  // Keep tooltip within chart area
             axisPointer: {
-                type: 'shadow'
+                type: 'shadow',
+                z: 10  // Keep axisPointer below dataZoom sliders
             },
+            z: 50,  // Keep tooltip below dataZoom sliders (z: 100)
             backgroundColor: 'rgba(255, 255, 255, 0.98)',
             borderColor: '#ccc',
             borderWidth: 1,
@@ -2661,7 +2805,64 @@ function renderOriginChart() {
 
     const dirLabel = direction === 'arr' ? 'Arrivals' : 'Flights';
 
-    // Use shared renderBreakdownChart with DCC regional colors
+    // Get all ARTCCs from breakdown data
+    const breakdown = DEMAND_STATE.originBreakdown || {};
+    const allARTCCs = new Set();
+    for (const bin in breakdown) {
+        const catData = breakdown[bin];
+        if (Array.isArray(catData)) {
+            catData.forEach(item => allARTCCs.add(item.artcc));
+        }
+    }
+
+    // Group ARTCCs by DCC region
+    const regionGroups = {};
+    allARTCCs.forEach(artcc => {
+        const region = getARTCCRegion(artcc);
+        if (!regionGroups[region]) {
+            regionGroups[region] = [];
+        }
+        regionGroups[region].push(artcc);
+    });
+
+    // Sort regions by order, then sort ARTCCs within each region
+    const sortedRegions = Object.keys(regionGroups).sort((a, b) => getRegionOrder(a) - getRegionOrder(b));
+    sortedRegions.forEach(region => {
+        regionGroups[region].sort();
+    });
+
+    // Build legend array - one row per region (only for regions with ARTCCs)
+    const legendRows = [];
+    const baseBottom = 75;
+    const rowHeight = 22;
+    const activeRegions = sortedRegions.filter(r => regionGroups[r].length > 0);
+    const numRows = activeRegions.length;
+
+    activeRegions.forEach((region, idx) => {
+        const artccs = regionGroups[region];
+        if (artccs.length === 0) return;
+
+        legendRows.push({
+            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
+            left: 10,
+            width: '95%',
+            type: 'scroll',
+            orient: 'horizontal',
+            itemWidth: 12,
+            itemHeight: 8,
+            itemGap: 8,
+            textStyle: {
+                fontSize: 10,
+                fontFamily: '"Segoe UI", sans-serif'
+            },
+            data: artccs
+        });
+    });
+
+    // Calculate grid bottom to accommodate all legend rows
+    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
+
+    // Use shared renderBreakdownChart with DCC regional colors and custom legend
     renderBreakdownChart(
         DEMAND_STATE.originBreakdown,
         `${dirLabel} by Origin ARTCC`,
@@ -2669,7 +2870,17 @@ function renderOriginChart() {
         'artcc',
         getDCCRegionColor,  // Use DCC regional color function
         null,
-        null
+        null,
+        {
+            legend: legendRows.length > 0 ? legendRows : undefined,
+            grid: {
+                left: 55,
+                right: 70,
+                bottom: gridBottom,
+                top: 55,
+                containLabel: false
+            }
+        }
     );
 }
 
@@ -2683,8 +2894,9 @@ function renderOriginChart() {
  * @param {Function} colorFn - Function to get color for a category
  * @param {Function} labelFn - Optional function to get display label
  * @param {Array} order - Optional array specifying category order
+ * @param {Object} extraOptions - Optional extra chart options (legend, grid overrides)
  */
-function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, colorFn, labelFn, order) {
+function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, colorFn, labelFn, order, extraOptions) {
     if (!DEMAND_STATE.chart) {
         console.error('Chart not initialized');
         return;
@@ -2716,10 +2928,13 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         return d.toISOString().replace('.000Z', 'Z');
     };
 
-    // Round to hour helper - breakdown data from API is always hourly
-    const roundToHour = (bin) => {
+    // Round to granularity helper - for time bin lookups
+    const roundToGranularity = (bin) => {
         const d = new Date(bin);
-        d.setUTCMinutes(0, 0, 0);
+        const granMinutes = getGranularityMinutes();
+        const minutes = d.getUTCMinutes();
+        const roundedMinutes = Math.floor(minutes / granMinutes) * granMinutes;
+        d.setUTCMinutes(roundedMinutes, 0, 0);
         return d.toISOString().replace('.000Z', 'Z');
     };
 
@@ -2753,11 +2968,26 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
 
     // Build series with phase filtering
     const enabledPhases = getEnabledPhases();
+
+    // Debug: log enabled phases and verify math
+    console.log('[Demand] Phase filter - enabled phases:', enabledPhases);
+    const firstBinKey = Object.keys(breakdown)[0];
+    if (firstBinKey && breakdown[firstBinKey] && breakdown[firstBinKey][0]) {
+        const entry = breakdown[firstBinKey][0];
+        console.log('[Demand] Phase filter - sample entry:', {
+            count: entry.count,
+            phases: entry.phases,
+            enabledSum: enabledPhases.reduce((sum, p) => sum + (entry.phases?.[p] || 0), 0),
+            allPhasesSum: entry.phases ? Object.values(entry.phases).reduce((a, b) => a + b, 0) : 'N/A'
+        });
+    }
+
     const series = categoryList.map(category => {
         const seriesData = timeBins.map(bin => {
-            // Try hourly lookup first (breakdown data is always hourly), then exact match
-            const hourlyBin = roundToHour(bin);
-            const binData = breakdown[hourlyBin] || breakdown[normalizeTimeBin(bin)] || [];
+            // Match time bin format - use normalized bin first, then granularity-rounded fallback
+            const normalizedBin = normalizeTimeBin(bin);
+            const roundedBin = roundToGranularity(bin);
+            const binData = breakdown[normalizedBin] || breakdown[roundedBin] || [];
             const catEntry = Array.isArray(binData) ? binData.find(item => item[categoryKey] === category) : null;
 
             // Calculate value based on enabled phases
@@ -2922,7 +3152,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 return tooltip;
             }
         },
-        legend: {
+        legend: (extraOptions && extraOptions.legend) ? extraOptions.legend : {
             bottom: 75,  // Above sliders
             left: 'center',
             width: '85%',  // Allow wrapping
@@ -2937,7 +3167,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         },
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
-        grid: {
+        grid: (extraOptions && extraOptions.grid) ? extraOptions.grid : {
             left: 55,
             right: 70,   // Room for AAR/ADR labels
             bottom: 145, // Room for slider + legend (with wrapping)
@@ -3047,23 +3277,112 @@ function renderDestChart() {
     }
 
     const dirLabel = direction === 'dep' ? 'Departures' : 'Flights';
+
+    // Get all ARTCCs from breakdown data
+    const breakdown = DEMAND_STATE.destBreakdown || {};
+    const allARTCCs = new Set();
+    for (const bin in breakdown) {
+        const catData = breakdown[bin];
+        if (Array.isArray(catData)) {
+            catData.forEach(item => allARTCCs.add(item.artcc));
+        }
+    }
+
+    // Group ARTCCs by DCC region
+    const regionGroups = {};
+    allARTCCs.forEach(artcc => {
+        const region = getARTCCRegion(artcc);
+        if (!regionGroups[region]) {
+            regionGroups[region] = [];
+        }
+        regionGroups[region].push(artcc);
+    });
+
+    // Sort regions by order, then sort ARTCCs within each region
+    const sortedRegions = Object.keys(regionGroups).sort((a, b) => getRegionOrder(a) - getRegionOrder(b));
+    sortedRegions.forEach(region => {
+        regionGroups[region].sort();
+    });
+
+    // Build legend array - one row per region (only for regions with ARTCCs)
+    const legendRows = [];
+    const baseBottom = 75;
+    const rowHeight = 22;
+    const activeRegions = sortedRegions.filter(r => regionGroups[r].length > 0);
+    const numRows = activeRegions.length;
+
+    activeRegions.forEach((region, idx) => {
+        const artccs = regionGroups[region];
+        if (artccs.length === 0) return;
+
+        legendRows.push({
+            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
+            left: 10,
+            width: '95%',
+            type: 'scroll',
+            orient: 'horizontal',
+            itemWidth: 12,
+            itemHeight: 8,
+            itemGap: 8,
+            textStyle: {
+                fontSize: 10,
+                fontFamily: '"Segoe UI", sans-serif'
+            },
+            data: artccs
+        });
+    });
+
+    // Calculate grid bottom to accommodate all legend rows
+    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
+
     renderBreakdownChart(
         DEMAND_STATE.destBreakdown,
         `${dirLabel} by Destination ARTCC`,
         'dest',
         'artcc',
-        (artcc) => typeof getDCCRegionColor === 'function' ? getDCCRegionColor(artcc) : getARTCCColor(artcc),
+        getDCCRegionColor,
         null,
-        null
+        null,
+        {
+            legend: legendRows.length > 0 ? legendRows : undefined,
+            grid: {
+                left: 55,
+                right: 70,
+                bottom: gridBottom,
+                top: 55,
+                containLabel: false
+            }
+        }
     );
 }
 
 /**
  * Render chart with carrier breakdown (top carriers + OTHER)
+ * Shows ICAO codes only, sorted by flight count (descending)
  */
 function renderCarrierChart() {
     const direction = DEMAND_STATE.direction;
     const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    // Calculate total flights per carrier for sorting
+    const breakdown = DEMAND_STATE.carrierBreakdown || {};
+    const carrierTotals = {};
+    for (const bin in breakdown) {
+        const catData = breakdown[bin];
+        if (Array.isArray(catData)) {
+            catData.forEach(item => {
+                const carrier = item.carrier;
+                if (!carrierTotals[carrier]) {
+                    carrierTotals[carrier] = 0;
+                }
+                carrierTotals[carrier] += item.count || 0;
+            });
+        }
+    }
+
+    // Sort carriers by count (descending)
+    const sortedCarriers = Object.keys(carrierTotals).sort((a, b) => carrierTotals[b] - carrierTotals[a]);
+
     renderBreakdownChart(
         DEMAND_STATE.carrierBreakdown,
         `${dirLabel} by Carrier`,
@@ -3075,13 +3394,8 @@ function renderCarrierChart() {
             }
             return '#6c757d';
         },
-        (carrier) => {
-            if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier && FILTER_CONFIG.carrier.labels) {
-                return FILTER_CONFIG.carrier.labels[carrier] || carrier;
-            }
-            return carrier;
-        },
-        null
+        null,  // No label function - just show ICAO code
+        sortedCarriers  // Order by flight count
     );
 }
 
@@ -3123,10 +3437,71 @@ function renderWeightChart() {
 
 /**
  * Render chart with equipment/aircraft type breakdown
+ * Legend is grouped by manufacturer (Boeing, Airbus, etc.)
  */
 function renderEquipmentChart() {
     const direction = DEMAND_STATE.direction;
     const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+
+    // Get all aircraft types from breakdown data
+    const breakdown = DEMAND_STATE.equipmentBreakdown || {};
+    const allTypes = new Set();
+    for (const bin in breakdown) {
+        const catData = breakdown[bin];
+        if (Array.isArray(catData)) {
+            catData.forEach(item => allTypes.add(item.equipment));
+        }
+    }
+
+    // Group aircraft types by manufacturer
+    const mfrGroups = {};
+    allTypes.forEach(acType => {
+        const mfr = getAircraftManufacturer(acType);
+        if (!mfrGroups[mfr]) {
+            mfrGroups[mfr] = [];
+        }
+        mfrGroups[mfr].push(acType);
+    });
+
+    // Sort manufacturers by order, then sort types within each manufacturer
+    const sortedMfrs = Object.keys(mfrGroups).sort((a, b) => getManufacturerOrder(a) - getManufacturerOrder(b));
+    sortedMfrs.forEach(mfr => {
+        mfrGroups[mfr].sort();
+    });
+
+    // Build legend array - one row per manufacturer
+    const legendRows = [];
+    const baseBottom = 75;  // Base position for first legend row
+    const rowHeight = 22;   // Height between legend rows
+    const numRows = sortedMfrs.length;
+
+    sortedMfrs.forEach((mfr, idx) => {
+        const types = mfrGroups[mfr];
+        if (types.length === 0) return;
+
+        legendRows.push({
+            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
+            left: 10,
+            width: '95%',
+            type: 'scroll',
+            orient: 'horizontal',
+            itemWidth: 12,
+            itemHeight: 8,
+            itemGap: 8,
+            textStyle: {
+                fontSize: 10,
+                fontFamily: '"Segoe UI", sans-serif'
+            },
+            data: types,
+            formatter: function(name) {
+                return name;  // Just show the aircraft type code
+            }
+        });
+    });
+
+    // Calculate grid bottom to accommodate all legend rows
+    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
+
     renderBreakdownChart(
         DEMAND_STATE.equipmentBreakdown,
         `${dirLabel} by Aircraft Type`,
@@ -3139,7 +3514,17 @@ function renderEquipmentChart() {
             return '#6c757d';
         },
         null,
-        null
+        null,
+        {
+            legend: legendRows.length > 0 ? legendRows : undefined,
+            grid: {
+                left: 55,
+                right: 70,
+                bottom: gridBottom,
+                top: 55,
+                containLabel: false
+            }
+        }
     );
 }
 
@@ -4648,7 +5033,8 @@ function getDataZoomConfig() {
                        d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
             },
             brushSelect: false,
-            zLevel: 10                    // Ensure slider is above other elements
+            z: 100,                       // Ensure slider is above tooltip elements
+            zLevel: 100                   // Ensure slider is above other elements
         },
         {
             // Vertical slider (demand axis) - on the right side
@@ -4678,7 +5064,8 @@ function getDataZoomConfig() {
                 fontSize: 10
             },
             brushSelect: false,
-            zLevel: 10
+            z: 100,                       // Ensure slider is above tooltip elements
+            zLevel: 100
         },
         {
             // Inside zoom for time axis (mouse scroll/drag)
