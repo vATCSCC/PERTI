@@ -1775,7 +1775,7 @@
         if (!acType) {return '';}
         // Remove everything after first slash (equipment suffix)
         // Also handles formats like B738-L or B738_L
-        return acType.split(/[\/\-_]/)[0].toUpperCase();
+        return acType.split(/[/\-_]/)[0].toUpperCase();
     }
 
     /**
@@ -1800,7 +1800,7 @@
         const mode = state.traffic.colorMode;
 
         switch (mode) {
-            case 'status':
+            case 'status': {
                 // Check TMI status flags first (highest priority)
                 if (flight.gs_affected || flight.ground_stop_affected) {return '#dc3545';}  // Red - Ground stopped
                 if (flight.gdp_affected || flight.edct_issued) {return '#ffc107';}  // Yellow - EDCT
@@ -1817,16 +1817,18 @@
                     return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#9333ea';
                 }
                 return '#999999';
+            }
 
             case 'altitude':
                 return getAltitudeBlockColor(flight.altitude_ft || flight.altitude);
 
-            case 'weight_class':
+            case 'weight_class': {
                 const wc = getWeightClass(flight);
                 return WEIGHT_CLASS_COLORS[wc] || WEIGHT_CLASS_COLORS[''];
+            }
 
             case 'aircraft_category':
-            case 'ac_cat':
+            case 'ac_cat': {
                 // Use raw weight_class field (J/H/L/S or SUPER/HEAVY/LARGE/SMALL)
                 const cat = (flight.weight_class || '').toUpperCase();
                 if (cat === 'J' || cat === 'SUPER') {return WEIGHT_CLASS_COLORS['SUPER'];}
@@ -1834,6 +1836,7 @@
                 if (cat === 'L' || cat === 'LARGE') {return WEIGHT_CLASS_COLORS['LARGE'];}
                 if (cat === 'S' || cat === 'SMALL' || cat === 'P' || cat === 'PROP') {return WEIGHT_CLASS_COLORS['SMALL'];}
                 return '#6c757d';
+            }
 
             case 'carrier':
                 return getCarrierColor(flight.callsign);
@@ -1847,7 +1850,7 @@
             case 'center':
                 return getCenterColor(flight.current_artcc || flight.dep_artcc);
 
-            case 'dcc_region':
+            case 'dcc_region': {
                 const center = (flight.fp_dest_artcc || flight.arr_artcc || '').toUpperCase();
                 for (const [region, centers] of Object.entries(DCC_REGIONS)) {
                     if (centers.includes(center)) {
@@ -1855,13 +1858,15 @@
                     }
                 }
                 return DCC_REGION_COLORS[''];
+            }
 
-            case 'arr_dep':
+            case 'arr_dep': {
                 const altVal = parseInt(flight.altitude_ft || flight.altitude) || 0;
                 if (flight.groundspeed && parseInt(flight.groundspeed) < 50) {
                     return '#666666'; // Parked
                 }
                 return altVal > 10000 ? ARR_DEP_COLORS['ARR'] : ARR_DEP_COLORS['DEP'];
+            }
 
             case 'eta_relative':
                 return getEtaRelativeColor(flight.eta_runway_utc || flight.eta_utc);
@@ -1869,7 +1874,7 @@
             case 'eta_hour':
                 return getEtaHourColor(flight.eta_runway_utc || flight.eta_utc);
 
-            case 'speed':
+            case 'speed': {
                 const spd = parseInt(flight.groundspeed_kts || flight.groundspeed) || 0;
                 if (spd < 50) {return SPEED_COLORS['GROUND'];}
                 if (spd < 150) {return SPEED_COLORS['SLOW'];}
@@ -1878,6 +1883,7 @@
                 if (spd < 450) {return SPEED_COLORS['VFAST'];}
                 if (spd < 550) {return SPEED_COLORS['JET'];}
                 return SPEED_COLORS['SUPERSONIC'];
+            }
 
             case 'dep_airport':
                 return getAirportTierColor(flight.fp_dept_icao);
@@ -1886,7 +1892,7 @@
                 return getAirportTierColor(flight.fp_dest_icao);
 
             case 'dep_tracon':
-            case 'arr_tracon':
+            case 'arr_tracon': {
                 // Use DCC region color based on ARTCC
                 const artcc = mode === 'dep_tracon'
                     ? (flight.fp_dept_artcc || flight.dep_artcc)
@@ -1898,27 +1904,32 @@
                     }
                 }
                 return DCC_REGION_COLORS[''];
+            }
 
-            case 'aircraft_type':
+            case 'aircraft_type': {
                 // Prefer aircraft_icao (clean code from DB), fallback to flight plan fields
                 const acType = stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || '');
                 const mfr = getAircraftManufacturer(acType);
                 return AIRCRAFT_MANUFACTURER_COLORS[mfr] || AIRCRAFT_MANUFACTURER_COLORS['OTHER'];
+            }
 
-            case 'aircraft_config':
+            case 'aircraft_config': {
                 // Prefer aircraft_icao (clean code from DB), fallback to flight plan fields
                 const acType2 = stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || '');
                 const cfg = getAircraftConfig(acType2);
                 return AIRCRAFT_CONFIG_COLORS[cfg] || AIRCRAFT_CONFIG_COLORS['OTHER'];
+            }
 
-            case 'wake_category':
+            case 'wake_category': {
                 // FAA RECAT wake turbulence categories (A-F)
                 const recat = getRecatCategory(flight);
                 return RECAT_COLORS[recat] || RECAT_COLORS[''];
+            }
 
-            case 'operator_group':
+            case 'operator_group': {
                 const opGroup = getOperatorGroup(flight.callsign);
                 return OPERATOR_GROUP_COLORS[opGroup] || OPERATOR_GROUP_COLORS['OTHER'];
+            }
 
             case 'reroute_match':
                 return getRerouteMatchColor(flight);
@@ -4735,7 +4746,7 @@
                     { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                 ];
                 break;
-            case 'reroute_match':
+            case 'reroute_match': {
                 // Show only active (non-expired) public routes with their colors
                 const activeRoutes = getActivePublicRoutes();
                 items = activeRoutes.map(route => ({
@@ -4745,6 +4756,7 @@
                 // Add "No Match" at the end
                 items.push({ color: '#666666', label: 'No Match' });
                 break;
+            }
             case 'fea_match':
                 // Show active FEA monitors with their colors
                 if (typeof NODDemandLayer !== 'undefined' && NODDemandLayer.getActiveMonitors) {
@@ -4955,7 +4967,7 @@
                     { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                 ];
                 break;
-            case 'reroute_match':
+            case 'reroute_match': {
                 // Show only active (non-expired) public routes with their colors
                 const activeRoutesLegend = getActivePublicRoutes();
                 items = activeRoutesLegend.map(route => ({
@@ -4964,6 +4976,7 @@
                 }));
                 items.push({ color: '#666666', label: 'No Match' });
                 break;
+            }
             case 'fea_match':
                 // Show active FEA monitors with their colors
                 if (typeof NODDemandLayer !== 'undefined' && NODDemandLayer.getActiveMonitors) {
@@ -5595,7 +5608,7 @@
                     label = props.facility || 'Incident';
                     sublabel = props.incident_type || props.type || props.status || '';
                     break;
-                case 'split':
+                case 'split': {
                     icon = '▣';
                     iconClass = 'split';
                     label = props.position_name || props.id || 'Sector';
@@ -5604,6 +5617,7 @@
                     const sectorArtcc = props.artcc || '';
                     sublabel = sectorArtcc && sectorId ? `${sectorArtcc}${sectorId}` : (sectorArtcc || sectorId);
                     break;
+                }
                 default:
                     icon = '?';
                     iconClass = '';

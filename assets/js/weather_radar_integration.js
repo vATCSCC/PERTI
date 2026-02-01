@@ -265,7 +265,7 @@ function bindKeyboardShortcuts() {
 
         switch (e.key) {
             case ' ':
-            case 'Space':
+            case 'Space': {
                 e.preventDefault();
                 WeatherRadar.toggleAnimation();
                 const btn = document.getElementById('radar-play-btn');
@@ -274,6 +274,7 @@ function bindKeyboardShortcuts() {
                     btn.classList.toggle('playing', !state.animating);
                 }
                 break;
+            }
 
             case 'ArrowLeft':
                 e.preventDefault();

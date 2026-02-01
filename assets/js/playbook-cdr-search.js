@@ -50,7 +50,7 @@ const PlaybookCDRSearch = (function() {
 
     function loadDataFromGlobalScope() {
         // Wait for data to be available (route.js loads this)
-        var checkInterval = setInterval(function() {
+        const checkInterval = setInterval(function() {
             let hasData = false;
 
             // Check for cdrMap

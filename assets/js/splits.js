@@ -4783,7 +4783,7 @@ const SplitsController = {
                 console.log(`[SPLITS] Skipping incomplete sector ID: ${part}`);
             } else {
                 // Try to handle other formats (e.g., ZDC-50 or ZDC_50)
-                const match = part.match(/^([A-Z]{3})[\-_]?(\d+)$/);
+                const match = part.match(/^([A-Z]{3})[-_]?(\d+)$/);
                 if (match) {
                     sectorIds.push(match[1] + match[2]);
                 }
