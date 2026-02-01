@@ -390,25 +390,72 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         clean_text = re.sub(r'\s*\$\s*\d{2}[ABCDEXO]\d{2}[A-Za-z]?\s*$', '', clean_text).strip()
 
         # Find ALL facility pairs in the line (pattern: FACILITY:FACILITY)
-        # We want the LAST one that looks like a real facility pair (not EXCL:NONE, VOLUME:VOLUME, etc.)
-        # Real facility codes: Z** (ARTCC), *## (TRACON like N90, A80), 3-4 letter codes
+        # We want the LAST one that looks like a real facility pair (not REASON:CONDITION)
         all_matches = re.findall(r'([A-Z][A-Z0-9,]+):([A-Z][A-Z0-9,]+)', clean_text)
 
-        # Filter out known non-facility patterns
-        non_facility_patterns = {'EXCL', 'NONE', 'VOLUME', 'TYPE', 'SPD', 'ALT', 'STREAM'}
+        def looks_like_facility(code: str) -> bool:
+            """
+            Check if a code looks like a valid ATC facility.
+
+            Valid patterns:
+            - ARTCC: Z + 2 letters (ZNY, ZDC) or CZ + 2 letters (CZYZ, CZUL for Canada)
+            - TRACON: Letter + 2 digits (N90, A80, C90) or 3-4 letter codes (PCT, SCT, NCT)
+            - Sector: ARTCC + digits (ZNY66, ZDC42)
+            - Airport: 3-4 letters optionally starting with K/C/P (JFK, KJFK, LGA)
+
+            Returns False for full English words (VOLUME, STAFFING, WEATHER, etc.)
+            """
+            code = code.upper()
+
+            # ARTCC: Z + 2 letters
+            if re.match(r'^Z[A-Z]{2}$', code):
+                return True
+            # Canadian FIR: CZ + 2 letters
+            if re.match(r'^CZ[A-Z]{2}$', code):
+                return True
+            # TRACON: Letter + 2 digits (N90, A80, C90, D10, etc.)
+            if re.match(r'^[A-Z]\d{2}$', code):
+                return True
+            # Sector: ARTCC + digits (ZNY66, ZDC42)
+            if re.match(r'^Z[A-Z]{2}\d+$', code):
+                return True
+            # 3-letter codes (PCT, SCT, NCT, JFK, LGA, MIA, etc.) - must have at least one digit OR be short
+            if re.match(r'^[A-Z]{3}$', code):
+                return True
+            # 4-letter airport with K/C/P prefix (KJFK, KLAX, CYYZ)
+            if re.match(r'^[KCP][A-Z]{3}$', code):
+                return True
+            # 4-letter TRACON codes that aren't words (U90, etc.)
+            if re.match(r'^[A-Z]\d{2}[A-Z]?$', code):
+                return True
+
+            # If it's 5+ letters with no digits, it's probably a word (VOLUME, STAFFING, etc.)
+            if len(code) >= 5 and code.isalpha():
+                return False
+
+            # 2-letter codes could be navaids - allow them
+            if re.match(r'^[A-Z]{2}$', code):
+                return True
+
+            return False
+
+        logger.debug(f"parse_facilities: all_matches={all_matches} from text='{text[:100]}...'")
 
         for requestor, provider in reversed(all_matches):
-            # Check if either part looks like a non-facility keyword
+            # Check if BOTH parts look like valid facility codes
             req_parts = requestor.split(',')
             prov_parts = provider.split(',')
 
-            # Skip if any part is a known non-facility keyword
-            if any(p.upper() in non_facility_patterns for p in req_parts + prov_parts):
+            # All parts must look like facilities
+            if not all(looks_like_facility(p) for p in req_parts + prov_parts):
+                logger.debug(f"parse_facilities: skipping {requestor}:{provider} (not facility codes)")
                 continue
 
             # This looks like a valid facility pair
+            logger.debug(f"parse_facilities: found {requestor}:{provider}")
             return (requestor, provider, is_multiple)
 
+        logger.debug(f"parse_facilities: no valid facility pair found")
         return ('', '', False)
 
     def parse_ntml_timestamp(line: str, base_date) -> Optional[datetime]:
@@ -863,7 +910,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                             issued_utc=issued_utc,
                             cancelled_utc=cancelled_utc,
                             modifier=modifier,
-                            notes=f'Part of multi-fix entry: {fix_str}'
+                            notes=f'Part of multi-fix entry: {fix_str}',
+                            raw_text=line
                         )
                         tmis.append(tmi)
                     # Skip to next line since we added multiple TMIs
@@ -892,7 +940,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         end_utc=end_time or event_end,
                         issued_utc=issued_utc,
                         cancelled_utc=cancelled_utc,
-                        modifier=modifier
+                        modifier=modifier,
+                        raw_text=line
                     )
 
         # Parse MINIT restriction
@@ -976,7 +1025,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                             issued_utc=issued_utc,
                             cancelled_utc=cancelled_utc,
                             modifier=modifier,
-                            notes=f'Part of multi-fix entry: {fix_str}'
+                            notes=f'Part of multi-fix entry: {fix_str}',
+                            raw_text=line
                         )
                         tmis.append(tmi)
                     continue
@@ -1001,7 +1051,8 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                         end_utc=end_time or event_end,
                         issued_utc=issued_utc,
                         cancelled_utc=cancelled_utc,
-                        modifier=modifier
+                        modifier=modifier,
+                        raw_text=line
                     )
 
         # Parse CFR restriction
