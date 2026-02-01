@@ -631,9 +631,11 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
 
                 tmi = TMI(
                     tmi_id=f'STOP_{fix}_{dest}',
-                    tmi_type=TMIType.GS,  # STOP is effectively a ground stop
+                    tmi_type=TMIType.MIT,  # STOP is essentially 0 MIT (no departures via this fix)
                     fix=fix,
                     destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
+                    value=0,  # STOP = 0 MIT
+                    unit='nm',
                     provider=provider,
                     requestor=requestor,
                     is_multiple=is_multiple,
