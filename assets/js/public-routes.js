@@ -161,10 +161,23 @@ window.PublicRoutes = (function() {
         const groups = new Map();
 
         routes.forEach(function(route) {
-            // Determine group ID - reroute routes have parent_reroute_id
-            const groupId = route.parent_reroute_id ||
-                           (route.links && route.links.reroute_id) ||
-                           route.id; // Regular routes use their own ID
+            // Determine group ID - priority order:
+            // 1. parent_reroute_id (reroute routes from tmi_reroute_routes)
+            // 2. links.reroute_id (public routes linked to a reroute)
+            // 3. adv_number (routes sharing the same advisory number)
+            // 4. route.id (fallback - each route is its own group)
+            let groupId = route.parent_reroute_id ||
+                         (route.links && route.links.reroute_id);
+
+            // If no reroute link, try grouping by adv_number (non-empty)
+            if (!groupId && route.adv_number) {
+                groupId = 'adv-' + route.adv_number;
+            }
+
+            // Fallback to route's own ID
+            if (!groupId) {
+                groupId = route.id;
+            }
 
             if (!groups.has(groupId)) {
                 // Extract base name (remove origin-dest suffix if present)
