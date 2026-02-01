@@ -2969,18 +2969,60 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     // Build series with phase filtering
     const enabledPhases = getEnabledPhases();
 
-    // Debug: log enabled phases and verify math
+    // Debug: log enabled phases and verify math GLOBALLY across all entries
     console.log('[Demand] Phase filter - enabled phases:', enabledPhases);
-    const firstBinKey = Object.keys(breakdown)[0];
-    if (firstBinKey && breakdown[firstBinKey] && breakdown[firstBinKey][0]) {
-        const entry = breakdown[firstBinKey][0];
-        console.log('[Demand] Phase filter - sample entry:', {
-            count: entry.count,
-            phases: entry.phases,
-            enabledSum: enabledPhases.reduce((sum, p) => sum + (entry.phases?.[p] || 0), 0),
-            allPhasesSum: entry.phases ? Object.values(entry.phases).reduce((a, b) => a + b, 0) : 'N/A'
+
+    // Sum across ALL entries to verify filter math
+    let totalWithEnabledPhases = 0;
+    let totalArrivedOnly = 0;
+    let totalDisconnectedOnly = 0;
+    let totalArrivedPlusDisconnected = 0;
+    let totalAllPhases = 0;
+    let totalCount = 0;
+    let mismatches = [];
+
+    Object.keys(breakdown).forEach(binKey => {
+        const binData = breakdown[binKey];
+        if (!Array.isArray(binData)) return;
+
+        binData.forEach(entry => {
+            if (!entry.phases) return;
+
+            // Calculate various sums for this entry
+            const phaseValues = Object.entries(entry.phases)
+                .filter(([k, v]) => k !== '_sum')
+                .reduce((obj, [k, v]) => { obj[k] = v; return obj; }, {});
+
+            const enabledSum = enabledPhases.reduce((sum, p) => sum + (phaseValues[p] || 0), 0);
+            const arrivedSum = phaseValues.arrived || 0;
+            const disconnectedSum = phaseValues.disconnected || 0;
+            const allSum = Object.values(phaseValues).reduce((a, b) => a + b, 0);
+
+            totalWithEnabledPhases += enabledSum;
+            totalArrivedOnly += arrivedSum;
+            totalDisconnectedOnly += disconnectedSum;
+            totalArrivedPlusDisconnected += arrivedSum + disconnectedSum;
+            totalAllPhases += allSum;
+            totalCount += entry.count;
+
+            // Check for mismatches
+            if (entry.count !== allSum) {
+                mismatches.push({ bin: binKey, category: entry[categoryKey], count: entry.count, phaseSum: allSum });
+            }
         });
-    }
+    });
+
+    console.log('[Demand] Phase filter GLOBAL TOTALS:', {
+        enabledPhases,
+        totalWithEnabledPhases,
+        totalArrivedOnly,
+        totalDisconnectedOnly,
+        'arrived+disconnected': totalArrivedPlusDisconnected,
+        totalAllPhases,
+        totalCount,
+        'arrivedOnly + disconnectedOnly': totalArrivedOnly + totalDisconnectedOnly,
+        mismatches: mismatches.length > 0 ? mismatches.slice(0, 5) : 'None'
+    });
 
     const series = categoryList.map(category => {
         const seriesData = timeBins.map(bin => {
@@ -2998,6 +3040,22 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                     enabledPhases.forEach(phase => {
                         value += catEntry.phases[phase] || 0;
                     });
+                    // Debug: verify phase math (only for first bin/category)
+                    if (bin === timeBins[0] && category === categoryList[0]) {
+                        const phaseSum = catEntry.phases._sum || Object.entries(catEntry.phases)
+                            .filter(([k,v]) => k !== '_sum')
+                            .reduce((a, [k,v]) => a + v, 0);
+                        console.log('[Demand] Phase filter debug:', {
+                            category,
+                            bin,
+                            count: catEntry.count,
+                            phases: catEntry.phases,
+                            enabledPhases,
+                            filteredValue: value,
+                            phaseSum,
+                            mismatch: catEntry.count !== phaseSum ? 'COUNT != PHASE SUM!' : 'OK'
+                        });
+                    }
                 } else {
                     // Fallback for data without phase breakdown
                     value = catEntry.count;
@@ -5214,6 +5272,7 @@ function loadFlightSummary(renderOriginChartAfter) {
         granularity: getGranularityMinutes()  // Pass granularity for time bin breakdown
     });
 
+    console.log('[Demand] Summary API call - granularity:', getGranularityMinutes(), 'URL:', params.toString());
     $.getJSON(`api/demand/summary.php?${params.toString()}`)
         .done(function(response) {
             if (response.success) {
@@ -5236,18 +5295,12 @@ function loadFlightSummary(renderOriginChartAfter) {
                 DEMAND_STATE.summaryLoaded = true;
                 DEMAND_STATE.cacheTimestamp = Date.now(); // Refresh cache timestamp
 
-                // Debug: Log breakdown data sizes
-                console.log('[Demand] Summary API breakdown data (cached):',
-                    'origin:', Object.keys(DEMAND_STATE.originBreakdown).length,
-                    'dest:', Object.keys(DEMAND_STATE.destBreakdown).length,
-                    'weight:', Object.keys(DEMAND_STATE.weightBreakdown).length,
-                    'carrier:', Object.keys(DEMAND_STATE.carrierBreakdown).length,
-                    'equipment:', Object.keys(DEMAND_STATE.equipmentBreakdown).length,
-                    'rule:', Object.keys(DEMAND_STATE.ruleBreakdown).length,
-                    'depFix:', Object.keys(DEMAND_STATE.depFixBreakdown).length,
-                    'arrFix:', Object.keys(DEMAND_STATE.arrFixBreakdown).length,
-                    'dp:', Object.keys(DEMAND_STATE.dpBreakdown).length,
-                    'star:', Object.keys(DEMAND_STATE.starBreakdown).length
+                // Debug: Log breakdown data sizes and sample keys
+                const carrierKeys = Object.keys(DEMAND_STATE.carrierBreakdown);
+                console.log('[Demand] Summary API response (granularity=' + getGranularityMinutes() + '):',
+                    'carrier bins:', carrierKeys.length,
+                    'sample keys:', carrierKeys.slice(0, 5),
+                    'expected interval:', getGranularityMinutes() + 'min'
                 );
 
                 // Auto-expand the summary section if it has data
