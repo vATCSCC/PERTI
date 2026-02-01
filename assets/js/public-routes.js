@@ -149,7 +149,59 @@ window.PublicRoutes = (function() {
             return false;
         });
     }
-    
+
+    /**
+     * Group routes by their parent advisory
+     * Reroute advisory routes share the same parent_reroute_id
+     * Regular routes are returned as single-item groups
+     * @param {Array} routes - Routes to group
+     * @returns {Array} Array of group objects: { groupId, groupName, routes, isMultiRoute }
+     */
+    function groupRoutesByAdvisory(routes) {
+        const groups = new Map();
+
+        routes.forEach(function(route) {
+            // Determine group ID - reroute routes have parent_reroute_id
+            const groupId = route.parent_reroute_id ||
+                           (route.links && route.links.reroute_id) ||
+                           route.id; // Regular routes use their own ID
+
+            if (!groups.has(groupId)) {
+                // Extract base name (remove origin-dest suffix if present)
+                // Format: "N90_TO_MIA_ARS (KEWR-KMIA)" -> "N90_TO_MIA_ARS"
+                let baseName = route.name || 'Unnamed Route';
+                const parenMatch = baseName.match(/^(.+?)\s*\([^)]+\)$/);
+                if (parenMatch) {
+                    baseName = parenMatch[1].trim();
+                }
+
+                groups.set(groupId, {
+                    groupId: groupId,
+                    groupName: baseName,
+                    routes: [],
+                    isMultiRoute: false,
+                    // Use first route's metadata for group display
+                    valid_start_utc: route.valid_start_utc,
+                    valid_end_utc: route.valid_end_utc,
+                    reason: route.reason,
+                    color: route.color,
+                    constrained_area: route.constrained_area,
+                    facilities: route.facilities,
+                    adv_number: route.adv_number
+                });
+            }
+
+            groups.get(groupId).routes.push(route);
+        });
+
+        // Mark multi-route groups and sort routes within each group
+        groups.forEach(function(group) {
+            group.isMultiRoute = group.routes.length > 1;
+        });
+
+        return Array.from(groups.values());
+    }
+
     /**
      * Toggle visibility of a single route
      */
@@ -480,119 +532,266 @@ window.PublicRoutes = (function() {
             return;
         }
         
-        categoryRoutes.forEach(function(route) {
-            const validStart = formatTime(route.valid_start_utc);
-            const validEnd = formatTime(route.valid_end_utc);
-            const timeStatus = getTimeStatus(route);
-            const timeInfo = getTimeStatusInfo(route);
-            const isHidden = state.hiddenRouteIds.has(route.id);
-            
-            // Determine item styling based on time status and visibility
-            let itemClass = 'public-route-item';
-            if (isHidden) itemClass += ' pr-individually-hidden pr-collapsed';
+        // Group routes by advisory
+        const groups = groupRoutesByAdvisory(categoryRoutes);
+
+        groups.forEach(function(group) {
+            // For single-route groups, render as before
+            if (!group.isMultiRoute) {
+                const route = group.routes[0];
+                $list.append(renderSingleRouteItem(route));
+                return;
+            }
+
+            // For multi-route groups, render as expandable advisory card
+            const firstRoute = group.routes[0];
+            const timeStatus = getTimeStatus(firstRoute);
+            const timeInfo = getTimeStatusInfo(firstRoute);
+            const validStart = formatTime(group.valid_start_utc);
+            const validEnd = formatTime(group.valid_end_utc);
+
+            // Check if any route in group is hidden
+            const allHidden = group.routes.every(r => state.hiddenRouteIds.has(r.id));
+            const someHidden = group.routes.some(r => state.hiddenRouteIds.has(r.id));
+
+            let groupClass = 'public-route-group';
             let statusBadge = '';
             if (timeStatus === 'future') {
-                itemClass += ' pr-future';
+                groupClass += ' pr-future';
                 statusBadge = '<span class="badge badge-info badge-sm mr-1" title="Starts in the future"><i class="fas fa-calendar-alt"></i></span>';
             } else if (timeStatus === 'past') {
-                itemClass += ' pr-past';
+                groupClass += ' pr-past';
                 statusBadge = '<span class="badge badge-secondary badge-sm mr-1" title="Expired"><i class="fas fa-history"></i></span>';
             } else if (timeStatus === 'active') {
-                itemClass += ' pr-active';
+                groupClass += ' pr-active';
             }
-            
-            // Visibility toggle button
-            const visToggleIcon = isHidden ? 'fa-eye-slash' : 'fa-eye';
-            const visToggleClass = isHidden ? 'btn-outline-warning' : 'btn-outline-secondary';
-            const visToggleTitle = isHidden ? 'Show on map' : 'Hide from map';
-            
-            // Build item - collapsed view for hidden routes, full view for visible
-            let $item;
-            if (isHidden) {
-                // Collapsed single-line view for hidden routes
-                $item = $(`
-                    <div class="${itemClass}" data-route-id="${route.id}" data-time-status="${timeStatus}" data-hidden="${isHidden}">
-                        <div class="d-flex align-items-center">
-                            <button class="btn btn-xs ${visToggleClass} route-visibility-toggle mr-2 flex-shrink-0" title="${visToggleTitle}" style="padding: 2px 5px;">
-                                <i class="fas ${visToggleIcon}"></i>
-                            </button>
-                            <div class="route-color-indicator mr-2" style="background-color: ${route.color}; width: 8px; height: 8px;"></div>
-                            <span class="route-name text-truncate mr-2" style="max-width: 120px; font-size: 0.75rem;">${statusBadge}${escapeHtml(route.name)}</span>
-                            <span class="text-muted ml-auto" style="font-size: 0.65rem;">${timeInfo.text}</span>
-                        </div>
-                    </div>
-                `);
-            } else {
-                // Full view for visible routes
-                $item = $(`
-                    <div class="${itemClass}" data-route-id="${route.id}" data-time-status="${timeStatus}" data-hidden="${isHidden}">
-                        <div class="d-flex align-items-start">
-                            <button class="btn btn-xs ${visToggleClass} route-visibility-toggle mr-2 flex-shrink-0" title="${visToggleTitle}" style="padding: 2px 5px; margin-top: 2px;">
-                                <i class="fas ${visToggleIcon}"></i>
-                            </button>
-                            <div class="route-color-indicator mr-2" style="background-color: ${route.color};"></div>
-                            <div class="flex-grow-1" style="min-width: 0;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <strong class="route-name text-truncate" style="max-width: 130px;">${statusBadge}${escapeHtml(route.name)}</strong>
-                                    <div class="route-actions flex-shrink-0">
-                                        <button class="btn btn-xs btn-outline-primary route-zoom" title="Zoom to route">
-                                            <i class="fas fa-search-plus"></i>
-                                        </button>
-                                        <button class="btn btn-xs btn-outline-secondary route-edit" title="Edit route">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-xs btn-outline-danger route-delete" title="Delete route">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
+
+            // Group visibility toggle
+            const groupVisIcon = allHidden ? 'fa-eye-slash' : (someHidden ? 'fa-eye' : 'fa-eye');
+            const groupVisClass = allHidden ? 'btn-outline-warning' : 'btn-outline-secondary';
+            const groupVisTitle = allHidden ? 'Show all routes' : 'Hide all routes';
+
+            const $groupItem = $(`
+                <div class="${groupClass}" data-group-id="${group.groupId}" data-time-status="${timeStatus}">
+                    <div class="group-header d-flex align-items-start" style="cursor: pointer;">
+                        <button class="btn btn-xs ${groupVisClass} group-visibility-toggle mr-2 flex-shrink-0" title="${groupVisTitle}" style="padding: 2px 5px; margin-top: 2px;">
+                            <i class="fas ${groupVisIcon}"></i>
+                        </button>
+                        <div class="route-color-indicator mr-2" style="background-color: ${group.color};"></div>
+                        <div class="flex-grow-1" style="min-width: 0;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong class="route-name text-truncate" style="max-width: 130px;">
+                                    ${statusBadge}${escapeHtml(group.groupName)}
+                                </strong>
+                                <span class="badge badge-pill badge-secondary ml-1" style="font-size: 0.65rem;">${group.routes.length} routes</span>
+                                <i class="fas fa-chevron-down group-expand-icon ml-auto" style="font-size: 0.7rem; transition: transform 0.2s;"></i>
+                            </div>
+                            <div class="route-details small">
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="text-muted" style="font-size: 0.75rem;">
+                                        <i class="far fa-clock mr-1"></i>${validStart} - ${validEnd}
+                                    </span>
+                                    <span class="${timeInfo.class} font-weight-bold" style="font-size: 0.8rem;" title="${timeInfo.title}">
+                                        <i class="fas ${timeInfo.icon} mr-1"></i>${timeInfo.text}
+                                    </span>
                                 </div>
-                                <div class="route-details small">
-                                    ${route.constrained_area ? '<div class="text-muted"><i class="fas fa-map-marker-alt mr-1"></i>' + escapeHtml(route.constrained_area) + '</div>' : ''}
-                                    <div class="d-flex justify-content-between align-items-center mt-1">
-                                        <span class="text-muted" style="font-size: 0.75rem;">
-                                            <i class="far fa-clock mr-1"></i>${validStart} - ${validEnd}
-                                        </span>
-                                        <span class="${timeInfo.class} font-weight-bold" style="font-size: 0.8rem;" title="${timeInfo.title}">
-                                            <i class="fas ${timeInfo.icon} mr-1"></i>${timeInfo.text}
-                                        </span>
-                                    </div>
-                                    ${route.reason ? '<div class="text-info mt-1" style="font-size: 0.75rem;"><i class="fas fa-info-circle mr-1"></i>' + escapeHtml(truncateString(route.reason, 50)) + '</div>' : ''}
-                                    ${route.facilities ? '<div class="text-secondary mt-1" style="font-size: 0.7rem;"><i class="fas fa-building mr-1"></i>' + escapeHtml(route.facilities) + '</div>' : ''}
-                                </div>
+                                ${group.reason ? '<div class="text-info mt-1" style="font-size: 0.75rem;"><i class="fas fa-info-circle mr-1"></i>' + escapeHtml(truncateString(group.reason, 50)) + '</div>' : ''}
                             </div>
                         </div>
                     </div>
+                    <div class="group-routes" style="display: none; margin-left: 28px; margin-top: 4px; border-left: 2px solid ${group.color}; padding-left: 8px;">
+                    </div>
+                </div>
+            `);
+
+            // Add child routes to the group
+            const $routesContainer = $groupItem.find('.group-routes');
+            group.routes.forEach(function(route) {
+                // Extract origin-dest from route name for display
+                let originDest = '';
+                const match = route.name.match(/\(([^)]+)\)$/);
+                if (match) {
+                    originDest = match[1];
+                } else if (route.origin && route.destination) {
+                    originDest = route.origin + '→' + route.destination;
+                }
+
+                const routeHidden = state.hiddenRouteIds.has(route.id);
+                const routeVisIcon = routeHidden ? 'fa-eye-slash' : 'fa-eye';
+                const routeVisClass = routeHidden ? 'btn-outline-warning' : 'btn-outline-secondary';
+
+                const $routeItem = $(`
+                    <div class="group-route-item d-flex align-items-center py-1 ${routeHidden ? 'text-muted' : ''}" data-route-id="${route.id}" style="font-size: 0.75rem;">
+                        <button class="btn btn-xs ${routeVisClass} route-visibility-toggle mr-2" style="padding: 1px 4px; font-size: 0.6rem;" title="${routeHidden ? 'Show' : 'Hide'}">
+                            <i class="fas ${routeVisIcon}"></i>
+                        </button>
+                        <span class="route-origin-dest ${routeHidden ? 'text-decoration-line-through' : ''}" style="cursor: pointer;">
+                            ${escapeHtml(originDest || route.name)}
+                        </span>
+                        <button class="btn btn-xs btn-link route-zoom p-0 ml-auto" title="Zoom to route">
+                            <i class="fas fa-search-plus" style="font-size: 0.7rem;"></i>
+                        </button>
+                    </div>
                 `);
-            }
-            
-            // Bind visibility toggle - calls toggleRouteVisibility which does full panel update
-            $item.find('.route-visibility-toggle').on('click', function(e) {
+
+                // Bind events for child route
+                $routeItem.find('.route-visibility-toggle').on('click', function(e) {
+                    e.stopPropagation();
+                    toggleRouteVisibility(route.id);
+                });
+
+                $routeItem.find('.route-zoom').on('click', function(e) {
+                    e.stopPropagation();
+                    zoomToRoute(route);
+                });
+
+                $routeItem.find('.route-origin-dest').on('click', function(e) {
+                    e.stopPropagation();
+                    showRouteDetails(route);
+                });
+
+                $routesContainer.append($routeItem);
+            });
+
+            // Group header expand/collapse
+            $groupItem.find('.group-header').on('click', function(e) {
+                if ($(e.target).closest('.group-visibility-toggle').length) return;
+                const $routes = $groupItem.find('.group-routes');
+                const $icon = $groupItem.find('.group-expand-icon');
+                $routes.slideToggle(150);
+                $icon.toggleClass('fa-chevron-down fa-chevron-up');
+            });
+
+            // Group visibility toggle - toggles all routes in group
+            $groupItem.find('.group-visibility-toggle').on('click', function(e) {
                 e.stopPropagation();
-                toggleRouteVisibility(route.id);
+                const shouldHide = !allHidden;
+                group.routes.forEach(function(r) {
+                    if (shouldHide) {
+                        state.hiddenRouteIds.add(r.id);
+                    } else {
+                        state.hiddenRouteIds.delete(r.id);
+                    }
+                });
+                updatePanel();
+                updateStatusIndicator();
+                renderRoutes();
             });
-            
-            // Bind events
-            $item.find('.route-zoom').on('click', function(e) {
-                e.stopPropagation();
-                zoomToRoute(route);
-            });
-            
-            $item.find('.route-edit').on('click', function(e) {
-                e.stopPropagation();
-                showRouteDetails(route, true);  // Open in edit mode
-            });
-            
-            $item.find('.route-delete').on('click', function(e) {
-                e.stopPropagation();
-                deleteRoute(route.id);
-            });
-            
-            $item.on('click', function() {
-                showRouteDetails(route);
-            });
-            
-            $list.append($item);
+
+            $list.append($groupItem);
         });
+    }
+
+    /**
+     * Render a single route item (for non-grouped routes)
+     */
+    function renderSingleRouteItem(route) {
+        const validStart = formatTime(route.valid_start_utc);
+        const validEnd = formatTime(route.valid_end_utc);
+        const timeStatus = getTimeStatus(route);
+        const timeInfo = getTimeStatusInfo(route);
+        const isHidden = state.hiddenRouteIds.has(route.id);
+
+        let itemClass = 'public-route-item';
+        if (isHidden) itemClass += ' pr-individually-hidden pr-collapsed';
+        let statusBadge = '';
+        if (timeStatus === 'future') {
+            itemClass += ' pr-future';
+            statusBadge = '<span class="badge badge-info badge-sm mr-1" title="Starts in the future"><i class="fas fa-calendar-alt"></i></span>';
+        } else if (timeStatus === 'past') {
+            itemClass += ' pr-past';
+            statusBadge = '<span class="badge badge-secondary badge-sm mr-1" title="Expired"><i class="fas fa-history"></i></span>';
+        } else if (timeStatus === 'active') {
+            itemClass += ' pr-active';
+        }
+
+        const visToggleIcon = isHidden ? 'fa-eye-slash' : 'fa-eye';
+        const visToggleClass = isHidden ? 'btn-outline-warning' : 'btn-outline-secondary';
+        const visToggleTitle = isHidden ? 'Show on map' : 'Hide from map';
+
+        let $item;
+        if (isHidden) {
+            $item = $(`
+                <div class="${itemClass}" data-route-id="${route.id}" data-time-status="${timeStatus}" data-hidden="${isHidden}">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-xs ${visToggleClass} route-visibility-toggle mr-2 flex-shrink-0" title="${visToggleTitle}" style="padding: 2px 5px;">
+                            <i class="fas ${visToggleIcon}"></i>
+                        </button>
+                        <div class="route-color-indicator mr-2" style="background-color: ${route.color}; width: 8px; height: 8px;"></div>
+                        <span class="route-name text-truncate mr-2" style="max-width: 120px; font-size: 0.75rem;">${statusBadge}${escapeHtml(route.name)}</span>
+                        <span class="text-muted ml-auto" style="font-size: 0.65rem;">${timeInfo.text}</span>
+                    </div>
+                </div>
+            `);
+        } else {
+            $item = $(`
+                <div class="${itemClass}" data-route-id="${route.id}" data-time-status="${timeStatus}" data-hidden="${isHidden}">
+                    <div class="d-flex align-items-start">
+                        <button class="btn btn-xs ${visToggleClass} route-visibility-toggle mr-2 flex-shrink-0" title="${visToggleTitle}" style="padding: 2px 5px; margin-top: 2px;">
+                            <i class="fas ${visToggleIcon}"></i>
+                        </button>
+                        <div class="route-color-indicator mr-2" style="background-color: ${route.color};"></div>
+                        <div class="flex-grow-1" style="min-width: 0;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong class="route-name text-truncate" style="max-width: 130px;">${statusBadge}${escapeHtml(route.name)}</strong>
+                                <div class="route-actions flex-shrink-0">
+                                    <button class="btn btn-xs btn-outline-primary route-zoom" title="Zoom to route">
+                                        <i class="fas fa-search-plus"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline-secondary route-edit" title="Edit route">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline-danger route-delete" title="Delete route">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="route-details small">
+                                ${route.constrained_area ? '<div class="text-muted"><i class="fas fa-map-marker-alt mr-1"></i>' + escapeHtml(route.constrained_area) + '</div>' : ''}
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="text-muted" style="font-size: 0.75rem;">
+                                        <i class="far fa-clock mr-1"></i>${validStart} - ${validEnd}
+                                    </span>
+                                    <span class="${timeInfo.class} font-weight-bold" style="font-size: 0.8rem;" title="${timeInfo.title}">
+                                        <i class="fas ${timeInfo.icon} mr-1"></i>${timeInfo.text}
+                                    </span>
+                                </div>
+                                ${route.reason ? '<div class="text-info mt-1" style="font-size: 0.75rem;"><i class="fas fa-info-circle mr-1"></i>' + escapeHtml(truncateString(route.reason, 50)) + '</div>' : ''}
+                                ${route.facilities ? '<div class="text-secondary mt-1" style="font-size: 0.7rem;"><i class="fas fa-building mr-1"></i>' + escapeHtml(route.facilities) + '</div>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+
+        // Bind visibility toggle
+        $item.find('.route-visibility-toggle').on('click', function(e) {
+            e.stopPropagation();
+            toggleRouteVisibility(route.id);
+        });
+
+        // Bind events
+        $item.find('.route-zoom').on('click', function(e) {
+            e.stopPropagation();
+            zoomToRoute(route);
+        });
+
+        $item.find('.route-edit').on('click', function(e) {
+            e.stopPropagation();
+            showRouteDetails(route, true);
+        });
+
+        $item.find('.route-delete').on('click', function(e) {
+            e.stopPropagation();
+            deleteRoute(route.id);
+        });
+
+        $item.on('click', function() {
+            showRouteDetails(route);
+        });
+
+        return $item;
     }
     
     /**

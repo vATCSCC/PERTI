@@ -925,6 +925,49 @@
             vertical-align: middle;
         }
 
+        /* Route groups (multi-route advisories) */
+        .public-route-group {
+            padding: 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .public-route-group:last-child {
+            border-bottom: none;
+        }
+
+        .public-route-group.pr-future {
+            background: linear-gradient(90deg, rgba(23, 162, 184, 0.08) 0%, transparent 100%);
+            border-left: 3px solid #17a2b8;
+        }
+
+        .public-route-group.pr-past {
+            background: linear-gradient(90deg, rgba(108, 117, 125, 0.08) 0%, transparent 100%);
+            border-left: 3px solid #adb5bd;
+            opacity: 0.75;
+        }
+
+        .public-route-group.pr-past:hover {
+            opacity: 1;
+        }
+
+        .public-route-group.pr-active {
+            border-left: 3px solid #28a745;
+        }
+
+        .public-route-group .group-header:hover {
+            background: rgba(0,0,0,0.03);
+        }
+
+        .public-route-group .group-routes {
+            background: rgba(0,0,0,0.02);
+            border-radius: 4px;
+            padding: 4px 0;
+        }
+
+        .public-route-group .group-route-item:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
         .btn-xs {
             padding: 2px 6px;
             font-size: 0.7rem;

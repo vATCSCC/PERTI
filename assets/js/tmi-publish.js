@@ -7786,29 +7786,30 @@
                 const rowLines = [];
                 const routeTokens = routeText.length ? routeText.split(/\s+/).filter(Boolean) : [];
 
-                // Handle multi-item origins/dests (space-separated)
-                const origItems = orig.trim() ? orig.trim().split(/\s+/).filter(Boolean) : [];
-                const destItems = dest.trim() ? dest.trim().split(/\s+/).filter(Boolean) : [];
+                // Handle multi-item origins/dests (space or "/" separated)
+                // Split on "/" or whitespace to handle both "KJFK KLGA" and "KJFK/KLGA" formats
+                const origItems = orig.trim() ? orig.trim().split(/[\s\/]+/).filter(Boolean) : [];
+                const destItems = dest.trim() ? dest.trim().split(/[\s\/]+/).filter(Boolean) : [];
 
-                // Chunk items to fit in column (space-delimited)
-                const chunkItemsToFit = (items, maxLen) => {
+                // Chunk items to fit in column (using "/" separator for compact display)
+                const chunkItemsToFit = (items, maxLen, sep = '/') => {
                     if (!items.length) return [''];
                     const chunks = [];
                     let current = [];
                     let currentLen = 0;
 
                     items.forEach(item => {
-                        const spaceLen = current.length > 0 ? 1 : 0;
-                        if (currentLen + spaceLen + item.length > maxLen && current.length > 0) {
-                            chunks.push(current.join(' '));
+                        const sepLen = current.length > 0 ? sep.length : 0;
+                        if (currentLen + sepLen + item.length > maxLen && current.length > 0) {
+                            chunks.push(current.join(sep));
                             current = [item];
                             currentLen = item.length;
                         } else {
                             current.push(item);
-                            currentLen += spaceLen + item.length;
+                            currentLen += sepLen + item.length;
                         }
                     });
-                    if (current.length) chunks.push(current.join(' '));
+                    if (current.length) chunks.push(current.join(sep));
                     return chunks.length ? chunks : [''];
                 };
 
@@ -8120,8 +8121,8 @@
                 label = (label || '').toUpperCase().trim();
                 routeText = (routeText || '').toUpperCase().trim();
 
-                // Split label into words (space-delimited airports/filters)
-                const labelWords = label.split(/\s+/).filter(Boolean);
+                // Split label on "/" or whitespace to handle "KJFK/KLGA" and "KJFK KLGA" formats
+                const labelWords = label.split(/[\s\/]+/).filter(Boolean);
                 const routeWords = routeText.split(/\s+/).filter(Boolean);
 
                 const lines = [];
@@ -8134,7 +8135,9 @@
                     let labelPart = '';
                     while (labelIdx < labelWords.length) {
                         const word = labelWords[labelIdx];
-                        const addition = labelPart ? ' ' + word : word;
+                        // Use "/" as separator for airport codes (compact format)
+                        const sep = labelPart ? '/' : '';
+                        const addition = sep + word;
                         if (labelPart.length + addition.length <= labelCol - 2) { // Leave 2 chars padding
                             labelPart += addition;
                             labelIdx++;
@@ -8304,7 +8307,8 @@
                 label = (label || '').toUpperCase().trim();
                 routeText = (routeText || '').toUpperCase().trim();
 
-                const labelWords = label.split(/\s+/).filter(Boolean);
+                // Split label on "/" or whitespace to handle "KJFK/KLGA" and "KJFK KLGA" formats
+                const labelWords = label.split(/[\s\/]+/).filter(Boolean);
                 const routeWords = routeText.split(/\s+/).filter(Boolean);
 
                 const lines = [];
@@ -8315,7 +8319,9 @@
                     let labelPart = '';
                     while (labelIdx < labelWords.length) {
                         const word = labelWords[labelIdx];
-                        const addition = labelPart ? ' ' + word : word;
+                        // Use "/" as separator for airport codes (compact format)
+                        const sep = labelPart ? '/' : '';
+                        const addition = sep + word;
                         if (labelPart.length + addition.length <= labelWidth - 2) {
                             labelPart += addition;
                             labelIdx++;
