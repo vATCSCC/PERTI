@@ -688,9 +688,50 @@ include("sessions/handler.php");
 
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    
+
     <!-- Statsim & Hourly Rates JS -->
     <script src="assets/js/statsim_rates.js" defer></script>
+
+    <!-- MapLibre GL JS for TMI context maps -->
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <style>
+        /* TMI Context Map Styles */
+        .tmi-map-container {
+            width: 100%;
+            height: 250px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #1a1a2e;
+        }
+        .tmi-map-toggle {
+            cursor: pointer;
+            user-select: none;
+            padding: 8px 12px;
+            background: #2d2d44;
+            border-radius: 4px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tmi-map-toggle:hover {
+            background: #3d3d54;
+        }
+        .tmi-map-toggle i {
+            transition: transform 0.2s;
+        }
+        .tmi-map-toggle.collapsed i.fa-chevron-down {
+            transform: rotate(-90deg);
+        }
+        .maplibregl-popup-content {
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+    </style>
 </head>
 
 <body>

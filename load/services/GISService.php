@@ -2134,4 +2134,469 @@ class GISService
             return 'Error: ' . $e->getMessage();
         }
     }
+
+    // =========================================================================
+    // FACILITY BOUNDARY GEOJSON METHODS
+    // =========================================================================
+
+    /**
+     * Get facility boundary as GeoJSON Feature
+     *
+     * Returns a GeoJSON Feature with the boundary polygon and properties
+     * for display on MapLibre maps.
+     *
+     * @param string $facilityType Type: 'ARTCC', 'TRACON', 'SECTOR_LOW', 'SECTOR_HIGH', 'SECTOR_SUPERHIGH'
+     * @param string $facilityCode The facility code (e.g., 'ZNY', 'N90', 'ZFW15')
+     * @return array|null GeoJSON Feature or null if not found
+     */
+    public function getFacilityBoundaryGeoJSON(string $facilityType, string $facilityCode): ?array
+    {
+        if (!$this->conn) {
+            return null;
+        }
+
+        $facilityType = strtoupper($facilityType);
+        $facilityCode = strtoupper($facilityCode);
+
+        try {
+            switch ($facilityType) {
+                case 'ARTCC':
+                    $sql = "SELECT
+                                artcc_code AS code,
+                                fir_name AS name,
+                                'ARTCC' AS type,
+                                ST_AsGeoJSON(geom) AS geojson,
+                                label_lat, label_lon
+                            FROM artcc_boundaries
+                            WHERE artcc_code = :code
+                            LIMIT 1";
+                    break;
+
+                case 'TRACON':
+                    $sql = "SELECT
+                                tracon_code AS code,
+                                tracon_name AS name,
+                                'TRACON' AS type,
+                                parent_artcc,
+                                ST_AsGeoJSON(geom) AS geojson,
+                                label_lat, label_lon
+                            FROM tracon_boundaries
+                            WHERE tracon_code = :code
+                            LIMIT 1";
+                    break;
+
+                case 'SECTOR_LOW':
+                case 'SECTOR_HIGH':
+                case 'SECTOR_SUPERHIGH':
+                    $sectorType = str_replace('SECTOR_', '', $facilityType);
+                    $sql = "SELECT
+                                sector_code AS code,
+                                sector_name AS name,
+                                sector_type AS type,
+                                parent_artcc,
+                                floor_altitude,
+                                ceiling_altitude,
+                                ST_AsGeoJSON(geom) AS geojson,
+                                label_lat, label_lon
+                            FROM sector_boundaries
+                            WHERE sector_code = :code AND sector_type = :sector_type
+                            LIMIT 1";
+                    break;
+
+                default:
+                    $this->lastError = "Unknown facility type: $facilityType";
+                    return null;
+            }
+
+            $stmt = $this->conn->prepare($sql);
+            $params = [':code' => $facilityCode];
+            if (isset($sectorType)) {
+                $params[':sector_type'] = $sectorType;
+            }
+            $stmt->execute($params);
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return null;
+            }
+
+            // Build GeoJSON Feature
+            $geometry = json_decode($row['geojson'], true);
+            $properties = [
+                'code' => $row['code'],
+                'name' => $row['name'] ?? '',
+                'type' => $facilityType,
+                'parent_artcc' => $row['parent_artcc'] ?? null,
+                'label_lat' => $row['label_lat'] ? (float)$row['label_lat'] : null,
+                'label_lon' => $row['label_lon'] ? (float)$row['label_lon'] : null
+            ];
+
+            if (isset($row['floor_altitude'])) {
+                $properties['floor_altitude'] = (int)$row['floor_altitude'];
+                $properties['ceiling_altitude'] = (int)$row['ceiling_altitude'];
+            }
+
+            return [
+                'type' => 'Feature',
+                'properties' => $properties,
+                'geometry' => $geometry
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getFacilityBoundaryGeoJSON error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get multiple facility boundaries as GeoJSON FeatureCollection
+     *
+     * @param array $facilities Array of ['type' => 'ARTCC', 'code' => 'ZNY'] objects
+     * @return array GeoJSON FeatureCollection
+     */
+    public function getFacilityBoundariesGeoJSON(array $facilities): array
+    {
+        $features = [];
+
+        foreach ($facilities as $fac) {
+            $type = $fac['type'] ?? 'ARTCC';
+            $code = $fac['code'] ?? '';
+
+            if (!$code) continue;
+
+            $feature = $this->getFacilityBoundaryGeoJSON($type, $code);
+            if ($feature) {
+                $features[] = $feature;
+            }
+        }
+
+        return [
+            'type' => 'FeatureCollection',
+            'features' => $features
+        ];
+    }
+
+    /**
+     * Get TMI context map data (requesting/providing facilities + fix locations)
+     *
+     * Returns all data needed to render a TMI context map:
+     * - Requestor and provider facility boundaries
+     * - Fix location(s)
+     * - Origin/destination airports
+     * - Shared boundary between facilities (if applicable)
+     *
+     * @param string $requestor Requestor facility code (e.g., 'N90')
+     * @param string $provider Provider facility code (e.g., 'ZNY')
+     * @param array $fixes Array of fix names to resolve (e.g., ['CAMRN', 'BEUTY'])
+     * @param array|null $origins Array of origin airport codes (optional)
+     * @param array|null $destinations Array of destination airport codes (optional)
+     * @return array Map data for rendering
+     */
+    public function getTMIMapData(
+        string $requestor,
+        string $provider,
+        array $fixes = [],
+        ?array $origins = null,
+        ?array $destinations = null
+    ): array {
+        $result = [
+            'facilities' => [],
+            'fixes' => [],
+            'airports' => [],
+            'shared_boundary' => null,
+            'center' => null,
+            'bounds' => null
+        ];
+
+        // Detect facility types
+        $requestorType = $this->detectFacilityType($requestor);
+        $providerType = $this->detectFacilityType($provider);
+
+        // Get facility boundaries
+        if ($requestor) {
+            $reqBoundary = $this->getFacilityBoundaryGeoJSON($requestorType, $requestor);
+            if ($reqBoundary) {
+                $reqBoundary['properties']['role'] = 'requestor';
+                $result['facilities'][] = $reqBoundary;
+            }
+        }
+
+        if ($provider && $provider !== $requestor) {
+            $provBoundary = $this->getFacilityBoundaryGeoJSON($providerType, $provider);
+            if ($provBoundary) {
+                $provBoundary['properties']['role'] = 'provider';
+                $result['facilities'][] = $provBoundary;
+            }
+        }
+
+        // Get shared boundary between facilities (handoff boundary)
+        if ($requestor && $provider && $requestor !== $provider) {
+            $sharedBoundary = $this->getSharedBoundary($requestorType, $requestor, $providerType, $provider);
+            if ($sharedBoundary) {
+                $result['shared_boundary'] = $sharedBoundary;
+            }
+        }
+
+        // Resolve fix locations
+        foreach ($fixes as $fix) {
+            if (!$fix || strtoupper($fix) === 'ALL') continue;
+
+            $fixData = $this->resolveWaypoint($fix);
+            if ($fixData) {
+                $result['fixes'][] = [
+                    'type' => 'Feature',
+                    'properties' => [
+                        'name' => $fixData['fix_id'],
+                        'source' => $fixData['source']
+                    ],
+                    'geometry' => [
+                        'type' => 'Point',
+                        'coordinates' => [$fixData['lon'], $fixData['lat']]
+                    ]
+                ];
+            }
+        }
+
+        // Resolve airport locations
+        $airportCodes = array_merge($origins ?? [], $destinations ?? []);
+        foreach (array_unique($airportCodes) as $apt) {
+            if (!$apt) continue;
+
+            $aptData = $this->resolveWaypoint($apt);
+            if ($aptData) {
+                $isOrigin = $origins && in_array($apt, $origins);
+                $isDest = $destinations && in_array($apt, $destinations);
+
+                $result['airports'][] = [
+                    'type' => 'Feature',
+                    'properties' => [
+                        'code' => $apt,
+                        'is_origin' => $isOrigin,
+                        'is_destination' => $isDest,
+                        'role' => $isOrigin ? ($isDest ? 'both' : 'origin') : 'destination'
+                    ],
+                    'geometry' => [
+                        'type' => 'Point',
+                        'coordinates' => [$aptData['lon'], $aptData['lat']]
+                    ]
+                ];
+            }
+        }
+
+        // Calculate bounds from all features
+        $allCoords = [];
+        foreach ($result['facilities'] as $fac) {
+            if ($fac['geometry']) {
+                $this->extractCoords($fac['geometry'], $allCoords);
+            }
+        }
+        foreach ($result['fixes'] as $fix) {
+            $allCoords[] = $fix['geometry']['coordinates'];
+        }
+        foreach ($result['airports'] as $apt) {
+            $allCoords[] = $apt['geometry']['coordinates'];
+        }
+
+        if (!empty($allCoords)) {
+            $result['bounds'] = $this->calculateBounds($allCoords);
+            $result['center'] = [
+                ($result['bounds'][0] + $result['bounds'][2]) / 2,
+                ($result['bounds'][1] + $result['bounds'][3]) / 2
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get shared boundary (intersection line) between two facilities
+     *
+     * @param string $type1 First facility type
+     * @param string $code1 First facility code
+     * @param string $type2 Second facility type
+     * @param string $code2 Second facility code
+     * @return array|null GeoJSON Feature with LineString geometry
+     */
+    public function getSharedBoundary(string $type1, string $code1, string $type2, string $code2): ?array
+    {
+        if (!$this->conn) {
+            return null;
+        }
+
+        try {
+            // Build SQL based on facility types
+            $table1 = $this->getFacilityTable($type1);
+            $table2 = $this->getFacilityTable($type2);
+            $codeCol1 = $this->getFacilityCodeColumn($type1);
+            $codeCol2 = $this->getFacilityCodeColumn($type2);
+
+            if (!$table1 || !$table2) {
+                return null;
+            }
+
+            $sql = "
+                SELECT ST_AsGeoJSON(
+                    ST_Intersection(
+                        ST_Boundary(a.geom),
+                        ST_Boundary(b.geom)
+                    )
+                ) AS geojson
+                FROM {$table1} a, {$table2} b
+                WHERE a.{$codeCol1} = :code1
+                  AND b.{$codeCol2} = :code2
+                  AND ST_Intersects(a.geom, b.geom)
+                LIMIT 1
+            ";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':code1' => strtoupper($code1),
+                ':code2' => strtoupper($code2)
+            ]);
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || !$row['geojson']) {
+                return null;
+            }
+
+            $geometry = json_decode($row['geojson'], true);
+            if (!$geometry) {
+                return null;
+            }
+
+            return [
+                'type' => 'Feature',
+                'properties' => [
+                    'type' => 'shared_boundary',
+                    'facility1' => $code1,
+                    'facility2' => $code2,
+                    'description' => "{$code1} / {$code2} handoff boundary"
+                ],
+                'geometry' => $geometry
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::getSharedBoundary error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Detect facility type from code pattern
+     *
+     * @param string $code Facility code
+     * @return string Facility type (ARTCC, TRACON, SECTOR_HIGH, etc.)
+     */
+    private function detectFacilityType(string $code): string
+    {
+        $code = strtoupper($code);
+
+        // ARTCC: Z + 2 letters (ZNY, ZDC) or K + Z + 2 letters (KZNY)
+        if (preg_match('/^K?Z[A-Z]{2}$/', $code)) {
+            return 'ARTCC';
+        }
+
+        // Canadian FIR: CZ + 2 letters
+        if (preg_match('/^CZ[A-Z]{2}$/', $code)) {
+            return 'ARTCC';
+        }
+
+        // Sector: ARTCC + digits (ZNY66, ZFW15)
+        if (preg_match('/^Z[A-Z]{2}\d+$/', $code)) {
+            return 'SECTOR_HIGH'; // Default to high, could check DB
+        }
+
+        // TRACON: Letter + 2 digits (N90, A80, C90)
+        if (preg_match('/^[A-Z]\d{2}$/', $code)) {
+            return 'TRACON';
+        }
+
+        // 3-letter TRACONs (PCT, SCT, NCT)
+        if (preg_match('/^[A-Z]{3}$/', $code) && !preg_match('/^[A-Z]{3}$/', $code)) {
+            // Try TRACON lookup
+            return 'TRACON';
+        }
+
+        // Default to ARTCC
+        return 'ARTCC';
+    }
+
+    /**
+     * Get table name for facility type
+     */
+    private function getFacilityTable(string $type): ?string
+    {
+        return match (strtoupper($type)) {
+            'ARTCC' => 'artcc_boundaries',
+            'TRACON' => 'tracon_boundaries',
+            'SECTOR_LOW', 'SECTOR_HIGH', 'SECTOR_SUPERHIGH' => 'sector_boundaries',
+            default => null
+        };
+    }
+
+    /**
+     * Get code column name for facility type
+     */
+    private function getFacilityCodeColumn(string $type): ?string
+    {
+        return match (strtoupper($type)) {
+            'ARTCC' => 'artcc_code',
+            'TRACON' => 'tracon_code',
+            'SECTOR_LOW', 'SECTOR_HIGH', 'SECTOR_SUPERHIGH' => 'sector_code',
+            default => null
+        };
+    }
+
+    /**
+     * Extract all coordinates from a GeoJSON geometry
+     */
+    private function extractCoords(array $geometry, array &$coords): void
+    {
+        $type = $geometry['type'] ?? '';
+
+        if ($type === 'Point') {
+            $coords[] = $geometry['coordinates'];
+        } elseif ($type === 'LineString' || $type === 'MultiPoint') {
+            foreach ($geometry['coordinates'] as $coord) {
+                $coords[] = $coord;
+            }
+        } elseif ($type === 'Polygon' || $type === 'MultiLineString') {
+            foreach ($geometry['coordinates'] as $ring) {
+                foreach ($ring as $coord) {
+                    $coords[] = $coord;
+                }
+            }
+        } elseif ($type === 'MultiPolygon') {
+            foreach ($geometry['coordinates'] as $poly) {
+                foreach ($poly as $ring) {
+                    foreach ($ring as $coord) {
+                        $coords[] = $coord;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Calculate bounding box from coordinates
+     *
+     * @param array $coords Array of [lon, lat] coordinates
+     * @return array [minLon, minLat, maxLon, maxLat]
+     */
+    private function calculateBounds(array $coords): array
+    {
+        $minLon = $maxLon = $coords[0][0];
+        $minLat = $maxLat = $coords[0][1];
+
+        foreach ($coords as $coord) {
+            $minLon = min($minLon, $coord[0]);
+            $maxLon = max($maxLon, $coord[0]);
+            $minLat = min($minLat, $coord[1]);
+            $maxLat = max($maxLat, $coord[1]);
+        }
+
+        return [$minLon, $minLat, $maxLon, $maxLat];
+    }
 }
