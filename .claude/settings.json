@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:Python312python.exe -m pip install psycopg2-binary -q)",
+      "Bash(C:Python312python.exe C:tempsetup_gis.py)",
+      "Bash(if not exist \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\\\\load\\\\services\" mkdir \"c:\\\\Users\\\\jerem.DESKTOP-T926IG8\\\\OneDrive - Virtual Air Traffic Control System Command Center\\\\Documents - Virtual Air Traffic Control System Command Center\\\\VATSIM PERTI\\\\PERTI\\\\load\\\\services\")",
+      "Bash(az postgres flexible-server list:*)",
+      "Bash(az postgres flexible-server show:*)",
+      "Bash(az monitor activity-log:*)",
+      "Bash(az postgres flexible-server list-skus:*)",
+      "Bash(__NEW_LINE_61c6ff2b69aa524f__ echo \"\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI"
+    ]
+  }
+}
