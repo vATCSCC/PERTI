@@ -1,9 +1,9 @@
 /**
  * ADL Refresh Utilities
- * 
+ *
  * Provides double-buffering and seamless data refresh patterns to prevent
  * UI "flashing" or data gaps during periodic refreshes.
- * 
+ *
  * Key patterns:
  * 1. Never clear existing data until replacement data is ready
  * 2. Build complete HTML before swapping table contents
@@ -20,7 +20,7 @@ const ADLRefreshUtils = (function() {
 
     /**
      * Create a buffered data fetcher that maintains old data during refresh
-     * 
+     *
      * @param {Object} options Configuration options
      * @param {string} options.url - API endpoint URL
      * @param {Function} options.onSuccess - Called with new data when fetch succeeds
@@ -28,7 +28,7 @@ const ADLRefreshUtils = (function() {
      * @param {Function} options.transform - Transform response data (optional)
      * @param {string} options.statusElementId - Element to show subtle loading status (optional)
      * @returns {Object} Controller with refresh() method and current data getter
-     * 
+     *
      * @example
      * const trafficFetcher = ADLRefreshUtils.createBufferedFetcher({
      *     url: 'api/adl/current.php',
@@ -38,10 +38,10 @@ const ADLRefreshUtils = (function() {
      *     },
      *     statusElementId: 'lastUpdateTime'
      * });
-     * 
+     *
      * // Manual refresh
      * trafficFetcher.refresh();
-     * 
+     *
      * // Set up interval (data persists between refreshes)
      * setInterval(() => trafficFetcher.refresh(), 15000);
      */
@@ -62,7 +62,7 @@ const ADLRefreshUtils = (function() {
 
             try {
                 const response = await fetch(options.url, { cache: 'no-cache' });
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
@@ -105,10 +105,10 @@ const ADLRefreshUtils = (function() {
         }
 
         function showLoadingIndicator(elementId, loading) {
-            if (!elementId) return;
-            
+            if (!elementId) {return;}
+
             const el = document.getElementById(elementId);
-            if (!el) return;
+            if (!el) {return;}
 
             if (loading) {
                 // Add subtle loading class instead of clearing content
@@ -130,7 +130,7 @@ const ADLRefreshUtils = (function() {
             getLastUpdate: () => lastUpdate,
             getLastError: () => lastError,
             // Allow manual data setting (for initialization)
-            setData: (data) => { currentData = data; }
+            setData: (data) => { currentData = data; },
         };
     }
 
@@ -141,7 +141,7 @@ const ADLRefreshUtils = (function() {
 
     /**
      * Swap table body content atomically - builds complete HTML before replacing
-     * 
+     *
      * @param {string|HTMLElement} tbody - Table body element or its ID
      * @param {Array} rows - Array of row data
      * @param {Function} rowBuilder - Function that takes a row and returns HTML string
@@ -149,7 +149,7 @@ const ADLRefreshUtils = (function() {
      * @param {string} options.emptyMessage - Message to show if no rows (only on initial load)
      * @param {number} options.colspan - Number of columns for empty message
      * @param {boolean} options.preserveOnEmpty - If true, keep existing content when rows is empty
-     * 
+     *
      * @example
      * ADLRefreshUtils.swapTableContent('flight_table_body', flights, (flight) => {
      *     return `<tr>
@@ -169,7 +169,7 @@ const ADLRefreshUtils = (function() {
         const {
             emptyMessage = 'No data available',
             colspan = 1,
-            preserveOnEmpty = true
+            preserveOnEmpty = true,
         } = options;
 
         // If no rows and preserveOnEmpty is true, keep existing content
@@ -181,7 +181,7 @@ const ADLRefreshUtils = (function() {
 
         // Build complete HTML BEFORE touching the DOM
         let html = '';
-        
+
         if (!rows || rows.length === 0) {
             html = `<tr><td colspan="${colspan}" class="text-muted text-center py-3">${escapeHtml(emptyMessage)}</td></tr>`;
         } else {
@@ -206,19 +206,19 @@ const ADLRefreshUtils = (function() {
 
     /**
      * Create a buffered state container that never nullifies during updates
-     * 
+     *
      * @param {*} initialState - Initial state value
      * @returns {Object} State container with get/set/update methods
-     * 
+     *
      * @example
      * const flightState = ADLRefreshUtils.createStateBuffer([]);
-     * 
+     *
      * // During refresh - old data remains accessible
      * async function refresh() {
      *     const newData = await fetchFlights();
      *     flightState.update(newData); // Only updates if newData is valid
      * }
-     * 
+     *
      * // Render always has data
      * function render() {
      *     const flights = flightState.get(); // Never null during refresh
@@ -233,7 +233,7 @@ const ADLRefreshUtils = (function() {
         return {
             get: () => current,
             getPrevious: () => previous,
-            
+
             /**
              * Update state - only replaces if newState is valid
              * @param {*} newState - New state value
@@ -283,7 +283,7 @@ const ADLRefreshUtils = (function() {
             /**
              * Check if state has changed since last render
              */
-            hasChanged: (lastSeenCount) => updateCount !== lastSeenCount
+            hasChanged: (lastSeenCount) => updateCount !== lastSeenCount,
         };
     }
 
@@ -294,24 +294,24 @@ const ADLRefreshUtils = (function() {
 
     /**
      * Update MapLibre source data without clearing during fetch
-     * 
+     *
      * @param {Object} map - MapLibre map instance
      * @param {string} sourceId - Source ID to update
      * @param {Object} newData - New GeoJSON data
      * @param {Object} options - Additional options
-     * 
+     *
      * @example
      * // Don't do this (causes flash):
      * map.getSource('traffic').setData({ type: 'FeatureCollection', features: [] });
      * const data = await fetch(...);
      * map.getSource('traffic').setData(data);
-     * 
+     *
      * // Do this instead:
      * const data = await fetch(...);
      * ADLRefreshUtils.updateMapSource(map, 'traffic', data);
      */
     function updateMapSource(map, sourceId, newData, options = {}) {
-        if (!map || !sourceId) return false;
+        if (!map || !sourceId) {return false;}
 
         const source = map.getSource(sourceId);
         if (!source) {
@@ -326,8 +326,8 @@ const ADLRefreshUtils = (function() {
         }
 
         // Ensure it's a valid FeatureCollection
-        const geoJson = newData.type === 'FeatureCollection' 
-            ? newData 
+        const geoJson = newData.type === 'FeatureCollection'
+            ? newData
             : { type: 'FeatureCollection', features: newData.features || [] };
 
         // Only update if we have features (unless forceEmpty is set)
@@ -347,7 +347,7 @@ const ADLRefreshUtils = (function() {
 
     /**
      * Coordinate multiple data refreshes to update UI only when all are ready
-     * 
+     *
      * @example
      * const coordinator = ADLRefreshUtils.createRefreshCoordinator({
      *     sources: {
@@ -362,7 +362,7 @@ const ADLRefreshUtils = (function() {
      *         renderTMI(data.tmi);
      *     }
      * });
-     * 
+     *
      * coordinator.refreshAll();
      */
     function createRefreshCoordinator(options) {
@@ -379,7 +379,7 @@ const ADLRefreshUtils = (function() {
                         config.onSuccess(data);
                     }
                 },
-                onError: config.onError
+                onError: config.onError,
             });
         });
 
@@ -419,7 +419,7 @@ const ADLRefreshUtils = (function() {
             refreshAll,
             refreshOne,
             getAllData,
-            getFetcher: (key) => fetchers[key]
+            getFetcher: (key) => fetchers[key],
         };
     }
 
@@ -430,20 +430,20 @@ const ADLRefreshUtils = (function() {
 
     /**
      * Update stat counters with smooth transitions (no zeroing)
-     * 
+     *
      * @param {string|HTMLElement} element - Element or ID
      * @param {number} newValue - New count value
      * @param {Object} options - Animation options
      */
     function updateStatCounter(element, newValue, options = {}) {
         const el = typeof element === 'string' ? document.getElementById(element) : element;
-        if (!el) return;
+        if (!el) {return;}
 
-        const { 
+        const {
             format = (n) => n.toLocaleString(),
             animateDuration = 0,
             prefix = '',
-            suffix = ''
+            suffix = '',
         } = options;
 
         // Don't update to null/undefined/NaN
@@ -469,11 +469,11 @@ const ADLRefreshUtils = (function() {
         function tick(currentTime) {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            
+
             // Ease out
             const eased = 1 - Math.pow(1 - progress, 3);
             const current = Math.round(from + diff * eased);
-            
+
             el.textContent = prefix + format(current) + suffix;
 
             if (progress < 1) {
@@ -490,7 +490,7 @@ const ADLRefreshUtils = (function() {
     // =========================================================================
 
     function escapeHtml(str) {
-        if (str === null || str === undefined) return '';
+        if (str === null || str === undefined) {return '';}
         return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -505,7 +505,7 @@ const ADLRefreshUtils = (function() {
     // =========================================================================
 
     function injectStyles() {
-        if (document.getElementById('adl-refresh-styles')) return;
+        if (document.getElementById('adl-refresh-styles')) {return;}
 
         const styles = document.createElement('style');
         styles.id = 'adl-refresh-styles';
@@ -569,9 +569,9 @@ const ADLRefreshUtils = (function() {
         createRefreshCoordinator,
         updateStatCounter,
         escapeHtml,
-        
+
         // Version for debugging
-        version: '1.0.0'
+        version: '1.0.0',
     };
 
 })();

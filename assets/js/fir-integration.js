@@ -1,6 +1,6 @@
 /**
  * FIR Scope Integration for GDT Ground Stop/GDP
- * 
+ *
  * This file extends the FIR scope functionality to integrate with the existing
  * GDT flight filtering and model API. It hooks into key functions to enable
  * international airport ground stops.
@@ -19,8 +19,8 @@
     'use strict';
 
     // Store current FIR patterns when in international mode
-    var currentFirPatterns = [];
-    
+    let currentFirPatterns = [];
+
     /**
      * Check if a departure airport matches any FIR pattern
      * @param {string} depIcao - Departure ICAO code (e.g., "EGLL")
@@ -28,17 +28,17 @@
      * @returns {boolean}
      */
     function matchesFirPatterns(depIcao, patterns) {
-        if (!depIcao || !patterns || patterns.length === 0) return true;
-        if (patterns.indexOf('*') !== -1) return true; // Global match
-        
+        if (!depIcao || !patterns || patterns.length === 0) {return true;}
+        if (patterns.indexOf('*') !== -1) {return true;} // Global match
+
         depIcao = depIcao.toUpperCase();
-        
-        for (var i = 0; i < patterns.length; i++) {
-            var pattern = patterns[i].toUpperCase().replace(/\*+$/, '');
-            if (pattern === '' || pattern === '*') return true;
-            if (depIcao.indexOf(pattern) === 0) return true;
+
+        for (let i = 0; i < patterns.length; i++) {
+            const pattern = patterns[i].toUpperCase().replace(/\*+$/, '');
+            if (pattern === '' || pattern === '*') {return true;}
+            if (depIcao.indexOf(pattern) === 0) {return true;}
         }
-        
+
         return false;
     }
 
@@ -49,11 +49,11 @@
      * @returns {string} - Space-delimited string with FIR: prefix
      */
     function patternsToDepFacilities(patterns) {
-        if (!patterns || patterns.length === 0) return '';
-        
+        if (!patterns || patterns.length === 0) {return '';}
+
         // Prefix each pattern with FIR: so backend can distinguish
         return patterns.map(function(p) {
-            var clean = p.replace(/\*+$/, '').toUpperCase();
+            const clean = p.replace(/\*+$/, '').toUpperCase();
             return 'FIR:' + clean;
         }).join(' ');
     }
@@ -62,15 +62,15 @@
      * Enhanced scope recomputation that handles FIR mode
      */
     function enhancedRecomputeScope() {
-        var sel = document.getElementById('gs_scope_select');
-        if (!sel) return;
+        const sel = document.getElementById('gs_scope_select');
+        if (!sel) {return;}
 
-        var isFirMode = window.FIR_SCOPE && window.FIR_SCOPE.isActive();
-        
+        const isFirMode = window.FIR_SCOPE && window.FIR_SCOPE.isActive();
+
         if (!isFirMode) {
             // Use original ARTCC logic - clear FIR patterns
             currentFirPatterns = [];
-            
+
             // Call original if available, otherwise do nothing (original will handle it)
             if (typeof window._originalRecomputeScopeFromSelector === 'function') {
                 window._originalRecomputeScopeFromSelector();
@@ -79,15 +79,15 @@
         }
 
         // FIR mode - extract patterns from selected options
-        var selected = Array.prototype.slice.call(sel.selectedOptions || []);
-        var patterns = [];
-        var scopeLabels = [];
+        const selected = Array.prototype.slice.call(sel.selectedOptions || []);
+        let patterns = [];
+        const scopeLabels = [];
 
         selected.forEach(function(opt) {
-            var type = opt.dataset.type || '';
+            const type = opt.dataset.type || '';
             if (type.indexOf('fir-') === 0) {
                 try {
-                    var optPatterns = JSON.parse(opt.dataset.patterns || '[]');
+                    const optPatterns = JSON.parse(opt.dataset.patterns || '[]');
                     patterns = patterns.concat(optPatterns);
                     scopeLabels.push(opt.textContent || opt.value);
                 } catch (e) {
@@ -100,8 +100,8 @@
         currentFirPatterns = patterns;
 
         // Update form fields
-        var originCentersField = document.getElementById('gs_origin_centers');
-        var depFacilitiesField = document.getElementById('gs_dep_facilities');
+        const originCentersField = document.getElementById('gs_origin_centers');
+        const depFacilitiesField = document.getElementById('gs_dep_facilities');
 
         if (originCentersField) {
             // Store human-readable scope description
@@ -135,9 +135,9 @@
             return true; // No patterns = match all
         }
 
-        var dep = (flight.dep || flight.fp_dept_icao || flight.orig || 
+        const dep = (flight.dep || flight.fp_dept_icao || flight.orig ||
                    flight.departure || flight.origin || '').toUpperCase();
-        
+
         return matchesFirPatterns(dep, currentFirPatterns);
     }
 
@@ -152,8 +152,8 @@
      * Check if currently in FIR mode with patterns set
      */
     function hasFirScope() {
-        return window.FIR_SCOPE && 
-               window.FIR_SCOPE.isActive() && 
+        return window.FIR_SCOPE &&
+               window.FIR_SCOPE.isActive() &&
                currentFirPatterns.length > 0;
     }
 
@@ -161,7 +161,7 @@
      * Hook into the scope selector's change event
      */
     function hookScopeSelector() {
-        var sel = document.getElementById('gs_scope_select');
+        const sel = document.getElementById('gs_scope_select');
         if (!sel) {
             console.warn('FIR integration: scope selector not found');
             return;
@@ -186,7 +186,7 @@
     function hookFlightFiltering() {
         // Look for the global filterAdlFlight function or similar
         // Since it's inside an IIFE, we need a different approach
-        
+
         // Instead, we'll expose a filter check that gdt.js can call
         window.FIR_INTEGRATION = window.FIR_INTEGRATION || {};
         window.FIR_INTEGRATION.matchesScope = flightMatchesScope;
@@ -194,7 +194,7 @@
         window.FIR_INTEGRATION.hasFirScope = hasFirScope;
         window.FIR_INTEGRATION.enhancedRecomputeScope = enhancedRecomputeScope;
         window.FIR_INTEGRATION.matchesFirPatterns = matchesFirPatterns;
-        
+
         console.log('FIR integration: filter functions exposed');
     }
 
@@ -213,8 +213,8 @@
         hookFlightFiltering();
 
         // Add listener for mode toggle
-        var intlBtn = document.getElementById('gs_scope_mode_intl');
-        var domesticBtn = document.getElementById('gs_scope_mode_domestic');
+        const intlBtn = document.getElementById('gs_scope_mode_intl');
+        const domesticBtn = document.getElementById('gs_scope_mode_domestic');
 
         if (intlBtn) {
             intlBtn.addEventListener('click', function() {

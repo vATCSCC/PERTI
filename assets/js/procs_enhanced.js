@@ -36,9 +36,9 @@
     // ═══════════════════════════════════════════════════════════════════════════
 
     function parseEffDate(str) {
-        if (!str) return 0;
+        if (!str) {return 0;}
         const cleaned = String(str).replace(/[^\d]/g, '');
-        if (!cleaned) return 0;
+        if (!cleaned) {return 0;}
         const n = parseInt(cleaned, 10);
         return isNaN(n) ? 0 : n;
     }
@@ -46,14 +46,14 @@
     // Extract root name (letters only) from a procedure code
     // KAYLN3 -> KAYLN, WYNDE3 -> WYNDE, BLAID2 -> BLAID
     function extractRootName(code) {
-        if (!code) return '';
+        if (!code) {return '';}
         return code.replace(/[0-9#]/g, '').toUpperCase();
     }
 
     // Extract version number from a procedure code
     // KAYLN3 -> 3, WYNDE3 -> 3, KAYLN# -> null
     function extractVersion(code) {
-        if (!code) return null;
+        if (!code) {return null;}
         const match = code.match(/(\d+)$/);
         return match ? parseInt(match[1], 10) : null;
     }
@@ -61,35 +61,35 @@
     // Check if a token looks like a DP pattern: letters followed by digit(s)
     // KAYLN3 -> true, KAYLN -> false, KAYLN# -> true
     function looksLikeDpLeft(tok) {
-        if (!tok) return false;
+        if (!tok) {return false;}
         return /^[A-Z]{2,}[0-9#]+$/i.test(tok);
     }
 
     // Check if a token looks like a STAR pattern: letters followed by digit(s)
     function looksLikeStarRight(tok) {
-        if (!tok) return false;
+        if (!tok) {return false;}
         return /^[A-Z]{2,}[0-9#]+$/i.test(tok);
     }
 
     // Check if a token is a simple fix (3-5 letters, no numbers)
     function isSimpleFix(tok) {
-        if (!tok) return false;
+        if (!tok) {return false;}
         return /^[A-Z]{3,5}$/i.test(tok);
     }
 
     // Check if token is an airport identifier
     function isAirportCode(tok) {
-        if (!tok) return false;
+        if (!tok) {return false;}
         tok = tok.toUpperCase();
         // 4-letter ICAO or 3-letter + K prefix pattern
-        if (tok.length === 4 && /^[A-Z]{4}$/.test(tok)) return true;
-        if (tok.length === 3 && /^[A-Z]{3}$/.test(tok) && !tok.startsWith('Z')) return true;
+        if (tok.length === 4 && /^[A-Z]{4}$/.test(tok)) {return true;}
+        if (tok.length === 3 && /^[A-Z]{3}$/.test(tok) && !tok.startsWith('Z')) {return true;}
         return false;
     }
 
     // Normalize airport code to 4-letter ICAO
     function normalizeAirport(tok) {
-        if (!tok) return tok;
+        if (!tok) {return tok;}
         tok = tok.toUpperCase().trim();
         if (tok.length === 3 && /^[A-Z]{3}$/.test(tok) && !tok.startsWith('Z')) {
             return 'K' + tok;
@@ -99,11 +99,11 @@
 
     // Extract airport code from origin group string like "KDTW/27L|27R KORD/09R"
     function extractAirportsFromGroup(groupStr) {
-        if (!groupStr) return [];
+        if (!groupStr) {return [];}
         const airports = [];
         const tokens = groupStr.split(/\s+/);
         for (const tok of tokens) {
-            if (!tok) continue;
+            if (!tok) {continue;}
             const slashIdx = tok.indexOf('/');
             const apt = slashIdx >= 0 ? tok.substring(0, slashIdx) : tok;
             if (apt && isAirportCode(apt)) {
@@ -124,12 +124,12 @@
         $.ajax({
             type: 'GET',
             url: 'assets/data/dp_full_routes.csv',
-            async: false
+            async: false,
         }).done(function(data) {
-            const rows = typeof parseCsvWithQuotes === 'function' 
-                ? parseCsvWithQuotes(data) 
+            const rows = typeof parseCsvWithQuotes === 'function'
+                ? parseCsvWithQuotes(data)
                 : data.split('\n').map(line => line.split(','));
-            
+
             if (!rows || rows.length < 2) {
                 console.warn('[DP] dp_full_routes.csv is empty or invalid');
                 return;
@@ -162,10 +162,10 @@
 
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                if (!row || !row.length) continue;
+                if (!row || !row.length) {continue;}
 
                 const dpCodeRaw = (row[idxDpCode] || '').toString().replace(/"/g, '').trim();
-                if (!dpCodeRaw) continue;
+                if (!dpCodeRaw) {continue;}
                 const dpCode = dpCodeRaw.toUpperCase();
 
                 const effDate = idxEffDate >= 0 ? parseEffDate(row[idxEffDate]) : 0;
@@ -186,7 +186,7 @@
                     effDate: effDate,
                     origins: origins,
                     origGroup: origGroup,
-                    routePoints: routePoints
+                    routePoints: routePoints,
                 };
 
                 // Index by DP_COMPUTER_CODE (e.g., KAYLN3.KAYLN)
@@ -224,7 +224,7 @@
                             leftCode: leftCode,
                             effDate: effDate,
                             origins: origins,
-                            dpName: dpName
+                            dpName: dpName,
                         };
                     }
 
@@ -240,7 +240,7 @@
                                 rootName: rootName,
                                 effDate: effDate,
                                 origins: origins,
-                                dpName: dpName
+                                dpName: dpName,
                             };
                         }
                     }
@@ -255,7 +255,7 @@
                                 window.dpPatternIndex[pattern] = {
                                     code: transCode,
                                     dpCode: dpCode,
-                                    effDate: effDate
+                                    effDate: effDate,
                                 };
                             }
                         }
@@ -264,8 +264,8 @@
             }
 
             window.dpDataLoaded = true;
-            console.log('[DP] Loaded ' + Object.keys(window.dpFullRoutesByTransition).length + 
-                        ' transitions, ' + window.dpAllRootNames.size + ' root names in ' + 
+            console.log('[DP] Loaded ' + Object.keys(window.dpFullRoutesByTransition).length +
+                        ' transitions, ' + window.dpAllRootNames.size + ' root names in ' +
                         (performance.now() - startTime).toFixed(1) + 'ms');
 
         }).fail(function() {
@@ -282,12 +282,12 @@
         $.ajax({
             type: 'GET',
             url: 'assets/data/star_full_routes.csv',
-            async: false
+            async: false,
         }).done(function(data) {
-            const rows = typeof parseCsvWithQuotes === 'function' 
-                ? parseCsvWithQuotes(data) 
+            const rows = typeof parseCsvWithQuotes === 'function'
+                ? parseCsvWithQuotes(data)
                 : data.split('\n').map(line => line.split(','));
-            
+
             if (!rows || rows.length < 2) {
                 console.warn('[STAR] star_full_routes.csv is empty or invalid');
                 return;
@@ -320,10 +320,10 @@
 
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                if (!row || !row.length) continue;
+                if (!row || !row.length) {continue;}
 
                 const starCodeRaw = (row[idxStarCode] || '').toString().replace(/"/g, '').trim();
-                if (!starCodeRaw) continue;
+                if (!starCodeRaw) {continue;}
                 const starCode = starCodeRaw.toUpperCase();
 
                 const effDate = idxEffDate >= 0 ? parseEffDate(row[idxEffDate]) : 0;
@@ -344,7 +344,7 @@
                     effDate: effDate,
                     destinations: destinations,
                     destGroup: destGroup,
-                    routePoints: routePoints
+                    routePoints: routePoints,
                 };
 
                 // Index by STAR_COMPUTER_CODE (e.g., WYNDE.WYNDE3)
@@ -382,7 +382,7 @@
                             rightCode: rightCode,
                             effDate: effDate,
                             destinations: destinations,
-                            arrivalName: arrivalName
+                            arrivalName: arrivalName,
                         };
                     }
 
@@ -398,7 +398,7 @@
                                 rootName: rootName,
                                 effDate: effDate,
                                 destinations: destinations,
-                                arrivalName: arrivalName
+                                arrivalName: arrivalName,
                             };
                         }
                     }
@@ -413,7 +413,7 @@
                                 window.starPatternIndex[pattern] = {
                                     code: transCode,
                                     starCode: starCode,
-                                    effDate: effDate
+                                    effDate: effDate,
                                 };
                             }
                         }
@@ -422,8 +422,8 @@
             }
 
             window.starDataLoaded = true;
-            console.log('[STAR] Loaded ' + Object.keys(window.starFullRoutesByTransition).length + 
-                        ' transitions, ' + window.starAllRootNames.size + ' root names in ' + 
+            console.log('[STAR] Loaded ' + Object.keys(window.starFullRoutesByTransition).length +
+                        ' transitions, ' + window.starAllRootNames.size + ' root names in ' +
                         (performance.now() - startTime).toFixed(1) + 'ms');
 
         }).fail(function() {
@@ -439,7 +439,7 @@
     /**
      * Attempts to parse a token as a DP reference.
      * Returns: { type: 'dp', transCode: 'KAYLN3.SMUUV', record: {...} } or null
-     * 
+     *
      * Handles:
      * - KAYLN3.SMUUV (explicit transition)
      * - KAYLN3SMUUV (missing dot)
@@ -448,7 +448,7 @@
      * - KAYLN3 (DP name only, needs next token for transition)
      */
     function parseDpToken(token, nextToken) {
-        if (!token) return null;
+        if (!token) {return null;}
         const upper = token.toUpperCase();
 
         // Case 1: Explicit transition code with dot (KAYLN3.SMUUV)
@@ -493,7 +493,7 @@
                         const version = versionMatch[1];
                         const transFix = versionMatch[2].toUpperCase();
                         const transCode = rootName + version + '.' + transFix;
-                        
+
                         let records = window.dpFullRoutesByTransition[transCode];
                         if (records && records.length) {
                             return { type: 'dp', transCode: transCode, records: records, reconstructed: true };
@@ -563,7 +563,7 @@
     /**
      * Attempts to parse a token as a STAR reference.
      * Returns: { type: 'star', transCode: 'SMUUV.WYNDE3', record: {...} } or null
-     * 
+     *
      * Handles:
      * - SMUUV.WYNDE3 (explicit transition)
      * - SMUUVWYNDE3 (missing dot)
@@ -572,7 +572,7 @@
      * - WYNDE3 (STAR name only, needs previous token for transition)
      */
     function parseStarToken(token, prevToken) {
-        if (!token) return null;
+        if (!token) {return null;}
         const upper = token.toUpperCase();
 
         // Case 1: Explicit transition code with dot (SMUUV.WYNDE3)
@@ -615,7 +615,7 @@
                     const transFix = match[1].toUpperCase();
                     const version = match[3];
                     const transCode = transFix + '.' + rootName + version;
-                    
+
                     let records = window.starFullRoutesByTransition[transCode];
                     if (records && records.length) {
                         return { type: 'star', transCode: transCode, records: records, reconstructed: true };
@@ -686,11 +686,11 @@
      * Returns: { dp: {...}, star: {...}, sharedFix: 'SMUUV' } or null
      */
     function parseCombinedToken(token) {
-        if (!token) return null;
+        if (!token) {return null;}
         const upper = token.toUpperCase();
         const parts = upper.split('.');
-        
-        if (parts.length !== 3) return null;
+
+        if (parts.length !== 3) {return null;}
 
         const left = parts[0];   // KAYLN3
         const middle = parts[1]; // SMUUV (shared transition fix)
@@ -712,7 +712,7 @@
             return {
                 dp: dpResult,
                 star: starResult,
-                sharedFix: middle
+                sharedFix: middle,
             };
         }
 
@@ -728,7 +728,7 @@
      * 1. Split combined tokens (KAYLN3.SMUUV.WYNDE3)
      * 2. Detect and insert dots for concatenated tokens
      * 3. Infer origins/destinations from procedure served airports when missing
-     * 
+     *
      * @param {string[]} tokens - Array of route tokens
      * @returns {Object} { tokens: [...], origins: [...], destinations: [...], dpInfo: {...}, starInfo: {...} }
      */
@@ -754,7 +754,7 @@
         // First pass: identify explicit origin/destination
         let hasExplicitOrigin = false;
         let hasExplicitDest = false;
-        
+
         if (tokens.length > 0) {
             const firstTok = normalizeAirport(tokens[0].toUpperCase());
             if (isAirportCode(firstTok) && typeof window.routePoints !== 'undefined' && window.routePoints[firstTok]) {
@@ -787,7 +787,7 @@
                 if (!hasExplicitOrigin && combined.dp.records && combined.dp.records.length) {
                     const origins = new Set();
                     combined.dp.records.forEach(r => {
-                        if (r.origins) r.origins.forEach(o => origins.add(o));
+                        if (r.origins) {r.origins.forEach(o => origins.add(o));}
                     });
                     inferredOrigins = Array.from(origins);
                 }
@@ -796,7 +796,7 @@
                 if (!hasExplicitDest && combined.star.records && combined.star.records.length) {
                     const dests = new Set();
                     combined.star.records.forEach(r => {
-                        if (r.destinations) r.destinations.forEach(d => dests.add(d));
+                        if (r.destinations) {r.destinations.forEach(d => dests.add(d));}
                     });
                     inferredDestinations = Array.from(dests);
                 }
@@ -822,7 +822,7 @@
                 if (!hasExplicitOrigin && dp.records && dp.records.length) {
                     const origins = new Set();
                     dp.records.forEach(r => {
-                        if (r.origins) r.origins.forEach(o => origins.add(o));
+                        if (r.origins) {r.origins.forEach(o => origins.add(o));}
                     });
                     inferredOrigins = Array.from(origins);
                 }
@@ -844,7 +844,7 @@
                 if (!hasExplicitDest && star.records && star.records.length) {
                     const dests = new Set();
                     star.records.forEach(r => {
-                        if (r.destinations) r.destinations.forEach(d => dests.add(d));
+                        if (r.destinations) {r.destinations.forEach(d => dests.add(d));}
                     });
                     inferredDestinations = Array.from(dests);
                 }
@@ -864,7 +864,7 @@
             dpInfo: dpInfo,
             starInfo: starInfo,
             hasExplicitOrigin: hasExplicitOrigin,
-            hasExplicitDest: hasExplicitDest
+            hasExplicitDest: hasExplicitDest,
         };
     };
 
@@ -876,10 +876,10 @@
      * Get the best matching DP route for a given transition code and origin.
      */
     window.getDpRoutePoints = function(transCode, originAirport) {
-        if (!transCode) return null;
+        if (!transCode) {return null;}
         const upper = transCode.toUpperCase();
         const records = window.dpFullRoutesByTransition[upper];
-        
+
         if (!records || !records.length) {
             // Try pattern matching
             const parts = upper.split('.');
@@ -915,10 +915,10 @@
      * Get the best matching STAR route for a given transition code and destination.
      */
     window.getStarRoutePoints = function(transCode, destAirport) {
-        if (!transCode) return null;
+        if (!transCode) {return null;}
         const upper = transCode.toUpperCase();
         const records = window.starFullRoutesByTransition[upper];
-        
+
         if (!records || !records.length) {
             // Try pattern matching
             const parts = upper.split('.');
@@ -953,7 +953,7 @@
     /**
      * Expand DP/STAR tokens in a route to their full waypoint sequences.
      * Also handles fan-style drawing for inferred origins/destinations.
-     * 
+     *
      * @param {string[]} tokens - Preprocessed route tokens
      * @param {boolean[]} solidMask - Solid/dashed mask for each token
      * @param {Object} procInfo - Info from preprocessRouteProcedures
@@ -965,8 +965,8 @@
         }
 
         procInfo = procInfo || {};
-        const inSolid = solidMask && solidMask.length === tokens.length 
-            ? solidMask 
+        const inSolid = solidMask && solidMask.length === tokens.length
+            ? solidMask
             : new Array(tokens.length).fill(true);
 
         const outTokens = [];
@@ -1042,7 +1042,7 @@
                         type: 'origin_fan',
                         from: origin,
                         to: firstFix,
-                        dashed: true
+                        dashed: true,
                     });
                 }
             }
@@ -1066,7 +1066,7 @@
                         type: 'dest_fan',
                         from: lastFix,
                         to: dest,
-                        dashed: true
+                        dashed: true,
                     });
                 }
             }
@@ -1075,7 +1075,7 @@
         return {
             tokens: outTokens,
             solidMask: outSolid,
-            fanRoutes: fanRoutes
+            fanRoutes: fanRoutes,
         };
     };
 
@@ -1096,28 +1096,28 @@
     window.debugSearchStars = function(search) {
         const upper = (search || '').toUpperCase();
         const results = [];
-        
+
         for (const key of Object.keys(window.starFullRoutesByTransition || {})) {
             if (key.includes(upper)) {
                 results.push(key);
             }
         }
-        
+
         console.log('[STAR-DEBUG] Found', results.length, 'transitions matching "' + upper + '":', results.slice(0, 20));
         return results;
     };
-    
+
     // Debug helper: check what patterns are indexed
     window.debugSearchStarPatterns = function(search) {
         const upper = (search || '').toUpperCase();
         const results = [];
-        
+
         for (const key of Object.keys(window.starPatternIndex || {})) {
             if (key.includes(upper)) {
                 results.push({ pattern: key, code: window.starPatternIndex[key].code });
             }
         }
-        
+
         console.log('[STAR-DEBUG] Found', results.length, 'patterns matching "' + upper + '":', results.slice(0, 20));
         return results;
     };

@@ -1,9 +1,9 @@
 /**
  * Weather Impact Display Module for PERTI
- * 
+ *
  * Displays weather impact badges on flights and provides
  * impact summary information
- * 
+ *
  * @version 1.0
  * @date 2026-01-06
  */
@@ -14,11 +14,11 @@ const WeatherImpact = (function() {
     // =========================================================================
     // CONFIGURATION
     // =========================================================================
-    
+
     const CONFIG = {
         apiUrl: '/api/weather/impact.php',
         refreshInterval: 30000,  // 30 seconds
-        
+
         // Impact badge colors
         colors: {
             DIRECT_CONVECTIVE: { bg: '#FF0000', text: '#FFFFFF', icon: '⚡' },
@@ -28,40 +28,40 @@ const WeatherImpact = (function() {
             NEAR_CONVECTIVE: { bg: '#FF6666', text: '#000000', icon: '⚡' },
             NEAR_TURB: { bg: '#FFA500', text: '#000000', icon: '≋' },
             NEAR_ICE: { bg: '#87CEEB', text: '#000000', icon: '❄' },
-            NEAR: { bg: '#FFAA44', text: '#000000', icon: '⚠' }
-        }
+            NEAR: { bg: '#FFAA44', text: '#000000', icon: '⚠' },
+        },
     };
 
     // =========================================================================
     // STATE
     // =========================================================================
-    
+
     let initialized = false;
     let stats = null;
-    let affectedFlights = new Map();  // flight_uid -> impact info
+    const affectedFlights = new Map();  // flight_uid -> impact info
     let refreshTimer = null;
-    let onUpdateCallbacks = [];
+    const onUpdateCallbacks = [];
 
     // =========================================================================
     // INITIALIZATION
     // =========================================================================
-    
+
     /**
      * Initialize the weather impact module
      */
     function init(options = {}) {
-        if (initialized) return;
-        
+        if (initialized) {return;}
+
         if (options.refreshInterval) {
             CONFIG.refreshInterval = options.refreshInterval;
         }
-        
+
         // Initial load
         refresh();
-        
+
         // Start auto-refresh
         startAutoRefresh();
-        
+
         initialized = true;
         console.log('WeatherImpact: Initialized');
     }
@@ -69,7 +69,7 @@ const WeatherImpact = (function() {
     // =========================================================================
     // DATA FETCHING
     // =========================================================================
-    
+
     /**
      * Refresh weather impact data
      */
@@ -80,7 +80,7 @@ const WeatherImpact = (function() {
             .then(data => {
                 if (data.success) {
                     stats = data;
-                    
+
                     // If there are affected flights, fetch details
                     if (data.flights_affected > 0) {
                         fetchAffectedFlights();
@@ -92,7 +92,7 @@ const WeatherImpact = (function() {
             })
             .catch(err => console.error('WeatherImpact: Stats fetch error', err));
     }
-    
+
     /**
      * Fetch list of affected flights
      */
@@ -110,7 +110,7 @@ const WeatherImpact = (function() {
             })
             .catch(err => console.error('WeatherImpact: Affected flights fetch error', err));
     }
-    
+
     /**
      * Fetch impact summary
      */
@@ -118,7 +118,7 @@ const WeatherImpact = (function() {
         return fetch(`${CONFIG.apiUrl}?summary=1&_=${Date.now()}`)
             .then(r => r.json());
     }
-    
+
     /**
      * Fetch impact for specific flight
      */
@@ -130,7 +130,7 @@ const WeatherImpact = (function() {
     // =========================================================================
     // BADGE RENDERING
     // =========================================================================
-    
+
     /**
      * Get weather impact badge HTML for a flight
      * @param {number} flightUid - Flight UID
@@ -138,10 +138,10 @@ const WeatherImpact = (function() {
      */
     function getBadgeHtml(flightUid) {
         const impact = affectedFlights.get(flightUid);
-        if (!impact || !impact.weather_impact) return '';
-        
+        if (!impact || !impact.weather_impact) {return '';}
+
         const style = CONFIG.colors[impact.weather_impact] || CONFIG.colors.NEAR;
-        
+
         return `<span class="weather-impact-badge" 
                       style="background:${style.bg};color:${style.text}" 
                       title="${impact.hazard} - ${impact.impact_type}"
@@ -149,24 +149,24 @@ const WeatherImpact = (function() {
                     ${style.icon}
                 </span>`;
     }
-    
+
     /**
      * Get badge class for CSS styling
      */
     function getBadgeClass(flightUid) {
         const impact = affectedFlights.get(flightUid);
-        if (!impact) return '';
-        
+        if (!impact) {return '';}
+
         return `weather-${impact.impact_type.toLowerCase()}-${impact.hazard.toLowerCase()}`;
     }
-    
+
     /**
      * Check if flight is affected by weather
      */
     function isAffected(flightUid) {
         return affectedFlights.has(flightUid);
     }
-    
+
     /**
      * Get impact info for flight
      */
@@ -177,13 +177,13 @@ const WeatherImpact = (function() {
     // =========================================================================
     // SUMMARY PANEL
     // =========================================================================
-    
+
     /**
      * Build summary panel HTML
      */
     function buildSummaryPanel() {
-        if (!stats) return '<div class="weather-impact-loading">Loading...</div>';
-        
+        if (!stats) {return '<div class="weather-impact-loading">Loading...</div>';}
+
         if (stats.flights_affected === 0) {
             return `
                 <div class="weather-impact-clear">
@@ -192,7 +192,7 @@ const WeatherImpact = (function() {
                 </div>
             `;
         }
-        
+
         return `
             <div class="weather-impact-summary">
                 <div class="impact-stat">
@@ -214,7 +214,7 @@ const WeatherImpact = (function() {
             </div>
         `;
     }
-    
+
     /**
      * Build affected flights list HTML
      */
@@ -222,23 +222,23 @@ const WeatherImpact = (function() {
         if (affectedFlights.size === 0) {
             return '<div class="no-affected-flights">No flights currently affected</div>';
         }
-        
+
         let html = '<div class="affected-flights-list">';
-        
+
         // Group by hazard
         const byHazard = new Map();
         affectedFlights.forEach((f, uid) => {
             const key = f.hazard || 'OTHER';
-            if (!byHazard.has(key)) byHazard.set(key, []);
+            if (!byHazard.has(key)) {byHazard.set(key, []);}
             byHazard.get(key).push(f);
         });
-        
+
         // Sort hazards by severity
         const hazardOrder = ['CONVECTIVE', 'TURB', 'ICE', 'IFR', 'MTN', 'OTHER'];
-        const sortedHazards = [...byHazard.keys()].sort((a, b) => 
-            hazardOrder.indexOf(a) - hazardOrder.indexOf(b)
+        const sortedHazards = [...byHazard.keys()].sort((a, b) =>
+            hazardOrder.indexOf(a) - hazardOrder.indexOf(b),
         );
-        
+
         for (const hazard of sortedHazards) {
             const flights = byHazard.get(hazard);
             html += `
@@ -246,7 +246,7 @@ const WeatherImpact = (function() {
                     <div class="hazard-header">${hazard} (${flights.length})</div>
                     <div class="hazard-flights">
             `;
-            
+
             for (const f of flights.slice(0, 20)) {  // Limit to 20 per hazard
                 const style = CONFIG.colors[f.weather_impact] || CONFIG.colors.NEAR;
                 html += `
@@ -258,14 +258,14 @@ const WeatherImpact = (function() {
                     </div>
                 `;
             }
-            
+
             if (flights.length > 20) {
                 html += `<div class="more-flights">+${flights.length - 20} more</div>`;
             }
-            
+
             html += '</div></div>';
         }
-        
+
         html += '</div>';
         return html;
     }
@@ -273,12 +273,12 @@ const WeatherImpact = (function() {
     // =========================================================================
     // AUTO-REFRESH
     // =========================================================================
-    
+
     function startAutoRefresh() {
         stopAutoRefresh();
         refreshTimer = setInterval(refresh, CONFIG.refreshInterval);
     }
-    
+
     function stopAutoRefresh() {
         if (refreshTimer) {
             clearInterval(refreshTimer);
@@ -289,13 +289,13 @@ const WeatherImpact = (function() {
     // =========================================================================
     // EVENT HANDLING
     // =========================================================================
-    
+
     function onUpdate(callback) {
         if (typeof callback === 'function') {
             onUpdateCallbacks.push(callback);
         }
     }
-    
+
     function notifyUpdate() {
         onUpdateCallbacks.forEach(cb => cb(stats, affectedFlights));
     }
@@ -303,34 +303,34 @@ const WeatherImpact = (function() {
     // =========================================================================
     // PUBLIC API
     // =========================================================================
-    
+
     return {
         init: init,
         refresh: refresh,
         fetchSummary: fetchSummary,
         fetchFlightImpact: fetchFlightImpact,
-        
+
         // Badge helpers
         getBadgeHtml: getBadgeHtml,
         getBadgeClass: getBadgeClass,
         isAffected: isAffected,
         getImpact: getImpact,
-        
+
         // Panel builders
         buildSummaryPanel: buildSummaryPanel,
         buildAffectedList: buildAffectedList,
-        
+
         // Event handling
         onUpdate: onUpdate,
-        
+
         // State access
         getStats: () => stats,
         getAffectedFlights: () => affectedFlights,
         getAffectedCount: () => affectedFlights.size,
-        
+
         // Control
         startAutoRefresh: startAutoRefresh,
-        stopAutoRefresh: stopAutoRefresh
+        stopAutoRefresh: stopAutoRefresh,
     };
 })();
 

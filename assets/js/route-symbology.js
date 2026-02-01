@@ -15,19 +15,19 @@
             color: null,       // null = use route color
             width: 3,
             opacity: 1.0,
-            dashArray: null    // null = solid line
+            dashArray: null,    // null = solid line
         },
         dashed: {
             color: null,
             width: 3,
             opacity: 1.0,
-            dashArray: [4, 4]
+            dashArray: [4, 4],
         },
         fan: {
             color: null,
             width: 1.5,
             opacity: 0.8,
-            dashArray: [1, 3]
+            dashArray: [1, 3],
         },
         // Fix/waypoint symbology
         fixes: {
@@ -41,14 +41,14 @@
             labelSize: 10,
             labelColor: null,  // null = use route color
             labelHaloWidth: 3,
-            labelHaloColor: '#000000'
+            labelHaloColor: '#000000',
         },
         // Global overrides (applies to all segments if set)
         global: {
             color: null,
             width: null,
-            opacity: null
-        }
+            opacity: null,
+        },
     };
 
     // Predefined dash patterns
@@ -59,7 +59,7 @@
         'dash-dot': [6, 3, 1, 3],
         'long-dash': [8, 4],
         'short-dash': [2, 2],
-        'dense-dot': [1, 1]
+        'dense-dot': [1, 1],
     };
 
     const DASH_PATTERN_LABELS = {
@@ -69,7 +69,7 @@
         'dash-dot': 'Dash-Dot (-·-)',
         'long-dash': 'Long Dash (— —)',
         'short-dash': 'Short Dash (--)',
-        'dense-dot': 'Dense Dot'
+        'dense-dot': 'Dense Dot',
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -80,7 +80,7 @@
     let currentSymbology = null;
     let segmentOverrides = {};  // Map of segmentKey -> symbology override
     let routeOverrides = {};    // Map of routeId -> symbology override
-    let onChangeCallbacks = [];
+    const onChangeCallbacks = [];
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PERSISTENCE
@@ -109,7 +109,7 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify({
                 defaults: currentSymbology,
                 segmentOverrides: segmentOverrides,
-                routeOverrides: routeOverrides
+                routeOverrides: routeOverrides,
             }));
         } catch (e) {
             console.warn('[SYMBOLOGY] Failed to save settings:', e);
@@ -119,7 +119,7 @@
     function deepMerge(target, source) {
         for (const key in source) {
             if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-                if (!target[key]) target[key] = {};
+                if (!target[key]) {target[key] = {};}
                 deepMerge(target[key], source[key]);
             } else {
                 target[key] = source[key];
@@ -146,8 +146,8 @@
             color: segOvr.color || routeOvr.color || typeDefaults.color || globalDefaults.color || routeColor,
             width: segOvr.width ?? routeOvr.width ?? globalDefaults.width ?? typeDefaults.width,
             opacity: segOvr.opacity ?? routeOvr.opacity ?? globalDefaults.opacity ?? typeDefaults.opacity,
-            dashArray: segOvr.dashArray !== undefined ? segOvr.dashArray : 
-                       (routeOvr.dashArray !== undefined ? routeOvr.dashArray : typeDefaults.dashArray)
+            dashArray: segOvr.dashArray !== undefined ? segOvr.dashArray :
+                (routeOvr.dashArray !== undefined ? routeOvr.dashArray : typeDefaults.dashArray),
         };
     }
 
@@ -267,7 +267,7 @@
      * Apply symbology to MapLibre map layers
      */
     function applyToMapLibre(map) {
-        if (!map) return;
+        if (!map) {return;}
 
         const solid = currentSymbology.solid;
         const dashed = currentSymbology.dashed;
@@ -326,23 +326,23 @@
 
         // Apply to fix/waypoint layers
         const fixes = currentSymbology.fixes || DEFAULT_SYMBOLOGY.fixes;
-        
+
         // Fix circles (route-fix-points and fixes-circles)
         ['route-fix-points', 'fixes-circles', 'route-fixes-circles'].forEach(layerId => {
-            if (!map.getLayer(layerId)) return;
-            
+            if (!map.getLayer(layerId)) {return;}
+
             // Visibility
             map.setLayoutProperty(layerId, 'visibility', fixes.visible ? 'visible' : 'none');
-            
+
             // Radius - use zoom interpolation
             const baseRadius = fixes.radius || 4;
             map.setPaintProperty(layerId, 'circle-radius', [
                 'interpolate', ['linear'], ['zoom'],
                 4, baseRadius * 0.5,
                 8, baseRadius,
-                12, baseRadius * 1.5
+                12, baseRadius * 1.5,
             ]);
-            
+
             // Color
             if (global.color) {
                 map.setPaintProperty(layerId, 'circle-color', global.color);
@@ -351,15 +351,15 @@
             } else {
                 map.setPaintProperty(layerId, 'circle-color', ['get', 'color']);
             }
-            
+
             // Opacity
             map.setPaintProperty(layerId, 'circle-opacity', fixes.opacity ?? 1.0);
-            
+
             // Stroke
             map.setPaintProperty(layerId, 'circle-stroke-width', fixes.strokeWidth ?? 1);
             map.setPaintProperty(layerId, 'circle-stroke-color', fixes.strokeColor || '#000000');
         });
-        
+
         // Fix labels (route-fixes-labels layer - route-fix-labels was removed as it doesn't exist)
         const labelLayerIds = ['route-fixes-labels'];
         const labelsVisible = fixes.visible && (fixes.labelsVisible !== false);
@@ -383,7 +383,7 @@
                 5, baseSize * 0.9,
                 8, baseSize,
                 12, baseSize * 1.1,
-                16, baseSize * 1.2
+                16, baseSize * 1.2,
             ]);
 
             // Text color
@@ -421,10 +421,10 @@
      * Get dash pattern key from array
      */
     function getDashPatternKey(dashArray) {
-        if (!dashArray) return 'solid';
+        if (!dashArray) {return 'solid';}
         const str = JSON.stringify(dashArray);
         for (const [key, pattern] of Object.entries(DASH_PATTERNS)) {
-            if (JSON.stringify(pattern) === str) return key;
+            if (JSON.stringify(pattern) === str) {return key;}
         }
         return 'dashed'; // default fallback
     }
@@ -441,7 +441,7 @@
      */
     function initSettingsPanel() {
         const $panel = $('#route-symbology-panel');
-        if (!$panel.length) return;
+        if (!$panel.length) {return;}
 
         loadSymbology();
         updatePanelUI();
@@ -618,19 +618,19 @@
      */
     function updatePanelUI() {
         const $panel = $('#route-symbology-panel');
-        if (!$panel.length) return;
+        if (!$panel.length) {return;}
 
         ['solid', 'dashed', 'fan'].forEach(segType => {
             const settings = currentSymbology[segType] || {};
-            
+
             // Width
             $(`#symb-${segType}-width`).val(settings.width || 3);
             $(`#symb-${segType}-width-val`).text((settings.width || 3).toFixed(1));
-            
+
             // Opacity
             $(`#symb-${segType}-opacity`).val(settings.opacity ?? 1.0);
             $(`#symb-${segType}-opacity-val`).text(Math.round((settings.opacity ?? 1.0) * 100) + '%');
-            
+
             // Color
             const hasColor = settings.color != null;
             $(`#symb-${segType}-color-enable`).prop('checked', hasColor);
@@ -638,7 +638,7 @@
             if (settings.color) {
                 $(`#symb-${segType}-color`).val(settings.color);
             }
-            
+
             // Dash pattern
             const dashKey = getDashPatternKey(settings.dashArray);
             $(`#symb-${segType}-dash`).val(dashKey);
@@ -664,42 +664,42 @@
 
         // Fix symbology
         const fixes = currentSymbology.fixes || DEFAULT_SYMBOLOGY.fixes;
-        
+
         $('#symb-fixes-visible').prop('checked', fixes.visible !== false);
         $('#symb-fixes-labels-visible').prop('checked', fixes.labelsVisible !== false);
-        
+
         $('#symb-fixes-radius').val(fixes.radius || 4);
         $('#symb-fixes-radius-val').text((fixes.radius || 4).toFixed(1));
-        
+
         $('#symb-fixes-opacity').val(fixes.opacity ?? 1.0);
         $('#symb-fixes-opacity-val').text(Math.round((fixes.opacity ?? 1.0) * 100) + '%');
-        
+
         const hasFixColor = fixes.color != null;
         $('#symb-fixes-color-enable').prop('checked', hasFixColor);
         $('#symb-fixes-color').prop('disabled', !hasFixColor);
-        if (fixes.color) $('#symb-fixes-color').val(fixes.color);
-        
+        if (fixes.color) {$('#symb-fixes-color').val(fixes.color);}
+
         $('#symb-fixes-stroke-width').val(fixes.strokeWidth ?? 1);
         $('#symb-fixes-stroke-width-val').text((fixes.strokeWidth ?? 1).toFixed(1));
         $('#symb-fixes-stroke-color').val(fixes.strokeColor || '#000000');
-        
+
         $('#symb-fixes-label-size').val(fixes.labelSize || 10);
         $('#symb-fixes-label-size-val').text((fixes.labelSize || 10).toFixed(0));
-        
+
         const hasLabelColor = fixes.labelColor != null;
         $('#symb-fixes-label-color-enable').prop('checked', hasLabelColor);
         $('#symb-fixes-label-color').prop('disabled', !hasLabelColor);
-        if (fixes.labelColor) $('#symb-fixes-label-color').val(fixes.labelColor);
-        
+        if (fixes.labelColor) {$('#symb-fixes-label-color').val(fixes.labelColor);}
+
         $('#symb-fixes-halo-width').val(fixes.labelHaloWidth ?? 3);
         $('#symb-fixes-halo-width-val').text((fixes.labelHaloWidth ?? 3).toFixed(1));
         $('#symb-fixes-halo-color').val(fixes.labelHaloColor || '#000000');
-        
+
         // Update toggle button text
         $('#symb-toggle-all-fixes').html(
-            fixes.visible !== false 
-                ? '<i class="fas fa-eye-slash"></i> Hide All' 
-                : '<i class="fas fa-eye"></i> Show All'
+            fixes.visible !== false
+                ? '<i class="fas fa-eye-slash"></i> Hide All'
+                : '<i class="fas fa-eye"></i> Show All',
         );
     }
 
@@ -760,7 +760,7 @@
 
         // Bind events
         popup.querySelector('.symb-editor-close').addEventListener('click', () => mlPopup.remove());
-        
+
         popup.querySelector('#seg-color-enable').addEventListener('change', function() {
             popup.querySelector('#seg-color').disabled = !this.checked;
         });
@@ -776,7 +776,7 @@
         popup.querySelector('#seg-clear').addEventListener('click', () => {
             clearSegmentOverride(segmentKey);
             mlPopup.remove();
-            if (onSave) onSave();
+            if (onSave) {onSave();}
         });
 
         popup.querySelector('#seg-apply').addEventListener('click', () => {
@@ -784,11 +784,11 @@
                 color: popup.querySelector('#seg-color-enable').checked ? popup.querySelector('#seg-color').value : null,
                 width: parseFloat(popup.querySelector('#seg-width').value),
                 opacity: parseFloat(popup.querySelector('#seg-opacity').value),
-                dashArray: parseDashPattern(popup.querySelector('#seg-dash').value)
+                dashArray: parseDashPattern(popup.querySelector('#seg-dash').value),
             };
             setSegmentOverride(segmentKey, settings);
             mlPopup.remove();
-            if (onSave) onSave();
+            if (onSave) {onSave();}
         });
 
         popup.querySelector('#seg-apply-route').addEventListener('click', () => {
@@ -796,11 +796,11 @@
                 color: popup.querySelector('#seg-color-enable').checked ? popup.querySelector('#seg-color').value : null,
                 width: parseFloat(popup.querySelector('#seg-width').value),
                 opacity: parseFloat(popup.querySelector('#seg-opacity').value),
-                dashArray: parseDashPattern(popup.querySelector('#seg-dash').value)
+                dashArray: parseDashPattern(popup.querySelector('#seg-dash').value),
             };
             setRouteOverride(routeId, settings);
             mlPopup.remove();
-            if (onSave) onSave();
+            if (onSave) {onSave();}
         });
 
         return mlPopup;
@@ -864,7 +864,7 @@
         DASH_PATTERN_LABELS,
 
         // Events
-        onChange
+        onChange,
     };
 
     // Auto-load on document ready

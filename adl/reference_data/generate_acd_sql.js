@@ -37,7 +37,7 @@ const stringColumns = new Set([
     'Physical_Class_Engine', 'AAC', 'AAC_minimum', 'AAC_maximum', 'ADG', 'TDG',
     'MALW_lb', 'Main_Gear_Config', 'ICAO_WTC', 'Class', 'FAA_Weight', 'CWT',
     'One_Half_Wake_Category', 'Two_Wake_Category_Appx_A', 'Two_Wake_Category_Appx_B',
-    'SRS', 'LAHSO', 'FAA_Registry', 'Remarks'
+    'SRS', 'LAHSO', 'FAA_Registry', 'Remarks',
 ]);
 
 // Numeric columns that should convert 'N/A' to NULL
@@ -46,7 +46,7 @@ const numericColumns = new Set([
     'Wingspan_ft_without_winglets_sharklets', 'Wingspan_ft_with_winglets_sharklets',
     'Length_ft', 'Tail_Height_at_OEW_ft', 'Wheelbase_ft', 'Cockpit_to_Main_Gear_ft',
     'Main_Gear_Width_ft', 'MTOW_lb', 'Parking_Area_ft2', 'Rotor_Diameter_ft',
-    'Registration_Count', 'TMFS_Operations_FY24'
+    'Registration_Count', 'TMFS_Operations_FY24',
 ]);
 
 // SQL escape helper
@@ -126,7 +126,7 @@ const columnMap = {
     'Registration_Count': 'Registration_Count',
     'TMFS_Operations_FY24': 'TFMS_Operations_FY24',
     'Remarks': 'Remarks',
-    'LastUpdate': 'LastUpdate'
+    'LastUpdate': 'LastUpdate',
 };
 
 // Generate SQL
@@ -226,7 +226,7 @@ const summary = {
     total: data.length,
     byWeight: {},
     byEngine: {},
-    byClass: {}
+    byClass: {},
 };
 
 data.forEach(row => {

@@ -12,29 +12,29 @@ const FILTER_CONFIG = {
             'H': '#dc3545',  // Heavy - Red
             'L': '#28a745',  // Large - Green
             'S': '#17a2b8',  // Small - Cyan
-            'UNKNOWN': '#6c757d'
+            'UNKNOWN': '#6c757d',
         },
         labels: {
             'J': 'Super',
             'H': 'Heavy',
             'L': 'Large',
             'S': 'Small',
-            'UNKNOWN': 'Unknown'
+            'UNKNOWN': 'Unknown',
         },
-        order: ['J', 'H', 'L', 'S', 'UNKNOWN']
+        order: ['J', 'H', 'L', 'S', 'UNKNOWN'],
     },
 
     // Flight Rules (IFR/VFR)
     flightRule: {
         colors: {
             'I': '#007bff',  // IFR - Blue
-            'V': '#28a745'   // VFR - Green
+            'V': '#28a745',   // VFR - Green
         },
         labels: {
             'I': 'IFR',
-            'V': 'VFR'
+            'V': 'VFR',
         },
-        order: ['I', 'V']
+        order: ['I', 'V'],
     },
 
     // Major Carriers
@@ -134,7 +134,7 @@ const FILTER_CONFIG = {
             'LEJ': '#1a1a1a',  // LJ Aviation - Black
             // Fallbacks
             'OTHER': '#6c757d',
-            'UNKNOWN': '#adb5bd'
+            'UNKNOWN': '#adb5bd',
         },
         labels: {
             // US
@@ -175,8 +175,8 @@ const FILTER_CONFIG = {
             'AMX': 'Aeromexico', 'CMP': 'Copa',
             // Business/Charter
             'EJA': 'NetJets', 'XOJ': 'XOJet', 'LEJ': 'LJ Aviation',
-            'OTHER': 'Other', 'UNKNOWN': 'Unknown'
-        }
+            'OTHER': 'Other', 'UNKNOWN': 'Unknown',
+        },
     },
 
     // Aircraft Type by Manufacturer
@@ -259,8 +259,8 @@ const FILTER_CONFIG = {
             'LJ70': '#7b68ee', 'LJ75': '#7b68ee',
             // Fallbacks
             'OTHER': '#6c757d',
-            'UNKNOWN': '#adb5bd'
-        }
+            'UNKNOWN': '#adb5bd',
+        },
     },
 
     // ARTCC/FIR Centers
@@ -287,7 +287,7 @@ const FILTER_CONFIG = {
             'CZEG': '#ff1493',  // Edmonton
             'CZVR': '#db7093',  // Vancouver
             // Fallbacks
-            'OTHER': '#6c757d', 'UNKNOWN': '#adb5bd'
+            'OTHER': '#6c757d', 'UNKNOWN': '#adb5bd',
         },
         labels: {
             // US ARTCCs
@@ -302,8 +302,8 @@ const FILTER_CONFIG = {
             // Canadian FIRs
             'CZYZ': 'Toronto', 'CZUL': 'Montreal', 'CZZV': 'Sept-Iles',
             'CZQM': 'Moncton', 'CZQX': 'Gander Domestic', 'CZQO': 'Gander Oceanic',
-            'CZWG': 'Winnipeg', 'CZEG': 'Edmonton', 'CZVR': 'Vancouver'
-        }
+            'CZWG': 'Winnipeg', 'CZEG': 'Edmonton', 'CZVR': 'Vancouver',
+        },
     },
 
     // DCC Regions (matches nod.js DCC_REGIONS)
@@ -317,13 +317,13 @@ const FILTER_CONFIG = {
             'CANADA_EAST': '#9b59b6',    // Purple - CZYZ, CZUL, CZZV, CZQM, CZQX, CZQO
             'CANADA_WEST': '#ff69b4',    // Pink - CZWG, CZEG, CZVR
             'OTHER': '#6c757d',
-            'UNKNOWN': '#adb5bd'
+            'UNKNOWN': '#adb5bd',
         },
         labels: {
             'WEST': 'West', 'SOUTH_CENTRAL': 'South Central', 'MIDWEST': 'Midwest',
             'SOUTHEAST': 'Southeast', 'NORTHEAST': 'Northeast',
             'CANADA_EAST': 'Canada East', 'CANADA_WEST': 'Canada West',
-            'OTHER': 'Other', 'UNKNOWN': 'Unknown'
+            'OTHER': 'Other', 'UNKNOWN': 'Unknown',
         },
         // Map ARTCCs/FIRs to DCC regions
         mapping: {
@@ -345,8 +345,8 @@ const FILTER_CONFIG = {
             'CZYZ': 'CANADA_EAST', 'CZUL': 'CANADA_EAST', 'CZZV': 'CANADA_EAST',
             'CZQM': 'CANADA_EAST', 'CZQX': 'CANADA_EAST', 'CZQO': 'CANADA_EAST',
             // Canada West (Pink)
-            'CZWG': 'CANADA_WEST', 'CZEG': 'CANADA_WEST', 'CZVR': 'CANADA_WEST'
-        }
+            'CZWG': 'CANADA_WEST', 'CZEG': 'CANADA_WEST', 'CZVR': 'CANADA_WEST',
+        },
     },
 
     // TRACON coloring - inherit from parent ARTCC's DCC region
@@ -355,10 +355,10 @@ const FILTER_CONFIG = {
         // Map TRACONs to their parent ARTCC, then use dccRegion.mapping
         getColor: function(traconId, traconToArtccMap) {
             const artcc = traconToArtccMap[traconId];
-            if (!artcc) return FILTER_CONFIG.dccRegion.colors['OTHER'];
+            if (!artcc) {return FILTER_CONFIG.dccRegion.colors['OTHER'];}
             const region = FILTER_CONFIG.dccRegion.mapping[artcc];
             return FILTER_CONFIG.dccRegion.colors[region] || FILTER_CONFIG.dccRegion.colors['OTHER'];
-        }
+        },
     },
 
     // Airport coloring - inherit from parent ARTCC's DCC region
@@ -367,52 +367,52 @@ const FILTER_CONFIG = {
         // Map airports to their ARTCC, then use dccRegion.mapping
         getColor: function(airportId, airportToArtccMap) {
             const artcc = airportToArtccMap[airportId];
-            if (!artcc) return FILTER_CONFIG.dccRegion.colors['OTHER'];
+            if (!artcc) {return FILTER_CONFIG.dccRegion.colors['OTHER'];}
             const region = FILTER_CONFIG.dccRegion.mapping[artcc];
             return FILTER_CONFIG.dccRegion.colors[region] || FILTER_CONFIG.dccRegion.colors['OTHER'];
-        }
+        },
     },
 
     // Procedures (DP/STAR) - dynamic colors, use generator
     procedure: {
         // Generate colors dynamically based on procedure name hash
         getColor: function(name) {
-            if (!name) return '#6c757d';
+            if (!name) {return '#6c757d';}
             let hash = 0;
             for (let i = 0; i < name.length; i++) {
                 hash = name.charCodeAt(i) + ((hash << 5) - hash);
             }
             const hue = Math.abs(hash % 360);
             return `hsl(${hue}, 70%, 50%)`;
-        }
+        },
     },
 
     // Fixes (departure/arrival) - dynamic colors
     fix: {
         getColor: function(name) {
-            if (!name) return '#6c757d';
+            if (!name) {return '#6c757d';}
             let hash = 0;
             for (let i = 0; i < name.length; i++) {
                 hash = name.charCodeAt(i) + ((hash << 5) - hash);
             }
             const hue = Math.abs(hash % 360);
             return `hsl(${hue}, 65%, 45%)`;
-        }
-    }
+        },
+    },
 };
 
 // Helper functions
 function getFilterColor(category, value) {
     const cfg = FILTER_CONFIG[category];
-    if (!cfg) return '#6c757d';
-    if (cfg.colors) return cfg.colors[value] || cfg.colors['OTHER'] || '#6c757d';
-    if (cfg.getColor) return cfg.getColor(value);
+    if (!cfg) {return '#6c757d';}
+    if (cfg.colors) {return cfg.colors[value] || cfg.colors['OTHER'] || '#6c757d';}
+    if (cfg.getColor) {return cfg.getColor(value);}
     return '#6c757d';
 }
 
 function getFilterLabel(category, value) {
     const cfg = FILTER_CONFIG[category];
-    if (!cfg || !cfg.labels) return value || 'Unknown';
+    if (!cfg || !cfg.labels) {return value || 'Unknown';}
     return cfg.labels[value] || value;
 }
 
@@ -444,6 +444,6 @@ if (typeof module !== 'undefined' && module.exports) {
         getFilterColor,
         getFilterLabel,
         getDCCRegionColor,
-        getDCCRegion
+        getDCCRegion,
     };
 }

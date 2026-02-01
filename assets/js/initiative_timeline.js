@@ -11,18 +11,18 @@ class InitiativeTimeline {
         this.eventStart = config.eventStart ? new Date(config.eventStart) : null;
         this.eventEnd = config.eventEnd ? new Date(config.eventEnd) : null;
         this.hasPerm = config.hasPerm || false;
-        
-        this.apiEndpoint = this.type === 'terminal' 
+
+        this.apiEndpoint = this.type === 'terminal'
             ? 'api/data/plans/term_inits_timeline.php'
             : 'api/data/plans/enroute_inits_timeline.php';
-        
+
         this.timeRangeHours = 16;
         this.timeOffsetHours = 0; // Offset from center (for scrolling)
         this.sortOrder = 'geographical';
         this.filteredOut = new Set();
         this.data = [];
         this.rowHeight = 32;
-        
+
         // Level definitions
         this.levels = {
             'CDW': { name: 'Critical Decision Window', category: 'cdw', icon: 'fa-clock' },
@@ -38,25 +38,25 @@ class InitiativeTimeline {
             'Space_Op': { name: 'Space Operation', category: 'space', icon: 'fa-rocket' },
             'VIP': { name: 'VIP Movement', category: 'vip', icon: 'fa-user-shield' },
             'Staffing': { name: 'Staffing Trigger', category: 'staffing', icon: 'fa-users' },
-            'Misc': { name: 'Miscellaneous', category: 'misc', icon: 'fa-ellipsis-h' }
+            'Misc': { name: 'Miscellaneous', category: 'misc', icon: 'fa-ellipsis-h' },
         };
-        
+
         this.terminalLevels = ['CDW', 'Possible', 'Probable', 'Expected', 'Active', 'Advisory_Terminal', 'Constraint_Terminal', 'VIP', 'Misc'];
         this.enrouteLevels = ['CDW', 'Possible', 'Probable', 'Expected', 'Active', 'Advisory_EnRoute', 'Constraint_EnRoute', 'Special_Event', 'Space_Op', 'VIP', 'Staffing', 'Misc'];
-        
+
         this.tmiTypes = ['GS', 'GDP', 'MIT', 'MINIT', 'CFR', 'APREQ', 'Reroute', 'AFP', 'FEA', 'FCA', 'CTOP', 'ICR', 'TBO', 'Metering', 'TBM', 'TBFM', 'Other'];
         this.constraintTypes = ['Weather', 'Volume', 'Runway', 'Equipment', 'Construction', 'Staffing', 'Military', 'TFR', 'Airspace', 'Other'];
         this.vipTypes = ['VIP Arrival', 'VIP Departure', 'VIP Overflight', 'TFR'];
         this.spaceTypes = ['Rocket Launch', 'Reentry', 'Launch Window', 'Hazard Area'];
         this.shifts = ['Day', 'Mid', 'Swing', 'All'];
-        
+
         this.facilities = this.buildFacilitiesList();
         this.tooltip = null;
         this.modalId = `${this.containerId}-modal`;
-        
+
         this.init();
     }
-    
+
     buildFacilitiesList() {
         const artccs = ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZSU', 'ZTL'];
         const tracons = ['A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'I90', 'L30', 'M98', 'N90', 'NCT', 'P50', 'P80', 'PCT', 'PHL', 'S46', 'S56', 'SCT', 'Y90'];
@@ -65,23 +65,23 @@ class InitiativeTimeline {
         const canadian = ['CZEG', 'CZUL', 'CZWG', 'CZVR', 'CZYZ'];
         return [...special, ...artccs, ...tracons, ...airports, ...canadian].sort();
     }
-    
+
     /**
      * Parse a datetime string as UTC - returns Date object
      * MySQL returns "2024-01-03 23:59:00" which must be treated as UTC
      */
     parseUTC(datetime) {
-        if (!datetime) return new Date();
-        
+        if (!datetime) {return new Date();}
+
         const dtStr = String(datetime).trim();
-        
+
         // Parse the datetime components manually to avoid timezone issues
         // Expected formats: "2024-01-03 23:59:00" or "2024-01-03T23:59:00" or "2024-01-03T23:59:00Z"
         const match = dtStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
-        if (!match) return new Date();
-        
+        if (!match) {return new Date();}
+
         const [, year, month, day, hour, minute, second = '00'] = match;
-        
+
         // Create date using Date.UTC to ensure UTC interpretation
         return new Date(Date.UTC(
             parseInt(year, 10),
@@ -89,23 +89,23 @@ class InitiativeTimeline {
             parseInt(day, 10),
             parseInt(hour, 10),
             parseInt(minute, 10),
-            parseInt(second, 10)
+            parseInt(second, 10),
         ));
     }
-    
+
     init() {
         this.render();
         this.createModal();
         this.loadData();
         this.startNowLineUpdater();
     }
-    
+
     render() {
         const container = document.getElementById(this.containerId);
-        if (!container) return;
-        
+        if (!container) {return;}
+
         const activeLevels = this.type === 'terminal' ? this.terminalLevels : this.enrouteLevels;
-        
+
         container.innerHTML = `
             <div class="dcccp-timeline-wrapper" id="${this.containerId}-wrapper">
                 <div class="dcccp-controls">
@@ -182,17 +182,17 @@ class InitiativeTimeline {
                 </div>
             </div>
         `;
-        
+
         this.bindEvents();
     }
-    
+
     createModal() {
         const existing = document.getElementById(this.modalId);
-        if (existing) existing.remove();
-        
+        if (existing) {existing.remove();}
+
         const activeLevels = this.type === 'terminal' ? this.terminalLevels : this.enrouteLevels;
         const facilityOptions = this.facilities.map(f => `<option value="${f}">`).join('');
-        
+
         const modalHtml = `
         <div class="modal fade init-modal" id="${this.modalId}" tabindex="-1" role="dialog">
             <div class="modal-dialog modal-lg" role="document">
@@ -210,24 +210,24 @@ class InitiativeTimeline {
                             <label><i class="fas fa-layer-group mr-1"></i> Element Type</label>
                             <select class="form-control form-control-lg" id="${this.modalId}-level">
                                 <optgroup label="Traffic Management">
-                                    ${activeLevels.filter(l => this.levels[l].category === 'tmi').map(l => 
-                                        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
+                                    ${activeLevels.filter(l => this.levels[l].category === 'tmi').map(l =>
+        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
                                 <optgroup label="Constraints">
-                                    ${activeLevels.filter(l => this.levels[l].category === 'constraint').map(l => 
-                                        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
+                                    ${activeLevels.filter(l => this.levels[l].category === 'constraint').map(l =>
+        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
                                 <optgroup label="Special Operations">
-                                    ${activeLevels.filter(l => ['vip', 'space', 'staffing'].includes(this.levels[l].category)).map(l => 
-                                        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
+                                    ${activeLevels.filter(l => ['vip', 'space', 'staffing'].includes(this.levels[l].category)).map(l =>
+        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
                                 <optgroup label="Events &amp; Decision Windows">
-                                    ${activeLevels.filter(l => ['cdw', 'event'].includes(this.levels[l].category)).map(l => 
-                                        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
+                                    ${activeLevels.filter(l => ['cdw', 'event'].includes(this.levels[l].category)).map(l =>
+        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
                                 <optgroup label="Other">
-                                    ${activeLevels.filter(l => this.levels[l].category === 'misc').map(l => 
-                                        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
+                                    ${activeLevels.filter(l => this.levels[l].category === 'misc').map(l =>
+        `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
                             </select>
                         </div>
@@ -498,68 +498,68 @@ class InitiativeTimeline {
             </div>
         </div>
         `;
-        
+
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         this.bindModalEvents();
     }
-    
+
     bindModalEvents() {
         // Level change
         document.getElementById(`${this.modalId}-level`).addEventListener('change', () => this.updateFormSections());
-        
+
         // TMI type change
         document.getElementById(`${this.modalId}-tmi-type`).addEventListener('change', (e) => {
             const isOther = e.target.value === 'Other';
             document.getElementById(`${this.modalId}-tmi-other-wrap`).style.display = isOther ? 'block' : 'none';
             document.getElementById(`${this.modalId}-tmi-cause-wrap`).style.display = isOther ? 'none' : 'block';
         });
-        
+
         // Constraint type change
         document.getElementById(`${this.modalId}-constraint-type`)?.addEventListener('change', (e) => {
             const isOther = e.target.value === 'Other';
             document.getElementById(`${this.modalId}-constraint-other-wrap`).style.display = isOther ? 'block' : 'none';
         });
-        
+
         // Save
         document.getElementById(`${this.modalId}-save`).addEventListener('click', () => this.handleSave());
-        
+
         // Delete
         document.getElementById(`${this.modalId}-delete`).addEventListener('click', () => this.handleDelete());
     }
-    
+
     updateFormSections() {
         const level = document.getElementById(`${this.modalId}-level`).value;
         const category = this.levels[level]?.category || 'tmi';
-        
+
         // Hide all
         ['tmi', 'vip', 'space', 'staffing', 'cdw', 'event', 'misc', 'constraint'].forEach(sec => {
             const el = document.getElementById(`${this.modalId}-sec-${sec}`);
-            if (el) el.style.display = 'none';
+            if (el) {el.style.display = 'none';}
         });
-        
+
         // Show relevant
         const secMap = { tmi: 'tmi', vip: 'vip', space: 'space', staffing: 'staffing', cdw: 'cdw', event: 'event', misc: 'misc', constraint: 'constraint' };
         const secId = secMap[category] || 'tmi';
         const sec = document.getElementById(`${this.modalId}-sec-${secId}`);
-        if (sec) sec.style.display = 'block';
-        
+        if (sec) {sec.style.display = 'block';}
+
         // Show ADVZY field for Advisory levels
         const advzyWrap = document.getElementById(`${this.modalId}-advzy-wrap`);
         if (advzyWrap) {
             const isAdvisory = level === 'Advisory_Terminal' || level === 'Advisory_EnRoute';
             advzyWrap.style.display = isAdvisory ? 'block' : 'none';
         }
-        
+
         // Update header color
         const header = document.getElementById(`${this.modalId}-header`);
         header.className = 'modal-header text-white';
         const colorMap = {
-            tmi: 'bg-primary', vip: 'bg-warning', space: 'bg-success', 
+            tmi: 'bg-primary', vip: 'bg-warning', space: 'bg-success',
             staffing: 'bg-danger', cdw: 'bg-warning', event: 'bg-info', misc: 'bg-secondary',
-            constraint: 'bg-danger'
+            constraint: 'bg-danger',
         };
         header.classList.add(colorMap[category] || 'bg-primary');
-        
+
         // Update default end time based on category (only for new items)
         const itemId = document.getElementById(`${this.modalId}-id`).value;
         if (!itemId) {
@@ -568,59 +568,59 @@ class InitiativeTimeline {
             if (startInput.value) {
                 const start = new Date(startInput.value);
                 let durationHours = 4; // Default 4 hours
-                
+
                 // VIP movements: 1 hour default
-                if (category === 'vip') durationHours = 1;
+                if (category === 'vip') {durationHours = 1;}
                 // CDW: 30 minutes
-                else if (category === 'cdw') durationHours = 0.5;
+                else if (category === 'cdw') {durationHours = 0.5;}
                 // Space ops: 2 hours
-                else if (category === 'space') durationHours = 2;
+                else if (category === 'space') {durationHours = 2;}
                 // Constraints: 8 hours default
-                else if (category === 'constraint') durationHours = 8;
-                
+                else if (category === 'constraint') {durationHours = 8;}
+
                 const end = new Date(start.getTime() + durationHours * 3600000);
                 endInput.value = this.toInputFmt(end.toISOString());
             }
         }
     }
-    
+
     bindEvents() {
         const wrapper = document.getElementById(`${this.containerId}-wrapper`);
-        if (!wrapper) return;
-        
+        if (!wrapper) {return;}
+
         // Sort
         wrapper.querySelectorAll(`input[name="${this.containerId}-sort"]`).forEach(r => {
             r.addEventListener('change', (e) => { this.sortOrder = e.target.value; this.renderTimeline(); });
         });
-        
+
         // Range
         wrapper.querySelectorAll(`input[name="${this.containerId}-range"]`).forEach(r => {
             r.addEventListener('change', (e) => { this.timeRangeHours = parseInt(e.target.value); this.renderTimeline(); });
         });
-        
+
         // Time navigation
         document.getElementById(`${this.containerId}-nav-prev`)?.addEventListener('click', () => {
             this.timeOffsetHours -= this.timeRangeHours / 2;
             this.renderTimeline();
         });
-        
+
         document.getElementById(`${this.containerId}-nav-next`)?.addEventListener('click', () => {
             this.timeOffsetHours += this.timeRangeHours / 2;
             this.renderTimeline();
         });
-        
+
         document.getElementById(`${this.containerId}-nav-now`)?.addEventListener('click', () => {
             this.timeOffsetHours = 0;
             this.renderTimeline();
         });
-        
+
         // Filter toggle
         const toggle = wrapper.querySelector('.dcccp-filter-toggle');
         const dropdown = document.getElementById(`${this.containerId}-filter-dropdown`);
         if (toggle && dropdown) {
             toggle.addEventListener('click', () => dropdown.classList.toggle('show'));
         }
-        
+
         // Filter clear
         const clear = wrapper.querySelector('.dcccp-filter-clear');
         if (clear) {
@@ -631,28 +631,28 @@ class InitiativeTimeline {
                 this.renderTimeline();
             });
         }
-        
+
         // Filter checkboxes
         wrapper.querySelectorAll('.dcccp-filter-cb').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 const level = e.target.dataset.level;
-                if (e.target.checked) this.filteredOut.add(level);
-                else this.filteredOut.delete(level);
+                if (e.target.checked) {this.filteredOut.add(level);}
+                else {this.filteredOut.delete(level);}
                 this.updateFilterTags();
                 this.renderTimeline();
             });
         });
-        
+
         // Close dropdown on outside click
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.dcccp-filter-box')) dropdown?.classList.remove('show');
+            if (!e.target.closest('.dcccp-filter-box')) {dropdown?.classList.remove('show');}
         });
     }
-    
+
     updateFilterTags() {
         const container = document.getElementById(`${this.containerId}-filter-tags`);
-        if (!container) return;
-        
+        if (!container) {return;}
+
         if (this.filteredOut.size === 0) {
             container.innerHTML = '<span class="dcccp-filter-tag-none">None</span>';
         } else {
@@ -660,7 +660,7 @@ class InitiativeTimeline {
                 .map(l => `<span class="dcccp-filter-tag">${this.levels[l].name}</span>`).join('');
         }
     }
-    
+
     async loadData() {
         try {
             const response = await fetch(`${this.apiEndpoint}?p_id=${this.planId}`);
@@ -673,16 +673,16 @@ class InitiativeTimeline {
             this.renderTimeline();
         }
     }
-    
+
     getTimelineBounds() {
         const now = new Date();
         let centerTime;
-        
+
         if (this.eventStart && this.eventEnd) {
             // Calculate event duration in days
             const durationMs = this.eventEnd.getTime() - this.eventStart.getTime();
             const durationDays = durationMs / (1000 * 60 * 60 * 24);
-            
+
             // For long-duration plans (> 7 days), center on NOW if within event range
             // Otherwise center on the event midpoint
             if (durationDays > 7) {
@@ -703,20 +703,20 @@ class InitiativeTimeline {
         } else {
             centerTime = now;
         }
-        
+
         // Apply time offset for scrolling
         centerTime = new Date(centerTime.getTime() + this.timeOffsetHours * 3600000);
-        
+
         const startTime = new Date(centerTime.getTime() - (this.timeRangeHours / 2) * 3600000);
         const endTime = new Date(centerTime.getTime() + (this.timeRangeHours / 2) * 3600000);
-        
+
         return { startTime, endTime, centerTime };
     }
-    
+
     formatTimeLabel(d) {
         return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCHours()).padStart(2,'0')}${String(d.getUTCMinutes()).padStart(2,'0')}`;
     }
-    
+
     formatTooltipTime(s, e) {
         const fmt = d => {
             const dt = this.parseUTC(d);
@@ -724,28 +724,28 @@ class InitiativeTimeline {
         };
         return `${fmt(s)} to ${fmt(e)}`;
     }
-    
+
     renderTimeline() {
         const { startTime, endTime } = this.getTimelineBounds();
         const totalMs = endTime.getTime() - startTime.getTime();
-        
+
         // Update nav label
         const navLabel = document.getElementById(`${this.containerId}-nav-label`);
         if (navLabel) {
             const fmt = d => `${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}${String(d.getUTCMinutes()).padStart(2,'0')}Z`;
             navLabel.textContent = `${fmt(startTime)} — ${fmt(endTime)}`;
         }
-        
-        let data = this.data.filter(i => !this.filteredOut.has(i.level));
-        
+
+        const data = this.data.filter(i => !this.filteredOut.has(i.level));
+
         const groups = {};
         data.forEach(i => {
             const f = i.facility || 'Unknown';
-            if (!groups[f]) groups[f] = [];
+            if (!groups[f]) {groups[f] = [];}
             groups[f].push(i);
         });
-        
-        let facilities = Object.keys(groups);
+
+        const facilities = Object.keys(groups);
         if (this.sortOrder === 'chronological') {
             facilities.sort((a, b) => Math.min(...groups[a].map(i => this.parseUTC(i.start_datetime).getTime())) - Math.min(...groups[b].map(i => this.parseUTC(i.start_datetime).getTime())));
         } else if (this.sortOrder === 'alphabetical') {
@@ -753,11 +753,11 @@ class InitiativeTimeline {
         } else {
             facilities.sort((a, b) => this.geoOrder(a) - this.geoOrder(b));
         }
-        
+
         const facCol = document.getElementById(`${this.containerId}-facilities`);
         const rowsEl = document.getElementById(`${this.containerId}-rows`);
-        if (!facCol || !rowsEl) return;
-        
+        if (!facCol || !rowsEl) {return;}
+
         if (!facilities.length) {
             facCol.innerHTML = '';
             rowsEl.innerHTML = '<div class="dcccp-no-data">No data available</div>';
@@ -765,7 +765,7 @@ class InitiativeTimeline {
             this.updateNowLine(startTime, totalMs);
             return;
         }
-        
+
         const heights = {};
         const laneData = {};
         facilities.forEach(f => {
@@ -774,45 +774,45 @@ class InitiativeTimeline {
             // Height: 26px per lane (20px item + 6px gap) + 8px padding
             heights[f] = Math.max(this.rowHeight, result.laneCount * 26 + 8);
         });
-        
+
         facCol.innerHTML = facilities.map(f => `<div class="dcccp-facility-label" style="height:${heights[f]}px">${f}</div>`).join('');
-        
+
         rowsEl.innerHTML = facilities.map(f => {
             const items = groups[f].map(i => this.renderItem(i, startTime, totalMs, laneData[f][i.id] || 0)).join('');
             return `<div class="dcccp-timeline-row" style="height:${heights[f]}px">${items}</div>`;
         }).join('');
-        
+
         rowsEl.querySelectorAll('.dcccp-item').forEach(el => {
             el.addEventListener('mouseenter', e => this.showTooltip(e, el.dataset.id));
             el.addEventListener('mouseleave', () => this.hideTooltip());
             el.addEventListener('click', () => { if (this.hasPerm) { this.hideTooltip(); this.openEditModal(el.dataset.id); }});
         });
-        
+
         this.renderGridLines(startTime, endTime);
         this.renderTimeAxis(startTime, endTime);
         this.updateNowLine(startTime, totalMs);
     }
-    
+
     /**
      * Assign items to lanes to prevent overlapping
      * Returns an object mapping item.id to lane number (0-based)
      */
     assignLanes(items) {
-        if (!items.length) return {};
-        
+        if (!items.length) {return {};}
+
         // Sort by start time
-        const sorted = [...items].sort((a, b) => 
-            this.parseUTC(a.start_datetime).getTime() - this.parseUTC(b.start_datetime).getTime()
+        const sorted = [...items].sort((a, b) =>
+            this.parseUTC(a.start_datetime).getTime() - this.parseUTC(b.start_datetime).getTime(),
         );
-        
+
         // Track end times for each lane
         const laneEndTimes = [];
         const assignments = {};
-        
+
         for (const item of sorted) {
             const itemStart = this.parseUTC(item.start_datetime).getTime();
             const itemEnd = this.parseUTC(item.end_datetime).getTime();
-            
+
             // Find first available lane
             let assignedLane = -1;
             for (let lane = 0; lane < laneEndTimes.length; lane++) {
@@ -821,30 +821,30 @@ class InitiativeTimeline {
                     break;
                 }
             }
-            
+
             // If no lane available, create new one
             if (assignedLane === -1) {
                 assignedLane = laneEndTimes.length;
                 laneEndTimes.push(0);
             }
-            
+
             // Assign item to lane and update end time
             laneEndTimes[assignedLane] = itemEnd;
             assignments[item.id] = assignedLane;
         }
-        
+
         return { assignments, laneCount: laneEndTimes.length };
     }
-    
+
     renderItem(item, startTime, totalMs, lane = 0) {
         const s = this.parseUTC(item.start_datetime);
         const e = this.parseUTC(item.end_datetime);
         const left = Math.max(0, ((s.getTime() - startTime.getTime()) / totalMs) * 100);
         const width = Math.max(0.5, Math.min(100 - left, ((e.getTime() - s.getTime()) / totalMs) * 100));
-        if (left >= 100 || left + width <= 0) return '';
-        
+        if (left >= 100 || left + width <= 0) {return '';}
+
         const label = this.buildLabel(item);
-        
+
         // CDW items are small markers centered, others stack in lanes
         let top;
         if (item.level === 'CDW') {
@@ -853,17 +853,17 @@ class InitiativeTimeline {
             // Each lane is 26px tall (20px item + 6px gap), starting at 4px
             top = `${4 + lane * 26}px`;
         }
-        
+
         return `<div class="dcccp-item level-${item.level}" data-id="${item.id}" style="left:${left}%;width:${width}%;top:${top};" title="${label}"><span class="dcccp-item-text">${label}</span></div>`;
     }
-    
+
     buildLabel(item) {
         const cat = this.levels[item.level]?.category || 'tmi';
         switch (cat) {
             case 'tmi':
                 let l = item.level === 'Active' ? '' : (this.levels[item.level]?.name.split(' ')[0] || '');
                 l = `${l} ${item.tmi_type || ''}`.trim();
-                if (item.cause) l += ` - ${item.cause}`;
+                if (item.cause) {l += ` - ${item.cause}`;}
                 return l;
             case 'vip': return `${item.tmi_type || 'VIP'}: ${item.facility}→${item.area}`;
             case 'space': return `${item.tmi_type}: ${item.cause || ''}`;
@@ -874,20 +874,20 @@ class InitiativeTimeline {
             default: return item.tmi_type || item.cause || '';
         }
     }
-    
+
     renderGridLines(startTime, endTime) {
         const el = document.getElementById(`${this.containerId}-grid`);
-        if (!el) return;
-        
+        if (!el) {return;}
+
         const totalMs = endTime.getTime() - startTime.getTime();
         let interval = 3600000;
-        if (this.timeRangeHours > 24) interval = 7200000;
-        if (this.timeRangeHours > 48) interval = 14400000;
-        
+        if (this.timeRangeHours > 24) {interval = 7200000;}
+        if (this.timeRangeHours > 48) {interval = 14400000;}
+
         const first = new Date(startTime);
         first.setUTCMinutes(0, 0, 0);
         first.setUTCHours(first.getUTCHours() + 1);
-        
+
         let html = '';
         let cur = first;
         while (cur < endTime) {
@@ -902,20 +902,20 @@ class InitiativeTimeline {
         }
         el.innerHTML = html;
     }
-    
+
     renderTimeAxis(startTime, endTime) {
         const el = document.getElementById(`${this.containerId}-time-labels`);
-        if (!el) return;
-        
+        if (!el) {return;}
+
         const totalMs = endTime.getTime() - startTime.getTime();
         let interval = 3600000;
-        if (this.timeRangeHours > 24) interval = 7200000;
-        if (this.timeRangeHours > 48) interval = 14400000;
-        
+        if (this.timeRangeHours > 24) {interval = 7200000;}
+        if (this.timeRangeHours > 48) {interval = 14400000;}
+
         const first = new Date(startTime);
         first.setUTCMinutes(0, 0, 0);
         first.setUTCHours(first.getUTCHours() + 1);
-        
+
         let html = '';
         let cur = first;
         while (cur < endTime) {
@@ -930,35 +930,35 @@ class InitiativeTimeline {
         }
         el.innerHTML = html;
     }
-    
+
     updateNowLine(startTime, totalMs) {
         const el = document.getElementById(`${this.containerId}-now`);
-        if (!el) return;
+        if (!el) {return;}
         const pct = ((Date.now() - startTime.getTime()) / totalMs) * 100;
         el.style.display = (pct >= 0 && pct <= 100) ? 'block' : 'none';
         el.style.left = `${pct}%`;
     }
-    
+
     startNowLineUpdater() {
         setInterval(() => {
             const { startTime, endTime } = this.getTimelineBounds();
             this.updateNowLine(startTime, endTime.getTime() - startTime.getTime());
         }, 60000);
     }
-    
+
     geoOrder(f) {
         const order = { 'NAS': 0, 'ZBW': 10, 'N90': 11, 'ZNY': 12, 'ZDC': 14, 'ZJX': 20, 'ZTL': 21, 'ZMA': 23, 'ZAU': 30, 'ZID': 32, 'ZMP': 33, 'ZKC': 34, 'ZME': 35, 'ZFW': 40, 'ZHU': 42, 'ZDV': 50, 'ZLC': 52, 'ZAB': 53, 'ZLA': 60, 'ZOA': 62, 'ZSE': 64, 'ZAN': 70, 'ZSU': 71 };
         return order[f] ?? 100;
     }
-    
+
     showTooltip(event, id) {
         const item = this.data.find(d => d.id == id);
-        if (!item) return;
+        if (!item) {return;}
         this.hideTooltip();
-        
+
         const label = this.buildLabel(item);
         const cat = this.levels[item.level]?.category || 'tmi';
-        
+
         // Build location rows based on category
         let locationRows = '';
         if (cat === 'vip') {
@@ -981,7 +981,7 @@ class InitiativeTimeline {
                 ${item.area ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Area</span><span class="dcccp-tooltip-value">${item.area}</span></div>` : ''}
             `;
         }
-        
+
         const tip = document.createElement('div');
         tip.className = 'dcccp-tooltip';
         tip.innerHTML = `
@@ -996,56 +996,56 @@ class InitiativeTimeline {
                 <div class="dcccp-tooltip-time">${this.formatTooltipTime(item.start_datetime, item.end_datetime)}</div>
             </div>
         `;
-        
+
         document.body.appendChild(tip);
-        
+
         const rect = event.target.getBoundingClientRect();
         const tipRect = tip.getBoundingClientRect();
         let left = rect.left + rect.width / 2;
         let top = rect.bottom + 10;
-        if (left + tipRect.width / 2 > window.innerWidth) left = window.innerWidth - tipRect.width / 2 - 10;
-        if (left - tipRect.width / 2 < 0) left = tipRect.width / 2 + 10;
-        if (top + tipRect.height > window.innerHeight) top = rect.top - tipRect.height - 10;
+        if (left + tipRect.width / 2 > window.innerWidth) {left = window.innerWidth - tipRect.width / 2 - 10;}
+        if (left - tipRect.width / 2 < 0) {left = tipRect.width / 2 + 10;}
+        if (top + tipRect.height > window.innerHeight) {top = rect.top - tipRect.height - 10;}
         tip.style.left = `${left}px`;
         tip.style.top = `${top}px`;
-        
+
         tip.querySelector('.dcccp-tooltip-edit-btn')?.addEventListener('click', () => { this.hideTooltip(); this.openEditModal(id); });
         this.tooltip = tip;
     }
-    
+
     hideTooltip() { if (this.tooltip) { this.tooltip.remove(); this.tooltip = null; } }
-    
+
     showAddModal() {
-        if (!this.hasPerm) return;
-        
+        if (!this.hasPerm) {return;}
+
         document.getElementById(`${this.modalId}-id`).value = '';
         document.getElementById(`${this.modalId}-title`).textContent = 'Add Element';
         document.getElementById(`${this.modalId}-delete`).style.display = 'none';
-        
+
         this.resetModalFields();
-        
+
         const now = new Date();
         const end = new Date(now.getTime() + 4 * 3600000);
         document.getElementById(`${this.modalId}-start`).value = this.toInputFmt(now.toISOString());
         document.getElementById(`${this.modalId}-end`).value = this.toInputFmt(end.toISOString());
-        
+
         this.updateFormSections();
         $(`#${this.modalId}`).modal('show');
     }
-    
+
     openEditModal(id) {
         const item = this.data.find(d => d.id == id);
-        if (!item) return;
-        
+        if (!item) {return;}
+
         document.getElementById(`${this.modalId}-id`).value = item.id;
         document.getElementById(`${this.modalId}-title`).textContent = 'Edit Element';
         document.getElementById(`${this.modalId}-delete`).style.display = 'inline-block';
-        
+
         document.getElementById(`${this.modalId}-level`).value = item.level;
         this.updateFormSections();
-        
+
         const cat = this.levels[item.level]?.category || 'tmi';
-        
+
         switch (cat) {
             case 'tmi':
                 document.getElementById(`${this.modalId}-tmi-facility`).value = item.facility || '';
@@ -1099,15 +1099,15 @@ class InitiativeTimeline {
                 }
                 break;
         }
-        
+
         document.getElementById(`${this.modalId}-start`).value = this.toInputFmt(item.start_datetime);
         document.getElementById(`${this.modalId}-end`).value = this.toInputFmt(item.end_datetime);
         document.getElementById(`${this.modalId}-notes`).value = item.notes || '';
         document.getElementById(`${this.modalId}-global`).checked = item.is_global == 1;
-        
+
         $(`#${this.modalId}`).modal('show');
     }
-    
+
     resetModalFields() {
         document.querySelectorAll(`#${this.modalId} input[type="text"], #${this.modalId} textarea`).forEach(el => el.value = '');
         document.querySelectorAll(`#${this.modalId} select`).forEach(el => el.selectedIndex = 0);
@@ -1117,23 +1117,23 @@ class InitiativeTimeline {
         document.getElementById(`${this.modalId}-advzy-wrap`).style.display = 'none';
         document.getElementById(`${this.modalId}-constraint-other-wrap`).style.display = 'none';
     }
-    
+
     handleSave() {
         const level = document.getElementById(`${this.modalId}-level`).value;
         const cat = this.levels[level]?.category || 'tmi';
         const id = document.getElementById(`${this.modalId}-id`).value;
-        
-        let data = {
+
+        const data = {
             p_id: this.planId,
             level: level,
             start_datetime: this.toISO(document.getElementById(`${this.modalId}-start`).value),
             end_datetime: this.toISO(document.getElementById(`${this.modalId}-end`).value),
             notes: document.getElementById(`${this.modalId}-notes`).value,
-            is_global: document.getElementById(`${this.modalId}-global`).checked ? 1 : 0
+            is_global: document.getElementById(`${this.modalId}-global`).checked ? 1 : 0,
         };
-        
-        if (id) data.id = id;
-        
+
+        if (id) {data.id = id;}
+
         switch (cat) {
             case 'tmi':
                 data.facility = document.getElementById(`${this.modalId}-tmi-facility`).value;
@@ -1187,22 +1187,22 @@ class InitiativeTimeline {
                 data.cause = document.getElementById(`${this.modalId}-constraint-impact`).value;
                 break;
         }
-        
+
         if (!data.facility) { this.alert('error', 'Facility is required'); return; }
         if (!data.start_datetime || !data.end_datetime) { this.alert('error', 'Start and End times are required'); return; }
-        
+
         this.saveItem(data, !!id);
     }
-    
+
     async saveItem(data, isUpdate) {
         try {
             const resp = await fetch(this.apiEndpoint, {
                 method: isUpdate ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
             });
             const result = await resp.json();
-            
+
             if (result.success) {
                 $(`#${this.modalId}`).modal('hide');
                 this.alert('success', isUpdate ? 'Element updated' : 'Element added');
@@ -1214,13 +1214,13 @@ class InitiativeTimeline {
             this.alert('error', 'Network error');
         }
     }
-    
+
     handleDelete() {
         const id = document.getElementById(`${this.modalId}-id`).value;
-        if (!id) return;
-        if (confirm('Delete this element? This cannot be undone.')) this.deleteItem(id);
+        if (!id) {return;}
+        if (confirm('Delete this element? This cannot be undone.')) {this.deleteItem(id);}
     }
-    
+
     async deleteItem(id) {
         try {
             const resp = await fetch(`${this.apiEndpoint}?id=${id}`, { method: 'DELETE' });
@@ -1236,7 +1236,7 @@ class InitiativeTimeline {
             this.alert('error', 'Network error');
         }
     }
-    
+
     alert(type, msg) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({ icon: type, title: type === 'success' ? 'Success' : 'Error', text: msg, timer: type === 'success' ? 2000 : undefined, showConfirmButton: type !== 'success' });
@@ -1244,35 +1244,35 @@ class InitiativeTimeline {
             alert(msg);
         }
     }
-    
+
     /**
      * Convert ISO/MySQL datetime to datetime-local input format (YYYY-MM-DDTHH:MM)
      * Input is UTC, output is formatted string for the datetime-local input
      * User sees and enters UTC times
      */
     toInputFmt(datetime) {
-        if (!datetime) return '';
-        
+        if (!datetime) {return '';}
+
         const dtStr = String(datetime).trim();
-        
+
         // Parse components manually - no Date object involved to avoid timezone issues
         // Expected: "2024-01-03 23:59:00" or "2024-01-03T23:59:00" or "2024-01-03T23:59:00Z"
         const match = dtStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-        if (!match) return '';
-        
+        if (!match) {return '';}
+
         const [, year, month, day, hour, minute] = match;
-        
+
         // Return in datetime-local format: YYYY-MM-DDTHH:MM
         return `${year}-${month}-${day}T${hour}:${minute}`;
     }
-    
+
     /**
      * Convert datetime-local input value to ISO string for API
      * User enters UTC time, we send as UTC
      */
     toISO(inputValue) {
-        if (!inputValue) return '';
-        
+        if (!inputValue) {return '';}
+
         // Input is YYYY-MM-DDTHH:MM - append seconds and Z to mark as UTC
         return inputValue + ':00Z';
     }

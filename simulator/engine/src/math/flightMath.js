@@ -8,7 +8,7 @@ const {
     DEG_TO_RAD,
     RAD_TO_DEG,
     NM_TO_FEET,
-    FEET_TO_NM
+    FEET_TO_NM,
 } = require('../constants/flightConstants');
 
 /**
@@ -28,7 +28,7 @@ function distanceNm(lat1, lon1, lat2, lon2) {
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
               Math.cos(φ1) * Math.cos(φ2) *
               Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    
+
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return EARTH_RADIUS_NM * c;
@@ -50,9 +50,9 @@ function bearingTo(lat1, lon1, lat2, lon2) {
     const y = Math.sin(Δλ) * Math.cos(φ2);
     const x = Math.cos(φ1) * Math.sin(φ2) -
               Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-    
+
     const θ = Math.atan2(y, x);
-    
+
     return (θ * RAD_TO_DEG + 360) % 360;
 }
 
@@ -72,17 +72,17 @@ function destinationPoint(lat, lon, bearing, distance) {
 
     const φ2 = Math.asin(
         Math.sin(φ1) * Math.cos(δ) +
-        Math.cos(φ1) * Math.sin(δ) * Math.cos(θ)
+        Math.cos(φ1) * Math.sin(δ) * Math.cos(θ),
     );
-    
+
     const λ2 = λ1 + Math.atan2(
         Math.sin(θ) * Math.sin(δ) * Math.cos(φ1),
-        Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2)
+        Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2),
     );
 
     return {
         lat: φ2 * RAD_TO_DEG,
-        lon: ((λ2 * RAD_TO_DEG) + 540) % 360 - 180  // Normalize to -180..+180
+        lon: ((λ2 * RAD_TO_DEG) + 540) % 360 - 180,  // Normalize to -180..+180
     };
 }
 
@@ -103,13 +103,13 @@ function normalizeHeading(heading) {
  */
 function headingDifference(currentHeading, targetHeading) {
     let diff = normalizeHeading(targetHeading) - normalizeHeading(currentHeading);
-    
+
     if (diff > 180) {
         diff -= 360;
     } else if (diff < -180) {
         diff += 360;
     }
-    
+
     return diff;
 }
 
@@ -187,24 +187,24 @@ function calculateGroundSpeed(tas, heading, windSpeed, windDir) {
 
     const headingRad = heading * DEG_TO_RAD;
     const windDirRad = windDir * DEG_TO_RAD;
-    
+
     const windX = -windSpeed * Math.sin(windDirRad);
     const windY = -windSpeed * Math.cos(windDirRad);
-    
+
     const tasX = tas * Math.sin(headingRad);
     const tasY = tas * Math.cos(headingRad);
-    
+
     const gsX = tasX + windX;
     const gsY = tasY + windY;
-    
+
     const groundSpeed = Math.sqrt(gsX * gsX + gsY * gsY);
-    
+
     const trackRad = Math.atan2(gsX, gsY);
     const wca = (trackRad * RAD_TO_DEG - heading + 360) % 360;
-    
+
     return {
         groundSpeed,
-        windCorrectionAngle: wca > 180 ? wca - 360 : wca
+        windCorrectionAngle: wca > 180 ? wca - 360 : wca,
     };
 }
 
@@ -215,10 +215,10 @@ function requiredVerticalSpeed(currentAlt, targetAlt, distanceToTarget, groundSp
     if (distanceToTarget <= 0 || groundSpeed <= 0) {
         return 0;
     }
-    
+
     const altChange = targetAlt - currentAlt;
     const timeMinutes = (distanceToTarget / groundSpeed) * 60;
-    
+
     return altChange / timeMinutes;
 }
 
@@ -260,5 +260,5 @@ module.exports = {
     requiredVerticalSpeed,
     topOfDescentDistance,
     lerp,
-    clamp
+    clamp,
 };

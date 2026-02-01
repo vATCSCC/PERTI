@@ -79,7 +79,7 @@ const TYPE_TO_GROUP = {
     'WSRP': 'OTHER',
     'MODEC': 'OTHER',
     'SUA': 'OTHER',
-    'Unknown': 'OTHER'
+    'Unknown': 'OTHER',
 };
 
 // Types that are inherently lines (not areas)
@@ -148,7 +148,7 @@ const TYPE_COLORS = {
     'NASA': '#FF6347',        // Tomato
     'WSRP': '#9370DB',        // Medium Purple
     'MODEC': '#808080',       // Gray
-    'Unknown': '#999999'      // Gray
+    'Unknown': '#999999',      // Gray
 };
 
 // Default colors by group (fallback)
@@ -160,7 +160,7 @@ const GROUP_COLORS = {
     'DC_AREA': '#FF8800',
     'SURFACE_OPS': '#888888',
     'AWACS': '#00CED1',
-    'OTHER': '#999999'
+    'OTHER': '#999999',
 };
 
 // Statistics
@@ -173,14 +173,14 @@ const stats = {
     closedFeatures: [],  // Track which features had closure fixed
     byGroup: {},
     byType: {},
-    errors: []
+    errors: [],
 };
 
 /**
  * Check if coordinates form a closed ring (exact match)
  */
 function isClosed(coords) {
-    if (!coords || coords.length < 3) return false;
+    if (!coords || coords.length < 3) {return false;}
     const first = coords[0];
     const last = coords[coords.length - 1];
     return first[0] === last[0] && first[1] === last[1];
@@ -191,7 +191,7 @@ function isClosed(coords) {
  * Tolerance of 0.001 degrees = ~111 meters at equator
  */
 function isApproxClosed(coords, tolerance = 0.001) {
-    if (!coords || coords.length < 3) return false;
+    if (!coords || coords.length < 3) {return false;}
     const first = coords[0];
     const last = coords[coords.length - 1];
     return Math.abs(first[0] - last[0]) < tolerance &&
@@ -203,7 +203,7 @@ function isApproxClosed(coords, tolerance = 0.001) {
  * Uses bounding box ratio and point distribution to determine
  */
 function looksLikeClosed(coords) {
-    if (!coords || coords.length < 4) return false;
+    if (!coords || coords.length < 4) {return false;}
 
     // Find bounding box
     let minLon = Infinity, maxLon = -Infinity;
@@ -220,16 +220,16 @@ function looksLikeClosed(coords) {
     const height = maxLat - minLat;
 
     // If bounding box is too narrow (aspect ratio > 10:1), likely a line
-    if (width === 0 || height === 0) return false;
+    if (width === 0 || height === 0) {return false;}
     const ratio = Math.max(width, height) / Math.min(width, height);
-    if (ratio > 15) return false;
+    if (ratio > 15) {return false;}
 
     // Check if first and last points are close enough to be auto-closed
     const first = coords[0];
     const last = coords[coords.length - 1];
     const distance = Math.sqrt(
         Math.pow(first[0] - last[0], 2) +
-        Math.pow(first[1] - last[1], 2)
+        Math.pow(first[1] - last[1], 2),
     );
 
     // If distance between first and last is less than 5% of perimeter, consider it closeable
@@ -241,7 +241,7 @@ function looksLikeClosed(coords) {
  * Close coordinates if they should form a ring
  */
 function closeCoords(coords) {
-    if (!coords || coords.length < 3) return coords;
+    if (!coords || coords.length < 3) {return coords;}
     if (!isClosed(coords)) {
         return [...coords, coords[0]];
     }
@@ -253,15 +253,15 @@ function closeCoords(coords) {
  * (many short 2-3 point segments = dashed line rendering)
  */
 function isDashSegments(geometry) {
-    if (geometry.type !== 'MultiLineString') return false;
+    if (geometry.type !== 'MultiLineString') {return false;}
 
     const coords = geometry.coordinates;
-    if (coords.length < 5) return false;
+    if (coords.length < 5) {return false;}
 
     // Check if most segments are very short (2-3 points)
     let shortSegments = 0;
     for (const segment of coords) {
-        if (segment.length <= 3) shortSegments++;
+        if (segment.length <= 3) {shortSegments++;}
     }
 
     return shortSegments / coords.length > 0.8;
@@ -365,12 +365,12 @@ function convertGeometry(geometry, classification, featureName, featureType) {
                     name: featureName || 'Unknown',
                     type: featureType || 'Unknown',
                     originalGeom: 'LineString',
-                    points: geometry.coordinates.length
+                    points: geometry.coordinates.length,
                 });
             }
             return {
                 type: 'Polygon',
-                coordinates: [coords]
+                coordinates: [coords],
             };
         }
 
@@ -395,7 +395,7 @@ function convertGeometry(geometry, classification, featureName, featureType) {
                     type: featureType || 'Unknown',
                     originalGeom: 'MultiLineString',
                     segments: geometry.coordinates.length,
-                    segmentsClosed: segmentsClosed
+                    segmentsClosed: segmentsClosed,
                 });
             }
 
@@ -426,7 +426,7 @@ function generateSuaId(props, index) {
  * Extract ARTCC from feature properties or name
  */
 function extractArtcc(props) {
-    if (props.artcc) return props.artcc;
+    if (props.artcc) {return props.artcc;}
 
     const artccPattern = /\b(ZAB|ZAU|ZBW|ZDC|ZDV|ZFW|ZHU|ZID|ZJX|ZKC|ZLA|ZLC|ZMA|ZME|ZMP|ZNY|ZOA|ZOB|ZSE|ZTL)\b/i;
     const name = props.name || props.designator || '';
@@ -529,13 +529,13 @@ function transformFeature(feature, index) {
         colorName: colorName,
         designator: props.designator || null,
         schedule: props.schedule || null,
-        scheduleDesc: props.scheduleDesc || null
+        scheduleDesc: props.scheduleDesc || null,
     };
 
     return {
         type: 'Feature',
         properties: newProps,
-        geometry: newGeometry
+        geometry: newGeometry,
     };
 }
 
@@ -576,7 +576,7 @@ function transform() {
         } catch (err) {
             stats.errors.push({
                 index: i,
-                error: err.message
+                error: err.message,
             });
             // Keep original feature on error
             transformedFeatures.push(geojson.features[i]);
@@ -590,7 +590,7 @@ function transform() {
 
     const output = {
         type: 'FeatureCollection',
-        features: transformedFeatures
+        features: transformedFeatures,
     };
 
     // Write output

@@ -1,6 +1,6 @@
 /**
  * assets/js/reroute.js
- * 
+ *
  * PERTI Reroute Management Controller
  */
 
@@ -20,19 +20,19 @@
         refreshRateMs: 15000,
         lastRefresh: null,
         isMonitoring: false,
-        isPreviewMode: true
+        isPreviewMode: true,
     };
 
     const STATUS_CLASSES = {
         'PENDING': 'badge-secondary', 'MONITORING': 'badge-info', 'COMPLIANT': 'badge-success',
         'PARTIAL': 'badge-warning', 'NON_COMPLIANT': 'badge-danger',
-        'EXEMPT': 'badge-light border', 'UNKNOWN': 'badge-dark'
+        'EXEMPT': 'badge-light border', 'UNKNOWN': 'badge-dark',
     };
 
     const STATUS_ICONS = {
         'PENDING': 'fa-clock', 'MONITORING': 'fa-eye', 'COMPLIANT': 'fa-check-circle',
         'PARTIAL': 'fa-exclamation-triangle', 'NON_COMPLIANT': 'fa-times-circle',
-        'EXEMPT': 'fa-ban', 'UNKNOWN': 'fa-question-circle'
+        'EXEMPT': 'fa-ban', 'UNKNOWN': 'fa-question-circle',
     };
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -45,10 +45,10 @@
         initMap();
         bindEvents();
         await loadReferenceData();
-        
+
         const rerouteId = document.getElementById('rr_id')?.value;
-        if (rerouteId) await loadReroute(rerouteId);
-        
+        if (rerouteId) {await loadReroute(rerouteId);}
+
         console.log('[Reroute] Ready');
     }
 
@@ -56,12 +56,12 @@
         function tick() {
             const now = new Date();
             const el = document.getElementById('rr_utc_clock');
-            if (el) el.textContent = now.toISOString().substr(11, 8) + 'Z';
-            
+            if (el) {el.textContent = now.toISOString().substr(11, 8) + 'Z';}
+
             if (state.lastRefresh && state.isMonitoring) {
                 const ago = Math.round((now - state.lastRefresh) / 1000);
                 const status = document.getElementById('rr_adl_status');
-                if (status) status.textContent = `Refresh: ${ago}s ago`;
+                if (status) {status.textContent = `Refresh: ${ago}s ago`;}
             }
         }
         tick();
@@ -71,13 +71,13 @@
     function initMap() {
         state.map = L.map('rr_map_container').setView([39.5, -98.35], 4);
         state.layers.base = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© CARTO', maxZoom: 12
+            attribution: '© CARTO', maxZoom: 12,
         }).addTo(state.map);
-        
+
         ['artcc', 'protected', 'avoid', 'flights', 'tracks'].forEach(l => {
             state.layers[l] = L.layerGroup().addTo(state.map);
         });
-        
+
         loadArtccBoundaries();
     }
 
@@ -88,7 +88,7 @@
                 const data = await r.json();
                 L.geoJSON(data, {
                     style: { color: '#444', weight: 1, fillOpacity: 0.02 },
-                    onEachFeature: (f, layer) => f.properties?.id && layer.bindTooltip(f.properties.id, { sticky: true })
+                    onEachFeature: (f, layer) => f.properties?.id && layer.bindTooltip(f.properties.id, { sticky: true }),
                 }).addTo(state.layers.artcc);
             }
         } catch (e) { /* optional */ }
@@ -120,7 +120,7 @@
         document.getElementById('rr_deactivate_btn')?.addEventListener('click', deactivateReroute);
         document.getElementById('rr_reset_btn')?.addEventListener('click', resetForm);
         document.getElementById('rr_refresh_compliance_btn')?.addEventListener('click', refreshCompliance);
-        
+
         ['rr_protected_fixes', 'rr_avoid_fixes'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -128,7 +128,7 @@
                 el.addEventListener('blur', updateRouteVisualization);
             }
         });
-        
+
         document.getElementById('rr_show_artcc')?.addEventListener('change', function() {
             this.checked ? state.map.addLayer(state.layers.artcc) : state.map.removeLayer(state.layers.artcc);
         });
@@ -138,7 +138,7 @@
         document.getElementById('rr_show_flights')?.addEventListener('change', function() {
             this.checked ? state.map.addLayer(state.layers.flights) : state.map.removeLayer(state.layers.flights);
         });
-        
+
         document.querySelectorAll('input[name="loadFilter"]').forEach(r => r.addEventListener('change', loadReroutesList));
         document.getElementById('loadRerouteModal')?.addEventListener('show.bs.modal', loadReroutesList);
     }
@@ -148,7 +148,7 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     const getValue = id => document.getElementById(id)?.value?.trim() || '';
-    const setValue = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    const setValue = (id, v) => { const el = document.getElementById(id); if (el) {el.value = v || '';} };
 
     function collectFormData() {
         const fields = ['id', 'name', 'adv_number', 'start_utc', 'end_utc', 'origin_airports', 'origin_centers',
@@ -158,7 +158,7 @@
             'exempt_carriers', 'exempt_flights', 'comments'];
         const data = {};
         fields.forEach(f => data[f] = getValue('rr_' + f));
-        if (!data.id) data.id = null;
+        if (!data.id) {data.id = null;}
         return data;
     }
 
@@ -193,20 +193,20 @@
         try {
             const r = await fetch(`api/data/tmi/reroute.php?id=${id}&include_flights=1&include_stats=1`);
             const data = await r.json();
-            if (data.status !== 'ok') throw new Error(data.message);
-            
+            if (data.status !== 'ok') {throw new Error(data.message);}
+
             state.currentReroute = data.reroute;
             state.isPreviewMode = data.reroute.status < 2;
             populateForm(data.reroute);
-            
+
             if (data.reroute.flights?.length) {
                 state.assignedFlights = data.reroute.flights;
                 renderFlightTable(state.assignedFlights, 'assigned');
                 updateFlightsOnMap(state.assignedFlights);
             }
-            
-            if (data.reroute.statistics) displayStatistics(data.reroute.statistics);
-            if (data.reroute.status >= 2 && data.reroute.status <= 3) startMonitoring();
+
+            if (data.reroute.statistics) {displayStatistics(data.reroute.statistics);}
+            if (data.reroute.status >= 2 && data.reroute.status <= 3) {startMonitoring();}
         } catch (e) {
             console.error('[Reroute]', e);
             showToast('Load error: ' + e.message, 'danger');
@@ -215,16 +215,16 @@
 
     async function saveReroute() {
         const formData = collectFormData();
-        if (!formData.name) return showToast('Name required', 'warning');
-        
+        if (!formData.name) {return showToast('Name required', 'warning');}
+
         try {
             const body = new URLSearchParams();
             Object.entries(formData).forEach(([k, v]) => v !== null && v !== undefined && body.append(k, v));
-            
+
             const r = await fetch('api/mgt/tmi/reroutes/post.php', { method: 'POST', body });
             const data = await r.json();
-            if (data.status !== 'ok') throw new Error(data.message);
-            
+            if (data.status !== 'ok') {throw new Error(data.message);}
+
             if (data.action === 'created') {
                 setValue('rr_id', data.id);
                 history.pushState({}, '', `reroutes.php?id=${data.id}`);
@@ -238,13 +238,13 @@
     async function activateReroute() {
         let id = getValue('rr_id');
         if (!id) { await saveReroute(); id = getValue('rr_id'); }
-        if (!id || !confirm('Activate and assign flights?')) return;
-        
+        if (!id || !confirm('Activate and assign flights?')) {return;}
+
         try {
             await fetch('api/mgt/tmi/reroutes/activate.php', { method: 'POST', body: new URLSearchParams({ id, action: 'activate' }) });
             const ar = await fetch('api/tmi/rr_assign.php', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reroute_id: id, mode: 'replace' })
+                body: JSON.stringify({ reroute_id: id, mode: 'replace' }),
             });
             const ad = await ar.json();
             showToast(`Activated! ${ad.assigned} flights assigned`, 'success');
@@ -256,7 +256,7 @@
 
     async function deactivateReroute() {
         const id = getValue('rr_id');
-        if (!id || !confirm('Move to Monitoring?')) return;
+        if (!id || !confirm('Move to Monitoring?')) {return;}
         try {
             await fetch('api/mgt/tmi/reroutes/activate.php', { method: 'POST', body: new URLSearchParams({ id, action: 'monitor' }) });
             showToast('Moved to Monitoring', 'success');
@@ -298,35 +298,35 @@
         if (!criteria.origin_airports && !criteria.origin_centers && !criteria.dest_airports && !criteria.dest_centers) {
             return showToast('Specify origin or destination', 'warning');
         }
-        
+
         const btn = document.getElementById('rr_preview_btn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        
+
         try {
             const r = await fetch('api/tmi/rr_preview.php', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(criteria)
+                body: JSON.stringify(criteria),
             });
             const data = await r.json();
-            if (data.status !== 'ok') throw new Error(data.message);
-            
+            if (data.status !== 'ok') {throw new Error(data.message);}
+
             const affected = data.flights.filter(f => !f.is_exempt);
             const exempt = data.flights.filter(f => f.is_exempt);
             state.previewFlights = data.flights;
             state.isPreviewMode = true;
-            
+
             document.getElementById('rr_affected_count').textContent = affected.length;
             document.getElementById('rr_exempt_count').textContent = exempt.length;
-            
+
             renderFlightTable(affected, 'preview');
             renderExemptTable(exempt);
             updateFlightsOnMap(affected);
             displayStatistics({ total: affected.length });
-            
+
             document.getElementById('rr_adl_status').textContent = `ADL: ${data.summary.total}`;
             document.getElementById('rr_adl_status').className = 'badge badge-success ml-2';
-            
+
             showToast(`Found ${affected.length} flights`, 'info');
         } catch (e) {
             showToast('Error: ' + e.message, 'danger');
@@ -337,7 +337,7 @@
     }
 
     function startMonitoring() {
-        if (state.isMonitoring) return;
+        if (state.isMonitoring) {return;}
         state.isMonitoring = true;
         state.isPreviewMode = false;
         refreshCompliance();
@@ -345,25 +345,25 @@
     }
 
     function stopMonitoring() {
-        if (state.refreshInterval) clearInterval(state.refreshInterval);
+        if (state.refreshInterval) {clearInterval(state.refreshInterval);}
         state.refreshInterval = null;
         state.isMonitoring = false;
     }
 
     async function refreshCompliance() {
         const id = getValue('rr_id');
-        if (!id) return;
-        
+        if (!id) {return;}
+
         // Store previous data for buffered update
         const previousFlights = state.assignedFlights ? state.assignedFlights.slice() : [];
-        
+
         try {
             await fetch('api/tmi/rr_compliance_refresh.php', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reroute_id: id })
+                body: JSON.stringify({ reroute_id: id }),
             });
             state.lastRefresh = new Date();
-            
+
             const r = await fetch(`api/data/tmi/reroute.php?id=${id}&include_flights=1&include_stats=1`);
             const data = await r.json();
             if (data.status === 'ok') {
@@ -376,7 +376,7 @@
                 }
                 renderFlightTable(state.assignedFlights, 'assigned');
                 updateFlightsOnMap(state.assignedFlights);
-                if (data.reroute.statistics) displayStatistics(data.reroute.statistics);
+                if (data.reroute.statistics) {displayStatistics(data.reroute.statistics);}
             }
         } catch (e) {
             console.error('[Reroute] Refresh error:', e);
@@ -391,17 +391,17 @@
 
     window.addFlightManually = async function() {
         const id = getValue('rr_id');
-        if (!id) return showToast('Save first', 'warning');
+        if (!id) {return showToast('Save first', 'warning');}
         const key = prompt('Flight key or callsign:');
-        if (!key) return;
-        
+        if (!key) {return;}
+
         try {
             const r = await fetch('api/tmi/rr_assign_manual.php', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reroute_id: id, action: 'add', flights: [key] })
+                body: JSON.stringify({ reroute_id: id, action: 'add', flights: [key] }),
             });
             const data = await r.json();
-            if (data.status !== 'ok') throw new Error(data.message);
+            if (data.status !== 'ok') {throw new Error(data.message);}
             showToast(`Added ${data.affected} flight(s)`, 'success');
             await loadReroute(id);
         } catch (e) { showToast('Error: ' + e.message, 'danger'); }
@@ -409,13 +409,13 @@
 
     window.removeSelectedFlights = async function() {
         const id = getValue('rr_id');
-        if (!id || !state.selectedFlights.size) return;
-        if (!confirm(`Remove ${state.selectedFlights.size} flight(s)?`)) return;
-        
+        if (!id || !state.selectedFlights.size) {return;}
+        if (!confirm(`Remove ${state.selectedFlights.size} flight(s)?`)) {return;}
+
         try {
             const r = await fetch('api/tmi/rr_assign_manual.php', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reroute_id: id, action: 'remove', flights: [...state.selectedFlights] })
+                body: JSON.stringify({ reroute_id: id, action: 'remove', flights: [...state.selectedFlights] }),
             });
             const data = await r.json();
             showToast(`Removed ${data.affected} flight(s)`, 'success');
@@ -430,15 +430,15 @@
             return showToast('Invalid status', 'warning');
         }
         const reason = prompt('Reason:');
-        if (!reason) return showToast('Reason required', 'warning');
-        
+        if (!reason) {return showToast('Reason required', 'warning');}
+
         try {
             const r = await fetch('api/tmi/rr_compliance_override.php', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ flight_id: flightId, status: status.toUpperCase(), reason })
+                body: JSON.stringify({ flight_id: flightId, status: status.toUpperCase(), reason }),
             });
             const data = await r.json();
-            if (data.status !== 'ok') throw new Error(data.message);
+            if (data.status !== 'ok') {throw new Error(data.message);}
             showToast(`Updated to ${data.new_status}`, 'success');
             await loadReroute(getValue('rr_id'));
         } catch (e) { showToast('Error: ' + e.message, 'danger'); }
@@ -446,7 +446,7 @@
 
     window.exportReroute = (format, type) => {
         const id = getValue('rr_id');
-        if (!id) return showToast('Save first', 'warning');
+        if (!id) {return showToast('Save first', 'warning');}
         window.open(`api/tmi/rr_export.php?id=${id}&format=${format}&type=${type}&download=1`, '_blank');
     };
 
@@ -460,13 +460,13 @@
             tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4"><i class="fas fa-search fa-2x mb-2"></i><br>Click "Preview"</td></tr>`;
             return;
         }
-        
+
         const isAssigned = mode === 'assigned';
         tbody.innerHTML = flights.map(f => {
             const s = f.compliance_status || 'PENDING';
             const pct = f.compliance_pct != null ? f.compliance_pct + '%' : '--';
             const cls = s === 'NON_COMPLIANT' ? 'table-danger' : s === 'PARTIAL' ? 'table-warning' : '';
-            
+
             return `<tr class="${cls}">
                 ${isAssigned ? `<td><input type="checkbox" class="flight-select" data-flight-key="${f.flight_key}" onchange="toggleSel(this)"></td>` : ''}
                 <td><strong>${esc(f.callsign)}</strong></td>
@@ -521,7 +521,7 @@
     function updateRouteVisualization() {
         state.layers.protected.clearLayers();
         state.layers.avoid.clearLayers();
-        
+
         const protectedFixes = parseFixList(getValue('rr_protected_fixes'));
         const coords = [];
         protectedFixes.forEach(fix => {
@@ -532,8 +532,8 @@
                     .bindTooltip(fix, { permanent: true, direction: 'top' }).addTo(state.layers.protected);
             }
         });
-        if (coords.length >= 2) L.polyline(coords, { color: '#28a745', weight: 4, opacity: 0.8 }).addTo(state.layers.protected);
-        
+        if (coords.length >= 2) {L.polyline(coords, { color: '#28a745', weight: 4, opacity: 0.8 }).addTo(state.layers.protected);}
+
         parseFixList(getValue('rr_avoid_fixes')).forEach(fix => {
             const c = getFixCoords(fix);
             if (c) {
@@ -542,8 +542,8 @@
                 coords.push(c);
             }
         });
-        
-        if (coords.length) state.map.fitBounds(coords, { padding: [50, 50] });
+
+        if (coords.length) {state.map.fitBounds(coords, { padding: [50, 50] });}
     }
 
     function clearRouteVisualization() {
@@ -570,8 +570,8 @@
 
     window.showFlightDetail = function(key) {
         const f = state.previewFlights.find(x => x.flight_key === key) || state.assignedFlights.find(x => x.flight_key === key);
-        if (!f) return showToast('Not found', 'warning');
-        
+        if (!f) {return showToast('Not found', 'warning');}
+
         document.getElementById('flightDetailTitle').textContent = f.callsign;
         document.getElementById('flightDetailBody').innerHTML = `
             <table class="table table-sm">
@@ -592,14 +592,14 @@
         try {
             const r = await fetch(`api/tmi/rr_compliance_history.php?flight_id=${id}&limit=50`);
             const data = await r.json();
-            if (data.status !== 'ok') throw new Error(data.message);
-            
+            if (data.status !== 'ok') {throw new Error(data.message);}
+
             let html = '<table class="table table-sm"><thead><tr><th>Time</th><th>Status</th><th>%</th></tr></thead><tbody>';
             data.history.forEach(h => {
                 html += `<tr><td><small>${h.snapshot_utc}</small></td><td><span class="badge ${STATUS_CLASSES[h.compliance_status]}">${h.compliance_status}</span></td><td>${h.compliance_pct != null ? h.compliance_pct + '%' : '--'}</td></tr>`;
             });
             html += '</tbody></table>';
-            
+
             document.getElementById('flightDetailTitle').textContent = 'History: ' + data.flight.callsign;
             document.getElementById('flightDetailBody').innerHTML = html;
             $('#flightDetailModal').modal('show');
@@ -611,9 +611,9 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     const parseFixList = s => s ? s.split(/[,\s]+/).map(x => x.trim().toUpperCase()).filter(x => x) : [];
-    
+
     function getFixCoords(fix) {
-        if (state.airportInfo[fix]) return [state.airportInfo[fix].lat, state.airportInfo[fix].lon];
+        if (state.airportInfo[fix]) {return [state.airportInfo[fix].lat, state.airportInfo[fix].lon];}
         const common = { MERIT:[40.85,-73.30], GREKI:[40.98,-72.33], JUDDS:[41.22,-72.88], WHITE:[41.07,-73.61], COATE:[40.72,-73.86], DIXIE:[40.47,-74.07], LANNA:[40.53,-73.23], WAVEY:[40.35,-73.78], BETTE:[40.13,-73.62], PARCH:[40.77,-73.10], RBV:[40.20,-74.50], SBJ:[40.88,-74.57], JFK:[40.64,-73.78], LGA:[40.77,-73.87], EWR:[40.69,-74.17] };
         return common[fix] || null;
     }
@@ -627,11 +627,11 @@
 
     function showToast(msg, type = 'info') {
         let c = document.getElementById('toast-container');
-        if (!c) { 
-            c = document.createElement('div'); 
-            c.id = 'toast-container'; 
-            c.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;max-width:350px;'; 
-            document.body.appendChild(c); 
+        if (!c) {
+            c = document.createElement('div');
+            c.id = 'toast-container';
+            c.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;max-width:350px;';
+            document.body.appendChild(c);
         }
         const t = document.createElement('div');
         t.className = `alert alert-${type === 'danger' ? 'danger' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info'} alert-dismissible fade show`;

@@ -1,40 +1,40 @@
 /**
  * playbook-cdr-search.js
- * 
+ *
  * Playbook & CDR Search Module for PERTI Route Planning
  * Provides search, filter, and display functionality for Playbook routes and CDRs
- * 
+ *
  * Dependencies:
  * - jQuery
  * - cdrMap (loaded by route.js / route-maplibre.js)
  * - playbookRoutes (loaded by route.js / route-maplibre.js)
  */
 
-var PlaybookCDRSearch = (function() {
+const PlaybookCDRSearch = (function() {
     'use strict';
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MODULE STATE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    var initialized = false;
-    var searchType = 'playbook'; // 'playbook', 'cdr', or 'all'
-    var currentResults = [];
-    var selectedIndices = new Set();
-    var MAX_RESULTS = 200;
+    let initialized = false;
+    let searchType = 'playbook'; // 'playbook', 'cdr', or 'all'
+    let currentResults = [];
+    const selectedIndices = new Set();
+    const MAX_RESULTS = 200;
 
     // Local copies of data (populated from global scope)
-    var localCdrMap = {};
-    var localCdrList = []; // Array form for searching
-    var localPlaybookRoutes = [];
-    var localPlaybookByPlayName = {};
+    let localCdrMap = {};
+    let localCdrList = []; // Array form for searching
+    let localPlaybookRoutes = [];
+    let localPlaybookByPlayName = {};
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════
 
     function init() {
-        if (initialized) return;
+        if (initialized) {return;}
 
         console.log('[PBCDR] Initializing Playbook/CDR Search module...');
 
@@ -51,7 +51,7 @@ var PlaybookCDRSearch = (function() {
     function loadDataFromGlobalScope() {
         // Wait for data to be available (route.js loads this)
         var checkInterval = setInterval(function() {
-            var hasData = false;
+            let hasData = false;
 
             // Check for cdrMap
             if (typeof window.cdrMap !== 'undefined' && Object.keys(window.cdrMap).length > 0) {
@@ -61,7 +61,7 @@ var PlaybookCDRSearch = (function() {
                     return {
                         code: entry[0],
                         route: entry[1],
-                        type: 'cdr'
+                        type: 'cdr',
                     };
                 });
                 hasData = true;
@@ -113,7 +113,7 @@ var PlaybookCDRSearch = (function() {
 
         // Select all checkbox
         $('#pbcdr_select_all').off('change').on('change', function() {
-            var checked = $(this).prop('checked');
+            const checked = $(this).prop('checked');
             selectAll(checked);
         });
 
@@ -131,7 +131,7 @@ var PlaybookCDRSearch = (function() {
         $('#pbcdr_copy_selected').off('click').on('click', function() {
             copySelectedToClipboard();
         });
-        
+
         // Clear routes textarea
         $('#pbcdr_clear_routes').off('click').on('click', function() {
             clearRoutesTextarea();
@@ -140,23 +140,23 @@ var PlaybookCDRSearch = (function() {
         // Result item click (delegate)
         $('#pbcdr_results_list').off('click', '.pbcdr-result-item').on('click', '.pbcdr-result-item', function(e) {
             // Don't toggle if clicking on action button
-            if ($(e.target).closest('.pbcdr-action-btn').length) return;
-            
-            var idx = $(this).data('idx');
+            if ($(e.target).closest('.pbcdr-action-btn').length) {return;}
+
+            const idx = $(this).data('idx');
             toggleSelection(idx);
         });
 
         // Quick add button
         $('#pbcdr_results_list').off('click', '.pbcdr-quick-add').on('click', '.pbcdr-quick-add', function(e) {
             e.stopPropagation();
-            var idx = $(this).closest('.pbcdr-result-item').data('idx');
+            const idx = $(this).closest('.pbcdr-result-item').data('idx');
             quickAddRoute(idx);
         });
 
         // Quick plot button
         $('#pbcdr_results_list').off('click', '.pbcdr-quick-plot').on('click', '.pbcdr-quick-plot', function(e) {
             e.stopPropagation();
-            var idx = $(this).closest('.pbcdr-result-item').data('idx');
+            const idx = $(this).closest('.pbcdr-result-item').data('idx');
             quickPlotRoute(idx);
         });
     }
@@ -178,17 +178,17 @@ var PlaybookCDRSearch = (function() {
             origArtcc: $('#pbcdr_orig_artcc').val().trim().toUpperCase(),
             destApt: $('#pbcdr_dest_apt').val().trim().toUpperCase(),
             destTracon: $('#pbcdr_dest_tracon').val().trim().toUpperCase(),
-            destArtcc: $('#pbcdr_dest_artcc').val().trim().toUpperCase()
+            destArtcc: $('#pbcdr_dest_artcc').val().trim().toUpperCase(),
         };
     }
 
     function performSearch() {
-        var filters = getFilterValues();
-        var results = [];
-        var startTime = performance.now();
+        const filters = getFilterValues();
+        let results = [];
+        const startTime = performance.now();
 
         // Check if any filter is set
-        var hasFilter = Object.values(filters).some(function(v) { return v !== ''; });
+        const hasFilter = Object.values(filters).some(function(v) { return v !== ''; });
         if (!hasFilter) {
             showNoResults('Enter at least one search criterion');
             return;
@@ -196,13 +196,13 @@ var PlaybookCDRSearch = (function() {
 
         // Search playbooks
         if (searchType === 'playbook' || searchType === 'all') {
-            var pbResults = searchPlaybooks(filters);
+            const pbResults = searchPlaybooks(filters);
             results = results.concat(pbResults);
         }
 
         // Search CDRs
         if (searchType === 'cdr' || searchType === 'all') {
-            var cdrResults = searchCDRs(filters);
+            const cdrResults = searchCDRs(filters);
             results = results.concat(cdrResults);
         }
 
@@ -216,7 +216,7 @@ var PlaybookCDRSearch = (function() {
         });
 
         // Limit results
-        var limited = results.length > MAX_RESULTS;
+        const limited = results.length > MAX_RESULTS;
         if (limited) {
             results = results.slice(0, MAX_RESULTS);
         }
@@ -224,7 +224,7 @@ var PlaybookCDRSearch = (function() {
         currentResults = results;
         selectedIndices.clear();
 
-        var elapsed = (performance.now() - startTime).toFixed(1);
+        const elapsed = (performance.now() - startTime).toFixed(1);
         console.log('[PBCDR] Search completed: ' + results.length + ' results in ' + elapsed + 'ms');
 
         renderResults(results, limited);
@@ -232,17 +232,17 @@ var PlaybookCDRSearch = (function() {
     }
 
     function searchPlaybooks(filters) {
-        var results = [];
+        const results = [];
 
         // Optimization: Use play name index if only searching by name
-        var candidateRoutes;
-        if (filters.name && !filters.routeText && !filters.origApt && !filters.origTracon && 
+        let candidateRoutes;
+        if (filters.name && !filters.routeText && !filters.origApt && !filters.origTracon &&
             !filters.origArtcc && !filters.destApt && !filters.destTracon && !filters.destArtcc) {
             // Search by play name prefix in index
             candidateRoutes = [];
-            var normName = normalizePlayName(filters.name);
-            for (var key in localPlaybookByPlayName) {
-                if (key.indexOf(normName) !== -1 || normName.indexOf(key) !== -1 || 
+            const normName = normalizePlayName(filters.name);
+            for (const key in localPlaybookByPlayName) {
+                if (key.indexOf(normName) !== -1 || normName.indexOf(key) !== -1 ||
                     key.startsWith(normName) || normName.startsWith(key)) {
                     candidateRoutes = candidateRoutes.concat(localPlaybookByPlayName[key]);
                 }
@@ -251,14 +251,14 @@ var PlaybookCDRSearch = (function() {
             candidateRoutes = localPlaybookRoutes;
         }
 
-        for (var i = 0; i < candidateRoutes.length && results.length < MAX_RESULTS * 2; i++) {
-            var pb = candidateRoutes[i];
+        for (let i = 0; i < candidateRoutes.length && results.length < MAX_RESULTS * 2; i++) {
+            const pb = candidateRoutes[i];
 
             // Name filter
             if (filters.name) {
-                var nameMatch = (pb.playName && pb.playName.toUpperCase().indexOf(filters.name) !== -1) ||
+                const nameMatch = (pb.playName && pb.playName.toUpperCase().indexOf(filters.name) !== -1) ||
                                (pb.playNameNorm && pb.playNameNorm.indexOf(normalizePlayName(filters.name)) !== -1);
-                if (!nameMatch) continue;
+                if (!nameMatch) {continue;}
             }
 
             // Route text filter
@@ -268,7 +268,7 @@ var PlaybookCDRSearch = (function() {
 
             // Origin airport filter
             if (filters.origApt) {
-                var origAptNorm = normalizeAirportCode(filters.origApt);
+                const origAptNorm = normalizeAirportCode(filters.origApt);
                 if (!pb.originAirportsSet || !matchesAnyToken(origAptNorm, pb.originAirportsSet)) {
                     continue;
                 }
@@ -290,7 +290,7 @@ var PlaybookCDRSearch = (function() {
 
             // Dest airport filter
             if (filters.destApt) {
-                var destAptNorm = normalizeAirportCode(filters.destApt);
+                const destAptNorm = normalizeAirportCode(filters.destApt);
                 if (!pb.destAirportsSet || !matchesAnyToken(destAptNorm, pb.destAirportsSet)) {
                     continue;
                 }
@@ -311,7 +311,7 @@ var PlaybookCDRSearch = (function() {
             }
 
             // Build PB directive with applicable filters
-            var pbDirective = buildPBDirective(pb.playName, filters);
+            const pbDirective = buildPBDirective(pb.playName, filters);
 
             // Add to results
             results.push({
@@ -332,8 +332,8 @@ var PlaybookCDRSearch = (function() {
                     origArtcc: filters.origArtcc,
                     destApt: filters.destApt,
                     destTracon: filters.destTracon,
-                    destArtcc: filters.destArtcc
-                }
+                    destArtcc: filters.destArtcc,
+                },
             });
         }
 
@@ -346,20 +346,20 @@ var PlaybookCDRSearch = (function() {
      * Multiple values in a segment are space-separated
      */
     function buildPBDirective(playName, filters) {
-        var parts = ['PB', playName];
-        
+        const parts = ['PB', playName];
+
         // Build origin part (include all origin filters)
-        var originParts = [];
-        if (filters.origApt) originParts.push(normalizeAirportCode(filters.origApt));
-        if (filters.origTracon) originParts.push(filters.origTracon.toUpperCase());
-        if (filters.origArtcc) originParts.push(filters.origArtcc.toUpperCase());
-        
+        const originParts = [];
+        if (filters.origApt) {originParts.push(normalizeAirportCode(filters.origApt));}
+        if (filters.origTracon) {originParts.push(filters.origTracon.toUpperCase());}
+        if (filters.origArtcc) {originParts.push(filters.origArtcc.toUpperCase());}
+
         // Build destination part (include all dest filters)
-        var destParts = [];
-        if (filters.destApt) destParts.push(normalizeAirportCode(filters.destApt));
-        if (filters.destTracon) destParts.push(filters.destTracon.toUpperCase());
-        if (filters.destArtcc) destParts.push(filters.destArtcc.toUpperCase());
-        
+        const destParts = [];
+        if (filters.destApt) {destParts.push(normalizeAirportCode(filters.destApt));}
+        if (filters.destTracon) {destParts.push(filters.destTracon.toUpperCase());}
+        if (filters.destArtcc) {destParts.push(filters.destArtcc.toUpperCase());}
+
         // Build the directive
         // PB.PLAY (no filters)
         // PB.PLAY.ORIG (origin only)
@@ -371,15 +371,15 @@ var PlaybookCDRSearch = (function() {
                 parts.push(destParts.join(' '));
             }
         }
-        
+
         return parts.join('.');
     }
 
     function searchCDRs(filters) {
-        var results = [];
+        const results = [];
 
-        for (var i = 0; i < localCdrList.length && results.length < MAX_RESULTS * 2; i++) {
-            var cdr = localCdrList[i];
+        for (let i = 0; i < localCdrList.length && results.length < MAX_RESULTS * 2; i++) {
+            const cdr = localCdrList[i];
 
             // Name filter (CDR code)
             if (filters.name && cdr.code.indexOf(filters.name) === -1) {
@@ -392,22 +392,22 @@ var PlaybookCDRSearch = (function() {
             }
 
             // Extract origin/dest from CDR code (format: XXXYYY# where XXX=orig, YYY=dest)
-            var cdrOrigin = '';
-            var cdrDest = '';
+            let cdrOrigin = '';
+            let cdrDest = '';
             if (cdr.code.length >= 6) {
                 cdrOrigin = cdr.code.substring(0, 3);
                 cdrDest = cdr.code.substring(3, 6);
             }
 
             // Also try to extract from route string (usually starts with KXXX and ends with KYYY)
-            var routeTokens = cdr.route.split(/\s+/);
-            var routeOrigin = '';
-            var routeDest = '';
+            const routeTokens = cdr.route.split(/\s+/);
+            let routeOrigin = '';
+            let routeDest = '';
             if (routeTokens.length > 0 && routeTokens[0].match(/^K[A-Z]{3}$/)) {
                 routeOrigin = routeTokens[0]; // Keep K prefix for matching
             }
             if (routeTokens.length > 1) {
-                var lastToken = routeTokens[routeTokens.length - 1];
+                const lastToken = routeTokens[routeTokens.length - 1];
                 if (lastToken.match(/^K[A-Z]{3}$/)) {
                     routeDest = lastToken;
                 }
@@ -415,22 +415,22 @@ var PlaybookCDRSearch = (function() {
 
             // Origin airport filter - DIRECTIONAL: must match ORIGIN only
             if (filters.origApt) {
-                var origSearch = filters.origApt.replace(/^K/, ''); // Remove K if present
-                var origMatch = false;
-                
+                const origSearch = filters.origApt.replace(/^K/, ''); // Remove K if present
+                let origMatch = false;
+
                 // Check CDR code origin (first 3 chars)
                 if (cdrOrigin && cdrOrigin.toUpperCase() === origSearch.toUpperCase()) {
                     origMatch = true;
                 }
                 // Check route string origin
                 if (!origMatch && routeOrigin) {
-                    var routeOrigCode = routeOrigin.replace(/^K/, '');
+                    const routeOrigCode = routeOrigin.replace(/^K/, '');
                     if (routeOrigCode.toUpperCase() === origSearch.toUpperCase()) {
                         origMatch = true;
                     }
                 }
-                
-                if (!origMatch) continue;
+
+                if (!origMatch) {continue;}
             }
 
             // Origin TRACON filter - check if route passes through
@@ -445,22 +445,22 @@ var PlaybookCDRSearch = (function() {
 
             // Dest airport filter - DIRECTIONAL: must match DESTINATION only
             if (filters.destApt) {
-                var destSearch = filters.destApt.replace(/^K/, ''); // Remove K if present
-                var destMatch = false;
-                
+                const destSearch = filters.destApt.replace(/^K/, ''); // Remove K if present
+                let destMatch = false;
+
                 // Check CDR code destination (chars 4-6)
                 if (cdrDest && cdrDest.toUpperCase() === destSearch.toUpperCase()) {
                     destMatch = true;
                 }
                 // Check route string destination
                 if (!destMatch && routeDest) {
-                    var routeDestCode = routeDest.replace(/^K/, '');
+                    const routeDestCode = routeDest.replace(/^K/, '');
                     if (routeDestCode.toUpperCase() === destSearch.toUpperCase()) {
                         destMatch = true;
                     }
                 }
-                
-                if (!destMatch) continue;
+
+                if (!destMatch) {continue;}
             }
 
             // Dest TRACON filter - check if route passes through
@@ -479,7 +479,7 @@ var PlaybookCDRSearch = (function() {
                 route: cdr.route,
                 origAirports: cdrOrigin ? [cdrOrigin] : [],
                 destAirports: cdrDest ? [cdrDest] : [],
-                cdrCode: cdr.code
+                cdrCode: cdr.code,
             });
         }
 
@@ -491,12 +491,12 @@ var PlaybookCDRSearch = (function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function normalizePlayName(name) {
-        if (!name) return '';
+        if (!name) {return '';}
         return String(name).toUpperCase().replace(/[\s\-_]/g, '');
     }
 
     function normalizeAirportCode(code) {
-        if (!code) return '';
+        if (!code) {return '';}
         code = code.toUpperCase().trim();
         // Add K prefix if 3-letter code
         if (code.length === 3 && /^[A-Z]{3}$/.test(code)) {
@@ -506,14 +506,14 @@ var PlaybookCDRSearch = (function() {
     }
 
     function matchesAnyToken(searchTerm, tokenSet) {
-        if (!tokenSet || tokenSet.size === 0) return false;
-        
+        if (!tokenSet || tokenSet.size === 0) {return false;}
+
         // Direct match
-        if (tokenSet.has(searchTerm)) return true;
-        
+        if (tokenSet.has(searchTerm)) {return true;}
+
         // Partial match - check if any token contains or starts with search term
-        var arr = Array.from(tokenSet);
-        for (var i = 0; i < arr.length; i++) {
+        const arr = Array.from(tokenSet);
+        for (let i = 0; i < arr.length; i++) {
             if (arr[i].indexOf(searchTerm) !== -1 || searchTerm.indexOf(arr[i]) !== -1) {
                 return true;
             }
@@ -526,7 +526,7 @@ var PlaybookCDRSearch = (function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function renderResults(results, limited) {
-        var $container = $('#pbcdr_results_list');
+        const $container = $('#pbcdr_results_list');
         $container.empty();
 
         if (results.length === 0) {
@@ -544,28 +544,28 @@ var PlaybookCDRSearch = (function() {
         }
 
         // Render each result
-        for (var i = 0; i < results.length; i++) {
-            var r = results[i];
-            var html = renderResultItem(r, i);
+        for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+            const html = renderResultItem(r, i);
             $container.append(html);
         }
     }
 
     function renderResultItem(result, idx) {
-        var typeClass = result.type === 'playbook' ? 'playbook' : 'cdr';
-        var typeLabel = result.type === 'playbook' ? 'Playbook' : 'CDR';
+        const typeClass = result.type === 'playbook' ? 'playbook' : 'cdr';
+        const typeLabel = result.type === 'playbook' ? 'Playbook' : 'CDR';
 
         // Build metadata badges
-        var metaHtml = '';
+        let metaHtml = '';
         if (result.origAirports && result.origAirports.length > 0) {
-            metaHtml += '<span title="Origin Airports">' + result.origAirports.slice(0, 3).join(' ') + 
+            metaHtml += '<span title="Origin Airports">' + result.origAirports.slice(0, 3).join(' ') +
                        (result.origAirports.length > 3 ? '...' : '') + '</span>';
         }
         if (result.origArtccs && result.origArtccs.length > 0) {
             metaHtml += '<span title="Origin ARTCCs">' + result.origArtccs.slice(0, 2).join(' ') + '</span>';
         }
         if (result.destAirports && result.destAirports.length > 0) {
-            metaHtml += '<span title="Dest Airports">→ ' + result.destAirports.slice(0, 3).join(' ') + 
+            metaHtml += '<span title="Dest Airports">→ ' + result.destAirports.slice(0, 3).join(' ') +
                        (result.destAirports.length > 3 ? '...' : '') + '</span>';
         }
         if (result.destArtccs && result.destArtccs.length > 0) {
@@ -600,14 +600,14 @@ var PlaybookCDRSearch = (function() {
             '<div class="pbcdr-no-results">' +
                 '<i class="fas fa-search d-block"></i>' +
                 '<p class="mb-0">' + escapeHtml(message) + '</p>' +
-            '</div>'
+            '</div>',
         );
         $('#pbcdr_results_shown').text('0');
         $('#pbcdr_results_limited').hide();
     }
 
     function escapeHtml(str) {
-        if (!str) return '';
+        if (!str) {return '';}
         return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -632,7 +632,7 @@ var PlaybookCDRSearch = (function() {
     function selectAll(checked) {
         selectedIndices.clear();
         if (checked) {
-            for (var i = 0; i < currentResults.length; i++) {
+            for (let i = 0; i < currentResults.length; i++) {
                 selectedIndices.add(i);
             }
         }
@@ -642,17 +642,17 @@ var PlaybookCDRSearch = (function() {
 
     function updateSelectionUI() {
         $('.pbcdr-result-checkbox').each(function() {
-            var idx = $(this).data('idx');
+            const idx = $(this).data('idx');
             $(this).prop('checked', selectedIndices.has(idx));
         });
 
         // Update select all checkbox
-        var allSelected = selectedIndices.size === currentResults.length && currentResults.length > 0;
+        const allSelected = selectedIndices.size === currentResults.length && currentResults.length > 0;
         $('#pbcdr_select_all').prop('checked', allSelected);
     }
 
     function updateBulkActionState() {
-        var hasSelection = selectedIndices.size > 0;
+        const hasSelection = selectedIndices.size > 0;
         $('#pbcdr_add_selected').prop('disabled', !hasSelection);
         $('#pbcdr_plot_selected').prop('disabled', !hasSelection);
         $('#pbcdr_copy_selected').prop('disabled', !hasSelection);
@@ -661,21 +661,21 @@ var PlaybookCDRSearch = (function() {
     function buildPlaybookDirective(result) {
         // Build PB directive with applicable filters: PB.{play}.{origins}.{dests}
         // Use the search filters that were active when the result was found
-        var filters = getFilterValues();
-        var parts = ['PB', result.displayName];
-        
+        const filters = getFilterValues();
+        const parts = ['PB', result.displayName];
+
         // Build origin part from filters (normalize airport codes)
-        var originParts = [];
-        if (filters.origApt) originParts.push(normalizeAirportCode(filters.origApt));
-        if (filters.origTracon) originParts.push(filters.origTracon.toUpperCase());
-        if (filters.origArtcc) originParts.push(filters.origArtcc.toUpperCase());
-        
+        const originParts = [];
+        if (filters.origApt) {originParts.push(normalizeAirportCode(filters.origApt));}
+        if (filters.origTracon) {originParts.push(filters.origTracon.toUpperCase());}
+        if (filters.origArtcc) {originParts.push(filters.origArtcc.toUpperCase());}
+
         // Build dest part from filters (normalize airport codes)
-        var destParts = [];
-        if (filters.destApt) destParts.push(normalizeAirportCode(filters.destApt));
-        if (filters.destTracon) destParts.push(filters.destTracon.toUpperCase());
-        if (filters.destArtcc) destParts.push(filters.destArtcc.toUpperCase());
-        
+        const destParts = [];
+        if (filters.destApt) {destParts.push(normalizeAirportCode(filters.destApt));}
+        if (filters.destTracon) {destParts.push(filters.destTracon.toUpperCase());}
+        if (filters.destArtcc) {destParts.push(filters.destArtcc.toUpperCase());}
+
         // Add origin segment if any origin filters
         if (originParts.length > 0) {
             parts.push(originParts.join(' '));
@@ -683,19 +683,19 @@ var PlaybookCDRSearch = (function() {
             // Need empty origin segment if we have dest
             parts.push('');
         }
-        
+
         // Add dest segment if any dest filters
         if (destParts.length > 0) {
             parts.push(destParts.join(' '));
         }
-        
+
         return parts.join('.');
     }
 
     function getSelectedRouteStrings() {
-        var routes = [];
+        const routes = [];
         selectedIndices.forEach(function(idx) {
-            var result = currentResults[idx];
+            const result = currentResults[idx];
             if (result) {
                 // For playbooks, build PB directive with filters; for CDRs, use code
                 if (result.type === 'playbook') {
@@ -709,77 +709,77 @@ var PlaybookCDRSearch = (function() {
         });
         return routes;
     }
-    
+
     function getExistingRoutes() {
         // Get current routes in textarea as a Set for deduplication
-        var $textarea = $('#routeSearch');
-        var currentVal = $textarea.val().trim();
-        if (!currentVal) return new Set();
-        
-        var lines = currentVal.split('\n').map(function(line) {
+        const $textarea = $('#routeSearch');
+        const currentVal = $textarea.val().trim();
+        if (!currentVal) {return new Set();}
+
+        const lines = currentVal.split('\n').map(function(line) {
             return line.trim().toUpperCase();
         }).filter(function(line) {
             return line !== '';
         });
-        
+
         return new Set(lines);
     }
-    
+
     function addRoutesToTextarea(routes, showFeedback) {
-        if (!routes || routes.length === 0) return 0;
-        
-        var $textarea = $('#routeSearch');
-        var existingRoutes = getExistingRoutes();
-        
+        if (!routes || routes.length === 0) {return 0;}
+
+        const $textarea = $('#routeSearch');
+        const existingRoutes = getExistingRoutes();
+
         // Filter out duplicates - both against existing AND within the batch
-        var seen = new Set();
-        var newRoutes = [];
-        
-        for (var i = 0; i < routes.length; i++) {
-            var route = routes[i];
-            var normalized = route.trim().toUpperCase();
-            
+        const seen = new Set();
+        const newRoutes = [];
+
+        for (let i = 0; i < routes.length; i++) {
+            const route = routes[i];
+            const normalized = route.trim().toUpperCase();
+
             // Skip if empty, already in textarea, or already seen in this batch
             if (!normalized || existingRoutes.has(normalized) || seen.has(normalized)) {
                 continue;
             }
-            
+
             seen.add(normalized);
             newRoutes.push(route);
         }
-        
+
         if (newRoutes.length === 0) {
             if (showFeedback) {
                 showToast('All routes already in textarea', 'info');
             }
             return 0;
         }
-        
-        var currentVal = $textarea.val().trim();
-        var newRoutesStr = newRoutes.join('\n');
-        
+
+        const currentVal = $textarea.val().trim();
+        const newRoutesStr = newRoutes.join('\n');
+
         if (currentVal) {
             $textarea.val(currentVal + '\n' + newRoutesStr);
         } else {
             $textarea.val(newRoutesStr);
         }
-        
-        var skipped = routes.length - newRoutes.length;
+
+        const skipped = routes.length - newRoutes.length;
         if (showFeedback) {
-            var msg = 'Added ' + newRoutes.length + ' route(s)';
+            let msg = 'Added ' + newRoutes.length + ' route(s)';
             if (skipped > 0) {
                 msg += ' (' + skipped + ' duplicate' + (skipped > 1 ? 's' : '') + ' skipped)';
             }
             showToast(msg, 'success');
         }
-        
+
         return newRoutes.length;
     }
 
     function getSelectedFullRouteStrings() {
-        var routes = [];
+        const routes = [];
         selectedIndices.forEach(function(idx) {
-            var result = currentResults[idx];
+            const result = currentResults[idx];
             if (result) {
                 routes.push(result.route);
             }
@@ -788,16 +788,16 @@ var PlaybookCDRSearch = (function() {
     }
 
     function addSelectedToTextarea() {
-        var routes = getSelectedRouteStrings();
+        const routes = getSelectedRouteStrings();
         addRoutesToTextarea(routes, true);
     }
 
     function plotSelected() {
-        var routes = getSelectedRouteStrings();
-        if (routes.length === 0) return;
+        const routes = getSelectedRouteStrings();
+        if (routes.length === 0) {return;}
 
-        var added = addRoutesToTextarea(routes, false);
-        
+        const added = addRoutesToTextarea(routes, false);
+
         // Trigger plot button
         $('#plot_r').click();
 
@@ -809,10 +809,10 @@ var PlaybookCDRSearch = (function() {
     }
 
     function copySelectedToClipboard() {
-        var routes = getSelectedFullRouteStrings();
-        if (routes.length === 0) return;
+        const routes = getSelectedFullRouteStrings();
+        if (routes.length === 0) {return;}
 
-        var text = routes.join('\n');
+        const text = routes.join('\n');
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(function() {
@@ -826,7 +826,7 @@ var PlaybookCDRSearch = (function() {
     }
 
     function fallbackCopy(text) {
-        var $temp = $('<textarea>');
+        const $temp = $('<textarea>');
         $('body').append($temp);
         $temp.val(text).select();
         document.execCommand('copy');
@@ -835,10 +835,10 @@ var PlaybookCDRSearch = (function() {
     }
 
     function quickAddRoute(idx) {
-        var result = currentResults[idx];
-        if (!result) return;
+        const result = currentResults[idx];
+        if (!result) {return;}
 
-        var routeStr;
+        let routeStr;
         if (result.type === 'playbook') {
             routeStr = buildPlaybookDirective(result);
         } else if (result.type === 'cdr') {
@@ -847,8 +847,8 @@ var PlaybookCDRSearch = (function() {
             routeStr = result.route;
         }
 
-        var added = addRoutesToTextarea([routeStr], false);
-        
+        const added = addRoutesToTextarea([routeStr], false);
+
         if (added > 0) {
             showToast('Added: ' + result.displayName, 'success');
         } else {
@@ -857,10 +857,10 @@ var PlaybookCDRSearch = (function() {
     }
 
     function quickPlotRoute(idx) {
-        var result = currentResults[idx];
-        if (!result) return;
+        const result = currentResults[idx];
+        if (!result) {return;}
 
-        var routeStr;
+        let routeStr;
         if (result.type === 'playbook') {
             routeStr = buildPlaybookDirective(result);
         } else if (result.type === 'cdr') {
@@ -876,7 +876,7 @@ var PlaybookCDRSearch = (function() {
 
         showToast('Plotting: ' + result.displayName, 'success');
     }
-    
+
     function clearRoutesTextarea() {
         $('#routeSearch').val('');
         showToast('Routes cleared', 'success');
@@ -895,7 +895,7 @@ var PlaybookCDRSearch = (function() {
         $('#pbcdr_dest_apt').val('');
         $('#pbcdr_dest_tracon').val('');
         $('#pbcdr_dest_artcc').val('');
-        
+
         currentResults = [];
         selectedIndices.clear();
         showNoResults('Enter search criteria above');
@@ -904,11 +904,11 @@ var PlaybookCDRSearch = (function() {
 
     function showToast(message, type) {
         // Simple toast notification
-        var bgColor = type === 'success' ? '#28a745' : 
-                     type === 'error' ? '#dc3545' : 
-                     type === 'info' ? '#17a2b8' : '#6f42c1';
+        const bgColor = type === 'success' ? '#28a745' :
+            type === 'error' ? '#dc3545' :
+                type === 'info' ? '#17a2b8' : '#6f42c1';
 
-        var $toast = $('<div class="pbcdr-toast">' + escapeHtml(message) + '</div>');
+        const $toast = $('<div class="pbcdr-toast">' + escapeHtml(message) + '</div>');
         $toast.css({
             position: 'fixed',
             bottom: '80px',
@@ -922,7 +922,7 @@ var PlaybookCDRSearch = (function() {
             zIndex: 9999,
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
             opacity: 0,
-            transition: 'opacity 0.2s'
+            transition: 'opacity 0.2s',
         });
 
         $('body').append($toast);
@@ -951,10 +951,10 @@ var PlaybookCDRSearch = (function() {
         search: performSearch,
         clearFilters: clearFilters,
         clearRoutes: clearRoutesTextarea,
-        
+
         // For external access to data
         getPlaybookRoutes: function() { return localPlaybookRoutes; },
-        getCDRList: function() { return localCdrList; }
+        getCDRList: function() { return localCdrList; },
     };
 
 })();

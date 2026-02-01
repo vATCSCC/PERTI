@@ -1,6 +1,6 @@
-var pathname = $(location).attr('href');
-var uri = pathname.split('?');
-var p_id = uri[1];
+const pathname = $(location).attr('href');
+const uri = pathname.split('?');
+const p_id = uri[1];
 
 const summernoteFields = [
     'a_staffing',
@@ -16,7 +16,7 @@ const summernoteFields = [
     'e_perti',
     'e_ntml',
     'e_tmi',
-    'e_ace'
+    'e_ace',
 ];
 
 summernoteFields.forEach(e => {
@@ -25,34 +25,34 @@ summernoteFields.forEach(e => {
             ['style', ['bold', 'italic', 'underline']],
             ['para', ['ul', 'ol']],
             ['insert', ['link', 'table']],
-            ['misc', ['undo', 'redo', 'codeview']]
+            ['misc', ['undo', 'redo', 'codeview']],
         ],
         height: 150,
-        disableDragAndDrop: true
+        disableDragAndDrop: true,
     });
 });
 
 function loadScores() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/review/scores?p_id=${p_id}`).done(function(data) {
-        $('#scores').html(data); 
-        tooltips();         
+        $('#scores').html(data);
+        tooltips();
     });
 }
 
 function loadComments() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/review/comments?p_id=${p_id}`).done(function(data) {
-        $('#comments').html(data); 
-        tooltips();         
+        $('#comments').html(data);
+        tooltips();
     });
 }
 
 function loadData() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/review/data?p_id=${p_id}`).done(function(data) {
-        $('#data').html(data); 
-        tooltips();         
+        $('#data').html(data);
+        tooltips();
     });
 }
 
@@ -61,15 +61,15 @@ loadComments();
 loadData();
 
 // AJAX: #addscore POST
-$("#addscore").submit(function(e) {
+$('#addscore').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/scores/post';
+    const url = 'api/mgt/scores/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -78,7 +78,7 @@ $("#addscore").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added the event scores.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadScores();
@@ -89,17 +89,17 @@ $("#addscore").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding these event scores.'
+                text:   'There was an error in adding these event scores.',
             });
-        }
+        },
     });
 });
 
 // Edit Score Modal
 $('#editscoreModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #staffing').val(button.data('staffing'));
@@ -112,15 +112,15 @@ $('#editscoreModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editscore POST
-$("#editscore").submit(function(e) {
+$('#editscore').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/scores/update';
+    const url = 'api/mgt/scores/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -129,7 +129,7 @@ $("#editscore").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited the event scores.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadScores();
@@ -140,9 +140,9 @@ $("#editscore").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing event scores.'
+                text:   'There was an error in editing event scores.',
             });
-        }
+        },
     });
 });
 
@@ -160,7 +160,7 @@ function deleteScore(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted the selected the event scores.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadScores();
@@ -169,23 +169,23 @@ function deleteScore(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting these event scores.'
+                text:   'There was an error in deleting these event scores.',
             });
-        }
+        },
     });
 }
 
 
 // AJAX: #addcomment POST
-$("#addcomment").submit(function(e) {
+$('#addcomment').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/comments/post';
+    const url = 'api/mgt/comments/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -194,7 +194,7 @@ $("#addcomment").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added score comments.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadComments();
@@ -205,17 +205,17 @@ $("#addcomment").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding these score comments.'
+                text:   'There was an error in adding these score comments.',
             });
-        }
+        },
     });
 });
 
 // Edit Comment Modal
 $('#editcommentModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     $('#e_staffing').summernote('code', button.data('staffing'));
@@ -228,15 +228,15 @@ $('#editcommentModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editcomment POST
-$("#editcomment").submit(function(e) {
+$('#editcomment').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/comments/update';
+    const url = 'api/mgt/comments/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -245,7 +245,7 @@ $("#editcomment").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited the score comments.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadComments();
@@ -256,9 +256,9 @@ $("#editcomment").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing these score comments.'
+                text:   'There was an error in editing these score comments.',
             });
-        }
+        },
     });
 });
 
@@ -276,7 +276,7 @@ function deleteComment(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted the selected the score comments.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadComments();
@@ -285,22 +285,22 @@ function deleteComment(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting these score comments.'
+                text:   'There was an error in deleting these score comments.',
             });
-        }
+        },
     });
 }
 
 // AJAX: #adddata POST
-$("#adddata").submit(function(e) {
+$('#adddata').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/event_data/post';
+    const url = 'api/mgt/event_data/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -309,7 +309,7 @@ $("#adddata").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added event data.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadData();
@@ -320,17 +320,17 @@ $("#adddata").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding this event data.'
+                text:   'There was an error in adding this event data.',
             });
-        }
+        },
     });
 });
 
 // Edit Data Modal
 $('#editdataModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #summary').html(button.data('summary'));
@@ -339,15 +339,15 @@ $('#editdataModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editdata POST
-$("#editdata").submit(function(e) {
+$('#editdata').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/event_data/update';
+    const url = 'api/mgt/event_data/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -356,7 +356,7 @@ $("#editdata").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited this event data.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadData();
@@ -367,9 +367,9 @@ $("#editdata").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing this event data.'
+                text:   'There was an error in editing this event data.',
             });
-        }
+        },
     });
 });
 
@@ -387,7 +387,7 @@ function deleteData(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted the selected the event data.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadData();
@@ -396,8 +396,8 @@ function deleteData(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting this event data.'
+                text:   'There was an error in deleting this event data.',
             });
-        }
+        },
     });
 }

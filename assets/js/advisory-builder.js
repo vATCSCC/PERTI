@@ -23,50 +23,50 @@
             sections: ['timing', 'gdp'],
             headerClass: 'adv-header-gdp',
             format: formatGDP,
-            validate: validateGDP
+            validate: validateGDP,
         },
         GS: {
             sections: ['timing', 'gs'],
             headerClass: 'adv-header-gs',
             format: formatGS,
-            validate: validateGS
+            validate: validateGS,
         },
         AFP: {
             sections: ['timing', 'afp'],
             headerClass: 'adv-header-afp',
             format: formatAFP,
-            validate: validateAFP
+            validate: validateAFP,
         },
         CTOP: {
             sections: ['timing', 'ctop'],
             headerClass: 'adv-header-ctop',
             format: formatCTOP,
-            validate: validateCTOP
+            validate: validateCTOP,
         },
         REROUTE: {
             sections: ['timing', 'reroute'],
             headerClass: 'adv-header-reroute',
             format: formatReroute,
-            validate: validateReroute
+            validate: validateReroute,
         },
         ATCSCC: {
             sections: ['timing', 'atcscc'],
             headerClass: 'adv-header-atcscc',
             format: formatATCSCC,
-            validate: validateATCSCC
+            validate: validateATCSCC,
         },
         MIT: {
             sections: ['timing', 'mit'],
             headerClass: 'adv-header-mit',
             format: formatMIT,
-            validate: validateMIT
+            validate: validateMIT,
         },
         CNX: {
             sections: ['cnx'],
             headerClass: 'adv-header-cnx',
             format: formatCNX,
-            validate: validateCNX
-        }
+            validate: validateCNX,
+        },
     };
 
     // ===========================================
@@ -77,7 +77,7 @@
         previewText: '',
         isDirty: false,
         routeExpansionPending: false,
-        lastExpandedRoute: null
+        lastExpandedRoute: null,
     };
 
     // ===========================================
@@ -105,7 +105,7 @@
                     artccs_display: data.artccs_display || '',
                     distance_nm: data.distance_nm || 0,
                     waypoint_count: data.waypoint_count || 0,
-                    geojson: data.geojson
+                    geojson: data.geojson,
                 };
             }
             return null;
@@ -137,7 +137,7 @@
         const routeInput = document.getElementById('reroute_string');
         const facilitiesInput = document.getElementById('reroute_facilities');
 
-        if (!routeInput || !facilitiesInput) return;
+        if (!routeInput || !facilitiesInput) {return;}
 
         const routeString = routeInput.value.trim();
 
@@ -193,11 +193,11 @@
      * We treat all input values as UTC by appending 'Z' before parsing.
      */
     function formatZulu(dateStr) {
-        if (!dateStr) return '--/----Z';
+        if (!dateStr) {return '--/----Z';}
         // Treat datetime-local value as UTC (append Z if not present)
         const utcDateStr = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
         const d = new Date(utcDateStr);
-        if (isNaN(d.getTime())) return '--/----Z';
+        if (isNaN(d.getTime())) {return '--/----Z';}
 
         const day = String(d.getUTCDate()).padStart(2, '0');
         const hour = String(d.getUTCHours()).padStart(2, '0');
@@ -210,11 +210,11 @@
      * Note: Treats datetime-local values as UTC.
      */
     function formatZuluNoSuffix(dateStr) {
-        if (!dateStr) return '--/----';
+        if (!dateStr) {return '--/----';}
         // Treat datetime-local value as UTC (append Z if not present)
         const utcDateStr = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
         const d = new Date(utcDateStr);
-        if (isNaN(d.getTime())) return '--/----';
+        if (isNaN(d.getTime())) {return '--/----';}
 
         const day = String(d.getUTCDate()).padStart(2, '0');
         const hour = String(d.getUTCHours()).padStart(2, '0');
@@ -245,10 +245,10 @@
      */
     function getValidTimeRange(startStr, endStr) {
         const formatTime = (dateStr) => {
-            if (!dateStr) return '------';
+            if (!dateStr) {return '------';}
             const utcDateStr = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
             const d = new Date(utcDateStr);
-            if (isNaN(d.getTime())) return '------';
+            if (isNaN(d.getTime())) {return '------';}
             const day = String(d.getUTCDate()).padStart(2, '0');
             const hour = String(d.getUTCHours()).padStart(2, '0');
             const min = String(d.getUTCMinutes()).padStart(2, '0');
@@ -271,7 +271,7 @@
      * Wrap text to max line length (68 chars per IATA Type B)
      */
     function wrapText(text, maxLen = MAX_LINE_LENGTH) {
-        if (!text) return '';
+        if (!text) {return '';}
 
         const lines = [];
         const paragraphs = text.split('\n');
@@ -288,11 +288,11 @@
                     if (currentLine.length + word.length + 1 <= maxLen) {
                         currentLine += (currentLine ? ' ' : '') + word;
                     } else {
-                        if (currentLine) lines.push(currentLine);
+                        if (currentLine) {lines.push(currentLine);}
                         currentLine = word;
                     }
                 }
-                if (currentLine) lines.push(currentLine);
+                if (currentLine) {lines.push(currentLine);}
             }
         }
 
@@ -351,7 +351,7 @@
      */
     function getValue(id) {
         const el = document.getElementById(id);
-        if (!el) return '';
+        if (!el) {return '';}
         if (el.type === 'select-multiple') {
             return Array.from(el.selectedOptions).map(o => o.value);
         }
@@ -363,7 +363,7 @@
      */
     function generateAdvNumber() {
         const existing = getValue('adv_number');
-        if (existing) return existing;
+        if (existing) {return existing;}
 
         // Auto-generate: use current UTC hour + random suffix
         const d = new Date();
@@ -443,7 +443,7 @@
             cnxComments: getValue('cnx_comments'),
 
             // Comments
-            comments: getValue('adv_comments')
+            comments: getValue('adv_comments'),
         };
     }
 
@@ -803,41 +803,41 @@
 
     function validateGDP(data) {
         const errors = [];
-        if (!data.ctlElement) errors.push('CTL Element (airport) is required');
-        if (!data.gdpRate || data.gdpRate < 1) errors.push('Program rate is required');
-        if (!data.startTime) errors.push('Start time is required');
-        if (!data.endTime) errors.push('End time is required');
+        if (!data.ctlElement) {errors.push('CTL Element (airport) is required');}
+        if (!data.gdpRate || data.gdpRate < 1) {errors.push('Program rate is required');}
+        if (!data.startTime) {errors.push('Start time is required');}
+        if (!data.endTime) {errors.push('End time is required');}
         return errors;
     }
 
     function validateGS(data) {
         const errors = [];
-        if (!data.ctlElement) errors.push('CTL Element (airport) is required');
-        if (!data.startTime) errors.push('Start time is required');
+        if (!data.ctlElement) {errors.push('CTL Element (airport) is required');}
+        if (!data.startTime) {errors.push('Start time is required');}
         return errors;
     }
 
     function validateAFP(data) {
         const errors = [];
-        if (!data.afpFca) errors.push('FCA is required');
-        if (!data.startTime) errors.push('Start time is required');
-        if (!data.endTime) errors.push('End time is required');
+        if (!data.afpFca) {errors.push('FCA is required');}
+        if (!data.startTime) {errors.push('Start time is required');}
+        if (!data.endTime) {errors.push('End time is required');}
         return errors;
     }
 
     function validateCTOP(data) {
         const errors = [];
-        if (!data.ctopName) errors.push('CTOP name is required');
-        if (!data.startTime) errors.push('Start time is required');
-        if (!data.endTime) errors.push('End time is required');
+        if (!data.ctopName) {errors.push('CTOP name is required');}
+        if (!data.startTime) {errors.push('Start time is required');}
+        if (!data.endTime) {errors.push('End time is required');}
         return errors;
     }
 
     function validateReroute(data) {
         const errors = [];
-        if (!data.rerouteString) errors.push('Route string is required');
-        if (!data.startTime) errors.push('Start time is required');
-        if (!data.endTime) errors.push('End time is required');
+        if (!data.rerouteString) {errors.push('Route string is required');}
+        if (!data.startTime) {errors.push('Start time is required');}
+        if (!data.endTime) {errors.push('End time is required');}
         return errors;
     }
 
@@ -851,15 +851,15 @@
 
     function validateMIT(data) {
         const errors = [];
-        if (!data.mitFacility) errors.push('Facility is required');
-        if (!data.mitMiles) errors.push('MIT/MINIT value is required');
-        if (!data.startTime) errors.push('Start time is required');
+        if (!data.mitFacility) {errors.push('Facility is required');}
+        if (!data.mitMiles) {errors.push('MIT/MINIT value is required');}
+        if (!data.startTime) {errors.push('Start time is required');}
         return errors;
     }
 
     function validateCNX(data) {
         const errors = [];
-        if (!data.cnxRefNumber) errors.push('Original advisory number is required');
+        if (!data.cnxRefNumber) {errors.push('Original advisory number is required');}
         return errors;
     }
 
@@ -908,7 +908,7 @@
         }
 
         const config = ADVISORY_TYPES[state.selectedType];
-        if (!config) return;
+        if (!config) {return;}
 
         const data = collectFormData();
         state.previewText = config.format(data);
@@ -919,7 +919,7 @@
 
     function updateCharCount(count) {
         const el = document.getElementById('preview_char_count');
-        if (!el) return;
+        if (!el) {return;}
 
         el.textContent = `${count} / ${DISCORD_MAX_LENGTH}`;
         el.classList.remove('warning', 'danger');
@@ -1008,10 +1008,10 @@
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Post to Discord',
-            confirmButtonColor: '#7289DA'
+            confirmButtonColor: '#7289DA',
         });
 
-        if (!result.isConfirmed) return;
+        if (!result.isConfirmed) {return;}
 
         // Send to API
         try {
@@ -1022,8 +1022,8 @@
                     advisory_type: state.selectedType,
                     advisory_data: data,
                     formatted_parts: parts,
-                    formatted_text: state.previewText
-                })
+                    formatted_text: state.previewText,
+                }),
             });
 
             const result = await response.json();
@@ -1059,8 +1059,8 @@
                     valid_start_utc: data.startTime,
                     valid_end_utc: data.endTime,
                     status: 'DRAFT',
-                    source: 'ADVISORY_BUILDER'
-                })
+                    source: 'ADVISORY_BUILDER',
+                }),
             });
 
             const result = await response.json();
@@ -1110,7 +1110,7 @@
             const data = await response.json();
 
             const tbody = document.getElementById('advisory_history_body');
-            if (!tbody) return;
+            if (!tbody) {return;}
 
             if (!data.advisories || data.advisories.length === 0) {
                 tbody.innerHTML = `
@@ -1128,7 +1128,7 @@
                     'ACTIVE': 'badge-success',
                     'DRAFT': 'badge-secondary',
                     'CANCELLED': 'badge-danger',
-                    'EXPIRED': 'badge-warning'
+                    'EXPIRED': 'badge-warning',
                 }[adv.status] || 'badge-light';
 
                 const created = adv.created_at ? new Date(adv.created_at).toLocaleString() : '-';
@@ -1154,7 +1154,7 @@
             const data = await response.json();
 
             const statusEl = document.getElementById('discord_status');
-            if (!statusEl) return;
+            if (!statusEl) {return;}
 
             if (data.configured) {
                 statusEl.innerHTML = '<span class="badge badge-success">Configured</span>';
@@ -1180,7 +1180,7 @@
                 icon: icon,
                 title: title,
                 timer: 3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
         } else {
             alert(title);
@@ -1228,7 +1228,7 @@
                 facilitiesInput.dataset.autoCalculated = 'false';
                 // Hide AUTO badge
                 const autoBadge = document.getElementById('facilities_auto_badge');
-                if (autoBadge) autoBadge.style.display = 'none';
+                if (autoBadge) {autoBadge.style.display = 'none';}
             });
         }
 
@@ -1279,7 +1279,7 @@
         splitForDiscord,
         wrapText,
         expandRouteString,
-        handleRouteStringChange
+        handleRouteStringChange,
     };
 
 })();

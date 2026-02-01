@@ -8,20 +8,20 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
     // GLOBAL STATE
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     let graphic_map = null;
     let mapReady = false;
     let lastExpandedRoutes = []; // Store expanded route strings for public routes feature
-    let overlays = [];
-    
-    let points = {};
-    let facilityCodes = new Set();
-    let areaCenters = {
+    const overlays = [];
+
+    const points = {};
+    const facilityCodes = new Set();
+    const areaCenters = {
         // ═══════════════════════════════════════════════════════════════════════════
         // ARTCC / FIR / Regional Pseudo-Fixes
         // Used as origin/destination placeholders in Playbook routes
         // ═══════════════════════════════════════════════════════════════════════════
-        
+
         // US ARTCCs (CONUS)
         'ZBW': { lat: 42.36, lon: -71.06 },   // Boston Center
         'ZNY': { lat: 40.78, lon: -73.97 },   // New York Center
@@ -43,19 +43,19 @@ $(document).ready(function() {
         'ZLA': { lat: 33.94, lon: -118.41 },  // Los Angeles Center
         'ZOA': { lat: 37.62, lon: -122.38 },  // Oakland Center
         'ZSE': { lat: 47.45, lon: -122.31 },  // Seattle Center
-        
+
         // US ARTCCs (Non-CONUS)
         'ZAN': { lat: 61.17, lon: -150.00 },  // Anchorage Center
         'ZHN': { lat: 21.32, lon: -157.92 },  // Honolulu Center
         'ZSU': { lat: 18.44, lon: -66.00 },   // San Juan Center
-        
+
         // Canadian FIRs (short codes)
         'CZY': { lat: 43.68, lon: -79.63 },   // Toronto FIR (CZYZ)
         'CZU': { lat: 45.47, lon: -73.74 },   // Montreal FIR (CZUL)
         'CZV': { lat: 49.19, lon: -123.18 },  // Vancouver FIR (CZVR)
         'CZW': { lat: 49.91, lon: -97.24 },   // Winnipeg FIR (CZWG)
         'CZE': { lat: 53.31, lon: -113.58 },  // Edmonton FIR (CZEG)
-        
+
         // Caribbean / Central America FIRs
         'MDPO': { lat: 18.43, lon: -69.67 },  // Santo Domingo FIR (Dominican Republic)
         'MDDJ': { lat: 18.57, lon: -69.99 },  // Dominican Republic alternate
@@ -64,11 +64,11 @@ $(document).ready(function() {
         'MMMX': { lat: 19.44, lon: -99.07 },  // Mexico City FIR
         'ZMZ': { lat: 23.16, lon: -106.27 },  // Mazatlan FIR (short)
         'ZMX': { lat: 19.44, lon: -99.07 },   // Mexico City FIR (short)
-        
+
         // International / Generic
         'ZEU': { lat: 51.47, lon: -0.46 },    // Europe (London area)
         'UNKN': { lat: 40.00, lon: -60.00 },  // Unknown (mid-Atlantic)
-        
+
         // TRACON codes (when used as pseudo-origins)
         'TPA': { lat: 27.98, lon: -82.53 },   // Tampa TRACON
         'N90': { lat: 40.78, lon: -73.87 },   // New York TRACON
@@ -85,99 +85,99 @@ $(document).ready(function() {
         'RSW': { lat: 26.54, lon: -81.76 },   // Ft Myers TRACON
         'PBI': { lat: 26.68, lon: -80.10 },   // Palm Beach TRACON
         'M98': { lat: 44.88, lon: -93.22 },   // Minneapolis TRACON
-        
+
         // Small airports often used as pseudo-fixes
-        'MMU': { lat: 40.80, lon: -74.42 }    // Morristown Municipal, NJ
+        'MMU': { lat: 40.80, lon: -74.42 },    // Morristown Municipal, NJ
     };
-    let cdrMap = {};
-    let playbookRoutes = [];
-    let playbookByPlayName = {};
-    let awyIndexMap = {};
+    const cdrMap = {};
+    const playbookRoutes = [];
+    const playbookByPlayName = {};
+    const awyIndexMap = {};
     let awyIndexBuilt = false;
 
     // Departure procedure datasets (DPs)
-    let dpByComputerCode = {};
-    let dpPatternIndex = {};
-    let dpByLeftCode = {};
-    let dpByRootName = {};
-    let dpRouteBodyIndex = {};
-    let dpRouteTransitionIndex = {};
-    let dpDataLoaded = false;
-    let dpBodyPointSet = new Set();
-    let dpActiveBodyPoints = new Set();
+    const dpByComputerCode = {};
+    const dpPatternIndex = {};
+    const dpByLeftCode = {};
+    const dpByRootName = {};
+    const dpRouteBodyIndex = {};
+    const dpRouteTransitionIndex = {};
+    const dpDataLoaded = false;
+    const dpBodyPointSet = new Set();
+    const dpActiveBodyPoints = new Set();
 
     // STAR procedure datasets
-    let starFullRoutesByTransition = {};
-    let starFullRoutesByStarCode = {};
-    let starDataLoaded = false;
+    const starFullRoutesByTransition = {};
+    const starFullRoutesByStarCode = {};
+    const starDataLoaded = false;
 
-    let warnedFixes = new Set();
-    
+    const warnedFixes = new Set();
+
     // Route rendering state
     const baseRouteWeight = 3;
     let seenSegmentKeys = new Set();
-    
+
     // Phase 5: Route label toggle tracking
-    let routeLabelsVisible = new Set();  // Track which route IDs have labels visible
+    const routeLabelsVisible = new Set();  // Track which route IDs have labels visible
     let routeFixesByRouteId = {};        // Map routeId -> array of fix features
     let currentRouteId = 0;              // Counter for unique route IDs
-    
+
     // Phase 5: Draggable label support
     let labelOffsets = {};               // Map "fixName|routeId" -> {dx, dy} offset in pixels
     let draggingLabel = null;            // Currently dragged label info
     let dragStartPos = null;             // Starting position for drag
-    
+
     // Export data storage
     let lastExportData = {
         routes: [],           // Array of route metadata objects
         routeFeatures: [],    // GeoJSON line features
-        fixFeatures: [],      // GeoJSON point features  
-        timestamp: null
+        fixFeatures: [],      // GeoJSON point features
+        timestamp: null,
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
     // COORDINATE COMPATIBILITY LAYER
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     const MapCompat = {
         toLngLat: function(latLng) {
-            if (Array.isArray(latLng)) return [latLng[1], latLng[0]];
+            if (Array.isArray(latLng)) {return [latLng[1], latLng[0]];}
             return [latLng.lng, latLng.lat];
         },
         toLatLng: function(lngLat) {
-            if (Array.isArray(lngLat)) return { lat: lngLat[1], lng: lngLat[0] };
+            if (Array.isArray(lngLat)) {return { lat: lngLat[1], lng: lngLat[0] };}
             return { lat: lngLat.lat, lng: lngLat.lng };
         },
         getZoom: function() { return graphic_map ? graphic_map.getZoom() : 4; },
         getCenter: function() {
-            if (!graphic_map) return { lat: 39.5, lng: -98.35 };
+            if (!graphic_map) {return { lat: 39.5, lng: -98.35 };}
             const c = graphic_map.getCenter();
             return { lat: c.lat, lng: c.lng };
         },
         setView: function(lat, lng, zoom) {
             if (graphic_map) {
                 graphic_map.setCenter([lng, lat]);
-                if (zoom !== undefined) graphic_map.setZoom(zoom);
+                if (zoom !== undefined) {graphic_map.setZoom(zoom);}
             }
         },
         fitBounds: function(bounds, options) {
-            if (!graphic_map || !bounds) return;
+            if (!graphic_map || !bounds) {return;}
             const sw = bounds[0] || bounds.getSouthWest();
             const ne = bounds[1] || bounds.getNorthEast();
             graphic_map.fitBounds([
                 [sw[1] || sw.lng, sw[0] || sw.lat],
-                [ne[1] || ne.lng, ne[0] || ne.lat]
+                [ne[1] || ne.lng, ne[0] || ne.lat],
             ], options);
         },
         project: function(lat, lng) {
-            if (!graphic_map) return { x: 0, y: 0 };
+            if (!graphic_map) {return { x: 0, y: 0 };}
             return graphic_map.project([lng, lat]);
         },
         unproject: function(x, y) {
-            if (!graphic_map) return { lat: 0, lng: 0 };
+            if (!graphic_map) {return { lat: 0, lng: 0 };}
             const lngLat = graphic_map.unproject([x, y]);
             return { lat: lngLat.lat, lng: lngLat.lng };
-        }
+        },
     };
     window.MapCompat = MapCompat;
 
@@ -199,19 +199,19 @@ $(document).ready(function() {
     function confirmReasonableDistance(pointData, previousPointData, nextPointData) {
         let maxReasonableDistance = 4000;
         if (previousPointData && nextPointData) {
-            const dist = distanceToPoint(previousPointData[1], previousPointData[2], 
-                                         nextPointData[1], nextPointData[2]);
+            const dist = distanceToPoint(previousPointData[1], previousPointData[2],
+                nextPointData[1], nextPointData[2]);
             maxReasonableDistance = Math.min(maxReasonableDistance, dist * 1.5);
         }
         if (previousPointData) {
-            const dist = distanceToPoint(pointData[1], pointData[2], 
-                                         previousPointData[1], previousPointData[2]);
-            if (dist > maxReasonableDistance) return undefined;
+            const dist = distanceToPoint(pointData[1], pointData[2],
+                previousPointData[1], previousPointData[2]);
+            if (dist > maxReasonableDistance) {return undefined;}
         }
         if (nextPointData) {
-            const dist = distanceToPoint(pointData[1], pointData[2], 
-                                         nextPointData[1], nextPointData[2]);
-            if (dist > maxReasonableDistance) return undefined;
+            const dist = distanceToPoint(pointData[1], pointData[2],
+                nextPointData[1], nextPointData[2]);
+            if (dist > maxReasonableDistance) {return undefined;}
         }
         return pointData;
     }
@@ -221,55 +221,55 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function parseLatComponent(part) {
-        if (!part) return null;
+        if (!part) {return null;}
         const s = String(part).toUpperCase().trim();
         let m = s.match(/^(\d{2})(\d{2})([NS])$/);
         if (m) {
             let lat = parseInt(m[1], 10) + parseInt(m[2], 10) / 60.0;
-            if (m[3] === 'S') lat = -lat;
+            if (m[3] === 'S') {lat = -lat;}
             return lat;
         }
         m = s.match(/^(\d{2})([NS])$/);
         if (m) {
             let lat = parseInt(m[1], 10);
-            if (m[2] === 'S') lat = -lat;
+            if (m[2] === 'S') {lat = -lat;}
             return lat;
         }
         return null;
     }
 
     function parseLonComponent(part) {
-        if (!part) return null;
+        if (!part) {return null;}
         const s = String(part).toUpperCase().trim();
         let m = s.match(/^(\d{3})(\d{2})([EW])$/);
         if (m) {
             let lon = parseInt(m[1], 10) + parseInt(m[2], 10) / 60.0;
-            if (m[3] === 'W') lon = -lon;
+            if (m[3] === 'W') {lon = -lon;}
             return lon;
         }
         m = s.match(/^(\d{2})(\d{2})([EW])$/);
         if (m) {
             let lon = parseInt(m[1], 10) + parseInt(m[2], 10) / 60.0;
-            if (m[3] === 'W') lon = -lon;
+            if (m[3] === 'W') {lon = -lon;}
             return lon;
         }
         m = s.match(/^(\d{3})([EW])$/);
         if (m) {
             let lon = parseInt(m[1], 10);
-            if (m[2] === 'W') lon = -lon;
+            if (m[2] === 'W') {lon = -lon;}
             return lon;
         }
         m = s.match(/^(\d{2})([EW])$/);
         if (m) {
             let lon = parseInt(m[1], 10);
-            if (m[2] === 'W') lon = -lon;
+            if (m[2] === 'W') {lon = -lon;}
             return lon;
         }
         return null;
     }
 
     function parseArincFiveCharCoordinate(token) {
-        if (!token) return null;
+        if (!token) {return null;}
         const s = String(token).toUpperCase().trim();
         let m = s.match(/^(\d{2})(\d{2})([NSEW])$/);
         let latDeg, lonDeg, letter;
@@ -279,7 +279,7 @@ $(document).ready(function() {
             letter = m[3];
         } else {
             m = s.match(/^(\d{2})([NSEW])(\d{2})$/);
-            if (!m) return null;
+            if (!m) {return null;}
             latDeg = parseInt(m[1], 10);
             lonDeg = 100 + parseInt(m[3], 10);
             letter = m[2];
@@ -295,19 +295,19 @@ $(document).ready(function() {
     }
 
     function parseNatSlashCoordinate(token) {
-        if (!token) return null;
+        if (!token) {return null;}
         const s = String(token).trim();
         const m = s.match(/^(\d{2})\/(\d{2,3})$/);
-        if (!m) return null;
+        if (!m) {return null;}
         const lat = parseInt(m[1], 10);
         const lon = -parseInt(m[2], 10);
         return { lat, lon };
     }
 
     function parseNatHalfDegreeCoordinate(token) {
-        if (!token) return null;
+        if (!token) {return null;}
         const s = String(token).toUpperCase().trim();
-        if (s.length !== 5 || s[0] !== 'H') return null;
+        if (s.length !== 5 || s[0] !== 'H') {return null;}
         const latPart = s.substring(1, 3);
         const lonPart = s.substring(3, 5);
         const lat = parseInt(latPart, 10) + 0.5;
@@ -316,47 +316,47 @@ $(document).ready(function() {
     }
 
     function parseIcaoSlashLatLon(token) {
-        if (!token) return null;
+        if (!token) {return null;}
         const s = String(token).toUpperCase().trim();
         const parts = s.split('/');
-        if (parts.length !== 2) return null;
+        if (parts.length !== 2) {return null;}
         const lat = parseLatComponent(parts[0]);
         const lon = parseLonComponent(parts[1]);
-        if (lat === null || lon === null) return null;
+        if (lat === null || lon === null) {return null;}
         return { lat, lon };
     }
 
     function parseIcaoCompactLatLon(token) {
-        if (!token) return null;
+        if (!token) {return null;}
         const s = String(token).toUpperCase().trim();
         const m = s.match(/^(\d{2,4})([NS])(\d{3,5})([EW])$/);
-        if (!m) return null;
-        let latStr = m[1], latH = m[2], lonStr = m[3], lonH = m[4];
+        if (!m) {return null;}
+        const latStr = m[1], latH = m[2], lonStr = m[3], lonH = m[4];
         let lat, lon;
-        if (latStr.length === 2) lat = parseInt(latStr, 10);
-        else if (latStr.length === 4) lat = parseInt(latStr.substring(0,2), 10) + parseInt(latStr.substring(2,4), 10)/60;
-        else return null;
-        if (lonStr.length === 3) lon = parseInt(lonStr, 10);
-        else if (lonStr.length === 5) lon = parseInt(lonStr.substring(0,3), 10) + parseInt(lonStr.substring(3,5), 10)/60;
-        else return null;
-        if (latH === 'S') lat = -lat;
-        if (lonH === 'W') lon = -lon;
+        if (latStr.length === 2) {lat = parseInt(latStr, 10);}
+        else if (latStr.length === 4) {lat = parseInt(latStr.substring(0,2), 10) + parseInt(latStr.substring(2,4), 10)/60;}
+        else {return null;}
+        if (lonStr.length === 3) {lon = parseInt(lonStr, 10);}
+        else if (lonStr.length === 5) {lon = parseInt(lonStr.substring(0,3), 10) + parseInt(lonStr.substring(3,5), 10)/60;}
+        else {return null;}
+        if (latH === 'S') {lat = -lat;}
+        if (lonH === 'W') {lon = -lon;}
         return { lat, lon };
     }
 
     function parseCoordinateToken(token) {
-        if (!token) return null;
+        if (!token) {return null;}
         const s = String(token).toUpperCase().trim();
         let coord = parseNatSlashCoordinate(s);
-        if (coord) return coord;
+        if (coord) {return coord;}
         coord = parseNatHalfDegreeCoordinate(s);
-        if (coord) return coord;
+        if (coord) {return coord;}
         coord = parseIcaoSlashLatLon(s);
-        if (coord) return coord;
+        if (coord) {return coord;}
         coord = parseIcaoCompactLatLon(s);
-        if (coord) return coord;
+        if (coord) {return coord;}
         coord = parseArincFiveCharCoordinate(s);
-        if (coord) return coord;
+        if (coord) {return coord;}
         return null;
     }
 
@@ -365,22 +365,22 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function getPointByName(pointName, previousPointData, nextPointData) {
-        if (!pointName) return undefined;
+        if (!pointName) {return undefined;}
         const name = String(pointName).toUpperCase();
         let key = null;
 
         if (name.startsWith('ZZ_')) {
-            if (points[name]) key = name;
+            if (points[name]) {key = name;}
         } else if (facilityCodes.has(name)) {
             const zzKey = 'ZZ_' + name;
-            if (points[zzKey]) key = zzKey;
-            else if (points[name]) key = name;
+            if (points[zzKey]) {key = zzKey;}
+            else if (points[name]) {key = name;}
             else if (areaCenters[name]) {
                 const center = areaCenters[name];
                 return confirmReasonableDistance([name, center.lat, center.lon], previousPointData, nextPointData);
             }
         } else {
-            if (points[name]) key = name;
+            if (points[name]) {key = name;}
         }
 
         if (key && points[key]) {
@@ -397,7 +397,7 @@ $(document).ready(function() {
                     (previousPointData[1] + nextPointData[1]) / 2,
                     (previousPointData[2] + nextPointData[2]) / 2];
             }
-            const errorMap = pointList.map(p => 
+            const errorMap = pointList.map(p =>
                 Math.abs(centerPosition[1] - p[1]) + Math.abs(centerPosition[2] - p[2]));
             const idx = errorMap.indexOf(Math.min(...errorMap));
             return confirmReasonableDistance(pointList[idx], previousPointData, nextPointData);
@@ -407,48 +407,48 @@ $(document).ready(function() {
         if (coord) {
             return confirmReasonableDistance([name, coord.lat, coord.lon], previousPointData, nextPointData);
         }
-        
+
         // Final fallback: check areaCenters for ARTCC/FIR/regional pseudo-fixes
         if (areaCenters[name]) {
             const center = areaCenters[name];
             return confirmReasonableDistance([name, center.lat, center.lon], previousPointData, nextPointData);
         }
-        
+
         return undefined;
     }
 
     function countOccurrencesOfPointName(pointName) {
-        if (!pointName) return 0;
+        if (!pointName) {return 0;}
         const name = String(pointName).toUpperCase();
-        if (name.startsWith('ZZ_')) return points[name] ? points[name].length : 0;
+        if (name.startsWith('ZZ_')) {return points[name] ? points[name].length : 0;}
         if (facilityCodes.has(name)) {
-            if (points['ZZ_' + name]) return points['ZZ_' + name].length;
-            if (points[name]) return points[name].length;
+            if (points['ZZ_' + name]) {return points['ZZ_' + name].length;}
+            if (points[name]) {return points[name].length;}
             return 0;
         }
-        if (points[name]) return points[name].length;
-        if (parseCoordinateToken(name)) return 1;
+        if (points[name]) {return points[name].length;}
+        if (parseCoordinateToken(name)) {return 1;}
         return 0;
     }
 
     function isAirportIdent(pointId) {
-        if (!pointId) return false;
+        if (!pointId) {return false;}
         const code = String(pointId).toUpperCase();
-        if (code.startsWith('ZZ_')) return true;
-        if (code.length === 4) return true;
-        if (areaCenters[code]) return true;
+        if (code.startsWith('ZZ_')) {return true;}
+        if (code.length === 4) {return true;}
+        if (areaCenters[code]) {return true;}
         return false;
     }
 
     // Detect facility type for endpoint icons (Airport, TRACON, ARTCC)
     function detectFacilityType(code) {
-        if (!code) return 'airport';
+        if (!code) {return 'airport';}
         const c = String(code).toUpperCase().trim();
         // ARTCC: Z + 2 letters (ZNY, ZDC, ZTL, etc.)
-        if (/^Z[A-Z]{2}$/.test(c)) return 'artcc';
+        if (/^Z[A-Z]{2}$/.test(c)) {return 'artcc';}
         // TRACON: Letter + 2 digits (N90, A80, C90, etc.) or 3-letter codes like PCT, NCT, SCT
-        if (/^[A-Z]\d{2}$/.test(c)) return 'tracon';
-        if (['PCT', 'NCT', 'SCT', 'MIA', 'TPA', 'RSW', 'PBI', 'F11', 'M98'].includes(c)) return 'tracon';
+        if (/^[A-Z]\d{2}$/.test(c)) {return 'tracon';}
+        if (['PCT', 'NCT', 'SCT', 'MIA', 'TPA', 'RSW', 'PBI', 'F11', 'M98'].includes(c)) {return 'tracon';}
         // Default to airport (4-letter ICAO codes)
         return 'airport';
     }
@@ -458,7 +458,7 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function buildAirwayIndex() {
-        if (awyIndexBuilt) return;
+        if (awyIndexBuilt) {return;}
         if (typeof awys === 'undefined' || !Array.isArray(awys)) {
             console.warn('[MAPLIBRE] awys array not available');
             return;
@@ -466,27 +466,27 @@ $(document).ready(function() {
         const startTime = performance.now();
         for (let i = 0; i < awys.length; i++) {
             const row = awys[i];
-            if (!Array.isArray(row) || row.length < 2 || !row[0] || !row[1]) continue;
+            if (!Array.isArray(row) || row.length < 2 || !row[0] || !row[1]) {continue;}
             const airwayId = String(row[0]).toUpperCase();
             const fixes = String(row[1]).split(' ').filter(f => f !== '');
             const fixPosMap = {};
             for (let j = 0; j < fixes.length; j++) {
                 const fix = fixes[j].toUpperCase();
-                if (!(fix in fixPosMap)) fixPosMap[fix] = j;
+                if (!(fix in fixPosMap)) {fixPosMap[fix] = j;}
             }
             awyIndexMap[airwayId] = { fixes, fixPosMap };
         }
         awyIndexBuilt = true;
-        console.log('[MAPLIBRE] Airway index built:', Object.keys(awyIndexMap).length, 'airways in', 
-                    (performance.now() - startTime).toFixed(1) + 'ms');
+        console.log('[MAPLIBRE] Airway index built:', Object.keys(awyIndexMap).length, 'airways in',
+            (performance.now() - startTime).toFixed(1) + 'ms');
     }
 
     function ConvertRoute(route) {
-        if (!route || typeof route !== 'string') return route;
-        if (!awyIndexBuilt) buildAirwayIndex();
-        
+        if (!route || typeof route !== 'string') {return route;}
+        if (!awyIndexBuilt) {buildAirwayIndex();}
+
         const split_route = route.split(' ').filter(t => t !== '');
-        if (split_route.length < 3) return route;
+        if (split_route.length < 3) {return route;}
 
         const expandedTokens = [];
         for (let i = 0; i < split_route.length; i++) {
@@ -504,7 +504,7 @@ $(document).ready(function() {
                     const toIdx = fixPosMap[nextTok];
 
                     if (fromIdx !== undefined && toIdx !== undefined && Math.abs(fromIdx - toIdx) > 1) {
-                        let middleFixes = fromIdx < toIdx 
+                        const middleFixes = fromIdx < toIdx
                             ? fixes.slice(fromIdx + 1, toIdx)
                             : fixes.slice(toIdx + 1, fromIdx).reverse();
                         expandedTokens.push(...middleFixes);
@@ -526,30 +526,30 @@ $(document).ready(function() {
     }
 
     function normalizePlayEndpointTokenForAirport(tok) {
-        if (!tok) return null;
-        let t = String(tok).toUpperCase().trim();
-        if (!t) return null;
+        if (!tok) {return null;}
+        const t = String(tok).toUpperCase().trim();
+        if (!t) {return null;}
 
         // 4-char: assume ICAO (e.g. KJFK, CYYZ, EGLL)
-        if (/^[A-Z0-9]{4}$/.test(t)) return t;
+        if (/^[A-Z0-9]{4}$/.test(t)) {return t;}
 
         // ARTCC style (ZDC, ZNY, etc) – do NOT add 'K'
-        if (/^Z[A-Z0-9]{2}$/.test(t)) return t;
+        if (/^Z[A-Z0-9]{2}$/.test(t)) {return t;}
 
         // TRACON/facility codes like N90, A80, L30 – don't touch them
-        if (/^[A-Z]\d{2}$/.test(t)) return t;
+        if (/^[A-Z]\d{2}$/.test(t)) {return t;}
 
         // 3-letter non-Z tokens: treat as IATA and map to ICAO (BWI → KBWI)
-        if (/^[A-Z]{3}$/.test(t) && !t.startsWith('Z')) return 'K' + t;
+        if (/^[A-Z]{3}$/.test(t) && !t.startsWith('Z')) {return 'K' + t;}
 
         return t;
     }
 
     function expandPlaybookDirective(bodyUpper, isMandatory, color) {
-        if (!bodyUpper) return [];
+        if (!bodyUpper) {return [];}
         const parts = bodyUpper.split('.');
         const playPart = (parts[0] || '').trim();
-        if (!playPart) return [];
+        if (!playPart) {return [];}
 
         const playNorm = normalizePlayName(playPart);
         const originPart = parts.length > 1 ? parts[1].trim() : '';
@@ -560,7 +560,7 @@ $(document).ready(function() {
             playPart: playPart,
             playNorm: playNorm,
             originPart: originPart,
-            destPart: destPart
+            destPart: destPart,
         });
 
         const originTokens = originPart ? originPart.toUpperCase().split(/\s+/).filter(Boolean) : [];
@@ -568,7 +568,7 @@ $(document).ready(function() {
 
         const out = [];
         const candidateRoutes = playbookByPlayName[playNorm];
-        
+
         // Debug: show available play names if no match
         if (!candidateRoutes || !candidateRoutes.length) {
             console.warn('[MAPLIBRE] No playbook routes for normalized play:', playNorm);
@@ -578,7 +578,7 @@ $(document).ready(function() {
             console.log('[MAPLIBRE] Similar play names:', similar);
             return out;
         }
-        
+
         console.log('[MAPLIBRE] Found', candidateRoutes.length, 'candidate routes for play:', playNorm);
 
         for (const pr of candidateRoutes) {
@@ -592,7 +592,7 @@ $(document).ready(function() {
                         match = true; break;
                     }
                 }
-                if (!match) continue;
+                if (!match) {continue;}
             }
             if (destTokens.length) {
                 let match = false;
@@ -604,7 +604,7 @@ $(document).ready(function() {
                         match = true; break;
                     }
                 }
-                if (!match) continue;
+                if (!match) {continue;}
             }
 
             let routeText = pr.fullRoute;
@@ -633,7 +633,7 @@ $(document).ready(function() {
         let match;
         while ((match = regex.exec(upperText)) !== null) {
             const block = match[0].trim();
-            if (block) blocks.push(block);
+            if (block) {blocks.push(block);}
         }
         return blocks.length ? blocks : [upperText];
     }
@@ -642,7 +642,7 @@ $(document).ready(function() {
         const routes = [];
         const lines = rawText.split(/\r?\n/);
         let currentOrig = '', currentDest = '';
-        
+
         for (const line of lines) {
             const trimmed = line.trim().toUpperCase();
             const odMatch = trimmed.match(/FROM\s+([A-Z0-9]+)\s+TO\s+([A-Z0-9]+)/);
@@ -653,8 +653,8 @@ $(document).ready(function() {
             const rteMatch = trimmed.match(/REROUTE[:\s]+(.+)/);
             if (rteMatch && currentOrig && currentDest) {
                 let rte = rteMatch[1].trim();
-                if (!rte.startsWith(currentOrig)) rte = currentOrig + ' ' + rte;
-                if (!rte.endsWith(currentDest)) rte = rte + ' ' + currentDest;
+                if (!rte.startsWith(currentOrig)) {rte = currentOrig + ' ' + rte;}
+                if (!rte.endsWith(currentDest)) {rte = rte + ' ' + currentDest;}
                 routes.push(rte);
             }
         }
@@ -674,7 +674,7 @@ $(document).ready(function() {
 
         lines.forEach(line => {
             const trimmed = (line || '').trim();
-            
+
             // Blank line resets group context
             if (!trimmed) {
                 currentGroupColor = null;
@@ -686,8 +686,8 @@ $(document).ready(function() {
             if (headerMatch) {
                 currentGroupColor = null;
                 currentGroupMandatory = false;
-                if (headerMatch[4]) currentGroupColor = headerMatch[4].trim().toUpperCase();
-                if (headerMatch[1] === '>' || headerMatch[3] === '<') currentGroupMandatory = true;
+                if (headerMatch[4]) {currentGroupColor = headerMatch[4].trim().toUpperCase();}
+                if (headerMatch[1] === '>' || headerMatch[3] === '<') {currentGroupMandatory = true;}
                 return;
             }
 
@@ -733,20 +733,20 @@ $(document).ready(function() {
     $.ajax({
         type: 'GET',
         url: 'assets/data/points.csv',
-        async: false
+        async: false,
     }).done(function(data) {
         const lines = data.split('\n');
         for (const line of lines) {
             const parts = line.split(',');
-            if (parts.length < 3) continue;
+            if (parts.length < 3) {continue;}
             const idRaw = (parts[0] || '').trim();
             const lat = parts[1], lon = parts[2];
-            if (!idRaw) continue;
+            if (!idRaw) {continue;}
             const id = idRaw.toUpperCase();
             if (id.startsWith('ZZ_') && id.length > 3) {
                 facilityCodes.add(id.substring(3));
             }
-            if (!points[id]) points[id] = [];
+            if (!points[id]) {points[id] = [];}
             points[id].push([id, +lat, +lon]);
         }
         window.routePoints = points;
@@ -758,20 +758,20 @@ $(document).ready(function() {
     $.ajax({
         type: 'GET',
         url: 'assets/data/cdrs.csv',
-        async: false
+        async: false,
     }).done(function(data) {
         const lines = data.split('\n');
         lines.forEach(line => {
             line = line.trim();
-            if (!line) return;
+            if (!line) {return;}
             const idx = line.indexOf(',');
-            if (idx <= 0) return;
+            if (idx <= 0) {return;}
             const code = line.slice(0, idx).trim().toUpperCase();
             const route = line.slice(idx + 1).trim();
-            if (code && route) cdrMap[code] = route;
+            if (code && route) {cdrMap[code] = route;}
         });
         console.log('[MAPLIBRE] Loaded cdrs.csv:', Object.keys(cdrMap).length, 'CDRs');
-        
+
         // Expose to global scope for PlaybookCDRSearch module
         window.cdrMap = cdrMap;
     }).fail(function(xhr, status, error) {
@@ -801,22 +801,22 @@ $(document).ready(function() {
     $.ajax({
         type: 'GET',
         url: 'assets/data/playbook_routes.csv',
-        async: false
+        async: false,
     }).done(function(data) {
         const lines = data.split(/\r?\n/);
-        if (lines.length < 2) return;
-        
+        if (lines.length < 2) {return;}
+
         // Parse header to find column indices
         const header = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
-        
+
         function idxOf(...names) {
             for (const name of names) {
                 const i = header.indexOf(name.toLowerCase());
-                if (i !== -1) return i;
+                if (i !== -1) {return i;}
             }
             return -1;
         }
-        
+
         const idxPlay = idxOf('play_name', 'play');
         const idxRoute = idxOf('full_route', 'route string', 'route', 'route_string');
         const idxOrigAirports = idxOf('origins', 'origin', 'origin_airports');
@@ -825,39 +825,39 @@ $(document).ready(function() {
         const idxDestAirports = idxOf('destinations', 'dest', 'dest_airports');
         const idxDestTracons = idxOf('dest_tracons', 'dest_tracon');
         const idxDestArtccs = idxOf('dest_artccs', 'dest_artcc');
-        
-        console.log('[MAPLIBRE] Playbook column indices:', { 
-            play: idxPlay, route: idxRoute, 
-            origAirports: idxOrigAirports, destAirports: idxDestAirports 
+
+        console.log('[MAPLIBRE] Playbook column indices:', {
+            play: idxPlay, route: idxRoute,
+            origAirports: idxOrigAirports, destAirports: idxDestAirports,
         });
-        
+
         if (idxPlay === -1 || idxRoute === -1) {
             console.error('[MAPLIBRE] playbook_routes.csv missing required columns');
             return;
         }
-        
+
         function splitField(str) {
-            if (!str) return [];
+            if (!str) {return [];}
             return String(str).toUpperCase().split(/\s+/).filter(Boolean);
         }
-        
+
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
-            if (!line) continue;
-            
+            if (!line) {continue;}
+
             const cols = parseCsvLine(line);
             const playNameRaw = (cols[idxPlay] || '').trim();
             const routeRaw = (cols[idxRoute] || '').trim();
-            
-            if (!playNameRaw || !routeRaw || playNameRaw.toLowerCase() === 'nan') continue;
-            
+
+            if (!playNameRaw || !routeRaw || playNameRaw.toLowerCase() === 'nan') {continue;}
+
             const origAirports = idxOrigAirports >= 0 ? splitField(cols[idxOrigAirports]) : [];
             const origTracons = idxOrigTracons >= 0 ? splitField(cols[idxOrigTracons]) : [];
             const origArtccs = idxOrigArtccs >= 0 ? splitField(cols[idxOrigArtccs]) : [];
             const destAirports = idxDestAirports >= 0 ? splitField(cols[idxDestAirports]) : [];
             const destTracons = idxDestTracons >= 0 ? splitField(cols[idxDestTracons]) : [];
             const destArtccs = idxDestArtccs >= 0 ? splitField(cols[idxDestArtccs]) : [];
-            
+
             const entry = {
                 playName: playNameRaw,
                 playNameNorm: normalizePlayName(playNameRaw),
@@ -874,20 +874,20 @@ $(document).ready(function() {
                 originArtccs: origArtccs,
                 destAirports: destAirports,
                 destTracons: destTracons,
-                destArtccs: destArtccs
+                destArtccs: destArtccs,
             };
-            
+
             playbookRoutes.push(entry);
             const pnorm = entry.playNameNorm;
-            if (!playbookByPlayName[pnorm]) playbookByPlayName[pnorm] = [];
+            if (!playbookByPlayName[pnorm]) {playbookByPlayName[pnorm] = [];}
             playbookByPlayName[pnorm].push(entry);
         }
-        
+
         console.log('[MAPLIBRE] Loaded', playbookRoutes.length, 'playbook routes');
         console.log('[MAPLIBRE] Unique play names:', Object.keys(playbookByPlayName).length);
         // Show first 10 play names for debugging
         console.log('[MAPLIBRE] Sample play names:', Object.keys(playbookByPlayName).slice(0, 10));
-        
+
         // Expose to global scope for PlaybookCDRSearch module
         window.playbookRoutes = playbookRoutes;
         window.playbookByPlayName = playbookByPlayName;
@@ -901,12 +901,12 @@ $(document).ready(function() {
 
     function initMap() {
         console.log('[MAPLIBRE] Initializing map...');
-        
+
         if (graphic_map) {
             graphic_map.remove();
             graphic_map = null;
         }
-        
+
         const container = document.getElementById('graphic');
         if (!container) {
             console.error('[MAPLIBRE] Map container #graphic not found');
@@ -925,23 +925,23 @@ $(document).ready(function() {
                             'https://a.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png',
                             'https://b.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png',
                             'https://c.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png',
-                            'https://d.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png'
+                            'https://d.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png',
                         ],
                         tileSize: 256,
-                        attribution: '&copy; CARTO | Iowa State | Srinath Nandakumar'
-                    }
+                        attribution: '&copy; CARTO | Iowa State | Srinath Nandakumar',
+                    },
                 },
                 layers: [{
                     id: 'carto-dark-layer',
                     type: 'raster',
-                    source: 'carto-dark'
+                    source: 'carto-dark',
                 }],
-                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
             },
             center: [-98.35, 39.5],
             zoom: 4,
             minZoom: 2,
-            maxZoom: 12
+            maxZoom: 12,
         });
 
         graphic_map.addControl(new maplibregl.NavigationControl(), 'top-left');
@@ -954,10 +954,10 @@ $(document).ready(function() {
             addDynamicSources();
             setupLayerControl();
             setupInteractivity();
-            
+
             window.graphic_map = graphic_map;
             $(document).trigger('maplibre:ready');
-            
+
             const rawInput = $('#routeSearch').val();
             if (rawInput && rawInput.trim()) {
                 processAndDisplayRoutes();
@@ -983,7 +983,7 @@ $(document).ready(function() {
         function loadGeoJsonData(sourceId, url) {
             fetch(url)
                 .then(response => {
-                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    if (!response.ok) {throw new Error('HTTP ' + response.status);}
                     return response.json();
                 })
                 .then(data => {
@@ -1003,12 +1003,12 @@ $(document).ready(function() {
             type: 'raster',
             tiles: ['https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: '© <a href="https://mesonet.agron.iastate.edu">Iowa Environmental Mesonet</a>'
+            attribution: '© <a href="https://mesonet.agron.iastate.edu">Iowa Environmental Mesonet</a>',
         });
         graphic_map.addLayer({
             id: 'weather-cells-layer', type: 'raster', source: 'weather-cells',
             paint: { 'raster-opacity': 0.3 },
-            layout: { 'visibility': 'none' }
+            layout: { 'visibility': 'none' },
         });
         setInterval(function() {
             if (graphic_map && graphic_map.getLayoutProperty('weather-cells-layer', 'visibility') === 'visible') {
@@ -1021,37 +1021,37 @@ $(document).ready(function() {
         graphic_map.addSource('tracon', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'tracon-lines', type: 'line', source: 'tracon',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
+            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            layout: { 'visibility': 'none' },
         });
 
         // 3. Sector Boundaries (High, Low, Superhigh)
         graphic_map.addSource('high-splits', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'high-splits-lines', type: 'line', source: 'high-splits',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
+            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            layout: { 'visibility': 'none' },
         });
 
         graphic_map.addSource('low-splits', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'low-splits-lines', type: 'line', source: 'low-splits',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
+            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            layout: { 'visibility': 'none' },
         });
 
         graphic_map.addSource('superhigh-splits', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'superhigh-splits-lines', type: 'line', source: 'superhigh-splits',
-            paint: { 'line-color': '#303030', 'line-width': 1.5 },
-            layout: { 'visibility': 'none' }
+            paint: { 'line-color': PERTIColors.airspace.sectorLineDark, 'line-width': 1.5 },
+            layout: { 'visibility': 'none' },
         });
 
         // 4. ARTCC Boundaries
         graphic_map.addSource('artcc', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'artcc-lines', type: 'line', source: 'artcc',
-            paint: { 'line-color': '#515151', 'line-width': 1.5 }
+            paint: { 'line-color': PERTIColors.airspace.artccLine, 'line-width': 1.5 },
         });
 
         // 5. SIGMETs
@@ -1059,7 +1059,7 @@ $(document).ready(function() {
         graphic_map.addLayer({
             id: 'sigmets-fill', type: 'fill', source: 'sigmets',
             paint: { 'fill-color': '#d8da5b', 'fill-opacity': 0.1 },
-            layout: { 'visibility': 'none' }
+            layout: { 'visibility': 'none' },
         });
 
         // 6. NAVAIDs
@@ -1067,7 +1067,7 @@ $(document).ready(function() {
         graphic_map.addLayer({
             id: 'navaids-circles', type: 'circle', source: 'navaids',
             paint: { 'circle-radius': 3, 'circle-color': '#ffffff', 'circle-opacity': 0.25 },
-            layout: { 'visibility': 'none' }
+            layout: { 'visibility': 'none' },
         });
 
         // Load GeoJSON data asynchronously (layer order already set above)
@@ -1090,7 +1090,7 @@ $(document).ready(function() {
                     features.push({
                         type: 'Feature',
                         properties: { name: parts[0].trim() },
-                        geometry: { type: 'Point', coordinates: [parseFloat(parts[2]), parseFloat(parts[1])] }
+                        geometry: { type: 'Point', coordinates: [parseFloat(parts[2]), parseFloat(parts[1])] },
                     });
                 }
             });
@@ -1103,13 +1103,13 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
     // WEATHER RADAR (Iowa Environmental Mesonet NEXRAD)
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     function refreshWeatherRadarMaplibre() {
         // IEM tiles update automatically on the server (~5 min)
         // Force browser to reload tiles by removing and re-adding the source
         if (graphic_map && graphic_map.getSource('weather-cells')) {
-            var wasVisible = graphic_map.getLayoutProperty('weather-cells-layer', 'visibility') === 'visible';
-            
+            const wasVisible = graphic_map.getLayoutProperty('weather-cells-layer', 'visibility') === 'visible';
+
             // Remove existing layer and source
             if (graphic_map.getLayer('weather-cells-layer')) {
                 graphic_map.removeLayer('weather-cells-layer');
@@ -1117,23 +1117,23 @@ $(document).ready(function() {
             if (graphic_map.getSource('weather-cells')) {
                 graphic_map.removeSource('weather-cells');
             }
-            
+
             // Re-add source with cache-bust parameter
-            var cacheBust = Date.now();
+            const cacheBust = Date.now();
             graphic_map.addSource('weather-cells', {
                 type: 'raster',
                 tiles: ['https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png?_=' + cacheBust],
                 tileSize: 256,
-                attribution: '© <a href="https://mesonet.agron.iastate.edu">Iowa Environmental Mesonet</a>'
+                attribution: '© <a href="https://mesonet.agron.iastate.edu">Iowa Environmental Mesonet</a>',
             });
             graphic_map.addLayer({
                 id: 'weather-cells-layer',
                 type: 'raster',
                 source: 'weather-cells',
                 paint: { 'raster-opacity': 0.3 },
-                layout: { 'visibility': wasVisible ? 'visible' : 'none' }
+                layout: { 'visibility': wasVisible ? 'visible' : 'none' },
             }, 'sigmets-fill'); // Insert before sigmets
-            
+
             console.log('[WX-MAPLIBRE] Radar tiles refreshed');
         }
     }
@@ -1141,7 +1141,7 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
     // SUA (Special Use Airspace) Layer
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     // SUA color mapping by type
     const SUA_COLORS = {
         'TFR_VIP':   'magenta',
@@ -1164,27 +1164,27 @@ $(document).ready(function() {
         'VR':        '#C19A6B',
         'SR':        '#BDB76B',  // DarkKhaki
         'AR':        '#4682B4',  // SteelBlue
-        'OTHER':     'gray'
+        'OTHER':     'gray',
     };
-    
+
     // SUA line widths (TFRs get thicker outlines)
     const SUA_WEIGHTS = {
-        'TFR_VIP': 3, 'TFR_EMERG': 3, 'TFR_SEC': 3, 'TFR_HAZ': 3, 
-        'TFR_HID': 3, 'TFR_EVT': 3, 'TFR_SPC': 3, 'TFR_HBP': 3
+        'TFR_VIP': 3, 'TFR_EMERG': 3, 'TFR_SEC': 3, 'TFR_HAZ': 3,
+        'TFR_HID': 3, 'TFR_EVT': 3, 'TFR_SPC': 3, 'TFR_HBP': 3,
     };
-    
+
     let suaDataLoaded = false;
     let suaRefreshInterval = null;
-    
+
     function addSuaLayers() {
-        if (!graphic_map) return;
-        
+        if (!graphic_map) {return;}
+
         // Add SUA source
         graphic_map.addSource('sua', {
             type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] }
+            data: { type: 'FeatureCollection', features: [] },
         });
-        
+
         // SUA fill layer
         graphic_map.addLayer({
             id: 'sua-fill',
@@ -1213,13 +1213,13 @@ $(document).ready(function() {
                     'VR', '#C19A6B',
                     'SR', '#BDB76B',
                     'AR', '#4682B4',
-                    'gray'  // default
+                    'gray',  // default
                 ],
-                'fill-opacity': 0.15
+                'fill-opacity': 0.15,
             },
-            layout: { 'visibility': 'none' }
+            layout: { 'visibility': 'none' },
         });
-        
+
         // SUA outline layer
         graphic_map.addLayer({
             id: 'sua-outline',
@@ -1248,7 +1248,7 @@ $(document).ready(function() {
                     'VR', '#C19A6B',
                     'SR', '#BDB76B',
                     'AR', '#4682B4',
-                    'gray'
+                    'gray',
                 ],
                 'line-width': [
                     'match', ['get', 'suaType'],
@@ -1260,23 +1260,23 @@ $(document).ready(function() {
                     'TFR_EVT', 3,
                     'TFR_SPC', 3,
                     'TFR_HBP', 3,
-                    2  // default
+                    2,  // default
                 ],
-                'line-opacity': 0.8
+                'line-opacity': 0.8,
             },
-            layout: { 'visibility': 'none' }
+            layout: { 'visibility': 'none' },
         });
-        
+
         // Click handler for SUA popups
         graphic_map.on('click', 'sua-fill', function(e) {
             if (e.features && e.features.length > 0) {
-                var props = e.features[0].properties;
-                var content = '<div class="sua-popup" style="font-family: Inconsolata, monospace; font-size: 0.85rem;">';
+                const props = e.features[0].properties;
+                let content = '<div class="sua-popup" style="font-family: Inconsolata, monospace; font-size: 0.85rem;">';
                 content += '<strong style="font-size: 1.1em; color: #239BCD;">' + (props.name || props.designator || 'Unknown SUA') + '</strong>';
-                
+
                 if (props.suaType) {
                     // Map type codes to readable names
-                    var typeLabels = {
+                    const typeLabels = {
                         'P': 'Prohibited',
                         'R': 'Restricted',
                         'W': 'Warning',
@@ -1291,44 +1291,44 @@ $(document).ready(function() {
                         'TFR_HID': 'TFR: Hazard',
                         'TFR_EVT': 'TFR: Event',
                         'TFR_SPC': 'TFR: Space Ops',
-                        'TFR_HBP': 'TFR: High Barometric'
+                        'TFR_HBP': 'TFR: High Barometric',
                     };
-                    var typeLabel = typeLabels[props.suaType] || props.suaType;
+                    const typeLabel = typeLabels[props.suaType] || props.suaType;
                     content += '<br><span style="color: var(--dark-text-subtle); font-size: 0.85em;">' + typeLabel + '</span>';
                 }
-                
+
                 if (props.notamId) {
                     content += '<br><span style="font-size: 0.85em;">NOTAM: ' + props.notamId + '</span>';
                 }
-                
+
                 // Support both old (altLow/altHigh) and new (lowerLimit/upperLimit) property names
-                var altLow = props.altLow || props.lowerLimit;
-                var altHigh = props.altHigh || props.upperLimit;
+                const altLow = props.altLow || props.lowerLimit;
+                const altHigh = props.altHigh || props.upperLimit;
                 if (altLow || altHigh) {
                     content += '<br><span style="font-size: 0.85em;">ALT: ';
-                    if (altLow) content += altLow;
-                    if (altLow && altHigh) content += ' - ';
-                    if (altHigh) content += altHigh;
+                    if (altLow) {content += altLow;}
+                    if (altLow && altHigh) {content += ' - ';}
+                    if (altHigh) {content += altHigh;}
                     content += '</span>';
                 }
-                
+
                 if (props.schedule) {
                     content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">Schedule: ' + props.schedule + '</span>';
                 }
-                
+
                 if (props.artcc) {
                     content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">ARTCC: ' + props.artcc + '</span>';
                 }
-                
+
                 content += '</div>';
-                
+
                 new maplibregl.Popup({ closeButton: false, maxWidth: '300px' })
                     .setLngLat(e.lngLat)
                     .setHTML(content)
                     .addTo(graphic_map);
             }
         });
-        
+
         // Cursor change on hover
         graphic_map.on('mouseenter', 'sua-fill', function() {
             graphic_map.getCanvas().style.cursor = 'pointer';
@@ -1337,16 +1337,16 @@ $(document).ready(function() {
             graphic_map.getCanvas().style.cursor = '';
         });
     }
-    
+
     function loadSuaData() {
-        if (suaDataLoaded) return;
-        
+        if (suaDataLoaded) {return;}
+
         console.log('[SUA-MAPLIBRE] Fetching SUA data...');
         $.ajax({
             type: 'GET',
             url: 'api/data/sua',
             dataType: 'json',
-            timeout: 60000
+            timeout: 60000,
         }).done(function(data) {
             if (data && data.features && graphic_map && graphic_map.getSource('sua')) {
                 graphic_map.getSource('sua').setData(data);
@@ -1359,18 +1359,18 @@ $(document).ready(function() {
             console.warn('[SUA-MAPLIBRE] Failed to fetch SUA data:', error);
         });
     }
-    
+
     function startSuaRefresh() {
-        if (suaRefreshInterval) return;
+        if (suaRefreshInterval) {return;}
         suaRefreshInterval = setInterval(function() {
-            if (graphic_map && 
+            if (graphic_map &&
                 graphic_map.getLayoutProperty('sua-fill', 'visibility') === 'visible') {
                 suaDataLoaded = false;
                 loadSuaData();
             }
         }, 600000); // 10 minutes
     }
-    
+
     function stopSuaRefresh() {
         if (suaRefreshInterval) {
             clearInterval(suaRefreshInterval);
@@ -1386,29 +1386,29 @@ $(document).ready(function() {
         graphic_map.addSource('filtered-airways', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
             id: 'filtered-airways-lines', type: 'line', source: 'filtered-airways',
-            paint: { 'line-color': '#ffffff', 'line-width': 1, 'line-opacity': 0.25 }
+            paint: { 'line-color': '#ffffff', 'line-width': 1, 'line-opacity': 0.25 },
         });
         graphic_map.addLayer({
             id: 'filtered-airways-labels', type: 'symbol', source: 'filtered-airways',
             layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 10 },
-            paint: { 'text-color': '#ffffff', 'text-halo-color': '#000000', 'text-halo-width': 1, 'text-opacity': 0.5 }
+            paint: { 'text-color': '#ffffff', 'text-halo-color': '#000000', 'text-halo-width': 1, 'text-opacity': 0.5 },
         });
 
         graphic_map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
             id: 'routes-solid', type: 'line', source: 'routes',
             filter: ['all', ['==', ['get', 'solid'], true], ['!=', ['get', 'isFan'], true]],
-            paint: { 'line-color': ['get', 'color'], 'line-width': 3 }
+            paint: { 'line-color': ['get', 'color'], 'line-width': 3 },
         });
         graphic_map.addLayer({
             id: 'routes-dashed', type: 'line', source: 'routes',
             filter: ['all', ['==', ['get', 'solid'], false], ['!=', ['get', 'isFan'], true]],
-            paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-dasharray': [4, 4] }
+            paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-dasharray': [4, 4] },
         });
         graphic_map.addLayer({
             id: 'routes-fan', type: 'line', source: 'routes',
             filter: ['==', ['get', 'isFan'], true],
-            paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-dasharray': [1, 3] }
+            paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-dasharray': [1, 3] },
         });
 
         graphic_map.addSource('fixes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -1417,16 +1417,16 @@ $(document).ready(function() {
             paint: {
                 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2, 8, 4, 12, 6],
                 'circle-color': ['get', 'color'],
-                'circle-stroke-width': 1, 'circle-stroke-color': '#000000'
+                'circle-stroke-width': 1, 'circle-stroke-color': '#000000',
             },
-            minzoom: 5
+            minzoom: 5,
         });
 
         graphic_map.addSource('airports', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
             id: 'airports-triangles', type: 'symbol', source: 'airports',
             layout: { 'text-field': '▲', 'text-size': 14, 'text-allow-overlap': true },
-            paint: { 'text-color': '#ffffff' }
+            paint: { 'text-color': '#ffffff' },
         });
 
         // Flight routes source - added BEFORE aircraft so routes draw underneath
@@ -1434,14 +1434,14 @@ $(document).ready(function() {
         graphic_map.addLayer({
             id: 'flight-routes-behind', type: 'line', source: 'flight-routes',
             filter: ['==', ['get', 'segment'], 'behind'],
-            paint: { 'line-color': ['get', 'color'], 'line-width': 2.5 }
+            paint: { 'line-color': ['get', 'color'], 'line-width': 2.5 },
         });
         graphic_map.addLayer({
             id: 'flight-routes-ahead', type: 'line', source: 'flight-routes',
             filter: ['==', ['get', 'segment'], 'ahead'],
-            paint: { 'line-color': ['get', 'color'], 'line-width': 2.5, 'line-dasharray': [4, 4] }
+            paint: { 'line-color': ['get', 'color'], 'line-width': 2.5, 'line-dasharray': [4, 4] },
         });
-        
+
         // ADL Flight Waypoints - TSD style with labels (separate from route-fixes)
         graphic_map.addSource('adl-flight-fixes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
@@ -1451,14 +1451,14 @@ $(document).ready(function() {
                     'interpolate', ['linear'], ['zoom'],
                     4, 1.5,
                     8, 2.5,
-                    12, 3.5
+                    12, 3.5,
                 ],
                 'circle-color': ['get', 'color'],
                 'circle-stroke-width': 0.5,
                 'circle-stroke-color': '#222222',
-                'circle-opacity': 0.8
+                'circle-opacity': 0.8,
             },
-            minzoom: 5
+            minzoom: 5,
         });
         graphic_map.addLayer({
             id: 'adl-flight-fixes-labels', type: 'symbol', source: 'adl-flight-fixes',
@@ -1469,23 +1469,23 @@ $(document).ready(function() {
                 'text-anchor': 'bottom-left',
                 'text-offset': [0.3, -0.2],
                 'text-allow-overlap': false,
-                'text-optional': true
+                'text-optional': true,
             },
             paint: {
                 'text-color': ['get', 'color'],
                 'text-halo-color': '#000000',
-                'text-halo-width': 2
+                'text-halo-width': 2,
             },
-            minzoom: 6
+            minzoom: 6,
         });
-        
+
         // ═══════════════════════════════════════════════════════════════════════════
         // ORIGIN/DESTINATION ENDPOINT ICONS
         // Separate icons for airports (triangle), TRACONs (diamond), ARTCCs (square)
         // ═══════════════════════════════════════════════════════════════════════════
-        
+
         graphic_map.addSource('route-endpoints', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        
+
         // Create endpoint icons
         const ENDPOINT_ICONS = {
             // Airport - Triangle (pointing up for origin, down for destination)
@@ -1508,9 +1508,9 @@ $(document).ready(function() {
             </svg>`,
             'artcc-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
                 <rect x="2" y="2" width="16" height="16" fill="none" stroke="white" stroke-width="2"/>
-            </svg>`
+            </svg>`,
         };
-        
+
         // Load endpoint icons
         Object.entries(ENDPOINT_ICONS).forEach(([name, svg]) => {
             const img = new Image();
@@ -1522,7 +1522,7 @@ $(document).ready(function() {
             img.onerror = (e) => console.error(`[MAPLIBRE] Failed to load endpoint icon ${name}:`, e);
             img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
         });
-        
+
         // Endpoint symbols layer with icon selection by facility type and endpoint type
         graphic_map.addLayer({
             id: 'route-endpoints-symbols', type: 'symbol', source: 'route-endpoints',
@@ -1538,25 +1538,25 @@ $(document).ready(function() {
                     ['all', ['==', ['get', 'isDest'], true], ['==', ['get', 'facilityType'], 'tracon']], 'endpoint-tracon-dest',
                     ['all', ['==', ['get', 'isDest'], true], ['==', ['get', 'facilityType'], 'artcc']], 'endpoint-artcc-dest',
                     // Default to airport
-                    'endpoint-airport-origin'
+                    'endpoint-airport-origin',
                 ],
                 'icon-size': [
                     'interpolate', ['linear'], ['zoom'],
                     4, 0.6,
                     8, 0.8,
-                    12, 1.0
+                    12, 1.0,
                 ],
                 'icon-allow-overlap': true,
-                'icon-ignore-placement': true
+                'icon-ignore-placement': true,
             },
             paint: {
                 'icon-color': ['get', 'color'],
                 'icon-halo-color': '#000000',
-                'icon-halo-width': 1
+                'icon-halo-width': 1,
             },
-            minzoom: 4
+            minzoom: 4,
         });
-        
+
         // Endpoint labels
         graphic_map.addLayer({
             id: 'route-endpoints-labels', type: 'symbol', source: 'route-endpoints',
@@ -1567,32 +1567,32 @@ $(document).ready(function() {
                 'text-anchor': 'top',
                 'text-offset': [0, 0.8],
                 'text-allow-overlap': false,
-                'text-optional': true
+                'text-optional': true,
             },
             paint: {
                 'text-color': ['get', 'color'],
                 'text-halo-color': '#000000',
-                'text-halo-width': 2
+                'text-halo-width': 2,
             },
-            minzoom: 5
+            minzoom: 5,
         });
 
         // Aircraft source
         graphic_map.addSource('aircraft', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        
+
         // ═══════════════════════════════════════════════════════════════════════════
         // TSD-STYLE AIRCRAFT SYMBOLOGY - Single jet icon for all aircraft
         // Simplified from FSM Table 3-6 weight class variants
         // ═══════════════════════════════════════════════════════════════════════════
-        
+
         // Create SDF-compatible jet icon (white fill for proper color tinting)
         const TSD_ICONS = {
             // Jet - Standard aircraft silhouette (used for all aircraft)
             jet: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
                 <path fill="white" d="M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z"/>
-            </svg>`
+            </svg>`,
         };
-        
+
         // Load jet icon as SDF image
         const jetSvg = TSD_ICONS.jet;
         const jetImg = new Image();
@@ -1608,7 +1608,7 @@ $(document).ready(function() {
         };
         jetImg.onerror = (e) => console.error('[MAPLIBRE] Failed to load jet icon:', e);
         jetImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(jetSvg);
-        
+
         // Aircraft symbol layer - uniform jet icon for all aircraft
         graphic_map.addLayer({
             id: 'aircraft-symbols', type: 'symbol', source: 'aircraft',
@@ -1619,20 +1619,20 @@ $(document).ready(function() {
                     3, 0.5,
                     6, 0.7,
                     10, 1.0,
-                    14, 1.2
+                    14, 1.2,
                 ],
                 'icon-rotate': ['get', 'heading'],
                 'icon-rotation-alignment': 'map',
                 'icon-allow-overlap': true,
-                'icon-ignore-placement': true
+                'icon-ignore-placement': true,
             },
             paint: {
                 'icon-color': ['get', 'color'],
                 'icon-halo-color': '#000000',
-                'icon-halo-width': 1
-            }
+                'icon-halo-width': 1,
+            },
         });
-        
+
         // Fallback circle layer (visible while icon loads)
         graphic_map.addLayer({
             id: 'aircraft-circles-fallback', type: 'circle', source: 'aircraft',
@@ -1640,37 +1640,37 @@ $(document).ready(function() {
                 'circle-radius': [
                     'interpolate', ['linear'], ['zoom'],
                     3, 3,
-                    8, 5
+                    8, 5,
                 ],
                 'circle-color': ['get', 'color'],
                 'circle-stroke-width': 1,
-                'circle-stroke-color': '#000000'
-            }
+                'circle-stroke-color': '#000000',
+            },
         });
-        
+
         // ═══════════════════════════════════════════════════════════════════════════
         // ROUTE FIX LABELS (per QGIS Route_Labels style)
         // Small circles at fix points with labeled boxes matching route color
         // Style: Black background rectangle with colored text (per QGIS Route_Labels.qml)
-        // 
+        //
         // Architecture: Three separate sources to allow independent label movement:
         //   1. route-fix-points - circles at original positions (never move)
         //   2. route-fix-labels - text labels (can be dragged)
         //   3. route-fix-leaders - lines connecting moved labels to their points
         // ═══════════════════════════════════════════════════════════════════════════
-        
+
         // Route fix POINTS source (circles at original positions - never move)
         graphic_map.addSource('route-fix-points', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        
+
         // Route fix LABELS source (text that can be dragged)
         graphic_map.addSource('route-fix-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        
+
         // Route fix LEADERS source (lines from moved labels to points)
         graphic_map.addSource('route-fix-leaders', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        
+
         // Legacy source name for compatibility
         graphic_map.addSource('route-fixes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        
+
         // Leader lines (drawn first so they appear behind labels)
         graphic_map.addLayer({
             id: 'route-fix-leaders-lines', type: 'line', source: 'route-fix-leaders',
@@ -1678,11 +1678,11 @@ $(document).ready(function() {
                 'line-color': ['get', 'color'],
                 'line-width': 1,
                 'line-opacity': 0.7,
-                'line-dasharray': [2, 2]
+                'line-dasharray': [2, 2],
             },
-            minzoom: 5
+            minzoom: 5,
         });
-        
+
         // Route fix circles (small dots at each waypoint - ALWAYS at original position)
         graphic_map.addLayer({
             id: 'route-fixes-circles', type: 'circle', source: 'route-fix-points',
@@ -1691,15 +1691,15 @@ $(document).ready(function() {
                     'interpolate', ['linear'], ['zoom'],
                     4, 2,
                     8, 3,
-                    12, 4
+                    12, 4,
                 ],
                 'circle-color': ['get', 'color'],
                 'circle-stroke-width': 1,
-                'circle-stroke-color': '#222222'
+                'circle-stroke-color': '#222222',
             },
-            minzoom: 5
+            minzoom: 5,
         });
-        
+
         // Route fix labels - QGIS style: black background box, colored text
         // Uses text-variable-anchor to try multiple positions to avoid route lines
         graphic_map.addLayer({
@@ -1712,7 +1712,7 @@ $(document).ready(function() {
                     5, 9,
                     8, 10,
                     12, 11,
-                    16, 12
+                    16, 12,
                 ],
                 'text-transform': 'uppercase',
                 // Try multiple anchor positions to avoid overlapping route lines
@@ -1723,7 +1723,7 @@ $(document).ready(function() {
                 'text-ignore-placement': false,
                 'text-optional': true,
                 'text-padding': 6,
-                'text-max-width': 50  // Prevent wrapping
+                'text-max-width': 50,  // Prevent wrapping
             },
             paint: {
                 // Text color matches route color
@@ -1731,11 +1731,11 @@ $(document).ready(function() {
                 // Black halo creates the solid background box effect
                 'text-halo-color': '#000000',
                 'text-halo-width': 3,
-                'text-halo-blur': 0
+                'text-halo-blur': 0,
             },
-            minzoom: 5
+            minzoom: 5,
         });
-        
+
         console.log('[MAPLIBRE] Dynamic sources added with TSD symbology');
     }
 
@@ -1752,7 +1752,7 @@ $(document).ready(function() {
         'cells': { layerIds: ['weather-cells-layer'], label: 'WX Radar' },
         'sigmets': { layerIds: ['sigmets-fill'], label: 'SIGMETs' },
         'sua': { layerIds: ['sua-fill', 'sua-outline'], label: 'Active SUA/TFR', onEnable: loadSuaData },
-        'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fix-leaders-lines'], label: 'Route Fix Labels', defaultOn: true }
+        'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fix-leaders-lines'], label: 'Route Fix Labels', defaultOn: true },
     };
 
     let layerControlExpanded = false;
@@ -1764,7 +1764,7 @@ $(document).ready(function() {
                 overlays.push(key);
             }
         });
-        
+
         const html = `
             <div class="maplibre-layer-control" id="maplibre-layer-control" style="
                 position: absolute; top: 10px; right: 10px; z-index: 999;
@@ -1791,14 +1791,14 @@ $(document).ready(function() {
             </div>
         `;
         $('#map_wrapper').append(html);
-        
+
         // Toggle panel visibility
         $('#layer-control-toggle').on('click', function(e) {
             e.stopPropagation();
             layerControlExpanded = !layerControlExpanded;
             $('#layer-control-panel').slideToggle(150);
         });
-        
+
         // Close panel when clicking outside
         $(document).on('click', function(e) {
             if (layerControlExpanded && !$(e.target).closest('#maplibre-layer-control').length) {
@@ -1806,7 +1806,7 @@ $(document).ready(function() {
                 $('#layer-control-panel').slideUp(150);
             }
         });
-        
+
         // Layer toggle handlers
         $('.maplibre-layer-control input[type="checkbox"]').on('change', function() {
             toggleLayer($(this).data('layer'), $(this).prop('checked'));
@@ -1829,7 +1829,7 @@ $(document).ready(function() {
                 console.warn('[DEBUG-LABELS] Layer NOT FOUND:', layerId);
             }
         });
-        
+
         // Handle SUA layer enable/disable
         if (layerKey === 'sua') {
             if (visible) {
@@ -1839,7 +1839,7 @@ $(document).ready(function() {
                 stopSuaRefresh();
             }
         }
-        
+
         // Call onEnable callback if defined
         if (visible && cfg.onEnable && typeof cfg.onEnable === 'function') {
             cfg.onEnable();
@@ -1858,13 +1858,13 @@ $(document).ready(function() {
 
         const rawInput = $('#routeSearch').val() || '';
         console.log('[MAPLIBRE] Processing routes, input length:', rawInput.length);
-        
+
         const routeFeatures = [], fixFeatures = [], airportFeatures = [];
         const endpointFeatures = [];  // For origin/destination icons
         const seenFixes = new Set(), seenAirports = new Set();
         const seenEndpoints = new Set();  // Deduplicate endpoints
         seenSegmentKeys = new Set();
-        
+
         // Phase 5: Reset route tracking
         routeLabelsVisible.clear();
         routeFixesByRouteId = {};
@@ -1876,13 +1876,13 @@ $(document).ready(function() {
         if (/VATCSCC ADVZY/i.test(rawInput)) {
             splitAdvisoriesFromInput(rawInput.toUpperCase()).forEach(block => {
                 const advRoutes = parseAdvisoryRoutes(block);
-                if (advRoutes) routeStrings = routeStrings.concat(advRoutes);
+                if (advRoutes) {routeStrings = routeStrings.concat(advRoutes);}
             });
         } else {
             const expanded = expandGroupsInRouteInput(rawInput);
             expanded.split(/\r?\n/).forEach(line => {
                 const trimmed = line.trim();
-                if (!trimmed) return;
+                if (!trimmed) {return;}
 
                 let body = trimmed, color = null;
                 const semiIdx = trimmed.indexOf(';');
@@ -1903,7 +1903,7 @@ $(document).ready(function() {
                     console.log('[MAPLIBRE] Expanding playbook directive:', pbDirective);
                     const pbRoutes = expandPlaybookDirective(pbDirective, isMandatory, color);
                     console.log('[MAPLIBRE] Playbook returned', pbRoutes ? pbRoutes.length : 0, 'routes');
-                    if (pbRoutes) routeStrings = routeStrings.concat(pbRoutes);
+                    if (pbRoutes) {routeStrings = routeStrings.concat(pbRoutes);}
                 } else {
                     let rteBody = spec.toUpperCase();
                     if (isMandatory && !(rteBody.startsWith('>') && rteBody.endsWith('<'))) {
@@ -1920,11 +1920,11 @@ $(document).ready(function() {
         const expandedRoutesCollector = [];
 
         routeStrings.forEach((rte, idx) => {
-            if (!rte || rte.trim() === '') return;
+            if (!rte || rte.trim() === '') {return;}
             rte = rte.replace(/\s+/g, ' ').trim();
-            
+
             console.log('[MAPLIBRE] Processing route #' + idx + ':', (rte || '').substring(0, 50));
-            
+
             // Phase 5: Assign unique route ID
             const thisRouteId = ++currentRouteId;
             routeFixesByRouteId[thisRouteId] = [];
@@ -1933,14 +1933,14 @@ $(document).ready(function() {
             if (rte.includes(';')) {
                 const parts = rte.split(';');
                 routeText = parts[0].trim();
-                if (parts[1]) routeColor = parts[1].trim();
+                if (parts[1]) {routeColor = parts[1].trim();}
             }
 
             // CDR expansion - strip mandatory markers before lookup
             const cdrTokens = routeText.split(/\s+/).filter(t => t !== '');
             // For CDR lookup, strip the >< markers
             const cdrTokensClean = cdrTokens.map(t => t.replace(/[<>]/g, '').toUpperCase());
-            
+
             if (cdrTokensClean.length === 1 && cdrMap[cdrTokensClean[0]]) {
                 console.log('[MAPLIBRE] CDR expanded:', cdrTokensClean[0], '->', cdrMap[cdrTokensClean[0]]);
                 // Preserve mandatory markers on the expanded route
@@ -1951,8 +1951,8 @@ $(document).ready(function() {
                     // Apply mandatory markers to entire expanded route
                     const expTokens = expanded.split(/\s+/).filter(t => t);
                     if (expTokens.length > 0) {
-                        if (hadOpenMarker) expTokens[0] = '>' + expTokens[0];
-                        if (hadCloseMarker) expTokens[expTokens.length - 1] = expTokens[expTokens.length - 1] + '<';
+                        if (hadOpenMarker) {expTokens[0] = '>' + expTokens[0];}
+                        if (hadCloseMarker) {expTokens[expTokens.length - 1] = expTokens[expTokens.length - 1] + '<';}
                         expanded = expTokens.join(' ');
                     }
                 }
@@ -1969,9 +1969,9 @@ $(document).ready(function() {
                 });
                 routeText = expandedTokens.join(' ');
             }
-            
+
             console.log('[MAPLIBRE] After CDR expansion, routeText:', (routeText || '').substring(0, 80));
-            
+
             // Collect expanded route for public routes feature (includes CDR expansion with airports)
             expandedRoutesCollector.push(routeText);
 
@@ -1982,25 +1982,25 @@ $(document).ready(function() {
 
             rawTokens.forEach(tok => {
                 const cleanTok = tok.replace(/[<>]/g, '');
-                if (!cleanTok) return;
+                if (!cleanTok) {return;}
                 const hasOpen = tok.indexOf('>') !== -1, hasClose = tok.indexOf('<') !== -1;
                 let solid;
-                if (hasOpen && hasClose) solid = true;
+                if (hasOpen && hasClose) {solid = true;}
                 else if (hasOpen) { insideSolid = true; solid = true; }
                 else if (hasClose) { solid = true; insideSolid = false; }
-                else solid = insideSolid;
+                else {solid = insideSolid;}
                 origTokensClean.push(cleanTok.toUpperCase());
                 solidMask.push(solid);
             });
 
-            if (origTokensClean.length === 0) return;
+            if (origTokensClean.length === 0) {return;}
 
             let tokens = origTokensClean.slice();
             let currentSolidMask = solidMask.slice();
 
             if (typeof preprocessRouteProcedures === 'function') {
                 const procInfo = preprocessRouteProcedures(tokens);
-                if (procInfo && procInfo.tokens) tokens = procInfo.tokens;
+                if (procInfo && procInfo.tokens) {tokens = procInfo.tokens;}
             }
             if (typeof expandRouteProcedures === 'function') {
                 const expanded = expandRouteProcedures(tokens, currentSolidMask);
@@ -2033,16 +2033,16 @@ $(document).ready(function() {
             for (let idx = 0; idx < expandedTokens.length; ) {
                 if (expandedToOriginalIdx[idx] !== null) { idx++; continue; }
                 const runStart = idx;
-                while (idx < expandedTokens.length && expandedToOriginalIdx[idx] === null) idx++;
+                while (idx < expandedTokens.length && expandedToOriginalIdx[idx] === null) {idx++;}
                 let before = runStart - 1;
-                while (before >= 0 && expandedToOriginalIdx[before] === null) before--;
+                while (before >= 0 && expandedToOriginalIdx[before] === null) {before--;}
                 let after = idx;
-                while (after < expandedTokens.length && expandedToOriginalIdx[after] === null) after++;
+                while (after < expandedTokens.length && expandedToOriginalIdx[after] === null) {after++;}
                 let runSolid = false;
-                if (before >= 0 && after < expandedTokens.length) runSolid = solidExpanded[before] && solidExpanded[after];
-                else if (before >= 0) runSolid = solidExpanded[before];
-                else if (after < expandedTokens.length) runSolid = solidExpanded[after];
-                for (let k = runStart; k < idx; k++) solidExpanded[k] = runSolid;
+                if (before >= 0 && after < expandedTokens.length) {runSolid = solidExpanded[before] && solidExpanded[after];}
+                else if (before >= 0) {runSolid = solidExpanded[before];}
+                else if (after < expandedTokens.length) {runSolid = solidExpanded[after];}
+                for (let k = runStart; k < idx; k++) {solidExpanded[k] = runSolid;}
             }
 
             const routePoints = [], routeExpandedIndex = [];
@@ -2053,7 +2053,7 @@ $(document).ready(function() {
                 let nextPointData;
                 if (i < expandedTokens.length - 1) {
                     let dataForCurrentFix;
-                    if (countOccurrencesOfPointName(pointName) === 1) dataForCurrentFix = getPointByName(pointName);
+                    if (countOccurrencesOfPointName(pointName) === 1) {dataForCurrentFix = getPointByName(pointName);}
                     nextPointData = getPointByName(expandedTokens[i + 1], previousPointData, dataForCurrentFix);
                 }
 
@@ -2091,14 +2091,14 @@ $(document).ready(function() {
                         seenFixes.add(fixKey);
                         const fixFeature = {
                             type: 'Feature',
-                            properties: { 
-                                name: id, 
+                            properties: {
+                                name: id,
                                 color: routeColor,
                                 routeId: thisRouteId,
                                 lat: lat.toFixed(4),
-                                lon: lon.toFixed(4)
+                                lon: lon.toFixed(4),
                             },
-                            geometry: { type: 'Point', coordinates: [lon, lat] }
+                            geometry: { type: 'Point', coordinates: [lon, lat] },
                         };
                         fixFeatures.push(fixFeature);
                     }
@@ -2109,19 +2109,19 @@ $(document).ready(function() {
                     airportFeatures.push({
                         type: 'Feature',
                         properties: { name: id },
-                        geometry: { type: 'Point', coordinates: [lon, lat] }
+                        geometry: { type: 'Point', coordinates: [lon, lat] },
                     });
                 }
             }
 
             const nPoints = routePoints.length;
             console.log('[MAPLIBRE] Route resolved', nPoints, 'points from', expandedTokens.length, 'tokens');
-            if (nPoints < 2) return;
+            if (nPoints < 2) {return;}
 
             let firstNavIndex = 0;
-            while (firstNavIndex < nPoints && isAirportIdent(routePoints[firstNavIndex][0])) firstNavIndex++;
+            while (firstNavIndex < nPoints && isAirportIdent(routePoints[firstNavIndex][0])) {firstNavIndex++;}
             let lastNavIndex = nPoints - 1;
-            while (lastNavIndex >= 0 && isAirportIdent(routePoints[lastNavIndex][0])) lastNavIndex--;
+            while (lastNavIndex >= 0 && isAirportIdent(routePoints[lastNavIndex][0])) {lastNavIndex--;}
 
             const hasNonAirport = firstNavIndex <= lastNavIndex && lastNavIndex >= 0;
 
@@ -2155,7 +2155,7 @@ $(document).ready(function() {
                     addSegmentFeature(routeFeatures, [[from[2], from[1]], [to[2], to[1]]], routeColor, segSolid, false, thisRouteId, from[0], to[0]);
                 }
             }
-            
+
             // Add origin/destination endpoint icons
             if (nPoints >= 1) {
                 // Origin (first point)
@@ -2170,12 +2170,12 @@ $(document).ready(function() {
                             color: routeColor,
                             isOrigin: true,
                             isDest: false,
-                            facilityType: detectFacilityType(origin[0])
+                            facilityType: detectFacilityType(origin[0]),
                         },
-                        geometry: { type: 'Point', coordinates: [origin[2], origin[1]] }
+                        geometry: { type: 'Point', coordinates: [origin[2], origin[1]] },
                     });
                 }
-                
+
                 // Destination (last point, if different from origin)
                 if (nPoints >= 2) {
                     const dest = routePoints[nPoints - 1];
@@ -2189,9 +2189,9 @@ $(document).ready(function() {
                                 color: routeColor,
                                 isOrigin: false,
                                 isDest: true,
-                                facilityType: detectFacilityType(dest[0])
+                                facilityType: detectFacilityType(dest[0]),
                             },
-                            geometry: { type: 'Point', coordinates: [dest[2], dest[1]] }
+                            geometry: { type: 'Point', coordinates: [dest[2], dest[1]] },
                         });
                     }
                 }
@@ -2206,7 +2206,7 @@ $(document).ready(function() {
         graphic_map.getSource('routes').setData({ type: 'FeatureCollection', features: routeFeatures });
         graphic_map.getSource('fixes').setData({ type: 'FeatureCollection', features: fixFeatures });
         graphic_map.getSource('airports').setData({ type: 'FeatureCollection', features: airportFeatures });
-        
+
         // Populate route-endpoints source for origin/destination icons
         if (graphic_map.getSource('route-endpoints')) {
             graphic_map.getSource('route-endpoints').setData({ type: 'FeatureCollection', features: endpointFeatures });
@@ -2215,18 +2215,18 @@ $(document).ready(function() {
         // Phase 5: Populate route-fix-points and route-fix-labels with deduplication
         // Use a Map to deduplicate fixes by name+coords
         const uniqueFixes = new Map();
-        
+
         Object.keys(routeFixesByRouteId).forEach(routeId => {
             const fixes = routeFixesByRouteId[routeId];
-            if (!fixes) return;
-            
+            if (!fixes) {return;}
+
             // Mark all routes as having visible labels by default
             routeLabelsVisible.add(parseInt(routeId));
-            
+
             fixes.forEach(fix => {
                 // Create unique key from name + rounded coords
                 const uniqueKey = `${fix.name}|${fix.lat.toFixed(4)}|${fix.lon.toFixed(4)}`;
-                
+
                 // Only add if not already seen (deduplication)
                 if (!uniqueFixes.has(uniqueKey)) {
                     uniqueFixes.set(uniqueKey, {
@@ -2235,80 +2235,80 @@ $(document).ready(function() {
                         lon: fix.lon,
                         color: fix.color,
                         routeId: parseInt(routeId),
-                        uniqueKey: uniqueKey
+                        uniqueKey: uniqueKey,
                     });
                 }
             });
         });
-        
+
         // Build features from deduplicated fixes
         const pointFeatures = [];
         const labelFeatures = [];
-        
+
         uniqueFixes.forEach((fix, uniqueKey) => {
             // Point feature (always at original location)
             pointFeatures.push({
                 type: 'Feature',
-                properties: { 
-                    name: fix.name, 
+                properties: {
+                    name: fix.name,
                     color: fix.color,
                     routeId: fix.routeId,
-                    uniqueKey: uniqueKey
+                    uniqueKey: uniqueKey,
                 },
-                geometry: { 
-                    type: 'Point', 
-                    coordinates: [fix.lon, fix.lat] 
-                }
+                geometry: {
+                    type: 'Point',
+                    coordinates: [fix.lon, fix.lat],
+                },
             });
-            
+
             // Label feature (starts at original location, can be moved)
             labelFeatures.push({
                 type: 'Feature',
-                properties: { 
-                    name: fix.name, 
+                properties: {
+                    name: fix.name,
                     color: fix.color,
                     routeId: fix.routeId,
                     uniqueKey: uniqueKey,
                     origLon: fix.lon,
                     origLat: fix.lat,
-                    hasMoved: false
+                    hasMoved: false,
                 },
-                geometry: { 
-                    type: 'Point', 
-                    coordinates: [fix.lon, fix.lat] 
-                }
+                geometry: {
+                    type: 'Point',
+                    coordinates: [fix.lon, fix.lat],
+                },
             });
         });
-        
+
         // Update point source (circles - never move)
         if (graphic_map.getSource('route-fix-points')) {
-            graphic_map.getSource('route-fix-points').setData({ 
-                type: 'FeatureCollection', 
-                features: pointFeatures 
+            graphic_map.getSource('route-fix-points').setData({
+                type: 'FeatureCollection',
+                features: pointFeatures,
             });
         }
-        
+
         // Update label source
         if (graphic_map.getSource('route-fix-labels')) {
-            graphic_map.getSource('route-fix-labels').setData({ 
-                type: 'FeatureCollection', 
-                features: labelFeatures 
+            graphic_map.getSource('route-fix-labels').setData({
+                type: 'FeatureCollection',
+                features: labelFeatures,
             });
         }
-        
+
         // Clear leader lines initially (no labels have been moved yet)
         if (graphic_map.getSource('route-fix-leaders')) {
-            graphic_map.getSource('route-fix-leaders').setData({ 
-                type: 'FeatureCollection', 
-                features: [] 
+            graphic_map.getSource('route-fix-leaders').setData({
+                type: 'FeatureCollection',
+                features: [],
             });
         }
-        
+
         // Legacy compatibility - update route-fixes source too
         if (graphic_map.getSource('route-fixes')) {
-            graphic_map.getSource('route-fixes').setData({ 
-                type: 'FeatureCollection', 
-                features: pointFeatures 
+            graphic_map.getSource('route-fixes').setData({
+                type: 'FeatureCollection',
+                features: pointFeatures,
             });
         }
 
@@ -2330,7 +2330,7 @@ $(document).ready(function() {
         }
 
         const key = coords.map(c => c[0].toFixed(4) + ',' + c[1].toFixed(4)).join('|') + '|' + color + '|' + solid + '|' + isFan;
-        if (seenSegmentKeys.has(key)) return;
+        if (seenSegmentKeys.has(key)) {return;}
         seenSegmentKeys.add(key);
 
         // Calculate segment distance for popup
@@ -2342,39 +2342,39 @@ $(document).ready(function() {
 
         features.push({
             type: 'Feature',
-            properties: { 
-                color, 
-                solid, 
+            properties: {
+                color,
+                solid,
                 isFan,
                 routeId: routeId || 0,
                 fromFix: fromFix || '',
                 toFix: toFix || '',
-                distance: segmentDistance
+                distance: segmentDistance,
             },
-            geometry: { type: 'LineString', coordinates: coords }
+            geometry: { type: 'LineString', coordinates: coords },
         });
     }
 
     function updateFilteredAirways() {
-        if (!mapReady || !graphic_map) return;
+        if (!mapReady || !graphic_map) {return;}
         const filterVal = ($('#filter').val() || '').toUpperCase();
         const airwayNames = filterVal.split(' ').filter(Boolean);
-        if (!awyIndexBuilt) buildAirwayIndex();
+        if (!awyIndexBuilt) {buildAirwayIndex();}
 
         const features = [];
         airwayNames.forEach(name => {
             const airwayData = awyIndexMap[name];
-            if (!airwayData) return;
+            if (!airwayData) {return;}
             const coords = [];
             airwayData.fixes.forEach(fixName => {
                 const pt = getPointByName(fixName);
-                if (pt && pt.length >= 3) coords.push([pt[2], pt[1]]);
+                if (pt && pt.length >= 3) {coords.push([pt[2], pt[1]]);}
             });
             if (coords.length >= 2) {
                 features.push({
                     type: 'Feature',
                     properties: { name },
-                    geometry: { type: 'LineString', coordinates: coords }
+                    geometry: { type: 'LineString', coordinates: coords },
                 });
             }
         });
@@ -2389,7 +2389,7 @@ $(document).ready(function() {
     function setupInteractivity() {
         // Cursor change handlers
         ['routes-solid', 'routes-dashed', 'routes-fan', 'fixes-circles', 'aircraft-symbols', 'aircraft-circles-fallback', 'filtered-airways-lines', 'flight-routes-ahead', 'flight-routes-behind'].forEach(layerId => {
-            if (!graphic_map.getLayer(layerId)) return;
+            if (!graphic_map.getLayer(layerId)) {return;}
             graphic_map.on('mouseenter', layerId, () => { graphic_map.getCanvas().style.cursor = 'pointer'; });
             graphic_map.on('mouseleave', layerId, () => { graphic_map.getCanvas().style.cursor = ''; });
         });
@@ -2398,10 +2398,10 @@ $(document).ready(function() {
         // FIX/WAYPOINT CLICK - Enhanced popup with coordinates
         // ─────────────────────────────────────────────────────────────────────
         graphic_map.on('click', 'fixes-circles', e => {
-            if (!e.features || !e.features[0]) return;
+            if (!e.features || !e.features[0]) {return;}
             const props = e.features[0].properties;
             const coords = e.features[0].geometry.coordinates;
-            
+
             const content = `
                 <div class="fix-popup" style="font-family: 'Inconsolata', monospace; font-size: 12px;">
                     <div style="font-weight: bold; font-size: 14px; color: ${props.color || '#333'};">${props.name}</div>
@@ -2420,13 +2420,13 @@ $(document).ready(function() {
         // ROUTE SEGMENT CLICK - Handle overlapping routes with picker
         // ─────────────────────────────────────────────────────────────────────
         const handleRouteSegmentClick = (e) => {
-            if (!e.features || !e.features.length) return;
-            
+            if (!e.features || !e.features.length) {return;}
+
             // Query ALL route features at this point across all route layers
             const allFeatures = graphic_map.queryRenderedFeatures(e.point, {
-                layers: ['routes-solid', 'routes-dashed', 'routes-fan']
+                layers: ['routes-solid', 'routes-dashed', 'routes-fan'],
             });
-            
+
             // Group by routeId to find unique routes
             const routeMap = new Map();
             allFeatures.forEach(f => {
@@ -2435,22 +2435,22 @@ $(document).ready(function() {
                     routeMap.set(routeId, f.properties);
                 }
             });
-            
+
             const uniqueRoutes = Array.from(routeMap.entries());
-            
-            if (uniqueRoutes.length === 0) return;
-            
+
+            if (uniqueRoutes.length === 0) {return;}
+
             // Single route - toggle directly
             if (uniqueRoutes.length === 1) {
                 const [routeId, props] = uniqueRoutes[0];
                 showRoutePopupAndToggle(e.lngLat, routeId, props);
                 return;
             }
-            
+
             // Multiple overlapping routes - show picker
             showRoutePickerPopup(e.lngLat, uniqueRoutes);
         };
-        
+
         function showRoutePopupAndToggle(lngLat, routeId, props) {
             let segmentInfo = '';
             if (props.fromFix && props.toFix) {
@@ -2459,16 +2459,16 @@ $(document).ready(function() {
             if (props.distance > 0) {
                 segmentInfo += `<div style="color: var(--dark-text-disabled);">${props.distance} nm</div>`;
             }
-            
+
             const lineType = props.isFan ? 'Fan' : (props.solid ? 'Mandatory' : 'Dashed');
             const isVisible = routeLabelsVisible.has(routeId);
-            
+
             // Create segment key for symbology
             const segmentKey = `${props.fromFix || ''}|${props.toFix || ''}|${routeId}`;
-            
+
             // Check if symbology module is available
             const hasSymbology = typeof RouteSymbology !== 'undefined';
-            
+
             const content = `
                 <div class="route-popup" style="font-family: 'Inconsolata', monospace; font-size: 12px;">
                     ${segmentInfo}
@@ -2495,35 +2495,35 @@ $(document).ready(function() {
                     </div>
                 </div>
             `;
-            
+
             const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
                 .setLngLat(lngLat)
                 .setHTML(content)
                 .addTo(graphic_map);
-            
+
             // Bind button handlers after popup is added to DOM
             setTimeout(() => {
                 const styleBtn = document.querySelector('.route-popup-style-btn');
                 const labelsBtn = document.querySelector('.route-popup-labels-btn');
-                
+
                 if (styleBtn && hasSymbology) {
                     styleBtn.addEventListener('click', function(e) {
                         e.stopPropagation();
                         popup.remove();
-                        
+
                         const segType = this.dataset.segType;
                         const segKey = this.dataset.segmentKey;
                         const rId = parseInt(this.dataset.routeId);
                         const clr = this.dataset.color;
-                        
+
                         const currentStyle = RouteSymbology.getSegmentSymbology(segKey, rId, segType, clr);
-                        
+
                         RouteSymbology.showSegmentEditor(lngLat, segKey, rId, currentStyle, function() {
                             RouteSymbology.applyToMapLibre(graphic_map);
                         }).addTo(graphic_map);
                     });
                 }
-                
+
                 if (labelsBtn) {
                     labelsBtn.addEventListener('click', function(e) {
                         e.stopPropagation();
@@ -2536,14 +2536,14 @@ $(document).ready(function() {
                 }
             }, 50);
         }
-        
+
         function showRoutePickerPopup(lngLat, routes) {
             // Build picker content with clickable route options
-            let options = routes.map(([routeId, props], idx) => {
+            const options = routes.map(([routeId, props], idx) => {
                 const isVisible = routeLabelsVisible.has(routeId);
                 const labelStatus = isVisible ? '👁' : '○';
-                const fromTo = (props.fromFix && props.toFix) 
-                    ? `${props.fromFix}→${props.toFix}` 
+                const fromTo = (props.fromFix && props.toFix)
+                    ? `${props.fromFix}→${props.toFix}`
                     : `Route ${routeId}`;
                 return `
                     <div class="route-picker-option" data-route-id="${routeId}" data-color="${props.color || '#C70039'}"
@@ -2555,7 +2555,7 @@ $(document).ready(function() {
                     </div>
                 `;
             }).join('');
-            
+
             const content = `
                 <div class="route-picker" style="font-family: 'Inconsolata', monospace; min-width: 180px;">
                     <div style="font-weight: bold; font-size: 11px; color: var(--dark-text-disabled); padding: 6px 8px; border-bottom: 2px solid #ddd; text-transform: uppercase;">
@@ -2567,12 +2567,12 @@ $(document).ready(function() {
                     </div>
                 </div>
             `;
-            
+
             const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '250px' })
                 .setLngLat(lngLat)
                 .setHTML(content)
                 .addTo(graphic_map);
-            
+
             // Add click handlers to options
             setTimeout(() => {
                 document.querySelectorAll('.route-picker-option').forEach(el => {
@@ -2580,7 +2580,7 @@ $(document).ready(function() {
                         const routeId = parseInt(this.dataset.routeId);
                         const color = this.dataset.color;
                         toggleRouteLabelsForRoute(routeId, color);
-                        
+
                         // Update the label status indicator
                         const isNowVisible = routeLabelsVisible.has(routeId);
                         const statusSpan = this.querySelector('span:last-child');
@@ -2591,7 +2591,7 @@ $(document).ready(function() {
                 });
             }, 50);
         }
-        
+
         graphic_map.on('click', 'routes-solid', handleRouteSegmentClick);
         graphic_map.on('click', 'routes-dashed', handleRouteSegmentClick);
         graphic_map.on('click', 'routes-fan', handleRouteSegmentClick);
@@ -2602,14 +2602,14 @@ $(document).ready(function() {
         // A leader line is drawn from the label to the original point position
         // ─────────────────────────────────────────────────────────────────────
         graphic_map.on('mousedown', 'route-fixes-labels', (e) => {
-            if (!e.features || !e.features[0]) return;
-            
+            if (!e.features || !e.features[0]) {return;}
+
             const props = e.features[0].properties;
             const coords = e.features[0].geometry.coordinates;
-            
+
             // Use uniqueKey if available, otherwise construct from name + coords
             const uniqueKey = props.uniqueKey || `${props.name}|${(props.origLat || coords[1]).toFixed(4)}|${(props.origLon || coords[0]).toFixed(4)}`;
-            
+
             draggingLabel = {
                 name: props.name,
                 routeId: props.routeId,
@@ -2618,49 +2618,49 @@ $(document).ready(function() {
                 originalPointCoords: [props.origLon || coords[0], props.origLat || coords[1]],
                 // Store current label coordinates for drag calculation
                 currentLabelCoords: coords.slice(),
-                color: props.color
+                color: props.color,
             };
             dragStartPos = { x: e.point.x, y: e.point.y };
-            
+
             graphic_map.getCanvas().style.cursor = 'grabbing';
-            
+
             // Prevent map panning while dragging label
             graphic_map.dragPan.disable();
         });
-        
+
         graphic_map.on('mousemove', (e) => {
-            if (!draggingLabel) return;
-            
+            if (!draggingLabel) {return;}
+
             // Calculate pixel offset from start
             const dx = e.point.x - dragStartPos.x;
             const dy = e.point.y - dragStartPos.y;
-            
+
             // Convert current label position to new lng/lat
             const currentPixel = graphic_map.project(draggingLabel.currentLabelCoords);
             const newPos = graphic_map.unproject([
                 currentPixel.x + dx,
-                currentPixel.y + dy
+                currentPixel.y + dy,
             ]);
-            
+
             // Store in labelOffsets using uniqueKey
             // This only affects the LABEL position, not the point
-            labelOffsets[draggingLabel.uniqueKey] = { 
-                lng: newPos.lng, 
+            labelOffsets[draggingLabel.uniqueKey] = {
+                lng: newPos.lng,
                 lat: newPos.lat,
                 color: draggingLabel.color,
                 // Store original point coords for leader line
                 origLng: draggingLabel.originalPointCoords[0],
-                origLat: draggingLabel.originalPointCoords[1]
+                origLat: draggingLabel.originalPointCoords[1],
             };
-            
+
             // Update display immediately (only labels and leader lines will move)
             updateRouteLabelDisplay();
-            
+
             // Update drag start for continuous dragging
             dragStartPos = { x: e.point.x, y: e.point.y };
             draggingLabel.currentLabelCoords = [newPos.lng, newPos.lat];
         });
-        
+
         graphic_map.on('mouseup', () => {
             if (draggingLabel) {
                 console.log('[MAPLIBRE] Label moved:', draggingLabel.name, '(point stays at original position)');
@@ -2670,7 +2670,7 @@ $(document).ready(function() {
                 dragStartPos = null;
             }
         });
-        
+
         // Also handle mouseup outside map (in case drag ends off-canvas)
         document.addEventListener('mouseup', () => {
             if (draggingLabel) {
@@ -2680,7 +2680,7 @@ $(document).ready(function() {
                 dragStartPos = null;
             }
         });
-        
+
         // Change cursor on label hover
         graphic_map.on('mouseenter', 'route-fixes-labels', () => {
             if (!draggingLabel) {
@@ -2697,9 +2697,9 @@ $(document).ready(function() {
         // FILTERED AIRWAY CLICK - Show airway name
         // ─────────────────────────────────────────────────────────────────────
         graphic_map.on('click', 'filtered-airways-lines', e => {
-            if (!e.features || !e.features[0]) return;
+            if (!e.features || !e.features[0]) {return;}
             const props = e.features[0].properties;
-            
+
             const content = `
                 <div style="font-family: 'Inconsolata', monospace; font-weight: bold;">
                     ${props.name || 'Airway'}
@@ -2715,10 +2715,10 @@ $(document).ready(function() {
         // FLIGHT ROUTE SEGMENT CLICK - Show flight route segment info
         // ─────────────────────────────────────────────────────────────────────
         const handleFlightRouteClick = (e) => {
-            if (!e.features || !e.features[0]) return;
+            if (!e.features || !e.features[0]) {return;}
             const props = e.features[0].properties;
             const isAhead = props.segment === 'ahead';
-            
+
             const content = `
                 <div class="flight-route-popup" style="font-family: 'Inconsolata', monospace; font-size: 12px;">
                     <div style="font-weight: bold; color: ${props.color || '#fff'};">${props.callsign}</div>
@@ -2727,13 +2727,13 @@ $(document).ready(function() {
                     </div>
                 </div>
             `;
-            
+
             new maplibregl.Popup({ closeButton: true, closeOnClick: true })
                 .setLngLat(e.lngLat)
                 .setHTML(content)
                 .addTo(graphic_map);
         };
-        
+
         if (graphic_map.getLayer('flight-routes-ahead')) {
             graphic_map.on('click', 'flight-routes-ahead', handleFlightRouteClick);
         }
@@ -2749,10 +2749,10 @@ $(document).ready(function() {
     // Toggle visibility of fix labels for a specific route
     // ─────────────────────────────────────────────────────────────────────
     function toggleRouteLabelsForRoute(routeId, routeColor) {
-        if (!routeId || !routeFixesByRouteId[routeId]) return;
-        
+        if (!routeId || !routeFixesByRouteId[routeId]) {return;}
+
         const wasVisible = routeLabelsVisible.has(routeId);
-        
+
         if (wasVisible) {
             // Remove labels for this route
             routeLabelsVisible.delete(routeId);
@@ -2760,90 +2760,90 @@ $(document).ready(function() {
             // Add labels for this route
             routeLabelsVisible.add(routeId);
         }
-        
+
         // Rebuild the route-fixes source with only visible route labels
         updateRouteLabelDisplay();
-        
+
         console.log(`[MAPLIBRE] Route ${routeId} labels ${wasVisible ? 'hidden' : 'shown'}`);
     }
-    
+
     // Calculate leader line start point at the edge of label's bounding box
     // Uses pixel-based calculation for accurate results at any zoom level
     // Returns [lon, lat] of the point on the bbox edge closest to the target point
     function getLeaderLineStart(labelLon, labelLat, pointLon, pointLat, textLength) {
-        if (!graphic_map) return [labelLon, labelLat];
-        
+        if (!graphic_map) {return [labelLon, labelLat];}
+
         // Convert to screen coordinates
         const labelPixel = graphic_map.project([labelLon, labelLat]);
         const pointPixel = graphic_map.project([pointLon, pointLat]);
-        
+
         // Approximate label dimensions in pixels
         // Based on typical font size of 10-11px and ~6px per character
         const charWidth = 7;
         const labelHeight = 14;
         const padding = 6;  // Text halo/padding
-        
+
         const halfWidth = (textLength * charWidth + padding) / 2;
         const halfHeight = (labelHeight + padding) / 2;
-        
+
         // Direction from label center to target point in pixels
         const dx = pointPixel.x - labelPixel.x;
         const dy = pointPixel.y - labelPixel.y;
-        
+
         // If point is at same location as label, return label center
         if (dx === 0 && dy === 0) {
             return [labelLon, labelLat];
         }
-        
+
         // Find parametric t where line from center hits bbox edge
         // We want the smallest positive t that lands on a valid edge
         let tMin = Infinity;
-        
+
         // Check left/right edges
         if (dx !== 0) {
             // Right edge
             let t = halfWidth / dx;
             if (t > 0) {
                 const yAtT = t * dy;
-                if (Math.abs(yAtT) <= halfHeight && t < tMin) tMin = t;
+                if (Math.abs(yAtT) <= halfHeight && t < tMin) {tMin = t;}
             }
             // Left edge
             t = -halfWidth / dx;
             if (t > 0) {
                 const yAtT = t * dy;
-                if (Math.abs(yAtT) <= halfHeight && t < tMin) tMin = t;
+                if (Math.abs(yAtT) <= halfHeight && t < tMin) {tMin = t;}
             }
         }
-        
+
         // Check top/bottom edges
         if (dy !== 0) {
             // Bottom edge (positive y is down in screen coords)
             let t = halfHeight / dy;
             if (t > 0) {
                 const xAtT = t * dx;
-                if (Math.abs(xAtT) <= halfWidth && t < tMin) tMin = t;
+                if (Math.abs(xAtT) <= halfWidth && t < tMin) {tMin = t;}
             }
             // Top edge
             t = -halfHeight / dy;
             if (t > 0) {
                 const xAtT = t * dx;
-                if (Math.abs(xAtT) <= halfWidth && t < tMin) tMin = t;
+                if (Math.abs(xAtT) <= halfWidth && t < tMin) {tMin = t;}
             }
         }
-        
+
         if (tMin === Infinity) {
             return [labelLon, labelLat];
         }
-        
+
         // Calculate intersection point in pixels
         const edgePixelX = labelPixel.x + tMin * dx;
         const edgePixelY = labelPixel.y + tMin * dy;
-        
+
         // Convert back to lat/lon
         const edgeLatLng = graphic_map.unproject([edgePixelX, edgePixelY]);
         return [edgeLatLng.lng, edgeLatLng.lat];
     }
-    
+
     function updateRouteLabelDisplay() {
         console.log('[DEBUG-LABELS] updateRouteLabelDisplay() called');
         if (!graphic_map) {
@@ -2857,12 +2857,12 @@ $(document).ready(function() {
 
         routeLabelsVisible.forEach(routeId => {
             const fixes = routeFixesByRouteId[routeId];
-            if (!fixes) return;
-            
+            if (!fixes) {return;}
+
             fixes.forEach(fix => {
                 // Create unique key from name + rounded coords
                 const uniqueKey = `${fix.name}|${fix.lat.toFixed(4)}|${fix.lon.toFixed(4)}`;
-                
+
                 // Only add if not already seen (deduplication)
                 if (!uniqueFixes.has(uniqueKey)) {
                     uniqueFixes.set(uniqueKey, {
@@ -2871,91 +2871,91 @@ $(document).ready(function() {
                         lon: fix.lon,
                         color: fix.color,
                         routeId: routeId,
-                        uniqueKey: uniqueKey
+                        uniqueKey: uniqueKey,
                     });
                 }
             });
         });
-        
+
         const pointFeatures = [];
         const labelFeatures = [];
         const leaderFeatures = [];
-        
+
         uniqueFixes.forEach((fix, uniqueKey) => {
             // Check if this label has been dragged to a custom position
             const customPos = labelOffsets[uniqueKey];
             const hasMoved = !!customPos;
-            
+
             // Point feature - ALWAYS at original position
             pointFeatures.push({
                 type: 'Feature',
-                properties: { 
-                    name: fix.name, 
+                properties: {
+                    name: fix.name,
                     color: fix.color,
                     routeId: fix.routeId,
-                    uniqueKey: uniqueKey
+                    uniqueKey: uniqueKey,
                 },
-                geometry: { 
-                    type: 'Point', 
-                    coordinates: [fix.lon, fix.lat] 
-                }
+                geometry: {
+                    type: 'Point',
+                    coordinates: [fix.lon, fix.lat],
+                },
             });
-            
+
             // Label position (original or moved)
             const labelLon = customPos ? customPos.lng : fix.lon;
             const labelLat = customPos ? customPos.lat : fix.lat;
-            
+
             // Label feature
             labelFeatures.push({
                 type: 'Feature',
-                properties: { 
-                    name: fix.name, 
+                properties: {
+                    name: fix.name,
                     color: fix.color,
                     routeId: fix.routeId,
                     uniqueKey: uniqueKey,
                     origLon: fix.lon,
                     origLat: fix.lat,
-                    hasMoved: hasMoved
+                    hasMoved: hasMoved,
                 },
-                geometry: { 
-                    type: 'Point', 
-                    coordinates: [labelLon, labelLat] 
-                }
+                geometry: {
+                    type: 'Point',
+                    coordinates: [labelLon, labelLat],
+                },
             });
-            
+
             // Leader line (only if label has been moved)
             if (hasMoved) {
                 // Calculate leader line start at edge of label bounding box
                 const leaderStart = getLeaderLineStart(
-                    labelLon, labelLat, 
-                    fix.lon, fix.lat, 
-                    fix.name.length
+                    labelLon, labelLat,
+                    fix.lon, fix.lat,
+                    fix.name.length,
                 );
-                
+
                 leaderFeatures.push({
                     type: 'Feature',
-                    properties: { 
+                    properties: {
                         color: fix.color,
-                        name: fix.name
+                        name: fix.name,
                     },
-                    geometry: { 
-                        type: 'LineString', 
+                    geometry: {
+                        type: 'LineString',
                         coordinates: [
                             leaderStart,           // From label bbox edge
-                            [fix.lon, fix.lat]     // To original point
-                        ]
-                    }
+                            [fix.lon, fix.lat],     // To original point
+                        ],
+                    },
                 });
             }
         });
-        
+
         console.log('[DEBUG-LABELS] Feature counts - points:', pointFeatures.length, 'labels:', labelFeatures.length, 'leaders:', leaderFeatures.length);
 
         // Update point source (circles - always at original positions)
         if (graphic_map.getSource('route-fix-points')) {
             graphic_map.getSource('route-fix-points').setData({
                 type: 'FeatureCollection',
-                features: pointFeatures
+                features: pointFeatures,
             });
             console.log('[DEBUG-LABELS] Updated route-fix-points source');
         } else {
@@ -2966,7 +2966,7 @@ $(document).ready(function() {
         if (graphic_map.getSource('route-fix-labels')) {
             graphic_map.getSource('route-fix-labels').setData({
                 type: 'FeatureCollection',
-                features: labelFeatures
+                features: labelFeatures,
             });
             console.log('[DEBUG-LABELS] Updated route-fix-labels source');
         } else {
@@ -2977,7 +2977,7 @@ $(document).ready(function() {
         if (graphic_map.getSource('route-fix-leaders')) {
             graphic_map.getSource('route-fix-leaders').setData({
                 type: 'FeatureCollection',
-                features: leaderFeatures
+                features: leaderFeatures,
             });
         }
 
@@ -2985,19 +2985,19 @@ $(document).ready(function() {
         if (graphic_map.getSource('route-fixes')) {
             graphic_map.getSource('route-fixes').setData({
                 type: 'FeatureCollection',
-                features: pointFeatures
+                features: pointFeatures,
             });
         }
         console.log('[DEBUG-LABELS] updateRouteLabelDisplay() complete');
     }
-    
+
     // Reset all label positions to original
     function resetLabelPositions() {
         labelOffsets = {};
         updateRouteLabelDisplay();
         console.log('[MAPLIBRE] All label positions reset');
     }
-    
+
     // Toggle ALL route labels on/off (for Toggle Labels button)
     function toggleAllLabels() {
         console.log('[DEBUG-LABELS] toggleAllLabels() called');
@@ -3026,7 +3026,7 @@ $(document).ready(function() {
             console.error('[MAPLIBRE] toggleAllLabels error:', e);
         }
     }
-    
+
     // Expose toggleAllLabels globally for the button onclick
     window.toggleAllLabels = toggleAllLabels;
 
@@ -3055,15 +3055,15 @@ $(document).ready(function() {
                 dest: '',
                 carrier: '',
                 altitudeMin: null,
-                altitudeMax: null
+                altitudeMax: null,
             },
             // Custom color filter rules (user-defined, evaluated in order)
-            colorRules: []
+            colorRules: [],
         };
 
         // Route colors for drawn flight plans
         const ROUTE_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12', '#1abc9c', '#e91e63', '#00bcd4'];
-        let routeColorIndex = 0;
+        const routeColorIndex = 0;
 
         // ═══════════════════════════════════════════════════════════════════════════
         // PROFESSIONAL COLOR PALETTES
@@ -3073,7 +3073,7 @@ $(document).ready(function() {
         // Tableau 10 - highly distinguishable
         const TABLEAU_10 = [
             '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
-            '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac'
+            '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac',
         ];
 
         // D3 Category 20 - extended palette
@@ -3081,7 +3081,7 @@ $(document).ready(function() {
             '#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c',
             '#98df8a', '#d62728', '#ff9896', '#9467bd', '#c5b0d5',
             '#8c564b', '#c49c94', '#e377c2', '#f7b6d2', '#7f7f7f',
-            '#c7c7c7', '#bcbd22', '#dbdb8d', '#17becf', '#9edae5'
+            '#c7c7c7', '#bcbd22', '#dbdb8d', '#17becf', '#9edae5',
         ];
 
         // Named colors for user convenience (CSS standard names mapped to hex)
@@ -3091,7 +3091,7 @@ $(document).ready(function() {
             'brown': '#9c755f', 'gray': '#bab0ac', 'cyan': '#17becf', 'lime': '#98df8a',
             'navy': '#1f3a5f', 'maroon': '#800000', 'olive': '#808000', 'aqua': '#00ffff',
             'magenta': '#e377c2', 'gold': '#ffd700', 'coral': '#ff7f50', 'salmon': '#fa8072',
-            'indigo': '#4b0082', 'violet': '#ee82ee', 'turquoise': '#40e0d0', 'slate': '#708090'
+            'indigo': '#4b0082', 'violet': '#ee82ee', 'turquoise': '#40e0d0', 'slate': '#708090',
         };
 
         // ─────────────────────────────────────────────────────────────────────
@@ -3103,14 +3103,14 @@ $(document).ready(function() {
             'HEAVY': '#dc3545', 'H': '#dc3545',  // Red for Heavy
             'LARGE': '#28a745', 'L': '#28a745',  // Green for Large/Jet
             'SMALL': '#17a2b8', 'S': '#17a2b8',  // Cyan for Small/Prop
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         const AIRCRAFT_CATEGORY_COLORS = {
             'J': '#dc3545', 'JET': '#dc3545',
             'T': '#28a745', 'TURBO': '#28a745',
             'P': '#17a2b8', 'PROP': '#17a2b8',
-            '': '#ffffff'
+            '': '#ffffff',
         };
 
         // ─────────────────────────────────────────────────────────────────────
@@ -3121,7 +3121,7 @@ $(document).ready(function() {
             'SOUTH_CENTRAL': ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
             'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
             'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
-            'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY']
+            'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
         };
 
         const DCC_REGION_COLORS = {
@@ -3130,13 +3130,13 @@ $(document).ready(function() {
             'MIDWEST': '#59a14f',        // Green
             'SOUTHEAST': '#edc948',      // Yellow
             'NORTHEAST': '#4e79a7',      // Blue
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         // ARTCC colors - inherit from DCC region with variations
         const CENTER_COLORS = {
             // West (Red family)
-            'ZAK': '#e15759', 'ZAN': '#ff6b6b', 'ZHN': '#c9302c', 'ZLA': '#e15759', 
+            'ZAK': '#e15759', 'ZAN': '#ff6b6b', 'ZHN': '#c9302c', 'ZLA': '#e15759',
             'ZLC': '#ff8787', 'ZOA': '#d64545', 'ZSE': '#f28080',
             // South Central (Orange family)
             'ZAB': '#f28e2b', 'ZFW': '#ff9f43', 'ZHO': '#e67e22', 'ZHU': '#f5a623', 'ZME': '#d68910',
@@ -3146,7 +3146,7 @@ $(document).ready(function() {
             'ZID': '#edc948', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#d4ac0d', 'ZTL': '#e9b824',
             // Northeast (Blue family)
             'ZBW': '#4e79a7', 'ZDC': '#3498db', 'ZNY': '#2980b9', 'ZOB': '#5dade2', 'ZWY': '#1a5276',
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         // TRACON to ARTCC mapping (major TRACONs)
@@ -3160,13 +3160,13 @@ $(document).ready(function() {
             // South Central
             'D10': 'ZFW', 'I90': 'ZHU', 'AUS': 'ZHU', 'SAT': 'ZHU',
             // West
-            'L30': 'ZLA', 'SCT': 'ZLA', 'NCT': 'ZOA', 'S46': 'ZSE', 'P50': 'ZSE', 'D01': 'ZDV'
+            'L30': 'ZLA', 'SCT': 'ZLA', 'NCT': 'ZOA', 'S46': 'ZSE', 'P50': 'ZSE', 'D01': 'ZDV',
         };
 
         // TRACON colors - inherit from parent ARTCC
         function getTraconColor(tracon) {
             const artcc = TRACON_TO_ARTCC[tracon];
-            if (artcc && CENTER_COLORS[artcc]) return CENTER_COLORS[artcc];
+            if (artcc && CENTER_COLORS[artcc]) {return CENTER_COLORS[artcc];}
             return '#6c757d';
         }
 
@@ -3177,12 +3177,12 @@ $(document).ready(function() {
             'KATL', 'KBOS', 'KBWI', 'KCLE', 'KCLT', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
             'KEWR', 'KFLL', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KMCO',
             'KMDW', 'KMEM', 'KMIA', 'KMSP', 'KORD', 'KPHL', 'KPHX', 'KSAN', 'KSEA',
-            'KSFO', 'KSLC', 'KTPA'
+            'KSFO', 'KSLC', 'KTPA',
         ];
 
         const OEP35_AIRPORTS = [
             ...CORE30_AIRPORTS,
-            'KSTL', 'KPDX', 'KHON', 'KPIT', 'KCVG'
+            'KSTL', 'KPDX', 'KHON', 'KPIT', 'KCVG',
         ];
 
         const ASPM77_AIRPORTS = [
@@ -3191,7 +3191,7 @@ $(document).ready(function() {
             'KHOU', 'KIND', 'KJAX', 'KMCI', 'KMKE', 'KMSY', 'KOAK', 'KOMA',
             'KONT', 'KPBI', 'KPVD', 'KRDU', 'KRNO', 'KRSW', 'KSAT', 'KSDF',
             'KSJC', 'KSMF', 'KSNA', 'KSTL', 'KTUL', 'KAUS', 'KBHM', 'KELP',
-            'KGSO', 'KICT', 'KLIT', 'KLUBB', 'KOKC', 'KRIC', 'KSAV', 'KSYR'
+            'KGSO', 'KICT', 'KLIT', 'KLUBB', 'KOKC', 'KRIC', 'KSAV', 'KSYR',
         ];
 
         const AIRPORT_TIER_COLORS = {
@@ -3199,15 +3199,15 @@ $(document).ready(function() {
             'OEP35': '#4e79a7',     // Blue
             'ASPM77': '#edc948',    // Yellow
             'OTHER': '#59a14f',     // Green
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         function getAirportTier(icao) {
-            if (!icao) return 'OTHER';
+            if (!icao) {return 'OTHER';}
             const apt = icao.toUpperCase();
-            if (CORE30_AIRPORTS.includes(apt)) return 'CORE30';
-            if (OEP35_AIRPORTS.includes(apt)) return 'OEP35';
-            if (ASPM77_AIRPORTS.includes(apt)) return 'ASPM77';
+            if (CORE30_AIRPORTS.includes(apt)) {return 'CORE30';}
+            if (OEP35_AIRPORTS.includes(apt)) {return 'OEP35';}
+            if (ASPM77_AIRPORTS.includes(apt)) {return 'ASPM77';}
             return 'OTHER';
         }
 
@@ -3222,7 +3222,7 @@ $(document).ready(function() {
             'MD_DC':      /^MD[0-9]{2}|^DC[0-9]{1,2}|^L10|^L101|^C130|^C17/i,
             'SAAB_OTHER': /^SF34|^SB20|^F[0-9]{2,3}|^D[0-9]{3}|^BAE|^B?146|^RJ[0-9]{2}|^AT[0-9]{2}|^PC[0-9]{2}/i,
             'RUSSIAN':    /^AN[0-9]{2,3}|^IL[0-9]{2,3}|^TU[0-9]{3}|^SU[0-9]{2}|^YAK|^BE20[0-9]/i,
-            'CHINESE':    /^ARJ|^C9[0-9]{2}|^MA[0-9]{2}|^Y[0-9]{1,2}/i
+            'CHINESE':    /^ARJ|^C9[0-9]{2}|^MA[0-9]{2}|^Y[0-9]{1,2}/i,
         };
 
         const AIRCRAFT_MANUFACTURER_COLORS = {
@@ -3234,14 +3234,14 @@ $(document).ready(function() {
             'SAAB_OTHER': '#76b7b2',   // Teal
             'RUSSIAN': '#9c755f',      // Brown
             'CHINESE': '#edc948',      // Yellow
-            'OTHER': '#6c757d'         // Gray
+            'OTHER': '#6c757d',         // Gray
         };
 
         function getAircraftManufacturer(acType) {
-            if (!acType) return 'OTHER';
+            if (!acType) {return 'OTHER';}
             const type = acType.toUpperCase();
             for (const [mfr, pattern] of Object.entries(AIRCRAFT_MANUFACTURER_PATTERNS)) {
-                if (pattern.test(type)) return mfr;
+                if (pattern.test(type)) {return mfr;}
             }
             return 'OTHER';
         }
@@ -3257,7 +3257,7 @@ $(document).ready(function() {
             'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]/i,
             'REGIONAL_JET': /^CRJ|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]/i,
             'TURBOPROP':   /^AT[0-9]{2}|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^C208|^BE[0-9]{2}[0-9]/i,
-            'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]/i
+            'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]/i,
         };
 
         const AIRCRAFT_CONFIG_COLORS = {
@@ -3269,14 +3269,14 @@ $(document).ready(function() {
             'REGIONAL_JET': '#4e79a7',  // Blue
             'TURBOPROP': '#76b7b2',     // Teal
             'PROP': '#17a2b8',          // Cyan
-            'OTHER': '#6c757d'          // Gray
+            'OTHER': '#6c757d',          // Gray
         };
 
         function getAircraftConfig(acType) {
-            if (!acType) return 'OTHER';
+            if (!acType) {return 'OTHER';}
             const type = acType.toUpperCase();
             for (const [cfg, pattern] of Object.entries(AIRCRAFT_CONFIG_PATTERNS)) {
-                if (pattern.test(type)) return cfg;
+                if (pattern.test(type)) {return cfg;}
             }
             return 'OTHER';
         }
@@ -3329,7 +3329,7 @@ $(document).ready(function() {
             // Military/Government
             'AIO': '#556b2f', 'RCH': '#556b2f', 'RRR': '#556b2f',
             // Default
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         // ─────────────────────────────────────────────────────────────────────
@@ -3346,21 +3346,21 @@ $(document).ready(function() {
             'FREIGHT': '#f28e2b',    // Orange
             'GA': '#76b7b2',         // Teal
             'MILITARY': '#556b2f',   // Olive
-            'OTHER': '#6c757d'       // Gray
+            'OTHER': '#6c757d',       // Gray
         };
 
         function getOperatorGroup(callsign) {
-            if (!callsign) return 'OTHER';
+            if (!callsign) {return 'OTHER';}
             const carrier = extractCarrier(callsign);
-            if (MAJOR_CARRIERS.includes(carrier)) return 'MAJOR';
-            if (REGIONAL_CARRIERS.includes(carrier)) return 'REGIONAL';
-            if (FREIGHT_CARRIERS.includes(carrier)) return 'FREIGHT';
+            if (MAJOR_CARRIERS.includes(carrier)) {return 'MAJOR';}
+            if (REGIONAL_CARRIERS.includes(carrier)) {return 'REGIONAL';}
+            if (FREIGHT_CARRIERS.includes(carrier)) {return 'FREIGHT';}
             // Check military prefixes
             for (const prefix of MILITARY_PREFIXES) {
-                if (callsign.toUpperCase().startsWith(prefix)) return 'MILITARY';
+                if (callsign.toUpperCase().startsWith(prefix)) {return 'MILITARY';}
             }
             // GA typically has N-numbers or short callsigns
-            if (/^N[0-9]/.test(callsign.toUpperCase()) || callsign.length <= 5) return 'GA';
+            if (/^N[0-9]/.test(callsign.toUpperCase()) || callsign.length <= 5) {return 'GA';}
             return 'OTHER';
         }
 
@@ -3377,20 +3377,20 @@ $(document).ready(function() {
             'HIGH': '#f28e2b',       // Orange - FL290-350
             'VHIGH': '#e15759',      // Red - FL350-410
             'SUPERHIGH': '#9c27b0',  // Purple - >FL410
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         function getAltitudeBlockColor(altitude) {
             const alt = parseInt(altitude) || 0;
             const fl = alt / 100;
-            if (fl < 5) return ALTITUDE_BLOCK_COLORS['GROUND'];
-            if (fl < 10) return ALTITUDE_BLOCK_COLORS['SURFACE'];
-            if (fl < 100) return ALTITUDE_BLOCK_COLORS['LOW'];
-            if (fl < 180) return ALTITUDE_BLOCK_COLORS['LOWMED'];
-            if (fl < 240) return ALTITUDE_BLOCK_COLORS['MED'];
-            if (fl < 290) return ALTITUDE_BLOCK_COLORS['MEDHIGH'];
-            if (fl < 350) return ALTITUDE_BLOCK_COLORS['HIGH'];
-            if (fl < 410) return ALTITUDE_BLOCK_COLORS['VHIGH'];
+            if (fl < 5) {return ALTITUDE_BLOCK_COLORS['GROUND'];}
+            if (fl < 10) {return ALTITUDE_BLOCK_COLORS['SURFACE'];}
+            if (fl < 100) {return ALTITUDE_BLOCK_COLORS['LOW'];}
+            if (fl < 180) {return ALTITUDE_BLOCK_COLORS['LOWMED'];}
+            if (fl < 240) {return ALTITUDE_BLOCK_COLORS['MED'];}
+            if (fl < 290) {return ALTITUDE_BLOCK_COLORS['MEDHIGH'];}
+            if (fl < 350) {return ALTITUDE_BLOCK_COLORS['HIGH'];}
+            if (fl < 410) {return ALTITUDE_BLOCK_COLORS['VHIGH'];}
             return ALTITUDE_BLOCK_COLORS['SUPERHIGH'];
         }
 
@@ -3403,7 +3403,7 @@ $(document).ready(function() {
             'B757': '#f28e2b',      // Orange - Special B757 category
             'LARGE': '#edc948',     // Yellow - Large aircraft
             'SMALL': '#59a14f',     // Green - Small aircraft
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         // Aircraft type to wake category mapping
@@ -3415,25 +3415,25 @@ $(document).ready(function() {
             'B788': 'HEAVY', 'B789': 'HEAVY', 'B78X': 'HEAVY', 'B763': 'HEAVY', 'B764': 'HEAVY',
             'A333': 'HEAVY', 'A332': 'HEAVY', 'A339': 'HEAVY', 'A359': 'HEAVY', 'A35K': 'HEAVY',
             'A346': 'HEAVY', 'A345': 'HEAVY', 'A343': 'HEAVY', 'A342': 'HEAVY',
-            'MD11': 'HEAVY', 'DC10': 'HEAVY', 'L101': 'HEAVY'
+            'MD11': 'HEAVY', 'DC10': 'HEAVY', 'L101': 'HEAVY',
         };
 
         function getWakeCategory(acType, weightClass) {
             if (!acType) {
                 // Fall back to weight class
                 const wc = (weightClass || '').toUpperCase();
-                if (wc === 'J' || wc === 'SUPER') return 'SUPER';
-                if (wc === 'H' || wc === 'HEAVY') return 'HEAVY';
-                if (wc === 'L' || wc === 'LARGE') return 'LARGE';
+                if (wc === 'J' || wc === 'SUPER') {return 'SUPER';}
+                if (wc === 'H' || wc === 'HEAVY') {return 'HEAVY';}
+                if (wc === 'L' || wc === 'LARGE') {return 'LARGE';}
                 return 'SMALL';
             }
             const type = acType.toUpperCase();
-            if (WAKE_CATEGORY_MAP[type]) return WAKE_CATEGORY_MAP[type];
+            if (WAKE_CATEGORY_MAP[type]) {return WAKE_CATEGORY_MAP[type];}
             // Heuristics based on type code
-            if (/^A38/.test(type)) return 'SUPER';
-            if (/^B75[0-9]/.test(type)) return 'B757';
-            if (/^B7[4678]|^A3[345]|^MD11|^DC10|^IL96/.test(type)) return 'HEAVY';
-            if (/^B73[0-9]|^A3[12]|^MD[89]|^CRJ|^E[0-9]{3}/.test(type)) return 'LARGE';
+            if (/^A38/.test(type)) {return 'SUPER';}
+            if (/^B75[0-9]/.test(type)) {return 'B757';}
+            if (/^B7[4678]|^A3[345]|^MD11|^DC10|^IL96/.test(type)) {return 'HEAVY';}
+            if (/^B73[0-9]|^A3[12]|^MD[89]|^CRJ|^E[0-9]{3}/.test(type)) {return 'LARGE';}
             return 'SMALL';
         }
 
@@ -3450,28 +3450,28 @@ $(document).ready(function() {
             'ETA_300': '#b07aa1',    // Purple
             'ETA_480': '#9c755f',    // Brown
             'ETA_OVER': '#6c757d',   // Gray - >8 hours
-            '': '#6c757d'
+            '': '#6c757d',
         };
 
         function getEtaRelativeCategory(etaUtc) {
-            if (!etaUtc) return '';
+            if (!etaUtc) {return '';}
             const now = new Date();
             const eta = new Date(etaUtc);
             const diffMin = (eta - now) / 60000;
-            if (diffMin <= 15) return 'ETA_15';
-            if (diffMin <= 30) return 'ETA_30';
-            if (diffMin <= 60) return 'ETA_60';
-            if (diffMin <= 90) return 'ETA_90';
-            if (diffMin <= 120) return 'ETA_120';
-            if (diffMin <= 180) return 'ETA_180';
-            if (diffMin <= 300) return 'ETA_300';
-            if (diffMin <= 480) return 'ETA_480';
+            if (diffMin <= 15) {return 'ETA_15';}
+            if (diffMin <= 30) {return 'ETA_30';}
+            if (diffMin <= 60) {return 'ETA_60';}
+            if (diffMin <= 90) {return 'ETA_90';}
+            if (diffMin <= 120) {return 'ETA_120';}
+            if (diffMin <= 180) {return 'ETA_180';}
+            if (diffMin <= 300) {return 'ETA_300';}
+            if (diffMin <= 480) {return 'ETA_480';}
             return 'ETA_OVER';
         }
 
         // ETA Hour gradient (0-23 hours mapped to color wheel)
         function getEtaHourColor(etaUtc) {
-            if (!etaUtc) return '#6c757d';
+            if (!etaUtc) {return '#6c757d';}
             const eta = new Date(etaUtc);
             const hour = eta.getUTCHours();
             // Map hour to hue (0-360 degrees)
@@ -3485,7 +3485,7 @@ $(document).ready(function() {
         // ─────────────────────────────────────────────────────────────────────
         // USER-DEFINED COLOR FILTER RULES
         // ─────────────────────────────────────────────────────────────────────
-        
+
         // Load saved rules from localStorage
         function loadColorRules() {
             try {
@@ -3510,19 +3510,19 @@ $(document).ready(function() {
 
         // Parse color - supports hex, named colors, and CSS colors
         function parseColor(colorStr) {
-            if (!colorStr) return null;
+            if (!colorStr) {return null;}
             const c = colorStr.toLowerCase().trim();
-            if (NAMED_COLORS[c]) return NAMED_COLORS[c];
-            if (/^#[0-9a-f]{3,8}$/i.test(c)) return c;
+            if (NAMED_COLORS[c]) {return NAMED_COLORS[c];}
+            if (/^#[0-9a-f]{3,8}$/i.test(c)) {return c;}
             return colorStr; // Return as-is for CSS colors like rgb()
         }
 
         // Check if value matches pattern (supports wildcards)
         function matchesPattern(value, pattern) {
-            if (!value || !pattern) return false;
+            if (!value || !pattern) {return false;}
             const v = String(value).toUpperCase();
             const p = String(pattern).toUpperCase().trim();
-            
+
             // Wildcard matching
             if (p.includes('*')) {
                 const regex = new RegExp('^' + p.replace(/\*/g, '.*') + '$');
@@ -3533,7 +3533,7 @@ $(document).ready(function() {
 
         // Check if flight matches a color rule
         function flightMatchesRule(flight, rule) {
-            if (!rule.field || !rule.values || rule.values.length === 0) return false;
+            if (!rule.field || !rule.values || rule.values.length === 0) {return false;}
 
             const values = rule.values;
             let flightValue = '';
@@ -3600,7 +3600,7 @@ $(document).ready(function() {
 
         function renderColorRulesUI() {
             const $container = $('#adl_color_rules_container');
-            if (!$container.length) return;
+            if (!$container.length) {return;}
 
             let html = `
                 <div class="color-rules-header d-flex justify-content-between align-items-center mb-2">
@@ -3709,7 +3709,7 @@ $(document).ready(function() {
             });
             $('#rule_color').on('input', function() {
                 const parsed = parseColor($(this).val());
-                if (parsed) $('#rule_color_picker').val(parsed);
+                if (parsed) {$('#rule_color_picker').val(parsed);}
             });
 
             // Quick color selection
@@ -3768,13 +3768,13 @@ $(document).ready(function() {
 
         // Helper functions
         function extractCarrier(callsign) {
-            if (!callsign) return '';
+            if (!callsign) {return '';}
             const match = callsign.match(/^([A-Z]{3})/);
             return match ? match[1] : '';
         }
 
         function getAirportCenter(icao) {
-            if (!icao) return '';
+            if (!icao) {return '';}
             const code = icao.toUpperCase();
             // Comprehensive airport to ARTCC mapping
             const centerMap = {
@@ -3821,14 +3821,14 @@ $(document).ready(function() {
                 // ZAN - Anchorage
                 'PANC': 'ZAN', 'PAFA': 'ZAN',
                 // ZHN - Honolulu
-                'PHNL': 'ZHN', 'PHOG': 'ZHN', 'PHKO': 'ZHN', 'PHLI': 'ZHN'
+                'PHNL': 'ZHN', 'PHOG': 'ZHN', 'PHKO': 'ZHN', 'PHLI': 'ZHN',
             };
             return centerMap[code] || '';
         }
 
         // Get TRACON for an airport
         function getAirportTracon(icao) {
-            if (!icao) return '';
+            if (!icao) {return '';}
             const code = icao.toUpperCase();
             // Major airport to TRACON mapping
             const traconMap = {
@@ -3873,7 +3873,7 @@ $(document).ready(function() {
                 // LAS - Las Vegas
                 'KLAS': 'LAS',
                 // SLC - Salt Lake
-                'KSLC': 'SLC'
+                'KSLC': 'SLC',
             };
             return traconMap[code] || '';
         }
@@ -3886,8 +3886,8 @@ $(document).ready(function() {
                     return WEIGHT_CLASS_COLORS[wc] || WEIGHT_CLASS_COLORS[''];
                 case 'aircraft_category':
                     const wcCat = (flight.weight_class || '').toUpperCase().trim();
-                    if (wcCat === 'J' || wcCat === 'SUPER' || wcCat === 'HEAVY' || wcCat === 'H') return AIRCRAFT_CATEGORY_COLORS['JET'];
-                    if (wcCat === 'T') return AIRCRAFT_CATEGORY_COLORS['TURBO'];
+                    if (wcCat === 'J' || wcCat === 'SUPER' || wcCat === 'HEAVY' || wcCat === 'H') {return AIRCRAFT_CATEGORY_COLORS['JET'];}
+                    if (wcCat === 'T') {return AIRCRAFT_CATEGORY_COLORS['TURBO'];}
                     return AIRCRAFT_CATEGORY_COLORS['PROP'];
                 case 'aircraft_type':
                     const mfr = getAircraftManufacturer(flight.aircraft_type);
@@ -3919,7 +3919,7 @@ $(document).ready(function() {
                 case 'dcc_region':
                     const center = getAirportCenter(flight.fp_dept_icao) || getAirportCenter(flight.fp_dest_icao);
                     for (const [region, centers] of Object.entries(DCC_REGIONS)) {
-                        if (centers.includes(center)) return DCC_REGION_COLORS[region];
+                        if (centers.includes(center)) {return DCC_REGION_COLORS[region];}
                     }
                     return DCC_REGION_COLORS[''];
                 case 'dep_airport':
@@ -3977,63 +3977,63 @@ $(document).ready(function() {
             const arrArtcc = (flight.fp_dest_artcc || '').toUpperCase();
             const depTracon = (flight.dep_tracon || '').toUpperCase();
             const arrTracon = (flight.arr_tracon || '').toUpperCase();
-            
-            if (!origin && !dest && !depArtcc && !arrArtcc) return '#666666'; // Gray - no data
-            
+
+            if (!origin && !dest && !depArtcc && !arrArtcc) {return '#666666';} // Gray - no data
+
             // Known ARTCC codes pattern (3 letters starting with Z)
             const artccPattern = /^Z[A-Z]{2}$/;
             // TRACON codes pattern
             const traconPattern = /^[A-Z][0-9]{2}$|^(NCT|PCT|SCT|A80|N90|C90|D10|I90|L30)$/;
-            
+
             /**
              * Check if a flight matches a single filter value
              */
             function matchesFilter(filterValue, isOrigin) {
-                if (!filterValue) return false;
-                
+                if (!filterValue) {return false;}
+
                 const f = filterValue.toUpperCase().trim();
                 const airport = isOrigin ? origin : dest;
                 const artcc = isOrigin ? depArtcc : arrArtcc;
                 const tracon = isOrigin ? depTracon : arrTracon;
-                
+
                 // Direct airport match
-                if (airport === f) return true;
-                
+                if (airport === f) {return true;}
+
                 // ARTCC match
-                if (artccPattern.test(f) && artcc === f) return true;
-                if (artcc === f) return true;  // Also handle non-pattern ARTCC matches
-                
+                if (artccPattern.test(f) && artcc === f) {return true;}
+                if (artcc === f) {return true;}  // Also handle non-pattern ARTCC matches
+
                 // TRACON match
-                if (traconPattern.test(f) && tracon === f) return true;
-                
+                if (traconPattern.test(f) && tracon === f) {return true;}
+
                 // Prefix matching (e.g., "K" matches all K-prefixed airports)
-                if (f.length <= 2 && airport.startsWith(f)) return true;
-                
+                if (f.length <= 2 && airport.startsWith(f)) {return true;}
+
                 return false;
             }
-            
+
             // Get VISIBLE public routes only (active + future, not hidden)
-            const publicRoutes = (window.PublicRoutes && typeof window.PublicRoutes.getRoutes === 'function') 
-                ? window.PublicRoutes.getRoutes() 
+            const publicRoutes = (window.PublicRoutes && typeof window.PublicRoutes.getRoutes === 'function')
+                ? window.PublicRoutes.getRoutes()
                 : [];
-            
-            if (!publicRoutes || publicRoutes.length === 0) return '#666666';
-            
+
+            if (!publicRoutes || publicRoutes.length === 0) {return '#666666';}
+
             // Check each public route for a match
             for (const route of publicRoutes) {
                 const originFilter = route.origin_filter || [];
                 const destFilter = route.dest_filter || [];
-                
+
                 // Parse filters if they're strings
-                const origins = Array.isArray(originFilter) ? originFilter : 
-                                (typeof originFilter === 'string' ? originFilter.split(',').map(s => s.trim()) : []);
-                const dests = Array.isArray(destFilter) ? destFilter : 
-                              (typeof destFilter === 'string' ? destFilter.split(',').map(s => s.trim()) : []);
-                
+                const origins = Array.isArray(originFilter) ? originFilter :
+                    (typeof originFilter === 'string' ? originFilter.split(',').map(s => s.trim()) : []);
+                const dests = Array.isArray(destFilter) ? destFilter :
+                    (typeof destFilter === 'string' ? destFilter.split(',').map(s => s.trim()) : []);
+
                 // Normalize filter values to uppercase
                 const normalizedOrigins = origins.map(o => (o || '').toUpperCase().trim()).filter(o => o);
                 const normalizedDests = dests.map(d => (d || '').toUpperCase().trim()).filter(d => d);
-                
+
                 // Check origin match - requires non-empty origin filter to match
                 let originMatch = false;
                 if (normalizedOrigins.length > 0) {
@@ -4044,7 +4044,7 @@ $(document).ready(function() {
                         }
                     }
                 }
-                
+
                 // Check dest match - requires non-empty dest filter to match
                 let destMatch = false;
                 if (normalizedDests.length > 0) {
@@ -4055,13 +4055,13 @@ $(document).ready(function() {
                         }
                     }
                 }
-                
+
                 // If both origin and dest match (requires both filters to be non-empty)
                 if (originMatch && destMatch) {
                     return route.color || '#17a2b8';
                 }
             }
-            
+
             // No match - return lighter gray for better visibility
             return '#666666';
         }
@@ -4071,7 +4071,7 @@ $(document).ready(function() {
          * e.g., B738/L -> B738, A320/G -> A320, C172/U -> C172
          */
         function stripAircraftSuffixes(acType) {
-            if (!acType) return '';
+            if (!acType) {return '';}
             // Remove everything after first slash (equipment suffix)
             // Also handles formats like B738-L or B738_L
             return acType.split(/[\/\-_]/)[0].toUpperCase();
@@ -4084,7 +4084,7 @@ $(document).ready(function() {
 
         function renderColorLegend() {
             const $legend = $('#adl_color_legend');
-            if (!$legend.length) return;
+            if (!$legend.length) {return;}
             let items = [];
 
             switch (state.colorBy) {
@@ -4093,14 +4093,14 @@ $(document).ready(function() {
                         { color: WEIGHT_CLASS_COLORS['SUPER'], label: 'Super (▬▬)' },
                         { color: WEIGHT_CLASS_COLORS['HEAVY'], label: 'Heavy (═)' },
                         { color: WEIGHT_CLASS_COLORS['LARGE'], label: 'Large (✈)' },
-                        { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'Small (○)' }
+                        { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'Small (○)' },
                     ];
                     break;
                 case 'aircraft_category':
                     items = [
                         { color: AIRCRAFT_CATEGORY_COLORS['JET'], label: 'Jet' },
                         { color: AIRCRAFT_CATEGORY_COLORS['TURBO'], label: 'Turbo' },
-                        { color: AIRCRAFT_CATEGORY_COLORS['PROP'], label: 'Prop' }
+                        { color: AIRCRAFT_CATEGORY_COLORS['PROP'], label: 'Prop' },
                     ];
                     break;
                 case 'aircraft_type':
@@ -4110,7 +4110,7 @@ $(document).ready(function() {
                         { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: 'Embraer' },
                         { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: 'Bombardier' },
                         { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: 'MD/DC' },
-                        { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: 'Other' }
+                        { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: 'Other' },
                     ];
                     break;
                 case 'aircraft_config':
@@ -4122,7 +4122,7 @@ $(document).ready(function() {
                         { color: AIRCRAFT_CONFIG_COLORS['TWIN_JET'], label: 'Twin-jet' },
                         { color: AIRCRAFT_CONFIG_COLORS['REGIONAL_JET'], label: 'Regional' },
                         { color: AIRCRAFT_CONFIG_COLORS['TURBOPROP'], label: 'Turboprop' },
-                        { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: 'Prop' }
+                        { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: 'Prop' },
                     ];
                     break;
                 case 'wake_category':
@@ -4131,7 +4131,7 @@ $(document).ready(function() {
                         { color: WAKE_CATEGORY_COLORS['HEAVY'], label: 'Heavy' },
                         { color: WAKE_CATEGORY_COLORS['B757'], label: 'B757' },
                         { color: WAKE_CATEGORY_COLORS['LARGE'], label: 'Large' },
-                        { color: WAKE_CATEGORY_COLORS['SMALL'], label: 'Small' }
+                        { color: WAKE_CATEGORY_COLORS['SMALL'], label: 'Small' },
                     ];
                     break;
                 case 'altitude':
@@ -4143,14 +4143,14 @@ $(document).ready(function() {
                         { color: ALTITUDE_BLOCK_COLORS['MEDHIGH'], label: 'FL240-290' },
                         { color: ALTITUDE_BLOCK_COLORS['HIGH'], label: 'FL290-350' },
                         { color: ALTITUDE_BLOCK_COLORS['VHIGH'], label: 'FL350-410' },
-                        { color: ALTITUDE_BLOCK_COLORS['SUPERHIGH'], label: '>FL410' }
+                        { color: ALTITUDE_BLOCK_COLORS['SUPERHIGH'], label: '>FL410' },
                     ];
                     break;
                 case 'arr_dep':
                     items = [
                         { color: ARR_DEP_COLORS['ARR'], label: 'Enroute' },
                         { color: ARR_DEP_COLORS['DEP'], label: 'Climbing' },
-                        { color: '#666666', label: 'Ground' }
+                        { color: '#666666', label: 'Ground' },
                     ];
                     break;
                 case 'carrier':
@@ -4162,7 +4162,7 @@ $(document).ready(function() {
                         { color: CARRIER_COLORS['JBU'], label: 'JBU' },
                         { color: CARRIER_COLORS['ASA'], label: 'ASA' },
                         { color: CARRIER_COLORS['FDX'], label: 'FDX' },
-                        { color: CARRIER_COLORS[''], label: '...' }
+                        { color: CARRIER_COLORS[''], label: '...' },
                     ];
                     break;
                 case 'operator_group':
@@ -4172,7 +4172,7 @@ $(document).ready(function() {
                         { color: OPERATOR_GROUP_COLORS['FREIGHT'], label: 'Freight' },
                         { color: OPERATOR_GROUP_COLORS['GA'], label: 'GA' },
                         { color: OPERATOR_GROUP_COLORS['MILITARY'], label: 'Military' },
-                        { color: OPERATOR_GROUP_COLORS['OTHER'], label: 'Other' }
+                        { color: OPERATOR_GROUP_COLORS['OTHER'], label: 'Other' },
                     ];
                     break;
                 case 'dep_center':
@@ -4190,7 +4190,7 @@ $(document).ready(function() {
                         { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'S.Central' },
                         { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
                         { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' }
+                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
                     ];
                     break;
                 case 'dcc_region':
@@ -4199,7 +4199,7 @@ $(document).ready(function() {
                         { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
                         { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
                         { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' }
+                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
                     ];
                     break;
                 case 'dep_airport':
@@ -4208,7 +4208,7 @@ $(document).ready(function() {
                         { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                         { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
                         { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
-                        { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' }
+                        { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                     ];
                     break;
                 case 'eta_relative':
@@ -4219,7 +4219,7 @@ $(document).ready(function() {
                         { color: ETA_RELATIVE_COLORS['ETA_120'], label: '≤2h' },
                         { color: ETA_RELATIVE_COLORS['ETA_180'], label: '≤3h' },
                         { color: ETA_RELATIVE_COLORS['ETA_300'], label: '≤5h' },
-                        { color: ETA_RELATIVE_COLORS['ETA_OVER'], label: '>8h' }
+                        { color: ETA_RELATIVE_COLORS['ETA_OVER'], label: '>8h' },
                     ];
                     break;
                 case 'eta_hour':
@@ -4227,13 +4227,13 @@ $(document).ready(function() {
                         { color: 'hsl(0, 70%, 50%)', label: '00Z' },
                         { color: 'hsl(90, 70%, 50%)', label: '06Z' },
                         { color: 'hsl(180, 70%, 50%)', label: '12Z' },
-                        { color: 'hsl(270, 70%, 50%)', label: '18Z' }
+                        { color: 'hsl(270, 70%, 50%)', label: '18Z' },
                     ];
                     break;
                 case 'speed':
                     items = [
                         { color: SPEED_COLORS['SLOW'], label: '<250kts' },
-                        { color: SPEED_COLORS['FAST'], label: '≥250kts' }
+                        { color: SPEED_COLORS['FAST'], label: '≥250kts' },
                     ];
                     break;
                 case 'custom':
@@ -4249,7 +4249,7 @@ $(document).ready(function() {
                         : [];
                     items = publicRoutes.map(route => ({
                         color: route.color || '#17a2b8',
-                        label: route.name || 'Route'
+                        label: route.name || 'Route',
                     }));
                     items.push({ color: '#666666', label: 'No Match' });
                     break;
@@ -4268,7 +4268,7 @@ $(document).ready(function() {
                         { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
                         { color: PC['actual_gs'] || '#eab308', label: 'GS' },
                         { color: PC['actual_gdp'] || '#92400e', label: 'GDP' },
-                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' }
+                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' },
                     ];
                     break;
                 default:
@@ -4278,7 +4278,7 @@ $(document).ready(function() {
             const html = items.map(item =>
                 `<span class="d-inline-flex align-items-center mr-2">
                     <span style="display:inline-block;width:12px;height:12px;background:${item.color};border:1px solid #333;border-radius:2px;margin-right:3px;"></span>
-                    <span style="font-size:11px;">${item.label}</span></span>`
+                    <span style="font-size:11px;">${item.label}</span></span>`,
             ).join('');
             $legend.html(html);
         }
@@ -4289,18 +4289,18 @@ $(document).ready(function() {
 
         function buildFlightRouteString(flight) {
             const parts = [];
-            if (flight.fp_dept_icao) parts.push(flight.fp_dept_icao.toUpperCase());
-            if (flight.fp_route) parts.push(flight.fp_route.toUpperCase());
-            if (flight.fp_dest_icao) parts.push(flight.fp_dest_icao.toUpperCase());
+            if (flight.fp_dept_icao) {parts.push(flight.fp_dept_icao.toUpperCase());}
+            if (flight.fp_route) {parts.push(flight.fp_route.toUpperCase());}
+            if (flight.fp_dest_icao) {parts.push(flight.fp_dest_icao.toUpperCase());}
             return parts.join(' ');
         }
 
         function buildRouteCoords(flight) {
             const routeString = buildFlightRouteString(flight);
-            if (!routeString) return [];
+            if (!routeString) {return [];}
             console.log('[ADL-ML] Building route for:', flight.callsign, 'Route:', routeString);
 
-            let tokens = routeString.split(/\s+/).filter(t => t);
+            const tokens = routeString.split(/\s+/).filter(t => t);
             const expandedRoute = ConvertRoute(tokens.join(' '));
             const expandedTokens = expandedRoute.split(/\s+/).filter(t => t);
 
@@ -4335,7 +4335,7 @@ $(document).ready(function() {
         }
 
         function findClosestSegmentIndex(coords, aircraftLat, aircraftLon) {
-            if (coords.length < 2) return 0;
+            if (coords.length < 2) {return 0;}
             let minDist = Infinity, minIdx = 0;
             for (let i = 0; i < coords.length; i++) {
                 const dist = Math.pow(coords[i].lat - aircraftLat, 2) + Math.pow(coords[i].lon - aircraftLon, 2);
@@ -4349,10 +4349,10 @@ $(document).ready(function() {
 
         // Normalize coordinates for International Date Line crossing
         function normalizeForIDL(coords) {
-            if (!coords || coords.length < 2) return coords;
+            if (!coords || coords.length < 2) {return coords;}
             const normalized = [[coords[0][0], coords[0][1]]];
             for (let i = 1; i < coords.length; i++) {
-                let prevLon = normalized[i - 1][0];
+                const prevLon = normalized[i - 1][0];
                 let currLon = coords[i][0];
                 const currLat = coords[i][1];
                 const lonDiff = currLon - prevLon;
@@ -4382,7 +4382,7 @@ $(document).ready(function() {
                 coords = flight.waypoints_json.map(wp => ({
                     lat: parseFloat(wp.lat),
                     lon: parseFloat(wp.lon),
-                    name: wp.fix_name || ''
+                    name: wp.fix_name || '',
                 }));
                 console.log('[ADL-ML] Using pre-parsed waypoints:', coords.length, 'points');
             } else {
@@ -4420,50 +4420,50 @@ $(document).ready(function() {
             console.log('[ADL-ML] Route drawn for:', key, 'with', coords.length, 'points');
             return true;
         }
-        
+
         // Facility type detection helpers
         function detectFacilityType(code) {
-            if (!code) return 'airport';
+            if (!code) {return 'airport';}
             const c = String(code).toUpperCase().trim();
             // ARTCC: Z + 2 letters (ZNY, ZDC, ZTL, etc.)
-            if (/^Z[A-Z]{2}$/.test(c)) return 'artcc';
+            if (/^Z[A-Z]{2}$/.test(c)) {return 'artcc';}
             // TRACON: Letter + 2 digits (N90, A80, C90, etc.) or 3-letter codes like PCT, NCT, SCT
-            if (/^[A-Z]\d{2}$/.test(c)) return 'tracon';
-            if (['PCT', 'NCT', 'SCT', 'MIA', 'TPA', 'RSW', 'PBI'].includes(c)) return 'tracon';
+            if (/^[A-Z]\d{2}$/.test(c)) {return 'tracon';}
+            if (['PCT', 'NCT', 'SCT', 'MIA', 'TPA', 'RSW', 'PBI'].includes(c)) {return 'tracon';}
             // Default to airport (4-letter ICAO codes)
             return 'airport';
         }
 
         function updateFlightRouteDisplay() {
-            if (!graphic_map || !graphic_map.getSource('flight-routes')) return;
+            if (!graphic_map || !graphic_map.getSource('flight-routes')) {return;}
 
             const lineFeatures = [];
             const fixFeatures = [];
             const endpointFeatures = [];
-            
+
             state.drawnRoutes.forEach((routeData, key) => {
                 // Line segments
                 if (routeData.behindCoords && routeData.behindCoords.length >= 2) {
                     lineFeatures.push({
                         type: 'Feature',
                         properties: { segment: 'behind', color: routeData.color, callsign: key },
-                        geometry: { type: 'LineString', coordinates: routeData.behindCoords }
+                        geometry: { type: 'LineString', coordinates: routeData.behindCoords },
                     });
                 }
                 if (routeData.aheadCoords && routeData.aheadCoords.length >= 2) {
                     lineFeatures.push({
                         type: 'Feature',
                         properties: { segment: 'ahead', color: routeData.color, callsign: key },
-                        geometry: { type: 'LineString', coordinates: routeData.aheadCoords }
+                        geometry: { type: 'LineString', coordinates: routeData.aheadCoords },
                     });
                 }
-                
+
                 // Fix points (for labels) - only intermediate fixes, not endpoints
                 if (routeData.fixes && routeData.fixes.length > 0) {
                     routeData.fixes.forEach((fix, idx) => {
                         const isOrigin = idx === 0;
                         const isDest = idx === routeData.fixes.length - 1;
-                        
+
                         // Add to fix features (intermediate fixes get circles/labels)
                         if (!isOrigin && !isDest) {
                             fixFeatures.push({
@@ -4472,12 +4472,12 @@ $(document).ready(function() {
                                     name: fix.name,
                                     color: routeData.color,
                                     callsign: key,
-                                    index: idx
+                                    index: idx,
                                 },
-                                geometry: { type: 'Point', coordinates: [fix.lon, fix.lat] }
+                                geometry: { type: 'Point', coordinates: [fix.lon, fix.lat] },
                             });
                         }
-                        
+
                         // Add origin/destination to endpoint features (icons)
                         if (isOrigin || isDest) {
                             endpointFeatures.push({
@@ -4488,9 +4488,9 @@ $(document).ready(function() {
                                     callsign: key,
                                     isOrigin: isOrigin,
                                     isDest: isDest,
-                                    facilityType: detectFacilityType(fix.name)
+                                    facilityType: detectFacilityType(fix.name),
                                 },
-                                geometry: { type: 'Point', coordinates: [fix.lon, fix.lat] }
+                                geometry: { type: 'Point', coordinates: [fix.lon, fix.lat] },
                             });
                         }
                     });
@@ -4498,12 +4498,12 @@ $(document).ready(function() {
             });
 
             graphic_map.getSource('flight-routes').setData({ type: 'FeatureCollection', features: lineFeatures });
-            
+
             // Update ADL fix labels (intermediate fixes) - uses dedicated ADL source
             if (graphic_map.getSource('adl-flight-fixes')) {
                 graphic_map.getSource('adl-flight-fixes').setData({ type: 'FeatureCollection', features: fixFeatures });
             }
-            
+
             // Update endpoint icons if source exists
             if (graphic_map.getSource('route-endpoints')) {
                 graphic_map.getSource('route-endpoints').setData({ type: 'FeatureCollection', features: endpointFeatures });
@@ -4515,15 +4515,15 @@ $(document).ready(function() {
             updateFlightRouteDisplay();
             console.log('[ADL-ML] All routes cleared');
         }
-        
+
         function showAllRoutes() {
             // Draw routes for all currently filtered flights
             let count = 0;
             const maxRoutes = 50; // Limit to prevent performance issues
-            
+
             state.filteredFlights.forEach(flight => {
-                if (count >= maxRoutes) return;
-                
+                if (count >= maxRoutes) {return;}
+
                 const key = flight.flight_key || flight.callsign;
                 // Only draw if not already drawn
                 if (!state.drawnRoutes.has(key)) {
@@ -4532,67 +4532,67 @@ $(document).ready(function() {
                     }
                 }
             });
-            
+
             console.log('[ADL-ML] Drew', count, 'routes (max:', maxRoutes, ')');
             if (count >= maxRoutes) {
                 console.log('[ADL-ML] Route limit reached, some flights not drawn');
             }
         }
-        
+
         function filterRoutesByCurrentFilter() {
             // Remove routes for flights that are no longer in filteredFlights
             const keysToRemove = [];
-            
+
             state.drawnRoutes.forEach((routeData, key) => {
                 // Check if this flight is in filtered list
-                const inFiltered = state.filteredFlights.some(f => 
-                    (f.flight_key || f.callsign) === key
+                const inFiltered = state.filteredFlights.some(f =>
+                    (f.flight_key || f.callsign) === key,
                 );
-                
+
                 if (!inFiltered) {
                     keysToRemove.push(key);
                 }
             });
-            
+
             // Remove the routes
             keysToRemove.forEach(key => {
                 state.drawnRoutes.delete(key);
             });
-            
+
             if (keysToRemove.length > 0) {
                 updateFlightRouteDisplay();
                 console.log('[ADL-ML] Filtered out', keysToRemove.length, 'routes');
             }
         }
-        
+
         function refreshRouteColors() {
             // Update colors of all drawn routes based on current color scheme
             state.drawnRoutes.forEach((routeData, key) => {
                 // Find the flight data for this route
-                let flight = state.filteredFlights.find(f => 
-                    (f.flight_key || f.callsign) === key
+                let flight = state.filteredFlights.find(f =>
+                    (f.flight_key || f.callsign) === key,
                 );
-                
+
                 if (!flight) {
                     // Try in all flights
-                    flight = state.flights.find(f => 
-                        (f.flight_key || f.callsign) === key
+                    flight = state.flights.find(f =>
+                        (f.flight_key || f.callsign) === key,
                     );
                 }
-                
+
                 if (flight) {
                     const newColor = getFlightColor(flight);
                     routeData.color = newColor;
                 }
             });
-            
+
             updateFlightRouteDisplay();
             console.log('[ADL-ML] Route colors refreshed');
         }
 
         // Toggle ADL route fix labels visibility (ADL-specific layers)
         function toggleRouteLabels(visible) {
-            if (!graphic_map) return;
+            if (!graphic_map) {return;}
             const vis = visible ? 'visible' : 'none';
             // Toggle ADL flight fix layers
             if (graphic_map.getLayer('adl-flight-fixes-circles')) {
@@ -4616,14 +4616,14 @@ $(document).ready(function() {
 
         function fetchFlights() {
             console.log('[ADL-ML] Fetching flights...');
-            
+
             // Store previous data for buffered update
-            var previousFlights = state.flights ? state.flights.slice() : [];
-            
+            const previousFlights = state.flights ? state.flights.slice() : [];
+
             return $.ajax({
                 url: 'api/adl/current.php?limit=10000&active=1',
                 method: 'GET',
-                dataType: 'json'
+                dataType: 'json',
             }).done(function(data) {
                 if (data.error) {
                     console.error('[ADL-ML] API error:', data.error);
@@ -4637,7 +4637,7 @@ $(document).ready(function() {
 
                 const validFlights = allFlights.filter(f =>
                     f.lat != null && f.lon != null &&
-                    !isNaN(parseFloat(f.lat)) && !isNaN(parseFloat(f.lon))
+                    !isNaN(parseFloat(f.lat)) && !isNaN(parseFloat(f.lon)),
                 );
                 console.log('[ADL-ML] Flights with valid lat/lon:', validFlights.length);
 
@@ -4674,44 +4674,44 @@ $(document).ready(function() {
                 // Weight class filter
                 const wc = (flight.weight_class || '').toUpperCase().trim();
                 const wcMatch = f.weightClasses.some(w => {
-                    if (w === '' && wc === '') return true;
-                    if (w === wc) return true;
-                    if ((w === 'SUPER' || w === 'J') && (wc === 'SUPER' || wc === 'J')) return true;
-                    if ((w === 'HEAVY' || w === 'H') && (wc === 'HEAVY' || wc === 'H')) return true;
-                    if ((w === 'LARGE' || w === 'L') && (wc === 'LARGE' || wc === 'L' || wc === '')) return true;
-                    if ((w === 'SMALL' || w === 'S') && (wc === 'SMALL' || wc === 'S')) return true;
+                    if (w === '' && wc === '') {return true;}
+                    if (w === wc) {return true;}
+                    if ((w === 'SUPER' || w === 'J') && (wc === 'SUPER' || wc === 'J')) {return true;}
+                    if ((w === 'HEAVY' || w === 'H') && (wc === 'HEAVY' || wc === 'H')) {return true;}
+                    if ((w === 'LARGE' || w === 'L') && (wc === 'LARGE' || wc === 'L' || wc === '')) {return true;}
+                    if ((w === 'SMALL' || w === 'S') && (wc === 'SMALL' || wc === 'S')) {return true;}
                     return false;
                 });
-                if (!wcMatch) return false;
+                if (!wcMatch) {return false;}
 
                 // Origin filter
                 if (f.origin && f.origin.length > 0) {
                     const deptIcao = (flight.fp_dept_icao || '').toUpperCase().trim();
                     const deptArtcc = (flight.fp_dept_artcc || '').toUpperCase().trim();
-                    if (!(deptIcao.includes(f.origin) || deptArtcc.includes(f.origin))) return false;
+                    if (!(deptIcao.includes(f.origin) || deptArtcc.includes(f.origin))) {return false;}
                 }
 
                 // Destination filter
                 if (f.dest && f.dest.length > 0) {
                     const destIcao = (flight.fp_dest_icao || '').toUpperCase().trim();
                     const destArtcc = (flight.fp_dest_artcc || '').toUpperCase().trim();
-                    if (!(destIcao.includes(f.dest) || destArtcc.includes(f.dest))) return false;
+                    if (!(destIcao.includes(f.dest) || destArtcc.includes(f.dest))) {return false;}
                 }
 
                 // Carrier filter
                 if (f.carrier && f.carrier.length > 0) {
                     const callsign = (flight.callsign || '').toUpperCase().trim();
-                    if (!callsign.startsWith(f.carrier)) return false;
+                    if (!callsign.startsWith(f.carrier)) {return false;}
                 }
 
                 // Altitude filter
                 if (f.altitudeMin !== null) {
                     const alt = parseInt(flight.altitude) || 0;
-                    if (alt < f.altitudeMin) return false;
+                    if (alt < f.altitudeMin) {return false;}
                 }
                 if (f.altitudeMax !== null) {
                     const alt = parseInt(flight.altitude) || 0;
-                    if (alt > f.altitudeMax) return false;
+                    if (alt > f.altitudeMax) {return false;}
                 }
 
                 return true;
@@ -4740,7 +4740,7 @@ $(document).ready(function() {
             state.filters = {
                 weightClasses: ['SUPER', 'HEAVY', 'LARGE', 'SMALL', 'J', 'H', 'L', 'S', ''],
                 origin: '', dest: '', carrier: '',
-                altitudeMin: null, altitudeMax: null
+                altitudeMin: null, altitudeMax: null,
             };
             $('#adl_wc_super, #adl_wc_heavy, #adl_wc_large, #adl_wc_small').prop('checked', true);
             $('#adl_origin, #adl_dest, #adl_carrier, #adl_alt_min, #adl_alt_max').val('');
@@ -4754,7 +4754,7 @@ $(document).ready(function() {
         // ─────────────────────────────────────────────────────────────────────
 
         function updateDisplay() {
-            if (!graphic_map || !state.enabled) return;
+            if (!graphic_map || !state.enabled) {return;}
             console.log('[ADL-ML] Rendering', state.filteredFlights.length, 'flights');
 
             const features = state.filteredFlights.map(flight => {
@@ -4777,12 +4777,12 @@ $(document).ready(function() {
                         aircraft_type: stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || ''),
                         phase: flight.phase || '',
                         fp_route: flight.fp_route || '',
-                        flight_key: flight.flight_key || flight.callsign
+                        flight_key: flight.flight_key || flight.callsign,
                     },
                     geometry: {
                         type: 'Point',
-                        coordinates: [parseFloat(flight.lon), parseFloat(flight.lat)]
-                    }
+                        coordinates: [parseFloat(flight.lon), parseFloat(flight.lat)],
+                    },
                 };
             });
 
@@ -4824,7 +4824,7 @@ $(document).ready(function() {
                 if (tracked) {
                     graphic_map.easeTo({
                         center: [parseFloat(tracked.lon), parseFloat(tracked.lat)],
-                        duration: 500
+                        duration: 500,
                     });
                 }
             }
@@ -4841,7 +4841,7 @@ $(document).ready(function() {
 
         function updateRefreshStatus(status) {
             const el = $('#adl_refresh_status');
-            if (!el.length) return;
+            if (!el.length) {return;}
             if (status === 'Error') {
                 el.html('<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Error</span>');
                 return;
@@ -4854,7 +4854,7 @@ $(document).ready(function() {
 
         function updateStatusBadge() {
             const badge = $('#adl_status_badge');
-            if (!badge.length) return;
+            if (!badge.length) {return;}
             if (state.enabled) {
                 badge.removeClass('badge-dark').addClass('badge-success live');
                 badge.html('<i class="fas fa-plane mr-1"></i> LIVE');
@@ -4912,7 +4912,7 @@ $(document).ready(function() {
                 .setLngLat(lngLat)
                 .setHTML(content)
                 .addTo(graphic_map);
-            
+
             // Bind copy button click handler after popup is added to DOM
             setTimeout(() => {
                 const copyBtn = document.querySelector(`#${popupId} .copy-route-btn`);
@@ -4954,16 +4954,16 @@ $(document).ready(function() {
         }
 
         function setupAircraftInteractivity() {
-            if (!graphic_map) return;
+            if (!graphic_map) {return;}
 
             // Handler for aircraft click (works for both symbol and fallback circle layers)
             const handleAircraftClick = (e) => {
-                if (!e.features || !e.features[0]) return;
+                if (!e.features || !e.features[0]) {return;}
                 const props = e.features[0].properties;
 
                 // Find the full flight data
                 const flight = state.filteredFlights.find(f =>
-                    (f.flight_key || f.callsign) === props.flight_key
+                    (f.flight_key || f.callsign) === props.flight_key,
                 );
 
                 if (flight) {
@@ -4977,7 +4977,7 @@ $(document).ready(function() {
                         groundspeed: props.groundspeed,
                         heading: props.heading,
                         phase: props.phase,
-                        fp_route: props.fp_route || flight.fp_route || ''
+                        fp_route: props.fp_route || flight.fp_route || '',
                     }, e.lngLat);
                 }
             };
@@ -4998,11 +4998,11 @@ $(document).ready(function() {
         }
 
         function zoomToFlight(flight) {
-            if (!flight.lat || !flight.lon || !graphic_map) return;
+            if (!flight.lat || !flight.lon || !graphic_map) {return;}
             graphic_map.flyTo({
                 center: [parseFloat(flight.lon), parseFloat(flight.lat)],
                 zoom: 8,
-                duration: 500
+                duration: 500,
             });
         }
 
@@ -5023,7 +5023,7 @@ $(document).ready(function() {
 
         function enable() {
             console.log('[ADL-ML] Enable called, state.enabled:', state.enabled);
-            if (state.enabled) return;
+            if (state.enabled) {return;}
 
             if (!graphic_map) {
                 console.warn('[ADL-ML] Map not initialized yet.');
@@ -5056,7 +5056,7 @@ $(document).ready(function() {
         }
 
         function disable() {
-            if (!state.enabled) return;
+            if (!state.enabled) {return;}
             state.enabled = false;
 
             // Stop refresh
@@ -5162,18 +5162,18 @@ $(document).ready(function() {
             // Modal button handlers
             $('#adl_modal_zoom').on('click', function() {
                 const flight = $('#adlFlightDetailModal').data('flight');
-                if (flight) zoomToFlight(flight);
+                if (flight) {zoomToFlight(flight);}
             });
             $('#adl_modal_track').on('click', function() {
                 const flight = $('#adlFlightDetailModal').data('flight');
-                if (flight) toggleTrackFlight(flight);
+                if (flight) {toggleTrackFlight(flight);}
             });
 
             // Context menu handlers
             $(document).on('click', '#adl_context_menu .menu-item', function() {
                 const action = $(this).data('action');
                 const flight = state.selectedFlight;
-                if (!flight) return;
+                if (!flight) {return;}
 
                 $('#adl_context_menu').hide();
 
@@ -5189,17 +5189,17 @@ $(document).ready(function() {
             // ─────────────────────────────────────────────────────────────────────
             // ROUTE BUTTON HANDLERS
             // ─────────────────────────────────────────────────────────────────────
-            
+
             // Show All Routes button
             $('#adl_routes_show_all').on('click', function() {
                 showAllRoutes();
             });
-            
+
             // Clear All Routes button
             $('#adl_routes_clear').on('click', function() {
                 clearAllRoutes();
             });
-            
+
             // Filter Routes checkbox - apply immediately when toggled on
             $('#adl_routes_filter_only').on('change', function() {
                 if ($(this).is(':checked')) {
@@ -5219,7 +5219,7 @@ $(document).ready(function() {
             getState: () => state,
             selectFlight: (callsign) => {
                 const flight = state.filteredFlights.find(f => f.callsign === callsign);
-                if (flight) toggleFlightRoute(flight);
+                if (flight) {toggleFlightRoute(flight);}
             },
             fetchFlights: fetchFlights,
             updateDisplay: updateDisplay,
@@ -5243,7 +5243,7 @@ $(document).ready(function() {
             showAllRoutes: showAllRoutes,
             clearAllRoutes: clearAllRoutes,
             filterRoutesByCurrentFilter: filterRoutesByCurrentFilter,
-            refreshRouteColors: refreshRouteColors
+            refreshRouteColors: refreshRouteColors,
         };
     })();
 
@@ -5267,24 +5267,24 @@ $(document).ready(function() {
 
     const ADV_FACILITY_CODES = [
         'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'
+        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
     ];
 
     const ADV_US_FACILITY_CODES = [
         'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'
+        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
     ];
 
     // Check if token is an ARTCC (Z + 2 chars)
     function advIsArtcc(code) {
-        if (!code) return false;
+        if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
         return /^Z[A-Z]{2}$/.test(t);
     }
 
     // Check if token is a TRACON (letter + 2 digits)
     function advIsTracon(code) {
-        if (!code) return false;
+        if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
         return /^[A-Z][0-9]{2}$/.test(t);
     }
@@ -5293,58 +5293,58 @@ $(document).ready(function() {
     // K = US, C = Canada, P = Pacific, M = Mexico/Central America
     // Also handle European (E, L), Asian (R, Z not ARTCC)
     function advIsAirport(code) {
-        if (!code) return false;
+        if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        if (!/^[A-Z]{4}$/.test(t)) return false;
+        if (!/^[A-Z]{4}$/.test(t)) {return false;}
         // US airports start with K
-        if (/^K[A-Z]{3}$/.test(t)) return true;
+        if (/^K[A-Z]{3}$/.test(t)) {return true;}
         // Canadian airports start with C (but not like CABLO which is a fix)
-        if (/^CY[A-Z]{2}$/.test(t)) return true;  // CYYZ, CYUL, etc.
-        if (/^CZ[A-Z]{2}$/.test(t)) return true;  // CZ airports
+        if (/^CY[A-Z]{2}$/.test(t)) {return true;}  // CYYZ, CYUL, etc.
+        if (/^CZ[A-Z]{2}$/.test(t)) {return true;}  // CZ airports
         // Pacific (Hawaii, Guam, etc.) start with P
-        if (/^P[A-Z]{3}$/.test(t)) return true;
+        if (/^P[A-Z]{3}$/.test(t)) {return true;}
         // Mexico starts with MM
-        if (/^MM[A-Z]{2}$/.test(t)) return true;
+        if (/^MM[A-Z]{2}$/.test(t)) {return true;}
         // Don't match generic 4-letter codes - those are likely fixes
         return false;
     }
 
     // Check if token is any facility (ARTCC, TRACON, or Airport)
     function advIsFacility(code) {
-        if (!code) return false;
+        if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        if (!t) return false;
-        if (advIsAirport(t)) return true;  // Check with proper airport logic
-        if (/^Z[A-Z]{2}$/.test(t)) return true;  // ARTCC
-        if (/^[A-Z][0-9]{2}$/.test(t)) return true;  // TRACON
+        if (!t) {return false;}
+        if (advIsAirport(t)) {return true;}  // Check with proper airport logic
+        if (/^Z[A-Z]{2}$/.test(t)) {return true;}  // ARTCC
+        if (/^[A-Z][0-9]{2}$/.test(t)) {return true;}  // TRACON
         return false;
     }
 
     // Check if token is an airspace element (not a NAVAID/fix)
     // Airways: J###, Q###, V###, T###, etc.
     function advIsAirway(code) {
-        if (!code) return false;
+        if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
         return /^[JQVT]\d+$/.test(t);
     }
 
     // Check if token is a NAVAID or fix (not facility, not airway, not DP/STAR)
     function advIsNavaidOrFix(code) {
-        if (!code) return false;
+        if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        if (!t) return false;
-        if (advIsFacility(t)) return false;
-        if (advIsAirway(t)) return false;
+        if (!t) {return false;}
+        if (advIsFacility(t)) {return false;}
+        if (advIsAirway(t)) {return false;}
         // 2-5 char alphanumeric, not ending in digit (which would be DP/STAR)
-        if (/^[A-Z]{2,5}$/.test(t)) return true;
+        if (/^[A-Z]{2,5}$/.test(t)) {return true;}
         // VORs can be 3 chars
-        if (/^[A-Z]{3}$/.test(t)) return true;
+        if (/^[A-Z]{3}$/.test(t)) {return true;}
         return false;
     }
 
     // Strip facilities from route string, keeping only NAVAIDs, fixes, and airways
     function advStripFacilitiesFromRoute(routeText) {
-        if (!routeText) return '';
+        if (!routeText) {return '';}
         const tokens = routeText.split(/\s+/).filter(Boolean);
         const filtered = tokens.filter(tok => {
             const clean = tok.replace(/[<>]/g, '').toUpperCase();
@@ -5356,13 +5356,13 @@ $(document).ready(function() {
 
     // Extract just the NAVAID/fix tokens (no facilities, no airways) for ORIG/DEST display
     function advExtractNavaidTokens(text) {
-        if (!text) return [];
+        if (!text) {return [];}
         const tokens = text.split(/\s+/).filter(Boolean);
         return tokens.filter(tok => {
             const clean = tok.replace(/[<>]/g, '').toUpperCase();
             // Only keep NAVAIDs/fixes, not facilities or airways
-            if (advIsFacility(clean)) return false;
-            if (advIsAirway(clean)) return false;
+            if (advIsFacility(clean)) {return false;}
+            if (advIsAirway(clean)) {return false;}
             return true;
         });
     }
@@ -5370,7 +5370,7 @@ $(document).ready(function() {
     // Tokenize label values, splitting slash-lists for proper wrapping
     function advTokenizeLabelValue(raw) {
         raw = (raw || '').toString().trim();
-        if (!raw) return [];
+        if (!raw) {return [];}
         const parts = raw.split(/\s+/);
         const tokens = [];
         parts.forEach(part => {
@@ -5378,7 +5378,7 @@ $(document).ready(function() {
             if (part.indexOf('/') !== -1 && part.length > 8) {
                 const pieces = part.split('/');
                 pieces.forEach((piece, idx) => {
-                    if (!piece) return;
+                    if (!piece) {return;}
                     if (idx < pieces.length - 1) {
                         tokens.push(piece + '/');
                     } else {
@@ -5394,14 +5394,14 @@ $(document).ready(function() {
 
     // Check if a token looks like a DP or STAR (ends with digit, 4-7 chars)
     function advLooksLikeProcedure(token) {
-        if (!token) return false;
+        if (!token) {return false;}
         const clean = token.replace(/[<>]/g, '').toUpperCase();
         // Typical DP/STAR: 4-7 alphanumeric chars ending in a digit
         // Examples: TERPZ4, CAMRN5, BROSS7, WHINY4
-        if (clean.length < 4 || clean.length > 7) return false;
-        if (!/^[A-Z]+\d$/.test(clean)) return false;
+        if (clean.length < 4 || clean.length > 7) {return false;}
+        if (!/^[A-Z]+\d$/.test(clean)) {return false;}
         // Exclude pure airport codes like K123 or airports
-        if (/^K[A-Z]{3}$/.test(clean)) return false;
+        if (/^K[A-Z]{3}$/.test(clean)) {return false;}
         return true;
     }
 
@@ -5409,15 +5409,15 @@ $(document).ready(function() {
     // >{DP#}.{TRANSITION} {ROUTE} → {DP#} >{TRANSITION} {ROUTE}
     // {ROUTE} {TRANSITION}.{STAR#}< → {ROUTE} {TRANSITION}< {STAR#}
     function advCorrectMandatoryProcedures(routeText) {
-        if (!routeText) return routeText;
-        
-        let tokens = routeText.split(/\s+/).filter(Boolean);
-        if (tokens.length < 2) return routeText;
-        
+        if (!routeText) {return routeText;}
+
+        const tokens = routeText.split(/\s+/).filter(Boolean);
+        if (tokens.length < 2) {return routeText;}
+
         // Scan all tokens for patterns needing correction
         for (let i = 0; i < tokens.length; i++) {
-            let tok = tokens[i];
-            
+            const tok = tokens[i];
+
             // Check for >{DP#}.{TRANS} pattern (DP at start of mandatory segment)
             if (tok.startsWith('>') && tok.includes('.')) {
                 const withoutMarker = tok.slice(1);
@@ -5442,7 +5442,7 @@ $(document).ready(function() {
                     }
                 }
             }
-            
+
             // Check for {TRANS}.{STAR#}< pattern (STAR at end of mandatory segment)
             if (tok.endsWith('<') && tok.includes('.')) {
                 const withoutMarker = tok.slice(0, -1);
@@ -5468,7 +5468,7 @@ $(document).ready(function() {
                 }
             }
         }
-        
+
         // Rejoin - may have created new tokens with embedded spaces
         return tokens.join(' ').replace(/\s+/g, ' ').trim();
     }
@@ -5479,8 +5479,8 @@ $(document).ready(function() {
         (routes || []).forEach(r => {
             const ol = (r.orig || '').length;
             const dl = (r.dest || '').length;
-            if (ol > maxOrigLen) maxOrigLen = ol;
-            if (dl > maxDestLen) maxDestLen = dl;
+            if (ol > maxOrigLen) {maxOrigLen = ol;}
+            if (dl > maxDestLen) {maxDestLen = dl;}
         });
         const origWidth = Math.min(maxOrigLen + 2, 24);
         const destWidth = Math.min(maxDestLen + 2, 24);
@@ -5492,26 +5492,26 @@ $(document).ready(function() {
         label = (label || '').toString().toUpperCase();
         const basePrefix = ADV_INDENT + label + ':';
         const raw = (value == null ? '' : String(value)).trim();
-        if (!raw.length) return;  // Don't add empty fields
-        
+        if (!raw.length) {return;}  // Don't add empty fields
+
         const firstPrefix = basePrefix + ' ';
         const hangPrefix = ' '.repeat(firstPrefix.length);
         const maxWidth = ADV_MAX_LINE;
-        
+
         const words = advTokenizeLabelValue(raw);
-        if (!words.length) return;
-        
+        if (!words.length) {return;}
+
         // If it's a single huge "word", just force it on one line with the label
         if (words.length === 1 && (firstPrefix.length + words[0].length > maxWidth)) {
             lines.push(firstPrefix + words[0]);
             return;
         }
-        
+
         let prefix = firstPrefix;
         let content = '';
-        
+
         words.forEach(word => {
-            if (!word) return;
+            if (!word) {return;}
             if (!content) {
                 if (prefix.length + word.length <= maxWidth) {
                     content = word;
@@ -5552,7 +5552,7 @@ $(document).ready(function() {
             routeTokens = routeTokens.slice(0, -1);
         }
         function chunkTokens(tokens) {
-            if (!tokens || !tokens.length) return [''];
+            if (!tokens || !tokens.length) {return [''];}
             const chunks = [];
             for (let i = 0; i < tokens.length; i += 3) {
                 chunks.push(tokens.slice(i, i + 3).join(' '));
@@ -5592,7 +5592,7 @@ $(document).ready(function() {
             lines.push(current.trimEnd());
             lineIndex++;
         }
-        if (!lines.length) lines.push('');
+        if (!lines.length) {lines.push('');}
         return lines;
     }
 
@@ -5600,12 +5600,12 @@ $(document).ready(function() {
         const routes = [];
         (routeStrings || []).forEach(raw => {
             let line = (raw || '').trim();
-            if (!line) return;
+            if (!line) {return;}
             const semiIdx = line.indexOf(';');
-            if (semiIdx !== -1) line = line.slice(0, semiIdx).trim();
-            if (!line) return;
+            if (semiIdx !== -1) {line = line.slice(0, semiIdx).trim();}
+            if (!line) {return;}
             const tokens = line.split(/\s+/).filter(Boolean);
-            if (!tokens.length) return;
+            if (!tokens.length) {return;}
             if (tokens.length === 1) {
                 const code = tokens[0].toUpperCase();
                 if (cdrMap && cdrMap[code]) {
@@ -5616,12 +5616,12 @@ $(document).ready(function() {
             }
             const facilityIdxs = [];
             for (let i = 0; i < tokens.length; i++) {
-                if (advIsFacility(tokens[i])) facilityIdxs.push(i);
+                if (advIsFacility(tokens[i])) {facilityIdxs.push(i);}
             }
-            if (facilityIdxs.length < 2) return;
+            if (facilityIdxs.length < 2) {return;}
             const firstFacilityIdx = facilityIdxs[0];
             const lastFacilityIdx = facilityIdxs[facilityIdxs.length - 1];
-            if (lastFacilityIdx <= firstFacilityIdx) return;
+            if (lastFacilityIdx <= firstFacilityIdx) {return;}
             let groupEndExclusive = firstFacilityIdx;
             while (groupEndExclusive < lastFacilityIdx && advIsFacility(tokens[groupEndExclusive])) {
                 groupEndExclusive++;
@@ -5632,7 +5632,7 @@ $(document).ready(function() {
             routes.push({
                 orig: origTokens.join(' ').toUpperCase(),
                 dest: (destToken || '').toUpperCase(),
-                assignedRoute: routeTokens.map(t => t.toUpperCase()).join(' ')
+                assignedRoute: routeTokens.map(t => t.toUpperCase()).join(' '),
             });
         });
         return routes;
@@ -5643,33 +5643,33 @@ $(document).ready(function() {
         advAction = (advAction || '').trim().toUpperCase();
         advFacility = (advFacility || '').trim().toUpperCase();
         advNumber = (advNumber || '').trim();
-        if (existingId) return existingId;
-        if (!advFacility || !advNumber) return '';
+        if (existingId) {return existingId;}
+        if (!advFacility || !advNumber) {return '';}
         let digits = advNumber.replace(/\D/g, '');
         digits = digits.length ? digits.padStart(3, '0') : advNumber;
         let prefix = '';
-        if (advAction.indexOf('ROUTE') !== -1) prefix = 'RR';
-        if (!prefix) return '';
+        if (advAction.indexOf('ROUTE') !== -1) {prefix = 'RR';}
+        if (!prefix) {return '';}
         return prefix + advFacility + digits;
     }
 
     function advEnsureDefaultIncludedTraffic(parsedRoutes) {
         const $field = $('#advIncludeTraffic');
-        if (!$field.length) return;
-        
+        if (!$field.length) {return;}
+
         const currentVal = ($field.val() || '').toString().trim();
-        if (currentVal) return;
-        
+        if (currentVal) {return;}
+
         const routes = parsedRoutes || [];
-        if (!routes.length) return;
-        
+        if (!routes.length) {return;}
+
         const origSet = new Set();
         const destSet = new Set();
-        
+
         routes.forEach(r => {
             const origRaw = (r.orig || '').toString().trim().toUpperCase();
             const destRaw = (r.dest || '').toString().trim().toUpperCase();
-            
+
             if (origRaw && advIsFacility(origRaw)) {
                 origSet.add(origRaw);
             }
@@ -5677,18 +5677,18 @@ $(document).ready(function() {
                 destSet.add(destRaw);
             }
         });
-        
-        if (!origSet.size || !destSet.size) return;
-        
+
+        if (!origSet.size || !destSet.size) {return;}
+
         const origins = Array.from(origSet).sort();
         const dests = Array.from(destSet).sort();
-        
+
         $field.val(origins.join('/') + ' DEPARTURES TO ' + dests.join('/'));
     }
 
     function collectRouteStringsForAdvisory(rawInput) {
         let routeStrings = [];
-        let usedProcedures = new Set();  // Track playbook and CDR names
+        const usedProcedures = new Set();  // Track playbook and CDR names
         const text = (rawInput || '').toString();
         if (/VATCSCC ADVZY/i.test(text)) {
             const advBlocks = splitAdvisoriesFromInput(text.toUpperCase());
@@ -5704,8 +5704,8 @@ $(document).ready(function() {
             const lines = expanded.split(/\r?\n/);
             lines.forEach(line => {
                 const trimmed = line.trim();
-                if (!trimmed) return;
-                
+                if (!trimmed) {return;}
+
                 let body = trimmed;
                 let color = null;
                 const semiIdx = trimmed.indexOf(';');
@@ -5713,8 +5713,8 @@ $(document).ready(function() {
                     body = trimmed.slice(0, semiIdx).trim();
                     color = trimmed.slice(semiIdx + 1).trim().toUpperCase();
                 }
-                if (!body) return;
-                
+                if (!body) {return;}
+
                 // Check for whole-line mandatory wrapper >...<
                 let isMandatory = false;
                 let spec = body;
@@ -5730,7 +5730,7 @@ $(document).ready(function() {
                     // Extract play name for tracking
                     const pbParts = pbDirective.split('.');
                     const playName = (pbParts[0] || '').trim();
-                    if (playName) usedProcedures.add('PB: ' + playName);
+                    if (playName) {usedProcedures.add('PB: ' + playName);}
 
                     const pbRoutes = expandPlaybookDirective(pbDirective, isMandatory, null);
                     if (pbRoutes && pbRoutes.length) {
@@ -5756,12 +5756,12 @@ $(document).ready(function() {
         }
         // CDR expansion
         routeStrings = routeStrings.map(rte => {
-            if (!rte) return rte;
+            if (!rte) {return rte;}
             let routeText = rte;
             const semiIdx = routeText.indexOf(';');
-            if (semiIdx !== -1) routeText = routeText.slice(0, semiIdx).trim();
+            if (semiIdx !== -1) {routeText = routeText.slice(0, semiIdx).trim();}
             const cdrTokens = routeText.split(/\s+/).filter(t => t !== '');
-            if (!cdrTokens.length) return '';
+            if (!cdrTokens.length) {return '';}
             if (cdrTokens.length === 1) {
                 const rawToken = cdrTokens[0];
                 const hasMandatoryStart = rawToken.startsWith('>');
@@ -5825,7 +5825,7 @@ $(document).ready(function() {
         });
         return {
             routes: routeStrings.filter(r => r && r.trim().length),
-            procedures: Array.from(usedProcedures)
+            procedures: Array.from(usedProcedures),
         };
     }
 
@@ -5834,30 +5834,30 @@ $(document).ready(function() {
         const origCol = colWidths.orig || 20;
         const destCol = colWidths.dest || 20;
         const maxWidth = ADV_MAX_LINE;
-        
+
         orig = (orig || '').toUpperCase();
         dest = (dest || '').toUpperCase();
         routeText = (routeText || '').toUpperCase().trim();
-        
+
         const lines = [];
-        
+
         // Handle slash-separated origins by chunking them appropriately
         // Split by slash first, then group to fit in column width
         const origItems = orig.trim().length ? orig.trim().split('/').filter(Boolean) : [];
         const destTokens = dest.trim().length ? dest.trim().split(/\s+/).filter(Boolean) : [];
         const routeTokens = routeText.length ? routeText.split(/\s+/).filter(Boolean) : [];
-        
+
         // Chunk origin items to fit within column width (with slashes)
         function chunkOriginsToFit(items, maxLen) {
-            if (!items || !items.length) return [''];
+            if (!items || !items.length) {return [''];}
             const chunks = [];
             let current = [];
             let currentLen = 0;
-            
+
             items.forEach((item, idx) => {
                 const itemLen = item.length;
                 const slashLen = current.length > 0 ? 1 : 0; // Add 1 for slash if not first
-                
+
                 if (currentLen + slashLen + itemLen > maxLen && current.length > 0) {
                     // Start new chunk
                     chunks.push(current.join('/'));
@@ -5868,29 +5868,29 @@ $(document).ready(function() {
                     currentLen += slashLen + itemLen;
                 }
             });
-            
+
             if (current.length > 0) {
                 chunks.push(current.join('/'));
             }
-            
+
             return chunks.length ? chunks : [''];
         }
-        
+
         function chunkTokens(tokens, maxPerLine) {
-            if (!tokens || !tokens.length) return [''];
+            if (!tokens || !tokens.length) {return [''];}
             const chunks = [];
             for (let i = 0; i < tokens.length; i += maxPerLine) {
                 chunks.push(tokens.slice(i, i + maxPerLine).join(' '));
             }
             return chunks;
         }
-        
+
         const origChunks = chunkOriginsToFit(origItems, origCol - 2);
         const destChunks = chunkTokens(destTokens, 2);
         const maxColumnLines = Math.max(origChunks.length, destChunks.length, 1);
         const words = routeTokens.slice();
         let lineIndex = 0;
-        
+
         while (lineIndex < maxColumnLines || words.length) {
             const oStr = (lineIndex < origChunks.length) ? origChunks[lineIndex] : '';
             const dStr = (lineIndex < destChunks.length) ? destChunks[lineIndex] : '';
@@ -5899,7 +5899,7 @@ $(document).ready(function() {
             const basePrefix = ADV_INDENT + origPad + destPad;
             let current = basePrefix;
             const baseLen = current.length;
-            
+
             if (words.length) {
                 while (words.length) {
                     const word = words[0];
@@ -5920,7 +5920,7 @@ $(document).ready(function() {
             lines.push(current.trimEnd());
             lineIndex++;
         }
-        if (!lines.length) lines.push('');
+        if (!lines.length) {lines.push('');}
         return lines;
     }
 
@@ -5929,32 +5929,32 @@ $(document).ready(function() {
         const maxWidth = ADV_MAX_LINE;
         label = (label || '').toUpperCase();
         routeText = (routeText || '').toUpperCase().trim();
-        
+
         const lines = [];
         const labelTokens = label.trim().length ? label.trim().split(/\s+/).filter(Boolean) : [];
         const routeTokens = routeText.length ? routeText.split(/\s+/).filter(Boolean) : [];
-        
+
         function chunkTokens(tokens, maxPerLine) {
-            if (!tokens || !tokens.length) return [''];
+            if (!tokens || !tokens.length) {return [''];}
             const chunks = [];
             for (let i = 0; i < tokens.length; i += maxPerLine) {
                 chunks.push(tokens.slice(i, i + maxPerLine).join(' '));
             }
             return chunks;
         }
-        
+
         const labelChunks = chunkTokens(labelTokens, 3);
         const maxLabelLines = labelChunks.length;
         const words = routeTokens.slice();
         let lineIndex = 0;
-        
+
         while (lineIndex < maxLabelLines || words.length) {
             const lStr = (lineIndex < labelChunks.length) ? labelChunks[lineIndex] : '';
             const labelPad = lStr.padEnd(colWidth, ' ').slice(0, colWidth);
             const basePrefix = ADV_INDENT + labelPad;
             let current = basePrefix;
             const baseLen = current.length;
-            
+
             if (words.length) {
                 while (words.length) {
                     const word = words[0];
@@ -5975,13 +5975,13 @@ $(document).ready(function() {
             lines.push(current.trimEnd());
             lineIndex++;
         }
-        if (!lines.length) lines.push('');
+        if (!lines.length) {lines.push('');}
         return lines;
     }
 
     // Extract just airports from a string
     function advExtractAirports(text) {
-        if (!text) return [];
+        if (!text) {return [];}
         const tokens = text.split(/\s+/).filter(Boolean);
         return tokens.filter(tok => {
             const clean = tok.replace(/[<>]/g, '').toUpperCase();
@@ -5991,7 +5991,7 @@ $(document).ready(function() {
 
     // Extract ARTCCs from a string
     function advExtractArtccs(text) {
-        if (!text) return [];
+        if (!text) {return [];}
         const tokens = text.split(/\s+/).filter(Boolean);
         return tokens.filter(tok => {
             const clean = tok.replace(/[<>]/g, '').toUpperCase();
@@ -6001,18 +6001,18 @@ $(document).ready(function() {
 
     // Strip all facilities from route, keep only NAVAIDs/fixes/airways
     function advCleanRouteString(routeText) {
-        if (!routeText) return '';
+        if (!routeText) {return '';}
         const tokens = routeText.split(/\s+/).filter(Boolean);
         const cleaned = [];
-        
+
         tokens.forEach(tok => {
             const clean = tok.replace(/[<>]/g, '').toUpperCase();
             // Skip facilities (airports, ARTCCs, TRACONs)
-            if (advIsFacility(clean)) return;
+            if (advIsFacility(clean)) {return;}
             // Keep everything else (NAVAIDs, fixes, airways, DP/STAR codes)
             cleaned.push(tok.toUpperCase());
         });
-        
+
         return cleaned.join(' ');
     }
 
@@ -6021,24 +6021,24 @@ $(document).ready(function() {
         const routes = [];
         (routeStrings || []).forEach(raw => {
             let line = (raw || '').trim();
-            if (!line) return;
+            if (!line) {return;}
             const semiIdx = line.indexOf(';');
-            if (semiIdx !== -1) line = line.slice(0, semiIdx).trim();
-            if (!line) return;
-            
+            if (semiIdx !== -1) {line = line.slice(0, semiIdx).trim();}
+            if (!line) {return;}
+
             const tokens = line.split(/\s+/).filter(Boolean);
-            if (!tokens.length) return;
-            
+            if (!tokens.length) {return;}
+
             // Find all facilities in the route (excluding airways which start with J/Q/V/T + digits)
             const facilityIdxs = [];
             const airportIdxs = [];
             const artccIdxs = [];
-            
+
             for (let i = 0; i < tokens.length; i++) {
                 const clean = tokens[i].replace(/[<>]/g, '').toUpperCase();
                 // Skip airways - they are NOT facilities
-                if (advIsAirway(clean)) continue;
-                
+                if (advIsAirway(clean)) {continue;}
+
                 if (advIsAirport(clean)) {
                     facilityIdxs.push(i);
                     airportIdxs.push(i);
@@ -6049,13 +6049,13 @@ $(document).ready(function() {
                     facilityIdxs.push(i);
                 }
             }
-            
-            if (facilityIdxs.length < 2) return;
-            
+
+            if (facilityIdxs.length < 2) {return;}
+
             const firstFacilityIdx = facilityIdxs[0];
             const lastFacilityIdx = facilityIdxs[facilityIdxs.length - 1];
-            if (lastFacilityIdx <= firstFacilityIdx) return;
-            
+            if (lastFacilityIdx <= firstFacilityIdx) {return;}
+
             // Gather origin facilities (consecutive facilities at start)
             let origEndIdx = firstFacilityIdx;
             while (origEndIdx <= lastFacilityIdx) {
@@ -6066,7 +6066,7 @@ $(document).ready(function() {
                     break;
                 }
             }
-            
+
             // Gather destination facilities (consecutive facilities at end)
             let destStartIdx = lastFacilityIdx;
             while (destStartIdx > origEndIdx) {
@@ -6077,25 +6077,25 @@ $(document).ready(function() {
                     break;
                 }
             }
-            
+
             // If origins and destinations overlap, adjust
             if (destStartIdx < origEndIdx) {
                 // Split evenly or favor origins
                 destStartIdx = origEndIdx;
             }
-            
+
             const origTokens = tokens.slice(firstFacilityIdx, origEndIdx);
             const destTokens = tokens.slice(destStartIdx, lastFacilityIdx + 1);
             const routeTokens = tokens.slice(origEndIdx, destStartIdx);
-            
+
             // Separate airports and ARTCCs in origin
             const origAirports = origTokens.filter(t => advIsAirport(t.replace(/[<>]/g, ''))).map(t => t.replace(/[<>]/g, '').toUpperCase());
             const origArtccs = origTokens.filter(t => advIsArtcc(t.replace(/[<>]/g, ''))).map(t => t.replace(/[<>]/g, '').toUpperCase());
-            
+
             // Separate airports and ARTCCs in destination
             const destAirports = destTokens.filter(t => advIsAirport(t.replace(/[<>]/g, ''))).map(t => t.replace(/[<>]/g, '').toUpperCase());
             const destArtccs = destTokens.filter(t => advIsArtcc(t.replace(/[<>]/g, ''))).map(t => t.replace(/[<>]/g, '').toUpperCase());
-            
+
             routes.push({
                 orig: origTokens.map(t => t.replace(/[<>]/g, '').toUpperCase()).join(' '),
                 origAirports: origAirports,
@@ -6104,7 +6104,7 @@ $(document).ready(function() {
                 destAirports: destAirports,
                 destArtccs: destArtccs,
                 assignedRoute: routeTokens.map(t => t.toUpperCase()).join(' '),
-                cleanRoute: advCleanRouteString(routeTokens.join(' '))
+                cleanRoute: advCleanRouteString(routeTokens.join(' ')),
             });
         });
         return routes;
@@ -6115,14 +6115,14 @@ $(document).ready(function() {
         const collectResult = collectRouteStringsForAdvisory(rawInput);
         const routeStrings = collectResult.routes || [];
         const usedProcedures = collectResult.procedures || [];
-        
+
         if (!routeStrings.length) {
             alert('No routes found to build an advisory.');
             return;
         }
-        
+
         const parsedRoutes = advParseRoutesEnhanced(routeStrings);
-        
+
         // Dedupe
         const consolidated = [];
         const seenKeys = new Set();
@@ -6133,11 +6133,11 @@ $(document).ready(function() {
                 consolidated.push(r);
             }
         });
-        
+
         // Determine format based on action type or checkbox
         const advAction = ($('#advAction').val() || 'ROUTE RQD').trim().toUpperCase();
         const useSplitFormat = advAction.indexOf('FCA') !== -1 || $('#advSplitFormat').is(':checked');
-        
+
         advEnsureDefaultIncludedTraffic(parsedRoutes);
         const advNumber = ($('#advNumber').val() || '001').trim().toUpperCase();
         const advFacility = ($('#advFacility').val() || 'DCC').trim().toUpperCase();
@@ -6158,7 +6158,7 @@ $(document).ready(function() {
         const rawTmiId = ($('#advTmiId').val() || '').toString();
         const advEffTime = ($('#advEffectiveTime').val() || '').trim().toUpperCase();
         const advTmiId = advGenerateTmiId(advAction, advFacility, advNumber, rawTmiId);
-        
+
         // Add procedure references to REMARKS if any were used
         if (usedProcedures.length > 0) {
             const procList = usedProcedures.join(', ');
@@ -6168,9 +6168,9 @@ $(document).ready(function() {
                 advRemarks = 'BASED ON ' + procList;
             }
         }
-        
+
         const lines = [];
-        let header = AdvisoryConfig.getPrefix() + ' ADVZY ' + advNumber + ' ' + advFacility + ' ' + advDate + ' ' + advAction;
+        const header = AdvisoryConfig.getPrefix() + ' ADVZY ' + advNumber + ' ' + advFacility + ' ' + advDate + ' ' + advAction;
         lines.push(header);
         advAddLabeledField(lines, 'NAME', advName);
         advAddLabeledField(lines, 'CONSTRAINED AREA', advConArea);
@@ -6178,7 +6178,7 @@ $(document).ready(function() {
         advAddLabeledField(lines, 'INCLUDE TRAFFIC', advInclTraff);
         advAddLabeledField(lines, 'FACILITIES INCLUDED', advFacilsInc);
         advAddLabeledField(lines, 'FLIGHT STATUS', advFltStatus);
-        
+
         let validText = '';
         if (advValidFrom || advValidTo) {
             const fromStr = advValidFrom || 'DDHHMM';
@@ -6194,39 +6194,39 @@ $(document).ready(function() {
         advAddLabeledField(lines, 'REMARKS', advRemarks);
         advAddLabeledField(lines, 'ASSOCIATED RESTRICTIONS', advRestr);
         advAddLabeledField(lines, 'MODIFICATIONS', advMods);
-        
+
         lines.push('');
         lines.push('ROUTES:');
         lines.push('');
-        
+
         if (useSplitFormat) {
             // SPLIT FORMAT: FROM section and TO section
             // Group by origin facilities for FROM section
             const byOrigKey = {};
             consolidated.forEach(r => {
                 // Use ARTCCs if available, otherwise airports
-                const origKey = r.origArtccs.length ? r.origArtccs.sort().join(' ') : 
-                               (r.origAirports.length ? r.origAirports.sort().join(' ') : r.orig);
-                if (!byOrigKey[origKey]) byOrigKey[origKey] = [];
+                const origKey = r.origArtccs.length ? r.origArtccs.sort().join(' ') :
+                    (r.origAirports.length ? r.origAirports.sort().join(' ') : r.orig);
+                if (!byOrigKey[origKey]) {byOrigKey[origKey] = [];}
                 byOrigKey[origKey].push(r);
             });
-            
+
             // Group by destination for TO section (use airports when available)
             const byDest = {};
             consolidated.forEach(r => {
                 const destKey = r.destAirports && r.destAirports.length ? r.destAirports.join(' ') : r.dest;
-                if (!byDest[destKey]) byDest[destKey] = [];
+                if (!byDest[destKey]) {byDest[destKey] = [];}
                 byDest[destKey].push(r);
             });
-            
+
             // Calculate column width
             const origColWidth = 36;
-            
+
             // FROM section
             lines.push('FROM:');
             lines.push('ORIG                                 ROUTE - ORIGIN SEGMENTS');
             lines.push('----                                 -----------------------');
-            
+
             const sortedOrigs = Object.keys(byOrigKey).sort();
             sortedOrigs.forEach(origKey => {
                 const routes = byOrigKey[origKey];
@@ -6234,56 +6234,56 @@ $(document).ready(function() {
                 const seenSegs = new Set();
                 routes.forEach(r => {
                     const routeClean = r.cleanRoute || '';
-                    if (!routeClean) return;
-                    
+                    if (!routeClean) {return;}
+
                     // For FROM section, show full route up to and including < marker
                     // Keep any DP before the > marker
                     let seg = routeClean;
-                    
+
                     // Find the mandatory close marker and truncate there
                     const closeIdx = seg.indexOf('<');
                     if (closeIdx > 0) {
                         // Keep everything up to but NOT including < for FROM display
                         seg = seg.slice(0, closeIdx).trim();
                     }
-                    
+
                     // Ensure there's a > marker if mandatory segment exists
                     if (seg.indexOf('>') === -1) {
                         // No > found - the whole thing is the route
                         seg = '>' + seg;
                     }
-                    
+
                     if (seg && !seenSegs.has(seg)) {
                         seenSegs.add(seg);
                         advFormatSplitRow(origKey, seg, origColWidth).forEach(l => lines.push(l));
                     }
                 });
             });
-            
+
             lines.push('');
-            
+
             // TO section
             lines.push('TO:');
             lines.push('DEST                                 ROUTE - DESTINATION SEGMENTS');
             lines.push('----                                 ----------------------------');
-            
+
             const sortedDests = Object.keys(byDest).sort();
             sortedDests.forEach(dest => {
                 const routes = byDest[dest];
                 const seenSegs = new Set();
                 routes.forEach(r => {
                     const routeClean = r.cleanRoute || '';
-                    if (!routeClean) return;
-                    
+                    if (!routeClean) {return;}
+
                     // For TO section, show from after > to end (including STAR after <)
                     let seg = routeClean;
-                    
+
                     // Find where mandatory segment starts (after >) and take from there
                     const openIdx = seg.indexOf('>');
                     if (openIdx >= 0) {
                         seg = seg.slice(openIdx + 1).trim();
                     }
-                    
+
                     // Ensure there's a < marker for destination
                     if (seg.indexOf('<') === -1) {
                         // Find a good place to put < - before any STAR at the end
@@ -6301,14 +6301,14 @@ $(document).ready(function() {
                             seg = seg + '<';
                         }
                     }
-                    
+
                     if (seg && seg !== '<' && !seenSegs.has(seg)) {
                         seenSegs.add(seg);
                         advFormatSplitRow(dest, seg, origColWidth).forEach(l => lines.push(l));
                     }
                 });
             });
-            
+
         } else {
             // FULL FORMAT: Standard ORIG/DEST/ROUTE table
             // First, consolidate routes that share the same (dest, route) pair
@@ -6317,15 +6317,15 @@ $(document).ready(function() {
                 const destKey = r.destAirports && r.destAirports.length ? r.destAirports.join(' ') : r.dest;
                 const routeKey = (r.cleanRoute || '').toUpperCase().trim();
                 const groupKey = destKey + '|||' + routeKey;
-                
+
                 if (!routeGroups[groupKey]) {
                     routeGroups[groupKey] = {
                         dest: destKey,
                         route: routeKey,
-                        origins: []
+                        origins: [],
                     };
                 }
-                
+
                 // Add origin(s) to the group
                 const origDisplay = r.origAirports && r.origAirports.length ? r.origAirports : [r.orig];
                 origDisplay.forEach(o => {
@@ -6334,13 +6334,13 @@ $(document).ready(function() {
                     }
                 });
             });
-            
+
             // Convert to array and sort origins within each group
             const groupedRoutes = Object.values(routeGroups).map(g => {
                 g.origins.sort();
                 return g;
             });
-            
+
             // Calculate column widths based on combined origins
             let maxOrigLen = 4, maxDestLen = 4;
             groupedRoutes.forEach(g => {
@@ -6348,38 +6348,38 @@ $(document).ready(function() {
                 const origDisplay = g.origins.join('/');
                 const ol = origDisplay.length;
                 const dl = g.dest.length;
-                if (ol > maxOrigLen) maxOrigLen = ol;
-                if (dl > maxDestLen) maxDestLen = dl;
+                if (ol > maxOrigLen) {maxOrigLen = ol;}
+                if (dl > maxDestLen) {maxDestLen = dl;}
             });
             const colWidths = {
                 orig: Math.min(maxOrigLen + 2, 40),  // Allow wider for combined origins
-                dest: Math.min(maxDestLen + 2, 20)
+                dest: Math.min(maxDestLen + 2, 20),
             };
-            
+
             // Header
             advFormatFullRouteRow('ORIG', 'DEST', 'ROUTE', colWidths).forEach(l => lines.push(l));
             advFormatFullRouteRow('----', '----', '-----', colWidths).forEach(l => lines.push(l));
-            
+
             // Group by destination for output ordering
             const routesByDest = {};
             groupedRoutes.forEach(g => {
-                if (!routesByDest[g.dest]) routesByDest[g.dest] = [];
+                if (!routesByDest[g.dest]) {routesByDest[g.dest] = [];}
                 routesByDest[g.dest].push(g);
             });
-            
+
             const sortedDests = Object.keys(routesByDest).sort();
-            
+
             // Sort routes within each destination by first origin
             sortedDests.forEach(dest => {
                 routesByDest[dest].sort((a, b) => (a.origins[0] || '').localeCompare(b.origins[0] || ''));
             });
-            
+
             let firstGroup = true;
             sortedDests.forEach(dest => {
                 const destRoutes = routesByDest[dest];
-                if (!firstGroup) lines.push('');
+                if (!firstGroup) {lines.push('');}
                 firstGroup = false;
-                
+
                 destRoutes.forEach(g => {
                     // Format origins as slash-separated
                     const origDisplay = g.origins.join('/');
@@ -6387,9 +6387,9 @@ $(document).ready(function() {
                 });
             });
         }
-        
+
         lines.push('');
-        if (advTmiId) lines.push('TMI ID: ' + advTmiId);
+        if (advTmiId) {lines.push('TMI ID: ' + advTmiId);}
         lines.push('EFFECTIVE TIME: ' + (advEffTime || ''));
 
         // Add signature line: YY/MM/DD HH:MM
@@ -6406,7 +6406,7 @@ $(document).ready(function() {
 
     function advInitFacilitiesDropdown() {
         const $grid = $('#advFacilitiesGrid');
-        if (!$grid.length) return;
+        if (!$grid.length) {return;}
         $grid.empty();
         ADV_FACILITY_CODES.forEach(code => {
             const id = 'advFacility_' + code;
@@ -6431,7 +6431,7 @@ $(document).ready(function() {
             const selected = [];
             $('#advFacilitiesGrid input[type="checkbox"]:checked').each(function() {
                 const code = ($(this).attr('data-code') || '').toUpperCase();
-                if (code) selected.push(code);
+                if (code) {selected.push(code);}
             });
             selected.sort();
             $('#advFacilities').val(selected.join('/'));
@@ -6456,7 +6456,7 @@ $(document).ready(function() {
         });
         $(document).on('click', function(e) {
             const $wrap = $('.adv-facilities-wrapper');
-            if (!$wrap.length) return;
+            if (!$wrap.length) {return;}
             if (!$wrap.is(e.target) && $wrap.has(e.target).length === 0) {
                 $('#advFacilitiesDropdown').hide();
             }
@@ -6502,7 +6502,7 @@ $(document).ready(function() {
             const response = await fetch('/api/gis/boundaries?action=expand_routes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ routes: cleanRoutes })
+                body: JSON.stringify({ routes: cleanRoutes }),
             });
 
             if (!response.ok) {
@@ -6553,25 +6553,25 @@ $(document).ready(function() {
      */
     function advSetDefaultTimesUtc() {
         function pad2(n) { return n.toString().padStart(2, '0'); }
-        
+
         const now = new Date();
-        
+
         // Advisory Date: use current UTC date (mm/dd/yyyy format)
         const mm = pad2(now.getUTCMonth() + 1);
         const dd = pad2(now.getUTCDate());
         const yyyy = now.getUTCFullYear();
         $('#advDate').val(mm + '/' + dd + '/' + yyyy);
-        
+
         // Start: current UTC time (no offset)
         const start = new Date(now.getTime());
         const ddStart = pad2(start.getUTCDate());
         const hhStart = pad2(start.getUTCHours());
         const mnStart = pad2(start.getUTCMinutes());
-        
+
         // End: start + 3 hours, snapped to :14, :29, :44, or :59
-        let end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
-        let endMinutes = end.getUTCMinutes();
-        
+        const end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
+        const endMinutes = end.getUTCMinutes();
+
         // Find nearest :14, :29, :44, or :59 endpoint
         const endPoints = [14, 29, 44, 59];
         let targetMin = 59; // default to :59 if current minutes > 59 (shouldn't happen)
@@ -6581,24 +6581,24 @@ $(document).ready(function() {
                 break;
             }
         }
-        
+
         // Apply snapped minutes
         end.setUTCMinutes(targetMin);
         end.setUTCSeconds(0);
         end.setUTCMilliseconds(0);
-        
+
         const ddEnd = pad2(end.getUTCDate());
         const hhEnd = pad2(end.getUTCHours());
         const mnEnd = pad2(end.getUTCMinutes());
-        
+
         const validStartStr = ddStart + hhStart + mnStart;
         const validEndStr = ddEnd + hhEnd + mnEnd;
-        
+
         $('#advValidStart').val(validStartStr);
         $('#advValidEnd').val(validEndStr);
         $('#advEffectiveTime').val(validStartStr + '-' + validEndStr);
     }
-    
+
     /**
      * Update advisory effective time when valid start/end fields change
      * Auto-updates date in effective time string based on actual input values
@@ -6633,7 +6633,7 @@ $(document).ready(function() {
                 icon: 'warning',
                 title: 'No Routes Plotted',
                 text: 'Plot some routes first before drafting a TMI reroute advisory.',
-                confirmButtonText: 'OK'
+                confirmButtonText: 'OK',
             });
             return;
         }
@@ -6679,7 +6679,7 @@ $(document).ready(function() {
                     probExtension: $('#advProb').val() || 'MEDIUM',
                     remarks: $('#advRemarks').val() || '',
                     restrictions: $('#advRestrictions').val() || '',
-                    modifications: $('#advMods').val() || ''
+                    modifications: $('#advMods').val() || '',
                 },
 
                 // Calculated facilities for coordination
@@ -6693,7 +6693,7 @@ $(document).ready(function() {
                     destination: r.dest || '',
                     destAirports: r.destAirports || [],
                     destArtccs: r.destArtccs || [],
-                    route: r.assignedRoute || r.cleanRoute || ''
+                    route: r.assignedRoute || r.cleanRoute || '',
                 })),
 
                 // Raw route input for reference
@@ -6705,15 +6705,15 @@ $(document).ready(function() {
                 // GeoJSON for map visualization in TMI Publisher
                 geojson: exportData.routeFeatures ? {
                     type: 'FeatureCollection',
-                    features: exportData.routeFeatures
+                    features: exportData.routeFeatures,
                 } : null,
 
                 // Visualization settings
                 visualization: {
                     color: exportData.routeFeatures?.[0]?.properties?.color || '#3498db',
                     lineWeight: 3,
-                    lineStyle: 'solid'
-                }
+                    lineStyle: 'solid',
+                },
             };
 
             console.log('[DRAFT-TMI] Prepared reroute data:', rerouteData);
@@ -6728,7 +6728,7 @@ $(document).ready(function() {
                 Swal.fire({
                     icon: 'error',
                     title: 'Storage Error',
-                    text: 'Failed to prepare reroute data. Please try again.'
+                    text: 'Failed to prepare reroute data. Please try again.',
                 });
                 return;
             }
@@ -6741,7 +6741,7 @@ $(document).ready(function() {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Failed to prepare reroute draft: ' + err.message
+                text: 'Failed to prepare reroute draft: ' + err.message,
             });
         } finally {
             $btn.html(originalHtml).prop('disabled', false);
@@ -6764,7 +6764,7 @@ $(document).ready(function() {
         const response = await fetch('/api/gis/boundaries?action=expand_routes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ routes: cleanRoutes })
+            body: JSON.stringify({ routes: cleanRoutes }),
         });
 
         if (!response.ok) {
@@ -6784,7 +6784,7 @@ $(document).ready(function() {
 
         return {
             artccs: allArtccs,
-            raw: data
+            raw: data,
         };
     }
 
@@ -6821,7 +6821,7 @@ $(document).ready(function() {
     });
     $('#adv_copy').on('click', function() {
         const txt = $('#advOutput').val();
-        if (!txt) return;
+        if (!txt) {return;}
         navigator.clipboard.writeText(txt);
     });
     $('#adv_draft_tmi').on('click', function() {
@@ -6833,14 +6833,14 @@ $(document).ready(function() {
         body.slideToggle(150);
         $(this).text(isVisible ? 'Show' : 'Hide');
     });
-    
+
     // Auto-update effective time when valid start/end change
     $(document).on('input change', '#advValidStart, #advValidEnd', function() {
         advUpdateEffectiveTime();
     });
 
     // Initialize advisory defaults when MapLibre is used
-    if (localStorage.getItem('useMapLibre') === 'true' || 
+    if (localStorage.getItem('useMapLibre') === 'true' ||
         (typeof window.PERTI_USE_MAPLIBRE !== 'undefined' && window.PERTI_USE_MAPLIBRE)) {
         advSetDefaultTimesUtc();
         advInitFacilitiesDropdown();
@@ -6865,7 +6865,7 @@ $(document).ready(function() {
         getLastExpandedRoutes: () => lastExpandedRoutes, // For public routes feature
         // Export current route features for public routes capture
         getCurrentRouteFeatures: () => {
-            if (!graphic_map || !graphic_map.getSource('routes')) return null;
+            if (!graphic_map || !graphic_map.getSource('routes')) {return null;}
             const source = graphic_map.getSource('routes');
             if (source && source._data && source._data.features) {
                 return JSON.parse(JSON.stringify(source._data)); // Deep copy
@@ -6879,14 +6879,14 @@ $(document).ready(function() {
             Object.keys(routeFixesByRouteId).forEach(id => routeLabelsVisible.add(parseInt(id)));
             updateRouteLabelDisplay();
         },
-        resetLabelPositions: resetLabelPositions
+        resetLabelPositions: resetLabelPositions,
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    const USE_MAPLIBRE = localStorage.getItem('useMapLibre') === 'true' || 
+    const USE_MAPLIBRE = localStorage.getItem('useMapLibre') === 'true' ||
                          (typeof window.PERTI_USE_MAPLIBRE !== 'undefined' && window.PERTI_USE_MAPLIBRE);
 
     if (USE_MAPLIBRE) {
@@ -6899,59 +6899,59 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
     // ROUTE SYMBOLOGY INTEGRATION
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     function initRouteSymbologyIntegration() {
         if (typeof RouteSymbology === 'undefined') {
             console.log('[MAPLIBRE] RouteSymbology not available, skipping integration');
             return;
         }
-        
+
         if (!graphic_map) {
             console.log('[MAPLIBRE] Map not ready, deferring symbology init');
             setTimeout(initRouteSymbologyIntegration, 500);
             return;
         }
-        
+
         // Load and apply symbology settings
         RouteSymbology.load();
         RouteSymbology.applyToMapLibre(graphic_map);
-        
+
         // Register change callback
         RouteSymbology.onChange(function() {
             RouteSymbology.applyToMapLibre(graphic_map);
         });
-        
+
         // Add double-click handler for quick style editing on segments
         enhanceSegmentClickHandler();
-        
+
         console.log('[MAPLIBRE] Route Symbology integration complete');
     }
-    
+
     function enhanceSegmentClickHandler() {
         // Add double-click handler for quick style editing
         ['routes-solid', 'routes-dashed', 'routes-fan'].forEach(layerId => {
-            if (!graphic_map || !graphic_map.getLayer(layerId)) return;
-            
+            if (!graphic_map || !graphic_map.getLayer(layerId)) {return;}
+
             graphic_map.on('dblclick', layerId, function(e) {
-                if (!e.features || !e.features[0]) return;
-                if (typeof RouteSymbology === 'undefined') return;
-                
+                if (!e.features || !e.features[0]) {return;}
+                if (typeof RouteSymbology === 'undefined') {return;}
+
                 e.preventDefault();
-                
+
                 const props = e.features[0].properties;
                 const routeId = props.routeId || 0;
                 const segmentKey = `${props.fromFix || ''}|${props.toFix || ''}|${routeId}`;
                 const segType = props.isFan ? 'fan' : (props.solid ? 'solid' : 'dashed');
-                
+
                 const currentStyle = RouteSymbology.getSegmentSymbology(segmentKey, routeId, segType, props.color);
-                
+
                 RouteSymbology.showSegmentEditor(e.lngLat, segmentKey, routeId, currentStyle, function() {
                     RouteSymbology.applyToMapLibre(graphic_map);
                 }).addTo(graphic_map);
             });
         });
     }
-    
+
     // Expose symbology methods on public API
     if (typeof window.MapLibreRoute !== 'undefined') {
         window.MapLibreRoute.applySymbology = function() {
@@ -6963,7 +6963,7 @@ $(document).ready(function() {
             return typeof RouteSymbology !== 'undefined' ? RouteSymbology : null;
         };
     }
-    
+
     // Auto-initialize symbology integration when map is ready
     if (USE_MAPLIBRE) {
         setTimeout(initRouteSymbologyIntegration, 1000);
@@ -6972,7 +6972,7 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
     // EXPORT FUNCTIONALITY
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     /**
      * Parse route input and collect comprehensive metadata for export
      */
@@ -6980,14 +6980,14 @@ $(document).ready(function() {
         const rawInput = $('#routeSearch').val() || '';
         const routes = [];
         const lines = rawInput.split(/\r?\n/);
-        
+
         let currentGroupName = null;
         let currentGroupColor = null;
         let currentGroupMandatory = false;
-        
+
         // First pass: identify groups and individual routes
         const routeEntries = [];
-        
+
         lines.forEach((line, lineIdx) => {
             const trimmed = (line || '').trim();
             if (!trimmed) {
@@ -6996,7 +6996,7 @@ $(document).ready(function() {
                 currentGroupMandatory = false;
                 return;
             }
-            
+
             // Check for group header
             const headerMatch = trimmed.match(/^(>?)\s*\[([^\]]+)\]\s*(<?)\s*(?:;(.+))?$/i);
             if (headerMatch) {
@@ -7005,7 +7005,7 @@ $(document).ready(function() {
                 currentGroupMandatory = headerMatch[1] === '>' || headerMatch[3] === '<';
                 return;
             }
-            
+
             // Simple group header
             if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
                 let inner = trimmed.slice(1, -1).trim();
@@ -7021,49 +7021,49 @@ $(document).ready(function() {
                 }
                 return;
             }
-            
+
             // This is a route line
             routeEntries.push({
                 line: trimmed,
                 lineNumber: lineIdx + 1,
                 groupName: currentGroupName,
                 groupColor: currentGroupColor,
-                groupMandatory: currentGroupMandatory
+                groupMandatory: currentGroupMandatory,
             });
         });
-        
+
         // Process each route entry
         routeEntries.forEach((entry, routeIdx) => {
             let baseLine = entry.line;
             let color = entry.groupColor;
             let isMandatory = entry.groupMandatory;
-            
+
             // Extract color from route line if present
             const semiIdx = baseLine.indexOf(';');
             if (semiIdx !== -1) {
                 color = baseLine.slice(semiIdx + 1).trim().toUpperCase() || color;
                 baseLine = baseLine.slice(0, semiIdx).trim();
             }
-            
+
             // Check for mandatory markers
             if (baseLine.startsWith('>') && baseLine.endsWith('<')) {
                 isMandatory = true;
                 baseLine = baseLine.slice(1, -1).trim();
             }
-            
+
             const routeUpper = baseLine.toUpperCase();
-            
+
             // Detect playbook directive
             let playbookName = null;
             let playbookOrigins = null;
             let playbookDests = null;
-            
+
             if (routeUpper.startsWith('PB.')) {
                 const pbParts = routeUpper.slice(3).split('.');
                 playbookName = pbParts[0] || null;
                 playbookOrigins = pbParts[1] || null;
                 playbookDests = pbParts[2] || null;
-                
+
                 // Expand playbook routes
                 const pbRoutes = expandPlaybookDirective(routeUpper.slice(3), isMandatory, color);
                 pbRoutes.forEach((pbRoute, pbIdx) => {
@@ -7077,14 +7077,14 @@ $(document).ready(function() {
                 });
                 return;
             }
-            
+
             // Detect CDR
             let cdrCode = null;
             const tokens = routeUpper.split(/\s+/).filter(t => t);
             if (tokens.length === 1 && cdrMap[tokens[0]]) {
                 cdrCode = tokens[0];
             }
-            
+
             // Parse route metadata
             const routeMeta = parseRouteMetadata(entry.line, routeIdx);
             routeMeta.groupName = entry.groupName;
@@ -7092,11 +7092,11 @@ $(document).ready(function() {
             routeMeta.isMandatory = isMandatory;
             routes.push(routeMeta);
         });
-        
+
         // Collect GeoJSON features from map sources
         let routeFeatures = [];
         let fixFeatures = [];
-        
+
         if (graphic_map) {
             try {
                 const routeSource = graphic_map.getSource('routes');
@@ -7104,7 +7104,7 @@ $(document).ready(function() {
                     routeFeatures = routeSource._data.features || [];
                 }
             } catch (e) {}
-            
+
             try {
                 const fixSource = graphic_map.getSource('route-fixes');
                 if (fixSource && fixSource._data) {
@@ -7112,34 +7112,34 @@ $(document).ready(function() {
                 }
             } catch (e) {}
         }
-        
+
         lastExportData = {
             routes: routes,
             routeFeatures: routeFeatures,
             fixFeatures: fixFeatures,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
-        
+
         return lastExportData;
     }
-    
+
     /**
      * Parse a single route string and extract metadata
      */
     function parseRouteMetadata(routeString, routeId) {
         let routeText = (routeString || '').toString().trim();
         let color = null;
-        
+
         // Extract color
         const semiIdx = routeText.indexOf(';');
         if (semiIdx !== -1) {
             color = routeText.slice(semiIdx + 1).trim();
             routeText = routeText.slice(0, semiIdx).trim();
         }
-        
+
         // Strip mandatory markers for parsing
         let cleanRoute = routeText.replace(/[<>]/g, '').trim().toUpperCase();
-        
+
         // CDR expansion
         let cdrExpanded = null;
         const routeTokens = cleanRoute.split(/\s+/).filter(t => t);
@@ -7147,17 +7147,17 @@ $(document).ready(function() {
             cdrExpanded = cdrMap[routeTokens[0]];
             cleanRoute = cdrExpanded;
         }
-        
+
         // Parse tokens
         const tokens = cleanRoute.split(/\s+/).filter(t => t);
-        
+
         // Detect origins and destinations
         const origins = [];
         const destinations = [];
         let routeBody = [];
         let foundFirstNonAirport = false;
         let lastNonAirportIdx = -1;
-        
+
         tokens.forEach((tok, i) => {
             if (isAirportIdent(tok)) {
                 if (!foundFirstNonAirport) {
@@ -7168,7 +7168,7 @@ $(document).ready(function() {
                 lastNonAirportIdx = i;
             }
         });
-        
+
         // Work backwards to find destinations
         for (let i = tokens.length - 1; i >= 0; i--) {
             if (isAirportIdent(tokens[i]) && i > lastNonAirportIdx) {
@@ -7177,18 +7177,18 @@ $(document).ready(function() {
                 break;
             }
         }
-        
+
         // Get route body (middle portion)
         const startIdx = origins.length;
         const endIdx = tokens.length - destinations.length;
         routeBody = tokens.slice(startIdx, endIdx);
-        
+
         // Detect DP/STAR
         let departureProc = null;
         let departureTransition = null;
         let arrivalProc = null;
         let arrivalTransition = null;
-        
+
         tokens.forEach(tok => {
             // DP pattern: NAME#.TRANSITION or TRANSITION.NAME#
             const dpMatch = tok.match(/^([A-Z]{4,5}\d)\.([A-Z]{3,5})$/) || tok.match(/^([A-Z]{3,5})\.([A-Z]{4,5}\d)$/);
@@ -7201,7 +7201,7 @@ $(document).ready(function() {
                     }
                 }
             }
-            
+
             // STAR pattern: FIX.STAR#
             const starMatch = tok.match(/^([A-Z]{3,5})\.([A-Z]{4,5}\d?)#?$/);
             if (starMatch && tok.includes('#')) {
@@ -7209,7 +7209,7 @@ $(document).ready(function() {
                 arrivalProc = starMatch[2];
             }
         });
-        
+
         // Get expanded route
         let expandedRoute = cleanRoute;
         if (typeof ConvertRoute === 'function') {
@@ -7217,7 +7217,7 @@ $(document).ready(function() {
                 expandedRoute = ConvertRoute(cleanRoute);
             } catch (e) {}
         }
-        
+
         // Get symbology
         let symbology = null;
         if (typeof RouteSymbology !== 'undefined') {
@@ -7225,7 +7225,7 @@ $(document).ready(function() {
                 symbology = RouteSymbology.getRouteSymbology(routeId);
             } catch (e) {}
         }
-        
+
         return {
             routeId: routeId,
             originalString: routeString,
@@ -7245,15 +7245,15 @@ $(document).ready(function() {
             playbookOrigins: null,
             playbookDests: null,
             cdrCode: null,
-            isMandatory: false
+            isMandatory: false,
         };
     }
-    
+
     /**
      * Generate GeoJSON FeatureCollection for a route string
      * This mirrors the main route processing logic for consistent results
      * Used to pre-generate route_geojson for public routes storage
-     * 
+     *
      * @param {string} routeString - Route string (can be multi-line for multiple routes)
      * @param {object} options - Optional settings { color: '#00ffff' }
      * @returns {object} GeoJSON FeatureCollection
@@ -7261,31 +7261,31 @@ $(document).ready(function() {
     function generateRouteGeoJSON(routeString, options) {
         options = options || {};
         const defaultColor = options.color || '#00ffff';
-        
+
         if (!routeString || typeof routeString !== 'string') {
             return { type: 'FeatureCollection', features: [] };
         }
-        
+
         const features = [];
         const lines = routeString.split(/[\r\n]+/);
-        
+
         lines.forEach(function(line, lineIdx) {
             let lineTrimmed = (line || '').trim();
-            if (!lineTrimmed) return;
-            
+            if (!lineTrimmed) {return;}
+
             // Extract color suffix if present
             let lineColor = defaultColor;
             const semiIdx = lineTrimmed.indexOf(';');
             if (semiIdx !== -1) {
                 const colorPart = lineTrimmed.slice(semiIdx + 1).trim();
-                if (colorPart) lineColor = colorPart;
+                if (colorPart) {lineColor = colorPart;}
                 lineTrimmed = lineTrimmed.slice(0, semiIdx).trim();
             }
-            
+
             // Strip mandatory markers for processing
             lineTrimmed = lineTrimmed.replace(/[<>]/g, '').toUpperCase();
-            if (!lineTrimmed) return;
-            
+            if (!lineTrimmed) {return;}
+
             // CDR expansion
             const cdrTokens = lineTrimmed.split(/\s+/).filter(function(t) { return t; });
             if (cdrTokens.length === 1 && cdrMap && cdrMap[cdrTokens[0]]) {
@@ -7301,7 +7301,7 @@ $(document).ready(function() {
                 });
                 lineTrimmed = expandedCdr.join(' ');
             }
-            
+
             // Expand airways
             let expanded = lineTrimmed;
             if (typeof ConvertRoute === 'function') {
@@ -7311,24 +7311,24 @@ $(document).ready(function() {
                     console.warn('[generateRouteGeoJSON] ConvertRoute failed:', e);
                 }
             }
-            
+
             const tokens = expanded.split(/\s+/).filter(function(t) { return t; });
-            if (tokens.length < 2) return;
-            
+            if (tokens.length < 2) {return;}
+
             // Resolve points with context (two-pass like main plotter)
             const routePoints = [];
             let previousPointData = null;
-            
+
             for (let i = 0; i < tokens.length; i++) {
                 const pointName = tokens[i].toUpperCase();
-                
+
                 // Skip pure airways that weren't expanded (shouldn't happen but safety check)
-                if (/^[JQTV]\d+$/i.test(pointName)) continue;
-                
+                if (/^[JQTV]\d+$/i.test(pointName)) {continue;}
+
                 // Skip speed/altitude restrictions
-                if (/^[NMFSA]\d{3,4}$/.test(pointName)) continue;
-                if (/^\d{3,}$/.test(pointName)) continue;
-                
+                if (/^[NMFSA]\d{3,4}$/.test(pointName)) {continue;}
+                if (/^\d{3,}$/.test(pointName)) {continue;}
+
                 // Handle DP/STAR dotted notation - extract fix name
                 let lookupName = pointName;
                 if (pointName.includes('.')) {
@@ -7336,25 +7336,25 @@ $(document).ready(function() {
                     // Try first part (usually the fix for DPs like THHMP.CAVLR6)
                     lookupName = dotParts[0];
                 }
-                
+
                 // Look ahead for next point (for context)
                 let nextPointData = null;
                 for (let j = i + 1; j < tokens.length && j < i + 3; j++) {
                     let nextName = tokens[j].toUpperCase();
-                    if (/^[JQTV]\d+$/i.test(nextName)) continue;
-                    if (/^[NMFSA]\d{3,4}$/.test(nextName)) continue;
-                    if (nextName.includes('.')) nextName = nextName.split('.')[0];
-                    
+                    if (/^[JQTV]\d+$/i.test(nextName)) {continue;}
+                    if (/^[NMFSA]\d{3,4}$/.test(nextName)) {continue;}
+                    if (nextName.includes('.')) {nextName = nextName.split('.')[0];}
+
                     const testPoint = getPointByName(nextName);
                     if (testPoint && Array.isArray(testPoint) && testPoint.length >= 3) {
                         nextPointData = testPoint;
                         break;
                     }
                 }
-                
+
                 // Resolve current point
                 let pointData = getPointByName(lookupName, previousPointData, nextPointData);
-                
+
                 // Fallback to area centers for facility codes
                 if (!pointData || pointData.length < 3) {
                     if (typeof areaCenters !== 'undefined' && areaCenters[lookupName]) {
@@ -7362,23 +7362,23 @@ $(document).ready(function() {
                         pointData = [lookupName, center.lat, center.lon];
                     }
                 }
-                
+
                 if (pointData && Array.isArray(pointData) && pointData.length >= 3) {
                     routePoints.push({
                         name: pointData[0],
                         lat: pointData[1],
-                        lon: pointData[2]
+                        lon: pointData[2],
                     });
                     previousPointData = pointData;
                 }
             }
-            
+
             // Create line segments
             if (routePoints.length >= 2) {
                 for (let i = 0; i < routePoints.length - 1; i++) {
                     const from = routePoints[i];
                     const to = routePoints[i + 1];
-                    
+
                     features.push({
                         type: 'Feature',
                         properties: {
@@ -7386,18 +7386,18 @@ $(document).ready(function() {
                             lineIndex: lineIdx,
                             fromFix: from.name,
                             toFix: to.name,
-                            color: lineColor
+                            color: lineColor,
                         },
                         geometry: {
                             type: 'LineString',
                             coordinates: [
                                 [from.lon, from.lat],
-                                [to.lon, to.lat]
-                            ]
-                        }
+                                [to.lon, to.lat],
+                            ],
+                        },
                     });
                 }
-                
+
                 // Add fix point features
                 routePoints.forEach(function(pt, ptIdx) {
                     features.push({
@@ -7407,43 +7407,43 @@ $(document).ready(function() {
                             name: pt.name,
                             lineIndex: lineIdx,
                             pointIndex: ptIdx,
-                            color: lineColor
+                            color: lineColor,
                         },
                         geometry: {
                             type: 'Point',
-                            coordinates: [pt.lon, pt.lat]
-                        }
+                            coordinates: [pt.lon, pt.lat],
+                        },
                     });
                 });
             }
         });
-        
+
         return {
             type: 'FeatureCollection',
             features: features,
             metadata: {
                 generatedAt: new Date().toISOString(),
                 source: 'PERTI Route Visualization',
-                featureCount: features.length
-            }
+                featureCount: features.length,
+            },
         };
     }
-    
+
     /**
      * Export routes to GeoJSON format
      */
     function exportToGeoJSON() {
         const data = collectExportData();
-        
+
         // Build comprehensive feature collection
         const features = [];
-        
+
         // Add route line features with metadata
         data.routeFeatures.forEach((feat, idx) => {
             const props = feat.properties || {};
             const routeId = props.routeId || 0;
             const routeMeta = data.routes.find(r => r.routeId === routeId) || {};
-            
+
             features.push({
                 type: 'Feature',
                 properties: {
@@ -7466,12 +7466,12 @@ $(document).ready(function() {
                     departureTransition: routeMeta.departureTransition || '',
                     arrivalProc: routeMeta.arrivalProc || '',
                     arrivalTransition: routeMeta.arrivalTransition || '',
-                    isMandatory: routeMeta.isMandatory || false
+                    isMandatory: routeMeta.isMandatory || false,
                 },
-                geometry: feat.geometry
+                geometry: feat.geometry,
             });
         });
-        
+
         // Add fix point features
         data.fixFeatures.forEach(feat => {
             features.push({
@@ -7480,12 +7480,12 @@ $(document).ready(function() {
                     featureType: 'fix',
                     name: feat.properties.name || '',
                     routeId: feat.properties.routeId || 0,
-                    color: feat.properties.color || ''
+                    color: feat.properties.color || '',
                 },
-                geometry: feat.geometry
+                geometry: feat.geometry,
             });
         });
-        
+
         const geojson = {
             type: 'FeatureCollection',
             name: 'PERTI_Routes_Export',
@@ -7493,39 +7493,39 @@ $(document).ready(function() {
             metadata: {
                 exportedAt: data.timestamp,
                 routeCount: data.routes.length,
-                source: 'PERTI Route Visualization'
+                source: 'PERTI Route Visualization',
             },
-            features: features
+            features: features,
         };
-        
+
         downloadFile(JSON.stringify(geojson, null, 2), 'perti_routes.geojson', 'application/geo+json');
     }
-    
+
     /**
      * Export routes to KML format
      */
     function exportToKML() {
         const data = collectExportData();
-        
+
         // Build unique routes with their features grouped
         const routeGroups = {};
         data.routeFeatures.forEach(feat => {
             const routeId = feat.properties.routeId || 0;
-            if (!routeGroups[routeId]) routeGroups[routeId] = [];
+            if (!routeGroups[routeId]) {routeGroups[routeId] = [];}
             routeGroups[routeId].push(feat);
         });
-        
+
         let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
     <name>PERTI Routes Export</name>
     <description>Exported from PERTI Route Visualization - ${data.timestamp}</description>
 `;
-        
+
         // Define styles for each color
         const colors = new Set();
         data.routeFeatures.forEach(f => colors.add(f.properties.color || '#C70039'));
-        
+
         colors.forEach(color => {
             const kmlColor = colorToKML(color);
             kml += `    <Style id="style_${color.replace('#', '')}">
@@ -7539,13 +7539,13 @@ $(document).ready(function() {
     </Style>
 `;
         });
-        
+
         // Add route folders
         Object.keys(routeGroups).forEach(routeId => {
             const features = routeGroups[routeId];
             const routeMeta = data.routes.find(r => r.routeId == routeId) || {};
             const routeName = routeMeta.groupName || routeMeta.routeString || `Route ${routeId}`;
-            
+
             kml += `    <Folder>
         <name>${escapeXml(routeName)}</name>
         <description><![CDATA[
@@ -7561,12 +7561,12 @@ Departure: ${routeMeta.departureProc || 'N/A'} / ${routeMeta.departureTransition
 Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N/A'}
         ]]></description>
 `;
-            
+
             features.forEach((feat, idx) => {
                 const coords = feat.geometry.coordinates.map(c => `${c[0]},${c[1]},0`).join(' ');
                 const styleId = (feat.properties.color || '#C70039').replace('#', '');
                 const segName = `${feat.properties.fromFix || '?'} → ${feat.properties.toFix || '?'}`;
-                
+
                 kml += `        <Placemark>
             <name>${escapeXml(segName)}</name>
             <styleUrl>#style_${styleId}</styleUrl>
@@ -7584,11 +7584,11 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
         </Placemark>
 `;
             });
-            
+
             kml += `    </Folder>
 `;
         });
-        
+
         // Add fixes folder
         if (data.fixFeatures.length > 0) {
             kml += `    <Folder>
@@ -7607,13 +7607,13 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             kml += `    </Folder>
 `;
         }
-        
+
         kml += `</Document>
 </kml>`;
-        
+
         downloadFile(kml, 'perti_routes.kml', 'application/vnd.google-earth.kml+xml');
     }
-    
+
     /**
      * Export routes to GeoPackage format
      * Note: GPKG is a SQLite-based format. We'll create a simplified version using sql.js if available,
@@ -7625,11 +7625,11 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             exportToGPKGNative();
             return;
         }
-        
+
         // Fallback: Create a zip with GeoJSON + conversion instructions
         // For now, we'll create a comprehensive GeoJSON that tools like QGIS can easily convert
         const data = collectExportData();
-        
+
         // Create separate layers as GeoJSON files bundled info
         const exportBundle = {
             format: 'PERTI_GPKG_Bundle',
@@ -7664,24 +7664,24 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                                 dep_trans: routeMeta.departureTransition || '',
                                 arr_proc: routeMeta.arrivalProc || '',
                                 arr_trans: routeMeta.arrivalTransition || '',
-                                mandatory: routeMeta.isMandatory ? 1 : 0
+                                mandatory: routeMeta.isMandatory ? 1 : 0,
                             },
-                            geometry: feat.geometry
+                            geometry: feat.geometry,
                         };
-                    })
+                    }),
                 },
                 fixes: {
-                    type: 'FeatureCollection', 
+                    type: 'FeatureCollection',
                     features: data.fixFeatures.map((feat, idx) => ({
                         type: 'Feature',
                         properties: {
                             fid: idx + 1,
                             name: feat.properties.name || '',
                             route_id: feat.properties.routeId || 0,
-                            color: feat.properties.color || ''
+                            color: feat.properties.color || '',
                         },
-                        geometry: feat.geometry
-                    }))
+                        geometry: feat.geometry,
+                    })),
                 },
                 routes_meta: data.routes.map((r, idx) => ({
                     fid: idx + 1,
@@ -7702,15 +7702,15 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     dep_trans: r.departureTransition,
                     arr_proc: r.arrivalProc,
                     arr_trans: r.arrivalTransition,
-                    mandatory: r.isMandatory ? 1 : 0
-                }))
+                    mandatory: r.isMandatory ? 1 : 0,
+                })),
             },
-            conversion_command: 'ogr2ogr -f GPKG output.gpkg input.geojson'
+            conversion_command: 'ogr2ogr -f GPKG output.gpkg input.geojson',
         };
-        
+
         downloadFile(JSON.stringify(exportBundle, null, 2), 'perti_routes_gpkg_bundle.json', 'application/json');
     }
-    
+
     /**
      * Convert hex color to KML format (aabbggrr)
      */
@@ -7721,12 +7721,12 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             'YELLOW': '#FFFF00', 'MAGENTA': '#FF00FF', 'CYAN': '#00FFFF',
             'WHITE': '#FFFFFF', 'BLACK': '#000000', 'GRAY': '#808080',
             'ORANGE': '#FFA500', 'PINK': '#FFC0CB', 'PURPLE': '#800080',
-            'BROWN': '#8B4513', 'TEAL': '#008080', 'NAVY': '#000080'
+            'BROWN': '#8B4513', 'TEAL': '#008080', 'NAVY': '#000080',
         };
-        
+
         let hex = namedColors[color.toUpperCase()] || color;
-        if (!hex.startsWith('#')) hex = '#' + hex;
-        
+        if (!hex.startsWith('#')) {hex = '#' + hex;}
+
         // Parse RGB
         let r, g, b;
         if (hex.length === 4) {
@@ -7738,17 +7738,17 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             g = parseInt(hex.slice(3, 5), 16);
             b = parseInt(hex.slice(5, 7), 16);
         }
-        
+
         // KML uses aabbggrr format
         const toHex = n => (isNaN(n) ? '00' : n.toString(16).padStart(2, '0'));
         return 'ff' + toHex(b) + toHex(g) + toHex(r);
     }
-    
+
     /**
      * Escape XML special characters
      */
     function escapeXml(str) {
-        if (!str) return '';
+        if (!str) {return '';}
         return str.toString()
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -7756,7 +7756,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&apos;');
     }
-    
+
     /**
      * Download file helper
      */
@@ -7771,33 +7771,33 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
-    
+
     // Set up export button handlers
     $('#export_geojson').on('click', function() {
         exportToGeoJSON();
     });
-    
+
     $('#export_kml').on('click', function() {
         exportToKML();
     });
-    
+
     $('#export_gpkg').on('click', function() {
         exportToGPKG();
     });
-    
+
     // Expose export functions globally
     window.MapLibreExport = {
         toGeoJSON: exportToGeoJSON,
         toKML: exportToKML,
         toGPKG: exportToGPKG,
         collectData: collectExportData,
-        generateRouteGeoJSON: generateRouteGeoJSON  // For pre-generating public route GeoJSON
+        generateRouteGeoJSON: generateRouteGeoJSON,  // For pre-generating public route GeoJSON
     };
 
     /**
      * Utility to regenerate route_geojson for public routes
      * Can be called from console or integrated into PublicRoutes UI
-     * 
+     *
      * Usage:
      *   window.regeneratePublicRouteGeoJSON()           // Regenerate all routes
      *   window.regeneratePublicRouteGeoJSON(7)          // Regenerate specific route ID
@@ -7809,13 +7809,13 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             console.error('[RegenerateGeoJSON] PublicRoutes module not available');
             return { success: false, error: 'PublicRoutes module not available' };
         }
-        
+
         const allRoutes = window.PublicRoutes.getRoutes();
         if (!allRoutes || allRoutes.length === 0) {
             console.warn('[RegenerateGeoJSON] No public routes loaded');
             return { success: false, error: 'No public routes loaded' };
         }
-        
+
         // Filter routes if specific IDs provided
         let routesToProcess = allRoutes;
         if (routeIds !== undefined) {
@@ -7826,12 +7826,12 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                 return { success: false, error: 'No matching routes found' };
             }
         }
-        
+
         console.log('[RegenerateGeoJSON] Processing', routesToProcess.length, 'routes...');
-        
+
         const updates = [];
         const skipped = [];
-        
+
         routesToProcess.forEach(function(route) {
             const routeString = route.route_string;
             if (!routeString) {
@@ -7839,56 +7839,56 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                 skipped.push({ id: route.id, name: route.name, reason: 'No route_string' });
                 return;
             }
-            
+
             // Generate GeoJSON using same logic as export
             const geojson = generateRouteGeoJSON(routeString, { color: route.color || '#00ffff' });
-            
+
             if (geojson.features.length === 0) {
                 console.warn('[RegenerateGeoJSON] Route', route.id, '(' + route.name + ') generated 0 features, skipping');
                 skipped.push({ id: route.id, name: route.name, reason: 'Generated 0 features' });
                 return;
             }
-            
+
             console.log('[RegenerateGeoJSON] Route', route.id, '(' + route.name + '):', geojson.features.length, 'features');
-            
+
             updates.push({
                 id: route.id,
-                route_geojson: geojson
+                route_geojson: geojson,
             });
         });
-        
+
         if (updates.length === 0) {
             console.warn('[RegenerateGeoJSON] No routes to update');
             return { success: false, error: 'No routes to update', skipped: skipped };
         }
-        
+
         // POST to API
         console.log('[RegenerateGeoJSON] Sending', updates.length, 'updates to server...');
-        
+
         try {
             const response = await fetch('api/mgt/tmi/reroutes/update_geojson.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ routes: updates })
+                body: JSON.stringify({ routes: updates }),
             });
-            
+
             if (!response.ok) {
                 throw new Error('HTTP ' + response.status + ': ' + response.statusText);
             }
-            
+
             const result = await response.json();
-            
+
             console.log('[RegenerateGeoJSON] Server response:', result);
-            
+
             if (result.success) {
                 console.log('[RegenerateGeoJSON] Successfully updated', result.summary.updated, 'routes');
             } else {
                 console.warn('[RegenerateGeoJSON] Some updates failed:', result.errors);
             }
-            
+
             result.skipped = skipped;
             return result;
-            
+
         } catch (err) {
             console.error('[RegenerateGeoJSON] API error:', err);
             return { success: false, error: err.message, skipped: skipped };
@@ -7900,9 +7900,9 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
     // ═══════════════════════════════════════════════════════════════════════════
 
     (function() {
-        var sourceName = 'public-routes-source';
-        var labelSourceName = 'public-routes-labels-source';
-        
+        const sourceName = 'public-routes-source';
+        const labelSourceName = 'public-routes-labels-source';
+
         // Wait for map and PublicRoutes module
         var initInterval = setInterval(function() {
             if (typeof graphic_map !== 'undefined' && graphic_map && graphic_map.isStyleLoaded && graphic_map.isStyleLoaded() && typeof window.PublicRoutes !== 'undefined') {
@@ -7910,15 +7910,15 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                 initPublicRoutesIntegration();
             }
         }, 100);
-        
+
         function initPublicRoutesIntegration() {
             console.log('[PublicRoutes-MapLibre] Initializing integration...');
-            
+
             // Add source for route lines
             if (!graphic_map.getSource(sourceName)) {
                 graphic_map.addSource(sourceName, {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: [] }
+                    data: { type: 'FeatureCollection', features: [] },
                 });
             }
 
@@ -7926,7 +7926,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             if (!graphic_map.getSource(labelSourceName)) {
                 graphic_map.addSource(labelSourceName, {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: [] }
+                    data: { type: 'FeatureCollection', features: [] },
                 });
             }
 
@@ -7940,16 +7940,16 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     filter: ['all', ['==', ['get', 'solid'], true], ['!=', ['get', 'isFan'], true]],
                     layout: {
                         'line-cap': 'round',
-                        'line-join': 'round'
+                        'line-join': 'round',
                     },
                     paint: {
                         'line-color': ['get', 'color'],
                         'line-width': ['coalesce', ['get', 'weight'], 3],
-                        'line-opacity': 0.9
-                    }
+                        'line-opacity': 0.9,
+                    },
                 });
             }
-            
+
             // Dashed segments (non-mandatory)
             if (!graphic_map.getLayer('public-routes-dashed')) {
                 graphic_map.addLayer({
@@ -7959,17 +7959,17 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     filter: ['all', ['==', ['get', 'solid'], false], ['!=', ['get', 'isFan'], true]],
                     layout: {
                         'line-cap': 'round',
-                        'line-join': 'round'
+                        'line-join': 'round',
                     },
                     paint: {
                         'line-color': ['get', 'color'],
                         'line-width': ['coalesce', ['get', 'weight'], 3],
                         'line-opacity': 0.9,
-                        'line-dasharray': [4, 4]
-                    }
+                        'line-dasharray': [4, 4],
+                    },
                 });
             }
-            
+
             // Fan segments (airport fans)
             if (!graphic_map.getLayer('public-routes-fan')) {
                 graphic_map.addLayer({
@@ -7979,36 +7979,36 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     filter: ['==', ['get', 'isFan'], true],
                     layout: {
                         'line-cap': 'round',
-                        'line-join': 'round'
+                        'line-join': 'round',
                     },
                     paint: {
                         'line-color': ['get', 'color'],
                         'line-width': 1.5,
                         'line-opacity': 0.9,
-                        'line-dasharray': [1, 3]
-                    }
+                        'line-dasharray': [1, 3],
+                    },
                 });
             }
-            
+
             // Legacy fallback layer for routes without solid/isFan properties
             if (!graphic_map.getLayer('public-routes-line')) {
                 graphic_map.addLayer({
                     id: 'public-routes-line',
                     type: 'line',
                     source: sourceName,
-                    filter: ['all', 
-                        ['!', ['has', 'solid']], 
-                        ['!', ['has', 'isFan']]
+                    filter: ['all',
+                        ['!', ['has', 'solid']],
+                        ['!', ['has', 'isFan']],
                     ],
                     layout: {
                         'line-cap': 'round',
-                        'line-join': 'round'
+                        'line-join': 'round',
                     },
                     paint: {
                         'line-color': ['get', 'color'],
                         'line-width': ['coalesce', ['get', 'weight'], 3],
-                        'line-opacity': 0.9
-                    }
+                        'line-opacity': 0.9,
+                    },
                 });
             }
 
@@ -8023,13 +8023,13 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                         'text-size': 12,
                         'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                         'text-anchor': 'center',
-                        'text-allow-overlap': true
+                        'text-allow-overlap': true,
                     },
                     paint: {
                         'text-color': '#ffffff',
                         'text-halo-color': ['get', 'color'],
-                        'text-halo-width': 3
-                    }
+                        'text-halo-width': 3,
+                    },
                 });
             }
 
@@ -8041,15 +8041,15 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             // Add click handler for routes (all layers)
             ['public-routes-solid', 'public-routes-dashed', 'public-routes-fan', 'public-routes-line'].forEach(function(layerId) {
                 graphic_map.on('click', layerId, function(e) {
-                    if (!e.features || !e.features[0]) return;
-                    var props = e.features[0].properties;
-                    
+                    if (!e.features || !e.features[0]) {return;}
+                    const props = e.features[0].properties;
+
                     new maplibregl.Popup({ closeButton: true, maxWidth: '320px' })
                         .setLngLat(e.lngLat)
                         .setHTML(createRoutePopup(props))
                         .addTo(graphic_map);
                 });
-                
+
                 // Cursor change
                 graphic_map.on('mouseenter', layerId, function() {
                     graphic_map.getCanvas().style.cursor = 'pointer';
@@ -8063,37 +8063,37 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
         }
 
         function renderPublicRoutes() {
-            if (!graphic_map || !graphic_map.getSource(sourceName)) return;
+            if (!graphic_map || !graphic_map.getSource(sourceName)) {return;}
 
-            var routes = window.PublicRoutes.getRoutes();
+            const routes = window.PublicRoutes.getRoutes();
             console.log('[PublicRoutes-MapLibre] Rendering', routes.length, 'routes');
 
-            var lineFeatures = [];
-            var labelFeatures = [];
+            const lineFeatures = [];
+            const labelFeatures = [];
 
             routes.forEach(function(route) {
-                var routeColor = route.color || '#e74c3c';
-                var routeWeight = route.line_weight || 3;
-                
+                const routeColor = route.color || '#e74c3c';
+                const routeWeight = route.line_weight || 3;
+
                 // Try to use pre-computed GeoJSON first
                 if (route.route_geojson) {
-                    var geojson = null;
+                    let geojson = null;
                     try {
-                        geojson = typeof route.route_geojson === 'string' 
-                            ? JSON.parse(route.route_geojson) 
+                        geojson = typeof route.route_geojson === 'string'
+                            ? JSON.parse(route.route_geojson)
                             : route.route_geojson;
                     } catch (e) {
                         console.warn('[PublicRoutes-MapLibre] Failed to parse route_geojson for:', route.name);
                     }
-                    
+
                     if (geojson && geojson.features && geojson.features.length > 0) {
                         console.log('[PublicRoutes-MapLibre] Using stored GeoJSON for:', route.name, 'with', geojson.features.length, 'features');
-                        
+
                         // Add each feature from stored GeoJSON, preserving style properties
                         geojson.features.forEach(function(feature, idx) {
                             if (feature.geometry && feature.geometry.coordinates && feature.geometry.coordinates.length >= 2) {
                                 // Preserve solid/isFan from stored feature, apply route color
-                                var storedProps = feature.properties || {};
+                                const storedProps = feature.properties || {};
                                 lineFeatures.push({
                                     type: 'Feature',
                                     properties: {
@@ -8111,15 +8111,15 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                                         valid_start_utc: route.valid_start_utc,
                                         valid_end_utc: route.valid_end_utc,
                                         route_string: route.route_string,
-                                        featureIndex: idx
+                                        featureIndex: idx,
                                     },
-                                    geometry: feature.geometry
+                                    geometry: feature.geometry,
                                 });
                             }
                         });
-                        
+
                         // Add label at center of first feature
-                        var firstFeature = geojson.features[0];
+                        const firstFeature = geojson.features[0];
                         if (firstFeature && firstFeature.geometry && firstFeature.geometry.coordinates) {
                             var coords = firstFeature.geometry.coordinates;
                             var midIdx = Math.floor(coords.length / 2);
@@ -8127,18 +8127,18 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                                 type: 'Feature',
                                 properties: {
                                     name: route.name,
-                                    color: routeColor
+                                    color: routeColor,
                                 },
                                 geometry: {
                                     type: 'Point',
-                                    coordinates: coords[midIdx]
-                                }
+                                    coordinates: coords[midIdx],
+                                },
                             });
                         }
                         return; // Done with this route
                     }
                 }
-                
+
                 // Fallback: try to parse route_string (legacy routes)
                 var coords = parseRouteToCoords(route.route_string);
                 if (coords.length < 2) {
@@ -8158,12 +8158,12 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                         reason: route.reason,
                         valid_start_utc: route.valid_start_utc,
                         valid_end_utc: route.valid_end_utc,
-                        route_string: route.route_string
+                        route_string: route.route_string,
                     },
                     geometry: {
                         type: 'LineString',
-                        coordinates: coords
-                    }
+                        coordinates: coords,
+                    },
                 });
 
                 // Label feature at midpoint
@@ -8173,50 +8173,50 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                         type: 'Feature',
                         properties: {
                             name: route.name,
-                            color: routeColor
+                            color: routeColor,
                         },
                         geometry: {
                             type: 'Point',
-                            coordinates: coords[midIdx]
-                        }
+                            coordinates: coords[midIdx],
+                        },
                     });
                 }
             });
 
             graphic_map.getSource(sourceName).setData({
                 type: 'FeatureCollection',
-                features: lineFeatures
+                features: lineFeatures,
             });
 
             graphic_map.getSource(labelSourceName).setData({
                 type: 'FeatureCollection',
-                features: labelFeatures
+                features: labelFeatures,
             });
         }
 
         function parseRouteToCoords(routeString) {
-            if (!routeString) return [];
-            
-            var allCoords = [];
+            if (!routeString) {return [];}
+
+            let allCoords = [];
             // Handle multi-line route strings (from expanded playbooks - each line is a separate route)
-            var lines = routeString.split(/[\n\r]+/);
-            
+            const lines = routeString.split(/[\n\r]+/);
+
             lines.forEach(function(line) {
-                var lineCoords = [];
-                var lineTrimmed = line.trim();
-                if (!lineTrimmed) return;
-                
+                const lineCoords = [];
+                let lineTrimmed = line.trim();
+                if (!lineTrimmed) {return;}
+
                 // Strip color suffix if present
-                var semiIdx = lineTrimmed.indexOf(';');
+                const semiIdx = lineTrimmed.indexOf(';');
                 if (semiIdx !== -1) {
                     lineTrimmed = lineTrimmed.substring(0, semiIdx).trim();
                 }
-                
+
                 // Strip mandatory markers
                 lineTrimmed = lineTrimmed.replace(/[<>]/g, '').toUpperCase();
-                
+
                 // Expand airways using ConvertRoute (same as main route plotter)
-                var expanded = lineTrimmed;
+                let expanded = lineTrimmed;
                 if (typeof ConvertRoute === 'function') {
                     try {
                         expanded = ConvertRoute(lineTrimmed);
@@ -8224,93 +8224,93 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                         console.warn('[PublicRoutes] ConvertRoute failed:', e);
                     }
                 }
-                
-                var tokens = expanded.split(/\s+/).filter(function(t) { return t; });
-                
+
+                const tokens = expanded.split(/\s+/).filter(function(t) { return t; });
+
                 // First pass: collect all resolvable tokens (for context)
-                var resolvedPoints = [];
+                const resolvedPoints = [];
                 tokens.forEach(function(token, idx) {
                     // Skip airways (shouldn't be any after ConvertRoute, but just in case)
-                    if (/^[JQTV]\d+$/i.test(token)) return;
-                    
+                    if (/^[JQTV]\d+$/i.test(token)) {return;}
+
                     // Skip pure numbers (altitudes, speeds)
-                    if (/^\d+$/.test(token)) return;
-                    
+                    if (/^\d+$/.test(token)) {return;}
+
                     // Skip speed/altitude restrictions like N0450, F350
-                    if (/^[NMFSA]\d{3,4}$/.test(token)) return;
-                    
+                    if (/^[NMFSA]\d{3,4}$/.test(token)) {return;}
+
                     // Handle DP/STAR notation (e.g., JFK.ROBUC3, THHMP.CAVLR6)
-                    var cleanToken = token;
+                    let cleanToken = token;
                     if (token.includes('.')) {
-                        var dotParts = token.split('.');
+                        const dotParts = token.split('.');
                         // Try both parts - the fix name is usually one of them
                         // For DPs like THHMP.CAVLR6, THHMP is the fix
                         // For STARs like JFK.ROBUC3, JFK is the fix
                         cleanToken = dotParts[0]; // Try first part
                     }
-                    
+
                     resolvedPoints.push({
                         token: cleanToken,
                         index: idx,
-                        point: null
+                        point: null,
                     });
                 });
-                
+
                 // Second pass: resolve points with context
                 resolvedPoints.forEach(function(item, i) {
-                    var prevPoint = (i > 0 && resolvedPoints[i-1].point) ? resolvedPoints[i-1].point : null;
-                    var nextPoint = null;
-                    
+                    const prevPoint = (i > 0 && resolvedPoints[i-1].point) ? resolvedPoints[i-1].point : null;
+                    let nextPoint = null;
+
                     // Look ahead for next resolvable point (for context)
-                    for (var j = i + 1; j < resolvedPoints.length && j < i + 3; j++) {
-                        var lookAheadToken = resolvedPoints[j].token;
-                        var testPoint = getPointByName(lookAheadToken);
+                    for (let j = i + 1; j < resolvedPoints.length && j < i + 3; j++) {
+                        const lookAheadToken = resolvedPoints[j].token;
+                        const testPoint = getPointByName(lookAheadToken);
                         if (testPoint && Array.isArray(testPoint) && testPoint.length >= 3) {
                             nextPoint = testPoint;
                             break;
                         }
                     }
-                    
+
                     // Resolve with context
-                    var point = getPointByName(item.token, prevPoint, nextPoint);
+                    const point = getPointByName(item.token, prevPoint, nextPoint);
                     if (point && Array.isArray(point) && point.length >= 3) {
                         item.point = point;
                         lineCoords.push([point[2], point[1]]); // MapLibre uses [lng, lat]
                     }
                 });
-                
+
                 // Add this line's coords to the overall collection
                 if (lineCoords.length >= 2) {
                     allCoords = allCoords.concat(lineCoords);
                 }
             });
-            
+
             return allCoords;
         }
 
         function createRoutePopup(props) {
-            var validStart = props.valid_start_utc ? new Date(props.valid_start_utc).toISOString().slice(0, 16).replace('T', ' ') + 'Z' : '--';
-            var validEnd = props.valid_end_utc ? new Date(props.valid_end_utc).toISOString().slice(0, 16).replace('T', ' ') + 'Z' : '--';
-            
+            const validStart = props.valid_start_utc ? new Date(props.valid_start_utc).toISOString().slice(0, 16).replace('T', ' ') + 'Z' : '--';
+            const validEnd = props.valid_end_utc ? new Date(props.valid_end_utc).toISOString().slice(0, 16).replace('T', ' ') + 'Z' : '--';
+
             // Calculate time remaining
-            var expText = '--';
-            var expColor = '#6c757d';
+            let expText = '--';
+            let expColor = '#6c757d';
             if (props.valid_end_utc) {
-                var end = new Date(props.valid_end_utc);
-                var now = new Date();
-                var diffMs = end - now;
-                
+                const end = new Date(props.valid_end_utc);
+                const now = new Date();
+                const diffMs = end - now;
+
                 if (diffMs <= 0) {
                     expText = 'Expired';
                     expColor = '#dc3545';
                 } else {
-                    var diffMins = Math.floor(diffMs / 60000);
-                    var diffHours = Math.floor(diffMins / 60);
-                    var remainingMins = diffMins % 60;
-                    
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffHours = Math.floor(diffMins / 60);
+                    const remainingMins = diffMins % 60;
+
                     if (diffHours >= 24) {
-                        var days = Math.floor(diffHours / 24);
-                        var hrs = diffHours % 24;
+                        const days = Math.floor(diffHours / 24);
+                        const hrs = diffHours % 24;
                         expText = days + 'd ' + hrs + 'h';
                         expColor = '#28a745';
                     } else if (diffHours >= 4) {
@@ -8328,7 +8328,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     }
                 }
             }
-            
+
             return '<div style="font-size: 12px; min-width: 200px;">' +
                 '<div style="font-weight: bold; margin-bottom: 6px; display: flex; align-items: center;">' +
                 '<span style="display: inline-block; width: 12px; height: 12px; background: ' + (props.color || '#e74c3c') + '; border-radius: 2px; margin-right: 6px;"></span>' +
@@ -8347,20 +8347,20 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
         }
 
         function zoomToPublicRoute(route) {
-            if (!route) return;
-            
-            var bounds = new maplibregl.LngLatBounds();
-            var hasCoords = false;
-            
+            if (!route) {return;}
+
+            const bounds = new maplibregl.LngLatBounds();
+            let hasCoords = false;
+
             // Try to use stored GeoJSON first
             if (route.route_geojson) {
-                var geojson = null;
+                let geojson = null;
                 try {
-                    geojson = typeof route.route_geojson === 'string' 
-                        ? JSON.parse(route.route_geojson) 
+                    geojson = typeof route.route_geojson === 'string'
+                        ? JSON.parse(route.route_geojson)
                         : route.route_geojson;
                 } catch (e) {}
-                
+
                 if (geojson && geojson.features) {
                     geojson.features.forEach(function(feature) {
                         if (feature.geometry && feature.geometry.coordinates) {
@@ -8372,35 +8372,35 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     });
                 }
             }
-            
+
             // Fallback to parsing route_string
             if (!hasCoords && route.route_string) {
-                var coords = parseRouteToCoords(route.route_string);
+                const coords = parseRouteToCoords(route.route_string);
                 coords.forEach(function(coord) {
                     bounds.extend(coord);
                     hasCoords = true;
                 });
             }
-            
+
             if (hasCoords) {
                 graphic_map.fitBounds(bounds, { padding: 50 });
             }
         }
 
         function clearPublicRoutes() {
-            if (!graphic_map) return;
-            
+            if (!graphic_map) {return;}
+
             if (graphic_map.getSource(sourceName)) {
                 graphic_map.getSource(sourceName).setData({
                     type: 'FeatureCollection',
-                    features: []
+                    features: [],
                 });
             }
-            
+
             if (graphic_map.getSource(labelSourceName)) {
                 graphic_map.getSource(labelSourceName).setData({
                     type: 'FeatureCollection',
-                    features: []
+                    features: [],
                 });
             }
         }

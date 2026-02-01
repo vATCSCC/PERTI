@@ -1,12 +1,12 @@
 /**
  * Weather Radar Integration Example
  * Shows how to add weather radar to existing TSD map
- * 
+ *
  * Prerequisites:
  *   - MapLibre GL JS loaded
  *   - weather_radar.js loaded
  *   - weather_radar.css loaded
- * 
+ *
  * Usage:
  *   1. Call initWeatherRadar(map) after map loads
  *   2. Add control panel HTML to your map container
@@ -33,37 +33,37 @@ function initWeatherRadar(map, options = {}) {
         showLegend: true,            // Show color legend
         showAnimation: true,         // Show animation controls
         autoRefresh: true,           // Auto-refresh radar data
-        ...options
+        ...options,
     };
-    
+
     // Wait for map to load
     if (!map.loaded()) {
         map.on('load', () => initWeatherRadar(map, options));
         return;
     }
-    
+
     // Initialize the WeatherRadar module
     WeatherRadar.init(map, {
         product: config.defaultProduct,
         opacity: config.defaultOpacity,
-        colorTable: config.defaultColorTable
+        colorTable: config.defaultColorTable,
     });
-    
+
     // Add control panel to map
     addRadarControlPanel(map, config);
-    
+
     // Enable if configured
     if (config.defaultEnabled) {
         WeatherRadar.enable();
         document.getElementById('radar-enabled-toggle').checked = true;
         document.querySelector('.radar-settings').classList.add('active');
     }
-    
+
     // Bind keyboard shortcuts
     bindKeyboardShortcuts();
-    
+
     console.log('[TSD] Weather radar initialized');
-    
+
     return WeatherRadar;
 }
 
@@ -79,7 +79,7 @@ function addRadarControlPanel(map, config) {
     const controlDiv = document.createElement('div');
     controlDiv.className = 'maplibregl-ctrl maplibregl-ctrl-group';
     controlDiv.id = 'radar-control-container';
-    
+
     // Generate control panel HTML
     controlDiv.innerHTML = `
         <div class="radar-controls" id="radar-panel">
@@ -153,11 +153,11 @@ function addRadarControlPanel(map, config) {
             </div>
         </div>
     `;
-    
+
     // Add to map control container
     const mapContainer = map.getContainer();
     const controlContainer = mapContainer.querySelector(`.maplibregl-ctrl-${config.position}`);
-    
+
     if (controlContainer) {
         controlContainer.insertBefore(controlDiv, controlContainer.firstChild);
     } else {
@@ -167,7 +167,7 @@ function addRadarControlPanel(map, config) {
         newContainer.appendChild(controlDiv);
         mapContainer.appendChild(newContainer);
     }
-    
+
     // Bind event handlers
     bindControlEvents(config);
 }
@@ -189,37 +189,37 @@ function bindControlEvents(config) {
             document.querySelector('.radar-live-indicator').style.display = 'none';
         }
     });
-    
+
     // Product select
     document.getElementById('radar-product-select')?.addEventListener('change', (e) => {
         WeatherRadar.setProduct(e.target.value);
         updateLegendForProduct(e.target.value);
     });
-    
+
     // Color table select
     document.getElementById('radar-color-select')?.addEventListener('change', (e) => {
         WeatherRadar.setColorTable(e.target.value);
         updateLegendForColorTable(e.target.value);
     });
-    
+
     // Opacity slider
     const opacitySlider = document.getElementById('radar-opacity-slider');
     const opacityValue = document.getElementById('radar-opacity-value');
     opacitySlider?.addEventListener('input', (e) => {
         const opacity = parseInt(e.target.value) / 100;
         WeatherRadar.setOpacity(opacity);
-        if (opacityValue) opacityValue.textContent = `${e.target.value}%`;
+        if (opacityValue) {opacityValue.textContent = `${e.target.value}%`;}
     });
-    
+
     // Animation controls
     document.getElementById('radar-prev-btn')?.addEventListener('click', () => {
         WeatherRadar.prevFrame();
     });
-    
+
     document.getElementById('radar-next-btn')?.addEventListener('click', () => {
         WeatherRadar.nextFrame();
     });
-    
+
     document.getElementById('radar-play-btn')?.addEventListener('click', () => {
         const playing = WeatherRadar.toggleAnimation();
         const btn = document.getElementById('radar-play-btn');
@@ -228,11 +228,11 @@ function bindControlEvents(config) {
             btn.classList.toggle('playing', playing);
         }
     });
-    
+
     document.getElementById('radar-refresh-btn')?.addEventListener('click', () => {
         WeatherRadar.refresh();
     });
-    
+
     // Listen for frame changes to update progress bar
     document.addEventListener('radar-frame-change', (e) => {
         const { frameIndex, totalFrames } = e.detail;
@@ -241,7 +241,7 @@ function bindControlEvents(config) {
         if (progressBar) {
             progressBar.style.width = `${progress}%`;
         }
-        
+
         // Update timestamp display
         if (e.detail.timestamp) {
             const timestamp = document.getElementById('radar-timestamp');
@@ -258,11 +258,11 @@ function bindControlEvents(config) {
 function bindKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         // Ignore if typing in input
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {return;}
+
         const state = WeatherRadar.getState();
-        if (!state.enabled) return;
-        
+        if (!state.enabled) {return;}
+
         switch (e.key) {
             case ' ':
             case 'Space':
@@ -274,17 +274,17 @@ function bindKeyboardShortcuts() {
                     btn.classList.toggle('playing', !state.animating);
                 }
                 break;
-                
+
             case 'ArrowLeft':
                 e.preventDefault();
                 WeatherRadar.prevFrame();
                 break;
-                
+
             case 'ArrowRight':
                 e.preventDefault();
                 WeatherRadar.nextFrame();
                 break;
-                
+
             case 'r':
             case 'R':
                 if (!e.ctrlKey && !e.metaKey) {
@@ -301,15 +301,15 @@ function bindKeyboardShortcuts() {
  */
 function updateLegendForProduct(productId) {
     const legendTitle = document.querySelector('.radar-legend .legend-title');
-    if (!legendTitle) return;
-    
+    if (!legendTitle) {return;}
+
     const products = {
         'nexrad-n0q': 'Reflectivity (dBZ)',
         'q2-hsr': 'MRMS Reflectivity (dBZ)',
         'nexrad-eet': 'Echo Tops (kft)',
-        'q2-p1h': '1-Hour Precip (in)'
+        'q2-p1h': '1-Hour Precip (in)',
     };
-    
+
     legendTitle.textContent = products[productId] || 'Reflectivity (dBZ)';
 }
 
@@ -318,8 +318,8 @@ function updateLegendForProduct(productId) {
  */
 function updateLegendForColorTable(tableId) {
     const legendContainer = document.getElementById('radar-legend');
-    if (!legendContainer) return;
-    
+    if (!legendContainer) {return;}
+
     if (tableId === 'FAA_ATC') {
         legendContainer.innerHTML = `
             <div class="legend-title">Precipitation Intensity</div>
@@ -363,8 +363,8 @@ function updateLegendForColorTable(tableId) {
  */
 function addRadarToLayerPanel(layerPanelId) {
     const layerPanel = document.getElementById(layerPanelId);
-    if (!layerPanel) return;
-    
+    if (!layerPanel) {return;}
+
     const radarItem = document.createElement('div');
     radarItem.className = 'layer-item layer-item-radar';
     radarItem.innerHTML = `
@@ -373,7 +373,7 @@ function addRadarToLayerPanel(layerPanelId) {
         <span class="layer-label">Weather Radar</span>
         <span class="layer-badge">LIVE</span>
     `;
-    
+
     // Find weather group or create it
     let weatherGroup = layerPanel.querySelector('.layer-group-weather');
     if (!weatherGroup) {
@@ -382,25 +382,25 @@ function addRadarToLayerPanel(layerPanelId) {
         weatherGroup.innerHTML = '<div class="layer-group-title">Weather</div>';
         layerPanel.appendChild(weatherGroup);
     }
-    
+
     weatherGroup.appendChild(radarItem);
-    
+
     // Sync with main toggle
     const layerToggle = radarItem.querySelector('#layer-radar-toggle');
     const mainToggle = document.getElementById('radar-enabled-toggle');
-    
+
     layerToggle?.addEventListener('change', (e) => {
-        if (mainToggle) mainToggle.checked = e.target.checked;
+        if (mainToggle) {mainToggle.checked = e.target.checked;}
         mainToggle?.dispatchEvent(new Event('change'));
     });
-    
+
     // Keep in sync
     document.addEventListener('radar-enabled', () => {
-        if (layerToggle) layerToggle.checked = true;
+        if (layerToggle) {layerToggle.checked = true;}
     });
-    
+
     document.addEventListener('radar-disabled', () => {
-        if (layerToggle) layerToggle.checked = false;
+        if (layerToggle) {layerToggle.checked = false;}
     });
 }
 

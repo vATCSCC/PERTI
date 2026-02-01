@@ -19,7 +19,7 @@ const NODDemandLayer = (function() {
         bucketMinutes: 15,
         defaultHorizonHours: 4,
         maxMonitors: 50,
-        localStorageKey: 'nod_demand_monitors'
+        localStorageKey: 'nod_demand_monitors',
     };
 
     // Traffic demand colors (Google Maps style)
@@ -28,7 +28,7 @@ const NODDemandLayer = (function() {
         YELLOW: '#ffc107',  // Moderate - building
         ORANGE: '#fd7e14',  // High - congested
         RED:    '#dc3545',  // Critical - severe
-        GRAY:   '#6c757d'   // No data
+        GRAY:   '#6c757d',   // No data
     };
 
     // =========================================
@@ -46,7 +46,7 @@ const NODDemandLayer = (function() {
             customThresholds: {},         // Per-monitor overrides { monitor_id: { green, yellow, orange } }
             horizonHours: 4,
             bucketMinutes: 15,
-            selectedBucket: null          // null = aggregate all, or specific bucket index
+            selectedBucket: null,          // null = aggregate all, or specific bucket index
         },
         clickMode: null,             // null, 'fix', or 'segment'
         segmentFirstClick: null,     // For segment mode: { lat, lon, fix }
@@ -54,7 +54,7 @@ const NODDemandLayer = (function() {
         sourcesAdded: false,
         detailsPopup: null,          // MapLibre popup for flight details
         refreshDebounceTimer: null,  // Debounce timer for rapid monitor changes
-        pendingRefresh: false        // Flag to track if refresh is pending
+        pendingRefresh: false,        // Flag to track if refresh is pending
     };
 
     // =========================================
@@ -101,7 +101,7 @@ const NODDemandLayer = (function() {
 
         // Add sources and layers - try multiple approaches for reliability
         const tryAddSources = () => {
-            if (state.sourcesAdded) return true;
+            if (state.sourcesAdded) {return true;}
             try {
                 // Check if map style is ready
                 if (!map.getStyle()) {
@@ -181,7 +181,7 @@ const NODDemandLayer = (function() {
      */
     function addSourcesAndLayers() {
         console.log('[DemandLayer] addSourcesAndLayers called, sourcesAdded:', state.sourcesAdded);
-        if (state.sourcesAdded) return;
+        if (state.sourcesAdded) {return;}
 
         const map = state.map;
         if (!map) {
@@ -192,13 +192,13 @@ const NODDemandLayer = (function() {
         // Add fix monitors source (GeoJSON Points)
         map.addSource('demand-fixes-source', {
             type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] }
+            data: { type: 'FeatureCollection', features: [] },
         });
 
         // Add segment monitors source (GeoJSON LineStrings)
         map.addSource('demand-segments-source', {
             type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] }
+            data: { type: 'FeatureCollection', features: [] },
         });
 
         // Fix layers
@@ -213,12 +213,12 @@ const NODDemandLayer = (function() {
                     0, 10,
                     5, 14,
                     15, 20,
-                    30, 26
+                    30, 26,
                 ],
                 'circle-color': ['get', 'color'],
                 'circle-opacity': 0.3,
-                'circle-blur': 0.5
-            }
+                'circle-blur': 0.5,
+            },
         });
 
         // Core layer (inner)
@@ -232,12 +232,12 @@ const NODDemandLayer = (function() {
                     0, 5,
                     5, 7,
                     15, 10,
-                    30, 13
+                    30, 13,
                 ],
                 'circle-color': ['get', 'color'],
                 'circle-stroke-width': 2,
-                'circle-stroke-color': '#000'
-            }
+                'circle-stroke-color': '#000',
+            },
         });
 
         // Labels layer
@@ -250,13 +250,13 @@ const NODDemandLayer = (function() {
                 'text-size': 11,
                 'text-anchor': 'top',
                 'text-offset': [0, 1.2],
-                'text-allow-overlap': true
+                'text-allow-overlap': true,
             },
             paint: {
                 'text-color': '#fff',
                 'text-halo-color': '#000',
-                'text-halo-width': 1.5
-            }
+                'text-halo-width': 1.5,
+            },
         });
 
         // Segment layers
@@ -272,11 +272,11 @@ const NODDemandLayer = (function() {
                     0, 8,
                     5, 12,
                     15, 18,
-                    30, 24
+                    30, 24,
                 ],
                 'line-opacity': 0.25,
-                'line-blur': 3
-            }
+                'line-blur': 3,
+            },
         });
 
         // Core layer (narrow)
@@ -291,9 +291,9 @@ const NODDemandLayer = (function() {
                     0, 2,
                     5, 3,
                     15, 5,
-                    30, 7
-                ]
-            }
+                    30, 7,
+                ],
+            },
         });
 
         // Segment labels
@@ -305,13 +305,13 @@ const NODDemandLayer = (function() {
                 'text-field': ['concat', 'FEA_', ['get', 'label'], '/', ['to-string', ['get', 'count']], 'FLTS'],
                 'text-size': 10,
                 'symbol-placement': 'line-center',
-                'text-allow-overlap': true
+                'text-allow-overlap': true,
             },
             paint: {
                 'text-color': '#fff',
                 'text-halo-color': '#000',
-                'text-halo-width': 1.5
-            }
+                'text-halo-width': 1.5,
+            },
         });
 
         // Initially hide all layers
@@ -332,7 +332,7 @@ const NODDemandLayer = (function() {
      * Enable the demand layer and start refreshing
      */
     function enable() {
-        if (state.enabled) return;
+        if (state.enabled) {return;}
 
         state.enabled = true;
         setLayersVisibility(true);
@@ -343,11 +343,11 @@ const NODDemandLayer = (function() {
 
         // Show add controls
         const addControls = document.getElementById('demand-add-controls');
-        if (addControls) addControls.style.display = 'block';
+        if (addControls) {addControls.style.display = 'block';}
 
         // Show demand section in toolbar
         const demandControls = document.getElementById('demandControls');
-        if (demandControls) demandControls.style.display = '';
+        if (demandControls) {demandControls.style.display = '';}
 
         // Render monitors list with persisted monitors
         renderMonitorsList();
@@ -359,7 +359,7 @@ const NODDemandLayer = (function() {
      * Disable the demand layer and stop refreshing
      */
     function disable() {
-        if (!state.enabled) return;
+        if (!state.enabled) {return;}
 
         state.enabled = false;
         setLayersVisibility(false);
@@ -377,10 +377,10 @@ const NODDemandLayer = (function() {
 
         // Hide add controls
         const addControls = document.getElementById('demand-add-controls');
-        if (addControls) addControls.style.display = 'none';
+        if (addControls) {addControls.style.display = 'none';}
 
         const demandControls = document.getElementById('demandControls');
-        if (demandControls) demandControls.style.display = 'none';
+        if (demandControls) {demandControls.style.display = 'none';}
 
         console.log('[DemandLayer] Disabled');
     }
@@ -389,12 +389,12 @@ const NODDemandLayer = (function() {
      * Set visibility of all demand layers
      */
     function setLayersVisibility(visible) {
-        if (!state.map || !state.sourcesAdded) return;
+        if (!state.map || !state.sourcesAdded) {return;}
 
         const visibility = visible ? 'visible' : 'none';
         const layers = [
             'demand-fixes-glow', 'demand-fixes-core', 'demand-fixes-labels',
-            'demand-segments-glow', 'demand-segments-core', 'demand-segments-labels'
+            'demand-segments-glow', 'demand-segments-core', 'demand-segments-labels',
         ];
 
         layers.forEach(layerId => {
@@ -489,7 +489,7 @@ const NODDemandLayer = (function() {
      * This provides instant visual feedback before API data arrives
      */
     function showMonitorPlaceholder(monitor, id) {
-        if (!state.map || !state.sourcesAdded) return;
+        if (!state.map || !state.sourcesAdded) {return;}
 
         // Build a temporary feature for immediate display
         // The actual data will be populated on next refresh
@@ -537,7 +537,7 @@ const NODDemandLayer = (function() {
      */
     function removeMonitor(id) {
         const idx = state.monitors.findIndex(m => getMonitorId(m) === id);
-        if (idx === -1) return false;
+        if (idx === -1) {return false;}
 
         const monitor = state.monitors[idx];
         state.monitors.splice(idx, 1);
@@ -644,7 +644,7 @@ const NODDemandLayer = (function() {
             const params = new URLSearchParams({
                 monitors: monitorsJson,
                 bucket_minutes: state.settings.bucketMinutes,
-                horizon_hours: state.settings.horizonHours
+                horizon_hours: state.settings.horizonHours,
             });
 
             const url = `${CONFIG.apiEndpoint}?${params}`;
@@ -739,7 +739,7 @@ const NODDemandLayer = (function() {
                     type: 'Feature',
                     geometry: {
                         type: 'Point',
-                        coordinates: [monitor.lon, monitor.lat]
+                        coordinates: [monitor.lon, monitor.lat],
                     },
                     properties: {
                         id: monitor.id,
@@ -747,8 +747,8 @@ const NODDemandLayer = (function() {
                         count: count,
                         total: monitor.total,
                         color: color,
-                        label: monitor.fix
-                    }
+                        label: monitor.fix,
+                    },
                 });
             }
             // Segment monitors - render as lines
@@ -759,8 +759,8 @@ const NODDemandLayer = (function() {
                         type: 'LineString',
                         coordinates: [
                             [monitor.from_lon, monitor.from_lat],
-                            [monitor.to_lon, monitor.to_lat]
-                        ]
+                            [monitor.to_lon, monitor.to_lat],
+                        ],
                     },
                     properties: {
                         id: monitor.id,
@@ -769,8 +769,8 @@ const NODDemandLayer = (function() {
                         count: count,
                         total: monitor.total,
                         color: color,
-                        label: `${monitor.from_fix}→${monitor.to_fix}`
-                    }
+                        label: `${monitor.from_fix}→${monitor.to_fix}`,
+                    },
                 });
             }
             // Airway segment monitors - render as lines with full geometry if available
@@ -782,7 +782,7 @@ const NODDemandLayer = (function() {
                 } else {
                     coordinates = [
                         [monitor.from_lon, monitor.from_lat],
-                        [monitor.to_lon, monitor.to_lat]
+                        [monitor.to_lon, monitor.to_lat],
                     ];
                 }
 
@@ -790,7 +790,7 @@ const NODDemandLayer = (function() {
                     type: 'Feature',
                     geometry: {
                         type: 'LineString',
-                        coordinates: coordinates
+                        coordinates: coordinates,
                     },
                     properties: {
                         id: monitor.id,
@@ -800,8 +800,8 @@ const NODDemandLayer = (function() {
                         count: count,
                         total: monitor.total,
                         color: color,
-                        label: `${monitor.from_fix} ${monitor.airway} ${monitor.to_fix}`
-                    }
+                        label: `${monitor.from_fix} ${monitor.airway} ${monitor.to_fix}`,
+                    },
                 });
             }
             // Full airway monitors - render as lines if geometry available, else point
@@ -812,7 +812,7 @@ const NODDemandLayer = (function() {
                         type: 'Feature',
                         geometry: {
                             type: 'LineString',
-                            coordinates: monitor.geometry
+                            coordinates: monitor.geometry,
                         },
                         properties: {
                             id: monitor.id,
@@ -820,8 +820,8 @@ const NODDemandLayer = (function() {
                             count: count,
                             total: monitor.total,
                             color: color,
-                            label: monitor.airway
-                        }
+                            label: monitor.airway,
+                        },
                     });
                 } else {
                     // Fallback to point if no geometry
@@ -829,7 +829,7 @@ const NODDemandLayer = (function() {
                         type: 'Feature',
                         geometry: {
                             type: 'Point',
-                            coordinates: [monitor.lon, monitor.lat]
+                            coordinates: [monitor.lon, monitor.lat],
                         },
                         properties: {
                             id: monitor.id,
@@ -837,8 +837,8 @@ const NODDemandLayer = (function() {
                             count: count,
                             total: monitor.total,
                             color: color,
-                            label: monitor.airway
-                        }
+                            label: monitor.airway,
+                        },
                     });
                 }
             }
@@ -851,7 +851,7 @@ const NODDemandLayer = (function() {
                     type: 'Feature',
                     geometry: {
                         type: 'Point',
-                        coordinates: [monitor.lon, monitor.lat]
+                        coordinates: [monitor.lon, monitor.lat],
                     },
                     properties: {
                         id: monitor.id,
@@ -859,8 +859,8 @@ const NODDemandLayer = (function() {
                         count: count,
                         total: monitor.total,
                         color: color,
-                        label: label
-                    }
+                        label: label,
+                    },
                 });
             }
         });
@@ -878,12 +878,12 @@ const NODDemandLayer = (function() {
 
         fixSource.setData({
             type: 'FeatureCollection',
-            features: fixFeatures
+            features: fixFeatures,
         });
 
         segSource.setData({
             type: 'FeatureCollection',
-            features: segmentFeatures
+            features: segmentFeatures,
         });
 
         console.log('[DemandLayer] Map sources updated');
@@ -893,7 +893,7 @@ const NODDemandLayer = (function() {
      * Get count to display based on selected bucket
      */
     function getDisplayCount(monitor) {
-        if (!monitor.counts || monitor.counts.length === 0) return 0;
+        if (!monitor.counts || monitor.counts.length === 0) {return 0;}
 
         if (state.settings.selectedBucket === null) {
             // Aggregate: sum first 4 buckets (next hour)
@@ -938,9 +938,9 @@ const NODDemandLayer = (function() {
                 thresholds = { green: 5, yellow: 10, orange: 15 };
         }
 
-        if (count <= thresholds.green) return DEMAND_COLORS.GREEN;
-        if (count <= thresholds.yellow) return DEMAND_COLORS.YELLOW;
-        if (count <= thresholds.orange) return DEMAND_COLORS.ORANGE;
+        if (count <= thresholds.green) {return DEMAND_COLORS.GREEN;}
+        if (count <= thresholds.yellow) {return DEMAND_COLORS.YELLOW;}
+        if (count <= thresholds.orange) {return DEMAND_COLORS.ORANGE;}
         return DEMAND_COLORS.RED;
     }
 
@@ -961,7 +961,7 @@ const NODDemandLayer = (function() {
         return {
             green: p50,
             yellow: p75,
-            orange: p90
+            orange: p90,
         };
     }
 
@@ -989,8 +989,8 @@ const NODDemandLayer = (function() {
         const fixBtn = document.getElementById('demand-add-fix-btn');
         const segmentBtn = document.getElementById('demand-add-segment-btn');
 
-        if (fixBtn) fixBtn.classList.toggle('active', mode === 'fix');
-        if (segmentBtn) segmentBtn.classList.toggle('active', mode === 'segment');
+        if (fixBtn) {fixBtn.classList.toggle('active', mode === 'fix');}
+        if (segmentBtn) {segmentBtn.classList.toggle('active', mode === 'segment');}
 
         // Update status message
         const status = document.getElementById('demand-click-status');
@@ -1013,7 +1013,7 @@ const NODDemandLayer = (function() {
      * Handle map click for adding monitors
      */
     async function handleMapClick(e) {
-        if (!state.clickMode || !state.enabled) return;
+        if (!state.clickMode || !state.enabled) {return;}
 
         const { lng, lat } = e.lngLat;
 
@@ -1042,7 +1042,7 @@ const NODDemandLayer = (function() {
                 addMonitor({
                     type: 'segment',
                     from: state.segmentFirstClick.name,
-                    to: fix.name
+                    to: fix.name,
                 });
                 toggleClickMode(null);
             }
@@ -1082,7 +1082,7 @@ const NODDemandLayer = (function() {
      * Set threshold mode
      */
     function setThresholdMode(mode) {
-        if (!['percentile', 'absolute', 'custom'].includes(mode)) return;
+        if (!['percentile', 'absolute', 'custom'].includes(mode)) {return;}
 
         state.settings.thresholdMode = mode;
         saveToLocalStorage();
@@ -1116,7 +1116,7 @@ const NODDemandLayer = (function() {
      */
     function setAbsoluteThreshold(level, value) {
         const val = parseInt(value, 10);
-        if (isNaN(val) || val < 0) return;
+        if (isNaN(val) || val < 0) {return;}
 
         state.settings.absoluteThresholds[level] = val;
         saveToLocalStorage();
@@ -1159,7 +1159,7 @@ const NODDemandLayer = (function() {
         const slider = document.getElementById('demand-time-slider');
         const endLabel = document.getElementById('demand-slider-end');
 
-        if (!slider) return;
+        if (!slider) {return;}
 
         // Calculate max buckets: (hours * 60 minutes) / bucket_minutes - 1
         const maxBuckets = Math.floor((state.settings.horizonHours * 60) / state.settings.bucketMinutes) - 1;
@@ -1216,13 +1216,13 @@ const NODDemandLayer = (function() {
      */
     function updateTimeline(data) {
         const container = document.getElementById('demand-bucket-chart');
-        if (!container || !data || !data.monitors) return;
+        if (!container || !data || !data.monitors) {return;}
 
         // Calculate max count across all monitors for scaling
         let maxCount = 1;
         data.monitors.forEach(m => {
             if (m.counts) {
-                m.counts.forEach(c => { if (c > maxCount) maxCount = c; });
+                m.counts.forEach(c => { if (c > maxCount) {maxCount = c;} });
             }
         });
 
@@ -1270,10 +1270,10 @@ const NODDemandLayer = (function() {
      * Update threshold info display
      */
     function updateThresholdInfo() {
-        if (state.settings.thresholdMode !== 'percentile') return;
+        if (state.settings.thresholdMode !== 'percentile') {return;}
 
         const info = document.getElementById('percentile-values');
-        if (!info || !state.demandData) return;
+        if (!info || !state.demandData) {return;}
 
         const allCounts = state.demandData.monitors
             .map(m => getDisplayCount(m))
@@ -1293,17 +1293,17 @@ const NODDemandLayer = (function() {
     async function loadFromAPI() {
         try {
             const response = await fetch('api/adl/demand/monitors.php');
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
 
             const data = await response.json();
-            if (!data.monitors || !Array.isArray(data.monitors)) return;
+            if (!data.monitors || !Array.isArray(data.monitors)) {return;}
 
             // Convert API format to internal monitor format
             const apiMonitors = data.monitors.map(m => ({
                 id: m.key,
                 ...m.definition,
                 _apiId: m.id,
-                _global: true
+                _global: true,
             }));
 
             // Merge with existing monitors (API takes precedence)
@@ -1329,11 +1329,11 @@ const NODDemandLayer = (function() {
                     type: monitor.type,
                     definition: monitor,
                     label: getMonitorLabel(monitor),
-                    created_by: null
-                })
+                    created_by: null,
+                }),
             });
 
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
 
             const result = await response.json();
             if (result.success) {
@@ -1354,10 +1354,10 @@ const NODDemandLayer = (function() {
     async function deleteMonitorFromAPI(monitorId) {
         try {
             const response = await fetch(`api/adl/demand/monitors.php?monitor_key=${encodeURIComponent(monitorId)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
 
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
 
             const result = await response.json();
             console.log('[DemandLayer] Deleted monitor from API:', monitorId);
@@ -1384,7 +1384,7 @@ const NODDemandLayer = (function() {
             case 'via_fix':
                 if (monitor.filter) {
                     const dir = monitor.filter.direction === 'arr' ? '↓' :
-                                monitor.filter.direction === 'dep' ? '↑' : '↕';
+                        monitor.filter.direction === 'dep' ? '↑' : '↕';
                     return `${monitor.filter.code}${dir} via ${monitor.via}`;
                 }
                 return monitor.via;
@@ -1401,7 +1401,7 @@ const NODDemandLayer = (function() {
             const data = {
                 version: 1,
                 monitors: state.monitors,
-                settings: state.settings
+                settings: state.settings,
             };
             localStorage.setItem(CONFIG.localStorageKey, JSON.stringify(data));
         } catch (error) {
@@ -1415,10 +1415,10 @@ const NODDemandLayer = (function() {
     function loadFromLocalStorage() {
         try {
             const json = localStorage.getItem(CONFIG.localStorageKey);
-            if (!json) return;
+            if (!json) {return;}
 
             const data = JSON.parse(json);
-            if (data.version !== 1) return;
+            if (data.version !== 1) {return;}
 
             if (Array.isArray(data.monitors)) {
                 state.monitors = data.monitors;
@@ -1453,8 +1453,8 @@ const NODDemandLayer = (function() {
 
     // Known ARTCC codes (3-letter Z-prefixed)
     const ARTCC_CODES = ['ZNY', 'ZBW', 'ZDC', 'ZOB', 'ZID', 'ZAU', 'ZMP', 'ZKC', 'ZME', 'ZFW',
-                         'ZHU', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZTL', 'ZJX', 'ZMA',
-                         'ZAN', 'ZHN', 'ZSU', 'ZUA'];
+        'ZHU', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZTL', 'ZJX', 'ZMA',
+        'ZAN', 'ZHN', 'ZSU', 'ZUA'];
 
     // Common TRACON codes (typically 3 chars, some start with letter + digits)
     const TRACON_PATTERNS = /^(N90|A80|A90|C90|D01|D10|D21|I90|L30|M98|NCT|NOR|P50|P80|PCT|PHL|POT|S46|S56|SCT|Y90)$/i;
@@ -1480,10 +1480,10 @@ const NODDemandLayer = (function() {
      *   MERIT origin:KJFK dest:KLAX    -> fix with origin/destination filter
      */
     function parseMonitorInput(input) {
-        if (!input || typeof input !== 'string') return null;
+        if (!input || typeof input !== 'string') {return null;}
 
         input = input.trim().toUpperCase();
-        if (!input) return null;
+        if (!input) {return null;}
 
         // Extract flight filter key:value pairs from the end
         // Patterns: airline:UAL, type:B738, category:HEAVY, origin:KJFK, dest:KLAX
@@ -1496,7 +1496,7 @@ const NODDemandLayer = (function() {
             { regex: /\s+TYPE:(\w+)/i, key: 'aircraft_type' },
             { regex: /\s+CATEGORY:(HEAVY|LARGE|SMALL)/i, key: 'aircraft_category' },
             { regex: /\s+ORIGIN:(\w+)/i, key: 'origin' },
-            { regex: /\s+DEST(?:INATION)?:(\w+)/i, key: 'destination' }
+            { regex: /\s+DEST(?:INATION)?:(\w+)/i, key: 'destination' },
         ];
 
         filterPatterns.forEach(({ regex, key }) => {
@@ -1526,7 +1526,7 @@ const NODDemandLayer = (function() {
      * Core monitor parsing (without flight filters)
      */
     function parseMonitorCore(input) {
-        if (!input) return null;
+        if (!input) {return null;}
 
         // Pattern 1: "[location] arrivals/departures via [fix/airway]"
         // Examples: "KBOS arrivals via MERIT", "N90 dep via WAVEY", "ZDC via J48"
@@ -1561,8 +1561,8 @@ const NODDemandLayer = (function() {
                 filter: {
                     type: filterType.type,
                     code: filterType.code,
-                    direction: direction
-                }
+                    direction: direction,
+                },
             };
         }
 
@@ -1574,7 +1574,7 @@ const NODDemandLayer = (function() {
                 type: 'airway_segment',
                 airway: segmentMatch[2],
                 from: segmentMatch[1],
-                to: segmentMatch[3]
+                to: segmentMatch[3],
             };
         }
 
@@ -1583,7 +1583,7 @@ const NODDemandLayer = (function() {
         if (AIRWAY_PATTERN.test(input)) {
             return {
                 type: 'airway',
-                airway: input
+                airway: input,
             };
         }
 
@@ -1593,7 +1593,7 @@ const NODDemandLayer = (function() {
             return {
                 type: 'segment',
                 from: twoFixMatch[1],
-                to: twoFixMatch[2]
+                to: twoFixMatch[2],
             };
         }
 
@@ -1602,7 +1602,7 @@ const NODDemandLayer = (function() {
         if (/^\w+$/.test(input)) {
             return {
                 type: 'fix',
-                fix: input
+                fix: input,
             };
         }
 
@@ -1667,7 +1667,7 @@ const NODDemandLayer = (function() {
         if (success) {
             // Clear input field
             const inputEl = document.getElementById('demand-monitor-input');
-            if (inputEl) inputEl.value = '';
+            if (inputEl) {inputEl.value = '';}
         }
 
         return success;
@@ -1700,7 +1700,7 @@ const NODDemandLayer = (function() {
                 return `${monitor.from} ${monitor.airway} ${monitor.to}`;
             case 'via_fix':
                 const dir = monitor.filter.direction === 'arr' ? '↓' :
-                           monitor.filter.direction === 'dep' ? '↑' : '↕';
+                    monitor.filter.direction === 'dep' ? '↑' : '↕';
                 return `${monitor.filter.code}${dir} via ${monitor.via}`;
             default:
                 return JSON.stringify(monitor);
@@ -1712,7 +1712,7 @@ const NODDemandLayer = (function() {
      */
     function renderMonitorsList() {
         const container = document.getElementById('demand-monitors-list');
-        if (!container) return;
+        if (!container) {return;}
 
         if (state.monitors.length === 0) {
             container.innerHTML = '<div class="text-muted small text-center py-2">No monitors active</div>';
@@ -1724,9 +1724,9 @@ const NODDemandLayer = (function() {
             const id = getMonitorId(monitor);
             const label = getMonitorLabel(monitor);
             const typeIcon = monitor.type === 'fix' ? 'fa-map-marker-alt' :
-                            monitor.type === 'airway' ? 'fa-route' :
-                            monitor.type.includes('segment') ? 'fa-arrows-alt-h' :
-                            'fa-filter';
+                monitor.type === 'airway' ? 'fa-route' :
+                    monitor.type.includes('segment') ? 'fa-arrows-alt-h' :
+                        'fa-filter';
 
             // Get count from current demand data
             let count = null;
@@ -1766,7 +1766,7 @@ const NODDemandLayer = (function() {
      * Show flights for a monitor from the list (index-based)
      */
     async function showMonitorFlights(idx) {
-        if (idx < 0 || idx >= state.monitors.length) return;
+        if (idx < 0 || idx >= state.monitors.length) {return;}
 
         const monitor = state.monitors[idx];
         const label = getMonitorLabel(monitor);
@@ -1878,7 +1878,7 @@ const NODDemandLayer = (function() {
      * Initialize click handlers for demand elements on the map
      */
     function initMapClickHandlers() {
-        if (!state.map) return;
+        if (!state.map) {return;}
 
         // Click handler for fix monitors
         state.map.on('click', 'demand-fixes-core', handleDemandClick);
@@ -1891,13 +1891,13 @@ const NODDemandLayer = (function() {
             state.map.getCanvas().style.cursor = 'pointer';
         });
         state.map.on('mouseleave', 'demand-fixes-core', () => {
-            if (!state.clickMode) state.map.getCanvas().style.cursor = '';
+            if (!state.clickMode) {state.map.getCanvas().style.cursor = '';}
         });
         state.map.on('mouseenter', 'demand-segments-core', () => {
             state.map.getCanvas().style.cursor = 'pointer';
         });
         state.map.on('mouseleave', 'demand-segments-core', () => {
-            if (!state.clickMode) state.map.getCanvas().style.cursor = '';
+            if (!state.clickMode) {state.map.getCanvas().style.cursor = '';}
         });
 
         console.log('[DemandLayer] Map click handlers initialized');
@@ -1907,8 +1907,8 @@ const NODDemandLayer = (function() {
      * Handle click on demand element to show flight details
      */
     async function handleDemandClick(e) {
-        if (!e.features || e.features.length === 0) return;
-        if (state.clickMode) return; // Don't show details while in add mode
+        if (!e.features || e.features.length === 0) {return;}
+        if (state.clickMode) {return;} // Don't show details while in add mode
 
         e.preventDefault();
         e.originalEvent.stopPropagation();
@@ -2085,11 +2085,11 @@ const NODDemandLayer = (function() {
             closeOnClick: true,
             closeButton: true,
             maxWidth: '350px',
-            className: 'demand-popup'
+            className: 'demand-popup',
         })
-        .setLngLat(lngLat)
-        .setHTML(content)
-        .addTo(state.map);
+            .setLngLat(lngLat)
+            .setHTML(content)
+            .addTo(state.map);
     }
 
     /**
@@ -2283,7 +2283,7 @@ const NODDemandLayer = (function() {
                     }
                 }
 
-                if (!passesVia) return false;
+                if (!passesVia) {return false;}
 
                 // Apply filter (airport/tracon/artcc, direction)
                 if (filter.type && filter.code) {
@@ -2316,9 +2316,9 @@ const NODDemandLayer = (function() {
                             break;
                     }
 
-                    if (direction === 'arr' && !matchesArr) return false;
-                    if (direction === 'dep' && !matchesDep) return false;
-                    if (direction === 'both' && !matchesDep && !matchesArr) return false;
+                    if (direction === 'arr' && !matchesArr) {return false;}
+                    if (direction === 'dep' && !matchesDep) {return false;}
+                    if (direction === 'both' && !matchesDep && !matchesArr) {return false;}
                 }
 
                 return true;
@@ -2337,7 +2337,7 @@ const NODDemandLayer = (function() {
             monitor,
             label: getMonitorLabel(monitor),
             color: getMonitorColor(idx),
-            index: idx
+            index: idx,
         }));
     }
 
@@ -2362,7 +2362,7 @@ const NODDemandLayer = (function() {
                 return {
                     color: getMonitorColor(i),
                     label: getMonitorLabel(monitor),
-                    index: i
+                    index: i,
                 };
             }
         }
@@ -2390,7 +2390,7 @@ const NODDemandLayer = (function() {
                 matches.push({
                     color: getMonitorColor(i),
                     label: getMonitorLabel(monitor),
-                    index: i
+                    index: i,
                 });
             }
         }
@@ -2430,7 +2430,7 @@ const NODDemandLayer = (function() {
         getActiveMonitors,
         getFlightFEAMatch,
         getFlightFEAMatches,
-        flightMatchesMonitor
+        flightMatchesMonitor,
     };
 })();
 

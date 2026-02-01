@@ -24,58 +24,58 @@ const RATE_LINE_CONFIG = {
     active: {
         vatsim: {
             color: '#000000',      // Black
-            label: 'VATSIM'
+            label: 'VATSIM',
         },
         rw: {
             color: '#00FFFF',      // Cyan
-            label: 'Real World'
-        }
+            label: 'Real World',
+        },
     },
 
     // Suggested rates (no controller, based on weather/config matching)
     suggested: {
         vatsim: {
             color: '#6b7280',      // Gray
-            label: 'VATSIM (Suggested)'
+            label: 'VATSIM (Suggested)',
         },
         rw: {
             color: '#0d9488',      // Teal
-            label: 'Real World (Suggested)'
-        }
+            label: 'Real World (Suggested)',
+        },
     },
 
     // Custom/Dynamic rates (manual override that differs from strategic)
     custom: {
         vatsim: {
             color: '#000000',      // Black (dotted line style applied separately)
-            label: 'VATSIM (Dynamic)'
+            label: 'VATSIM (Dynamic)',
         },
         rw: {
             color: '#00FFFF',      // Cyan (dotted line style applied separately)
-            label: 'Real World (Dynamic)'
-        }
+            label: 'Real World (Dynamic)',
+        },
     },
 
     // Line styles by rate type
     lineStyle: {
         aar: {
             type: 'solid',
-            width: 2
+            width: 2,
         },
         adr: {
             type: 'dashed',
             width: 2,
-            dashOffset: 0
+            dashOffset: 0,
         },
         // Dotted style for custom/dynamic rates
         aar_custom: {
             type: 'dotted',
-            width: 2
+            width: 2,
         },
         adr_custom: {
             type: 'dotted',
-            width: 2
-        }
+            width: 2,
+        },
     },
 
     // Label positioning and styling
@@ -87,7 +87,7 @@ const RATE_LINE_CONFIG = {
         distance: 5,               // Distance from line end
         backgroundColor: 'rgba(0,0,0,0.6)',
         padding: [2, 4],
-        borderRadius: 2
+        borderRadius: 2,
     },
 
     // Weather category display colors (for info panels)
@@ -96,7 +96,7 @@ const RATE_LINE_CONFIG = {
         'LVMC': '#eab308',         // Yellow - Low VMC
         'IMC': '#f97316',          // Orange - Instrument conditions
         'LIMC': '#ef4444',         // Red - Low IMC
-        'VLIMC': '#dc2626'         // Dark red - Very low IMC
+        'VLIMC': '#dc2626',         // Dark red - Very low IMC
     },
 
     // Weather category labels
@@ -105,8 +105,8 @@ const RATE_LINE_CONFIG = {
         'LVMC': 'Low VMC',
         'IMC': 'IMC',
         'LIMC': 'Low IMC',
-        'VLIMC': 'Very Low IMC'
-    }
+        'VLIMC': 'Very Low IMC',
+    },
 };
 
 /**
@@ -116,7 +116,7 @@ const RATE_LINE_CONFIG = {
  * @returns {Array} Array of markLine data objects
  */
 function buildRateMarkLines(rateData, direction = 'both') {
-    if (!rateData || !rateData.rates) return [];
+    if (!rateData || !rateData.rates) {return [];}
 
     const lines = [];
     const cfg = RATE_LINE_CONFIG;
@@ -127,7 +127,7 @@ function buildRateMarkLines(rateData, direction = 'both') {
 
     // Helper to create a rate line
     const addLine = (value, source, rateType) => {
-        if (!value) return;
+        if (!value) {return;}
 
         const sourceStyle = cfg[styleKey][source];
         // Use dotted line style for custom/dynamic rates
@@ -140,7 +140,7 @@ function buildRateMarkLines(rateData, direction = 'both') {
             lineStyle: {
                 color: sourceStyle.color,
                 width: lineStyle.width,
-                type: lineStyle.type
+                type: lineStyle.type,
             },
             label: {
                 show: true,
@@ -152,8 +152,8 @@ function buildRateMarkLines(rateData, direction = 'both') {
                 fontFamily: cfg.label.fontFamily,
                 backgroundColor: cfg.label.backgroundColor,
                 padding: cfg.label.padding,
-                borderRadius: cfg.label.borderRadius
-            }
+                borderRadius: cfg.label.borderRadius,
+            },
         });
     };
 
@@ -213,6 +213,6 @@ if (typeof module !== 'undefined' && module.exports) {
         buildRateMarkLines,
         getWeatherColor,
         getWeatherLabel,
-        formatRateDisplay
+        formatRateDisplay,
     };
 }

@@ -1,6 +1,6 @@
 /**
  * TMI Constants - Traffic Management Initiative definitions
- * 
+ *
  * Based on FAA FSM/TFMS specifications
  */
 
@@ -11,7 +11,7 @@ const TMI_TYPE = {
     AIRSPACE_FLOW_PROGRAM: 'AFP',
     COMPRESSION: 'COMP',
     BLANKET: 'BLKT',
-    REROUTE: 'REROUTE'
+    REROUTE: 'REROUTE',
 };
 
 // TMI Status
@@ -19,20 +19,20 @@ const TMI_STATUS = {
     PROPOSED: 'PROPOSED',
     ACTIVE: 'ACTIVE',
     EXPIRED: 'EXPIRED',
-    PURGED: 'PURGED'
+    PURGED: 'PURGED',
 };
 
 // GDP Program Types (delay assignment modes)
 const GDP_TYPE = {
     DAS: 'DAS',      // Delay Assignment - first come first served by original ETA
     GAAP: 'GAAP',    // General Aviation Airport Program
-    UDP: 'UDP'       // Unified Delay Program
+    UDP: 'UDP',       // Unified Delay Program
 };
 
 // Scope Types
 const SCOPE_TYPE = {
     TIER: 'TIER',           // Center-based tiers
-    DISTANCE: 'DISTANCE'    // Distance in NM from destination
+    DISTANCE: 'DISTANCE',    // Distance in NM from destination
 };
 
 // Tier Keywords
@@ -41,7 +41,7 @@ const TIER_KEYWORD = {
     TIER1: 'TIER1',         // Tier 1 - adjacent centers
     TIER2: 'TIER2',         // Tier 2 - one ring further
     ALL: 'ALL',             // All CONUS centers
-    CONUS: 'CONUS'          // Same as ALL for CONUS
+    CONUS: 'CONUS',          // Same as ALL for CONUS
 };
 
 // Flight Control Types
@@ -50,7 +50,7 @@ const CONTROL_TYPE = {
     GDP_CONTROL: 'GDP',
     AFP_CONTROL: 'AFP',
     EXEMPT: 'EXEMPT',
-    NONE: 'NONE'
+    NONE: 'NONE',
 };
 
 // Exemption Categories
@@ -61,7 +61,7 @@ const EXEMPTION_CATEGORY = {
     ORIGIN_AIRPORT: 'ORIGIN_AIRPORT',
     ORIGIN_CENTER: 'ORIGIN_CENTER',
     FLIGHT_TYPE: 'FLIGHT_TYPE',   // e.g., military, cargo
-    EQUIPMENT: 'EQUIPMENT'        // e.g., props only
+    EQUIPMENT: 'EQUIPMENT',        // e.g., props only
 };
 
 // Flight Types for exemption
@@ -71,7 +71,7 @@ const FLIGHT_TYPE = {
     MILITARY: 'M',
     CARGO: 'C',
     CHARTER: 'H',
-    AIR_TAXI: 'T'
+    AIR_TAXI: 'T',
 };
 
 // Default GS duration (1 hour minimum per FSM)
@@ -90,5 +90,5 @@ module.exports = {
     EXEMPTION_CATEGORY,
     FLIGHT_TYPE,
     GS_MIN_DURATION_MINUTES,
-    TIME_INCREMENT_MINUTES
+    TIME_INCREMENT_MINUTES,
 };

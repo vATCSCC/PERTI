@@ -207,7 +207,7 @@ log(`Built index of ${existingNames.size} existing names and ${existingDesignato
 const stats = {
     added: 0,
     skippedDuplicate: 0,
-    byType: {}
+    byType: {},
 };
 
 // Process SUA.geojson features
@@ -252,9 +252,9 @@ for (const feature of suaGeojson.features) {
             artcc: null,
             priority: 10,  // Lower priority than FAA NASR data
             color: color,
-            source: 'ATCSCC'
+            source: 'ATCSCC',
         },
-        geometry: feature.geometry
+        geometry: feature.geometry,
     };
 
     newFeatures.push(newFeature);
@@ -286,7 +286,7 @@ const output = {
     source: 'FAA NASR AIXM 5.0 + ATCSCC SUA.geojson',
     count: mergedFeatures.length,
     types: typeCounts,
-    features: mergedFeatures
+    features: mergedFeatures,
 };
 
 // Output statistics

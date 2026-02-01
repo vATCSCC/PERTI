@@ -42,7 +42,7 @@ const FLIGHT_PHASE = {
     APPROACH: 'APPROACH',
     LANDING: 'LANDING',
     TAXI_IN: 'TAXI_IN',
-    ARRIVED: 'ARRIVED'
+    ARRIVED: 'ARRIVED',
 };
 
 // Altitude thresholds (feet)
@@ -51,14 +51,14 @@ const ALTITUDE_THRESHOLDS = {
     DEPARTURE_TOP: 10000,  // Transition from departure to climb
     CRUISE_FLOOR: 25000,   // Minimum typical cruise altitude
     FL180: 18000,          // Transition altitude (US)
-    FL410: 41000           // Typical max cruise
+    FL410: 41000,           // Typical max cruise
 };
 
 // Speed restrictions
 const SPEED_RESTRICTIONS = {
     BELOW_10000_KTS: 250,  // Below FL100
     CLASS_B_KTS: 200,      // In Class B airspace below 2500 AGL
-    CLASS_C_D_KTS: 200     // In Class C/D airspace
+    CLASS_C_D_KTS: 200,     // In Class C/D airspace
 };
 
 // Turn performance
@@ -79,7 +79,7 @@ module.exports = {
     // Earth
     EARTH_RADIUS_NM,
     EARTH_RADIUS_KM,
-    
+
     // Conversions
     NM_TO_FEET,
     FEET_TO_NM,
@@ -90,34 +90,34 @@ module.exports = {
     KM_TO_NM,
     METERS_TO_FEET,
     FEET_TO_METERS,
-    
+
     // Atmosphere
     ISA_SEA_LEVEL_TEMP_C,
     ISA_LAPSE_RATE_C_PER_FT,
     TROPOPAUSE_FT,
     ISA_TROPOPAUSE_TEMP_C,
     SPEED_OF_SOUND_SEA_LEVEL_KTS,
-    
+
     // Performance defaults
     DEFAULT_ACCEL_KTS_PER_SEC,
     DEFAULT_DECEL_KTS_PER_SEC,
-    
+
     // Flight phases
     FLIGHT_PHASE,
     ALTITUDE_THRESHOLDS,
     SPEED_RESTRICTIONS,
-    
+
     // Turn performance
     STANDARD_RATE_TURN_DEG_PER_SEC,
     HALF_STANDARD_RATE_DEG_PER_SEC,
-    
+
     // Navigation tolerances
     WAYPOINT_CAPTURE_NM,
     ALTITUDE_CAPTURE_FT,
     HEADING_CAPTURE_DEG,
     SPEED_CAPTURE_KTS,
-    
+
     // Simulation
     DEFAULT_TICK_SECONDS,
-    MAX_SIMULATION_RATE
+    MAX_SIMULATION_RATE,
 };

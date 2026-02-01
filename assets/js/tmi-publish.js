@@ -1,11 +1,11 @@
 /**
  * TMI Publisher Controller
- * 
+ *
  * Unified NTML Entry + Advisory publishing with multi-Discord support.
- * 
+ *
  * NTML Types: MIT, MINIT, STOP, APREQ/CFR, TBM, Delay, Config, Cancel
  * Advisory Types: Operations Plan, Free Form, Hotline, SWAP
- * 
+ *
  * @package PERTI
  * @subpackage Assets/JS
  * @version 1.9.2
@@ -86,11 +86,11 @@
 
 (function() {
     'use strict';
-    
+
     // ===========================================
     // Configuration
     // ===========================================
-    
+
     const CONFIG = window.TMI_PUBLISHER_CONFIG || {
         userCid: null,
         userName: 'Unknown',
@@ -99,11 +99,11 @@
         userHomeOrg: 'vatcscc',
         discordOrgs: { vatcscc: { name: 'vATCSCC', region: 'US', default: true } },
         stagingRequired: true,
-        crossBorderAutoDetect: true
+        crossBorderAutoDetect: true,
     };
-    
+
     const DISCORD_MAX_LENGTH = 2000;
-    
+
     // ARTCC mappings for facility detection
     // All US ARTCCs, TRACONs, Canadian FIRs, Caribbean, Mexico
     const ARTCCS = {
@@ -136,12 +136,12 @@
         'TNCF': 'Curacao FIR', 'TTPP': 'Piarco FIR',
         // Mexico
         'MMEX': 'Mexico City ACC', 'MMTY': 'Monterrey ACC', 'MMZT': 'Mazatlan ACC',
-        'MMUN': 'Cancun ACC', 'MMMD': 'Merida ACC'
+        'MMUN': 'Cancun ACC', 'MMMD': 'Merida ACC',
     };
-    
+
     // Cross-border facilities
     const CROSS_BORDER_FACILITIES = ['ZBW', 'ZMP', 'ZSE', 'ZLC', 'ZOB', 'CZYZ', 'CZWG', 'CZVR', 'CZEG'];
-    
+
     // Extended NTML Qualifiers - matching Zapier/TypeForm output
     const NTML_QUALIFIERS = {
         // Spacing Method (appears after MIT value)
@@ -150,21 +150,21 @@
             { code: 'PER STREAM', label: 'PER STREAM', desc: 'Spacing per traffic stream' },
             { code: 'PER AIRPORT', label: 'PER AIRPORT', desc: 'Spacing per departure airport' },
             { code: 'PER FIX', label: 'PER FIX', desc: 'Spacing per arrival fix' },
-            { code: 'EACH', label: 'EACH', desc: 'Each aircraft separately' }
+            { code: 'EACH', label: 'EACH', desc: 'Each aircraft separately' },
         ],
         // Aircraft Type
         aircraft: [
             { code: 'JET', label: 'JET', desc: 'Jet aircraft only' },
             { code: 'PROP', label: 'PROP', desc: 'Propeller aircraft only' },
             { code: 'TURBOJET', label: 'TURBOJET', desc: 'Turbojet aircraft only' },
-            { code: 'B757', label: 'B757', desc: 'B757 aircraft only' }
+            { code: 'B757', label: 'B757', desc: 'B757 aircraft only' },
         ],
         // Weight Class
         weight: [
             { code: 'HEAVY', label: 'HEAVY', desc: 'Heavy aircraft (>255,000 lbs)' },
             { code: 'LARGE', label: 'LARGE', desc: 'Large aircraft (41,000-255,000 lbs)' },
             { code: 'SMALL', label: 'SMALL', desc: 'Small aircraft (<41,000 lbs)' },
-            { code: 'SUPER', label: 'SUPER', desc: 'Superheavy aircraft (A380, AN-225)' }
+            { code: 'SUPER', label: 'SUPER', desc: 'Superheavy aircraft (A380, AN-225)' },
         ],
         // Equipment/Capability
         equipment: [
@@ -172,13 +172,13 @@
             { code: 'NON-RNAV', label: 'NON-RNAV', desc: 'Non-RNAV aircraft only' },
             { code: 'RNP', label: 'RNP', desc: 'RNP-capable aircraft only' },
             { code: 'RVSM', label: 'RVSM', desc: 'RVSM-compliant only' },
-            { code: 'NON-RVSM', label: 'NON-RVSM', desc: 'Non-RVSM aircraft only' }
+            { code: 'NON-RVSM', label: 'NON-RVSM', desc: 'Non-RVSM aircraft only' },
         ],
         // Flow Type
         flow: [
             { code: 'ARR', label: 'ARR', desc: 'Arrival traffic only' },
             { code: 'DEP', label: 'DEP', desc: 'Departure traffic only' },
-            { code: 'OVFLT', label: 'OVFLT', desc: 'Overflight traffic only' }
+            { code: 'OVFLT', label: 'OVFLT', desc: 'Overflight traffic only' },
         ],
         // Operator Category
         operator: [
@@ -186,31 +186,31 @@
             { code: 'AIR TAXI', label: 'AIR TAXI', desc: 'Air taxi operations' },
             { code: 'GA', label: 'GA', desc: 'General aviation' },
             { code: 'CARGO', label: 'CARGO', desc: 'Cargo operations' },
-            { code: 'MIL', label: 'MIL', desc: 'Military operations' }
+            { code: 'MIL', label: 'MIL', desc: 'Military operations' },
         ],
         // Altitude
         altitude: [
             { code: 'HIGH ALT', label: 'HIGH ALT', desc: 'FL240 and above' },
-            { code: 'LOW ALT', label: 'LOW ALT', desc: 'Below FL240' }
-        ]
+            { code: 'LOW ALT', label: 'LOW ALT', desc: 'Below FL240' },
+        ],
     };
-    
+
     // Reason codes - Category (broad) per OPSNET
     const REASON_CATEGORIES = [
         { code: 'VOLUME', label: 'Volume' },
         { code: 'WEATHER', label: 'Weather' },
         { code: 'RUNWAY', label: 'Runway' },
         { code: 'EQUIPMENT', label: 'Equipment' },
-        { code: 'OTHER', label: 'Other' }
+        { code: 'OTHER', label: 'Other' },
     ];
-    
+
     // Cause codes - Specific causes per OPSNET/ASPM
     const REASON_CAUSES = {
         VOLUME: [
             { code: 'VOLUME', label: 'Volume' },
             { code: 'COMPACTED DEMAND', label: 'Compacted Demand' },
             { code: 'MULTI-TAXI', label: 'Multi-Taxi' },
-            { code: 'AIRSPACE', label: 'Airspace' }
+            { code: 'AIRSPACE', label: 'Airspace' },
         ],
         WEATHER: [
             { code: 'WEATHER', label: 'Weather' },
@@ -219,18 +219,18 @@
             { code: 'LOW VISIBILITY', label: 'Low Visibility' },
             { code: 'FOG', label: 'Fog' },
             { code: 'WIND', label: 'Wind' },
-            { code: 'SNOW/ICE', label: 'Snow/Ice' }
+            { code: 'SNOW/ICE', label: 'Snow/Ice' },
         ],
         RUNWAY: [
             { code: 'RUNWAY', label: 'Runway' },
             { code: 'RUNWAY CONFIGURATION', label: 'Runway Configuration' },
             { code: 'RUNWAY CONSTRUCTION', label: 'Runway Construction' },
-            { code: 'RUNWAY CLOSURE', label: 'Runway Closure' }
+            { code: 'RUNWAY CLOSURE', label: 'Runway Closure' },
         ],
         EQUIPMENT: [
             { code: 'EQUIPMENT', label: 'Equipment' },
             { code: 'FAA EQUIPMENT', label: 'FAA Equipment' },
-            { code: 'NON-FAA EQUIPMENT', label: 'Non-FAA Equipment' }
+            { code: 'NON-FAA EQUIPMENT', label: 'Non-FAA Equipment' },
         ],
         OTHER: [
             { code: 'OTHER', label: 'Other' },
@@ -238,31 +238,31 @@
             { code: 'AIR SHOW', label: 'Air Show' },
             { code: 'VIP MOVEMENT', label: 'VIP Movement' },
             { code: 'SPECIAL EVENT', label: 'Special Event' },
-            { code: 'SECURITY', label: 'Security' }
-        ]
+            { code: 'SECURITY', label: 'Security' },
+        ],
     };
-    
+
     // ===========================================
     // State
     // ===========================================
-    
-    let state = {
+
+    const state = {
         queue: [],
         productionMode: false,
         selectedNtmlType: null,
         selectedAdvisoryType: null,
         lastCrossBorderOrgs: [],
-        advisoryCounters: {} // Track advisory numbers by date
+        advisoryCounters: {}, // Track advisory numbers by date
     };
-    
+
     // ===========================================
     // Initialization
     // ===========================================
-    
+
     $(document).ready(function() {
         init();
     });
-    
+
     function init() {
         initClock();
         initEventHandlers();
@@ -272,22 +272,22 @@
         initAdvisoryCounters();
         initUserProfile();
         updateUI();
-        
+
         // Load default forms
         state.selectedNtmlType = 'MIT';
         loadNtmlForm('MIT');
         state.selectedAdvisoryType = 'OPS_PLAN';
         loadAdvisoryForm('OPS_PLAN');
-        
+
         loadActiveTmis();
         loadStagedEntries();
-        
+
         // Refresh active TMIs every 60 seconds
         setInterval(loadActiveTmis, 60000);
         // Refresh staged entries every 30 seconds
         setInterval(loadStagedEntries, 30000);
     }
-    
+
     function initClock() {
         function updateClock() {
             const now = new Date();
@@ -297,7 +297,7 @@
         updateClock();
         setInterval(updateClock, 1000);
     }
-    
+
     function initEventHandlers() {
         // Production mode toggle
         $('#productionMode').on('change', function() {
@@ -308,7 +308,7 @@
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc3545',
-                    confirmButtonText: 'Enable Production'
+                    confirmButtonText: 'Enable Production',
                 }).then((result) => {
                     if (result.isConfirmed) {
                         state.productionMode = true;
@@ -324,15 +324,15 @@
                 saveState();
             }
         });
-        
+
         // Queue controls
         $('#clearQueue').on('click', clearQueue);
         $('#submitAllBtn').on('click', submitAll);
-        
+
         // Advisory controls
         $('#adv_copy').on('click', copyAdvisoryToClipboard);
         $('#adv_add_to_queue').on('click', addAdvisoryToQueue);
-        
+
         // Tab change
         $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
             if (e.target.id === 'queue-tab') {
@@ -341,11 +341,11 @@
                 loadActiveTmis();
             }
         });
-        
+
         // Refresh active TMIs button
         $('#refreshActiveTmis').on('click', loadActiveTmis);
     }
-    
+
     function initNtmlTypeSelector() {
         $('.ntml-type-card').on('click', function() {
             const type = $(this).data('type');
@@ -355,7 +355,7 @@
             loadNtmlForm(type);
         });
     }
-    
+
     function initAdvisoryTypeSelector() {
         $('.advisory-type-card').on('click', function() {
             const type = $(this).data('type');
@@ -365,7 +365,7 @@
             loadAdvisoryForm(type);
         });
     }
-    
+
     function initAdvisoryCounters() {
         // Load advisory counters from localStorage
         // Using a UNIFIED counter for all advisory types (per user request)
@@ -387,7 +387,7 @@
                             data.opsplan || 1,
                             data.freeform || 1,
                             data.hotline || 1,
-                            data.swap || 1
+                            data.swap || 1,
                         );
                         state.advisoryCounters = { date: today, counter: maxOld };
                         saveAdvisoryCounters();
@@ -412,7 +412,7 @@
             now.getUTCFullYear(),
             now.getUTCMonth(),
             now.getUTCDate() + 1,
-            0, 0, 0
+            0, 0, 0,
         ));
         const msUntilMidnight = midnight - now;
 
@@ -445,14 +445,14 @@
         saveAdvisoryCounters();
         return String(num).padStart(3, '0');
     }
-    
+
     // ===========================================
     // NTML Form Loading
     // ===========================================
-    
+
     function loadNtmlForm(type) {
         let formHtml = '';
-        
+
         switch(type) {
             case 'MIT':
             case 'MINIT':
@@ -479,22 +479,22 @@
             default:
                 formHtml = '<div class="alert alert-warning">Unknown entry type</div>';
         }
-        
+
         $('#ntmlFormContainer').html(formHtml);
         initNtmlFormHandlers(type);
-        
+
         // Default requesting facility to user's saved facility
         const userFacility = getUserFacility();
         if (userFacility && $('#ntml_req_facility').length && !$('#ntml_req_facility').val()) {
             $('#ntml_req_facility').val(userFacility);
         }
     }
-    
+
     function buildQualifiersHtml(showAll = true) {
         let html = '<div class="mb-3">';
         html += '<label class="form-label small text-muted">Qualifiers (optional)</label>';
         html += '<div class="qualifier-sections">';
-        
+
         if (showAll) {
             // Aircraft Type
             html += '<div class="qualifier-group mb-2">';
@@ -503,7 +503,7 @@
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="aircraft" title="${q.desc}">${q.label}</button>`;
             });
             html += '</div>';
-            
+
             // Weight Class
             html += '<div class="qualifier-group mb-2">';
             html += '<span class="small text-muted mr-2">Weight:</span>';
@@ -511,7 +511,7 @@
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="weight" title="${q.desc}">${q.label}</button>`;
             });
             html += '</div>';
-            
+
             // Spacing Method
             html += '<div class="qualifier-group mb-2">';
             html += '<span class="small text-muted mr-2">Spacing:</span>';
@@ -519,7 +519,7 @@
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="spacing" title="${q.desc}">${q.label}</button>`;
             });
             html += '</div>';
-            
+
             // Equipment/Capability
             html += '<div class="qualifier-group mb-2">';
             html += '<span class="small text-muted mr-2">Equipment:</span>';
@@ -527,7 +527,7 @@
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="equipment" title="${q.desc}">${q.label}</button>`;
             });
             html += '</div>';
-            
+
             // Flow Type
             html += '<div class="qualifier-group mb-2">';
             html += '<span class="small text-muted mr-2">Flow:</span>';
@@ -535,7 +535,7 @@
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="flow" title="${q.desc}">${q.label}</button>`;
             });
             html += '</div>';
-            
+
             // Operator Category
             html += '<div class="qualifier-group mb-2">';
             html += '<span class="small text-muted mr-2">Operator:</span>';
@@ -543,14 +543,14 @@
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="operator" title="${q.desc}">${q.label}</button>`;
             });
             html += '</div>';
-            
+
             // Altitude Filter (text input)
             html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
             html += '<span class="small text-muted mr-2">Altitude:</span>';
             html += '<input type="text" class="form-control form-control-sm text-uppercase" id="ntml_altitude_filter" placeholder="e.g., AOB120, AOA320, 140B180" style="max-width: 200px;" maxlength="20">';
             html += '<small class="text-muted ml-2">AOB=At/Below, AOA=At/Above, ###B###=Block</small>';
             html += '</div>';
-            
+
             // Speed Filter (text input)
             html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
             html += '<span class="small text-muted mr-2">Speed:</span>';
@@ -558,11 +558,11 @@
             html += '<span class="small text-muted ml-1">KTS</span>';
             html += '</div>';
         }
-        
+
         html += '</div></div>';
         return html;
     }
-    
+
     function buildReasonSelect() {
         let html = `
             <div class="row">
@@ -591,22 +591,22 @@
         `;
         return html;
     }
-    
+
     function updateCauseOptions() {
         const category = $('#ntml_reason_category').val() || 'VOLUME';
         const causes = REASON_CAUSES[category] || REASON_CAUSES.VOLUME;
-        
+
         let html = '';
         causes.forEach(c => {
             html += `<option value="${c.code}">${c.label}</option>`;
         });
         $('#ntml_reason_cause').html(html);
     }
-    
+
     function buildMitMinitForm(type) {
         const unit = type === 'MIT' ? 'Miles' : 'Minutes';
         const times = getSmartDefaultTimes();
-        
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
@@ -695,10 +695,10 @@
             ${buildFacilityDatalist()}
         `;
     }
-    
+
     function buildStopForm() {
         const times = getSmartDefaultTimes();
-        
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-danger text-white">
@@ -769,12 +769,12 @@
                     <div class="mb-3">
                         <label class="form-label small text-muted">Qualifiers (optional)</label>
                         <div class="d-flex flex-wrap">
-                            ${NTML_QUALIFIERS.aircraft.map(q => 
-                                `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" title="${q.desc}">${q.label}</button>`
-                            ).join('')}
-                            ${NTML_QUALIFIERS.weight.map(q => 
-                                `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" title="${q.desc}">${q.label}</button>`
-                            ).join('')}
+                            ${NTML_QUALIFIERS.aircraft.map(q =>
+        `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" title="${q.desc}">${q.label}</button>`,
+    ).join('')}
+                            ${NTML_QUALIFIERS.weight.map(q =>
+        `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" title="${q.desc}">${q.label}</button>`,
+    ).join('')}
                         </div>
                     </div>
                     
@@ -790,10 +790,10 @@
             ${buildFacilityDatalist()}
         `;
     }
-    
+
     function buildApreqForm() {
         const times = getSmartDefaultTimes();
-        
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-warning text-dark">
@@ -875,10 +875,10 @@
             ${buildFacilityDatalist()}
         `;
     }
-    
+
     function buildTbmForm() {
         const times = getSmartDefaultTimes();
-        
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-success text-white">
@@ -966,10 +966,10 @@
             ${buildFacilityDatalist()}
         `;
     }
-    
+
     function buildDelayForm() {
         const currentTime = getCurrentTimeHHMM();
-        
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header" style="background-color: #fd7e14; color: white;">
@@ -1038,7 +1038,7 @@
             </div>
         `;
     }
-    
+
     function buildConfigForm() {
         const times = getSmartDefaultTimes();
 
@@ -1130,7 +1130,7 @@
             </div>
         `;
     }
-    
+
     function buildCancelForm() {
         return `
             <div class="card shadow-sm">
@@ -1179,7 +1179,7 @@
             ${buildFacilityDatalist()}
         `;
     }
-    
+
     function buildFacilityDatalist() {
         let options = '';
         for (const [code, name] of Object.entries(ARTCCS)) {
@@ -1187,24 +1187,24 @@
         }
         return `<datalist id="facilityList">${options}</datalist>`;
     }
-    
+
     function initNtmlFormHandlers(type) {
         // Auto-uppercase inputs
         $('.text-uppercase').on('input', function() {
             this.value = this.value.toUpperCase();
         });
-        
+
         // Qualifier toggle buttons - multi-select allowed within groups, click to toggle
         $('.qualifier-btn').on('click', function() {
             // Toggle this button's selected state (no group exclusivity)
             $(this).toggleClass('btn-outline-secondary btn-primary active');
         });
-        
+
         // Facility auto-suggest cross-border detection
         $('.facility-autocomplete').on('change', function() {
             detectCrossBorderFromFacilities();
         });
-        
+
         // Airport code lookup for applicable forms
         if (['MIT', 'MINIT', 'STOP', 'TBM', 'DELAY', 'CANCEL'].includes(type)) {
             const $airportInput = $('#ntml_ctl_element');
@@ -1213,19 +1213,19 @@
                 initAirportLookupHandler($airportInput, $statusEl);
             }
         }
-        
+
         // CONFIG form handlers
         if (type === 'CONFIG') {
             initConfigFormHandlers();
         }
     }
-    
+
     // ===========================================
     // CONFIG Form Handlers (Airport Presets)
     // ===========================================
-    
+
     let configPresets = []; // Store loaded config presets
-    
+
     function initConfigFormHandlers() {
         // Airport code change - fetch presets
         $('#ntml_ctl_element').on('blur', function() {
@@ -1234,7 +1234,7 @@
                 loadAirportConfigs(airport);
             }
         });
-        
+
         // Also trigger on Enter key
         $('#ntml_ctl_element').on('keypress', function(e) {
             if (e.which === 13) {
@@ -1242,7 +1242,7 @@
                 $(this).blur();
             }
         });
-        
+
         // Preset selection - populate fields
         $('#ntml_config_preset').on('change', function() {
             const configId = $(this).val();
@@ -1250,7 +1250,7 @@
                 applyConfigPreset(configId);
             }
         });
-        
+
         // Weather category change - update rates from preset
         $('#ntml_weather').on('change', function() {
             const configId = $('#ntml_config_preset').val();
@@ -1259,14 +1259,14 @@
             }
         });
     }
-    
+
     function loadAirportConfigs(airport) {
         const $preset = $('#ntml_config_preset');
         const $status = $('#config_preset_status');
-        
+
         $status.html('<i class="fas fa-spinner fa-spin"></i> Loading...');
         $preset.html('<option value="">Loading...</option>').prop('disabled', true);
-        
+
         $.ajax({
             url: 'api/mgt/tmi/airport_configs.php',
             method: 'GET',
@@ -1274,19 +1274,19 @@
             success: function(response) {
                 if (response.success && response.configs && response.configs.length > 0) {
                     configPresets = response.configs;
-                    
+
                     let options = '<option value="">-- Select config --</option>';
                     response.configs.forEach(function(cfg) {
-                        const displayName = cfg.configCode 
+                        const displayName = cfg.configCode
                             ? `${cfg.configName} (${cfg.configCode})`
                             : cfg.configName;
                         const rateInfo = cfg.rates.vmcAar ? ` [AAR: ${cfg.rates.vmcAar}]` : '';
                         options += `<option value="${cfg.configId}">${displayName}${rateInfo}</option>`;
                     });
-                    
+
                     $preset.html(options).prop('disabled', false);
                     $status.html(`<span class="text-success">${response.count} config(s) found</span>`);
-                    
+
                     console.log('[TMI] Loaded', response.count, 'configs for', airport);
                 } else {
                     $preset.html('<option value="">-- No configs found --</option>').prop('disabled', true);
@@ -1299,57 +1299,57 @@
                 $preset.html('<option value="">-- Error loading --</option>').prop('disabled', true);
                 $status.html('<span class="text-danger">Error loading configs</span>');
                 configPresets = [];
-            }
+            },
         });
     }
-    
+
     function applyConfigPreset(configId) {
         const config = configPresets.find(c => c.configId === parseInt(configId));
         if (!config) {
             console.warn('[TMI] Config not found:', configId);
             return;
         }
-        
+
         console.log('[TMI] Applying config preset:', config);
-        
+
         // Populate runways
         $('#ntml_arr_runways').val(config.arrRunways || '');
         $('#ntml_dep_runways').val(config.depRunways || '');
-        
+
         // Populate rates based on current weather category
         const weather = $('#ntml_weather').val();
         let aar = config.rates.vmcAar;
         let adr = config.rates.vmcAdr;
-        
+
         if (weather === 'IMC' || weather === 'LIMC') {
             aar = config.rates.imcAar || config.rates.vmcAar;
             adr = config.rates.imcAdr || config.rates.vmcAdr;
         }
-        
-        if (aar) $('#ntml_aar').val(aar);
-        if (adr) $('#ntml_adr').val(adr);
+
+        if (aar) {$('#ntml_aar').val(aar);}
+        if (adr) {$('#ntml_adr').val(adr);}
     }
-    
+
     // ===========================================
     // Airport Code Lookup (FAA ↔ ICAO)
     // ===========================================
-    
-    let icaoLookupCache = {}; // Cache lookups to reduce API calls
-    
+
+    const icaoLookupCache = {}; // Cache lookups to reduce API calls
+
     function lookupAirportCode(code, callback) {
         if (!code || code.length < 3) {
             callback(null);
             return;
         }
-        
+
         code = code.toUpperCase().trim();
-        
+
         // Check cache first
         if (icaoLookupCache[code]) {
             callback(icaoLookupCache[code]);
             return;
         }
-        
+
         $.ajax({
             url: 'api/util/icao_lookup.php',
             method: 'GET',
@@ -1371,14 +1371,14 @@
             },
             error: function() {
                 callback(null);
-            }
+            },
         });
     }
-    
+
     function initAirportLookupHandler($input, $statusEl) {
         // Debounce to avoid rapid API calls
         let lookupTimeout = null;
-        
+
         $input.on('blur', function() {
             const code = $(this).val().trim().toUpperCase();
             if (code.length >= 3) {
@@ -1387,7 +1387,7 @@
                 $statusEl.html('');
             }
         });
-        
+
         $input.on('input', function() {
             clearTimeout(lookupTimeout);
             const code = $(this).val().trim().toUpperCase();
@@ -1400,10 +1400,10 @@
             }
         });
     }
-    
+
     function performAirportLookup(code, $statusEl) {
         $statusEl.html('<i class="fas fa-spinner fa-spin text-muted"></i>');
-        
+
         lookupAirportCode(code, function(result) {
             if (result) {
                 let html = '';
@@ -1423,14 +1423,14 @@
             }
         });
     }
-    
+
     // ===========================================
     // Advisory Form Loading
     // ===========================================
-    
+
     function loadAdvisoryForm(type) {
         let formHtml = '';
-        
+
         switch(type) {
             case 'OPS_PLAN':
             case 'OPSPLAN':
@@ -1449,13 +1449,13 @@
             default:
                 formHtml = '<div class="alert alert-warning">Unknown advisory type</div>';
         }
-        
+
         $('#advisoryFormContainer').html(formHtml);
         initAdvisoryFormHandlers(type);
         updateAdvisoryPreview();
         $('#adv_add_to_queue').prop('disabled', false);
     }
-    
+
     function buildOpsPlanForm() {
         const advNum = getNextAdvisoryNumber('OPSPLAN');
         const currentDateTime = getCurrentDateTimeForInput();
@@ -1508,7 +1508,7 @@
             </div>
         `;
     }
-    
+
     function buildFreeformForm() {
         const advNum = getNextAdvisoryNumber('FREEFORM');
         const currentDateTime = getCurrentDateTimeForInput();
@@ -1556,45 +1556,45 @@
             </div>
         `;
     }
-    
+
     function buildHotlineForm() {
         const advNum = getNextAdvisoryNumber('HOTLINE');
         const currentDateTime = getCurrentDateTimeForInput();
-        
+
         // Hotline names matching PERTI Plan options
         const hotlineNames = [
             'NY Metro', 'DC Metro', 'Chicago', 'Atlanta', 'Florida', 'Texas',
-            'East Coast', 'West Coast', 'Canada East', 'Canada West', 'Mexico', 'Caribbean'
+            'East Coast', 'West Coast', 'Canada East', 'Canada West', 'Mexico', 'Caribbean',
         ];
-        
+
         // Participation options
         const participationOptions = [
             'MANDATORY', 'EXPECTED', 'STRONGLY ENCOURAGED', 'STRONGLY RECOMMENDED',
-            'ENCOURAGED', 'RECOMMENDED', 'OPTIONAL'
+            'ENCOURAGED', 'RECOMMENDED', 'OPTIONAL',
         ];
-        
+
         // Hotline address options
         const hotlineAddresses = [
             { value: 'ts.vatusa.net', label: 'VATUSA TeamSpeak (ts.vatusa.net)' },
             { value: 'ts.vatcan.ca', label: 'VATCAN TeamSpeak (ts.vatcan.ca)' },
-            { value: 'discord', label: 'vATCSCC Discord, Hotline Backup voice channel' }
+            { value: 'discord', label: 'vATCSCC Discord, Hotline Backup voice channel' },
         ];
-        
+
         // Build hotline name options
-        let hotlineNameOptions = hotlineNames.map(name => 
-            `<option value="${name}">${name}</option>`
+        const hotlineNameOptions = hotlineNames.map(name =>
+            `<option value="${name}">${name}</option>`,
         ).join('');
-        
+
         // Build participation options
-        let participationOpts = participationOptions.map(opt => 
-            `<option value="${opt}">${opt}</option>`
+        const participationOpts = participationOptions.map(opt =>
+            `<option value="${opt}">${opt}</option>`,
         ).join('');
-        
+
         // Build address options
-        let addressOptions = hotlineAddresses.map(addr => 
-            `<option value="${addr.value}">${addr.label}</option>`
+        const addressOptions = hotlineAddresses.map(addr =>
+            `<option value="${addr.value}">${addr.label}</option>`,
         ).join('');
-        
+
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-danger text-white">
@@ -1715,7 +1715,7 @@
             </div>
         `;
     }
-    
+
     // Build facility options for dropdowns
     function buildFacilityOptions() {
         const facilities = [
@@ -1763,21 +1763,21 @@
             { code: 'CZYZ', name: 'Toronto FIR' },
             // International
             { code: 'MMEX', name: 'Mexico' },
-            { code: 'CARIBBEAN', name: 'Caribbean' }
+            { code: 'CARIBBEAN', name: 'Caribbean' },
         ];
 
         return facilities.map(f =>
-            `<option value="${f.code}">${f.code} - ${f.name}</option>`
+            `<option value="${f.code}">${f.code} - ${f.name}</option>`,
         ).join('');
     }
-    
+
     // Get current datetime for input fields
     function getCurrentDateTimeForInput() {
         const now = new Date();
         // Format: YYYY-MM-DDTHH:MM
         return now.toISOString().slice(0, 16);
     }
-    
+
     function buildSwapForm() {
         const advNum = getNextAdvisoryNumber('SWAP');
         const currentDateTime = getCurrentDateTimeForInput();
@@ -1867,18 +1867,18 @@
             </div>
         `;
     }
-    
+
     function initAdvisoryFormHandlers(type) {
         // Auto-update preview on input
         $('#advisoryFormContainer input, #advisoryFormContainer textarea, #advisoryFormContainer select').on('input change', function() {
             updateAdvisoryPreview();
         });
-        
+
         // Auto-uppercase inputs
         $('#advisoryFormContainer .text-uppercase').on('input', function() {
             this.value = this.value.toUpperCase();
         });
-        
+
         // Handle Hotline-specific logic
         if (type === 'HOTLINE') {
             // Handle action change (ACTIVATION, UPDATE, TERMINATION)
@@ -1959,7 +1959,7 @@
             error: function() {
                 // Show dialog without plan list
                 showImportDialog('<option value="">-- No plans loaded --</option>');
-            }
+            },
         });
     }
 
@@ -1987,7 +1987,7 @@
                     return false;
                 }
                 return { type: 'id', value: planId };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 fetchPertiPlanData(result.value.type, result.value.value);
@@ -2005,14 +2005,14 @@
             title: 'Loading...',
             text: 'Fetching PERTI Plan data',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         // Build request params based on type
         const params = {};
-        if (type === 'id') params.id = value;
-        else if (type === 'date') params.date = value;
-        else if (type === 'event') params.event = value;
+        if (type === 'id') {params.id = value;}
+        else if (type === 'date') {params.date = value;}
+        else if (type === 'event') {params.event = value;}
 
         $.ajax({
             url: 'api/mgt/plan/get.php',
@@ -2034,7 +2034,7 @@
                         html: `<select id="selectPlan" class="form-control">${options}</select>`,
                         confirmButtonText: 'Select',
                         showCancelButton: true,
-                        preConfirm: () => document.getElementById('selectPlan').value
+                        preConfirm: () => document.getElementById('selectPlan').value,
                     }).then((result) => {
                         if (result.isConfirmed) {
                             fetchPertiPlanData('id', result.value);
@@ -2050,19 +2050,19 @@
                         title: 'Plan Imported',
                         text: 'PERTI Plan data has been imported into the Ops Plan.',
                         timer: 2000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
                 } else if (response.success && !response.plan) {
                     Swal.fire({
                         icon: 'info',
                         title: 'No Plan Found',
-                        text: 'No PERTI Plan was found for the specified criteria.'
+                        text: 'No PERTI Plan was found for the specified criteria.',
                     });
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Import Failed',
-                        text: response.error || 'Failed to fetch PERTI Plan data.'
+                        text: response.error || 'Failed to fetch PERTI Plan data.',
                     });
                 }
             },
@@ -2071,9 +2071,9 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Import Failed',
-                    text: 'Failed to connect to server: ' + error
+                    text: 'Failed to connect to server: ' + error,
                 });
-            }
+            },
         });
     }
 
@@ -2088,14 +2088,14 @@
             constraintsSummary: plan.constraintsSummary,
             eventsSummary: plan.eventsSummary,
             tmisCount: plan.tmis ? plan.tmis.length : 0,
-            eventsCount: plan.events ? plan.events.length : 0
+            eventsCount: plan.events ? plan.events.length : 0,
         });
 
         // Check if form fields exist
         const fieldsExist = {
             initiatives: $('#adv_initiatives').length > 0,
             weather: $('#adv_weather').length > 0,
-            events: $('#adv_events').length > 0
+            events: $('#adv_events').length > 0,
         };
         console.log('[TMI-Publish] Form fields exist:', fieldsExist);
 
@@ -2140,8 +2140,8 @@
             console.log('[TMI-Publish] Building events from events array');
             const events = plan.events.map(ev => {
                 let line = ev.title || '';
-                if (ev.description) line += ': ' + ev.description;
-                if (ev.time) line += ' (' + ev.time + ')';
+                if (ev.description) {line += ': ' + ev.description;}
+                if (ev.time) {line += ' (' + ev.time + ')';}
                 return line;
             }).filter(e => e.trim());
             $('#adv_events').val(events.join('\n'));
@@ -2154,7 +2154,7 @@
             try {
                 // Handle various date formats
                 let fromStr = plan.validFrom;
-                if (!fromStr.includes('T')) fromStr = fromStr.replace(' ', 'T');
+                if (!fromStr.includes('T')) {fromStr = fromStr.replace(' ', 'T');}
                 $('#adv_valid_from').val(fromStr.slice(0, 16));
             } catch (e) {
                 console.warn('[TMI-Publish] Could not parse validFrom:', plan.validFrom);
@@ -2163,7 +2163,7 @@
         if (plan.validUntil) {
             try {
                 let untilStr = plan.validUntil;
-                if (!untilStr.includes('T')) untilStr = untilStr.replace(' ', 'T');
+                if (!untilStr.includes('T')) {untilStr = untilStr.replace(' ', 'T');}
                 $('#adv_valid_until').val(untilStr.slice(0, 16));
             } catch (e) {
                 console.warn('[TMI-Publish] Could not parse validUntil:', plan.validUntil);
@@ -2177,7 +2177,7 @@
         console.log('[TMI-Publish] Final field values:', {
             initiatives: $('#adv_initiatives').val(),
             weather: $('#adv_weather').val(),
-            events: $('#adv_events').val()
+            events: $('#adv_events').val(),
         });
     }
 
@@ -2205,7 +2205,7 @@
                     item.entryType === 'HOTLINE' &&
                     item.status === 'ACTIVE' &&
                     // Exclude termination advisories (subject contains "TERMINATION")
-                    !(item.subject && item.subject.toUpperCase().includes('TERMINATION'))
+                    !(item.subject && item.subject.toUpperCase().includes('TERMINATION')),
                 );
 
                 if (activeHotlines.length === 0) {
@@ -2213,7 +2213,7 @@
                         icon: 'info',
                         title: 'No Active Hotlines',
                         text: 'There are no active hotline advisories to ' + action.toLowerCase() + '.',
-                        confirmButtonText: 'OK'
+                        confirmButtonText: 'OK',
                     }).then(() => {
                         // Reset to ACTIVATION
                         $('#adv_hotline_action').val('ACTIVATION');
@@ -2222,7 +2222,7 @@
                 }
 
                 // Build options for picker
-                let options = activeHotlines.map(h => {
+                const options = activeHotlines.map(h => {
                     const hotlineName = h.subject || h.ctlElement || 'Unknown';
                     const advNum = h.advisoryNumber || '???';
                     return `<option value="${h.entityId}"
@@ -2267,9 +2267,9 @@
                             impacted: selectedOption.dataset.impacted,
                             validFrom: selectedOption.dataset.validFrom,
                             validUntil: selectedOption.dataset.validUntil,
-                            body: selectedOption.dataset.body
+                            body: selectedOption.dataset.body,
                         };
-                    }
+                    },
                 }).then((result) => {
                     if (result.isConfirmed) {
                         populateHotlineFromExisting(result.value, action);
@@ -2282,7 +2282,7 @@
             error: function() {
                 Swal.fire('Error', 'Failed to fetch active advisories', 'error');
                 $('#adv_hotline_action').val('ACTIVATION');
-            }
+            },
         });
     }
 
@@ -2357,12 +2357,12 @@
             title: 'Fields Auto-Filled',
             text: `Form populated from the selected hotline. Adjust as needed and ${action === 'TERMINATION' ? 'confirm the termination time' : 'make your updates'}.`,
             timer: 3000,
-            showConfirmButton: false
+            showConfirmButton: false,
         });
     }
 
     function escapeAttr(str) {
-        if (!str) return '';
+        if (!str) {return '';}
         return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
@@ -2372,9 +2372,9 @@
             $('#adv_preview').text('Select an advisory type to begin...');
             return;
         }
-        
+
         let preview = '';
-        
+
         switch(type) {
             case 'OPS_PLAN':
             case 'OPSPLAN':
@@ -2391,17 +2391,17 @@
                 preview = buildSwapPreview();
                 break;
         }
-        
+
         $('#adv_preview').text(preview);
         $('#preview_char_count').text(`${preview.length} / ${DISCORD_MAX_LENGTH}`);
-        
+
         if (preview.length > DISCORD_MAX_LENGTH) {
             $('#preview_char_count').addClass('text-danger');
         } else {
             $('#preview_char_count').removeClass('text-danger');
         }
     }
-    
+
     function buildOpsPlanPreview() {
         const num = $('#adv_number').val() || '001';
         const facility = $('#adv_facility').val() || 'DCC';
@@ -2415,7 +2415,7 @@
 
         // Format datetime as DD/HHMM
         const formatDateTime = (dt) => {
-            if (!dt) return 'TBD';
+            if (!dt) {return 'TBD';}
             const d = new Date(dt + 'Z'); // Treat as UTC
             const day = String(d.getUTCDate()).padStart(2, '0');
             const hour = String(d.getUTCHours()).padStart(2, '0');
@@ -2426,37 +2426,37 @@
         const startFormatted = formatDateTime(validFrom);
         const endFormatted = formatDateTime(validUntil);
 
-        let lines = [
+        const lines = [
             buildAdvisoryHeader(num, facility, 'OPERATIONS PLAN'),
             `VALID FOR ${startFormatted}Z THRU ${endFormatted}Z`,
-            ``
+            ``,
         ];
-        
+
         if (weather) {
             lines.push(`TERMINAL/ENROUTE CONSTRAINTS:`);
             lines.push(wrapText(weather));
             lines.push(``);
         }
-        
+
         if (initiatives) {
             lines.push(`KEY INITIATIVES:`);
             lines.push(wrapText(initiatives));
             lines.push(``);
         }
-        
+
         if (events) {
             lines.push(`SPECIAL EVENTS:`);
             lines.push(wrapText(events));
             lines.push(``);
         }
-        
+
         lines.push(`***SUBMIT OPERATIONS PLAN ITEMS VIA PERTI***`);
         lines.push(``);
         lines.push(buildAdvisoryFooter(num, facility));
-        
+
         return lines.join('\n');
     }
-    
+
     function buildFreeformPreview() {
         const num = $('#adv_number').val() || '001';
         const facility = $('#adv_facility').val() || 'DCC';
@@ -2469,7 +2469,7 @@
 
         // Format datetime as DD/HHMM
         const formatDateTime = (dt) => {
-            if (!dt) return 'TBD';
+            if (!dt) {return 'TBD';}
             const d = new Date(dt + 'Z'); // Treat as UTC
             const day = String(d.getUTCDate()).padStart(2, '0');
             const hour = String(d.getUTCHours()).padStart(2, '0');
@@ -2480,40 +2480,40 @@
         const startFormatted = formatDateTime(validFrom);
         const endFormatted = formatDateTime(validUntil);
 
-        let lines = [
+        const lines = [
             buildAdvisoryHeader(num, facility, subject.toUpperCase()),
             `VALID: ${startFormatted}Z - ${endFormatted}Z`,
             ``,
             text ? wrapText(text) : '(No text entered)',
             ``,
-            buildAdvisoryFooter(num, facility)
+            buildAdvisoryFooter(num, facility),
         ];
 
         return lines.join('\n');
     }
-    
+
     function buildHotlinePreview() {
         const num = $('#adv_number').val() || '001';
         const action = $('#adv_hotline_action').val() || 'ACTIVATION';
         const hotlineName = (($('#adv_hotline_name').val() || 'NY Metro') + ' HOTLINE').toUpperCase();
-        
+
         // Parse datetime fields
         const startDateTime = $('#adv_start_datetime').val() || '';
         const endDateTime = $('#adv_end_datetime').val() || '';
-        
+
         // Format datetime as DD/HHMM
         const formatDateTime = (dt) => {
-            if (!dt) return '';
+            if (!dt) {return '';}
             const d = new Date(dt);
             const day = String(d.getUTCDate()).padStart(2, '0');
             const hour = String(d.getUTCHours()).padStart(2, '0');
             const min = String(d.getUTCMinutes()).padStart(2, '0');
             return `${day}/${hour}${min}`;
         };
-        
+
         const startFormatted = formatDateTime(startDateTime);
         const endFormatted = formatDateTime(endDateTime);
-        
+
         const participation = $('#adv_participation').val() || 'MANDATORY';
         // Convert comma-delimited facilities to / delimited for FAA format
         const constrainedFacilitiesRaw = $('#adv_constrained_facilities').val() || '';
@@ -2524,30 +2524,30 @@
         const impactedArea = $('#adv_impacted_area').val() || '';
         const hotlineAddressCode = $('#adv_hotline_address').val() || 'ts.vatusa.net';
         const notes = $('#adv_notes').val() || '';
-        
+
         // Map address code to display text
         const addressMap = {
             'ts.vatusa.net': 'VATUSA TeamSpeak (ts.vatusa.net)',
             'ts.vatcan.ca': 'VATCAN TeamSpeak (ts.vatcan.ca)',
-            'discord': 'vATCSCC Discord, Hotline Backup voice channel'
+            'discord': 'vATCSCC Discord, Hotline Backup voice channel',
         };
         const hotlineAddress = addressMap[hotlineAddressCode] || hotlineAddressCode;
-        
-        let lines = [
-            buildAdvisoryHeader(num, 'DCC', `HOTLINE ${action}`)
+
+        const lines = [
+            buildAdvisoryHeader(num, 'DCC', `HOTLINE ${action}`),
         ];
 
         // Build different format based on action type
         if (action === 'ACTIVATION') {
             // Full boilerplate for Activation
             lines.push(`EVENT TIME: ${startFormatted}Z - ${endFormatted ? endFormatted + 'Z' : 'TBD'}`);
-            
+
             if (constrainedFacilities) {
                 lines.push(`CONSTRAINED FACILITIES: ${constrainedFacilities}`);
             }
-            
+
             lines.push(``);
-            
+
             // Main boilerplate paragraph - wrap at 68 chars
             let boilerplate = `THE ${hotlineName} IS BEING ACTIVATED TO ADDRESS ${reason} IN ${impactedArea || 'THE AFFECTED AREA'}.`;
 
@@ -2566,25 +2566,25 @@
             // Standard closing - wrap separately
             const closing = 'AFFECTED MAJOR UNDERLYING FACILITIES ARE STRONGLY ENCOURAGED TO ATTEND. ALL OTHER PARTICIPANTS ARE WELCOME TO JOIN. PLEASE MESSAGE THE NOM IF YOU HAVE ISSUES OR QUESTIONS.';
             lines.push(wrapText(closing));
-            
+
         } else if (action === 'UPDATE') {
             // Update format
             lines.push(`HOTLINE: ${hotlineName}`);
             lines.push(`ACTION: ${action}`);
-            
+
             if (impactedArea) {
                 lines.push(`IMPACTED AREA: ${impactedArea}`);
             }
-            
+
             lines.push(`REASON: ${reason}`);
             lines.push(`FACILITIES INCLUDED: ${facilities}`);
-            
+
             if (startFormatted && endFormatted) {
                 lines.push(`VALID TIMES: ${startFormatted}Z - ${endFormatted}Z`);
             } else if (startFormatted) {
                 lines.push(`EFFECTIVE: ${startFormatted}Z`);
             }
-            
+
         } else if (action === 'TERMINATION') {
             // Termination format - matches activation structure
             lines.push(`EVENT TIME: ${startFormatted}Z - ${endFormatted}Z`);
@@ -2605,10 +2605,10 @@
         } else {
             lines.push(buildAdvisoryFooter(num, 'DCC'));
         }
-        
+
         return lines.join('\n');
     }
-    
+
     function buildSwapPreview() {
         const num = $('#adv_number').val() || '001';
         const swapType = $('#adv_swap_type').val() || 'IMPLEMENTATION';
@@ -2648,64 +2648,64 @@
 
         const startTime = String(startHour).padStart(2, '0') + startMin;
         const endTime = String(endHour).padStart(2, '0') + endMin;
-        
-        let lines = [
-            buildAdvisoryHeader(num, 'DCC', `SWAP ${swapType}`)
+
+        const lines = [
+            buildAdvisoryHeader(num, 'DCC', `SWAP ${swapType}`),
         ];
 
         if (impactedArea) {
             lines.push(`IMPACTED AREA: ${impactedArea}`);
         }
-        
+
         lines.push(`REASON: SEVERE WEATHER`);
         lines.push(`INCLUDE TRAFFIC: ${includeTraffic}`);
         lines.push(`VALID TIMES: ${startDay}/${startTime}Z - ${endDay}/${endTime}Z`);
         lines.push(`FACILITIES INCLUDED: ${areas}`);
-        
+
         if (extensionProb !== 'NONE') {
             lines.push(`PROBABILITY OF EXTENSION: ${extensionProb}`);
         }
-        
+
         if (weather) {
             lines.push(``);
             lines.push(`WEATHER SYNOPSIS:`);
             lines.push(wrapText(weather));
         }
-        
+
         if (routes) {
             lines.push(``);
             lines.push(`PLAYBOOK ROUTES / ACTIVE INITIATIVES:`);
             lines.push(wrapText(routes));
         }
-        
+
         if (restrictions) {
             lines.push(``);
             lines.push(wrapWithLabel('ASSOCIATED RESTRICTIONS: ', restrictions));
         }
-        
+
         if (notes) {
             lines.push(``);
             lines.push(wrapWithLabel('REMARKS: ', notes));
         }
-        
+
         lines.push(``);
         lines.push(buildAdvisoryFooter(num, 'DCC'));
-        
+
         return lines.join('\n');
     }
-    
+
     // Standard advisory header per FAA format
     function buildAdvisoryHeader(advNum, facility, type) {
         return `vATCSCC ADVZY ${advNum} ${facility} ${getUtcDateMmDdYyyy()} ${type}`;
     }
-    
+
     // Get user operating initials - from config or extract from name
     function getUserOI() {
         // Use configured OI if available
         if (CONFIG.userOI && CONFIG.userOI.length >= 2) {
             return CONFIG.userOI.toUpperCase();
         }
-        
+
         // Extract initials from userName (first letter of each word)
         const userName = CONFIG.userName || 'XX';
         const parts = userName.trim().split(/\s+/);
@@ -2716,14 +2716,14 @@
         // Single word - use first 2 characters
         return userName.substr(0, 2).toUpperCase();
     }
-    
+
     // Build TMI ID in format: {OI}.RR{SOURCE}{ADVZY #}
     function buildTmiId(advNum, facility) {
         const oi = getUserOI();
         const source = (facility || 'DCC').toUpperCase();
         return `${oi}.RR${source}${advNum}`;
     }
-    
+
     // Standard advisory footer with optional TMI ID and signature
     // Format (with TMI ID - only for Reroutes):
     //   TMI ID: {OI}.RR{SOURCE}{ADVZY #}
@@ -2798,24 +2798,24 @@
         const now = new Date();
         return `${String(now.getUTCMonth() + 1).padStart(2, '0')}/${String(now.getUTCDate()).padStart(2, '0')}/${now.getUTCFullYear()}`;
     }
-    
+
     function getValidTimeRange() {
         const now = new Date();
         const day = String(now.getUTCDate()).padStart(2, '0');
         const startHour = now.getUTCHours();
         const endHour = (startHour + 4) % 24;
         const endDay = (startHour + 4 >= 24) ? String(now.getUTCDate() + 1).padStart(2, '0') : day;
-        
+
         return {
             start: `${day}${String(startHour).padStart(2, '0')}00`,
-            end: `${endDay}${String(endHour).padStart(2, '0')}00`
+            end: `${endDay}${String(endHour).padStart(2, '0')}00`,
         };
     }
-    
+
     // ===========================================
     // Queue Management
     // ===========================================
-    
+
     function addNtmlToQueue(type, skipDuplicateCheck = false) {
         // Validate required fields
         const ctlElement = ($('#ntml_ctl_element').val() || '').trim().toUpperCase();
@@ -2846,7 +2846,7 @@
             });
             return;
         }
-        
+
         // Build entry data
         const data = {
             type: type,
@@ -2854,25 +2854,25 @@
             req_facility: reqFacility,
             prov_facility: provFacility,
             valid_from: validFrom,
-            valid_until: validUntil
+            valid_until: validUntil,
         };
-        
+
         // Collect active qualifiers
         const qualifiers = [];
         $('.qualifier-btn.active').each(function() {
             qualifiers.push($(this).data('qualifier'));
         });
         data.qualifiers = qualifiers;
-        
+
         // Collect altitude and speed filters (for all types except CONFIG)
         if (type !== 'CONFIG') {
             const altFilter = ($('#ntml_altitude_filter').val() || '').trim().toUpperCase();
-            if (altFilter) data.altitude_filter = altFilter;
-            
+            if (altFilter) {data.altitude_filter = altFilter;}
+
             const speedFilter = $('#ntml_speed_filter').val();
-            if (speedFilter) data.speed_filter = speedFilter;
+            if (speedFilter) {data.speed_filter = speedFilter;}
         }
-        
+
         // Type-specific data
         switch(type) {
             case 'MIT':
@@ -2926,13 +2926,13 @@
                 data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
                 break;
         }
-        
+
         // Build formatted message
         const message = formatNtmlMessage(type, data);
-        
+
         // Get selected orgs
         const orgs = getSelectedOrgs();
-        
+
         const entry = {
             id: generateId(),
             type: 'ntml',
@@ -2940,29 +2940,29 @@
             data: data,
             preview: message,
             orgs: orgs,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
-        
+
         state.queue.push(entry);
         saveState();
         updateUI();
-        
+
         // Switch to queue tab
         $('#queue-tab').tab('show');
-        
+
         Swal.fire({
             icon: 'success',
             title: 'Added to Queue',
             text: `${type} entry added`,
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
         });
     }
-    
+
     function formatNtmlMessage(type, data) {
         const logTime = getCurrentDateDDHHMM();
         const validTime = formatValidTime(data.valid_from, data.valid_until);
-        
+
         switch(type) {
             case 'MIT':
             case 'MINIT':
@@ -2983,7 +2983,7 @@
                 return `${logTime} ${type} ${data.ctl_element || 'N/A'}`;
         }
     }
-    
+
     function formatMitMinitMessage(type, data, logTime, validTime) {
         // Format: {DD/HHMM}    {element} via {fix} {value}{type} {spacing} EXCL:{excl} {category}:{cause} {filters} {valid} {req}:{prov}
         const element = (data.ctl_element || 'N/A').toUpperCase();
@@ -2994,16 +2994,16 @@
         const exclusions = data.exclusions ? data.exclusions.toUpperCase() : 'NONE';
         const reqFac = (data.req_facility || 'N/A').toUpperCase();
         const provFac = (data.prov_facility || 'N/A').toUpperCase();
-        
+
         // Get spacing qualifier (first one found) - only if explicitly selected
         let spacing = '';
         if (data.qualifiers && data.qualifiers.length > 0) {
             const spacingQual = data.qualifiers.find(q =>
-                ['AS ONE', 'PER STREAM', 'PER AIRPORT', 'PER FIX', 'EACH'].includes(q)
+                ['AS ONE', 'PER STREAM', 'PER AIRPORT', 'PER FIX', 'EACH'].includes(q),
             );
-            if (spacingQual) spacing = spacingQual;
+            if (spacingQual) {spacing = spacingQual;}
         }
-        
+
         // Build filter string (altitude, speed)
         let filters = '';
         if (data.altitude_filter) {
@@ -3012,26 +3012,26 @@
         if (data.speed_filter) {
             filters += ` SPD:${data.speed_filter}KTS`;
         }
-        
+
         // Other qualifiers (aircraft type, weight, equipment, flow, operator)
         let otherQuals = '';
         if (data.qualifiers && data.qualifiers.length > 0) {
-            const nonSpacing = data.qualifiers.filter(q => 
-                !['AS ONE', 'PER STREAM', 'PER AIRPORT', 'PER FIX', 'EACH'].includes(q)
+            const nonSpacing = data.qualifiers.filter(q =>
+                !['AS ONE', 'PER STREAM', 'PER AIRPORT', 'PER FIX', 'EACH'].includes(q),
             );
             if (nonSpacing.length > 0) {
                 otherQuals = ' ' + nonSpacing.join(' ');
             }
         }
-        
+
         // Format: valid period and req:prov ALWAYS at the end
         // Only include spacing if explicitly selected
         const spacingPart = spacing ? ` ${spacing}` : '';
-        let line = `${logTime}    ${element} via ${viaFix} ${value}${type}${spacingPart}${otherQuals} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
-        
+        const line = `${logTime}    ${element} via ${viaFix} ${value}${type}${spacingPart}${otherQuals} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
+
         return line;
     }
-    
+
     function formatStopMessage(data, logTime, validTime) {
         // Format: {DD/HHMM}    STOP {element} {traffic_flow} via {fix} {qualifiers} EXCL:{excl} {category}:{cause} {filters} {valid} {req}:{prov}
         const element = (data.ctl_element || 'N/A').toUpperCase();
@@ -3058,11 +3058,11 @@
             filters += ` SPD:${data.speed_filter}KTS`;
         }
 
-        let line = `${logTime}    STOP ${element}${trafficFlow} via ${viaFix}${qualStr} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
+        const line = `${logTime}    STOP ${element}${trafficFlow} via ${viaFix}${qualStr} EXCL:${exclusions} ${category}:${cause}${filters} ${validTime} ${reqFac}:${provFac}`;
 
         return line;
     }
-    
+
     function formatApreqMessage(data, logTime, validTime) {
         // Use CFR directly, no expansion needed
         const apreqType = data.apreq_type || 'CFR';
@@ -3076,12 +3076,12 @@
         }
 
         line += ` ${category}:${cause}`;
-        
+
         // Get qualifiers
         if (data.qualifiers && data.qualifiers.length > 0) {
             line += ' ' + data.qualifiers.join(' ');
         }
-        
+
         // Filters
         if (data.altitude_filter) {
             line += ` ALT:${data.altitude_filter.toUpperCase()}`;
@@ -3089,35 +3089,35 @@
         if (data.speed_filter) {
             line += ` SPD:${data.speed_filter}KTS`;
         }
-        
+
         // Valid period and facilities ALWAYS at the end
         line += ` ${validTime}`;
         line += ` ${(data.req_facility || 'N/A').toUpperCase()}:${(data.prov_facility || 'N/A').toUpperCase()}`;
-        
+
         return line;
     }
-    
+
     function formatTbmMessage(data, logTime, validTime) {
         const category = (data.reason_category || 'VOLUME').toUpperCase();
         const cause = (data.reason_cause || category).toUpperCase();
         let line = `${logTime}    ${(data.ctl_element || 'N/A').toUpperCase()} TBM`;
-        
+
         if (data.meter_point) {
             line += ` ${data.meter_point.toUpperCase()}`;
         }
-        
+
         // Freeze horizon formatted as TIME+{VALUE}MIN
         if (data.freeze_horizon) {
             line += ` TIME+${data.freeze_horizon}MIN`;
         }
-        
+
         line += ` ${category}:${cause}`;
-        
+
         // Get qualifiers
         if (data.qualifiers && data.qualifiers.length > 0) {
             line += ' ' + data.qualifiers.join(' ');
         }
-        
+
         // Filters
         if (data.altitude_filter) {
             line += ` ALT:${data.altitude_filter.toUpperCase()}`;
@@ -3125,38 +3125,38 @@
         if (data.speed_filter) {
             line += ` SPD:${data.speed_filter}KTS`;
         }
-        
+
         // Participating facilities
         if (data.participating) {
             line += ` PTCP:${data.participating}`;
         }
-        
+
         // Valid period and facilities ALWAYS at the end
         line += ` ${validTime}`;
         line += ` ${(data.req_facility || 'N/A').toUpperCase()}:${(data.prov_facility || 'N/A').toUpperCase()}`;
-        
+
         return line;
     }
-    
+
     function formatDelayMessage(data, logTime) {
         const delayType = data.delay_type || 'E/D';
         const reportTime = (data.report_time || '').replace(':', '') || '';
-        
+
         let sign = '';
-        if (data.delay_trend === 'INC') sign = '+';
-        if (data.delay_trend === 'DEC') sign = '-';
-        
+        if (data.delay_trend === 'INC') {sign = '+';}
+        if (data.delay_trend === 'DEC') {sign = '-';}
+
         let line = `${logTime}    ${delayType} ${data.ctl_element || 'N/A'}, ${sign}${data.delay_minutes || '0'}/${reportTime}`;
-        
+
         if (data.acft_count && parseInt(data.acft_count) > 1) {
             line += `/${data.acft_count} ACFT`;
         }
-        
+
         line += ` ${data.reason || 'VOLUME'}`;
-        
+
         return line;
     }
-    
+
     function formatConfigMessage(data, logTime) {
         // Format: {DD/HHMM}    {airport}    {weather}    ARR:{arr} DEP:{dep}    AAR(Strat):{aar} ADR:{adr} {valid}
         const airport = (data.ctl_element || 'N/A').toUpperCase();
@@ -3176,10 +3176,10 @@
 
         return line;
     }
-    
+
     function formatCancelMessage(data, logTime) {
         let line = `${logTime}    `;
-        
+
         if (data.cancel_type === 'ALL') {
             line += `ALL TMI CANCELLED ${data.ctl_element || 'N/A'}`;
         } else {
@@ -3188,21 +3188,21 @@
                 line += ` via ${data.via_fix}`;
             }
         }
-        
+
         if (data.req_facility && data.prov_facility) {
             line += ` ${data.req_facility}:${data.prov_facility}`;
         }
-        
+
         return line;
     }
-    
+
     function addAdvisoryToQueue() {
         const type = state.selectedAdvisoryType;
-        if (!type) return;
-        
+        if (!type) {return;}
+
         const preview = $('#adv_preview').text();
         const orgs = getSelectedOrgsAdvisory();
-        
+
         const entry = {
             id: generateId(),
             type: 'advisory',
@@ -3210,31 +3210,31 @@
             data: collectAdvisoryFormData(type),
             preview: preview,
             orgs: orgs,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
-        
+
         state.queue.push(entry);
         saveState();
         updateUI();
-        
+
         $('#queue-tab').tab('show');
-        
+
         Swal.fire({
             icon: 'success',
             title: 'Added to Queue',
             text: `${type} advisory added`,
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
         });
     }
-    
+
     function collectAdvisoryFormData(type) {
         const data = {
             advisory_type: type,
             number: $('#adv_number').val() || '001',
-            facility: $('#adv_facility').val() || 'DCC'
+            facility: $('#adv_facility').val() || 'DCC',
         };
-        
+
         // Collect all form fields
         $('#adv_form_container input, #adv_form_container textarea, #adv_form_container select').each(function() {
             const id = $(this).attr('id');
@@ -3242,13 +3242,13 @@
                 data[id.replace('adv_', '')] = $(this).val() || '';
             }
         });
-        
+
         return data;
     }
-    
+
     function updateQueueDisplay() {
         const container = $('#entryQueueList');
-        
+
         if (!state.queue || state.queue.length === 0) {
             container.html(`
                 <div class="text-center text-muted py-4" id="emptyQueueMsg">
@@ -3258,17 +3258,17 @@
             `);
             return;
         }
-        
+
         let html = '';
         state.queue.forEach((entry, index) => {
             // Safe null checks for all properties
-            if (!entry || typeof entry !== 'object') return;
-            
+            if (!entry || typeof entry !== 'object') {return;}
+
             const entryType = entry.type || 'unknown';
             const entrySubType = entry.entryType || 'N/A';
             const typeClass = entryType === 'advisory' ? 'border-purple' : 'border-success';
             const typeBadge = entryType === 'advisory' ? 'badge-purple' : 'badge-success';
-            
+
             // Safe preview text extraction with multiple fallbacks
             let previewText = 'Entry';
             if (entry.preview && typeof entry.preview === 'string') {
@@ -3276,13 +3276,13 @@
             } else if (entry.entryType && typeof entry.entryType === 'string') {
                 previewText = entry.entryType;
             }
-            
+
             // Safe substring with length check
             const displayText = previewText.length > 200 ? previewText.substring(0, 200) + '...' : previewText;
-            
+
             // Safe orgs extraction
             const orgs = Array.isArray(entry.orgs) ? entry.orgs : ['vatcscc'];
-            
+
             // Check if this entry requires coordination
             const needsCoord = requiresCoordination(entrySubType);
             const submitBtnClass = needsCoord ? 'btn-outline-warning' : 'btn-outline-success';
@@ -3317,26 +3317,26 @@
                 </div>
             `;
         });
-        
+
         container.html(html);
     }
-    
+
     function removeFromQueue(index) {
         state.queue.splice(index, 1);
         saveState();
         updateUI();
     }
-    
+
     function clearQueue() {
-        if (!state.queue || state.queue.length === 0) return;
-        
+        if (!state.queue || state.queue.length === 0) {return;}
+
         Swal.fire({
             title: 'Clear Queue?',
             text: `Remove all ${state.queue.length} entries from queue?`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Clear All'
+            confirmButtonText: 'Clear All',
         }).then((result) => {
             if (result.isConfirmed) {
                 state.queue = [];
@@ -3345,10 +3345,10 @@
             }
         });
     }
-    
+
     function previewEntry(index) {
         const entry = state.queue[index];
-        if (!entry) return;
+        if (!entry) {return;}
 
         const previewText = entry.preview || 'No preview available';
         $('#previewModalContent').text(previewText);
@@ -3362,7 +3362,7 @@
      */
     function submitSingleEntry(index) {
         const entry = state.queue[index];
-        if (!entry) return;
+        if (!entry) {return;}
 
         const entryType = entry.entryType || entry.data?.entry_type || 'TMI';
         const needsCoord = requiresCoordination(entryType);
@@ -3385,7 +3385,7 @@
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
                 confirmButtonText: 'Publish',
-                width: '500px'
+                width: '500px',
             }).then((result) => {
                 if (result.isConfirmed) {
                     publishSingleEntryDirect(entry, index);
@@ -3401,7 +3401,7 @@
         Swal.fire({
             title: 'Publishing...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         try {
@@ -3410,14 +3410,14 @@
                 production: true,
                 entries: [entry],
                 userCid: CONFIG.userCid,
-                userName: CONFIG.userName || 'Unknown'
+                userName: CONFIG.userName || 'Unknown',
             };
 
             const response = await $.ajax({
                 url: 'api/mgt/tmi/publish.php',
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify(payload)
+                data: JSON.stringify(payload),
             });
 
             console.log('[Direct Publish] Response:', response);
@@ -3433,14 +3433,14 @@
                     html: `<p>Entry published to Discord successfully.</p>`,
                     icon: 'success',
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
             } else {
                 const errorMsg = response.error || response.results?.[0]?.error || 'Unknown error';
                 Swal.fire({
                     title: 'Publish Failed',
                     html: `<p>${errorMsg}</p>`,
-                    icon: 'error'
+                    icon: 'error',
                 });
             }
         } catch (error) {
@@ -3448,7 +3448,7 @@
             Swal.fire({
                 title: 'Publish Failed',
                 html: `<p>${error.responseText || error.message || 'Connection error'}</p>`,
-                icon: 'error'
+                icon: 'error',
             });
         }
     }
@@ -3517,7 +3517,7 @@
         Swal.fire({
             title: title,
             html: html,
-            icon: icon
+            icon: icon,
         });
     }
 
@@ -3538,7 +3538,7 @@
                         item.entryType === 'CONFIG' &&
                         item.ctlElement &&
                         item.ctlElement.toUpperCase() === airport.toUpperCase() &&
-                        item.status !== 'CANCELLED'
+                        item.status !== 'CANCELLED',
                     );
                     callback(existing || null);
                 } else {
@@ -3547,7 +3547,7 @@
             },
             error: function() {
                 callback(null);
-            }
+            },
         });
     }
 
@@ -3577,7 +3577,7 @@
             confirmButtonColor: '#007bff',
             denyButtonText: '<i class="fas fa-plus"></i> Create New Anyway',
             denyButtonColor: '#6c757d',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 // Cancel the old one and create new
@@ -3597,7 +3597,7 @@
         Swal.fire({
             title: 'Cancelling old CONFIG...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -3609,7 +3609,7 @@
                 entityId: existingId,
                 reason: 'Replaced with updated CONFIG',
                 userCid: userCid,
-                userName: userName
+                userName: userName,
             }),
             success: function(response) {
                 Swal.close();
@@ -3623,7 +3623,7 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', 'Failed to cancel old CONFIG: ' + (xhr.responseJSON?.error || 'Unknown error'), 'error');
-            }
+            },
         });
     }
 
@@ -3632,7 +3632,7 @@
     // ===========================================
 
     function submitAll() {
-        if (!state.queue || state.queue.length === 0) return;
+        if (!state.queue || state.queue.length === 0) {return;}
 
         // Check if profile is complete
         if (!isProfileComplete()) {
@@ -3642,7 +3642,7 @@
                 html: `<p>You must set up your profile before publishing TMIs.</p>
                        <p class="small text-muted">Click the User Profile card to set your name, CID, operating initials, and home facility.</p>`,
                 confirmButtonText: 'Set Up Profile',
-                showCancelButton: true
+                showCancelButton: true,
             }).then((result) => {
                 if (result.isConfirmed) {
                     showProfileModal();
@@ -3666,7 +3666,7 @@
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
-                confirmButtonText: `Submit to ${mode}`
+                confirmButtonText: `Submit to ${mode}`,
             }).then((result) => {
                 if (result.isConfirmed) {
                     performSubmit();
@@ -3689,10 +3689,10 @@
     function showCoordinationDialog() {
         // Check if any entries require coordination
         const entriesRequiringCoord = state.queue.filter(e =>
-            requiresCoordination(e.entryType || e.data?.entry_type)
+            requiresCoordination(e.entryType || e.data?.entry_type),
         );
         const entriesNotRequiringCoord = state.queue.filter(e =>
-            !requiresCoordination(e.entryType || e.data?.entry_type)
+            !requiresCoordination(e.entryType || e.data?.entry_type),
         );
 
         // If no entries require coordination, skip the dialog and publish directly
@@ -3705,7 +3705,7 @@
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
-                confirmButtonText: 'Publish'
+                confirmButtonText: 'Publish',
             }).then((result) => {
                 if (result.isConfirmed) {
                     performSubmit();
@@ -3739,7 +3739,7 @@
             confirmButtonText: 'Verify Each Entry',
             denyButtonText: 'Quick Submit (Same Facilities)',
             cancelButtonText: 'Cancel',
-            width: '500px'
+            width: '500px',
         }).then((result) => {
             if (result.isConfirmed) {
                 // Step through each entry individually
@@ -3839,7 +3839,7 @@
                     return { mode: 'coordinate', deadline, facilities };
                 }
                 return { mode: 'direct' };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 if (result.value.mode === 'coordinate') {
@@ -3847,7 +3847,7 @@
                     submitEntriesForCoordination([{
                         entry: entry,
                         deadline: result.value.deadline,
-                        facilities: result.value.facilities
+                        facilities: result.value.facilities,
                     }], entriesToPublishDirect);
                 } else {
                     performSubmit();
@@ -3920,7 +3920,7 @@
                         return false;
                     }
                     return { deadline, facilities };
-                }
+                },
             });
 
             if (result.isDenied && i > 0) {
@@ -3939,7 +3939,7 @@
             confirmedEntries.push({
                 entry: entry,
                 deadline: result.value.deadline,
-                facilities: result.value.facilities
+                facilities: result.value.facilities,
             });
         }
 
@@ -4004,14 +4004,14 @@
                     return false;
                 }
                 return { deadline, facilities };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 // Apply same facilities to all entries
                 const confirmedEntries = entriesRequiringCoord.map(entry => ({
                     entry: entry,
                     deadline: result.value.deadline,
-                    facilities: result.value.facilities
+                    facilities: result.value.facilities,
                 }));
                 submitEntriesForCoordination(confirmedEntries, entriesNotRequiringCoord);
             }
@@ -4049,7 +4049,7 @@
         if (data.prov_facility) {
             data.prov_facility.toUpperCase().split(',').forEach(fac => {
                 const trimmed = fac.trim();
-                if (trimmed && trimmed !== reqFacility) facilities.add(trimmed);
+                if (trimmed && trimmed !== reqFacility) {facilities.add(trimmed);}
             });
         }
 
@@ -4057,7 +4057,7 @@
         if (data.providing_facility) {
             data.providing_facility.toUpperCase().split(',').forEach(fac => {
                 const trimmed = fac.trim();
-                if (trimmed && trimmed !== reqFacility) facilities.add(trimmed);
+                if (trimmed && trimmed !== reqFacility) {facilities.add(trimmed);}
             });
         }
 
@@ -4065,7 +4065,7 @@
         if (data.prov_facility_id) {
             data.prov_facility_id.toUpperCase().split(',').forEach(fac => {
                 const trimmed = fac.trim();
-                if (trimmed && trimmed !== reqFacility) facilities.add(trimmed);
+                if (trimmed && trimmed !== reqFacility) {facilities.add(trimmed);}
             });
         }
 
@@ -4100,7 +4100,7 @@
         const validUntil = data.valid_until || data.validUntil || '';
 
         const formatTime = (timeStr) => {
-            if (!timeStr) return '--';
+            if (!timeStr) {return '--';}
             try {
                 // Handle HHMM format (4 digits like "0959" or "1359")
                 if (/^\d{4}$/.test(timeStr)) {
@@ -4252,7 +4252,7 @@
             title: 'Submitting...',
             html: `<p>Processing <strong>0 / ${totalCoord}</strong> proposals</p>`,
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         // Submit each entry with its specific facilities
@@ -4262,7 +4262,7 @@
 
             Swal.update({
                 html: `<p>Posting <strong>${i + 1} / ${totalCoord}</strong> proposals to #coordination</p>
-                       <p class="small text-muted">${entry.data?.ctl_element || 'Entry'} - ${entry.data?.entry_type || 'TMI'}</p>`
+                       <p class="small text-muted">${entry.data?.ctl_element || 'Entry'} - ${entry.data?.entry_type || 'TMI'}</p>`,
             });
 
             const payload = {
@@ -4270,7 +4270,7 @@
                 deadlineUtc: deadlineUtc,
                 facilities: facilities,
                 userCid: CONFIG.userCid,
-                userName: CONFIG.userName || 'Unknown'
+                userName: CONFIG.userName || 'Unknown',
             };
 
             try {
@@ -4278,7 +4278,7 @@
                     url: 'api/mgt/tmi/coordinate.php',
                     method: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify(payload)
+                    data: JSON.stringify(payload),
                 });
 
                 console.log(`[Coordination] Entry ${i + 1} Response:`, response);
@@ -4290,7 +4290,7 @@
                     } else {
                         results.discordFailed.push({
                             entry, proposalId: response.proposal_id,
-                            error: response.discord?.error || 'Discord posting failed'
+                            error: response.discord?.error || 'Discord posting failed',
                         });
                     }
                 } else {
@@ -4299,7 +4299,7 @@
             } catch (error) {
                 console.error(`Coordination submit error for entry ${i + 1}:`, error);
                 results.failed.push({
-                    entry, error: error.responseText || error.message || 'Connection error'
+                    entry, error: error.responseText || error.message || 'Connection error',
                 });
             }
 
@@ -4311,7 +4311,7 @@
         // Publish direct entries
         if (totalDirect > 0) {
             Swal.update({
-                html: `<p>Publishing <strong>${totalDirect}</strong> entries directly...</p>`
+                html: `<p>Publishing <strong>${totalDirect}</strong> entries directly...</p>`,
             });
 
             try {
@@ -4384,7 +4384,7 @@
         // ZSE - Seattle Center
         'SEA': 'ZSE', 'KSEA': 'ZSE', 'PDX': 'ZSE', 'KPDX': 'ZSE', 'GEG': 'ZSE', 'KGEG': 'ZSE',
         // ZLC - Salt Lake Center
-        'SLC': 'ZLC', 'KSLC': 'ZLC', 'BOI': 'ZLC', 'KBOI': 'ZLC'
+        'SLC': 'ZLC', 'KSLC': 'ZLC', 'BOI': 'ZLC', 'KBOI': 'ZLC',
     };
 
     function buildFacilityCheckboxes() {
@@ -4399,7 +4399,7 @@
                 const provFacs = data.prov_facility.toUpperCase();
                 provFacs.split(',').forEach(fac => {
                     const trimmed = fac.trim();
-                    if (trimmed) detectedFacilities.add(trimmed);
+                    if (trimmed) {detectedFacilities.add(trimmed);}
                 });
             }
             // Only fall back to airport ARTCC mapping if no providing facility was explicitly specified
@@ -4446,10 +4446,10 @@
 
         // Separate entries that require coordination from those that don't
         const entriesToCoordinate = state.queue.filter(e =>
-            requiresCoordination(e.entryType || e.data?.entry_type)
+            requiresCoordination(e.entryType || e.data?.entry_type),
         );
         const entriesToPublishDirect = state.queue.filter(e =>
-            !requiresCoordination(e.entryType || e.data?.entry_type)
+            !requiresCoordination(e.entryType || e.data?.entry_type),
         );
 
         const totalCoord = entriesToCoordinate.length;
@@ -4460,7 +4460,7 @@
             title: 'Submitting...',
             html: `<p>Processing <strong>0 / ${totalCoord + totalDirect}</strong> entries</p>`,
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         // First, submit entries requiring coordination
@@ -4470,7 +4470,7 @@
             // Update progress
             Swal.update({
                 html: `<p>Posting <strong>${i + 1} / ${totalCoord}</strong> proposals to #coordination</p>
-                       <p class="small text-muted">${entry.data?.ctl_element || 'Entry'} - ${entry.data?.entry_type || 'TMI'}</p>`
+                       <p class="small text-muted">${entry.data?.ctl_element || 'Entry'} - ${entry.data?.entry_type || 'TMI'}</p>`,
             });
 
             const payload = {
@@ -4478,7 +4478,7 @@
                 deadlineUtc: deadlineUtc,
                 facilities: facilities,
                 userCid: CONFIG.userCid,
-                userName: CONFIG.userName || 'Unknown'
+                userName: CONFIG.userName || 'Unknown',
             };
 
             try {
@@ -4486,7 +4486,7 @@
                     url: 'api/mgt/tmi/coordinate.php',
                     method: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify(payload)
+                    data: JSON.stringify(payload),
                 });
 
                 console.log(`[Coordination] Entry ${i + 1} Response:`, response);
@@ -4496,26 +4496,26 @@
                     if (discordOk) {
                         results.success.push({
                             entry: entry,
-                            proposalId: response.proposal_id
+                            proposalId: response.proposal_id,
                         });
                     } else {
                         results.discordFailed.push({
                             entry: entry,
                             proposalId: response.proposal_id,
-                            error: response.discord?.error || 'Discord posting failed'
+                            error: response.discord?.error || 'Discord posting failed',
                         });
                     }
                 } else {
                     results.failed.push({
                         entry: entry,
-                        error: response.error || 'Unknown error'
+                        error: response.error || 'Unknown error',
                     });
                 }
             } catch (error) {
                 console.error(`Coordination submit error for entry ${i + 1}:`, error);
                 results.failed.push({
                     entry: entry,
-                    error: error.responseText || error.message || 'Connection error'
+                    error: error.responseText || error.message || 'Connection error',
                 });
             }
 
@@ -4529,21 +4529,21 @@
         if (totalDirect > 0) {
             Swal.update({
                 html: `<p>Publishing <strong>${totalDirect}</strong> entries directly...</p>
-                       <p class="small text-muted">These types don't require coordination</p>`
+                       <p class="small text-muted">These types don't require coordination</p>`,
             });
 
             try {
                 const directPayload = {
                     entries: entriesToPublishDirect,
                     production: state.productionMode,
-                    userCid: CONFIG.userCid
+                    userCid: CONFIG.userCid,
                 };
 
                 const directResponse = await $.ajax({
                     url: 'api/mgt/tmi/publish.php',
                     method: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify(directPayload)
+                    data: JSON.stringify(directPayload),
                 });
 
                 if (directResponse.success) {
@@ -4587,7 +4587,7 @@
                 title: 'Submission Complete',
                 html: html,
                 timer: 5000,
-                showConfirmButton: true
+                showConfirmButton: true,
             });
         } else if (successCount === 0 && discordFailedCount === 0 && directCount === 0) {
             // All failed
@@ -4595,7 +4595,7 @@
                 icon: 'error',
                 title: 'All Submissions Failed',
                 html: `<p>Failed to submit <strong>${failedCount}</strong> proposal(s).</p>
-                       <p class="small text-danger">${results.failed[0]?.error || 'Unknown error'}</p>`
+                       <p class="small text-danger">${results.failed[0]?.error || 'Unknown error'}</p>`,
             });
         } else {
             // Mixed results
@@ -4618,26 +4618,26 @@
             Swal.fire({
                 icon: discordFailedCount > 0 || failedCount > 0 ? 'warning' : 'success',
                 title: 'Submission Results',
-                html: html
+                html: html,
             });
         }
     }
-    
+
     function performSubmit() {
         const payload = {
             entries: state.queue,
             production: state.productionMode,
-            userCid: CONFIG.userCid
+            userCid: CONFIG.userCid,
         };
-        
+
         // Show loading
         Swal.fire({
             title: 'Submitting...',
             text: 'Posting entries to Discord',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
-        
+
         $.ajax({
             url: 'api/mgt/tmi/publish.php',
             method: 'POST',
@@ -4645,19 +4645,19 @@
             data: JSON.stringify(payload),
             success: function(response) {
                 Swal.close();
-                
+
                 if (response.success) {
                     // Clear queue on success
                     state.queue = [];
                     saveState();
                     updateUI();
-                    
+
                     showSubmitResults(response);
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Submit Failed',
-                        text: response.error || 'Unknown error occurred'
+                        text: response.error || 'Unknown error occurred',
                     });
                 }
             },
@@ -4667,15 +4667,15 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Connection Error',
-                    html: `<p>Failed to connect to server.</p><p class="small text-muted">${error}</p>`
+                    html: `<p>Failed to connect to server.</p><p class="small text-muted">${error}</p>`,
                 });
-            }
+            },
         });
     }
-    
+
     function showSubmitResults(response) {
         let html = `<p><strong>Summary:</strong> ${response.summary?.success || 0}/${response.summary?.total || 0} succeeded</p>`;
-        
+
         if (response.results && response.results.length > 0) {
             html += '<ul class="list-unstyled small">';
             response.results.forEach(r => {
@@ -4684,21 +4684,21 @@
             });
             html += '</ul>';
         }
-        
+
         Swal.fire({
             icon: (response.summary?.failed || 0) === 0 ? 'success' : 'warning',
             title: 'Submit Complete',
-            html: html
+            html: html,
         });
-        
+
         // Refresh staged entries
         loadStagedEntries();
     }
-    
+
     // ===========================================
     // Active TMIs
     // ===========================================
-    
+
     function loadActiveTmis() {
         $('#activeTmiBody').html(`
             <tr>
@@ -4707,7 +4707,7 @@
                 </td>
             </tr>
         `);
-        
+
         $.ajax({
             url: 'api/mgt/tmi/active.php',
             method: 'GET',
@@ -4722,17 +4722,17 @@
             error: function(xhr, status, error) {
                 console.log('Active TMIs API error:', error);
                 showActiveTmiError('No active TMIs (database may not be configured)');
-            }
+            },
         });
     }
-    
+
     function displayActiveTmis(response) {
         const data = response.data || { active: [], scheduled: [], cancelled: [] };
         const activeArr = Array.isArray(data.active) ? data.active : [];
         const scheduledArr = Array.isArray(data.scheduled) ? data.scheduled : [];
         const cancelledArr = Array.isArray(data.cancelled) ? data.cancelled : [];
         const total = activeArr.length + scheduledArr.length + cancelledArr.length;
-        
+
         if (total === 0) {
             $('#activeTmiBody').html(`
                 <tr>
@@ -4743,32 +4743,32 @@
             `);
             return;
         }
-        
+
         let html = '';
-        
+
         // Active entries first
         activeArr.forEach(entry => {
             html += buildTmiTableRow(entry, 'success', 'ACTIVE');
         });
-        
+
         // Scheduled entries
         scheduledArr.forEach(entry => {
             html += buildTmiTableRow(entry, 'info', 'SCHED');
         });
-        
+
         // Cancelled entries
         cancelledArr.forEach(entry => {
             html += buildTmiTableRow(entry, 'secondary', 'CXLD');
         });
-        
+
         $('#activeTmiBody').html(html);
     }
-    
+
     function buildTmiTableRow(entry, badgeClass, statusText) {
         if (!entry || typeof entry !== 'object') {
             return '';
         }
-        
+
         const entryType = entry.type || 'unknown';
         const typeIcon = entryType === 'advisory' ? 'fa-bullhorn' : 'fa-clipboard-list';
         const typeBadge = entryType === 'advisory' ? 'badge-purple' : 'badge-primary';
@@ -4777,11 +4777,11 @@
         const entityId = entry.entityId || 0;
         const entityType = entry.entityType || 'ntml';
         const status = entry.status || '';
-        
-        const facilities = entry.requestingFacility && entry.providingFacility 
-            ? `${entry.requestingFacility}:${entry.providingFacility}` 
+
+        const facilities = entry.requestingFacility && entry.providingFacility
+            ? `${entry.requestingFacility}:${entry.providingFacility}`
             : (entry.facilityCode || '');
-        
+
         let validTime = '';
         if (entry.validFrom) {
             try {
@@ -4790,7 +4790,7 @@
                 validTime = '';
             }
         }
-        
+
         return `
             <tr>
                 <td>
@@ -4814,7 +4814,7 @@
             </tr>
         `;
     }
-    
+
     function showActiveTmiError(message) {
         $('#activeTmiBody').html(`
             <tr>
@@ -4824,15 +4824,15 @@
             </tr>
         `);
     }
-    
+
     function viewTmiDetails(id, entityType) {
         Swal.fire({
             title: 'TMI Details',
             text: `${entityType || 'Entry'} #${id} - Details view coming soon`,
-            icon: 'info'
+            icon: 'info',
         });
     }
-    
+
     function cancelTmi(id, entityType) {
         Swal.fire({
             title: 'Cancel TMI?',
@@ -4840,22 +4840,22 @@
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Cancel TMI'
+            confirmButtonText: 'Cancel TMI',
         }).then((result) => {
             if (result.isConfirmed) {
                 Swal.fire({
                     icon: 'info',
                     title: 'Coming Soon',
-                    text: 'Cancel functionality will be implemented shortly'
+                    text: 'Cancel functionality will be implemented shortly',
                 });
             }
         });
     }
-    
+
     // ===========================================
     // Staged Entries
     // ===========================================
-    
+
     function loadStagedEntries() {
         $.ajax({
             url: 'api/mgt/tmi/staged.php',
@@ -4867,13 +4867,13 @@
             },
             error: function() {
                 // Silent fail - staged entries API might not exist yet
-            }
+            },
         });
     }
-    
+
     function displayStagedEntries(entries) {
         const container = $('#recentPostsList');
-        
+
         if (!entries || !Array.isArray(entries) || entries.length === 0) {
             container.html(`
                 <div class="list-group-item text-center text-muted py-3">
@@ -4882,16 +4882,16 @@
             `);
             return;
         }
-        
+
         let html = '';
         entries.forEach(entry => {
-            if (!entry || typeof entry !== 'object') return;
-            
+            if (!entry || typeof entry !== 'object') {return;}
+
             const summary = entry.summary || entry.entryType || 'Entry';
             const entityType = entry.entityType || 'ntml';
             const entityId = entry.entityId || 0;
             const stagedOrgs = Array.isArray(entry.stagedOrgs) ? entry.stagedOrgs : [];
-            
+
             html += `
                 <div class="list-group-item p-2">
                     <div class="d-flex justify-content-between align-items-center">
@@ -4906,10 +4906,10 @@
                 </div>
             `;
         });
-        
+
         container.html(html);
     }
-    
+
     function promoteEntry(entityType, entityId, orgs) {
         Swal.fire({
             title: 'Promote to Production?',
@@ -4918,14 +4918,14 @@
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#28a745',
-            confirmButtonText: 'Promote'
+            confirmButtonText: 'Promote',
         }).then((result) => {
             if (result.isConfirmed) {
                 performPromotion(entityType, entityId, orgs);
             }
         });
     }
-    
+
     function performPromotion(entityType, entityId, orgs) {
         $.ajax({
             url: 'api/mgt/tmi/promote.php',
@@ -4936,7 +4936,7 @@
                 entityId: entityId,
                 orgs: orgs,
                 deleteStaging: true,
-                userCid: CONFIG.userCid
+                userCid: CONFIG.userCid,
             }),
             success: function(response) {
                 if (response.success) {
@@ -4945,14 +4945,14 @@
                         title: 'Promoted!',
                         text: 'Entry published to production channels.',
                         timer: 2000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
                     loadStagedEntries();
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Promotion Failed',
-                        text: response.results?.[0]?.error || response.error || 'Unknown error'
+                        text: response.results?.[0]?.error || response.error || 'Unknown error',
                     });
                 }
             },
@@ -4960,36 +4960,36 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to connect to server'
+                    text: 'Failed to connect to server',
                 });
-            }
+            },
         });
     }
-    
+
     // ===========================================
     // UI Updates
     // ===========================================
-    
+
     function updateUI() {
         updateQueueBadge();
         updateQueueDisplay();
         updateModeIndicator();
         updateSubmitControls();
     }
-    
+
     function updateQueueBadge() {
         const count = state.queue ? state.queue.length : 0;
         $('#queueBadge').text(count);
         $('#submitCount').text(count);
     }
-    
+
     function updateModeIndicator() {
         const badge = $('#modeIndicator');
         const targetMode = $('#targetModeDisplay');
         const btnText = $('#submitBtnText');
         const hint = $('#submitHint');
         const warning = $('#prodWarning');
-        
+
         if (state.productionMode) {
             badge.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
             targetMode.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
@@ -5006,11 +5006,11 @@
             $('#submitAllBtn').removeClass('btn-danger').addClass('btn-success');
         }
     }
-    
+
     function updateSubmitControls() {
         const hasEntries = state.queue && state.queue.length > 0;
         $('#submitAllBtn').prop('disabled', !hasEntries);
-        
+
         // Update target orgs display
         const orgs = new Set();
         if (state.queue && Array.isArray(state.queue)) {
@@ -5025,7 +5025,7 @@
         });
         $('#targetOrgsDisplay').text(orgNames.length > 0 ? orgNames.join(', ') : 'None selected');
     }
-    
+
     function resetNtmlForm() {
         $('#ntml_form_container input:not([readonly])').val('');
         $('#ntml_form_container select').each(function() {
@@ -5033,17 +5033,17 @@
         });
         $('#ntml_value').val('20');
         $('.qualifier-btn').removeClass('btn-primary active').addClass('btn-outline-secondary');
-        
+
         // Reset time fields to smart defaults
         const times = getSmartDefaultTimes();
         $('#ntml_valid_from').val(times.start);
         $('#ntml_valid_until').val(times.end);
     }
-    
+
     // ===========================================
     // Utilities
     // ===========================================
-    
+
     function getSelectedOrgs() {
         const orgs = [];
         $('.discord-org-checkbox:checked').each(function() {
@@ -5051,7 +5051,7 @@
         });
         return orgs.length > 0 ? orgs : ['vatcscc'];
     }
-    
+
     function getSelectedOrgsAdvisory() {
         const orgs = [];
         $('.discord-org-checkbox-adv:checked').each(function() {
@@ -5059,18 +5059,18 @@
         });
         return orgs.length > 0 ? orgs : ['vatcscc'];
     }
-    
+
     function detectCrossBorderFromFacilities() {
         const reqFac = ($('#ntml_req_facility').val() || '').trim().toUpperCase();
         const provFac = ($('#ntml_prov_facility').val() || '').trim().toUpperCase();
-        
+
         let crossBorder = false;
         [reqFac, provFac].forEach(fac => {
             if (CROSS_BORDER_FACILITIES.includes(fac)) {
                 crossBorder = true;
             }
         });
-        
+
         // Auto-check partner org if cross-border detected
         if (crossBorder && CONFIG.crossBorderAutoDetect) {
             if (reqFac?.startsWith('CZ') || provFac?.startsWith('CZ')) {
@@ -5081,26 +5081,26 @@
             }
         }
     }
-    
+
     function getSmartDefaultTimes() {
         const now = new Date();
 
         // Start time = current UTC time (no snapping)
-        let startDate = new Date(now);
+        const startDate = new Date(now);
         startDate.setUTCSeconds(0);
         startDate.setUTCMilliseconds(0);
 
         // End time = 4 hours later, snapped to next quarter hour boundary (:14, :29, :44, :59)
-        let endDate = new Date(startDate);
+        const endDate = new Date(startDate);
         endDate.setUTCHours(endDate.getUTCHours() + 4);
 
         // Snap end time to next quarter hour boundary
         const endMinutes = endDate.getUTCMinutes();
         let snapMinutes;
-        if (endMinutes < 15) snapMinutes = 14;
-        else if (endMinutes < 30) snapMinutes = 29;
-        else if (endMinutes < 45) snapMinutes = 44;
-        else snapMinutes = 59;
+        if (endMinutes < 15) {snapMinutes = 14;}
+        else if (endMinutes < 30) {snapMinutes = 29;}
+        else if (endMinutes < 45) {snapMinutes = 44;}
+        else {snapMinutes = 59;}
 
         if (endMinutes > snapMinutes) {
             endDate.setUTCHours(endDate.getUTCHours() + 1);
@@ -5123,15 +5123,15 @@
             end: formatDateTimeLocal(endDate),
             // Also provide time-only for backwards compatibility
             startTime: `${String(startDate.getUTCHours()).padStart(2, '0')}:${String(startDate.getUTCMinutes()).padStart(2, '0')}`,
-            endTime: `${String(endDate.getUTCHours()).padStart(2, '0')}:${String(endDate.getUTCMinutes()).padStart(2, '0')}`
+            endTime: `${String(endDate.getUTCHours()).padStart(2, '0')}:${String(endDate.getUTCMinutes()).padStart(2, '0')}`,
         };
     }
-    
+
     function formatValidTime(from, until) {
         // Handle datetime-local format (YYYY-MM-DDTHH:MM) or time format (HH:MM)
         // Returns hhmm-hhmm format (time only, no date)
         const extractTime = (val) => {
-            if (!val) return '0000';
+            if (!val) {return '0000';}
             // If datetime-local format, extract time only
             if (val.includes('T')) {
                 const timePart = val.split('T')[1] || '00:00';
@@ -5145,69 +5145,69 @@
         const untilStr = extractTime(until);
         return `${fromStr}-${untilStr}`;
     }
-    
+
     function formatValidDateTime(from, until) {
         // Returns formatted date/time for display: "01/28 1400-1800Z"
         const extractDateTime = (val) => {
-            if (!val) return { date: '', time: '0000' };
+            if (!val) {return { date: '', time: '0000' };}
             if (val.includes('T')) {
                 const [datePart, timePart] = val.split('T');
                 const [year, month, day] = datePart.split('-');
                 return {
                     date: `${month}/${day}`,
-                    time: (timePart || '00:00').replace(':', '')
+                    time: (timePart || '00:00').replace(':', ''),
                 };
             }
             return { date: '', time: val.replace(':', '') || '0000' };
         };
-        
+
         const fromDt = extractDateTime(from);
         const untilDt = extractDateTime(until);
-        
+
         // If dates are same or no dates, just show time range
         if (!fromDt.date || fromDt.date === untilDt.date) {
             return `${fromDt.time}-${untilDt.time}Z`;
         }
-        
+
         // If dates differ, show full range
         return `${fromDt.date} ${fromDt.time}-${untilDt.date} ${untilDt.time}Z`;
     }
-    
+
     function getCurrentTimeHHMM() {
         const now = new Date();
         return String(now.getUTCHours()).padStart(2, '0') + ':' + String(now.getUTCMinutes()).padStart(2, '0');
     }
-    
+
     function getUtcDateString() {
         const now = new Date();
         return now.toISOString().substr(0, 10);
     }
-    
+
     function getUtcDateFormatted() {
         const now = new Date();
         return `${String(now.getUTCMonth() + 1).padStart(2, '0')}/${String(now.getUTCDate()).padStart(2, '0')}/${now.getUTCFullYear()}`;
     }
-    
+
     function getUtcDateTimeFormatted() {
         const now = new Date();
         const date = `${String(now.getUTCMonth() + 1).padStart(2, '0')}/${String(now.getUTCDate()).padStart(2, '0')}/${now.getUTCFullYear()}`;
         const time = `${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}Z`;
         return `${date} ${time}`;
     }
-    
+
     function getCurrentDateDDHHMM() {
         const now = new Date();
-        return String(now.getUTCDate()).padStart(2, '0') + '/' + 
-               String(now.getUTCHours()).padStart(2, '0') + 
+        return String(now.getUTCDate()).padStart(2, '0') + '/' +
+               String(now.getUTCHours()).padStart(2, '0') +
                String(now.getUTCMinutes()).padStart(2, '0');
     }
-    
+
     function generateId() {
         return 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
-    
+
     function escapeHtml(text) {
-        if (text === null || text === undefined) return '';
+        if (text === null || text === undefined) {return '';}
         const str = String(text);
         const div = document.createElement('div');
         div.textContent = str;
@@ -5226,13 +5226,13 @@
     // ===========================================
     // Text Formatting Utilities (FAA 68-char standard)
     // ===========================================
-    
+
     const TEXT_FORMAT = {
         LINE_WIDTH: 68,
         SEPARATOR: '____________________________________________________________________', // 68 underscores
-        INDENT: '    ' // 4 spaces for continuation
+        INDENT: '    ', // 4 spaces for continuation
     };
-    
+
     /**
      * Wrap text to 68 characters with word boundaries
      * @param {string} text - Text to wrap
@@ -5241,24 +5241,24 @@
      * @returns {string} Wrapped text
      */
     function wrapText(text, width = TEXT_FORMAT.LINE_WIDTH, indent = '') {
-        if (!text) return '';
-        
+        if (!text) {return '';}
+
         const lines = [];
         const paragraphs = text.split('\n');
-        
+
         paragraphs.forEach((paragraph, pIndex) => {
             if (paragraph.trim() === '') {
                 lines.push('');
                 return;
             }
-            
+
             const words = paragraph.split(/\s+/);
             let currentLine = '';
             const lineIndent = pIndex > 0 || lines.length > 0 ? indent : '';
-            
+
             words.forEach(word => {
                 const testLine = currentLine ? `${currentLine} ${word}` : `${lineIndent}${word}`;
-                
+
                 if (testLine.length <= width) {
                     currentLine = testLine;
                 } else {
@@ -5269,15 +5269,15 @@
                     currentLine = `${indent}${word}`;
                 }
             });
-            
+
             if (currentLine) {
                 lines.push(currentLine);
             }
         });
-        
+
         return lines.join('\n');
     }
-    
+
     /**
      * Wrap text with hanging indent (first line flush, continuation indented)
      * @param {string} label - Label prefix (e.g., "REMARKS: ")
@@ -5286,22 +5286,22 @@
      * @returns {string} Formatted text with hanging indent
      */
     function wrapWithLabel(label, text, width = TEXT_FORMAT.LINE_WIDTH) {
-        if (!text) return '';
-        
+        if (!text) {return '';}
+
         const labelLen = label.length;
         const indent = ' '.repeat(labelLen);
         const firstLineWidth = width;
         const contLineWidth = width;
-        
+
         const words = text.split(/\s+/);
         const lines = [];
         let currentLine = label;
         let isFirstLine = true;
-        
+
         words.forEach(word => {
             const maxWidth = isFirstLine ? firstLineWidth : contLineWidth;
             const testLine = currentLine + (currentLine.endsWith(label) ? '' : ' ') + word;
-            
+
             if (testLine.length <= maxWidth) {
                 currentLine = testLine;
             } else {
@@ -5310,14 +5310,14 @@
                 isFirstLine = false;
             }
         });
-        
+
         if (currentLine.trim()) {
             lines.push(currentLine);
         }
-        
+
         return lines.join('\n');
     }
-    
+
     /**
      * Format a section with separator lines
      * @param {string} content - Section content
@@ -5326,7 +5326,7 @@
     function formatSection(content) {
         return `${TEXT_FORMAT.SEPARATOR}\n${content}\n${TEXT_FORMAT.SEPARATOR}`;
     }
-    
+
     /**
      * Format column-aligned data (for route tables, etc.)
      * @param {Array<Array<string>>} rows - Array of row arrays
@@ -5334,7 +5334,7 @@
      * @returns {string} Column-aligned text
      */
     function formatColumns(rows, colWidths) {
-        if (!rows || rows.length === 0) return '';
+        if (!rows || rows.length === 0) {return '';}
 
         return rows.map(row => {
             return row.map((cell, i) => {
@@ -5352,10 +5352,10 @@
      * @returns {string} Wrapped facility list
      */
     function wrapFacilityList(facilityList, maxWidth = TEXT_FORMAT.LINE_WIDTH) {
-        if (!facilityList) return '';
+        if (!facilityList) {return '';}
 
         const facilities = facilityList.split('/').filter(f => f.trim());
-        if (facilities.length === 0) return '';
+        if (facilities.length === 0) {return '';}
 
         const lines = [];
         let currentLine = '';
@@ -5390,7 +5390,7 @@
             console.warn('Failed to save state:', e);
         }
     }
-    
+
     function loadSavedState() {
         try {
             const savedQueue = localStorage.getItem('tmi_publisher_queue');
@@ -5401,7 +5401,7 @@
             } else {
                 state.queue = [];
             }
-            
+
             const savedMode = localStorage.getItem('tmi_publisher_mode');
             if (savedMode === '1') {
                 state.productionMode = true;
@@ -5412,7 +5412,7 @@
             state.queue = [];
         }
     }
-    
+
     function copyAdvisoryToClipboard() {
         const text = $('#adv_preview').text();
         navigator.clipboard.writeText(text).then(() => {
@@ -5420,26 +5420,26 @@
                 icon: 'success',
                 title: 'Copied!',
                 timer: 1000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
         });
     }
-    
+
     // ===========================================
     // User Profile Management
     // ===========================================
-    
+
     function initUserProfile() {
         // Load saved profile from localStorage
         const savedProfile = localStorage.getItem('tmi_user_profile');
         if (savedProfile) {
             try {
                 const profile = JSON.parse(savedProfile);
-                if (profile.oi) CONFIG.userOI = profile.oi;
-                if (profile.facility) CONFIG.userFacility = profile.facility;
+                if (profile.oi) {CONFIG.userOI = profile.oi;}
+                if (profile.facility) {CONFIG.userFacility = profile.facility;}
                 // Load name/cid from localStorage if not set from server session
-                if (profile.name && !CONFIG.userName) CONFIG.userName = profile.name;
-                if (profile.cid && !CONFIG.userCid) CONFIG.userCid = profile.cid;
+                if (profile.name && !CONFIG.userName) {CONFIG.userName = profile.name;}
+                if (profile.cid && !CONFIG.userCid) {CONFIG.userCid = profile.cid;}
             } catch (e) {
                 console.warn('Failed to load user profile:', e);
             }
@@ -5472,7 +5472,7 @@
         const $label = $('#userInfoLabel');
         const $display = $('#userInfoDisplay');
 
-        if (!$display.length) return;
+        if (!$display.length) {return;}
 
         // Build display name
         let displayName = CONFIG.userName;
@@ -5495,7 +5495,7 @@
             $display.html('<i class="fas fa-user-edit mr-1 small text-muted"></i><span class="text-warning">Set Up Profile</span>');
         }
     }
-    
+
     function showProfileModal() {
         // Pre-populate fields from CONFIG or localStorage
         const savedProfile = localStorage.getItem('tmi_user_profile');
@@ -5557,16 +5557,16 @@
 
         // Build profile object
         const profile = { oi, facility };
-        if (nameEditable) profile.name = name;
-        if (cidEditable) profile.cid = cid;
+        if (nameEditable) {profile.name = name;}
+        if (cidEditable) {profile.cid = cid;}
 
         // Preserve existing name/cid if server-set
         const existingProfile = localStorage.getItem('tmi_user_profile');
         if (existingProfile) {
             try {
                 const existing = JSON.parse(existingProfile);
-                if (!nameEditable && existing.name) profile.name = existing.name;
-                if (!cidEditable && existing.cid) profile.cid = existing.cid;
+                if (!nameEditable && existing.name) {profile.name = existing.name;}
+                if (!cidEditable && existing.cid) {profile.cid = existing.cid;}
             } catch(e) {}
         }
 
@@ -5575,8 +5575,8 @@
         // Update CONFIG
         CONFIG.userOI = oi;
         CONFIG.userFacility = facility;
-        if (name) CONFIG.userName = name;
-        if (cid) CONFIG.userCid = cid;
+        if (name) {CONFIG.userName = name;}
+        if (cid) {CONFIG.userCid = cid;}
 
         // Update user info display
         updateUserInfoDisplay();
@@ -5594,20 +5594,20 @@
             title: 'Profile Saved',
             text: 'Your settings have been saved.',
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
         });
     }
-    
+
     function getUserFacility() {
         return CONFIG.userFacility || '';
     }
-    
+
     function getUserOI() {
         // Use configured OI if available
         if (CONFIG.userOI && CONFIG.userOI.length >= 2) {
             return CONFIG.userOI.toUpperCase();
         }
-        
+
         // Extract initials from userName (first letter of each word)
         const userName = CONFIG.userName || 'XX';
         const parts = userName.trim().split(/\s+/);
@@ -5618,7 +5618,7 @@
         // Single word - use first 2 characters
         return userName.substr(0, 2).toUpperCase();
     }
-    
+
     // ===========================================
     // Coordination Proposals
     // ===========================================
@@ -5715,7 +5715,7 @@
             showCancelButton: true,
             confirmButtonColor: '#f0ad4e',
             confirmButtonText: '<i class="fas fa-undo mr-1"></i> Reopen',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 const reason = $('#reopen_reason').val();
@@ -5728,7 +5728,7 @@
         Swal.fire({
             title: 'Reopening...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -5740,7 +5740,7 @@
                 action: 'REOPEN',
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'DCC',
-                reason: reason
+                reason: reason,
             }),
             success: function(response) {
                 Swal.close();
@@ -5749,7 +5749,7 @@
                         icon: 'success',
                         title: 'Proposal Reopened',
                         text: `Proposal #${proposalId} is now pending coordination.`,
-                        timer: 2000
+                        timer: 2000,
                     });
                     loadProposals();
                 } else {
@@ -5759,7 +5759,7 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
-            }
+            },
         });
     }
 
@@ -5783,7 +5783,7 @@
             showCancelButton: true,
             confirmButtonColor: '#28a745',
             confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 submitPublishProposal(proposalId);
@@ -5796,7 +5796,7 @@
             title: 'Publishing...',
             html: '<p>Creating TMI entry and posting to Discord...</p>',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -5807,7 +5807,7 @@
                 action: 'PUBLISH',
                 proposal_id: proposalId,
                 user_cid: CONFIG.userCid,
-                user_name: CONFIG.userName || 'DCC'
+                user_name: CONFIG.userName || 'DCC',
             }),
             success: function(response) {
                 Swal.close();
@@ -5821,7 +5821,7 @@
                             ${activation.tmi_entry_id ? `<p class="small text-muted">Entry ID: #${activation.tmi_entry_id}</p>` : ''}
                         `,
                         timer: 3000,
-                        showConfirmButton: true
+                        showConfirmButton: true,
                     });
                     loadProposals(); // Refresh the list
                 } else {
@@ -5831,7 +5831,7 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
-            }
+            },
         });
     }
 
@@ -5848,14 +5848,14 @@
             showCancelButton: true,
             confirmButtonColor: '#28a745',
             confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 Swal.fire({
                     title: 'Publishing...',
                     html: '<p>Posting to Discord...</p>',
                     allowOutsideClick: false,
-                    didOpen: () => Swal.showLoading()
+                    didOpen: () => Swal.showLoading(),
                 });
 
                 $.ajax({
@@ -5867,7 +5867,7 @@
                         dcc_action: 'PUBLISH_NOW',
                         proposal_id: proposalId,
                         user_cid: CONFIG.userCid,
-                        user_name: CONFIG.userName || 'DCC'
+                        user_name: CONFIG.userName || 'DCC',
                     }),
                     success: function(response) {
                         Swal.close();
@@ -5877,7 +5877,7 @@
                                 title: 'Published!',
                                 html: `<p>${entryType} published to Discord.</p>`,
                                 timer: 3000,
-                                showConfirmButton: true
+                                showConfirmButton: true,
                             });
                             loadProposals(); // Refresh the list
                         } else {
@@ -5887,7 +5887,7 @@
                     error: function(xhr) {
                         Swal.close();
                         Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
-                    }
+                    },
                 });
             }
         });
@@ -5904,7 +5904,7 @@
             const $publishBtn = $(this).find('.publish-proposal-btn');
             if ($publishBtn.length) {
                 const id = $publishBtn.data('proposal-id');
-                if (id) approvedIds.push(id);
+                if (id) {approvedIds.push(id);}
             }
         });
 
@@ -5931,7 +5931,7 @@
             showCancelButton: true,
             confirmButtonColor: '#28a745',
             confirmButtonText: `<i class="fas fa-broadcast-tower mr-1"></i> Publish All (${approvedIds.length})`,
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 submitBatchPublish(approvedIds);
@@ -5944,7 +5944,7 @@
             title: 'Publishing...',
             html: `<p>Publishing ${proposalIds.length} proposal(s)...</p><p class="small text-muted" id="batchPublishProgress">Starting...</p>`,
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -5955,7 +5955,7 @@
                 action: 'BATCH_PUBLISH',
                 proposal_ids: proposalIds,
                 user_cid: CONFIG.userCid,
-                user_name: CONFIG.userName || 'DCC'
+                user_name: CONFIG.userName || 'DCC',
             }),
             success: function(response) {
                 Swal.close();
@@ -5968,7 +5968,7 @@
                             ${response.failed > 0 ? `<p class="text-warning small">${response.failed} failed</p>` : ''}
                         `,
                         timer: 4000,
-                        showConfirmButton: true
+                        showConfirmButton: true,
                     });
                     loadProposals(); // Refresh the list
                 } else {
@@ -5981,11 +5981,11 @@
                         html: `
                             <p><strong>${successCount}</strong> published, <strong>${failCount}</strong> failed</p>
                             ${Object.entries(response.results || {}).map(([id, r]) =>
-                                `<div class="small ${r.success ? 'text-success' : 'text-danger'}">
+        `<div class="small ${r.success ? 'text-success' : 'text-danger'}">
                                     #${id}: ${r.success ? 'OK' : r.error}
-                                </div>`
-                            ).join('')}
-                        `
+                                </div>`,
+    ).join('')}
+                        `,
                     });
                     loadProposals();
                 }
@@ -5993,7 +5993,7 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Batch publish request failed', 'error');
-            }
+            },
         });
     }
 
@@ -6017,7 +6017,7 @@
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
             confirmButtonText: '<i class="fas fa-trash mr-1"></i> Cancel Proposal',
-            cancelButtonText: 'Keep'
+            cancelButtonText: 'Keep',
         }).then((result) => {
             if (result.isConfirmed) {
                 const reason = $('#cancel_reason').val();
@@ -6030,7 +6030,7 @@
         Swal.fire({
             title: 'Cancelling...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -6042,7 +6042,7 @@
                 action: 'CANCEL',
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'DCC',
-                reason: reason
+                reason: reason,
             }),
             success: function(response) {
                 Swal.close();
@@ -6051,7 +6051,7 @@
                         icon: 'success',
                         title: 'Proposal Cancelled',
                         text: `Proposal #${proposalId} has been cancelled.`,
-                        timer: 2000
+                        timer: 2000,
                     });
                     loadProposals();
                 } else {
@@ -6061,7 +6061,7 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
-            }
+            },
         });
     }
 
@@ -6074,7 +6074,7 @@
         Swal.fire({
             title: 'Loading...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -6092,7 +6092,7 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', 'Failed to load proposal data', 'error');
-            }
+            },
         });
     }
 
@@ -6101,15 +6101,15 @@
         // Format UTC datetime string for datetime-local input without timezone conversion
         // Database stores UTC times, so we keep them as-is for the datetime-local input
         const formatForInput = (dateStr) => {
-            if (!dateStr) return '';
+            if (!dateStr) {return '';}
             // Remove any trailing Z or timezone info, replace space with T
             // Handles: "2026-01-28 03:45:00", "2026-01-28T03:45:00Z", "2026-01-28T03:45"
-            let s = dateStr.toString().replace(' ', 'T').replace('Z', '');
+            const s = dateStr.toString().replace(' ', 'T').replace('Z', '');
             // Ensure we have YYYY-MM-DDTHH:MM format for datetime-local
-            if (s.length >= 16) return s.slice(0, 16);
+            if (s.length >= 16) {return s.slice(0, 16);}
             // Try parsing if format is unexpected
             const d = new Date(dateStr + 'Z'); // Append Z to parse as UTC
-            if (isNaN(d.getTime())) return '';
+            if (isNaN(d.getTime())) {return '';}
             // Manual format to avoid local timezone offset
             const pad = n => n.toString().padStart(2, '0');
             return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
@@ -6236,9 +6236,9 @@
                     restriction_value: document.getElementById('editPropValue').value,
                     restriction_unit: document.getElementById('editPropUnit').value,
                     raw_text: document.getElementById('editPropRawText').value,
-                    edit_reason: reason
+                    edit_reason: reason,
                 };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 submitProposalEdit(proposal.proposal_id, result.value);
@@ -6251,7 +6251,7 @@
             title: 'Saving...',
             html: 'Updating proposal and restarting coordination',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -6263,7 +6263,7 @@
                 proposal_id: proposalId,
                 updates: updates,
                 user_cid: CONFIG.userCid,
-                user_name: CONFIG.userName || 'Unknown'
+                user_name: CONFIG.userName || 'Unknown',
             }),
             success: function(response) {
                 Swal.close();
@@ -6273,7 +6273,7 @@
                         title: 'Proposal Updated',
                         html: `<p>Proposal #${proposalId} has been updated.</p>
                                <p class="small text-muted">All facility approvals have been cleared and coordination has restarted.</p>`,
-                        timer: 3000
+                        timer: 3000,
                     });
                     loadProposals();
                 } else {
@@ -6283,7 +6283,7 @@
             error: function(xhr) {
                 Swal.close();
                 Swal.fire('Error', xhr.responseJSON?.error || 'Failed to update proposal', 'error');
-            }
+            },
         });
     }
 
@@ -6319,7 +6319,7 @@
             },
             error: function(xhr, status, error) {
                 showProposalsError('proposalsTableBody', 'Failed to connect to server');
-            }
+            },
         });
 
         // Fetch recent proposals (all)
@@ -6337,7 +6337,7 @@
             },
             error: function() {
                 // Silent fail for recent
-            }
+            },
         });
     }
 
@@ -6591,10 +6591,10 @@
         // Calculate default new deadline (current + 1 hour, or now + 1 hour if expired)
         let defaultDeadline;
         if (currentDeadline) {
-            let currentDate = new Date(currentDeadline.includes('Z') ? currentDeadline : currentDeadline.replace(' ', 'T') + 'Z');
-            let now = new Date();
+            const currentDate = new Date(currentDeadline.includes('Z') ? currentDeadline : currentDeadline.replace(' ', 'T') + 'Z');
+            const now = new Date();
             // If expired, start from now; otherwise extend from current
-            let baseTime = currentDate > now ? currentDate : now;
+            const baseTime = currentDate > now ? currentDate : now;
             defaultDeadline = new Date(baseTime.getTime() + 60 * 60 * 1000);
         } else {
             defaultDeadline = new Date(Date.now() + 60 * 60 * 1000);
@@ -6622,7 +6622,7 @@
                     return false;
                 }
                 return newDeadline;
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 extendDeadline(proposalId, result.value);
@@ -6634,7 +6634,7 @@
         Swal.fire({
             title: 'Extending...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -6645,7 +6645,7 @@
                 proposal_id: proposalId,
                 new_deadline_utc: newDeadline + ':00.000Z',
                 user_cid: CONFIG.userCid,
-                user_name: CONFIG.userName || 'Unknown'
+                user_name: CONFIG.userName || 'Unknown',
             }),
             success: function(response) {
                 Swal.close();
@@ -6654,14 +6654,14 @@
                         icon: 'success',
                         title: 'Deadline Extended',
                         text: `New deadline: ${formatDateTime(response.new_deadline)}`,
-                        timer: 3000
+                        timer: 3000,
                     });
                     loadProposals(); // Refresh the list
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Extension Failed',
-                        text: response.error || 'Unknown error'
+                        text: response.error || 'Unknown error',
                     });
                 }
             },
@@ -6670,9 +6670,9 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Connection Error',
-                    text: error || 'Failed to extend deadline'
+                    text: error || 'Failed to extend deadline',
                 });
-            }
+            },
         });
     }
 
@@ -6687,7 +6687,7 @@
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: action === 'APPROVE' ? 'Approve' : 'Deny',
-            confirmButtonColor: actionColor
+            confirmButtonColor: actionColor,
         }).then((result) => {
             if (result.isConfirmed) {
                 submitProposalAction(proposalId, action);
@@ -6699,7 +6699,7 @@
         Swal.fire({
             title: `${action === 'APPROVE' ? 'Approving' : 'Denying'}...`,
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         $.ajax({
@@ -6711,7 +6711,7 @@
                 reaction_type: 'DCC_OVERRIDE',
                 dcc_action: action,
                 discord_user_id: CONFIG.userCid,
-                discord_username: CONFIG.userName || 'DCC'
+                discord_username: CONFIG.userName || 'DCC',
             }),
             success: function(response) {
                 Swal.close();
@@ -6719,14 +6719,14 @@
                     Swal.fire({
                         icon: 'success',
                         title: `Proposal ${action === 'APPROVE' ? 'Approved' : 'Denied'}`,
-                        timer: 2000
+                        timer: 2000,
                     });
                     loadProposals();
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Action Failed',
-                        text: response.error || 'Unknown error'
+                        text: response.error || 'Unknown error',
                     });
                 }
             },
@@ -6735,9 +6735,9 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Connection Error',
-                    text: error || 'Failed to process action'
+                    text: error || 'Failed to process action',
                 });
-            }
+            },
         });
     }
 
@@ -6828,7 +6828,7 @@
                 // Show source info
                 $('#rerouteSourceInfo').show();
                 $('#rerouteRouteCount').text(
-                    ` - ${this.rerouteData.routes?.length || 0} route(s)`
+                    ` - ${this.rerouteData.routes?.length || 0} route(s)`,
                 );
 
                 // Clean up sessionStorage
@@ -6844,7 +6844,7 @@
          * Populate form from loaded data
          */
         populateForm: function() {
-            if (!this.rerouteData) return;
+            if (!this.rerouteData) {return;}
 
             const adv = this.rerouteData.advisory || {};
 
@@ -6865,11 +6865,11 @@
             // Parse and set valid times
             if (adv.validStart) {
                 const start = this.parseValidTime(adv.validStart);
-                if (start) $('#rr_valid_from').val(start);
+                if (start) {$('#rr_valid_from').val(start);}
             }
             if (adv.validEnd) {
                 const end = this.parseValidTime(adv.validEnd);
-                if (end) $('#rr_valid_until').val(end);
+                if (end) {$('#rr_valid_until').val(end);}
             }
 
             // Populate routes table
@@ -6903,7 +6903,7 @@
          *   - Otherwise: let user define
          */
         autoFillRouteName: function() {
-            if (!this.rerouteData) return;
+            if (!this.rerouteData) {return;}
 
             const procedures = this.rerouteData.procedures || [];
             const routes = this.rerouteData.routes || [];
@@ -6960,7 +6960,7 @@
          * Each source is on its own line - the formatter handles column alignment
          */
         autoPopulateRemarksWithSources: function() {
-            if (!this.rerouteData) return;
+            if (!this.rerouteData) {return;}
 
             const procedures = this.rerouteData.procedures || [];
             const routes = this.rerouteData.routes || [];
@@ -6969,14 +6969,14 @@
             const playbookNames = [...new Set(
                 procedures
                     .filter(p => p.startsWith('PB: '))
-                    .map(p => p.slice(4).trim())
+                    .map(p => p.slice(4).trim()),
             )];
 
             // Extract CDR codes from procedures
             const cdrCodes = [...new Set(
                 procedures
                     .filter(p => p.startsWith('CDR: '))
-                    .map(p => p.slice(5).trim())
+                    .map(p => p.slice(5).trim()),
             )];
 
             // Also check individual routes for playbook/CDR info
@@ -7084,7 +7084,7 @@
          * Normalize route string: strip dots between procedure and transition
          */
         normalizeRouteString: function(routeText) {
-            if (!routeText) return '';
+            if (!routeText) {return '';}
             // Replace PROC.TRANS patterns with PROC TRANS (strip the dot)
             return routeText.replace(/(\w+)\.(\w+)/g, '$1 $2');
         },
@@ -7093,13 +7093,13 @@
          * Check if a token looks like a DP or STAR procedure (ends with digit)
          */
         looksLikeProcedure: function(token) {
-            if (!token) return false;
+            if (!token) {return false;}
             const clean = token.replace(/[<>]/g, '').toUpperCase();
             // Typical DP/STAR: 4-7 alphanumeric chars ending in a digit
-            if (clean.length < 4 || clean.length > 7) return false;
-            if (!/^[A-Z]+\d$/.test(clean)) return false;
+            if (clean.length < 4 || clean.length > 7) {return false;}
+            if (!/^[A-Z]+\d$/.test(clean)) {return false;}
             // Exclude airport codes
-            if (/^K[A-Z]{3}$/.test(clean)) return false;
+            if (/^K[A-Z]{3}$/.test(clean)) {return false;}
             return true;
         },
 
@@ -7119,7 +7119,7 @@
                     title: 'No Routes Selected',
                     text: 'Please select one or more routes to make mandatory.',
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
                 return;
             }
@@ -7140,7 +7140,7 @@
                 title: 'Routes Made Mandatory',
                 text: `Applied mandatory markers to ${$selectedRows.length} route(s).`,
                 timer: 2000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
         },
 
@@ -7148,7 +7148,7 @@
          * Apply mandatory markers to a route string, excluding DP/STAR at start/end
          */
         applyMandatoryMarkers: function(routeText) {
-            if (!routeText) return routeText;
+            if (!routeText) {return routeText;}
 
             // Already has markers
             if (routeText.indexOf('>') !== -1 || routeText.indexOf('<') !== -1) {
@@ -7156,7 +7156,7 @@
             }
 
             const tokens = routeText.trim().split(/\s+/).filter(Boolean);
-            if (tokens.length === 0) return routeText;
+            if (tokens.length === 0) {return routeText;}
             if (tokens.length === 1) {
                 // Single token - wrap it if not a procedure
                 if (this.looksLikeProcedure(tokens[0])) {
@@ -7200,7 +7200,7 @@
                     title: 'Nothing to Group',
                     text: 'Need at least 2 routes to group.',
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
                 return;
             }
@@ -7215,7 +7215,7 @@
                         destinations: new Set(),
                         originFilters: new Set(),
                         destFilters: new Set(),
-                        route: r.route
+                        route: r.route,
                     };
                 }
                 if (r.origin) {
@@ -7241,7 +7241,7 @@
                 destination: Array.from(g.destinations).sort().join('/'),
                 route: g.route,
                 originFilter: Array.from(g.originFilters).sort().join(' '),
-                destFilter: Array.from(g.destFilters).sort().join(' ')
+                destFilter: Array.from(g.destFilters).sort().join(' '),
             })).filter(r => r.route); // Remove empty routes
 
             if (grouped.length === routes.length) {
@@ -7250,7 +7250,7 @@
                     title: 'No Grouping Possible',
                     text: 'All routes have unique route strings.',
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
                 return;
             }
@@ -7263,7 +7263,7 @@
                 title: 'Routes Grouped',
                 text: `Consolidated ${routes.length} routes into ${grouped.length} groups.`,
                 timer: 2000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
         },
 
@@ -7283,7 +7283,7 @@
                     title: 'Not Enough Routes',
                     text: 'Need at least 2 routes to detect filters.',
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
                 return;
             }
@@ -7298,7 +7298,7 @@
                         title: 'Cannot Auto-Detect',
                         text: 'Facility hierarchy data not available.',
                         timer: 2000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
                     return;
                 }
@@ -7309,14 +7309,14 @@
 
             // Helper: check if facility is an ARTCC
             const isARTCC = (fac) => {
-                if (!fac) return false;
+                if (!fac) {return false;}
                 const upper = fac.toUpperCase().split('/')[0]; // Handle slash-separated
                 return ARTCCS.includes(upper);
             };
 
             // Helper: get ARTCC for an airport
             const getARTCC = (airport) => {
-                if (!airport) return null;
+                if (!airport) {return null;}
                 const upper = airport.toUpperCase();
                 return AIRPORT_TO_ARTCC[upper] || null;
             };
@@ -7333,10 +7333,10 @@
 
                 origins.forEach(orig => {
                     dests.forEach(dest => {
-                        if (!destToOrigins[dest]) destToOrigins[dest] = [];
+                        if (!destToOrigins[dest]) {destToOrigins[dest] = [];}
                         destToOrigins[dest].push({ orig, routeIdx: idx, routeStr: routeNorm });
 
-                        if (!origToDests[orig]) origToDests[orig] = [];
+                        if (!origToDests[orig]) {origToDests[orig] = [];}
                         origToDests[orig].push({ dest, routeIdx: idx, routeStr: routeNorm });
                     });
                 });
@@ -7360,12 +7360,12 @@
                             const artccEntries = (destToOrigins[dest] || [])
                                 .filter(e => e.orig === orig && e.routeIdx === idx);
 
-                            if (artccEntries.length === 0) return;
+                            if (artccEntries.length === 0) {return;}
 
                             // Find other origins to same dest that are children of this ARTCC
                             const toExclude = [];
                             (destToOrigins[dest] || []).forEach(entry => {
-                                if (entry.routeIdx === idx) return; // Same route
+                                if (entry.routeIdx === idx) {return;} // Same route
                                 const entryOrig = entry.orig;
                                 // Check if this origin is a child of our ARTCC
                                 const parentArtcc = getARTCC(entryOrig);
@@ -7398,11 +7398,11 @@
                             const artccEntries = (origToDests[orig] || [])
                                 .filter(e => e.dest === dest && e.routeIdx === idx);
 
-                            if (artccEntries.length === 0) return;
+                            if (artccEntries.length === 0) {return;}
 
                             const toExclude = [];
                             (origToDests[orig] || []).forEach(entry => {
-                                if (entry.routeIdx === idx) return;
+                                if (entry.routeIdx === idx) {return;}
                                 const entryDest = entry.dest;
                                 const parentArtcc = getARTCC(entryDest);
                                 if (parentArtcc === dest || childAirports.includes(entryDest)) {
@@ -7432,7 +7432,7 @@
                     title: 'Filters Detected',
                     text: `Applied ${filterCount} automatic filter(s) to overlapping routes.`,
                     timer: 2500,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
             } else {
                 Swal.fire({
@@ -7440,7 +7440,7 @@
                     title: 'No Filters Needed',
                     text: 'No overlapping ARTCC/airport routes detected.',
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
             }
         },
@@ -7474,7 +7474,7 @@
         autoDetectInternationalOrgs: function() {
             const routes = this.rerouteData?.routes || [];
             const facilities = this.rerouteData?.facilities || [];
-            if (!routes.length && !facilities.length) return;
+            if (!routes.length && !facilities.length) {return;}
 
             // Use FacilityHierarchy if available for region definitions
             const FH = window.FacilityHierarchy || {};
@@ -7482,7 +7482,7 @@
 
             // Canadian FIRs from hierarchy
             const canadianFIRs = (DCC_REGIONS.CANADA?.artccs || [
-                'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'
+                'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL',
             ]).map(f => f.toUpperCase());
 
             // Mexican FIRs from hierarchy
@@ -7490,7 +7490,7 @@
 
             // Caribbean FIRs from hierarchy
             const caribbeanFIRs = (DCC_REGIONS.CARIBBEAN?.artccs || [
-                'TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL'
+                'TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL',
             ]).map(f => f.toUpperCase());
 
             // Check if any facilities in the route match international FIRs
@@ -7513,7 +7513,7 @@
                 const origTokens = (r.origin || '').toUpperCase().split(/[\s\/]+/).filter(Boolean);
                 const destTokens = (r.destination || '').toUpperCase().split(/[\s\/]+/).filter(Boolean);
                 [...origTokens, ...destTokens].forEach(t => {
-                    if (/^[A-Z]{4}$/.test(t)) allAirports.add(t);
+                    if (/^[A-Z]{4}$/.test(t)) {allAirports.add(t);}
                     if (/^[A-Z]{2,4}$/.test(t) && (t.startsWith('Z') || t.startsWith('CZ') || t.startsWith('MM'))) {
                         allFIRs.add(t);
                     }
@@ -7550,7 +7550,7 @@
             const euNaPrefixes = [
                 'EG', 'EI', 'EH', 'EB', 'ED', 'EK', 'EN', 'ES', 'EF', 'EP', 'EE', 'EV', 'EY',
                 'LF', 'LE', 'LP', 'LI', 'LG', 'LZ', 'LO', 'LK', 'LH', 'LJ', 'LD', 'LQ', 'LY',
-                'GM', 'GC', 'DA', 'DT'
+                'GM', 'GC', 'DA', 'DT',
             ];
             const hasEuNaAirport = airports.some(apt => euNaPrefixes.some(pfx => apt.startsWith(pfx)));
 
@@ -7609,7 +7609,7 @@
                 remarks: $('#rr_remarks').val() || '',
                 restrictions: $('#rr_restrictions').val() || '',
                 modifications: $('#rr_modifications').val() || '',
-                routes: routes
+                routes: routes,
             };
 
             const preview = this.formatRerouteAdvisory(params);
@@ -7628,7 +7628,7 @@
 
             const validFromDt = params.valid_from ? new Date(params.valid_from) : now;
             const validUntilDt = params.valid_until ? new Date(params.valid_until) :
-                                new Date(now.getTime() + 4 * 3600000);
+                new Date(now.getTime() + 4 * 3600000);
 
             const startStr = validFromDt.getUTCDate().toString().padStart(2, '0') +
                             validFromDt.getUTCHours().toString().padStart(2, '0') +
@@ -7643,7 +7643,7 @@
             // Preserves explicit newlines in the value, treating each line separately
             const addLabeledField = (lines, label, value) => {
                 const raw = (value == null ? '' : String(value)).trim().toUpperCase();
-                if (!raw.length) return;
+                if (!raw.length) {return;}
 
                 const labelStr = label + ': ';
                 const hangIndent = ' '.repeat(labelStr.length);
@@ -7658,21 +7658,21 @@
                         if (part.indexOf('/') !== -1 && part.length > 8) {
                             // Break up long slash-separated lists
                             part.split('/').forEach((piece, idx, arr) => {
-                                if (piece) tokens.push(idx < arr.length - 1 ? piece + '/' : piece);
+                                if (piece) {tokens.push(idx < arr.length - 1 ? piece + '/' : piece);}
                             });
                         } else {
                             tokens.push(part);
                         }
                     });
 
-                    if (!tokens.length) return;
+                    if (!tokens.length) {return;}
 
                     // First segment gets the label, subsequent segments get hanging indent
                     let prefix = segIdx === 0 ? labelStr : hangIndent;
                     let content = '';
 
                     tokens.forEach(word => {
-                        if (!word) return;
+                        if (!word) {return;}
                         if (!content) {
                             if (prefix.length + word.length <= MAX_LINE) {
                                 content = word;
@@ -7699,7 +7699,7 @@
                 });
             };
 
-            let lines = [];
+            const lines = [];
             const routeType = params.route_type || 'ROUTE';
             const compliance = params.compliance || 'RQD';
             lines.push(`vATCSCC ADVZY ${params.advisory_number} ${params.facility} ${headerDate} ${routeType} ${compliance}`);
@@ -7759,9 +7759,9 @@
             routes.forEach(r => {
                 // Include filter in origin/dest length calculation (filters in parentheses)
                 let origWithFilter = (r.origin || '');
-                if (r.originFilter) origWithFilter += ' (' + r.originFilter + ')';
+                if (r.originFilter) {origWithFilter += ' (' + r.originFilter + ')';}
                 let destWithFilter = (r.destination || '');
-                if (r.destFilter) destWithFilter += ' (' + r.destFilter + ')';
+                if (r.destFilter) {destWithFilter += ' (' + r.destFilter + ')';}
                 maxOrigLen = Math.max(maxOrigLen, origWithFilter.length);
                 maxDestLen = Math.max(maxDestLen, destWithFilter.length);
             });
@@ -7780,8 +7780,8 @@
                 routeText = (routeText || '').toUpperCase().trim();
 
                 // Append filters to origin/dest in parentheses
-                if (origFilter) orig = orig + ' (' + origFilter + ')';
-                if (destFilter) dest = dest + ' (' + destFilter + ')';
+                if (origFilter) {orig = orig + ' (' + origFilter + ')';}
+                if (destFilter) {dest = dest + ' (' + destFilter + ')';}
 
                 const rowLines = [];
                 const routeTokens = routeText.length ? routeText.split(/\s+/).filter(Boolean) : [];
@@ -7793,7 +7793,7 @@
 
                 // Chunk items to fit in column (using "/" separator for compact display)
                 const chunkItemsToFit = (items, maxLen, sep = '/') => {
-                    if (!items.length) return [''];
+                    if (!items.length) {return [''];}
                     const chunks = [];
                     let current = [];
                     let currentLen = 0;
@@ -7809,7 +7809,7 @@
                             currentLen += sepLen + item.length;
                         }
                     });
-                    if (current.length) chunks.push(current.join(sep));
+                    if (current.length) {chunks.push(current.join(sep));}
                     return chunks.length ? chunks : [''];
                 };
 
@@ -7885,11 +7885,11 @@
             // Token classification helpers
             // Airways: letter(s) + numbers (J60, V16, Q99, T200, AR10, A216)
             const isAirway = (token) => {
-                if (!token) return false;
+                if (!token) {return false;}
                 // Check against known airways if available (awys array from awys.js)
                 if (typeof awys !== 'undefined' && Array.isArray(awys)) {
                     const found = awys.some(a => a[0] === token);
-                    if (found) return true;
+                    if (found) {return true;}
                 }
                 // Pattern match: 1-2 letters followed by digits (J60, V16, Q99, T200, AR10)
                 return /^[A-Z]{1,2}\d+$/.test(token);
@@ -7898,12 +7898,12 @@
             // Procedures (SID/STAR): Various patterns including international
             // Examples: RNAV6, CAMRN4, WYNDE3, JFK5, LGA4, EWR1
             const isProcedure = (token) => {
-                if (!token) return false;
+                if (!token) {return false;}
 
                 // Check against loaded procs array if available (procs.js)
                 if (typeof procs !== 'undefined' && Array.isArray(procs)) {
                     const found = procs.some(p => p[0] === token);
-                    if (found) return true;
+                    if (found) {return true;}
                 }
 
                 // Check against dpAllRootNames and starAllRootNames (from procs_enhanced.js)
@@ -7911,10 +7911,10 @@
                 const rootName = token.replace(/\d+$/, '');
                 if (rootName) {
                     if (typeof dpAllRootNames !== 'undefined' && dpAllRootNames instanceof Set) {
-                        if (dpAllRootNames.has(rootName)) return true;
+                        if (dpAllRootNames.has(rootName)) {return true;}
                     }
                     if (typeof starAllRootNames !== 'undefined' && starAllRootNames instanceof Set) {
-                        if (starAllRootNames.has(rootName)) return true;
+                        if (starAllRootNames.has(rootName)) {return true;}
                     }
                 }
 
@@ -7924,7 +7924,7 @@
                 // Must avoid matching airways like J6, V16
                 if (/^[A-Z]{2,6}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 8) {
                     // Exclude if it matches airway pattern (1-2 letters + digits)
-                    if (/^[A-Z]{1,2}\d+$/.test(token)) return false;
+                    if (/^[A-Z]{1,2}\d+$/.test(token)) {return false;}
                     return true;
                 }
                 // Alphanumeric small airport DP codes (1U71, 77S2, 0S91, etc.)
@@ -7938,13 +7938,13 @@
             // Waypoints: everything that's not an airway or procedure
             // Typically 3-5 letter codes (VORs, fixes) or alphanumeric fix names
             const isWaypoint = (token) => {
-                if (!token) return false;
-                if (isAirway(token)) return false;
-                if (isProcedure(token)) return false;
+                if (!token) {return false;}
+                if (isAirway(token)) {return false;}
+                if (isProcedure(token)) {return false;}
 
                 // Check against nav_fixes if available
                 if (typeof navFixes !== 'undefined' && navFixes instanceof Set) {
-                    if (navFixes.has(token)) return true;
+                    if (navFixes.has(token)) {return true;}
                 }
 
                 // Valid waypoints: 2-5 alphanumeric, predominantly letters
@@ -7955,7 +7955,7 @@
             // Find first waypoint in tokens starting from index
             const findFirstWaypoint = (tokens, startIdx) => {
                 for (let i = startIdx; i < tokens.length; i++) {
-                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
+                    if (isWaypoint(tokens[i])) {return { idx: i, token: tokens[i] };}
                 }
                 return null;
             };
@@ -7963,7 +7963,7 @@
             // Find last waypoint in tokens up to (but not including) endIdx
             const findLastWaypoint = (tokens, endIdx) => {
                 for (let i = endIdx - 1; i >= 0; i--) {
-                    if (isWaypoint(tokens[i])) return { idx: i, token: tokens[i] };
+                    if (isWaypoint(tokens[i])) {return { idx: i, token: tokens[i] };}
                 }
                 return null;
             };
@@ -7975,17 +7975,17 @@
                 origDisplay: (r.origin || '').toUpperCase(),
                 destDisplay: (r.destination || '').toUpperCase(),
                 origFilter: (r.originFilter || '').toUpperCase(),
-                destFilter: (r.destFilter || '').toUpperCase()
+                destFilter: (r.destFilter || '').toUpperCase(),
             }));
 
             // Find MULTIPLE pivot waypoints - different route groups may have different pivots
             // E.g., JFK routes converge at MCI, PHL routes converge at STL
             const findPivotWaypoints = (routes) => {
-                if (routes.length < 2) return { pivotGroups: [], unmatchedRoutes: routes };
+                if (routes.length < 2) {return { pivotGroups: [], unmatchedRoutes: routes };}
 
                 const allTokens = routes.map(r => r.tokens);
                 const nonEmptyTokens = allTokens.filter(t => t.length > 0);
-                if (nonEmptyTokens.length < 2) return { pivotGroups: [], unmatchedRoutes: routes };
+                if (nonEmptyTokens.length < 2) {return { pivotGroups: [], unmatchedRoutes: routes };}
 
                 // Minimum routes for a waypoint to be considered a pivot (at least 3 routes or 30%)
                 const minMatchCount = Math.max(3, Math.ceil(nonEmptyTokens.length * 0.3));
@@ -8004,7 +8004,7 @@
                             waypointCounts[token] = (waypointCounts[token] || 0) + 1;
 
                             const position = routeLength > 1 ? idx / (routeLength - 1) : 0.5;
-                            if (!waypointPositions[token]) waypointPositions[token] = [];
+                            if (!waypointPositions[token]) {waypointPositions[token] = [];}
                             waypointPositions[token].push(position);
                         }
                     });
@@ -8058,10 +8058,10 @@
                     const destSegs = [];
 
                     routes.forEach((r, idx) => {
-                        if (routeAssignments.get(idx) !== pivotWpt) return;
+                        if (routeAssignments.get(idx) !== pivotWpt) {return;}
 
                         const pivotIdx = r.tokens.indexOf(pivotWpt);
-                        if (pivotIdx < 0) return;
+                        if (pivotIdx < 0) {return;}
 
                         // Origin segment: everything up to and including pivot (excluding origin airport)
                         let origTokens = r.tokens.slice(0, pivotIdx + 1);
@@ -8081,13 +8081,13 @@
                         originSegs.push({
                             origin: r.origDisplay,
                             originFilter: r.origFilter,
-                            segment: origSeg
+                            segment: origSeg,
                         });
 
                         destSegs.push({
                             destination: r.destDisplay,
                             destFilter: r.destFilter,
-                            segment: destSeg
+                            segment: destSeg,
                         });
                     });
 
@@ -8096,7 +8096,7 @@
                         pivotInfo,
                         originSegs,
                         destSegs,
-                        routeCount: originSegs.length
+                        routeCount: originSegs.length,
                     });
                 }
 
@@ -8202,7 +8202,7 @@
 
             const byOrig = {};
             Object.values(byOrigSeg).forEach(item => {
-                if (!byOrig[item.origin]) byOrig[item.origin] = new Set();
+                if (!byOrig[item.origin]) {byOrig[item.origin] = new Set();}
                 byOrig[item.origin].add(item.segment);
             });
 
@@ -8233,7 +8233,7 @@
 
             const byDest = {};
             Object.values(byDestSeg).forEach(item => {
-                if (!byDest[item.destination]) byDest[item.destination] = new Set();
+                if (!byDest[item.destination]) {byDest[item.destination] = new Set();}
                 byDest[item.destination].add(item.segment);
             });
 
@@ -8363,7 +8363,7 @@
             const byOrig = {};
             routes.forEach(r => {
                 const origKey = r.origDisplay + (r.origFilter ? ' (' + r.origFilter + ')' : '');
-                if (!byOrig[origKey]) byOrig[origKey] = [];
+                if (!byOrig[origKey]) {byOrig[origKey] = [];}
                 byOrig[origKey].push(r);
             });
 
@@ -8392,7 +8392,7 @@
             const byDest = {};
             routes.forEach(r => {
                 const destKey = r.destDisplay + (r.destFilter ? ' (' + r.destFilter + ')' : '');
-                if (!byDest[destKey]) byDest[destKey] = [];
+                if (!byDest[destKey]) {byDest[destKey] = [];}
                 byDest[destKey].push(r);
             });
 
@@ -8430,41 +8430,41 @@
                     title: 'Need More Routes',
                     text: 'Need at least 2 routes to detect common segments.',
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
                 return;
             }
 
             // Token classification helpers (same as formatSplitRouteTable)
             const isAirway = (token) => {
-                if (!token) return false;
+                if (!token) {return false;}
                 if (typeof awys !== 'undefined' && Array.isArray(awys)) {
                     const found = awys.some(a => a[0] === token);
-                    if (found) return true;
+                    if (found) {return true;}
                 }
                 return /^[A-Z]{1,2}\d+$/.test(token);
             };
 
             const isProcedure = (token) => {
-                if (!token) return false;
+                if (!token) {return false;}
                 // Check against loaded procs array
                 if (typeof procs !== 'undefined' && Array.isArray(procs)) {
                     const found = procs.some(p => p[0] === token);
-                    if (found) return true;
+                    if (found) {return true;}
                 }
                 // Check against dpAllRootNames and starAllRootNames
                 const rootName = token.replace(/\d+$/, '');
                 if (rootName) {
                     if (typeof dpAllRootNames !== 'undefined' && dpAllRootNames instanceof Set) {
-                        if (dpAllRootNames.has(rootName)) return true;
+                        if (dpAllRootNames.has(rootName)) {return true;}
                     }
                     if (typeof starAllRootNames !== 'undefined' && starAllRootNames instanceof Set) {
-                        if (starAllRootNames.has(rootName)) return true;
+                        if (starAllRootNames.has(rootName)) {return true;}
                     }
                 }
                 // Pattern: 2+ letters followed by 1-2 digits (JFK5, WYNDE3)
                 if (/^[A-Z]{2,6}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 8) {
-                    if (/^[A-Z]{1,2}\d+$/.test(token)) return false;
+                    if (/^[A-Z]{1,2}\d+$/.test(token)) {return false;}
                     return true;
                 }
                 // Alphanumeric small airport DP codes (1U71, 77S2, 0S91, etc.)
@@ -8475,11 +8475,11 @@
             };
 
             const isWaypoint = (token) => {
-                if (!token) return false;
-                if (isAirway(token)) return false;
-                if (isProcedure(token)) return false;
+                if (!token) {return false;}
+                if (isAirway(token)) {return false;}
+                if (isProcedure(token)) {return false;}
                 if (typeof navFixes !== 'undefined' && navFixes instanceof Set) {
-                    if (navFixes.has(token)) return true;
+                    if (navFixes.has(token)) {return true;}
                 }
                 return /^[A-Z]{2,5}$/.test(token) || /^[A-Z]{3,4}[0-9]?$/.test(token);
             };
@@ -8487,7 +8487,7 @@
             // Tokenize routes
             const tokenizedRoutes = routes.map(r => ({
                 ...r,
-                tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean)
+                tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean),
             }));
 
             // Find pivot waypoints - common waypoints that routes converge through
@@ -8510,7 +8510,7 @@
                         waypointCounts[token] = (waypointCounts[token] || 0) + 1;
 
                         const position = routeLength > 1 ? idx / (routeLength - 1) : 0.5;
-                        if (!waypointPositions[token]) waypointPositions[token] = [];
+                        if (!waypointPositions[token]) {waypointPositions[token] = [];}
                         waypointPositions[token].push(position);
                     }
                 });
@@ -8543,7 +8543,7 @@
                             break;
                         }
                     }
-                    if (!assigned) unmatchedCount++;
+                    if (!assigned) {unmatchedCount++;}
                 });
 
                 // Build table showing pivots that will be used
@@ -8569,7 +8569,7 @@
                     confirmButtonText: 'Use Split Format',
                     showCancelButton: true,
                     cancelButtonText: 'Close',
-                    width: 500
+                    width: 500,
                 }).then(result => {
                     if (result.isConfirmed) {
                         $('#rr_format_split').prop('checked', true);
@@ -8585,7 +8585,7 @@
                         <p class="small text-muted">Routes will be displayed grouped by origin and destination.</p>
                     `,
                     timer: 3000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
             }
         },
@@ -8609,7 +8609,7 @@
                         destination: dest,
                         route,
                         originFilter: originFilter.trim(),
-                        destFilter: destFilter.trim()
+                        destFilter: destFilter.trim(),
                     });
                 }
             });
@@ -8652,11 +8652,11 @@
                     probExtension: $('#rr_prob_extension').val() || 'MEDIUM',
                     remarks: $('#rr_remarks').val() || '',
                     restrictions: $('#rr_restrictions').val() || '',
-                    modifications: $('#rr_modifications').val() || ''
+                    modifications: $('#rr_modifications').val() || '',
                 },
                 facilities: facilities,
                 routes: routes,
-                geojson: this.rerouteData?.geojson || null
+                geojson: this.rerouteData?.geojson || null,
             };
 
             try {
@@ -8667,8 +8667,8 @@
                         user_cid: this.userCid,
                         user_name: this.userName,
                         draft_name: draftData.advisory.name || `${routes[0]?.origin || 'Unknown'}-${routes[0]?.destination || 'Unknown'} Reroute`,
-                        draft_data: draftData
-                    })
+                        draft_data: draftData,
+                    }),
                 });
 
                 const result = await response.json();
@@ -8679,7 +8679,7 @@
                         title: 'Draft Saved',
                         text: `Draft saved successfully (ID: ${result.draft_id})`,
                         timer: 2000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
                     this.loadDraftsList();
                 } else {
@@ -8757,7 +8757,7 @@
                     icon: 'success',
                     title: 'Draft Loaded',
                     timer: 1500,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
 
             } catch (e) {
@@ -8775,14 +8775,14 @@
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
-                confirmButtonText: 'Delete'
+                confirmButtonText: 'Delete',
             });
 
-            if (!confirm.isConfirmed) return;
+            if (!confirm.isConfirmed) {return;}
 
             try {
                 const response = await fetch(`/api/mgt/tmi/reroute-drafts.php?draft_id=${draftId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
                 });
                 const result = await response.json();
 
@@ -8836,9 +8836,9 @@
                     prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
                     remarks: $('#rr_remarks').val() || '',
                     routes: routes,
-                    geojson: this.rerouteData?.geojson || null
+                    geojson: this.rerouteData?.geojson || null,
                 },
-                rawText: $('#rr_preview_text').text()
+                rawText: $('#rr_preview_text').text(),
             };
 
             // Get selected Discord orgs
@@ -8869,17 +8869,17 @@
                 },
                 showCancelButton: true,
                 confirmButtonText: 'Submit',
-                cancelButtonText: 'Cancel'
+                cancelButtonText: 'Cancel',
             });
 
-            if (!deadline) return;
+            if (!deadline) {return;}
 
             // Submit to coordination API
             Swal.fire({
                 title: 'Submitting...',
                 text: 'Creating coordination proposal',
                 allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
+                didOpen: () => Swal.showLoading(),
             });
 
             try {
@@ -8892,8 +8892,8 @@
                         facilities: facilities.map(f => ({ code: f })),
                         orgs: orgs,
                         userCid: this.userCid,
-                        userName: this.userName
-                    })
+                        userName: this.userName,
+                    }),
                 });
 
                 const result = await response.json();
@@ -8905,11 +8905,11 @@
                         html: `
                             <p>Proposal ID: <strong>${result.proposal_id}</strong></p>
                             ${result.auto_approved ?
-                                '<p class="text-success">Auto-approved (internal TMI)</p>' :
-                                '<p>Awaiting facility approvals on Discord.</p>'
-                            }
+        '<p class="text-success">Auto-approved (internal TMI)</p>' :
+        '<p>Awaiting facility approvals on Discord.</p>'
+    }
                         `,
-                        confirmButtonText: 'View in Coordination Tab'
+                        confirmButtonText: 'View in Coordination Tab',
                     }).then(() => {
                         // Switch to coordination tab
                         $('#coordination-tab').tab('show');
@@ -9011,7 +9011,7 @@
                         title: 'No Preview',
                         text: 'Generate a preview first before copying.',
                         timer: 2000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
                     return;
                 }
@@ -9031,7 +9031,7 @@
                         title: 'Copy Failed',
                         text: 'Could not copy to clipboard. Please select and copy manually.',
                         timer: 3000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
                 });
             });
@@ -9074,7 +9074,7 @@
                     text: 'This will clear all fields.',
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Reset'
+                    confirmButtonText: 'Reset',
                 }).then((result) => {
                     if (result.isConfirmed) {
                         self.resetForm();
@@ -9094,7 +9094,7 @@
 
         parseValidTime: function(timeStr) {
             // Convert DDHHMM to datetime-local format
-            if (!timeStr || timeStr.length < 6) return null;
+            if (!timeStr || timeStr.length < 6) {return null;}
             const now = new Date();
             const dd = timeStr.slice(0, 2);
             const hh = timeStr.slice(2, 4);
@@ -9105,29 +9105,29 @@
         },
 
         autoGenerateIncludeTraffic: function() {
-            if (!this.rerouteData?.routes?.length) return;
+            if (!this.rerouteData?.routes?.length) {return;}
 
             const origins = new Set();
             const dests = new Set();
 
             this.rerouteData.routes.forEach(r => {
-                if (r.origin) origins.add(r.origin.toUpperCase());
-                if (r.destination) dests.add(r.destination.toUpperCase());
+                if (r.origin) {origins.add(r.origin.toUpperCase());}
+                if (r.destination) {dests.add(r.destination.toUpperCase());}
                 (r.originAirports || []).forEach(a => origins.add(a.toUpperCase()));
                 (r.destAirports || []).forEach(a => dests.add(a.toUpperCase()));
             });
 
             if (origins.size && dests.size) {
                 const originStr = Array.from(origins).map(a =>
-                    a.startsWith('K') ? a : 'K' + a
+                    a.startsWith('K') ? a : 'K' + a,
                 ).join('/');
                 const destStr = Array.from(dests).map(a =>
-                    a.startsWith('K') ? a : 'K' + a
+                    a.startsWith('K') ? a : 'K' + a,
                 ).join('/');
 
                 $('#rr_include_traffic').val(`${originStr} DEPARTURES TO ${destStr}`);
             }
-        }
+        },
     };
 
     // Expose RerouteHandler globally for event handlers
@@ -9151,7 +9151,7 @@
         updateCauseOptions: updateCauseOptions,
         saveProfile: saveProfile,
         showProfileModal: showProfileModal,
-        loadProposals: loadProposals
+        loadProposals: loadProposals,
     };
 
 })();
