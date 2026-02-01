@@ -199,7 +199,7 @@ function getActiveReroutesForDisplay($conn, $filter = 'active') {
             rr.start_utc, rr.end_utc,
             rr.impacting_condition AS reason,
             rr.advisory_text, rr.color,
-            rr.created_by, rr.created_at, rr.updated_at,
+            rr.created_by, rr.created_utc, rr.updated_utc,
             rr.discord_message_id, rr.discord_channel_id
         FROM dbo.tmi_reroutes rr
         $where_sql
@@ -333,8 +333,8 @@ function formatRerouteAsPublicRoute($routeRow, $parentReroute) {
 
         'metadata' => [
             'created_by' => $parentReroute['created_by'],
-            'created_at' => formatDT($parentReroute['created_at']),
-            'updated_at' => formatDT($parentReroute['updated_at']),
+            'created_at' => formatDT($parentReroute['created_utc']),
+            'updated_at' => formatDT($parentReroute['updated_utc']),
             'source' => 'reroute_advisory'
         ],
 
