@@ -78,7 +78,7 @@
 
 .radar-row label {
     min-width: 55px;
-    color: #999;
+    color: var(--text-on-dark-subtle);
     font-size: 11px;
     text-transform: uppercase;
 }
@@ -135,7 +135,7 @@
     min-width: 35px;
     text-align: right;
     font-family: monospace;
-    color: #888;
+    color: var(--text-on-dark-subtle);
 }
 
 /* Animation controls */
@@ -243,7 +243,7 @@
     display: flex;
     justify-content: space-between;
     font-size: 9px;
-    color: #888;
+    color: var(--text-on-dark-subtle);
 }
 
 /* Discrete color legend */
@@ -262,7 +262,7 @@
 
 .legend-label {
     font-size: 10px;
-    color: #aaa;
+    color: var(--text-on-dark-muted);
 }
 
 /* ============================================================================

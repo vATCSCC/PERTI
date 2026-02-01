@@ -330,21 +330,21 @@
 .dcccp-item.level-Possible {
     background: #ffffcc;
     border: 2px solid #cccc00;
-    color: #333;
+    color: var(--text-on-bright, #000);
 }
 
 /* Probable TMI */
 .dcccp-item.level-Probable {
     background: #ffe6b3;
     border: 2px solid #ff9900;
-    color: #333;
+    color: var(--text-on-bright, #000);
 }
 
 /* Expected TMI */
 .dcccp-item.level-Expected {
     background: #b3e0ff;
     border: 2px solid #cc0000;
-    color: #333;
+    color: var(--text-on-bright, #000);
 }
 
 /* Active TMI */
@@ -364,13 +364,13 @@
 .dcccp-item.level-Advisory_EnRoute,
 .dcccp-item.level-Advisory {
     background: #90c695;
-    color: #333;
+    color: var(--text-on-bright, #000);
 }
 
 /* Special Event */
 .dcccp-item.level-Special_Event {
     background: #d4af37;
-    color: #333;
+    color: var(--text-on-bright, #000);
 }
 
 /* Space Operation */
@@ -382,13 +382,13 @@
 /* VIP Movement */
 .dcccp-item.level-VIP {
     background: #ff8c00;
-    color: #333;
+    color: var(--text-on-bright, #000);
 }
 
 /* Staffing Trigger */
 .dcccp-item.level-Staffing {
     background: #ff6347;
-    color: #333;
+    color: var(--text-on-bright, #000);
 }
 
 /* Miscellaneous */
@@ -471,18 +471,18 @@
     font-weight: 500;
 }
 
-/* Legend colors */
-.dcccp-legend-item.level-CDW { background: #ffff00; border: 2px solid #cc0000; color: #333; }
-.dcccp-legend-item.level-Possible { background: #ffffcc; border: 2px solid #cccc00; color: #333; }
-.dcccp-legend-item.level-Probable { background: #ffe6b3; border: 2px solid #ff9900; color: #333; }
-.dcccp-legend-item.level-Expected { background: #b3e0ff; border: 2px solid #cc0000; color: #333; }
+/* Legend colors - using CSS variables for proper contrast */
+.dcccp-legend-item.level-CDW { background: #ffff00; border: 2px solid #cc0000; color: var(--text-on-bright, #000); }
+.dcccp-legend-item.level-Possible { background: #ffffcc; border: 2px solid #cccc00; color: var(--text-on-bright, #000); }
+.dcccp-legend-item.level-Probable { background: #ffe6b3; border: 2px solid #ff9900; color: var(--text-on-bright, #000); }
+.dcccp-legend-item.level-Expected { background: #b3e0ff; border: 2px solid #cc0000; color: var(--text-on-bright, #000); }
 .dcccp-legend-item.level-Active { background: #cc0000; color: #fff; }
 .dcccp-legend-item.level-Advisory_Terminal { background: #cc3333; color: #fff; }
-.dcccp-legend-item.level-Advisory_EnRoute, .dcccp-legend-item.level-Advisory { background: #90c695; color: #333; }
-.dcccp-legend-item.level-Special_Event { background: #d4af37; color: #333; }
+.dcccp-legend-item.level-Advisory_EnRoute, .dcccp-legend-item.level-Advisory { background: #90c695; color: var(--text-on-bright, #000); }
+.dcccp-legend-item.level-Special_Event { background: #d4af37; color: var(--text-on-bright, #000); }
 .dcccp-legend-item.level-Space_Op { background: #2d5a27; color: #fff; }
-.dcccp-legend-item.level-VIP { background: #ff8c00; color: #333; }
-.dcccp-legend-item.level-Staffing { background: #ff6347; color: #333; }
+.dcccp-legend-item.level-VIP { background: #ff8c00; color: var(--text-on-bright, #000); }
+.dcccp-legend-item.level-Staffing { background: #ff6347; color: var(--text-on-bright, #000); }
 .dcccp-legend-item.level-Misc { background: #333; color: #fff; }
 .dcccp-legend-item.level-Constraint_Terminal,
 .dcccp-legend-item.level-Constraint_EnRoute { background: #b30000; border: 2px solid #800000; color: #fff; }

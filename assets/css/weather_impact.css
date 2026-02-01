@@ -66,7 +66,7 @@
 .weather-impact-summary .impact-stat .stat-label {
     display: block;
     font-size: 10px;
-    color: #999;
+    color: var(--text-on-dark-subtle);
     text-transform: uppercase;
     margin-top: 2px;
 }
@@ -100,7 +100,7 @@
 .weather-impact-loading {
     text-align: center;
     padding: 20px;
-    color: #888;
+    color: var(--text-on-dark-subtle);
 }
 
 /* =========================================================================
@@ -176,29 +176,29 @@
 .affected-flight .flight-route {
     flex: 1;
     font-size: 11px;
-    color: #999;
+    color: var(--text-on-dark-subtle);
 }
 
 .affected-flight .flight-impact-type {
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 3px;
-    background: #444;
-    color: #ccc;
+    background: var(--bg-panel-dark);
+    color: var(--text-on-dark-secondary);
 }
 
 .more-flights {
     padding: 8px 10px;
     text-align: center;
     font-size: 11px;
-    color: #888;
+    color: var(--text-on-dark-subtle);
     font-style: italic;
 }
 
 .no-affected-flights {
     padding: 20px;
     text-align: center;
-    color: #888;
+    color: var(--text-on-dark-subtle);
 }
 
 /* =========================================================================
@@ -258,12 +258,12 @@
 
 .weather-impact-item .impact-expires {
     font-size: 10px;
-    color: #999;
+    color: var(--text-on-dark-subtle);
 }
 
 .weather-impact-item .impact-details {
     font-size: 11px;
-    color: #aaa;
+    color: var(--text-on-dark-muted);
 }
 
 .weather-impact-item .impact-details span {
