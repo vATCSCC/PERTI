@@ -1469,6 +1469,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             `;
         }
 
+        // Add trajectory counts info
+        const detectedFlights = r.crossings || r.total_crossings || 0;
+        html += this.renderTrajectoryCounts(r.tmi_start, r.tmi_end, detectedFlights);
+
         // Add context map section
         const mapId = `mit_map_${this.detailIdCounter}`;
         html += this.renderMapSection(r, mapId);
@@ -1622,6 +1626,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
             `;
         }
+
+        // Add trajectory counts info
+        const detectedFlights = r.total_flights || 0;
+        html += this.renderTrajectoryCounts(r.gs_start, r.gs_end, detectedFlights);
 
         html += '</div>';
         return html;
@@ -1783,6 +1791,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
             `;
         }
+
+        // Add trajectory counts info
+        const detectedFlights = r.total_flights || 0;
+        html += this.renderTrajectoryCounts(r.tmi_start, r.tmi_end, detectedFlights);
 
         html += '</div>';
         return html;
@@ -3335,6 +3347,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Data gap tracking
     dataGaps: null,
     dataGapsChecked: false,
+    hourlyCounts: {},
 
     /**
      * Check for trajectory data gaps in the analysis time range
@@ -3364,19 +3377,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         $.ajax({
-            url: `api/analysis/trajectory_gaps.php?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+            url: `api/analysis/trajectory_gaps.php?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&include_counts=true`,
             method: 'GET',
             dataType: 'json',
             success: (response) => {
                 this.dataGapsChecked = true;
                 if (response.success) {
                     this.dataGaps = response.has_gaps ? response : null;
+                    this.hourlyCounts = response.hourly_counts || {};
+                } else {
+                    this.hourlyCounts = {};
                 }
                 if (callback) {callback();}
             },
             error: () => {
                 this.dataGapsChecked = true;
                 this.dataGaps = null;
+                this.hourlyCounts = {};
                 if (callback) {callback();}
             }
         });
@@ -3587,6 +3604,124 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                       style="cursor: help;">
                     <i class="fas fa-exclamation-triangle"></i> Data Gap
                 </span>`;
+    },
+
+    /**
+     * Get trajectory counts for a TMI time window
+     * @param {string} tmiStart - TMI start time (format: "HH:MMZ" or ISO datetime)
+     * @param {string} tmiEnd - TMI end time (format: "HH:MMZ" or ISO datetime)
+     * @returns {object} - {trajPoints: N, uniqueFlights: N, hours: N, hasData: bool}
+     */
+    getTMITrajectoryCounts: function(tmiStart, tmiEnd) {
+        const result = {
+            trajPoints: 0,
+            uniqueFlights: 0,
+            hours: 0,
+            hasData: false
+        };
+
+        if (!this.hourlyCounts || Object.keys(this.hourlyCounts).length === 0) {
+            return result;
+        }
+
+        // Parse TMI times to get hours
+        const parseHour = (timeStr) => {
+            if (!timeStr) {return null;}
+            const match = timeStr.match(/(\d{2}):?(\d{2})/);
+            if (match) {
+                return parseInt(match[1]);
+            }
+            return null;
+        };
+
+        const tmiStartHour = parseHour(tmiStart);
+        const tmiEndHour = parseHour(tmiEnd);
+
+        if (tmiStartHour === null || tmiEndHour === null) {
+            return result;
+        }
+
+        // Get event date from results
+        const eventDate = this.results?.event_start?.split('T')[0] ||
+                          this.results?.event_start?.split(' ')[0];
+
+        if (!eventDate) {
+            return result;
+        }
+
+        // Build list of hours in TMI window, handling wrap-around
+        let tmiHours = [];
+        if (tmiEndHour >= tmiStartHour) {
+            for (let h = tmiStartHour; h <= tmiEndHour; h++) {
+                tmiHours.push(h);
+            }
+        } else {
+            // Wrap around midnight
+            for (let h = tmiStartHour; h <= 23; h++) {
+                tmiHours.push(h);
+            }
+            for (let h = 0; h <= tmiEndHour; h++) {
+                tmiHours.push(h);
+            }
+        }
+
+        result.hours = tmiHours.length;
+
+        // Sum trajectory counts for each hour in the TMI window
+        tmiHours.forEach(h => {
+            const key = `${eventDate}T${String(h).padStart(2, '0')}`;
+            const hourData = this.hourlyCounts[key];
+            if (hourData) {
+                result.trajPoints += hourData.traj_points || 0;
+                result.uniqueFlights += hourData.unique_flights || 0;
+                result.hasData = true;
+            }
+        });
+
+        return result;
+    },
+
+    /**
+     * Render trajectory counts info for a TMI card
+     * @param {string} tmiStart - TMI start time
+     * @param {string} tmiEnd - TMI end time
+     * @param {number} detectedFlights - Number of flights detected in compliance analysis
+     * @returns {string} - HTML for trajectory counts display
+     */
+    renderTrajectoryCounts: function(tmiStart, tmiEnd, detectedFlights) {
+        const counts = this.getTMITrajectoryCounts(tmiStart, tmiEnd);
+
+        if (!counts.hasData) {
+            return '';
+        }
+
+        // Format large numbers with commas
+        const formatNum = (n) => n.toLocaleString();
+
+        // Determine if there's a significant discrepancy
+        const flightDiff = counts.uniqueFlights - (detectedFlights || 0);
+        const discrepancyClass = flightDiff > 10 ? 'text-warning' : 'text-muted';
+        const discrepancyNote = flightDiff > 10
+            ? ` <span class="badge badge-warning badge-sm" title="Trajectory data shows more flights than detected. Some may not have crossed the fix/filter area.">+${flightDiff} in area</span>`
+            : '';
+
+        return `
+            <div class="tmi-trajectory-counts small text-muted mt-1" style="border-top: 1px dashed #dee2e6; padding-top: 0.5rem;">
+                <i class="fas fa-satellite text-info"></i>
+                <span title="Trajectory data points recorded during TMI window">
+                    <strong>${formatNum(counts.trajPoints)}</strong> traj points
+                </span>
+                <span class="mx-2">|</span>
+                <span title="Unique flights with trajectory data in database during TMI hours">
+                    <strong>${formatNum(counts.uniqueFlights)}</strong> flights in DB
+                </span>
+                ${discrepancyNote}
+                <span class="mx-2">|</span>
+                <span title="Hours covered by this TMI">
+                    ${counts.hours}h window
+                </span>
+            </div>
+        `;
     },
 
     showNoData: function() {

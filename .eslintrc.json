@@ -9,7 +9,8 @@
         "**/node_modules/**",
         "assets/js/plugins/**",
         "assets/vendor/**",
-        "assets/js/theme.min.js"
+        "assets/js/theme.min.js",
+        "assets/js/cycle.js"
     ],
     "extends": "eslint:recommended",
     "parserOptions": {
