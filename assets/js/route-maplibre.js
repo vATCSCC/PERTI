@@ -1294,7 +1294,7 @@ $(document).ready(function() {
                         'TFR_HBP': 'TFR: High Barometric'
                     };
                     var typeLabel = typeLabels[props.suaType] || props.suaType;
-                    content += '<br><span style="color: #888; font-size: 0.85em;">' + typeLabel + '</span>';
+                    content += '<br><span style="color: var(--dark-text-subtle); font-size: 0.85em;">' + typeLabel + '</span>';
                 }
                 
                 if (props.notamId) {
@@ -1313,11 +1313,11 @@ $(document).ready(function() {
                 }
                 
                 if (props.schedule) {
-                    content += '<br><span style="font-size: 0.8em; color: #666;">Schedule: ' + props.schedule + '</span>';
+                    content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">Schedule: ' + props.schedule + '</span>';
                 }
                 
                 if (props.artcc) {
-                    content += '<br><span style="font-size: 0.8em; color: #666;">ARTCC: ' + props.artcc + '</span>';
+                    content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">ARTCC: ' + props.artcc + '</span>';
                 }
                 
                 content += '</div>';
@@ -2405,7 +2405,7 @@ $(document).ready(function() {
             const content = `
                 <div class="fix-popup" style="font-family: 'Inconsolata', monospace; font-size: 12px;">
                     <div style="font-weight: bold; font-size: 14px; color: ${props.color || '#333'};">${props.name}</div>
-                    <div style="color: #666; margin-top: 4px;">
+                    <div style="color: var(--dark-text-disabled); margin-top: 4px;">
                         ${coords[1].toFixed(4)}° N, ${Math.abs(coords[0]).toFixed(4)}° ${coords[0] < 0 ? 'W' : 'E'}
                     </div>
                 </div>
@@ -2457,7 +2457,7 @@ $(document).ready(function() {
                 segmentInfo = `<div style="font-weight: bold;">${props.fromFix} → ${props.toFix}</div>`;
             }
             if (props.distance > 0) {
-                segmentInfo += `<div style="color: #666;">${props.distance} nm</div>`;
+                segmentInfo += `<div style="color: var(--dark-text-disabled);">${props.distance} nm</div>`;
             }
             
             const lineType = props.isFan ? 'Fan' : (props.solid ? 'Mandatory' : 'Dashed');
@@ -2474,7 +2474,7 @@ $(document).ready(function() {
                     ${segmentInfo}
                     <div style="margin-top: 4px;">
                         <span style="display: inline-block; width: 12px; height: 12px; background: ${props.color}; border-radius: 2px; vertical-align: middle;"></span>
-                        <span style="color: #888; margin-left: 4px;">${lineType}</span>
+                        <span style="color: var(--dark-text-subtle); margin-left: 4px;">${lineType}</span>
                     </div>
                     <div style="display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
                         ${hasSymbology ? `
@@ -2551,18 +2551,18 @@ $(document).ready(function() {
                          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'">
                         <span style="display: inline-block; width: 12px; height: 12px; background: ${props.color}; border-radius: 2px; margin-right: 8px;"></span>
                         <span style="flex: 1; font-size: 11px;">${fromTo}</span>
-                        <span style="font-size: 10px; color: #666;">${labelStatus}</span>
+                        <span style="font-size: 10px; color: var(--dark-text-disabled);">${labelStatus}</span>
                     </div>
                 `;
             }).join('');
             
             const content = `
                 <div class="route-picker" style="font-family: 'Inconsolata', monospace; min-width: 180px;">
-                    <div style="font-weight: bold; font-size: 11px; color: #666; padding: 6px 8px; border-bottom: 2px solid #ddd; text-transform: uppercase;">
+                    <div style="font-weight: bold; font-size: 11px; color: var(--dark-text-disabled); padding: 6px 8px; border-bottom: 2px solid #ddd; text-transform: uppercase;">
                         ${routes.length} Overlapping Routes
                     </div>
                     ${options}
-                    <div style="font-size: 9px; color: #999; padding: 4px 8px; text-align: center;">
+                    <div style="font-size: 9px; color: var(--dark-text-subtle); padding: 4px 8px; text-align: center;">
                         Click to toggle labels
                     </div>
                 </div>
@@ -2722,7 +2722,7 @@ $(document).ready(function() {
             const content = `
                 <div class="flight-route-popup" style="font-family: 'Inconsolata', monospace; font-size: 12px;">
                     <div style="font-weight: bold; color: ${props.color || '#fff'};">${props.callsign}</div>
-                    <div style="color: #888; margin-top: 4px;">
+                    <div style="color: var(--dark-text-subtle); margin-top: 4px;">
                         ${isAhead ? 'Route Ahead' : 'Route Behind'}
                     </div>
                 </div>

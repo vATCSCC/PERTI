@@ -5617,7 +5617,7 @@ function getStatusBadgeStyle(status) {
  */
 function getExtraColumnStyle(chartView, value) {
     if (!value || value === '--') {
-        return 'color: #999;';
+        return 'color: var(--dark-text-subtle);';
     }
 
     let bgColor = null;

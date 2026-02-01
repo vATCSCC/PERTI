@@ -357,24 +357,24 @@ const SplitsController = {
                     type: 'fill',
                     source: 'high-source',
                     paint: {
-                        'fill-color': '#FF6347',
+                        'fill-color': PERTIColors.airspace.high,
                         'fill-opacity': 0.5
                     },
                     layout: { visibility: 'none' }
                 }, 'sectors-fill');
-                
+
                 this.map.addLayer({
                     id: 'high-lines',
                     type: 'line',
                     source: 'high-source',
                     paint: {
-                        'line-color': '#FF6347',
+                        'line-color': PERTIColors.airspace.high,
                         'line-width': 1,
                         'line-opacity': 0.5
                     },
                     layout: { visibility: 'none' }
                 }, 'sectors-fill');
-                
+
                 this.map.addLayer({
                     id: 'high-labels',
                     type: 'symbol',
@@ -388,7 +388,7 @@ const SplitsController = {
                         'visibility': 'none'
                     },
                     paint: {
-                        'text-color': '#FF6347',
+                        'text-color': PERTIColors.airspace.high,
                         'text-halo-color': '#000',
                         'text-halo-width': 1.5
                     }
@@ -422,24 +422,24 @@ const SplitsController = {
                     type: 'fill',
                     source: 'low-source',
                     paint: {
-                        'fill-color': '#228B22',
+                        'fill-color': PERTIColors.airspace.low,
                         'fill-opacity': 0.5
                     },
                     layout: { visibility: 'none' }
                 }, 'sectors-fill');
-                
+
                 this.map.addLayer({
                     id: 'low-lines',
                     type: 'line',
                     source: 'low-source',
                     paint: {
-                        'line-color': '#228B22',
+                        'line-color': PERTIColors.airspace.low,
                         'line-width': 1,
                         'line-opacity': 0.5
                     },
                     layout: { visibility: 'none' }
                 }, 'sectors-fill');
-                
+
                 this.map.addLayer({
                     id: 'low-labels',
                     type: 'symbol',
@@ -453,7 +453,7 @@ const SplitsController = {
                         'visibility': 'none'
                     },
                     paint: {
-                        'text-color': '#228B22',
+                        'text-color': PERTIColors.airspace.low,
                         'text-halo-color': '#000',
                         'text-halo-width': 1.5
                     }
@@ -487,24 +487,24 @@ const SplitsController = {
                     type: 'fill',
                     source: 'superhigh-source',
                     paint: {
-                        'fill-color': '#9932CC',
+                        'fill-color': PERTIColors.airspace.superhigh,
                         'fill-opacity': 0.5
                     },
                     layout: { visibility: 'none' }
                 }, 'sectors-fill');
-                
+
                 this.map.addLayer({
                     id: 'superhigh-lines',
                     type: 'line',
                     source: 'superhigh-source',
                     paint: {
-                        'line-color': '#9932CC',
+                        'line-color': PERTIColors.airspace.superhigh,
                         'line-width': 1,
                         'line-opacity': 0.5
                     },
                     layout: { visibility: 'none' }
                 }, 'sectors-fill');
-                
+
                 this.map.addLayer({
                     id: 'superhigh-labels',
                     type: 'symbol',
@@ -518,7 +518,7 @@ const SplitsController = {
                         'visibility': 'none'
                     },
                     paint: {
-                        'text-color': '#9932CC',
+                        'text-color': PERTIColors.airspace.superhigh,
                         'text-halo-color': '#000',
                         'text-halo-width': 1.5
                     }
@@ -1723,7 +1723,7 @@ const SplitsController = {
                 ${features.map((item, index) => {
                     const isSelected = currentlySelected.has(item.sectorId);
                     const typeName = { 'high': 'High', 'low': 'Low', 'superhigh': 'Super High' }[item.layerType] || item.layerType;
-                    const typeColor = { 'high': '#FF6347', 'low': '#228B22', 'superhigh': '#9932CC' }[item.layerType] || '#888';
+                    const typeColor = { 'high': PERTIColors.airspace.high, 'low': PERTIColors.airspace.low, 'superhigh': PERTIColors.airspace.superhigh }[item.layerType] || '#888';
                     return `
                         <div class="layer-select-item sector-select-item ${isSelected ? 'is-selected' : ''}" 
                              data-index="${index}" data-sector="${item.sectorId}" data-type="${item.layerType}">
@@ -2037,11 +2037,11 @@ const SplitsController = {
         
         // Color map for layer types
         const typeColors = {
-            'high': '#FF6347',
-            'low': '#228B22',
-            'superhigh': '#9932CC',
-            'artcc': '#FF00FF',
-            'tracon': '#4682B4',
+            'high': PERTIColors.airspace.high,
+            'low': PERTIColors.airspace.low,
+            'superhigh': PERTIColors.airspace.superhigh,
+            'artcc': PERTIColors.airspace.artcc,
+            'tracon': PERTIColors.airspace.tracon,
             'areas': '#a855f7',
             'presets': '#f59e0b',
             'active': '#e63946'
@@ -2235,7 +2235,7 @@ const SplitsController = {
                     <hr style="margin: 6px 0; border-color: #444;">
                     <div class="popup-row" style="flex-direction: column; align-items: flex-start;">
                         <span style="margin-bottom: 2px;">Also in this position (${sectors.length} total):</span>
-                        <div style="font-family: monospace; font-size: 10px; color: #aaa;">${otherSectors.join(', ')}</div>
+                        <div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${otherSectors.join(', ')}</div>
                     </div>
                 `;
             }
@@ -2250,7 +2250,7 @@ const SplitsController = {
     buildSectorPopup(props, type) {
         const isHigh = type === 'high';
         const isSuperhigh = type === 'superhigh';
-        const color = isSuperhigh ? '#9932CC' : (isHigh ? '#FF6347' : '#228B22');
+        const color = isSuperhigh ? PERTIColors.airspace.superhigh : (isHigh ? PERTIColors.airspace.high : PERTIColors.airspace.low);
         const levelName = isSuperhigh ? 'Superhigh' : (isHigh ? 'High' : 'Low');
         
         const artcc = (props.artcc || '').toUpperCase();
@@ -2394,8 +2394,8 @@ const SplitsController = {
                 const uniqueId = 'airports-' + Date.now();
                 airportsHtml = `<div class="popup-row" style="flex-direction: column; align-items: flex-start;">
                     <span>Airports (${airportList.length}):</span>
-                    <div id="${uniqueId}-short" style="font-family: monospace; font-size: 10px; color: #aaa; margin-top: 2px;">${shown}</div>
-                    <div id="${uniqueId}-full" style="font-family: monospace; font-size: 10px; color: #aaa; margin-top: 2px; display: none;">${allAirports}</div>
+                    <div id="${uniqueId}-short" style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted); margin-top: 2px;">${shown}</div>
+                    <div id="${uniqueId}-full" style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted); margin-top: 2px; display: none;">${allAirports}</div>
                     <div id="${uniqueId}-toggle" 
                          style="font-size: 10px; color: #4dabf7; cursor: pointer; margin-top: 2px;" 
                          onclick="
@@ -2473,7 +2473,7 @@ const SplitsController = {
                 <div class="popup-body">
                     <div class="popup-row"><span>ARTCC:</span> ${props.artcc || 'N/A'}</div>
                     <div class="popup-row"><span>Sectors:</span> ${sectors.length}</div>
-                    ${sectorList ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">Includes:</span><div style="font-family: monospace; font-size: 10px; color: #aaa;">${sectorList}</div></div>` : ''}
+                    ${sectorList ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">Includes:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectorList}</div></div>` : ''}
                 </div>
             </div>
         `;
@@ -2498,7 +2498,7 @@ const SplitsController = {
                     <div class="popup-row"><span>Preset:</span> ${props.preset_name || 'N/A'}</div>
                     <div class="popup-row"><span>ARTCC:</span> ${props.artcc || 'N/A'}</div>
                     <div class="popup-row"><span>Sectors:</span> ${sectors.length}</div>
-                    ${sectors.length > 0 ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">Includes:</span><div style="font-family: monospace; font-size: 10px; color: #aaa;">${sectors.join(', ')}</div></div>` : ''}
+                    ${sectors.length > 0 ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">Includes:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectors.join(', ')}</div></div>` : ''}
                 </div>
             </div>
         `;
@@ -3016,7 +3016,7 @@ const SplitsController = {
         
         container.innerHTML = sectors.map(s => {
             const isSelected = selectedSectors.includes(s.id);
-            const typeColor = s.type === 'superhigh' ? '#9932CC' : (s.type === 'high' ? '#FF6347' : '#228B22');
+            const typeColor = s.type === 'superhigh' ? PERTIColors.airspace.superhigh : (s.type === 'high' ? PERTIColors.airspace.high : PERTIColors.airspace.low);
             return `<div class="sector-chip ${isSelected ? 'selected' : ''}" data-sector="${s.id}" data-type="${s.type}">
                 <span class="sector-type-dot" style="background:${typeColor}"></span>${s.name}
             </div>`;
@@ -3803,14 +3803,14 @@ const SplitsController = {
                     // Strata is disabled for this position - show as unassigned
                     features.push({
                         type: 'Feature',
-                        properties: { sector_id: sector.id, color: '#444444', selected: false },
+                        properties: { sector_id: sector.id, color: PERTIColors.airspace.unassigned, selected: false },
                         geometry: sectorGeom.geometry
                     });
                     return;
                 }
             }
 
-            const color = assigned ? assigned.color : '#444444';
+            const color = assigned ? assigned.color : PERTIColors.airspace.unassigned;
 
             features.push({
                 type: 'Feature',
@@ -3821,7 +3821,7 @@ const SplitsController = {
             if (sectorGeom.centroid) {
                 labelFeatures.push({
                     type: 'Feature',
-                    properties: { label: assigned ? assigned.name : sector.name, color: assigned ? assigned.color : '#666666' },
+                    properties: { label: assigned ? assigned.name : sector.name, color: assigned ? assigned.color : PERTIColors.airspace.unassignedLabel },
                     geometry: { type: 'Point', coordinates: sectorGeom.centroid }
                 });
             }
@@ -4144,7 +4144,7 @@ const SplitsController = {
         container.innerHTML = sectors.map(s => {
             const isAssigned = assignedByOthers.has(s.id);
             const isSelected = currentSectors.has(s.id);
-            const typeColor = s.type === 'superhigh' ? '#9932CC' : (s.type === 'high' ? '#FF6347' : '#228B22');
+            const typeColor = s.type === 'superhigh' ? PERTIColors.airspace.superhigh : (s.type === 'high' ? PERTIColors.airspace.high : PERTIColors.airspace.low);
             let classes = 'sector-chip';
             if (isSelected) classes += ' selected';
             if (isAssigned) classes += ' assigned';
@@ -4171,7 +4171,7 @@ const SplitsController = {
             return;
         }
         
-        container.innerHTML = '<label class="d-block mb-1" style="font-size: 10px; color: #888;">Quick Select Area:</label>';
+        container.innerHTML = '<label class="d-block mb-1" style="font-size: 10px; color: var(--dark-text-subtle);">Quick Select Area:</label>';
         artccAreas.forEach(area => {
             const btn = document.createElement('button');
             btn.className = 'btn btn-xs btn-outline-info mr-1 mb-1';
@@ -4648,7 +4648,7 @@ const SplitsController = {
         container.innerHTML = sectors.map(s => {
             const isAssigned = assignedSectors.has(s.id) && !currentSplitSectors.has(s.id);
             const isSelected = currentSplitSectors.has(s.id);
-            const typeColor = s.type === 'superhigh' ? '#9932CC' : (s.type === 'high' ? '#FF6347' : '#228B22');
+            const typeColor = s.type === 'superhigh' ? PERTIColors.airspace.superhigh : (s.type === 'high' ? PERTIColors.airspace.high : PERTIColors.airspace.low);
             return `
                 <div class="sector-chip ${isSelected ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}" 
                      data-sector="${s.id}" data-type="${s.type}" ${isAssigned ? 'title="Assigned to another split"' : ''}>
@@ -4674,7 +4674,7 @@ const SplitsController = {
             return;
         }
         
-        container.innerHTML = '<label class="d-block mb-1" style="font-size: 10px; color: #888;">Quick Select Area:</label>';
+        container.innerHTML = '<label class="d-block mb-1" style="font-size: 10px; color: var(--dark-text-subtle);">Quick Select Area:</label>';
         artccAreas.forEach(area => {
             const btn = document.createElement('button');
             btn.className = 'btn btn-xs btn-outline-info mr-1 mb-1';

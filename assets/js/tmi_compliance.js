@@ -251,7 +251,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div id="analysis_progress" class="progress-bar"
                              role="progressbar" style="width: 5%; background: linear-gradient(90deg, #4dabf7, #228be6);"></div>
                     </div>
-                    <div class="d-flex justify-content-between mt-2 small" style="color: #888;">
+                    <div class="d-flex justify-content-between mt-2 small" style="color: var(--dark-text-subtle);">
                         <span id="analysis_elapsed">0:00</span>
                         <span id="analysis_step">Step 1 of ${analysisSteps.length}</span>
                     </div>
@@ -334,7 +334,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         html: `
                             <div class="text-center">
                                 <p>TMI compliance analysis completed in <strong>${elapsed}s</strong></p>
-                                <div class="mt-3 small" style="color: #888;">
+                                <div class="mt-3 small" style="color: var(--dark-text-subtle);">
                                     <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${mitCount} MIT/MINIT restriction${mitCount !== 1 ? 's' : ''}</div>
                                     <div><i class="fas fa-plane-slash text-warning mr-2"></i>${gsCount} ground stop${gsCount !== 1 ? 's' : ''}</div>
                                     <div><i class="fas fa-clipboard-check text-success mr-2"></i>${apreqCount} APREQ/CFR${apreqCount !== 1 ? 's' : ''}</div>
@@ -1982,8 +1982,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <span class="small ml-2">(${displayReq}${displayProv ? ' → ' + displayProv : ''})</span>
                 </div>
                 <div class="tmi-map-collapse" id="${mapId}" style="display: none;">
+                    <div class="tmi-map-layer-controls" id="${mapId}_controls" style="display: none;">
+                        <span class="layer-label">Layers:</span>
+                        <button class="layer-btn active" data-layer="artcc" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">ARTCC</button>
+                        <button class="layer-btn active" data-layer="tracon" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">TRACON</button>
+                        <button class="layer-btn" data-layer="sectors-low" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Low</button>
+                        <button class="layer-btn active" data-layer="sectors-high" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">High</button>
+                        <button class="layer-btn" data-layer="sectors-superhigh" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Super High</button>
+                        <span class="layer-divider">|</span>
+                        <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Tracks</button>
+                        <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
+                    </div>
                     <div class="tmi-map-container mt-2" id="${mapId}_container">
-                        <div class="d-flex align-items-center justify-content-center h-100" style="color: #9090a0;">
+                        <div class="d-flex align-items-center justify-content-center h-100" style="color: var(--dark-text-subtle);">
                             <i class="fas fa-spinner fa-spin mr-2"></i> Loading map...
                         </div>
                     </div>
@@ -2249,65 +2260,85 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 console.log(`Added ${mapData.facilities.length} facility boundaries to map`);
             }
 
-            // Add sector boundaries (less prominent than facility boundaries)
+            // Add sector boundaries by altitude type (low, high, superhigh)
             if (mapData.sectors?.length) {
-                map.addSource('sectors', {
-                    type: 'geojson',
-                    data: { type: 'FeatureCollection', features: mapData.sectors }
-                });
+                // Colors for each altitude type
+                const altitudeColors = {
+                    low: { fill: '#74c0fc', line: '#74c0fc' },    // Light blue
+                    high: { fill: '#4dabf7', line: '#4dabf7' },   // Blue
+                    superhigh: { fill: '#228be6', line: '#228be6' } // Dark blue
+                };
 
                 // Insert below facilities if they exist
                 const insertBefore = mapData.facilities?.length ? 'facilities-fill' : undefined;
 
-                // Sector fills - very subtle
-                map.addLayer({
-                    id: 'sectors-fill',
-                    type: 'fill',
-                    source: 'sectors',
-                    paint: {
-                        'fill-color': ['case',
-                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
-                            '#888888'],
-                        'fill-opacity': 0.05
-                    }
-                }, insertBefore);
+                // Create separate source and layers for each altitude type
+                for (const altType of ['low', 'high', 'superhigh']) {
+                    const altSectors = mapData.sectors.filter(s => s.properties.altitude === altType);
+                    if (altSectors.length === 0) continue;
 
-                // Sector outlines - thin dashed lines
-                map.addLayer({
-                    id: 'sectors-outline',
-                    type: 'line',
-                    source: 'sectors',
-                    paint: {
-                        'line-color': ['case',
-                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
-                            '#888888'],
-                        'line-width': 0.75,
-                        'line-opacity': 0.5,
-                        'line-dasharray': [3, 2]
-                    }
-                }, insertBefore);
+                    const sourceId = `sectors-${altType}`;
+                    const colors = altitudeColors[altType];
 
-                // Sector labels - only show at higher zoom levels
-                map.addLayer({
-                    id: 'sectors-labels',
-                    type: 'symbol',
-                    source: 'sectors',
-                    minzoom: 6,  // Only show labels when zoomed in
-                    layout: {
-                        'text-field': ['get', 'code'],
-                        'text-font': ['Noto Sans Regular'],
-                        'text-size': 10,
-                        'text-anchor': 'center',
-                        'text-allow-overlap': false,
-                        'symbol-placement': 'point'
-                    },
-                    paint: {
-                        'text-color': '#adb5bd',
-                        'text-halo-color': '#000000',
-                        'text-halo-width': 1,
-                        'text-opacity': 0.7
-                    }
-                });
+                    map.addSource(sourceId, {
+                        type: 'geojson',
+                        data: { type: 'FeatureCollection', features: altSectors }
+                    });
+
+                    // Sector fills - very subtle
+                    map.addLayer({
+                        id: `${sourceId}-fill`,
+                        type: 'fill',
+                        source: sourceId,
+                        layout: {
+                            'visibility': altType === 'high' ? 'visible' : 'none'  // Only high visible by default
+                        },
+                        paint: {
+                            'fill-color': colors.fill,
+                            'fill-opacity': ['case', ['==', ['get', 'role'], 'provider'], 0.08, 0.04]
+                        }
+                    }, insertBefore);
+
+                    // Sector outlines - thin dashed lines
+                    map.addLayer({
+                        id: `${sourceId}-outline`,
+                        type: 'line',
+                        source: sourceId,
+                        layout: {
+                            'visibility': altType === 'high' ? 'visible' : 'none'
+                        },
+                        paint: {
+                            'line-color': colors.line,
+                            'line-width': ['case', ['==', ['get', 'role'], 'provider'], 1, 0.5],
+                            'line-opacity': 0.6,
+                            'line-dasharray': [3, 2]
+                        }
+                    }, insertBefore);
+
+                    // Sector labels - only at higher zoom levels
+                    map.addLayer({
+                        id: `${sourceId}-labels`,
+                        type: 'symbol',
+                        source: sourceId,
+                        minzoom: 6,
+                        layout: {
+                            'visibility': altType === 'high' ? 'visible' : 'none',
+                            'text-field': ['get', 'code'],
+                            'text-font': ['Noto Sans Regular'],
+                            'text-size': 9,
+                            'text-anchor': 'center',
+                            'text-allow-overlap': false
+                        },
+                        paint: {
+                            'text-color': colors.line,
+                            'text-halo-color': '#000000',
+                            'text-halo-width': 1,
+                            'text-opacity': 0.6
+                        }
+                    });
+
+                    console.log(`Added ${altSectors.length} ${altType}-altitude sectors`);
+                }
 
                 console.log(`Added ${mapData.sectors.length} sector boundaries to map`);
             }
@@ -2696,6 +2727,78 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 console.log(`Added traffic sectors: 75% (${sectorData.sector_75.width_deg}°), 90% (${sectorData.sector_90.width_deg}°)`);
             }
 
+            // Add measurement point emphasis (pulsing marker at fix location)
+            if (mapData.fixes?.length) {
+                const measurementFix = mapData.fixes[0];  // Primary fix is measurement point
+                if (measurementFix?.geometry?.coordinates) {
+                    const [lon, lat] = measurementFix.geometry.coordinates;
+
+                    // Create pulsing ring effect
+                    map.addSource('measurement-point', {
+                        type: 'geojson',
+                        data: {
+                            type: 'Feature',
+                            geometry: { type: 'Point', coordinates: [lon, lat] },
+                            properties: { name: measurementFix.properties?.name || 'Measurement Point' }
+                        }
+                    });
+
+                    // Outer pulsing ring
+                    map.addLayer({
+                        id: 'measurement-pulse',
+                        type: 'circle',
+                        source: 'measurement-point',
+                        paint: {
+                            'circle-radius': 20,
+                            'circle-color': '#ffd43b',
+                            'circle-opacity': 0.3,
+                            'circle-stroke-width': 2,
+                            'circle-stroke-color': '#ffd43b',
+                            'circle-stroke-opacity': 0.6
+                        }
+                    });
+
+                    // Inner solid marker
+                    map.addLayer({
+                        id: 'measurement-center',
+                        type: 'circle',
+                        source: 'measurement-point',
+                        paint: {
+                            'circle-radius': 6,
+                            'circle-color': '#ffd43b',
+                            'circle-opacity': 1,
+                            'circle-stroke-width': 2,
+                            'circle-stroke-color': '#ffffff'
+                        }
+                    });
+
+                    console.log(`Added measurement point marker at ${measurementFix.properties?.name || 'fix'}`);
+                }
+            }
+
+            // Show layer controls
+            const controls = document.getElementById(`${mapId}_controls`);
+            if (controls) {
+                controls.style.display = 'flex';
+
+                // Update button states based on what layers actually exist
+                const updateButtonState = (layer, hasData) => {
+                    const btn = controls.querySelector(`.layer-btn[data-layer="${layer}"]`);
+                    if (btn) {
+                        btn.style.display = hasData ? '' : 'none';
+                    }
+                };
+
+                // Check which layers have data
+                updateButtonState('artcc', mapData.facilities?.some(f => f.properties.type === 'ARTCC'));
+                updateButtonState('tracon', mapData.facilities?.some(f => f.properties.type === 'TRACON'));
+                updateButtonState('sectors-low', map.getSource('sectors-low'));
+                updateButtonState('sectors-high', map.getSource('sectors-high'));
+                updateButtonState('sectors-superhigh', map.getSource('sectors-superhigh'));
+                updateButtonState('tracks', map.getSource('flight-tracks-solid') || map.getSource('flight-tracks-dashed'));
+                updateButtonState('traffic-sectors', map.getSource('traffic-sectors'));
+            }
+
             // Fit bounds
             if (mapData.bounds) {
                 map.fitBounds(mapData.bounds, { padding: 30, maxZoom: 8 });
@@ -2866,9 +2969,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         try {
             // Load both high and low altitude sector files
-            const [highResponse, lowResponse] = await Promise.all([
+            const [highResponse, lowResponse, superhighResponse] = await Promise.all([
                 fetch('assets/geojson/high.json').catch(() => null),
-                fetch('assets/geojson/low.json').catch(() => null)
+                fetch('assets/geojson/low.json').catch(() => null),
+                fetch('assets/geojson/superhigh.json').catch(() => null)
             ]);
 
             const processFile = async (response, altitudeType) => {
@@ -2899,10 +3003,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             await Promise.all([
                 processFile(highResponse, 'high'),
-                processFile(lowResponse, 'low')
+                processFile(lowResponse, 'low'),
+                processFile(superhighResponse, 'superhigh')
             ]);
 
-            console.log(`Loaded ${sectors.length} sectors for ARTCCs: ${artccCodes.join(', ')}`);
+            // Group by altitude for logging
+            const byCat = { low: 0, high: 0, superhigh: 0 };
+            sectors.forEach(s => byCat[s.properties.altitude]++);
+            console.log(`Loaded ${sectors.length} sectors for ARTCCs ${artccCodes.join(', ')}: ${byCat.low} low, ${byCat.high} high, ${byCat.superhigh} superhigh`);
         } catch (err) {
             console.error('Error loading sector boundaries:', err);
         }
@@ -2954,6 +3062,74 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const container = document.getElementById(`${mapId}_container`);
         if (container) {
             container.innerHTML = `<div class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle mr-2"></i>${message}</div>`;
+        }
+    },
+
+    /**
+     * Toggle map layer visibility
+     */
+    toggleLayer: function(btn) {
+        const layer = btn.dataset.layer;
+        const mapId = btn.dataset.map;
+        const map = this.activeMaps[mapId];
+        if (!map) return;
+
+        const isActive = btn.classList.toggle('active');
+
+        // Map layer names to actual map layer IDs
+        const layerMappings = {
+            'artcc': ['facilities-fill', 'facilities-outline', 'facilities-labels'].filter(id =>
+                map.getLayer(id) && map.getSource('facilities')?.serialize()?.data?.features?.some(f => f.properties.type === 'ARTCC')
+            ),
+            'tracon': ['facilities-fill', 'facilities-outline', 'facilities-labels'].filter(id =>
+                map.getLayer(id) && map.getSource('facilities')?.serialize()?.data?.features?.some(f => f.properties.type === 'TRACON')
+            ),
+            'sectors-low': ['sectors-low-fill', 'sectors-low-outline', 'sectors-low-labels'],
+            'sectors-high': ['sectors-high-fill', 'sectors-high-outline', 'sectors-high-labels'],
+            'sectors-superhigh': ['sectors-superhigh-fill', 'sectors-superhigh-outline', 'sectors-superhigh-labels'],
+            'tracks': ['flight-tracks-solid-glow', 'flight-tracks-solid', 'flight-tracks-dashed'],
+            'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs']
+        };
+
+        // Handle ARTCC/TRACON specially since they share the facilities source
+        if (layer === 'artcc' || layer === 'tracon') {
+            // Use filter expressions to show/hide by type
+            const facilityType = layer === 'artcc' ? 'ARTCC' : 'TRACON';
+            const otherBtn = document.querySelector(`.layer-btn[data-layer="${layer === 'artcc' ? 'tracon' : 'artcc'}"][data-map="${mapId}"]`);
+            const otherActive = otherBtn?.classList.contains('active');
+
+            if (map.getLayer('facilities-fill')) {
+                if (!isActive && !otherActive) {
+                    // Hide all facilities
+                    map.setLayoutProperty('facilities-fill', 'visibility', 'none');
+                    map.setLayoutProperty('facilities-outline', 'visibility', 'none');
+                    map.setLayoutProperty('facilities-labels', 'visibility', 'none');
+                } else {
+                    map.setLayoutProperty('facilities-fill', 'visibility', 'visible');
+                    map.setLayoutProperty('facilities-outline', 'visibility', 'visible');
+                    map.setLayoutProperty('facilities-labels', 'visibility', 'visible');
+
+                    // Build filter based on which are active
+                    const types = [];
+                    if (btn.classList.contains('active') && layer === 'artcc') types.push('ARTCC');
+                    if (btn.classList.contains('active') && layer === 'tracon') types.push('TRACON');
+                    if (otherActive && layer !== 'artcc') types.push('ARTCC');
+                    if (otherActive && layer !== 'tracon') types.push('TRACON');
+
+                    const filter = types.length > 0 ? ['in', ['get', 'type'], ['literal', types]] : ['==', 1, 0];
+                    map.setFilter('facilities-fill', filter);
+                    map.setFilter('facilities-outline', filter);
+                    map.setFilter('facilities-labels', filter);
+                }
+            }
+        } else {
+            // Standard layer visibility toggle
+            const layerIds = layerMappings[layer] || [];
+            layerIds.forEach(layerId => {
+                if (map.getLayer(layerId)) {
+                    map.setLayoutProperty(layerId, 'visibility', isActive ? 'visible' : 'none');
+                }
+            });
         }
     },
 

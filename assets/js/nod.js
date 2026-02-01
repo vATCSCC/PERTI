@@ -4982,7 +4982,7 @@
         $legend.html(items.map(item =>
             `<span style="display: inline-flex; align-items: center; margin-right: 6px;">
                 <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${item.color}; margin-right: 3px; border: 1px solid #333;"></span>
-                <span style="font-size: 10px; color: #aaa;">${item.label}</span>
+                <span style="font-size: 10px; color: var(--dark-text-muted);">${item.label}</span>
             </span>`
         ).join(''));
     }
@@ -5155,7 +5155,7 @@
         if (matchingRoutes.length > 0) {
             routeMatchHtml = `
                 <div style="margin-top:6px; padding-top:6px; border-top:1px solid #444;">
-                    <div style="font-size:9px; color:#888; margin-bottom:2px;">MATCHING ROUTES:</div>
+                    <div style="font-size:9px; color:var(--dark-text-subtle); margin-bottom:2px;">MATCHING ROUTES:</div>
                     ${matchingRoutes.map(r => `<span style="display:inline-block; margin-right:4px; padding:1px 4px; background:${r.color}; color:#fff; border-radius:2px; font-size:9px;">${escapeHtml(r.name)}</span>`).join('')}
                 </div>
             `;
@@ -5167,35 +5167,35 @@
                     <strong style="font-size:14px;">${escapeHtml(props.callsign || 'Unknown')}</strong>
                     <span title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
                 </div>
-                <div style="color:#777; font-size:10px; margin-bottom:4px;">
+                <div style="color:var(--dark-text-disabled); font-size:10px; margin-bottom:4px;">
                     ${escapeHtml(props.ac_type || '---')} (${props.weight_class || '?'})
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
-                        <td style="color:#888;">Route:</td>
+                        <td style="color:var(--dark-text-subtle);">Route:</td>
                         <td style="text-align:right;">${props.origin || '???'} → ${props.dest || '???'}</td>
                     </tr>
                     <tr>
-                        <td style="color:#888;">Alt:</td>
+                        <td style="color:var(--dark-text-subtle);">Alt:</td>
                         <td style="text-align:right;">${alt}</td>
                     </tr>
                     <tr>
-                        <td style="color:#888;">GS:</td>
+                        <td style="color:var(--dark-text-subtle);">GS:</td>
                         <td style="text-align:right;">${props.speed || '---'} kts</td>
                     </tr>
                     <tr>
-                        <td style="color:#888;">Hdg:</td>
+                        <td style="color:var(--dark-text-subtle);">Hdg:</td>
                         <td style="text-align:right;">${hdg}</td>
                     </tr>
                     ${props.current_artcc ? `<tr>
-                        <td style="color:#888;">ARTCC:</td>
+                        <td style="color:var(--dark-text-subtle);">ARTCC:</td>
                         <td style="text-align:right;">${props.current_artcc}</td>
                     </tr>` : ''}
                 </table>
                 ${props.route ? `
                 <div style="margin-top:6px; padding-top:6px; border-top:1px solid #444;">
-                    <div style="font-size:9px; color:#888; margin-bottom:2px;">FLIGHT PLAN:</div>
-                    <div style="font-size:9px; color:#999; word-break:break-all; max-height:60px; overflow-y:auto;">${escapeHtml(props.route)}</div>
+                    <div style="font-size:9px; color:var(--dark-text-subtle); margin-bottom:2px;">FLIGHT PLAN:</div>
+                    <div style="font-size:9px; color:var(--dark-text-subtle); word-break:break-all; max-height:60px; overflow-y:auto;">${escapeHtml(props.route)}</div>
                 </div>` : ''}
                 ${statusIcon ? `<div style="margin-top:6px; text-align:center;">${statusIcon}</div>` : ''}
                 ${routeMatchHtml}
@@ -5249,7 +5249,7 @@
         if (matchingRoutes.length > 0) {
             routeMatchHtml = `
                 <tr><td colspan="2" style="padding-top:8px;border-top:1px solid #444;">
-                    <div style="font-size:9px;color:#888;margin-bottom:4px;">MATCHING PUBLIC ROUTES:</div>
+                    <div style="font-size:9px;color:var(--dark-text-subtle);margin-bottom:4px;">MATCHING PUBLIC ROUTES:</div>
                     ${matchingRoutes.map(r => `<span style="display:inline-block;margin:2px;padding:2px 6px;background:${r.color};color:#fff;border-radius:3px;font-size:9px;">${escapeHtml(r.name)}</span>`).join('')}
                 </td></tr>
             `;
@@ -5262,77 +5262,77 @@
                         <strong style="font-size:16px;color:#4a9eff;">${escapeHtml(props.callsign || 'Unknown')}</strong>
                         <span style="margin-left:8px;font-size:12px;" title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
                     </div>
-                    <span style="font-size:10px;color:#888;background:#333;padding:2px 6px;border-radius:3px;">DETAILED VIEW</span>
+                    <span style="font-size:10px;color:var(--dark-text-subtle);background:#333;padding:2px 6px;border-radius:3px;">DETAILED VIEW</span>
                 </div>
 
                 <table style="width:100%;border-collapse:collapse;font-size:11px;">
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:4px 0;"><strong style="color:#aaa;">Aircraft Information</strong></td>
+                        <td colspan="2" style="padding:4px 0;"><strong style="color:var(--dark-text-muted);">Aircraft Information</strong></td>
                     </tr>
                     <tr>
-                        <td style="color:#666;padding:2px 0;">Type:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Type:</td>
                         <td style="text-align:right;">${escapeHtml(props.ac_type || '---')}</td>
                     </tr>
                     <tr>
-                        <td style="color:#666;padding:2px 0;">Weight Class:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Weight Class:</td>
                         <td style="text-align:right;">${props.weight_class || '---'}</td>
                     </tr>
                     ${props.aircraft_icao ? `<tr>
-                        <td style="color:#666;padding:2px 0;">ICAO Code:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">ICAO Code:</td>
                         <td style="text-align:right;">${escapeHtml(props.aircraft_icao)}</td>
                     </tr>` : ''}
 
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:#aaa;">Flight Data</strong></td>
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">Flight Data</strong></td>
                     </tr>
                     <tr>
-                        <td style="color:#666;padding:2px 0;">Route:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Route:</td>
                         <td style="text-align:right;font-weight:bold;">${props.origin || '???'} → ${props.dest || '???'}</td>
                     </tr>
                     <tr>
-                        <td style="color:#666;padding:2px 0;">Altitude:</td>
-                        <td style="text-align:right;">${alt} <span style="color:#666;font-size:10px;">(${altFt})</span></td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Altitude:</td>
+                        <td style="text-align:right;">${alt} <span style="color:var(--dark-text-disabled);font-size:10px;">(${altFt})</span></td>
                     </tr>
                     <tr>
-                        <td style="color:#666;padding:2px 0;">Ground Speed:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Ground Speed:</td>
                         <td style="text-align:right;">${props.speed || '---'} kts</td>
                     </tr>
                     <tr>
-                        <td style="color:#666;padding:2px 0;">Heading:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Heading:</td>
                         <td style="text-align:right;">${hdg}</td>
                     </tr>
                     ${props.squawk ? `<tr>
-                        <td style="color:#666;padding:2px 0;">Squawk:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Squawk:</td>
                         <td style="text-align:right;font-family:monospace;">${escapeHtml(props.squawk)}</td>
                     </tr>` : ''}
 
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:#aaa;">Position & Airspace</strong></td>
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">Position & Airspace</strong></td>
                     </tr>
                     ${props.current_artcc ? `<tr>
-                        <td style="color:#666;padding:2px 0;">Current ARTCC:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Current ARTCC:</td>
                         <td style="text-align:right;">${escapeHtml(props.current_artcc)}</td>
                     </tr>` : ''}
                     ${props.dep_artcc ? `<tr>
-                        <td style="color:#666;padding:2px 0;">Departure ARTCC:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Departure ARTCC:</td>
                         <td style="text-align:right;">${escapeHtml(props.dep_artcc)}</td>
                     </tr>` : ''}
                     ${props.arr_artcc ? `<tr>
-                        <td style="color:#666;padding:2px 0;">Arrival ARTCC:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Arrival ARTCC:</td>
                         <td style="text-align:right;">${escapeHtml(props.arr_artcc)}</td>
                     </tr>` : ''}
                     <tr>
-                        <td style="color:#666;padding:2px 0;">Coordinates:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Coordinates:</td>
                         <td style="text-align:right;font-size:10px;">${props.lat?.toFixed(4) || '---'}, ${props.lng?.toFixed(4) || '---'}</td>
                     </tr>
 
                     ${props.route ? `
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:#aaa;">Flight Plan Route</strong></td>
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">Flight Plan Route</strong></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="padding:4px 0;">
-                            <div style="font-size:10px;color:#888;background:#1a1a2e;padding:6px;border-radius:3px;word-break:break-all;max-height:80px;overflow-y:auto;">
+                            <div style="font-size:10px;color:var(--dark-text-subtle);background:#1a1a2e;padding:6px;border-radius:3px;word-break:break-all;max-height:80px;overflow-y:auto;">
                                 ${escapeHtml(props.route)}
                             </div>
                         </td>
@@ -5420,7 +5420,7 @@
     function showSplitsPopup(props, lngLat) {
         const sectorId = props.id || props.sector || props.label || 'Unknown';
         const boundaryType = props.boundary_type || '';
-        const boundaryLabel = boundaryType ? ` <span style="color:#888;font-size:10px;">(${boundaryType.toUpperCase()})</span>` : '';
+        const boundaryLabel = boundaryType ? ` <span style="color:var(--dark-text-subtle);font-size:10px;">(${boundaryType.toUpperCase()})</span>` : '';
         
         // Try to find frequency from various possible property names
         const frequency = props.frequency || props.freq || props.radio_freq || '';
@@ -5435,15 +5435,15 @@
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
-                        <td style="color:#888; padding:1px 0;">Sector:</td>
+                        <td style="color:var(--dark-text-subtle); padding:1px 0;">Sector:</td>
                         <td style="text-align:right; padding:1px 0;">${escapeHtml(sectorId)}${boundaryLabel}</td>
                     </tr>
                     <tr>
-                        <td style="color:#888; padding:1px 0;">ARTCC:</td>
+                        <td style="color:var(--dark-text-subtle); padding:1px 0;">ARTCC:</td>
                         <td style="text-align:right; padding:1px 0;">${escapeHtml(props.artcc || 'N/A')}</td>
                     </tr>
                     <tr>
-                        <td style="color:#888; padding:1px 0;">Config:</td>
+                        <td style="color:var(--dark-text-subtle); padding:1px 0;">Config:</td>
                         <td style="text-align:right; padding:1px 0;">${escapeHtml(props.config_name || 'N/A')}</td>
                     </tr>
                 </table>
@@ -5472,19 +5472,19 @@
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
-                        <td style="color:#888;">Route:</td>
+                        <td style="color:var(--dark-text-subtle);">Route:</td>
                         <td style="text-align:right;">${escapeHtml(origin)} → ${escapeHtml(dest)}</td>
                     </tr>
                     <tr>
-                        <td style="color:#888;">Status:</td>
+                        <td style="color:var(--dark-text-subtle);">Status:</td>
                         <td style="text-align:right;">${escapeHtml(status)}</td>
                     </tr>
                     ${props.artcc ? `<tr>
-                        <td style="color:#888;">ARTCC:</td>
+                        <td style="color:var(--dark-text-subtle);">ARTCC:</td>
                         <td style="text-align:right;">${escapeHtml(props.artcc)}</td>
                     </tr>` : ''}
                     ${props.remarks ? `<tr>
-                        <td colspan="2" style="color:#aaa; font-size:10px; padding-top:4px;">${escapeHtml(props.remarks)}</td>
+                        <td colspan="2" style="color:var(--dark-text-muted); font-size:10px; padding-top:4px;">${escapeHtml(props.remarks)}</td>
                     </tr>` : ''}
                 </table>
             </div>
