@@ -1330,9 +1330,13 @@ class TMIComplianceAnalyzer:
         # Sort by crossing time
         sorted_crossings = sorted(valid_crossings, key=lambda c: c.crossing_time)
 
-        # Maximum distance between crossing points for valid pairing
-        # If two crossings are too far apart, they may not be in the same traffic stream
-        MAX_CROSSING_SEPARATION_NM = 15.0
+        # Crossing separation thresholds for stream validation
+        # FIX-based: Flights should cross at the same point (~15nm tolerance)
+        # BOUNDARY-based: Flights can cross anywhere along the boundary (no limit)
+        MAX_CROSSING_SEPARATION_NM_FIX = 15.0
+
+        # Determine if we're using boundary-based or fix-based measurement
+        is_boundary_based = measurement_type in (MeasurementType.BOUNDARY, MeasurementType.BOUNDARY_FALLBACK_FIX)
 
         # Analyze consecutive pairs with stream validation
         pairs = []
@@ -1350,13 +1354,13 @@ class TMIComplianceAnalyzer:
                 continue
 
             # STREAM VALIDATION: Check that both crossings are at similar locations
-            # This ensures we're measuring spacing in the same traffic stream
+            # Only applies to FIX-based measurements - boundary crossings can span entire boundary
             crossing_separation = haversine_nm(prev.lat, prev.lon, curr.lat, curr.lon)
-            if crossing_separation > MAX_CROSSING_SEPARATION_NM:
+            if not is_boundary_based and crossing_separation > MAX_CROSSING_SEPARATION_NM_FIX:
                 skipped_pairs.append({
                     'prev': prev.callsign,
                     'curr': curr.callsign,
-                    'reason': f'crossing separation {crossing_separation:.1f}nm > {MAX_CROSSING_SEPARATION_NM}nm'
+                    'reason': f'crossing separation {crossing_separation:.1f}nm > {MAX_CROSSING_SEPARATION_NM_FIX}nm'
                 })
                 logger.debug(f"  Skipping pair {prev.callsign}->{curr.callsign}: crossing points {crossing_separation:.1f}nm apart")
                 continue

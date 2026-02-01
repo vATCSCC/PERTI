@@ -437,6 +437,24 @@ Returns historical flight track data.
 | `from` | datetime | Start time |
 | `to` | datetime | End time |
 
+### GET/POST /api/nod/discord.php
+
+Discord TMI integration for NOD.
+
+**Access:** Authenticated (some actions public)
+
+| Action | Method | Description |
+|--------|--------|-------------|
+| `status` | GET | Check Discord integration status |
+| `list` | GET | List Discord TMI entries |
+| `active` | GET | List currently active TMIs |
+| `refresh` | GET | Trigger manual Discord refresh |
+| `parse` | POST | Parse TMI message |
+| `end` | POST | Mark Discord TMI as ended |
+| `send` | POST | Send TMI to Discord |
+
+See [[NOD Discord API]] for full documentation.
+
 ---
 
 ## Demand Analysis APIs
@@ -764,24 +782,28 @@ Returns route pattern reference data.
 
 ### GET/POST /api/simulator/engine.php
 
-Controls the flight simulation engine.
+Controls the flight simulation engine. Proxies to Node.js flight engine.
 
 **Access:** Authenticated
 
-**GET Parameters:**
+| Action | Method | Description |
+|--------|--------|-------------|
+| `health` | GET | Check engine status |
+| `create` | POST | Create new simulation |
+| `list` | GET | List all simulations |
+| `status` | GET | Get simulation status |
+| `spawn` | POST | Spawn aircraft |
+| `aircraft` | GET | Get aircraft (single/all) |
+| `tick` | POST | Advance simulation time |
+| `run` | POST | Run for duration |
+| `command` | POST | Issue ATC command |
+| `commands` | POST | Batch ATC commands |
+| `pause` | POST | Pause simulation |
+| `resume` | POST | Resume simulation |
+| `delete` | POST | Delete simulation |
+| `remove_aircraft` | POST | Remove aircraft |
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `session_id` | string | Simulation session ID |
-| `action` | string | status, aircraft |
-
-**POST Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `action` | string | create, tick, command |
-| `session_id` | string | Simulation session ID |
-| `data` | object | Action-specific parameters |
+See [[Simulator API]] for full documentation.
 
 ### GET/POST /api/simulator/traffic.php
 
