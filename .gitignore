@@ -51,6 +51,9 @@ docs/*.pdf
 data/tmi_compliance/*.json
 data/tmi_compliance/*.html
 
+# Generated indexes (auto-generated every 12 hours)
+data/indexes/
+
 # Python build artifacts
 __pycache__/
 *.egg-info/
