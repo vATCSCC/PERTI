@@ -222,43 +222,91 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     executeAnalysis: function() {
         this.analysisInProgress = true;
+        const startTime = Date.now();
 
-        // Show progress modal
+        // Analysis steps with timing estimates (cumulative seconds)
+        const analysisSteps = [
+            { text: 'Connecting to analysis service...', icon: 'fa-plug', time: 0 },
+            { text: 'Loading TMI configuration...', icon: 'fa-cog', time: 2 },
+            { text: 'Parsing NTML entries...', icon: 'fa-file-alt', time: 4 },
+            { text: 'Querying flight database...', icon: 'fa-database', time: 8 },
+            { text: 'Loading flight trajectories...', icon: 'fa-route', time: 15 },
+            { text: 'Computing boundary crossings...', icon: 'fa-border-all', time: 25 },
+            { text: 'Analyzing MIT/MINIT compliance...', icon: 'fa-ruler-horizontal', time: 35 },
+            { text: 'Analyzing ground stops...', icon: 'fa-plane-slash', time: 45 },
+            { text: 'Processing APREQ restrictions...', icon: 'fa-clipboard-check', time: 50 },
+            { text: 'Generating compliance report...', icon: 'fa-chart-bar', time: 55 }
+        ];
+
+        // Show progress modal with step display
         Swal.fire({
             title: 'Analyzing TMI Compliance',
             html: `
                 <div class="text-center">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="sr-only">Loading...</span>
+                    <div class="mb-3">
+                        <i id="analysis_icon" class="fas fa-plug fa-2x text-primary fa-pulse"></i>
                     </div>
-                    <p id="analysis_status">Connecting to analysis service...</p>
-                    <div class="progress mt-3" style="height: 20px;">
-                        <div id="analysis_progress" class="progress-bar progress-bar-striped progress-bar-animated"
-                             role="progressbar" style="width: 10%"></div>
+                    <p id="analysis_status" class="mb-2" style="font-weight: 500;">Connecting to analysis service...</p>
+                    <div class="progress mt-3" style="height: 8px; background: #2d2d44;">
+                        <div id="analysis_progress" class="progress-bar"
+                             role="progressbar" style="width: 5%; background: linear-gradient(90deg, #4dabf7, #228be6);"></div>
                     </div>
-                    <p class="small text-muted mt-3">This may take 30-60 seconds</p>
+                    <div class="d-flex justify-content-between mt-2 small" style="color: #888;">
+                        <span id="analysis_elapsed">0:00</span>
+                        <span id="analysis_step">Step 1 of ${analysisSteps.length}</span>
+                    </div>
+                    <div id="analysis_steps_list" class="mt-3 text-left small" style="max-height: 150px; overflow-y: auto;">
+                    </div>
                 </div>
             `,
             allowOutsideClick: false,
-            showConfirmButton: false
+            showConfirmButton: false,
+            width: 450
         });
 
-        // Simulate progress updates
-        let progress = 10;
-        const progressInterval = setInterval(() => {
-            progress = Math.min(progress + 5, 90);
-            $('#analysis_progress').css('width', progress + '%');
+        let currentStep = 0;
+        const completedSteps = [];
 
-            if (progress >= 20 && progress < 40) {
-                $('#analysis_status').text('Loading configuration...');
-            } else if (progress >= 40 && progress < 60) {
-                $('#analysis_status').text('Querying flight data...');
-            } else if (progress >= 60 && progress < 80) {
-                $('#analysis_status').text('Computing MIT compliance...');
-            } else if (progress >= 80) {
-                $('#analysis_status').text('Generating report...');
+        // Update elapsed time and step based on actual time
+        const progressInterval = setInterval(() => {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const mins = Math.floor(elapsed / 60);
+            const secs = Math.floor(elapsed % 60);
+            $('#analysis_elapsed').text(`${mins}:${secs.toString().padStart(2, '0')}`);
+
+            // Find current step based on elapsed time
+            let newStep = 0;
+            for (let i = 0; i < analysisSteps.length; i++) {
+                if (elapsed >= analysisSteps[i].time) {
+                    newStep = i;
+                }
             }
-        }, 2000);
+
+            // Update if step changed
+            if (newStep !== currentStep) {
+                currentStep = newStep;
+                const step = analysisSteps[currentStep];
+
+                $('#analysis_status').text(step.text);
+                $('#analysis_icon').removeClass().addClass(`fas ${step.icon} fa-2x text-primary fa-pulse`);
+                $('#analysis_step').text(`Step ${currentStep + 1} of ${analysisSteps.length}`);
+
+                // Calculate progress (leave room for completion)
+                const progress = Math.min(5 + (currentStep / analysisSteps.length) * 85, 90);
+                $('#analysis_progress').css('width', progress + '%');
+
+                // Add completed step to list
+                if (currentStep > 0) {
+                    const prevStep = analysisSteps[currentStep - 1];
+                    if (!completedSteps.includes(currentStep - 1)) {
+                        completedSteps.push(currentStep - 1);
+                        $('#analysis_steps_list').append(`
+                            <div style="color: #51cf66;"><i class="fas fa-check mr-2"></i>${prevStep.text.replace('...', '')} ✓</div>
+                        `);
+                    }
+                }
+            }
+        }, 500);
 
         // Call API with run=true
         $.ajax({
@@ -270,13 +318,30 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 clearInterval(progressInterval);
                 this.analysisInProgress = false;
 
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
                 if (response.success && response.data) {
                     this.results = response.data;
+
+                    // Count results
+                    const mitCount = response.data.mit_results?.length || 0;
+                    const gsCount = response.data.gs_results?.length || 0;
+                    const apreqCount = response.data.apreq_results?.length || 0;
+
                     Swal.fire({
                         icon: 'success',
                         title: 'Analysis Complete',
-                        text: response.message || 'TMI compliance analysis completed successfully.',
-                        timer: 2000,
+                        html: `
+                            <div class="text-center">
+                                <p>TMI compliance analysis completed in <strong>${elapsed}s</strong></p>
+                                <div class="mt-3 small" style="color: #888;">
+                                    <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${mitCount} MIT/MINIT restriction${mitCount !== 1 ? 's' : ''}</div>
+                                    <div><i class="fas fa-plane-slash text-warning mr-2"></i>${gsCount} ground stop${gsCount !== 1 ? 's' : ''}</div>
+                                    <div><i class="fas fa-clipboard-check text-success mr-2"></i>${apreqCount} APREQ/CFR${apreqCount !== 1 ? 's' : ''}</div>
+                                </div>
+                            </div>
+                        `,
+                        timer: 3000,
                         showConfirmButton: false
                     });
                     this.renderResults();
@@ -294,9 +359,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 clearInterval(progressInterval);
                 this.analysisInProgress = false;
 
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
                 let errorMsg = error;
                 if (status === 'timeout') {
-                    errorMsg = 'Analysis timed out. The event may have too many flights. Try running the Python script locally.';
+                    errorMsg = `Analysis timed out after ${elapsed}s. The event may have too many flights.`;
                 } else if (xhr.responseJSON?.error) {
                     errorMsg = xhr.responseJSON.error;
                 }
@@ -306,7 +372,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     title: 'Analysis Failed',
                     html: `<p>${errorMsg}</p>
                            <p class="small text-muted">If the Azure Function is not configured, you can still run analysis locally:<br>
-                           <code>python C:\\temp\\tmi_compliance_analyzer.py --plan ${this.planId}</code></p>`
+                           <code>python scripts/tmi_compliance/run.py --plan_id ${this.planId}</code></p>`
                 });
             }
         });
@@ -1864,9 +1930,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Render a collapsible map section for a TMI
      */
     renderMapSection: function(r, mapId) {
-        const requestor = r.requestor || '';
-        const provider = r.provider || '';
-        const fix = r.fix || '';
+        const requestor = (r.requestor || '').replace(/'/g, "\\'");
+        const provider = (r.provider || '').replace(/'/g, "\\'");
+        const fix = (r.fix || '').replace(/'/g, "\\'");
         const destinations = r.destinations || [];
         const origins = r.origins || [];
 
@@ -1874,16 +1940,30 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return ''; // No facilities to show
         }
 
+        // Escape JSON for HTML attribute - use encodeURIComponent for safety
+        const destJson = encodeURIComponent(JSON.stringify(destinations));
+        const origJson = encodeURIComponent(JSON.stringify(origins));
+
+        const displayReq = r.requestor || '';
+        const displayProv = r.provider || '';
+
         return `
             <div class="tmi-map-section mt-3">
-                <div class="tmi-map-toggle collapsed" data-toggle="collapse" data-target="#${mapId}" onclick="TMICompliance.toggleMap('${mapId}', '${requestor}', '${provider}', '${fix}', ${JSON.stringify(destinations)}, ${JSON.stringify(origins)})">
+                <div class="tmi-map-toggle collapsed"
+                     data-map-id="${mapId}"
+                     data-requestor="${requestor}"
+                     data-provider="${provider}"
+                     data-fix="${fix}"
+                     data-destinations="${destJson}"
+                     data-origins="${origJson}"
+                     onclick="TMICompliance.toggleMapFromData(this)">
                     <i class="fas fa-chevron-down"></i>
                     <span><i class="fas fa-map-marked-alt mr-1"></i> View Context Map</span>
-                    <span class="small text-muted ml-2">(${requestor}${provider ? ' → ' + provider : ''})</span>
+                    <span class="small ml-2">(${displayReq}${displayProv ? ' → ' + displayProv : ''})</span>
                 </div>
-                <div class="collapse mt-2" id="${mapId}">
-                    <div class="tmi-map-container" id="${mapId}_container">
-                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                <div class="tmi-map-collapse" id="${mapId}" style="display: none;">
+                    <div class="tmi-map-container mt-2" id="${mapId}_container">
+                        <div class="d-flex align-items-center justify-content-center h-100" style="color: #9090a0;">
                             <i class="fas fa-spinner fa-spin mr-2"></i> Loading map...
                         </div>
                     </div>
@@ -1893,15 +1973,57 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
+     * Toggle map from data attributes (safer than inline onclick params)
+     */
+    toggleMapFromData: function(element) {
+        const el = $(element);
+        // jQuery converts data-map-id to mapId automatically
+        const mapId = el.data('mapId') || el.attr('data-map-id');
+        const requestor = el.data('requestor') || '';
+        const provider = el.data('provider') || '';
+        const fix = el.data('fix') || '';
+
+        // Parse the encoded JSON arrays
+        let destinations = [];
+        let origins = [];
+        try {
+            const destData = el.data('destinations') || el.attr('data-destinations') || '[]';
+            const origData = el.data('origins') || el.attr('data-origins') || '[]';
+            destinations = JSON.parse(decodeURIComponent(destData));
+            origins = JSON.parse(decodeURIComponent(origData));
+        } catch (e) {
+            console.error('Error parsing map data attributes:', e);
+        }
+
+        console.log('toggleMapFromData:', { mapId, requestor, provider, fix, destinations, origins });
+        this.toggleMap(mapId, requestor, provider, fix, destinations, origins);
+    },
+
+    /**
      * Toggle map visibility and load data
      */
     toggleMap: function(mapId, requestor, provider, fix, destinations, origins) {
-        const toggle = $(`.tmi-map-toggle[data-target="#${mapId}"]`);
-        toggle.toggleClass('collapsed');
+        // Use attribute selector since jQuery data() caches can differ
+        const toggle = $(`.tmi-map-toggle[data-map-id="${mapId}"]`);
+        const collapseDiv = $(`#${mapId}`);
 
-        // Only load map when opening
-        if (!toggle.hasClass('collapsed') && !this.activeMaps[mapId]) {
-            this.loadMapData(mapId, requestor, provider, fix, destinations, origins);
+        console.log('toggleMap called:', { mapId, hasToggle: toggle.length, hasCollapse: collapseDiv.length });
+
+        const isCollapsed = toggle.hasClass('collapsed');
+
+        if (isCollapsed) {
+            // Opening
+            toggle.removeClass('collapsed');
+            collapseDiv.slideDown(200);
+
+            // Load map if not already loaded
+            if (!this.activeMaps[mapId]) {
+                this.loadMapData(mapId, requestor, provider, fix, destinations, origins);
+            }
+        } else {
+            // Closing
+            toggle.addClass('collapsed');
+            collapseDiv.slideUp(200);
         }
     },
 
@@ -1913,6 +2035,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Check cache first
         if (this.mapDataCache[cacheKey]) {
+            console.log('Map data cache hit:', cacheKey);
             this.renderMap(mapId, this.mapDataCache[cacheKey]);
             return;
         }
@@ -1927,20 +2050,32 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             origins: JSON.stringify(origins || [])
         });
 
-        fetch(`/api/gis/boundaries.php?${params}`)
-            .then(response => response.json())
+        const apiUrl = `api/gis/boundaries.php?${params}`;
+        console.log('Fetching map data:', apiUrl);
+
+        fetch(apiUrl)
+            .then(response => {
+                console.log('Map API response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Map API response:', data);
                 if (data.success && data.map_data) {
                     // Cache the data
                     this.mapDataCache[cacheKey] = data.map_data;
                     this.renderMap(mapId, data.map_data);
                 } else {
-                    this.showMapError(mapId, 'Failed to load map data');
+                    const errMsg = data.error || 'Failed to load map data';
+                    console.error('Map API error:', errMsg);
+                    this.showMapError(mapId, errMsg);
                 }
             })
             .catch(err => {
                 console.error('Map data fetch error:', err);
-                this.showMapError(mapId, 'Error loading map');
+                this.showMapError(mapId, 'Error loading map: ' + err.message);
             });
     },
 
