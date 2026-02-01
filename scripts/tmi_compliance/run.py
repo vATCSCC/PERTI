@@ -115,6 +115,8 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
                 tmi_type = TMIType.APREQ
             elif tmi_type_str == 'CFR':
                 tmi_type = TMIType.CFR
+            elif tmi_type_str == 'REROUTE':
+                tmi_type = TMIType.REROUTE
 
             fix = pt.get('fix', '')
             dest = pt.get('dest', '')
@@ -170,17 +172,21 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             else:
                 dest_list = destinations
 
-            # Handle origins (for CFR "X Departures" format, or GS DEP FACILITIES)
+            # Handle origins (for CFR "X Departures" format, or GS DEP FACILITIES, or REROUTE)
             origin = pt.get('origin', '')
             provider = pt.get('provider', '')
             # For GS, the 'provider' (DEP FACILITIES INCLUDED) is actually the origin constraint
             if tmi_type == TMIType.GS and provider and not origin:
                 origins = [provider]
+            elif tmi_type == TMIType.REROUTE and 'origins' in pt:
+                # REROUTE has explicit origins array from PHP parser
+                origins = pt['origins'] if isinstance(pt['origins'], list) else []
             elif origin:
                 origins = [origin]
             else:
                 origins = []
 
+            # Build base TMI
             tmi = TMI(
                 tmi_id=f'{tmi_type.value}_{fix}_{dest}',
                 tmi_type=tmi_type,
@@ -195,6 +201,19 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
                 end_utc=end_utc,
                 issued_utc=issued_utc
             )
+
+            # Add reroute-specific fields
+            if tmi_type == TMIType.REROUTE:
+                tmi.reroute_name = pt.get('name', '')
+                tmi.reroute_mandatory = pt.get('mandatory', False)
+                tmi.reroute_routes = pt.get('routes', [])
+                tmi.time_type = pt.get('time_type', 'ETD')  # ETA or ETD
+                tmi.reason = pt.get('reason', '')
+                tmi.artccs = pt.get('facilities', [])
+                # Update tmi_id to use name if available
+                if tmi.reroute_name:
+                    tmi.tmi_id = f"REROUTE_{tmi.reroute_name}"
+
             tmis.append(tmi)
 
         event.tmis = tmis

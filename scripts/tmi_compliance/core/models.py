@@ -206,6 +206,12 @@ class TMI:
     reason: str = ''
     notes: str = ''
 
+    # Reroute-specific fields
+    reroute_name: Optional[str] = None         # Playbook/route advisory name
+    reroute_mandatory: bool = False            # True=ROUTE RQD, False=FEA FYI
+    reroute_routes: List[dict] = field(default_factory=list)  # [{'orig': 'KPHL', 'dest': 'KBOS', 'route': '...'}]
+    time_type: Optional[str] = None            # 'ETA' or 'ETD' for reroute validity window
+
     # For tracking amendments (same dest/fix with different values over time)
     supersedes_tmi_id: Optional[str] = None  # ID of TMI this one supersedes
     superseded_by_tmi_id: Optional[str] = None  # ID of TMI that supersedes this one

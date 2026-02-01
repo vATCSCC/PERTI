@@ -427,10 +427,18 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
 
     // Detect ADVZY type from header
     $advzy_type = null;
+    $is_mandatory = false;
+
     if (stripos($header, 'GROUND STOP') !== false) {
         $advzy_type = 'GS';
     } elseif (stripos($header, 'GDP') !== false || stripos($header, 'GROUND DELAY') !== false) {
         $advzy_type = 'GDP';
+    } elseif (stripos($header, 'ROUTE RQD') !== false) {
+        $advzy_type = 'REROUTE';
+        $is_mandatory = true;
+    } elseif (stripos($header, 'FEA') !== false) {
+        $advzy_type = 'REROUTE';
+        $is_mandatory = false;  // FEA FYI is informational
     }
 
     if (!$advzy_type) {
@@ -438,10 +446,12 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
         return ['tmi' => null, 'lines_consumed' => 1];
     }
 
-    // Extract airport from header: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026"
+    // For GS/GDP: Extract airport from header: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026"
     $dest = null;
-    if (preg_match('/ADVZY\s+\d+\s+([A-Z]{3})(?:\/|\s)/i', $header, $m)) {
-        $dest = strtoupper($m[1]);
+    if ($advzy_type === 'GS' || $advzy_type === 'GDP') {
+        if (preg_match('/ADVZY\s+\d+\s+([A-Z]{3})(?:\/|\s)/i', $header, $m)) {
+            $dest = strtoupper($m[1]);
+        }
     }
 
     $tmi = [
@@ -454,8 +464,25 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
         'issued_time' => null
     ];
 
+    // Reroute-specific fields
+    if ($advzy_type === 'REROUTE') {
+        $tmi['mandatory'] = $is_mandatory;
+        $tmi['name'] = null;
+        $tmi['constrained_area'] = null;
+        $tmi['reason'] = null;
+        $tmi['origins'] = [];
+        $tmi['destinations'] = [];
+        $tmi['facilities'] = [];
+        $tmi['routes'] = [];
+        $tmi['tmi_id'] = null;
+    }
+
     // Parse subsequent lines for ADVZY fields
-    for ($i = $start_idx + 1; $i < min($start_idx + 20, count($lines)); $i++) {
+    $in_routes_section = false;
+    $routes_buffer = [];
+    $current_route_orig = null;
+
+    for ($i = $start_idx + 1; $i < min($start_idx + 100, count($lines)); $i++) {
         $line = trim($lines[$i]);
 
         if (empty($line)) {
@@ -470,6 +497,8 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
         }
 
         $lines_consumed++;
+
+        // === GS/GDP specific fields ===
 
         // CTL ELEMENT: LAS
         if (preg_match('/^CTL\s+ELEMENT:\s*(\w+)/i', $line, $m)) {
@@ -501,6 +530,128 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             $tmi['program_rate'] = intval($m[1]);
             continue;
         }
+
+        // === REROUTE specific fields ===
+
+        if ($advzy_type === 'REROUTE') {
+            // NAME: FLORIDA TO NE 2_PARTIAL
+            if (preg_match('/^NAME:\s*(.+)/i', $line, $m)) {
+                $tmi['name'] = trim($m[1]);
+                continue;
+            }
+
+            // CONSTRAINED AREA: ZJX
+            if (preg_match('/^CONSTRAINED\s+AREA:\s*(.+)/i', $line, $m)) {
+                $tmi['constrained_area'] = trim($m[1]);
+                continue;
+            }
+
+            // REASON: VOLUME
+            if (preg_match('/^REASON:\s*(.+)/i', $line, $m)) {
+                $tmi['reason'] = trim($m[1]);
+                continue;
+            }
+
+            // INCLUDE TRAFFIC: KAPF/KFMY/KMKY... DEPARTURES TO KBOS
+            if (preg_match('/^INCLUDE\s+TRAFFIC:\s*(.+)/i', $line, $m)) {
+                $traffic_str = trim($m[1]);
+                // Handle continuation lines
+                while ($i + 1 < count($lines) &&
+                       preg_match('/^\s{2,}[A-Z]/', $lines[$i + 1]) &&
+                       !preg_match('/^[A-Z]+:/', trim($lines[$i + 1]))) {
+                    $i++;
+                    $lines_consumed++;
+                    $traffic_str .= ' ' . trim($lines[$i]);
+                }
+
+                // Parse "ORIGINS DEPARTURES TO DESTINATIONS"
+                if (preg_match('/(.+?)\s+DEPARTURES?\s+TO\s+(.+)/i', $traffic_str, $tm)) {
+                    $orig_str = trim($tm[1]);
+                    $dest_str = trim($tm[2]);
+
+                    // Parse origins (may be / or space separated)
+                    $origins = preg_split('/[\/\s]+/', $orig_str);
+                    $tmi['origins'] = array_values(array_filter(array_map(function($o) {
+                        $o = trim($o);
+                        // Skip facility codes like KZMA
+                        return (strlen($o) === 4 && $o[0] === 'K') ? $o : null;
+                    }, $origins)));
+
+                    // Parse destinations
+                    $dests = preg_split('/[\/\s]+/', $dest_str);
+                    $tmi['destinations'] = array_values(array_filter(array_map(function($d) {
+                        $d = trim($d);
+                        return (strlen($d) === 4 && $d[0] === 'K') ? $d : null;
+                    }, $dests)));
+                }
+                continue;
+            }
+
+            // FACILITIES INCLUDED: ZBW/ZDC/ZJX/ZMA/ZTL
+            if (preg_match('/^FACILITIES\s+INCLUDED:\s*(.+)/i', $line, $m)) {
+                $fac_str = trim($m[1]);
+                $tmi['facilities'] = array_filter(preg_split('/[\/\s]+/', $fac_str));
+                continue;
+            }
+
+            // VALID: ETA 311500 TO 311900 or ETD 301430 TO 301900
+            if (preg_match('/^VALID:\s*(ETA|ETD)\s*(\d{6})\s+TO\s+(\d{6})/i', $line, $m)) {
+                $time_type = strtoupper($m[1]);  // ETA or ETD
+                $start_ddhhmm = $m[2];
+                $end_ddhhmm = $m[3];
+
+                // Extract HHMM from DDHHMM
+                $tmi['start_time'] = substr($start_ddhhmm, 2, 4);
+                $tmi['end_time'] = substr($end_ddhhmm, 2, 4);
+                $tmi['time_type'] = $time_type;  // ETA = arrival time, ETD = departure time
+                continue;
+            }
+
+            // TMI ID: RRDCCADVZY 003
+            if (preg_match('/^TMI\s+ID:\s*(.+)/i', $line, $m)) {
+                $tmi['tmi_id'] = trim($m[1]);
+                continue;
+            }
+
+            // ROUTES: marker
+            if (preg_match('/^ROUTES:\s*$/i', $line)) {
+                $in_routes_section = true;
+                continue;
+            }
+
+            // Parse route table rows (after ROUTES: section)
+            if ($in_routes_section) {
+                // Skip header lines like "ORIG  DEST  ROUTE" or "----  ----  -----"
+                if (preg_match('/^(ORIG|FROM|TO|----)/i', $line)) {
+                    continue;
+                }
+
+                // Route row: KPHL  KBOS  >DITCH LUIGI HNNAH MERIT< ROBUC3
+                // Or continuation line starting with spaces
+                if (preg_match('/^([A-Z0-9\/\s\-\(\)]+?)\s{2,}(K[A-Z]{3})?\s*(.*)/i', $line, $rm)) {
+                    $orig_part = trim($rm[1]);
+                    $dest_part = isset($rm[2]) ? trim($rm[2]) : '';
+                    $route_part = isset($rm[3]) ? trim($rm[3]) : '';
+
+                    if ($orig_part && !preg_match('/^-+$/', $orig_part)) {
+                        $current_route_orig = $orig_part;
+                    }
+
+                    if ($route_part) {
+                        $routes_buffer[] = [
+                            'orig' => $current_route_orig,
+                            'dest' => $dest_part ?: ($tmi['destinations'][0] ?? ''),
+                            'route' => $route_part
+                        ];
+                    }
+                }
+            }
+        }
+    }
+
+    // Store parsed routes
+    if (!empty($routes_buffer)) {
+        $tmi['routes'] = $routes_buffer;
     }
 
     return ['tmi' => $tmi, 'lines_consumed' => $lines_consumed];
