@@ -5210,7 +5210,8 @@ function loadFlightSummary(renderOriginChartAfter) {
         airport: airport,
         start: DEMAND_STATE.currentStart,
         end: DEMAND_STATE.currentEnd,
-        direction: DEMAND_STATE.direction
+        direction: DEMAND_STATE.direction,
+        granularity: getGranularityMinutes()  // Pass granularity for time bin breakdown
     });
 
     $.getJSON(`api/demand/summary.php?${params.toString()}`)
