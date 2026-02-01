@@ -2780,6 +2780,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
                     };
 
+                    // Get required spacing from TMI metadata (for measuring width at 1 interval upstream)
+                    const tmiMeta = TMICompliance.tmiMetadataCache?.[mapId] || {};
+                    const requiredSpacing = tmiMeta.required || 15;
+                    const measureDist = requiredSpacing; // Measure width at 1 interval upstream
+                    const tolerance = Math.max(5, requiredSpacing * 0.3); // ±30% tolerance
+
                     // Collect approach bearings for all trajectories
                     const approachBearings = [];
 
@@ -2800,14 +2806,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         }
 
                         if (closestIdx > 0) {
-                            // Find a point ~5-20nm before the closest point for bearing calculation
+                            // Find point at ~1 interval upstream from fix for width measurement
+                            // This is where we measure the traffic spread for 75%/90% capture
                             let approachIdx = closestIdx - 1;
+                            let bestDiff = Infinity;
                             for (let i = closestIdx - 1; i >= 0; i--) {
                                 const [lon, lat] = traj.coordinates[i];
                                 const dist = distanceNm(lon, lat, fixLon, fixLat);
-                                if (dist >= 5 && dist <= 25) {
+                                const diff = Math.abs(dist - measureDist);
+                                if (diff < bestDiff && diff <= tolerance) {
+                                    bestDiff = diff;
                                     approachIdx = i;
-                                    break;
                                 }
                             }
 
@@ -2858,18 +2867,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             width_deg: width90,
                         };
 
-                        // Cache the computed sector data (use TMI metadata for spacing)
-                        const tmiMeta = TMICompliance.tmiMetadataCache?.[mapId] || {};
-                        const requiredSpacing = tmiMeta.required || 15;
-
-                        // Offset measurement point upstream by 1 interval (required spacing)
+                        // Compute upstream measurement point for reference (cone renders from fix)
                         // medianBearing points toward upstream (where traffic came from)
                         const [upstreamLon, upstreamLat] = pointAtBearing(fixLon, fixLat, medianBearing, requiredSpacing);
 
                         TMICompliance.trafficSectorCache = TMICompliance.trafficSectorCache || {};
                         TMICompliance.trafficSectorCache[mapId] = {
-                            measurement_point: [upstreamLon, upstreamLat], // 1 interval upstream from fix
-                            fix_point: [fixLon, fixLat], // Original fix location
+                            measurement_point: [upstreamLon, upstreamLat], // Where width was measured (1 interval upstream)
+                            fix_point: [fixLon, fixLat], // Cone vertex (fix location)
                             sector_75: sector75,
                             sector_90: sector90,
                             track_count: approachBearings.length,
@@ -2877,7 +2882,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             unit: tmiMeta.unit || 'nm',
                         };
 
-                        console.log(`Computed traffic sector from ${approachBearings.length} tracks: 75% (${width75.toFixed(1)}°), 90% (${width90.toFixed(1)}°), median bearing: ${medianBearing.toFixed(1)}°, measurement ${requiredSpacing}nm upstream`);
+                        console.log(`Computed traffic sector from ${approachBearings.length} tracks: 75% (${width75.toFixed(1)}°), 90% (${width90.toFixed(1)}°), median bearing: ${medianBearing.toFixed(1)}°, width measured at ${requiredSpacing}nm upstream, cone rendered from fix`);
                     }
                 }
             }
@@ -2905,10 +2910,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
                 };
 
-                // Build sector polygon: vertex + arc points
+                // Build sector polygon: vertex at fix, arc points extend upstream
                 const buildSectorPolygon = (sector, radius) => {
-                    const [originLon, originLat] = sectorData.measurement_point;
-                    const coords = [[originLon, originLat]]; // Start at vertex
+                    const [originLon, originLat] = sectorData.fix_point; // Cone centered at fix
+                    const coords = [[originLon, originLat]]; // Start at vertex (fix)
 
                     // Generate arc points from start to end bearing
                     const startBearing = sector.start_bearing;
@@ -2976,7 +2981,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 if (sectorData.required_spacing && sectorData.required_spacing > 0 && sectorData.unit === 'nm') {
                     const arcFeatures = [];
                     const labelFeatures = [];
-                    const [originLon, originLat] = sectorData.measurement_point;
+                    const [originLon, originLat] = sectorData.fix_point; // Arcs radiate from fix
                     const sector = sectorData.sector_90;
 
                     // Build arc at given radius, return coords and label points (start, mid, end)
