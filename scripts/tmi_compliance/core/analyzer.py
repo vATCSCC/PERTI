@@ -1414,14 +1414,20 @@ class TMIComplianceAnalyzer:
 
     def _analyze_reroute_compliance(self, tmi: TMI) -> Optional[Dict]:
         """
-        Analyze Reroute/Playbook compliance.
+        Analyze Reroute/Playbook compliance - both filed AND flown routes.
 
         Checks if flights from affected origins to destinations are using
         the specified route segments during the reroute validity window.
 
+        Two compliance checks:
+        1. Filed compliance: Does the flight plan contain required fixes?
+        2. Flown compliance: Did the actual trajectory pass through required fixes?
+
         For ROUTE RQD (mandatory): Flights must use the specified route.
         For FEA FYI (informational): Track usage but no compliance assessment.
         """
+        import re
+
         name = tmi.reroute_name or 'Unknown Reroute'
         logger.info(f"Analyzing REROUTE: {name}")
         logger.info(f"  Origins: {tmi.origins}, Destinations: {tmi.destinations}")
@@ -1477,9 +1483,13 @@ class TMIComplianceAnalyzer:
                 'destinations': tmi.destinations,
                 'required_routes': tmi.reroute_routes,
                 'total_flights': 0,
-                'using_route': [],
-                'not_using_route': [],
-                'compliance_pct': 100,
+                'flights': [],
+                'filed_compliant': [],
+                'filed_non_compliant': [],
+                'flown_compliant': [],
+                'flown_non_compliant': [],
+                'filed_compliance_pct': 100,
+                'flown_compliance_pct': 100,
                 'note': 'No flights found for reroute scope'
             }
 
@@ -1488,8 +1498,7 @@ class TMIComplianceAnalyzer:
         required_fixes = []
         for route_spec in tmi.reroute_routes:
             route_str = route_spec.get('route', '')
-            # Extract fixes between > and < markers
-            import re
+            # Extract fixes between > and < markers (mandatory segment)
             marked = re.findall(r'>([^<]+)<', route_str)
             if marked:
                 for segment in marked:
@@ -1503,18 +1512,75 @@ class TMIComplianceAnalyzer:
         required_fixes = list(set(required_fixes))  # Deduplicate
         logger.info(f"  Required route fixes: {required_fixes}")
 
-        using_route = []
-        not_using_route = []
+        # Load coordinates for required fixes (for flown route analysis)
+        fixes_to_load = [f for f in required_fixes if f not in self.fix_coords]
+        if fixes_to_load:
+            self._load_fix_coordinates(fixes_to_load)
+
+        # Pre-load trajectories for all flights if not already cached
+        all_callsigns = [row[0] for row in flights]
+        if not self._trajectory_cache_loaded:
+            self._preload_trajectories(all_callsigns)
+
+        # Analyze each flight for both filed and flown compliance
+        flight_results = []
+        filed_compliant = []
+        filed_non_compliant = []
+        flown_compliant = []
+        flown_non_compliant = []
 
         for row in flights:
             callsign, dept, dest, fp_route, first_seen, last_seen = row
             first_seen = normalize_datetime(first_seen)
             fp_route = fp_route or ''
 
-            # Check if flight route contains required fixes
+            # === FILED ROUTE ANALYSIS ===
             route_upper = fp_route.upper()
-            matched_fixes = [f for f in required_fixes if f in route_upper]
-            match_pct = len(matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+            filed_matched_fixes = [f for f in required_fixes if f in route_upper]
+            filed_match_pct = len(filed_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+            filed_status = 'FILED_COMPLIANT' if filed_match_pct >= 50 else 'FILED_NON_COMPLIANT'
+
+            # === FLOWN ROUTE ANALYSIS ===
+            # Check if trajectory passed within crossing radius of required fixes
+            trajectory = self._trajectory_cache.get(callsign, [])
+            flown_matched_fixes = []
+            flown_fix_details = []  # Details about each fix crossing
+
+            if trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights:
+                for fix_name in required_fixes:
+                    if fix_name in self.fix_coords:
+                        fix_lat = self.fix_coords[fix_name]['lat']
+                        fix_lon = self.fix_coords[fix_name]['lon']
+
+                        # Find closest approach to this fix
+                        min_dist = float('inf')
+                        crossing_time = None
+                        crossing_alt = None
+
+                        for pt in trajectory:
+                            dist = haversine_nm(pt['lat'], pt['lon'], fix_lat, fix_lon)
+                            if dist < min_dist:
+                                min_dist = dist
+                                crossing_time = pt['timestamp']
+                                crossing_alt = pt.get('alt', 0)
+
+                        # Consider "crossed" if within crossing radius (default 10nm)
+                        if min_dist <= CROSSING_RADIUS_NM:
+                            flown_matched_fixes.append(fix_name)
+                            flown_fix_details.append({
+                                'fix': fix_name,
+                                'distance_nm': round(min_dist, 1),
+                                'crossing_time': crossing_time.strftime('%H:%M:%SZ') if crossing_time else None,
+                                'altitude': int(crossing_alt) if crossing_alt else None
+                            })
+
+            flown_match_pct = len(flown_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+            flown_status = 'FLOWN_COMPLIANT' if flown_match_pct >= 50 else 'FLOWN_NON_COMPLIANT'
+
+            # Handle case where no trajectory data is available
+            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
+            if not has_trajectory:
+                flown_status = 'NO_TRAJECTORY'
 
             flight_info = {
                 'callsign': callsign,
@@ -1522,20 +1588,52 @@ class TMIComplianceAnalyzer:
                 'dest': dest,
                 'dept_time': first_seen.strftime('%H:%M:%SZ') if first_seen else None,
                 'filed_route': fp_route[:100] + ('...' if len(fp_route) > 100 else ''),
-                'matched_fixes': matched_fixes,
-                'match_pct': round(match_pct, 1)
+                # Filed compliance
+                'filed_matched_fixes': filed_matched_fixes,
+                'filed_match_pct': round(filed_match_pct, 1),
+                'filed_status': filed_status,
+                # Flown compliance
+                'has_trajectory': has_trajectory,
+                'flown_matched_fixes': flown_matched_fixes,
+                'flown_match_pct': round(flown_match_pct, 1),
+                'flown_status': flown_status,
+                'flown_fix_details': flown_fix_details,
+                # Overall status (filed takes precedence for reporting, flown for verification)
+                'filed_but_not_flown': filed_status == 'FILED_COMPLIANT' and flown_status == 'FLOWN_NON_COMPLIANT',
+                'flown_but_not_filed': filed_status == 'FILED_NON_COMPLIANT' and flown_status == 'FLOWN_COMPLIANT'
             }
 
-            # Consider compliant if at least 50% of required fixes are in the route
-            if match_pct >= 50:
-                flight_info['status'] = 'USING_ROUTE'
-                using_route.append(flight_info)
-            else:
-                flight_info['status'] = 'NOT_USING_ROUTE'
-                not_using_route.append(flight_info)
+            flight_results.append(flight_info)
 
-        total_applicable = len(using_route) + len(not_using_route)
-        compliance_pct = round(100 * len(using_route) / total_applicable, 1) if total_applicable > 0 else 100
+            # Categorize for summary
+            if filed_status == 'FILED_COMPLIANT':
+                filed_compliant.append(flight_info)
+            else:
+                filed_non_compliant.append(flight_info)
+
+            if flown_status == 'FLOWN_COMPLIANT':
+                flown_compliant.append(flight_info)
+            elif flown_status == 'FLOWN_NON_COMPLIANT':
+                flown_non_compliant.append(flight_info)
+            # Note: NO_TRAJECTORY flights are not counted in flown compliance
+
+        # Calculate compliance percentages
+        filed_applicable = len(filed_compliant) + len(filed_non_compliant)
+        filed_compliance_pct = round(100 * len(filed_compliant) / filed_applicable, 1) if filed_applicable > 0 else 100
+
+        flown_applicable = len(flown_compliant) + len(flown_non_compliant)
+        flown_compliance_pct = round(100 * len(flown_compliant) / flown_applicable, 1) if flown_applicable > 0 else 100
+
+        # Count discrepancies
+        filed_but_not_flown = sum(1 for f in flight_results if f.get('filed_but_not_flown', False))
+        flown_but_not_filed = sum(1 for f in flight_results if f.get('flown_but_not_filed', False))
+        no_trajectory_count = sum(1 for f in flight_results if f.get('flown_status') == 'NO_TRAJECTORY')
+
+        logger.info(f"  Filed compliance: {len(filed_compliant)}/{filed_applicable} ({filed_compliance_pct}%)")
+        logger.info(f"  Flown compliance: {len(flown_compliant)}/{flown_applicable} ({flown_compliance_pct}%)")
+        logger.info(f"  Filed but not flown: {filed_but_not_flown}, Flown but not filed: {flown_but_not_filed}")
+        if no_trajectory_count > 0:
+            logger.info(f"  No trajectory data: {no_trajectory_count} flights")
 
         return {
             'name': name,
@@ -1548,9 +1646,24 @@ class TMIComplianceAnalyzer:
             'required_routes': tmi.reroute_routes,
             'required_fixes': required_fixes,
             'total_flights': len(flights),
-            'using_route': using_route,
-            'not_using_route': not_using_route,
-            'compliance_pct': compliance_pct,
+            'flights': flight_results,
+            # Filed compliance (what pilots filed)
+            'filed_compliant': filed_compliant,
+            'filed_non_compliant': filed_non_compliant,
+            'filed_compliance_pct': filed_compliance_pct,
+            # Flown compliance (what actually happened)
+            'flown_compliant': flown_compliant,
+            'flown_non_compliant': flown_non_compliant,
+            'flown_compliance_pct': flown_compliance_pct,
+            'no_trajectory_count': no_trajectory_count,
+            # Discrepancy analysis
+            'filed_but_not_flown': filed_but_not_flown,
+            'flown_but_not_filed': flown_but_not_filed,
+            # Legacy fields for backward compatibility
+            'using_route': filed_compliant,  # Alias for backward compat
+            'not_using_route': filed_non_compliant,  # Alias for backward compat
+            'compliance_pct': filed_compliance_pct,  # Alias for backward compat
+            # Metadata
             'reason': tmi.reason,
             'facilities': tmi.artccs
         }
@@ -1751,30 +1864,60 @@ class TMIComplianceAnalyzer:
         summary['gs']['violations'] = total_gs_violations
         summary['gs']['compliance_pct'] = round(100 * (total_applicable - total_gs_violations) / total_applicable, 1) if total_applicable > 0 else 100
 
-        # Reroute summary
+        # Reroute summary - both filed and flown compliance
         total_reroute_flights = 0
-        total_not_using = 0
+        total_filed_non_compliant = 0
+        total_flown_non_compliant = 0
+        total_flown_applicable = 0
         mandatory_count = 0
+        filed_but_not_flown_total = 0
+        flown_but_not_filed_total = 0
 
         for key, rr in results.get('reroute_results', {}).items():
             flights = rr.get('total_flights', 0)
-            not_using = len(rr.get('not_using_route', []))
             total_reroute_flights += flights
+
+            # Filed compliance
+            filed_non_compliant = len(rr.get('filed_non_compliant', rr.get('not_using_route', [])))
+
+            # Flown compliance (only for flights with trajectory data)
+            flown_non_compliant = len(rr.get('flown_non_compliant', []))
+            no_trajectory = rr.get('no_trajectory_count', 0)
+            flown_applicable = flights - no_trajectory
+
             if rr.get('mandatory', False):
                 mandatory_count += 1
-                total_not_using += not_using  # Only count non-compliance for mandatory reroutes
+                total_filed_non_compliant += filed_non_compliant
+                total_flown_non_compliant += flown_non_compliant
+                total_flown_applicable += flown_applicable
+
+            # Discrepancy tracking
+            filed_but_not_flown_total += rr.get('filed_but_not_flown', 0)
+            flown_but_not_filed_total += rr.get('flown_but_not_filed', 0)
 
         summary['reroute'] = {
             'total_reroutes': len(results.get('reroute_results', {})),
             'mandatory_count': mandatory_count,
             'total_flights': total_reroute_flights,
-            'not_using_route': total_not_using,
-            'compliance_pct': round(100 * (total_reroute_flights - total_not_using) / total_reroute_flights, 1) if total_reroute_flights > 0 else 100
+            # Filed compliance (what was filed)
+            'filed_non_compliant': total_filed_non_compliant,
+            'filed_compliance_pct': round(100 * (total_reroute_flights - total_filed_non_compliant) / total_reroute_flights, 1) if total_reroute_flights > 0 else 100,
+            # Flown compliance (what actually happened)
+            'flown_applicable': total_flown_applicable,
+            'flown_non_compliant': total_flown_non_compliant,
+            'flown_compliance_pct': round(100 * (total_flown_applicable - total_flown_non_compliant) / total_flown_applicable, 1) if total_flown_applicable > 0 else 100,
+            # Discrepancy analysis
+            'filed_but_not_flown': filed_but_not_flown_total,
+            'flown_but_not_filed': flown_but_not_filed_total,
+            # Legacy fields for backward compat
+            'not_using_route': total_filed_non_compliant,
+            'compliance_pct': round(100 * (total_reroute_flights - total_filed_non_compliant) / total_reroute_flights, 1) if total_reroute_flights > 0 else 100
         }
 
-        # Overall (including mandatory reroutes)
-        total_items = total_pairs + total_applicable + total_reroute_flights
-        total_issues = total_violations + total_gs_violations + total_not_using
+        # Overall (including mandatory reroutes - use flown compliance for reroutes)
+        # For reroutes, flown compliance is the more accurate measure of what actually happened
+        total_items = total_pairs + total_applicable + total_flown_applicable
+        total_issues = total_violations + total_gs_violations + total_flown_non_compliant
         summary['overall_compliance_pct'] = round(100 * (total_items - total_issues) / total_items, 1) if total_items > 0 else 100
 
         return summary
