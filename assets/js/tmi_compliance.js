@@ -2113,6 +2113,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
+                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
                 sources: {
                     'carto-dark': {
                         type: 'raster',
@@ -2177,6 +2178,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'facilities',
                     layout: {
                         'text-field': ['get', 'code'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 12,
                         'text-anchor': 'center'
                     },
@@ -2245,6 +2247,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'fixes',
                     layout: {
                         'text-field': ['get', 'name'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 11,
                         'text-offset': [0, 1.5],
                         'text-anchor': 'top'
@@ -2285,6 +2288,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'airports',
                     layout: {
                         'text-field': ['get', 'code'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 10,
                         'text-offset': [0, -1.2],
                         'text-anchor': 'bottom'
