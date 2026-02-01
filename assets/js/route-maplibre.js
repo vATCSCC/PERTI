@@ -3888,75 +3888,92 @@ $(document).ready(function() {
         // Get color by standard scheme (when no custom rules match)
         function getFlightColorByScheme(flight) {
             switch (state.colorBy) {
-                case 'weight_class':
+                case 'weight_class': {
                     const wc = (flight.weight_class || '').toUpperCase().trim();
                     return WEIGHT_CLASS_COLORS[wc] || WEIGHT_CLASS_COLORS[''];
-                case 'aircraft_category':
+                }
+                case 'aircraft_category': {
                     const wcCat = (flight.weight_class || '').toUpperCase().trim();
                     if (wcCat === 'J' || wcCat === 'SUPER' || wcCat === 'HEAVY' || wcCat === 'H') {return AIRCRAFT_CATEGORY_COLORS['JET'];}
                     if (wcCat === 'T') {return AIRCRAFT_CATEGORY_COLORS['TURBO'];}
                     return AIRCRAFT_CATEGORY_COLORS['PROP'];
-                case 'aircraft_type':
+                }
+                case 'aircraft_type': {
                     const mfr = getAircraftManufacturer(flight.aircraft_type);
                     return AIRCRAFT_MANUFACTURER_COLORS[mfr] || AIRCRAFT_MANUFACTURER_COLORS['OTHER'];
-                case 'aircraft_config':
+                }
+                case 'aircraft_config': {
                     const cfg = getAircraftConfig(flight.aircraft_type);
                     return AIRCRAFT_CONFIG_COLORS[cfg] || AIRCRAFT_CONFIG_COLORS['OTHER'];
-                case 'wake_category':
+                }
+                case 'wake_category': {
                     const wake = getWakeCategory(flight.aircraft_type, flight.weight_class);
                     return WAKE_CATEGORY_COLORS[wake] || WAKE_CATEGORY_COLORS[''];
-                case 'carrier':
+                }
+                case 'carrier': {
                     const carrier = extractCarrier(flight.callsign);
                     return CARRIER_COLORS[carrier] || CARRIER_COLORS[''];
-                case 'operator_group':
+                }
+                case 'operator_group': {
                     const opGroup = getOperatorGroup(flight.callsign);
                     return OPERATOR_GROUP_COLORS[opGroup] || OPERATOR_GROUP_COLORS['OTHER'];
-                case 'dep_center':
+                }
+                case 'dep_center': {
                     const depCenter = getAirportCenter(flight.fp_dept_icao);
                     return CENTER_COLORS[depCenter] || CENTER_COLORS[''];
-                case 'arr_center':
+                }
+                case 'arr_center': {
                     const arrCenter = getAirportCenter(flight.fp_dest_icao);
                     return CENTER_COLORS[arrCenter] || CENTER_COLORS[''];
-                case 'dep_tracon':
+                }
+                case 'dep_tracon': {
                     const depTracon = getAirportTracon(flight.fp_dept_icao);
                     return getTraconColor(depTracon);
-                case 'arr_tracon':
+                }
+                case 'arr_tracon': {
                     const arrTracon = getAirportTracon(flight.fp_dest_icao);
                     return getTraconColor(arrTracon);
-                case 'dcc_region':
+                }
+                case 'dcc_region': {
                     const center = getAirportCenter(flight.fp_dept_icao) || getAirportCenter(flight.fp_dest_icao);
                     for (const [region, centers] of Object.entries(DCC_REGIONS)) {
                         if (centers.includes(center)) {return DCC_REGION_COLORS[region];}
                     }
                     return DCC_REGION_COLORS[''];
-                case 'dep_airport':
+                }
+                case 'dep_airport': {
                     const depTier = getAirportTier(flight.fp_dept_icao);
                     return AIRPORT_TIER_COLORS[depTier];
-                case 'arr_airport':
+                }
+                case 'arr_airport': {
                     const arrTier = getAirportTier(flight.fp_dest_icao);
                     return AIRPORT_TIER_COLORS[arrTier];
+                }
                 case 'altitude':
                     return getAltitudeBlockColor(flight.altitude);
-                case 'eta_relative':
+                case 'eta_relative': {
                     const etaRelCat = getEtaRelativeCategory(flight.eta_runway_utc || flight.eta_utc);
                     return ETA_RELATIVE_COLORS[etaRelCat] || ETA_RELATIVE_COLORS[''];
+                }
                 case 'eta_hour':
                     return getEtaHourColor(flight.eta_runway_utc || flight.eta_utc);
-                case 'speed':
+                case 'speed': {
                     const spd = parseInt(flight.groundspeed_kts || flight.groundspeed) || 0;
                     return spd < 250 ? SPEED_COLORS['SLOW'] : SPEED_COLORS['FAST'];
-                case 'arr_dep':
+                }
+                case 'arr_dep': {
                     const altVal = parseInt(flight.altitude) || 0;
                     if (flight.groundspeed && parseInt(flight.groundspeed) < 50) {
                         return '#666666'; // Parked
                     }
                     return altVal > 10000 ? ARR_DEP_COLORS['ARR'] : ARR_DEP_COLORS['DEP'];
+                }
                 case 'custom':
                     // Custom mode uses only user-defined rules
                     return '#6c757d';
                 case 'reroute_match':
                     return getRerouteMatchColor(flight);
-                case 'status':
+                case 'status': {
                     // Phase-based coloring from phase-colors.js
                     const phase = (flight.phase || '').toLowerCase();
                     if (typeof PHASE_COLORS !== 'undefined' && PHASE_COLORS[phase]) {
@@ -3967,6 +3984,7 @@ $(document).ready(function() {
                         return (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS['unknown'] : '#9333ea';
                     }
                     return '#999999';
+                }
                 default:
                     return '#ffffff';
             }
@@ -4081,7 +4099,7 @@ $(document).ready(function() {
             if (!acType) {return '';}
             // Remove everything after first slash (equipment suffix)
             // Also handles formats like B738-L or B738_L
-            return acType.split(/[\/\-_]/)[0].toUpperCase();
+            return acType.split(/[/\-_]/)[0].toUpperCase();
         }
 
         // Main color function - uses custom rules + scheme
@@ -4249,7 +4267,7 @@ $(document).ready(function() {
                         .slice(0, 6)
                         .map(r => ({ color: parseColor(r.color), label: r.values[0] + (r.values.length > 1 ? '...' : '') }));
                     break;
-                case 'reroute_match':
+                case 'reroute_match': {
                     // Show only VISIBLE (active + future) public routes with their colors
                     const publicRoutes = (window.PublicRoutes && typeof window.PublicRoutes.getRoutes === 'function')
                         ? window.PublicRoutes.getRoutes()
@@ -4260,7 +4278,8 @@ $(document).ready(function() {
                     }));
                     items.push({ color: '#666666', label: 'No Match' });
                     break;
-                case 'status':
+                }
+                case 'status': {
                     // Flight phases from phase-colors.js
                     const PC = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {};
                     const PL = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {};
@@ -4278,6 +4297,7 @@ $(document).ready(function() {
                         { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' },
                     ];
                     break;
+                }
                 default:
                     items = [{ color: '#6c757d', label: state.colorBy }];
             }
@@ -6426,7 +6446,7 @@ $(document).ready(function() {
         $('#advFacilitiesToggle').on('click', function(e) {
             e.stopPropagation();
             const current = ($('#advFacilities').val() || '').toUpperCase();
-            const selected = new Set(current.split(/[\/\s]+/).filter(Boolean));
+            const selected = new Set(current.split(/[/\s]+/).filter(Boolean));
             $('#advFacilitiesGrid input[type="checkbox"]').each(function() {
                 const code = ($(this).attr('data-code') || '').toUpperCase();
                 $(this).prop('checked', selected.has(code));
@@ -7911,7 +7931,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
         const labelSourceName = 'public-routes-labels-source';
 
         // Wait for map and PublicRoutes module
-        var initInterval = setInterval(function() {
+        const initInterval = setInterval(function() {
             if (typeof graphic_map !== 'undefined' && graphic_map && graphic_map.isStyleLoaded && graphic_map.isStyleLoaded() && typeof window.PublicRoutes !== 'undefined') {
                 clearInterval(initInterval);
                 initPublicRoutesIntegration();
@@ -8128,8 +8148,8 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                         // Add label at center of first feature
                         const firstFeature = geojson.features[0];
                         if (firstFeature && firstFeature.geometry && firstFeature.geometry.coordinates) {
-                            var coords = firstFeature.geometry.coordinates;
-                            var midIdx = Math.floor(coords.length / 2);
+                            const geojsonCoords = firstFeature.geometry.coordinates;
+                            const geojsonMidIdx = Math.floor(geojsonCoords.length / 2);
                             labelFeatures.push({
                                 type: 'Feature',
                                 properties: {
@@ -8138,7 +8158,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                                 },
                                 geometry: {
                                     type: 'Point',
-                                    coordinates: coords[midIdx],
+                                    coordinates: geojsonCoords[geojsonMidIdx],
                                 },
                             });
                         }
@@ -8147,7 +8167,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                 }
 
                 // Fallback: try to parse route_string (legacy routes)
-                var coords = parseRouteToCoords(route.route_string);
+                const coords = parseRouteToCoords(route.route_string);
                 if (coords.length < 2) {
                     console.warn('[PublicRoutes-MapLibre] Could not parse route:', route.name, '- no stored GeoJSON and route_string parsing failed');
                     return;
@@ -8175,7 +8195,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
 
                 // Label feature at midpoint
                 if (coords.length >= 2) {
-                    var midIdx = Math.floor(coords.length / 2);
+                    const midIdx = Math.floor(coords.length / 2);
                     labelFeatures.push({
                         type: 'Feature',
                         properties: {

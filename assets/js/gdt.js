@@ -153,11 +153,9 @@
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i];
                     if (!line.trim()) {continue;}
-                    var parts = line.split(',');
+                    const parts = line.split(',');
 
-                    function get(idx) {
-                        return (idx >= 0 && idx < parts.length ? parts[idx].trim().toUpperCase() : '');
-                    }
+                    const get = (idx) => (idx >= 0 && idx < parts.length ? parts[idx].trim().toUpperCase() : '');
 
                     const carrier = get(idxCarrier);
                     const origin = get(idxOrigin);
@@ -4429,10 +4427,8 @@
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i];
                     if (!line.trim()) {continue;}
-                    var parts = line.split(',');
-                    function get(idx) {
-                        return (idx >= 0 && idx < parts.length ? parts[idx].trim().toUpperCase() : '');
-                    }
+                    const parts = line.split(',');
+                    const get = (idx) => (idx >= 0 && idx < parts.length ? parts[idx].trim().toUpperCase() : '');
                     const icao = get(idxIcao);
                     if (!icao) {continue;}
 
@@ -5032,8 +5028,7 @@
     }
 
     // Load any saved cache once per page load
-    loadSimTrafficLocalCache(); {
-    }
+    loadSimTrafficLocalCache();
 
     function loadTierInfo() {
         // Load tier data from GIS-based API (PostGIS proximity tiers)
@@ -5070,10 +5065,8 @@
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i];
                     if (!line.trim()) {continue;}
-                    var parts = line.split(delim);
-                    function get(idx) {
-                        return (idx >= 0 && idx < parts.length) ? parts[idx].trim() : '';
-                    }
+                    const parts = line.split(delim);
+                    const get = (idx) => (idx >= 0 && idx < parts.length) ? parts[idx].trim() : '';
                     const code = get(idxCode);
                     if (!code) {continue;}
                     const facility = get(idxFacility) || null;
@@ -5114,8 +5107,8 @@
                         const idxCode = idx('code'), idxFacility = idx('facility'), idxLabel = idx('select'), idxDeps = idx('departureFacilitiesIncluded');
                         const facSet = new Set();
                         for (let i = 1; i < lines.length; i++) {
-                            var parts = lines[i].split(delim);
-                            function get(idx) { return (idx >= 0 && idx < parts.length) ? parts[idx].trim() : ''; }
+                            const parts = lines[i].split(delim);
+                            const get = (idx) => (idx >= 0 && idx < parts.length) ? parts[idx].trim() : '';
                             const code = get(idxCode);
                             if (!code) {continue;}
                             const facility = get(idxFacility) || null;
@@ -5931,9 +5924,9 @@
     });
 
     // Global variable for Flights Matching table sort state
-    var GS_MATCHING_SORT = { field: 'acid', order: 'asc' };
-    var GS_MATCHING_FLIGHTS = [];
-    var GS_MATCHING_ROWS = [];
+    let GS_MATCHING_SORT = { field: 'acid', order: 'asc' };
+    let GS_MATCHING_FLIGHTS = [];
+    let GS_MATCHING_ROWS = [];
 
     // Initialize default GS Start (current UTC) and End (+1 hour, ending on :14/:29/:44/:59)
     function initializeDefaultGsTimes() {
@@ -6547,9 +6540,9 @@
     let GS_MODEL_CURRENT_PAYLOAD = null;
 
     // Demand Chart Integration (using shared DemandChart module)
-    var GS_DEMAND_CHART = null;
-    var GS_DEMAND_DIRECTION = 'both';
-    var GS_DEMAND_GRANULARITY = 'hourly';
+    let GS_DEMAND_CHART = null;
+    let GS_DEMAND_DIRECTION = 'both';
+    let GS_DEMAND_GRANULARITY = 'hourly';
 
     // Initialize Model GS event handlers
     function initModelGsHandlers() {
@@ -6842,8 +6835,8 @@
             let key = '';
 
             switch (chartView) {
-                case 'hourly':
-                    var timeStr = getFlightTimeForBasis(f);
+                case 'hourly': {
+                    const timeStr = getFlightTimeForBasis(f);
                     if (timeStr) {
                         try {
                             const d = new Date(timeStr);
@@ -6851,6 +6844,7 @@
                         } catch (e) { }
                     }
                     break;
+                }
                 case 'orig_artcc':
                     key = f.dcenter || f.dep_center || f.fp_dept_artcc || '';
                     break;
@@ -6863,21 +6857,24 @@
                 case 'dest_ap':
                     key = f.dest || f.fp_dest_icao || '';
                     break;
-                case 'orig_tracon':
-                    var origAp = (f.orig || f.fp_dept_icao || '').toUpperCase();
+                case 'orig_tracon': {
+                    const origAp = (f.orig || f.fp_dept_icao || '').toUpperCase();
                     key = AIRPORT_TRACON_MAP[origAp] || '';
                     break;
-                case 'dest_tracon':
-                    var destAp = (f.dest || f.fp_dest_icao || '').toUpperCase();
+                }
+                case 'dest_tracon': {
+                    const destAp = (f.dest || f.fp_dest_icao || '').toUpperCase();
                     key = AIRPORT_TRACON_MAP[destAp] || '';
                     break;
+                }
                 case 'carrier':
                     key = extractCarrier(f.acid || f.callsign || '');
                     break;
-                case 'tier':
-                    var tierOrig = (f.orig || f.fp_dept_icao || '').toUpperCase();
+                case 'tier': {
+                    const tierOrig = (f.orig || f.fp_dept_icao || '').toUpperCase();
                     key = getTierForAirport(tierOrig) || 'Other';
                     break;
+                }
             }
 
             if (!key) {return;}
@@ -7294,7 +7291,7 @@
         } catch (e) {
             console.error('Error updating advisory with delay statistics', e);
         }
-    };
+    }
 
     // =========================================================================
     // GS Flight List Modal Functions (Enhanced)
@@ -7302,8 +7299,8 @@
     // Features: Sorting, Grouping, OETD/OETA, Data Graph (Figure 19-4)
     // =========================================================================
 
-    var GS_FLIGHT_LIST_DATA = null;
-    var GS_FLIGHT_LIST_PAYLOAD = null;
+    let GS_FLIGHT_LIST_DATA = null;
+    let GS_FLIGHT_LIST_PAYLOAD = null;
     let GS_FLIGHT_LIST_SORT = { field: 'acid', order: 'asc' };
     const GS_DATA_GRAPH_CHART = null;
 
@@ -7525,14 +7522,15 @@
                 return flight.dest || flight.fp_dest_icao || 'Unknown';
             case 'dest_center':
                 return flight.acenter || flight.arr_center || 'Unknown';
-            case 'delay_bucket':
-                var delay = flight.program_delay_min || 0;
+            case 'delay_bucket': {
+                const delay = flight.program_delay_min || 0;
                 if (delay === 0) {return '0 min (No Delay)';}
                 if (delay <= 15) {return '1-15 min';}
                 if (delay <= 30) {return '16-30 min';}
                 if (delay <= 60) {return '31-60 min';}
                 if (delay <= 90) {return '61-90 min';}
                 return '90+ min';
+            }
             default:
                 return 'All';
         }
@@ -7971,7 +7969,7 @@
     });
 
     // Storage for last simulation results to allow viewing flight list on demand
-    var GS_LAST_SIMULATION_DATA = null;
+    let GS_LAST_SIMULATION_DATA = null;
 
     function handleViewFlightList() {
         // Check if we have simulation data to display

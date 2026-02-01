@@ -264,7 +264,7 @@ $('#editenroutestaffing').submit(function(e) {
 
 // Cache for loaded configs by airport
 const sheetConfigCache = {};
-var sheetEditconfigSelectedConfig = null;
+let sheetEditconfigSelectedConfig = null;
 
 // Fetch configs for airport from ADL
 function fetchAirportConfigs(airport, callback) {

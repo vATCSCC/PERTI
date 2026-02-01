@@ -860,11 +860,12 @@ class InitiativeTimeline {
     buildLabel(item) {
         const cat = this.levels[item.level]?.category || 'tmi';
         switch (cat) {
-            case 'tmi':
+            case 'tmi': {
                 let l = item.level === 'Active' ? '' : (this.levels[item.level]?.name.split(' ')[0] || '');
                 l = `${l} ${item.tmi_type || ''}`.trim();
                 if (item.cause) {l += ` - ${item.cause}`;}
                 return l;
+            }
             case 'vip': return `${item.tmi_type || 'VIP'}: ${item.facility}→${item.area}`;
             case 'space': return `${item.tmi_type}: ${item.cause || ''}`;
             case 'staffing': return `Staffing: ${item.area || item.facility}`;
@@ -1179,13 +1180,14 @@ class InitiativeTimeline {
                 data.cause = document.getElementById(`${this.modalId}-misc-desc`).value;
                 data.tmi_type = 'Misc';
                 break;
-            case 'constraint':
+            case 'constraint': {
                 data.facility = document.getElementById(`${this.modalId}-constraint-facility`).value;
                 const constraintType = document.getElementById(`${this.modalId}-constraint-type`).value;
                 data.tmi_type = constraintType;
                 data.tmi_type_other = constraintType === 'Other' ? document.getElementById(`${this.modalId}-constraint-other`).value : '';
                 data.cause = document.getElementById(`${this.modalId}-constraint-impact`).value;
                 break;
+            }
         }
 
         if (!data.facility) { this.alert('error', 'Facility is required'); return; }
