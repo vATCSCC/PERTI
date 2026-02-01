@@ -38,7 +38,7 @@ $nav_config = [
         'label' => 'Planning',
         'items' => [
             ['label' => 'Plans', 'path' => './'],
-            ['label' => 'Configs', 'path' => './configs'],
+            ['label' => 'Configs', 'path' => './airport_config'],
             ['label' => 'Routes', 'path' => './route'],
             ['label' => 'Simulator', 'path' => './simulator'],
         ]
