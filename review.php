@@ -373,6 +373,14 @@ include("sessions/handler.php");
         .tmi-card.mit-card { border-left: 4px solid #007bff; }
         .tmi-card.gs-card { border-left: 4px solid #dc3545; }
         .tmi-card.apreq-card { border-left: 4px solid #6c757d; }
+        /* Data gap warning styling for TMI cards */
+        .tmi-card.has-data-gap {
+            background: linear-gradient(135deg, #fff8e1 0%, #f8f9fa 20%);
+            border-top: 2px solid #f0ad4e;
+        }
+        .tmi-card.has-data-gap .tmi-header {
+            position: relative;
+        }
         .tmi-header {
             display: flex;
             justify-content: space-between;

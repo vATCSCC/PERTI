@@ -1317,8 +1317,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const isRealFix = r.fix && !['ALL', 'ANY', ''].includes((r.fix || '').toUpperCase());
         const displayName = isRealFix ? r.fix : (r.destinations?.join(',') || 'Unknown');
 
+        // Check for data gap overlap
+        const gapBadge = this.renderTMIGapBadge(r.tmi_start, r.tmi_end);
+
         let html = `
-            <div class="tmi-card mit-card">
+            <div class="tmi-card mit-card${gapBadge ? ' has-data-gap' : ''}">
                 <!-- TMI Header with standardized notation -->
                 <div class="tmi-header">
                     <div>
@@ -1326,6 +1329,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <span class="tmi-type-badge ml-2">${required}${unitLabel} ${tmiType}</span>
                         <span class="text-muted ml-2">| ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
+                        ${gapBadge}
                         ${measurementBadge}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct !== null ? compPct.toFixed(1) + '%' : 'N/A'}</div>
@@ -1486,8 +1490,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const compliantCount = r.compliant_count || compliantFlights.length;
         const nonCompliantCount = r.non_compliant_count || r.violations?.total || nonCompliantFlights.length;
 
+        // Check for data gap overlap
+        const gapBadge = this.renderTMIGapBadge(r.gs_start, r.gs_end);
+
         let html = `
-            <div class="tmi-card gs-card">
+            <div class="tmi-card gs-card${gapBadge ? ' has-data-gap' : ''}">
                 <div class="tmi-header">
                     <div>
                         <span class="tmi-fix-name">Ground Stop</span>
@@ -1496,6 +1503,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ${r.gs_start || ''} - ${r.gs_end || ''} |
                             Issued: ${r.gs_issued || 'N/A'}
                         </span>
+                        ${gapBadge}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
                 </div>
@@ -1636,8 +1644,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const notation = `${dests} ${viaPart}CFR ${r.requestor || ''}:${r.provider || ''} ${r.tmi_start || ''}-${r.tmi_end || ''}`;
         const displayName = isRealFix ? r.fix : dests;
 
+        // Check for data gap overlap
+        const gapBadge = this.renderTMIGapBadge(r.tmi_start, r.tmi_end);
+
         let html = `
-            <div class="tmi-card apreq-card">
+            <div class="tmi-card apreq-card${gapBadge ? ' has-data-gap' : ''}">
                 <div class="tmi-header">
                     <div>
                         <span class="tmi-fix-name">APREQ/CFR: ${displayName}</span>
@@ -1645,6 +1656,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ${isRealFix ? dests + ' | ' : ''}${r.tmi_start || ''} - ${r.tmi_end || ''}
                         </span>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
+                        ${gapBadge}
                     </div>
                     <span class="badge badge-secondary">TRACKING ONLY</span>
                 </div>
@@ -3470,6 +3482,111 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * Check if a TMI time window overlaps with any data gaps
+     * @param {string} tmiStart - TMI start time (format: "HH:MMZ" or ISO datetime)
+     * @param {string} tmiEnd - TMI end time (format: "HH:MMZ" or ISO datetime)
+     * @returns {object|null} - Gap info if overlapping, null otherwise
+     */
+    checkTMIGapOverlap: function(tmiStart, tmiEnd) {
+        if (!this.dataGaps?.has_gaps || !this.dataGaps?.gaps?.length) {
+            return null;
+        }
+
+        // Parse TMI times to get hours
+        const parseHour = (timeStr) => {
+            if (!timeStr) {return null;}
+            // Format: "HH:MMZ" or "HHMM" or ISO datetime
+            const match = timeStr.match(/(\d{2}):?(\d{2})/);
+            if (match) {
+                return parseInt(match[1]);
+            }
+            return null;
+        };
+
+        const tmiStartHour = parseHour(tmiStart);
+        const tmiEndHour = parseHour(tmiEnd);
+
+        if (tmiStartHour === null || tmiEndHour === null) {
+            return null;
+        }
+
+        // Get event date from results
+        const eventDate = this.results?.event_start?.split('T')[0] ||
+                          this.results?.event_start?.split(' ')[0];
+
+        // Find overlapping gaps
+        const overlappingGaps = [];
+        for (const gap of this.dataGaps.gaps) {
+            // Check if this gap is on the event date (or near it)
+            // For simplicity, check hour overlap
+            const gapStartHour = gap.start_hour;
+            const gapEndHour = gap.end_hour;
+
+            // Handle wrap-around (e.g., TMI 23Z-04Z)
+            let tmiHours = [];
+            if (tmiEndHour >= tmiStartHour) {
+                for (let h = tmiStartHour; h <= tmiEndHour; h++) {
+                    tmiHours.push(h);
+                }
+            } else {
+                // Wrap around midnight
+                for (let h = tmiStartHour; h <= 23; h++) {
+                    tmiHours.push(h);
+                }
+                for (let h = 0; h <= tmiEndHour; h++) {
+                    tmiHours.push(h);
+                }
+            }
+
+            // Check if any gap hours overlap with TMI hours
+            for (let h = gapStartHour; h <= gapEndHour; h++) {
+                if (tmiHours.includes(h)) {
+                    overlappingGaps.push(gap);
+                    break;
+                }
+            }
+        }
+
+        if (overlappingGaps.length === 0) {
+            return null;
+        }
+
+        // Return summary of overlapping gaps
+        const totalMissingHours = overlappingGaps.reduce((sum, g) => sum + g.duration_hours, 0);
+        const gapSummary = overlappingGaps.map(g => {
+            if (g.duration_hours === 1) {
+                return `${String(g.start_hour).padStart(2,'0')}Z`;
+            }
+            return `${String(g.start_hour).padStart(2,'0')}-${String(g.end_hour).padStart(2,'0')}Z`;
+        }).join(', ');
+
+        return {
+            gaps: overlappingGaps,
+            totalHours: totalMissingHours,
+            summary: gapSummary
+        };
+    },
+
+    /**
+     * Render a data gap warning badge for a TMI card
+     * @param {string} tmiStart - TMI start time
+     * @param {string} tmiEnd - TMI end time
+     * @returns {string} - HTML for warning badge, or empty string
+     */
+    renderTMIGapBadge: function(tmiStart, tmiEnd) {
+        const overlap = this.checkTMIGapOverlap(tmiStart, tmiEnd);
+        if (!overlap) {
+            return '';
+        }
+
+        return `<span class="badge badge-warning ml-2"
+                      title="Data gap during TMI window: ${overlap.summary} (${overlap.totalHours}h missing). Traffic counts may be incomplete."
+                      style="cursor: help;">
+                    <i class="fas fa-exclamation-triangle"></i> Data Gap
+                </span>`;
     },
 
     showNoData: function() {
